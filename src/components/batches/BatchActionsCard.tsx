@@ -60,7 +60,7 @@ const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
               {batch.front_pdf_url && (
                 <Button 
                   variant="outline" 
-                  onClick={() => handleViewPDF(batch.front_pdf_url)}
+                  onClick={() => window.open(batch.front_pdf_url, '_blank')}
                   className="flex items-center justify-start gap-2"
                 >
                   <Download className="h-4 w-4" />
@@ -70,7 +70,7 @@ const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
               {batch.back_pdf_url && (
                 <Button 
                   variant="outline" 
-                  onClick={() => handleViewPDF(batch.back_pdf_url)}
+                  onClick={() => window.open(batch.back_pdf_url, '_blank')}
                   className="flex items-center justify-start gap-2"
                 >
                   <Download className="h-4 w-4" />

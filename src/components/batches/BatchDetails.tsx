@@ -135,6 +135,7 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
 
   const handleViewPDF = (url: string | null) => {
     if (url) {
+      // Open PDF directly in a new tab
       window.open(url, '_blank');
     }
   };
