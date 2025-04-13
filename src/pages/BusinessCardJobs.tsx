@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { 
+import { useNavigate } from "react-router-dom"; 
+import {
   Table,
   TableBody,
   TableCell,
@@ -8,14 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { CreditCard, ArrowLeft, Plus, UploadCloud } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import JobStatusBadge from "@/components/JobStatusBadge";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { format } from "date-fns";
 import {
   Pagination,
   PaginationContent,
@@ -25,21 +21,11 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-// Define types using the available enum values from Supabase
-type JobStatus = "queued" | "batched" | "completed" | "cancelled";
-type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
-
-interface Job {
-  id: string;
-  name: string;
-  file_name: string;
-  quantity: number;
-  lamination_type: LaminationType;
-  due_date: string;
-  uploaded_at: string;
-  status: JobStatus;
-  pdf_url: string; // Add this missing property
-}
+// Import our new components
+import JobsHeader from "@/components/business-cards/JobsHeader";
+import StatusFilterTabs from "@/components/business-cards/StatusFilterTabs";
+import LaminationFilter from "@/components/business-cards/LaminationFilter";
+import JobsTable, { Job, JobStatus, LaminationType } from "@/components/business-cards/JobsTable";
 
 const BusinessCardJobs = () => {
   const navigate = useNavigate();
@@ -70,7 +56,7 @@ const BusinessCardJobs = () => {
         
         // Apply status filter
         if (filterView !== 'all') {
-          query = query.eq('status', filterView as JobStatus);
+          query = query.eq('status', filterView);
         }
         
         // Apply lamination filter
@@ -128,109 +114,26 @@ const BusinessCardJobs = () => {
     });
   };
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
-    } catch (error) {
-      return dateString;
-    }
-  };
-
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="flex items-center">
-            <CreditCard className="h-6 w-6 mr-2 text-batchflow-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">All Business Card Jobs</h1>
-          </div>
-          <div className="text-gray-500 mt-1">
-            View and manage all business card jobs
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-1"
-            onClick={() => navigate("/batches/business-cards")}
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Business Cards</span>
-          </Button>
-          <Button className="flex items-center gap-1" onClick={() => navigate("/batches/business-cards/jobs/new")}>
-            <Plus size={16} />
-            <span>Add New Job</span>
-          </Button>
-        </div>
-      </div>
+      <JobsHeader 
+        title="All Business Card Jobs" 
+        subtitle="View and manage all business card jobs" 
+      />
       
       <div className="bg-white rounded-lg border shadow mb-8">
         {/* Tabs */}
-        <div className="flex border-b">
-          <button 
-            className={`px-6 py-3 text-sm font-medium ${filterView === 'all' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setFilterView('all')}
-          >
-            All ({filterCounts.all})
-          </button>
-          <button 
-            className={`px-6 py-3 text-sm font-medium ${filterView === 'queued' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setFilterView('queued')}
-          >
-            Queued ({filterCounts.queued})
-          </button>
-          <button 
-            className={`px-6 py-3 text-sm font-medium ${filterView === 'batched' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setFilterView('batched')}
-          >
-            Batched ({filterCounts.batched})
-          </button>
-          <button 
-            className={`px-6 py-3 text-sm font-medium ${filterView === 'completed' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setFilterView('completed')}
-          >
-            Completed ({filterCounts.completed})
-          </button>
-        </div>
+        <StatusFilterTabs 
+          filterView={filterView} 
+          filterCounts={filterCounts} 
+          setFilterView={setFilterView} 
+        />
         
         {/* Filter Bar */}
-        <div className="flex border-b p-4 bg-gray-50 gap-2">
-          <Badge 
-            variant="outline" 
-            className={`cursor-pointer hover:bg-gray-100 ${!laminationFilter ? 'bg-gray-200 border-gray-300' : ''}`}
-            onClick={() => setLaminationFilter(null)}
-          >
-            All
-          </Badge>
-          <Badge 
-            variant="outline" 
-            className={`cursor-pointer hover:bg-gray-100 ${laminationFilter === 'gloss' ? 'bg-gray-200 border-gray-300' : ''}`}
-            onClick={() => setLaminationFilter('gloss')}
-          >
-            Gloss
-          </Badge>
-          <Badge 
-            variant="outline" 
-            className={`cursor-pointer hover:bg-gray-100 ${laminationFilter === 'matt' ? 'bg-gray-200 border-gray-300' : ''}`}
-            onClick={() => setLaminationFilter('matt')}
-          >
-            Matt
-          </Badge>
-          <Badge 
-            variant="outline" 
-            className={`cursor-pointer hover:bg-gray-100 ${laminationFilter === 'soft_touch' ? 'bg-gray-200 border-gray-300' : ''}`}
-            onClick={() => setLaminationFilter('soft_touch')}
-          >
-            Soft Touch
-          </Badge>
-          <Badge 
-            variant="outline" 
-            className={`cursor-pointer hover:bg-gray-100 ${laminationFilter === 'none' ? 'bg-gray-200 border-gray-300' : ''}`}
-            onClick={() => setLaminationFilter('none')}
-          >
-            None
-          </Badge>
-        </div>
+        <LaminationFilter 
+          laminationFilter={laminationFilter} 
+          setLaminationFilter={setLaminationFilter} 
+        />
         
         {/* Table */}
         <div className="overflow-x-auto">
@@ -249,64 +152,16 @@ const BusinessCardJobs = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-                      <span className="ml-2">Loading...</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : jobs.length > 0 ? (
-                jobs.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell><input type="checkbox" className="rounded border-gray-300" /></TableCell>
-                    <TableCell>{job.name}</TableCell>
-                    <TableCell>
-                      <span 
-                        className="text-blue-600 hover:underline cursor-pointer" 
-                        onClick={() => window.open(job.pdf_url, '_blank')}
-                      >
-                        {job.file_name}
-                      </span>
-                    </TableCell>
-                    <TableCell>{job.quantity}</TableCell>
-                    <TableCell>
-                      {job.lamination_type === 'none' ? 'None' : 
-                       job.lamination_type.charAt(0).toUpperCase() + job.lamination_type.slice(1)}
-                    </TableCell>
-                    <TableCell>{formatDate(job.due_date)}</TableCell>
-                    <TableCell>{formatDate(job.uploaded_at)}</TableCell>
-                    <TableCell><JobStatusBadge status={job.status} /></TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleViewJob(job.id)}>View</Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={9} className="h-64 text-center">
-                    <div className="flex flex-col items-center justify-center text-gray-500">
-                      <div className="bg-gray-100 rounded-full p-3 mb-3">
-                        <UploadCloud size={24} />
-                      </div>
-                      <h3 className="font-medium mb-1">No jobs found</h3>
-                      <p className="text-sm mb-4">There are no business card jobs available.</p>
-                      <p className="text-sm text-gray-400 max-w-lg">
-                        You can add a new job using the "Add New Job" button. 
-                        If you're experiencing issues, please check if storage and 
-                        database permissions are set up correctly.
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
+              <JobsTable 
+                jobs={jobs} 
+                isLoading={isLoading} 
+                handleViewJob={handleViewJob} 
+              />
             </TableBody>
           </Table>
         </div>
         
-        {/* Pagination - This would be implemented for a real app with many records */}
+        {/* Pagination */}
         {jobs.length > 0 && (
           <div className="p-4 border-t">
             <Pagination>
