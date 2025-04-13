@@ -5,8 +5,7 @@ import { toast as sonnerToast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Job, LaminationType } from "@/components/business-cards/JobsTable";
-import { generateBatchOverview } from "@/utils/batchGeneration";
-import { generateImpositionSheet } from "@/utils/batchImposition";
+import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
 
 export function useBatchCreation() {
   const { toast } = useToast();
@@ -52,51 +51,12 @@ export function useBatchCreation() {
         return jobDate < earliest ? jobDate : earliest;
       }, new Date(selectedJobs[0].due_date));
       
-      // Create batch overview A4 PDF
-      const batchOverviewPDF = await generateBatchOverview(selectedJobs, name);
-      
-      // Generate imposition sheet (320x455mm)
-      const impositionSheetPDF = await generateImpositionSheet(selectedJobs);
-      
-      // Upload both PDFs to storage
-      const overviewFilePath = `batches/${user.id}/${Date.now()}-overview-${name}.pdf`;
-      const impositionFilePath = `batches/${user.id}/${Date.now()}-imposition-${name}.pdf`;
-      
-      // Upload batch overview
-      const { error: overviewError, data: overviewData } = await supabase.storage
-        .from("pdf_files")
-        .upload(overviewFilePath, batchOverviewPDF);
-        
-      if (overviewError) {
-        throw new Error(`Failed to upload batch overview: ${overviewError.message}`);
-      }
-      
-      // Get URL for batch overview
-      const { data: overviewUrlData } = supabase.storage
-        .from("pdf_files")
-        .getPublicUrl(overviewFilePath);
-        
-      if (!overviewUrlData?.publicUrl) {
-        throw new Error("Failed to get public URL for batch overview");
-      }
-      
-      // Upload imposition sheet
-      const { error: impositionError } = await supabase.storage
-        .from("pdf_files")
-        .upload(impositionFilePath, impositionSheetPDF);
-        
-      if (impositionError) {
-        throw new Error(`Failed to upload imposition sheet: ${impositionError.message}`);
-      }
-      
-      // Get URL for imposition sheet
-      const { data: impositionUrlData } = supabase.storage
-        .from("pdf_files")
-        .getPublicUrl(impositionFilePath);
-        
-      if (!impositionUrlData?.publicUrl) {
-        throw new Error("Failed to get public URL for imposition sheet");
-      }
+      // Generate and upload PDFs - now using the separated utility function
+      const { overviewUrl, impositionUrl } = await generateAndUploadBatchPDFs(
+        selectedJobs,
+        name,
+        user.id
+      );
       
       // Insert batch record into database
       const { error: batchError, data: batchData } = await supabase
@@ -107,8 +67,8 @@ export function useBatchCreation() {
           sheets_required: sheetsRequired,
           due_date: earliestDueDate.toISOString(),
           created_by: user.id,
-          front_pdf_url: impositionUrlData.publicUrl,
-          back_pdf_url: overviewUrlData.publicUrl
+          front_pdf_url: impositionUrl,
+          back_pdf_url: overviewUrl
         })
         .select()
         .single();
