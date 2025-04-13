@@ -25,10 +25,15 @@ const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
         return "Mark as Completed";
       case "cancelled":
         return "Reactivate Batch";
+      case "completed":
+        return "Update Status";
       default:
         return "Update Status";
     }
   };
+
+  // Check if the status is not completed
+  const isNotCompleted = batch.status !== "completed";
 
   return (
     <Card>
@@ -37,7 +42,7 @@ const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
         <CardDescription>Manage your batch</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {batch.status !== "completed" && (
+        {isNotCompleted && (
           <Button 
             className="w-full flex items-center gap-2"
             variant={batch.status === "pending" ? "default" : "outline"}

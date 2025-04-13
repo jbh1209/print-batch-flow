@@ -1,3 +1,4 @@
+
 // Define the status type to match what's in the database
 export type BatchStatus = "pending" | "processing" | "completed" | "cancelled";
 
@@ -31,4 +32,3 @@ export interface Job {
 }
 
 export type LaminationType = "none" | "matt" | "gloss";
-
