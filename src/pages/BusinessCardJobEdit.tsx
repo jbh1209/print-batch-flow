@@ -193,7 +193,7 @@ const BusinessCardJobEdit = () => {
   if (error) {
     return (
       <div className="container mx-auto max-w-4xl">
-        <JobFormHeader title="Edit Business Card Job" subtitle="Update the details of your business card job" />
+        <JobFormHeader />
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
@@ -212,10 +212,7 @@ const BusinessCardJobEdit = () => {
 
   return (
     <div className="container mx-auto max-w-4xl">
-      <JobFormHeader 
-        title="Edit Business Card Job" 
-        subtitle="Update the details of your business card job" 
-      />
+      <JobFormHeader />
 
       <div className="bg-white rounded-lg border shadow p-6">
         {isLoading ? (
@@ -251,3 +248,4 @@ const BusinessCardJobEdit = () => {
 };
 
 export default BusinessCardJobEdit;
+
