@@ -26,22 +26,27 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
+// Define types using the available enum values from Supabase
+type JobStatus = "queued" | "batched" | "completed" | "cancelled";
+type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
+
 interface Job {
   id: string;
   name: string;
   file_name: string;
   quantity: number;
-  lamination_type: string;
+  lamination_type: LaminationType;
   due_date: string;
   uploaded_at: string;
-  status: string;
+  status: JobStatus;
+  pdf_url: string; // Add this missing property
 }
 
 const BusinessCardJobs = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [filterView, setFilterView] = useState<string>("all");
+  const [filterView, setFilterView] = useState<JobStatus | "all">("all");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [filterCounts, setFilterCounts] = useState({
@@ -50,7 +55,7 @@ const BusinessCardJobs = () => {
     batched: 0,
     completed: 0
   });
-  const [laminationFilter, setLaminationFilter] = useState<string | null>(null);
+  const [laminationFilter, setLaminationFilter] = useState<LaminationType | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -66,12 +71,12 @@ const BusinessCardJobs = () => {
         
         // Apply status filter
         if (filterView !== 'all') {
-          query = query.eq('status', filterView);
+          query = query.eq('status', filterView as JobStatus);
         }
         
         // Apply lamination filter
         if (laminationFilter) {
-          query = query.eq('lamination_type', laminationFilter === 'none' ? 'none' : laminationFilter);
+          query = query.eq('lamination_type', laminationFilter);
         }
         
         const { data, error } = await query;
