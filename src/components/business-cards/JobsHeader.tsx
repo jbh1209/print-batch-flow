@@ -6,9 +6,22 @@ import { useNavigate } from "react-router-dom";
 interface JobsHeaderProps {
   title: string;
   subtitle: string;
+  backUrl?: string;
+  backLabel?: string;
+  showAddButton?: boolean;
+  addButtonUrl?: string;
+  addButtonLabel?: string;
 }
 
-const JobsHeader = ({ title, subtitle }: JobsHeaderProps) => {
+const JobsHeader = ({ 
+  title, 
+  subtitle, 
+  backUrl = "/batches/business-cards",
+  backLabel = "Back to Business Cards",
+  showAddButton = true,
+  addButtonUrl = "/batches/business-cards/jobs/new",
+  addButtonLabel = "Add New Job"
+}: JobsHeaderProps) => {
   const navigate = useNavigate();
   
   return (
@@ -26,15 +39,20 @@ const JobsHeader = ({ title, subtitle }: JobsHeaderProps) => {
         <Button 
           variant="outline" 
           className="flex items-center gap-1"
-          onClick={() => navigate("/batches/business-cards")}
+          onClick={() => navigate(backUrl)}
         >
           <ArrowLeft size={16} />
-          <span>Back to Business Cards</span>
+          <span>{backLabel}</span>
         </Button>
-        <Button className="flex items-center gap-1" onClick={() => navigate("/batches/business-cards/jobs/new")}>
-          <Plus size={16} />
-          <span>Add New Job</span>
-        </Button>
+        {showAddButton && (
+          <Button 
+            className="flex items-center gap-1" 
+            onClick={() => navigate(addButtonUrl)}
+          >
+            <Plus size={16} />
+            <span>{addButtonLabel}</span>
+          </Button>
+        )}
       </div>
     </div>
   );

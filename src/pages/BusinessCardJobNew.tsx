@@ -9,29 +9,11 @@ import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { CreditCard, ArrowLeft, Upload, Calendar, FileCheck } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Form } from "@/components/ui/form";
+import JobFormHeader from "@/components/business-cards/JobFormHeader";
+import JobFormFields from "@/components/business-cards/JobFormFields";
+import FileUpload from "@/components/business-cards/FileUpload";
+import FormActions from "@/components/business-cards/FormActions";
 
 // Form schema for validation
 const formSchema = z.object({
@@ -67,27 +49,6 @@ const BusinessCardJobNew = () => {
     },
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.type !== "application/pdf") {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a PDF file",
-          variant: "destructive",
-        });
-        return;
-      }
-      setSelectedFile(file);
-      form.setValue("file", file);
-      
-      // Show notification that file was selected
-      sonnerToast.success("File selected", {
-        description: file.name
-      });
-    }
-  };
-
   const onSubmit = async (data: FormValues) => {
     if (!user) {
       toast({
@@ -114,7 +75,6 @@ const BusinessCardJobNew = () => {
       const fileName = `${Date.now()}_${data.name.replace(/\s+/g, '_').toLowerCase()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
       
-      // Check if the bucket exists, but don't create a new one
       const { error: uploadError, data: fileData } = await supabase.storage
         .from("pdf_files")
         .upload(filePath, selectedFile);
@@ -142,7 +102,7 @@ const BusinessCardJobNew = () => {
           lamination_type: data.laminationType,
           paper_type: data.paperType,
           due_date: data.dueDate.toISOString(),
-          file_name: fileName,
+          file_name: selectedFile.name, // Use the actual file name
           pdf_url: urlData.publicUrl,
           user_id: user.id,
         });
@@ -167,219 +127,23 @@ const BusinessCardJobNew = () => {
 
   return (
     <div className="container mx-auto max-w-4xl">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <CreditCard className="h-6 w-6 mr-2 text-batchflow-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">Add New Business Card Job</h1>
-        </div>
-        <Button 
-          variant="outline" 
-          onClick={() => navigate("/batches/business-cards/jobs")}
-          className="flex items-center gap-1"
-        >
-          <ArrowLeft size={16} />
-          <span>Back to Jobs</span>
-        </Button>
-      </div>
+      <JobFormHeader />
 
       <div className="bg-white rounded-lg border shadow p-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Job Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. John Smith Business Cards" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="quantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quantity</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="1" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="paperType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Paper Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select paper type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="350gsm Matt">350gsm Matt</SelectItem>
-                        <SelectItem value="350gsm Silk">350gsm Silk</SelectItem>
-                        <SelectItem value="400gsm Matt">400gsm Matt</SelectItem>
-                        <SelectItem value="400gsm Silk">400gsm Silk</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="laminationType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Lamination Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select lamination type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="gloss">Gloss</SelectItem>
-                        <SelectItem value="matt">Matt</SelectItem>
-                        <SelectItem value="soft_touch">Soft Touch</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Due Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date < new Date(new Date().setHours(0, 0, 0, 0))
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="doubleSided"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Double Sided</FormLabel>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="file"
-              render={({ field: { value, onChange, ...fieldProps } }) => (
-                <FormItem>
-                  <FormLabel>Upload PDF</FormLabel>
-                  <div className="flex items-center gap-3">
-                    <Input 
-                      type="file" 
-                      accept=".pdf" 
-                      onChange={handleFileChange} 
-                      className="hidden"
-                      id="pdf-upload"
-                      {...fieldProps}
-                    />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      className="w-full border-dashed border-2 p-6 h-auto flex flex-col items-center gap-2"
-                      onClick={() => document.getElementById('pdf-upload')?.click()}
-                    >
-                      {selectedFile ? (
-                        <>
-                          <FileCheck size={24} className="text-green-600" />
-                          <div>
-                            <span className="font-medium text-green-600">{selectedFile.name}</span>
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            PDF file selected ({Math.round(selectedFile.size / 1024)} KB)
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <Upload size={24} />
-                          <div>
-                            <span>Click to upload PDF file</span>
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            PDF file only, max 10MB
-                          </div>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
+            <JobFormFields control={form.control} />
+            
+            <FileUpload 
+              control={form.control} 
+              selectedFile={selectedFile} 
+              setSelectedFile={setSelectedFile} 
             />
 
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => navigate("/batches/business-cards/jobs")}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isUploading}>
-                {isUploading ? "Uploading..." : "Create Job"}
-              </Button>
-            </div>
+            <FormActions 
+              isSubmitting={isUploading} 
+              cancelPath="/batches/business-cards/jobs" 
+            />
           </form>
         </Form>
       </div>
