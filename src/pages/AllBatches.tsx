@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -101,6 +100,11 @@ const AllBatches = () => {
     }
   };
 
+  const getBatchUrl = (batch: BatchSummary) => {
+    const baseUrl = `/batches/${batch.product_type.toLowerCase().replace(/\s+/g, '-')}/batches`;
+    return baseUrl;
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -156,9 +160,9 @@ const AllBatches = () => {
               
               <Button 
                 className="w-full mt-4" 
-                onClick={() => navigate("/")} // Changed to navigate to dashboard
+                onClick={() => navigate(getBatchUrl(batch))}
               >
-                Back to Dashboard
+                View Batch Details
               </Button>
             </div>
           ))}
@@ -169,4 +173,3 @@ const AllBatches = () => {
 };
 
 export default AllBatches;
-
