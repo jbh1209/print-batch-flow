@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import AllBatches from "./pages/AllBatches";
 import BusinessCards from "./pages/BusinessCards";
 import BusinessCardJobs from "./pages/BusinessCardJobs";
+import BusinessCardJobNew from "./pages/BusinessCardJobNew";
 import Flyers from "./pages/Flyers";
 import Postcards from "./pages/Postcards";
 import Sleeves from "./pages/Sleeves";
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="batches" element={<AllBatches />} />
             <Route path="batches/business-cards" element={<BusinessCards />} />
             <Route path="batches/business-cards/jobs" element={<BusinessCardJobs />} />
+            <Route path="batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
             <Route path="batches/flyers" element={<Flyers />} />
             <Route path="batches/postcards" element={<Postcards />} />
             <Route path="batches/sleeves" element={<Sleeves />} />

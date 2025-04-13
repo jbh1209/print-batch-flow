@@ -24,7 +24,7 @@ const BusinessCards = () => {
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
           </Button>
-          <Button onClick={() => navigate("jobs/new")}>Add New Job</Button>
+          <Button onClick={() => navigate("/batches/business-cards/jobs/new")}>Add New Job</Button>
         </div>
       </div>
       
@@ -40,7 +40,7 @@ const BusinessCards = () => {
       >
         <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="jobs" onClick={() => navigate("jobs")}>Jobs</TabsTrigger>
+          <TabsTrigger value="jobs" onClick={() => navigate("/batches/business-cards/jobs")}>Jobs</TabsTrigger>
           <TabsTrigger value="batches">Batches</TabsTrigger>
         </TabsList>
         
@@ -56,7 +56,7 @@ const BusinessCards = () => {
                 className="w-full mt-4"
                 onClick={() => {
                   setActiveTab("jobs");
-                  navigate("jobs");
+                  navigate("/batches/business-cards/jobs");
                 }}
               >
                 View All Jobs
@@ -84,7 +84,7 @@ const BusinessCards = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate("jobs/new")}
+                onClick={() => navigate("/batches/business-cards/jobs/new")}
               >
                 Add New Job
               </Button>
