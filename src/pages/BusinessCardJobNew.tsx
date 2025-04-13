@@ -54,7 +54,7 @@ const BusinessCardJobNew = () => {
   const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -80,6 +80,11 @@ const BusinessCardJobNew = () => {
       }
       setSelectedFile(file);
       form.setValue("file", file);
+      
+      // Show notification that file was selected
+      sonnerToast.success("File selected", {
+        description: file.name
+      });
     }
   };
 
@@ -93,16 +98,26 @@ const BusinessCardJobNew = () => {
       return;
     }
 
+    if (!selectedFile) {
+      toast({
+        title: "Missing file",
+        description: "Please select a PDF file to upload",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsUploading(true);
     try {
-      // 1. Upload file to Supabase Storage
+      // 1. Upload file to Supabase Storage - using a single "pdf_files" bucket
       const fileExt = "pdf";
       const fileName = `${Date.now()}_${data.name.replace(/\s+/g, '_').toLowerCase()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
-
+      
+      // Check if the bucket exists, but don't create a new one
       const { error: uploadError, data: fileData } = await supabase.storage
         .from("pdf_files")
-        .upload(filePath, data.file);
+        .upload(filePath, selectedFile);
 
       if (uploadError) {
         throw new Error(uploadError.message);
@@ -332,7 +347,7 @@ const BusinessCardJobNew = () => {
                       <Upload size={24} />
                       <div>
                         {selectedFile ? (
-                          <span>{selectedFile.name}</span>
+                          <span className="font-medium text-green-600">{selectedFile.name}</span>
                         ) : (
                           <span>Click to upload PDF file</span>
                         )}
