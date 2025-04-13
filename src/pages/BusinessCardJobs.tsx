@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -265,8 +264,10 @@ const BusinessCardJobs = () => {
                     <TableCell><input type="checkbox" className="rounded border-gray-300" /></TableCell>
                     <TableCell>{job.name}</TableCell>
                     <TableCell>
-                      <span className="text-blue-600 hover:underline cursor-pointer" 
-                            onClick={() => window.open(job.pdf_url, '_blank')}>
+                      <span 
+                        className="text-blue-600 hover:underline cursor-pointer" 
+                        onClick={() => window.open(job.pdf_url, '_blank')}
+                      >
                         {job.file_name}
                       </span>
                     </TableCell>
