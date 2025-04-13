@@ -28,7 +28,7 @@ interface JobData {
   name: string;
   quantity: number;
   double_sided: boolean;
-  lamination_type: string;
+  lamination_type: "none" | "gloss" | "matt" | "soft_touch"; // Fixed: properly typed to match enum
   paper_type: string;
   due_date: string;
 }
