@@ -35,7 +35,7 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
   // Draw job entries
   page = drawJobEntries(
     pdfDoc, page, jobs, rowY, margin, rowHeight, 
-    colStarts, helveticaFont, helveticaBold, batchName
+    colStarts, helveticaFont, helveticaBold, colWidths, batchName
   );
   
   // Add footer
@@ -179,6 +179,7 @@ function drawJobEntries(
   colStarts: number[],
   helveticaFont: any,
   helveticaBold: any,
+  colWidths: number[],
   batchName: string
 ): PDFPage {
   jobs.forEach((job, index) => {
@@ -190,7 +191,8 @@ function drawJobEntries(
         margin, 
         helveticaBold, 
         colStarts,
-        helveticaFont
+        helveticaFont,
+        colWidths
       );
       rowY = page.getHeight() - margin - 80; // Start a bit lower on continuation pages
     }
@@ -221,7 +223,8 @@ function addContinuationPage(
   margin: number,
   helveticaBold: any,
   colStarts: number[],
-  helveticaFont: any
+  helveticaFont: any,
+  colWidths: number[]
 ): PDFPage {
   const page = addNewPage(pdfDoc);
   
@@ -271,10 +274,9 @@ function addContinuationPage(
   });
   
   // Draw separator line
-  const totalWidth = colStarts[colStarts.length - 1] + 80; // Approximate total width
   page.drawLine({
     start: { x: margin, y: tableY - 10 },
-    end: { x: totalWidth, y: tableY - 10 },
+    end: { x: margin + colWidths.reduce((a, b) => a + b, 0), y: tableY - 10 },
     thickness: 1,
     color: rgb(0, 0, 0)
   });
