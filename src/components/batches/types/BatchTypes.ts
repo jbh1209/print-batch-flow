@@ -31,3 +31,4 @@ export interface Job {
 }
 
 export type LaminationType = "none" | "matt" | "gloss";
+
