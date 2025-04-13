@@ -9,15 +9,16 @@ export function drawBatchInfo(
   page: any, 
   jobs: Job[], 
   helveticaFont: any, 
-  helveticaBold: any
+  helveticaBold: any,
+  pageType: string = "Front"
 ) {
   const laminationType = jobs[0]?.lamination_type || 'none';
   const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
   
-  page.drawText(`Business Card Imposition Sheet - ${formattedLamination} Lamination`, {
+  page.drawText(`Business Card Imposition Sheet (${pageType}) - ${formattedLamination} Lamination`, {
     x: mmToPoints(10),
     y: page.getHeight() - mmToPoints(10),
-    size: 12,
+    size: 14,
     font: helveticaBold,
     color: rgb(0, 0, 0)
   });

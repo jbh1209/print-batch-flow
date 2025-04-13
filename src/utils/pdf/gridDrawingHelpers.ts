@@ -8,10 +8,11 @@ import { mmToPoints } from "./pdfUnitHelpers";
 // Draw the grid of cards on the imposition sheet
 export function drawCardGrid(
   page: any,
-  validJobPDFs: { job: Job; pdfDoc: PDFDocument }[],
+  validJobPDFs: { job: Job; pdfDoc: PDFDocument; isDuplicated?: boolean }[],
   dimensions: ReturnType<typeof calculateDimensions>,
   helveticaFont: any,
-  helveticaBold: any
+  helveticaBold: any,
+  pdfPages?: { job: Job; pdfDoc: PDFDocument; page: number }[]
 ) {
   const {
     placeholderWidth,
@@ -23,33 +24,59 @@ export function drawCardGrid(
     textAreaHeight
   } = dimensions;
   
+  // If using page duplication for imposition
+  const usePageDuplication = Array.isArray(pdfPages) && pdfPages.length > 0;
+  
   // Draw placeholders in 3x8 grid
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < columns; col++) {
       // Calculate position of this placeholder
       const x = horizontalMargin + col * placeholderWidth;
-      const y = page.getHeight() - verticalMargin - (row + 1) * placeholderHeight;
+      const y = page.getHeight() - verticalMargin - (row + 1) * placeholderHeight + mmToPoints(3); // Add slight offset for better layout
       
       // Calculate which job this position corresponds to
       const positionIndex = row * columns + col;
       
-      if (positionIndex >= validJobPDFs.length) {
-        // Draw empty placeholder
-        drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
+      if (usePageDuplication) {
+        // Draw from specific page array (either front or back)
+        if (positionIndex >= pdfPages!.length) {
+          // Draw empty placeholder
+          drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
+        } else {
+          // Draw specific page from job PDF
+          const pageData = pdfPages![positionIndex];
+          drawSpecificJobPage(
+            page, 
+            x, 
+            y, 
+            pageData, 
+            placeholderWidth, 
+            placeholderHeight, 
+            textAreaHeight, 
+            helveticaFont, 
+            helveticaBold
+          );
+        }
       } else {
-        // Draw job placeholder with PDF
-        const jobData = validJobPDFs[positionIndex];
-        drawJobPlaceholder(
-          page, 
-          x, 
-          y, 
-          jobData, 
-          placeholderWidth, 
-          placeholderHeight, 
-          textAreaHeight, 
-          helveticaFont, 
-          helveticaBold
-        );
+        // Original behavior without page duplication
+        if (positionIndex >= validJobPDFs.length) {
+          // Draw empty placeholder
+          drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
+        } else {
+          // Draw job placeholder with PDF
+          const jobData = validJobPDFs[positionIndex];
+          drawJobPlaceholder(
+            page, 
+            x, 
+            y, 
+            jobData, 
+            placeholderWidth, 
+            placeholderHeight, 
+            textAreaHeight, 
+            helveticaFont, 
+            helveticaBold
+          );
+        }
       }
     }
   }
@@ -64,15 +91,15 @@ export function drawEmptyPlaceholder(
   height: number, 
   font: any
 ) {
-  // Draw empty placeholder
+  // Draw empty placeholder with lighter border
   page.drawRectangle({
     x,
     y,
     width,
     height,
-    borderColor: rgb(0.7, 0.7, 0.7),
-    borderWidth: 1,
-    color: rgb(0.95, 0.95, 0.95)
+    borderColor: rgb(0.8, 0.8, 0.8),
+    borderWidth: 0.5,
+    color: rgb(0.97, 0.97, 0.97)
   });
   
   // Draw text indicating empty
@@ -81,23 +108,23 @@ export function drawEmptyPlaceholder(
     y: y + height / 2,
     size: 12,
     font,
-    color: rgb(0.5, 0.5, 0.5)
+    color: rgb(0.6, 0.6, 0.6)
   });
 }
 
-// Draw a job placeholder with embedded PDF
-export async function drawJobPlaceholder(
+// Draw a specific page from a job PDF
+export async function drawSpecificJobPage(
   page: any,
   x: number,
   y: number,
-  jobData: { job: Job; pdfDoc: PDFDocument },
+  pageData: { job: Job; pdfDoc: PDFDocument; page: number },
   placeholderWidth: number,
   placeholderHeight: number,
   textAreaHeight: number,
   helveticaFont: any,
   helveticaBold: any
 ) {
-  const { job, pdfDoc: jobPdfDoc } = jobData;
+  const { job, pdfDoc, page: pageNumber } = pageData;
   
   // Draw placeholder border
   page.drawRectangle({
@@ -106,7 +133,77 @@ export async function drawJobPlaceholder(
     width: placeholderWidth,
     height: placeholderHeight,
     borderColor: rgb(0, 0, 0),
-    borderWidth: 1,
+    borderWidth: 0.5,
+    color: rgb(1, 1, 1)
+  });
+  
+  try {
+    if (pdfDoc.getPageCount() > pageNumber) {
+      const sourcePage = pdfDoc.getPage(pageNumber);
+      
+      // Calculate scaling to fit the card area while preserving aspect ratio
+      const originalWidth = sourcePage.getWidth();
+      const originalHeight = sourcePage.getHeight();
+      
+      // Leave space for text at bottom
+      const availableHeight = placeholderHeight - textAreaHeight;
+      
+      // Calculate scale factors for width and height
+      const scaleX = (placeholderWidth - mmToPoints(6)) / originalWidth;
+      const scaleY = (availableHeight - mmToPoints(6)) / originalHeight;
+      
+      // Use the smaller scale factor to ensure it fits
+      const scale = Math.min(scaleX, scaleY);
+      
+      // Calculate dimensions after scaling
+      const scaledWidth = originalWidth * scale;
+      const scaledHeight = originalHeight * scale;
+      
+      // Calculate position to center within placeholder
+      const embedX = x + (placeholderWidth - scaledWidth) / 2;
+      const embedY = y + textAreaHeight + (availableHeight - scaledHeight) / 2;
+      
+      // Embed the page into the document
+      const [embeddedPage] = await page.doc.embedPdf(pdfDoc, [pageNumber]);
+      
+      // Draw the embedded PDF page
+      page.drawPage(embeddedPage, {
+        x: embedX,
+        y: embedY,
+        width: scaledWidth,
+        height: scaledHeight
+      });
+    }
+  } catch (error) {
+    console.error(`Error embedding specific page for job ${job.id}:`, error);
+  }
+  
+  // Draw job info at the bottom
+  drawJobInfo(page, job, x, y, placeholderWidth, textAreaHeight, helveticaFont, helveticaBold);
+}
+
+// Draw a job placeholder with embedded PDF
+export async function drawJobPlaceholder(
+  page: any,
+  x: number,
+  y: number,
+  jobData: { job: Job; pdfDoc: PDFDocument; isDuplicated?: boolean },
+  placeholderWidth: number,
+  placeholderHeight: number,
+  textAreaHeight: number,
+  helveticaFont: any,
+  helveticaBold: any
+) {
+  const { job, pdfDoc } = jobData;
+  
+  // Draw placeholder border
+  page.drawRectangle({
+    x,
+    y,
+    width: placeholderWidth,
+    height: placeholderHeight,
+    borderColor: rgb(0, 0, 0),
+    borderWidth: 0.5,
     color: rgb(1, 1, 1)
   });
   
@@ -114,7 +211,7 @@ export async function drawJobPlaceholder(
   try {
     await embedJobPDF(
       page, 
-      jobPdfDoc, 
+      pdfDoc, 
       x, 
       y, 
       placeholderWidth, 
@@ -210,6 +307,7 @@ export function drawJobInfo(
     jobName = jobName.substring(0, 12) + "...";
   }
   
+  // Improve readability of job name
   page.drawText(jobName, {
     x: x + 2,
     y: y + mmToPoints(3),
@@ -218,10 +316,10 @@ export function drawJobInfo(
     color: rgb(0, 0, 0)
   });
   
-  // Draw quantity and due date
-  const infoText = `Qty: ${job.quantity} | Due: ${format(new Date(job.due_date), 'MMM dd')}`;
+  // Draw job ID and quantity info
+  const infoText = `ID: ${job.id.substring(0, 8)} | Qty: ${job.quantity} | Due: ${format(new Date(job.due_date), 'MMM dd')}`;
   page.drawText(infoText, {
-    x: x + placeholderWidth - 60,
+    x: x + placeholderWidth - 85,
     y: y + mmToPoints(3),
     size: 6,
     font: helveticaFont,
