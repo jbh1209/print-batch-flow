@@ -95,11 +95,14 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
     
     setIsDeleting(true);
     try {
-      // First update all jobs in this batch back to queued
+      // First reset all jobs in this batch back to queued status
       if (productType === "Business Cards") {
         const { error: jobsError } = await supabase
           .from("business_card_jobs")
-          .update({ status: "queued", batch_id: null })
+          .update({ 
+            status: "queued",  // Set status back to queued
+            batch_id: null     // Remove batch_id reference
+          })
           .eq("batch_id", batchToDelete);
         
         if (jobsError) throw jobsError;

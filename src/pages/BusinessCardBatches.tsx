@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -123,10 +124,13 @@ const BusinessCardBatches = () => {
     
     setIsDeleting(true);
     try {
-      // First update all jobs in this batch back to queued
+      // First reset all jobs in this batch back to queued
       const { error: jobsError } = await supabase
         .from("business_card_jobs")
-        .update({ status: "queued", batch_id: null })
+        .update({ 
+          status: "queued",  // Reset status to queued
+          batch_id: null     // Clear batch_id reference
+        })
         .eq("batch_id", batchToDelete);
       
       if (jobsError) throw jobsError;
