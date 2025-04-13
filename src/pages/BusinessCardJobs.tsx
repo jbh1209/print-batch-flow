@@ -26,6 +26,7 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import StatusFilterTabs from "@/components/business-cards/StatusFilterTabs";
 import LaminationFilter from "@/components/business-cards/LaminationFilter";
 import JobsTable, { Job, JobStatus, LaminationType } from "@/components/business-cards/JobsTable";
+import BatchControls from "@/components/business-cards/BatchControls";
 
 const BusinessCardJobs = () => {
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ const BusinessCardJobs = () => {
     completed: 0
   });
   const [laminationFilter, setLaminationFilter] = useState<LaminationType | null>(null);
+  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
 
   // Fetch jobs function that can be called to refresh the data
   const fetchJobs = async () => {
@@ -90,6 +92,9 @@ const BusinessCardJobs = () => {
       };
       
       setFilterCounts(counts);
+      
+      // Clear selected jobs when filters change
+      setSelectedJobs([]);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       toast({
@@ -105,6 +110,39 @@ const BusinessCardJobs = () => {
   useEffect(() => {
     fetchJobs();
   }, [user, filterView, laminationFilter, toast]);
+  
+  // Handle job selection
+  const handleSelectJob = (jobId: string, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedJobs([...selectedJobs, jobId]);
+    } else {
+      setSelectedJobs(selectedJobs.filter(id => id !== jobId));
+    }
+  };
+  
+  // Handle select all jobs
+  const handleSelectAllJobs = (isSelected: boolean) => {
+    if (isSelected) {
+      // Only select jobs that are in "queued" status
+      const selectableJobIds = jobs
+        .filter(job => job.status === "queued")
+        .map(job => job.id);
+      setSelectedJobs(selectableJobIds);
+    } else {
+      setSelectedJobs([]);
+    }
+  };
+  
+  // Handle batch completion
+  const handleBatchComplete = () => {
+    fetchJobs(); // Refresh the jobs list
+    setSelectedJobs([]); // Clear selection
+  };
+  
+  // Get selected job objects
+  const getSelectedJobObjects = () => {
+    return jobs.filter(job => selectedJobs.includes(job.id));
+  };
 
   return (
     <div>
@@ -122,10 +160,18 @@ const BusinessCardJobs = () => {
         />
         
         {/* Filter Bar */}
-        <LaminationFilter 
-          laminationFilter={laminationFilter} 
-          setLaminationFilter={setLaminationFilter} 
-        />
+        <div className="border-b border-t p-4 flex justify-between items-center flex-wrap gap-4">
+          <LaminationFilter 
+            laminationFilter={laminationFilter} 
+            setLaminationFilter={setLaminationFilter} 
+          />
+          
+          {/* Batch Controls */}
+          <BatchControls 
+            selectedJobs={getSelectedJobObjects()}
+            onBatchComplete={handleBatchComplete}
+          />
+        </div>
         
         {/* Table */}
         <div className="overflow-x-auto">
@@ -148,6 +194,9 @@ const BusinessCardJobs = () => {
                 jobs={jobs} 
                 isLoading={isLoading}
                 onRefresh={fetchJobs}
+                selectedJobs={selectedJobs}
+                onSelectJob={handleSelectJob}
+                onSelectAllJobs={handleSelectAllJobs}
               />
             </TableBody>
           </Table>
