@@ -1,7 +1,7 @@
 
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { BookCover } from "lucide-react";
+import { Book } from "lucide-react";
 
 const Covers = () => {
   const navigate = useNavigate();
@@ -11,7 +11,7 @@ const Covers = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="flex items-center">
-            <BookCover className="h-6 w-6 mr-2 text-batchflow-primary" />
+            <Book className="h-6 w-6 mr-2 text-batchflow-primary" />
             <h1 className="text-2xl font-bold tracking-tight">Covers</h1>
           </div>
           <p className="text-gray-500 mt-1">Manage cover batches and jobs</p>

@@ -9,7 +9,7 @@ import {
   Package, 
   Box, 
   Sticker, 
-  BookCover, 
+  Book, 
   Image, 
   Users, 
   Settings, 
@@ -123,7 +123,7 @@ const Sidebar = () => {
           />
           <NavItem 
             to="/batches/covers" 
-            icon={<BookCover size={20} />} 
+            icon={<Book size={20} />} 
             label={collapsed ? "" : "Covers"} 
             isActive={location.pathname.includes("/batches/covers")} 
           />
