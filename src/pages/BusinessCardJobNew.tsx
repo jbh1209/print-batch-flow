@@ -71,9 +71,7 @@ const BusinessCardJobNew = () => {
     setIsUploading(true);
     try {
       // 1. Upload file to Supabase Storage - using a single "pdf_files" bucket
-      const fileExt = "pdf";
-      const fileName = `${Date.now()}_${data.name.replace(/\s+/g, '_').toLowerCase()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
+      const filePath = `${user.id}/${selectedFile.name}`;
       
       const { error: uploadError, data: fileData } = await supabase.storage
         .from("pdf_files")
