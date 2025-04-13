@@ -102,15 +102,17 @@ const AllBatches = () => {
   };
 
   const getBatchUrl = (batch: BatchSummary) => {
-    // Only navigate to known product-specific batch pages that are implemented
-    // Currently, only business cards has a proper batches page
+    // Navigate to the product-specific batch page and pass the batch ID as a query parameter
+    // This will allow us to filter and show only the selected batch on the destination page
+    
+    // For Business Cards, we have a dedicated page implementation
     if (batch.product_type === "Business Cards") {
-      return "/batches/business-cards/batches";
+      return `/batches/business-cards/batches?batchId=${batch.id}`;
     }
     
-    // For now, if the specific batch page doesn't exist yet, redirect to the All Batches page
-    // This prevents 404 errors
-    return "/batches/all";
+    // For all other product types, we'll navigate to the all batches page with the batch ID
+    // This ensures we won't hit 404 errors for product types without dedicated batch pages
+    return `/batches/all?batchId=${batch.id}`;
   };
 
   return (

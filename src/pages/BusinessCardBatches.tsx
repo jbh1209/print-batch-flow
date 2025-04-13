@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,8 @@ import {
   Eye, 
   Pencil, 
   Trash2, 
-  AlertCircle 
+  AlertCircle,
+  ArrowLeft
 } from "lucide-react";
 import {
   Dialog,
@@ -48,6 +49,8 @@ interface Batch {
 
 const BusinessCardBatches = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const batchId = searchParams.get('batchId');
   const { user } = useAuth();
   const { toast } = useToast();
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -57,21 +60,36 @@ const BusinessCardBatches = () => {
 
   useEffect(() => {
     fetchBatches();
-  }, [user]);
+  }, [user, batchId]);
 
   const fetchBatches = async () => {
     if (!user) return;
     
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("batches")
         .select("*")
-        .eq("created_by", user.id)
-        .order("created_at", { ascending: false });
+        .eq("created_by", user.id);
+        
+      // If batchId is specified, filter to only show that batch
+      if (batchId) {
+        query = query.eq("id", batchId);
+      }
+      
+      const { data, error } = await query.order("created_at", { ascending: false });
       
       if (error) throw error;
       setBatches(data || []);
+      
+      // If we're looking for a specific batch and didn't find it
+      if (batchId && (!data || data.length === 0)) {
+        toast({
+          title: "Batch not found",
+          description: "The requested batch could not be found or you don't have permission to view it.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error fetching batches:", error);
       toast({
@@ -142,9 +160,20 @@ const BusinessCardBatches = () => {
   return (
     <div>
       <JobsHeader 
-        title="Business Card Batches" 
-        subtitle="View and manage all your business card batches" 
+        title={batchId ? "Batch Details" : "Business Card Batches"} 
+        subtitle={batchId ? "View details for the selected batch" : "View and manage all your business card batches"} 
       />
+
+      {batchId && (
+        <Button
+          onClick={() => navigate("/batches/all")}
+          variant="outline"
+          className="mb-4 flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to All Batches
+        </Button>
+      )}
 
       <div className="bg-white rounded-lg border shadow mb-8">
         <div className="border-b p-4 flex justify-between items-center">
