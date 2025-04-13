@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { CreditCard, ArrowLeft, Upload, Calendar } from "lucide-react";
+import { CreditCard, ArrowLeft, Upload, Calendar, FileCheck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -326,7 +326,7 @@ const BusinessCardJobNew = () => {
             <FormField
               control={form.control}
               name="file"
-              render={({ field: { value, ...fieldProps } }) => (
+              render={({ field: { value, onChange, ...fieldProps } }) => (
                 <FormItem>
                   <FormLabel>Upload PDF</FormLabel>
                   <div className="flex items-center gap-3">
@@ -344,17 +344,27 @@ const BusinessCardJobNew = () => {
                       className="w-full border-dashed border-2 p-6 h-auto flex flex-col items-center gap-2"
                       onClick={() => document.getElementById('pdf-upload')?.click()}
                     >
-                      <Upload size={24} />
-                      <div>
-                        {selectedFile ? (
-                          <span className="font-medium text-green-600">{selectedFile.name}</span>
-                        ) : (
-                          <span>Click to upload PDF file</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        PDF file only, max 10MB
-                      </div>
+                      {selectedFile ? (
+                        <>
+                          <FileCheck size={24} className="text-green-600" />
+                          <div>
+                            <span className="font-medium text-green-600">{selectedFile.name}</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            PDF file selected ({Math.round(selectedFile.size / 1024)} KB)
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={24} />
+                          <div>
+                            <span>Click to upload PDF file</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            PDF file only, max 10MB
+                          </div>
+                        </>
+                      )}
                     </Button>
                   </div>
                   <FormMessage />
