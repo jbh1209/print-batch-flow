@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { BatchDetailsType } from "./types/BatchTypes";
 
@@ -30,7 +30,11 @@ const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
             disabled={batch.status === "completed"}
           >
             <CheckCircle2 className="h-4 w-4" />
-            {batch.status === "pending" ? "Mark as Processing" : "Mark as Completed"}
+            {batch.status === "pending" 
+              ? "Mark as Processing" 
+              : batch.status === "processing"
+              ? "Mark as Completed"
+              : "Update Status"}
           </Button>
         )}
         
