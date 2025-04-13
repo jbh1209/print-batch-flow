@@ -1,6 +1,4 @@
 
-import { LaminationType } from "@/components/business-cards/JobsTable";
-
 // Define the status type to match what's in the database
 export type BatchStatus = "pending" | "processing" | "completed" | "cancelled";
 
@@ -16,6 +14,15 @@ export interface BatchDetailsType {
   status: BatchStatus;
 }
 
+export interface BatchSummary {
+  id: string;
+  name: string;
+  due_date: string;
+  status: string;
+  product_type: string;
+  sheets_required: number;
+}
+
 export interface Job {
   id: string;
   name: string;
@@ -23,3 +30,5 @@ export interface Job {
   status: string;
   pdf_url: string;
 }
+
+export type LaminationType = "none" | "matt" | "gloss";
