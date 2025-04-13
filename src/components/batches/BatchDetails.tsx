@@ -39,6 +39,9 @@ import { LaminationType } from "@/components/business-cards/JobsTable";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+// Define the status type to match what's in the database
+type BatchStatus = "pending" | "processing" | "completed" | "cancelled";
+
 interface BatchDetails {
   id: string;
   name: string;
@@ -48,7 +51,7 @@ interface BatchDetails {
   back_pdf_url: string | null;
   due_date: string;
   created_at: string;
-  status: "pending" | "processing" | "completed" | "cancelled";
+  status: BatchStatus;
 }
 
 interface Job {
