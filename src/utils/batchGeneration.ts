@@ -8,7 +8,7 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
   const pdfDoc = await PDFDocument.create();
   
   // Add A4 page (210mm x 297mm)
-  const page = pdfDoc.addPage([595.28, 841.89]); // A4 in points (72 points per inch)
+  let page = pdfDoc.addPage([595.28, 841.89]); // A4 in points (72 points per inch)
   
   // Get fonts
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);

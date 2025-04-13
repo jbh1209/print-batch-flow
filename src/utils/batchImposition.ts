@@ -1,4 +1,3 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { format } from "date-fns";
@@ -13,7 +12,7 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
   const pageWidth = mmToPoints(320);
   const pageHeight = mmToPoints(455);
   
-  const page = pdfDoc.addPage([pageWidth, pageHeight]);
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
   
   // Get fonts
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
