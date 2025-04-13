@@ -1,16 +1,15 @@
 
 import { Job } from "@/components/business-cards/JobsTable";
-import { format } from "date-fns";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { 
   addNewPage,
-  drawBatchInfo,
   calculateColumnStarts,
   drawTableHeader,
   addContinuationPage,
-  drawJobRow,
   drawFooter 
-} from "./pdfGenerationHelpers";
+} from "./pdf/pageLayoutHelpers";
+import { drawBatchInfo } from "./pdf/batchInfoHelpers";
+import { drawJobRow } from "./pdf/jobRowHelpers";
 
 // Main function to generate the batch overview PDF
 export async function generateBatchOverview(jobs: Job[], batchName: string): Promise<Uint8Array> {
