@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -96,13 +97,20 @@ const AllBatches = () => {
       case "Zund Stickers": return "/batches/stickers/batches";
       case "Covers": return "/batches/covers/batches";
       case "Posters": return "/batches/posters/batches";
-      default: return "/";
+      default: return "/batches/all";
     }
   };
 
   const getBatchUrl = (batch: BatchSummary) => {
-    const baseUrl = `/batches/${batch.product_type.toLowerCase().replace(/\s+/g, '-')}/batches`;
-    return baseUrl;
+    // Only navigate to known product-specific batch pages that are implemented
+    // Currently, only business cards has a proper batches page
+    if (batch.product_type === "Business Cards") {
+      return "/batches/business-cards/batches";
+    }
+    
+    // For now, if the specific batch page doesn't exist yet, redirect to the All Batches page
+    // This prevents 404 errors
+    return "/batches/all";
   };
 
   return (
