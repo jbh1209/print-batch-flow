@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,6 +33,7 @@ import {
 import { LaminationType } from "@/components/business-cards/JobsTable";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import JobsHeader from "@/components/business-cards/JobsHeader";
+import BatchDetails from "@/components/batches/BatchDetails";
 
 interface Batch {
   id: string;
@@ -59,7 +59,9 @@ const BusinessCardBatches = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    fetchBatches();
+    if (!batchId) {
+      fetchBatches();
+    }
   }, [user, batchId]);
 
   const fetchBatches = async () => {
@@ -157,23 +159,23 @@ const BusinessCardBatches = () => {
     }
   };
 
+  // If we're viewing a specific batch, render the BatchDetails component
+  if (batchId) {
+    return (
+      <BatchDetails 
+        batchId={batchId} 
+        productType="Business Cards" 
+        backUrl="/batches/business-cards/batches" 
+      />
+    );
+  }
+
   return (
     <div>
       <JobsHeader 
-        title={batchId ? "Batch Details" : "Business Card Batches"} 
-        subtitle={batchId ? "View details for the selected batch" : "View and manage all your business card batches"} 
+        title="Business Card Batches" 
+        subtitle="View and manage all your business card batches" 
       />
-
-      {batchId && (
-        <Button
-          onClick={() => navigate("/batches/all")}
-          variant="outline"
-          className="mb-4 flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to All Batches
-        </Button>
-      )}
 
       <div className="bg-white rounded-lg border shadow mb-8">
         <div className="border-b p-4 flex justify-between items-center">

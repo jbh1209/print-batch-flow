@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Layers, Loader2, ArrowLeft, CreditCard, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import BatchDetails from "@/components/batches/BatchDetails";
 
 interface BatchSummary {
   id: string;
@@ -19,6 +19,8 @@ interface BatchSummary {
 
 const AllBatches = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const batchId = searchParams.get('batchId');
   const { user } = useAuth();
   const { toast } = useToast();
   const [batches, setBatches] = useState<BatchSummary[]>([]);
@@ -114,6 +116,21 @@ const AllBatches = () => {
     // This ensures we won't hit 404 errors for product types without dedicated batch pages
     return `/batches/all?batchId=${batch.id}`;
   };
+
+  // If we're viewing a specific batch, render the BatchDetails component
+  if (batchId) {
+    // Get product type from the batches array based on batchId
+    const selectedBatch = batches.find(batch => batch.id === batchId);
+    const productType = selectedBatch?.product_type || "Unknown";
+    
+    return (
+      <BatchDetails 
+        batchId={batchId} 
+        productType={productType} 
+        backUrl="/batches/all" 
+      />
+    );
+  }
 
   return (
     <div>
