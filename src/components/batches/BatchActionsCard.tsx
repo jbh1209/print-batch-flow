@@ -8,7 +8,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { BatchDetailsType } from "./types/BatchTypes";
+import { BatchDetailsType, BatchStatus } from "./types/BatchTypes";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
@@ -16,6 +16,20 @@ interface BatchActionsCardProps {
 }
 
 const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
+  // Helper function to determine button text based on status
+  const getButtonText = (status: BatchStatus) => {
+    switch (status) {
+      case "pending":
+        return "Mark as Processing";
+      case "processing":
+        return "Mark as Completed";
+      case "cancelled":
+        return "Reactivate Batch";
+      default:
+        return "Update Status";
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -30,11 +44,7 @@ const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
             disabled={batch.status === "completed"}
           >
             <CheckCircle2 className="h-4 w-4" />
-            {batch.status === "pending" 
-              ? "Mark as Processing" 
-              : batch.status === "processing"
-              ? "Mark as Completed"
-              : "Update Status"}
+            {getButtonText(batch.status)}
           </Button>
         )}
         
