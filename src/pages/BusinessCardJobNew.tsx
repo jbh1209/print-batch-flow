@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -48,6 +49,15 @@ const BusinessCardJobNew = () => {
     },
   });
 
+  // Update the form value whenever selectedFile changes
+  useState(() => {
+    if (selectedFile) {
+      form.setValue("file", selectedFile, { shouldValidate: true });
+    } else {
+      form.setValue("file", undefined as any, { shouldValidate: true });
+    }
+  });
+
   const onSubmit = async (data: FormValues) => {
     if (!user) {
       toast({
@@ -70,7 +80,7 @@ const BusinessCardJobNew = () => {
     setIsUploading(true);
     try {
       // 1. Upload file to Supabase Storage - using a single "pdf_files" bucket
-      const filePath = `${user.id}/${selectedFile.name}`;
+      const filePath = `${user.id}/${Date.now()}-${selectedFile.name}`;
       
       const { error: uploadError, data: fileData } = await supabase.storage
         .from("pdf_files")
@@ -99,7 +109,7 @@ const BusinessCardJobNew = () => {
           lamination_type: data.laminationType,
           paper_type: data.paperType,
           due_date: data.dueDate.toISOString(),
-          file_name: selectedFile.name, // Use the actual file name
+          file_name: selectedFile.name,
           pdf_url: urlData.publicUrl,
           user_id: user.id,
         });
@@ -134,7 +144,15 @@ const BusinessCardJobNew = () => {
             <FileUpload 
               control={form.control} 
               selectedFile={selectedFile} 
-              setSelectedFile={setSelectedFile} 
+              setSelectedFile={(file) => {
+                setSelectedFile(file);
+                if (file) {
+                  // Update the form value whenever selectedFile changes
+                  form.setValue("file", file, { shouldValidate: true });
+                } else {
+                  form.setValue("file", undefined as any, { shouldValidate: false });
+                }
+              }}
             />
 
             <FormActions 

@@ -15,6 +15,7 @@ interface FileUploadProps {
   handleFileChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   isRequired?: boolean;
   helpText?: string;
+  name?: string;  // Added name prop for custom form field name
 }
 
 const FileUpload = ({ 
@@ -24,15 +25,17 @@ const FileUpload = ({
   handleFileChange,
   isRequired = true,
   helpText = "Upload a PDF file with your design",
+  name = "file"  // Default to "file" if not specified
 }: FileUploadProps) => {
-  const fileInputHandler = handleFileChange || useFileUpload().handleFileChange;
+  const { handleFileChange: defaultFileChange } = useFileUpload();
+  const fileInputHandler = handleFileChange || defaultFileChange;
   
   const fileSize = selectedFile ? `${(selectedFile.size / 1024).toFixed(2)} KB` : '';
 
   return (
     <FormField
       control={control}
-      name="file"
+      name={name}
       render={({ field: { onChange, value, ...field }, fieldState }) => (
         <FormItem>
           <FormLabel>PDF File {isRequired && <span className="text-red-500">*</span>}</FormLabel>
@@ -58,11 +61,16 @@ const FileUpload = ({
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                           accept="application/pdf"
                           onChange={(e) => {
-                            fileInputHandler(e);
-                            // This triggers react-hook-form validation
+                            // First update the parent component's file state
                             if (e.target.files?.[0]) {
-                              onChange(e.target.files[0]);
+                              setSelectedFile(e.target.files[0]);
                             }
+                            
+                            // Then handle any custom file change logic
+                            fileInputHandler(e);
+                            
+                            // Finally update react-hook-form state
+                            onChange(e.target.files?.[0] || null);
                           }}
                           {...field}
                         />
