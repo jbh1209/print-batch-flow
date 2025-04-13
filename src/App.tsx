@@ -1,5 +1,6 @@
+
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import Layout from "@/components/Layout";
@@ -32,6 +33,8 @@ const App: React.FC = () => {
             <Route path="/settings" element={<Settings />} />
             <Route path="/users" element={<Users />} />
             
+            {/* Add a redirect route for /batches to /batches/all */}
+            <Route path="/batches" element={<Navigate to="/batches/all" replace />} />
             <Route path="/batches/all" element={<AllBatches />} />
             
             {/* Business Cards Routes */}
