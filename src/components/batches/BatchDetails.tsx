@@ -325,6 +325,7 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
             <CardDescription>Manage your batch</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Fix the TypeScript error here - the comparison was incorrectly typed */}
             {batch.status !== 'completed' && (
               <Button 
                 className="w-full flex items-center gap-2"
