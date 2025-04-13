@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Dialog,
@@ -41,6 +41,9 @@ const BatchConfirmDialog = ({
   upcomingDueJobs,
   onSelectJob
 }: BatchConfirmDialogProps) => {
+  // Check if the batch name follows the standard format
+  const isStandardFormat = /^DXB-(BC|FLY|PC|PB|ZUND|COV|POST)-\d{5}$/.test(batchName);
+  
   // Get job details for display
   const getJobDetails = () => {
     const laminationTypes = new Set(selectedJobs.map(job => job.lamination_type));
@@ -88,6 +91,11 @@ const BatchConfirmDialog = ({
               onChange={(e) => setBatchName(e.target.value)}
               placeholder="Enter batch name"
             />
+            {!isStandardFormat && (
+              <p className="text-xs text-amber-600">
+                Recommended format: DXB-BC-00001 (for Business Cards)
+              </p>
+            )}
           </div>
           
           <div className="space-y-1 rounded-md bg-muted p-3 text-sm">

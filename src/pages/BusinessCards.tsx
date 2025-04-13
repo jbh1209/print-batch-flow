@@ -41,7 +41,7 @@ const BusinessCards = () => {
         <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="jobs" onClick={() => navigate("/batches/business-cards/jobs")}>Jobs</TabsTrigger>
-          <TabsTrigger value="batches">Batches</TabsTrigger>
+          <TabsTrigger value="batches" onClick={() => navigate("/batches/business-cards/batches")}>Batches</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-6">
@@ -137,7 +137,7 @@ const BusinessCards = () => {
         
         <TabsContent value="batches">
           <div className="flex items-center justify-center p-12 text-gray-500">
-            No batches created yet
+            Navigate to the Batches tab to view batches
           </div>
         </TabsContent>
       </Tabs>
