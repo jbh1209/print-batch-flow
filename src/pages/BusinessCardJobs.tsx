@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Table,
@@ -13,18 +13,123 @@ import { Button } from "@/components/ui/button";
 import { CreditCard, ArrowLeft, Plus, UploadCloud } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import JobStatusBadge from "@/components/JobStatusBadge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { format } from "date-fns";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
+interface Job {
+  id: string;
+  name: string;
+  file_name: string;
+  quantity: number;
+  lamination_type: string;
+  due_date: string;
+  uploaded_at: string;
+  status: string;
+}
 
 const BusinessCardJobs = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
   const [filterView, setFilterView] = useState<string>("all");
-  
-  // These would be fetched from Supabase in a real application
-  const jobs: any[] = [];
-  const filterCounts = {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [filterCounts, setFilterCounts] = useState({
     all: 0,
     queued: 0,
     batched: 0,
     completed: 0
+  });
+  const [laminationFilter, setLaminationFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchJobs = async () => {
+      setIsLoading(true);
+      try {
+        let query = supabase
+          .from('business_card_jobs')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        // Apply status filter
+        if (filterView !== 'all') {
+          query = query.eq('status', filterView);
+        }
+        
+        // Apply lamination filter
+        if (laminationFilter) {
+          query = query.eq('lamination_type', laminationFilter === 'none' ? 'none' : laminationFilter);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          throw error;
+        }
+        
+        setJobs(data || []);
+        
+        // Count jobs for each status
+        const { data: allJobs, error: countError } = await supabase
+          .from('business_card_jobs')
+          .select('status')
+          .eq('user_id', user.id);
+        
+        if (countError) {
+          throw countError;
+        }
+        
+        const counts = {
+          all: allJobs?.length || 0,
+          queued: allJobs?.filter(job => job.status === 'queued').length || 0,
+          batched: allJobs?.filter(job => job.status === 'batched').length || 0,
+          completed: allJobs?.filter(job => job.status === 'completed').length || 0
+        };
+        
+        setFilterCounts(counts);
+      } catch (error) {
+        console.error('Error fetching jobs:', error);
+        toast({
+          title: "Error fetching jobs",
+          description: "There was a problem loading your jobs.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchJobs();
+  }, [user, filterView, laminationFilter, toast]);
+
+  const handleViewJob = (jobId: string) => {
+    // In a real app, this would navigate to a job detail page
+    console.log("View job:", jobId);
+    toast({
+      title: "Feature not implemented",
+      description: "Job details view is not yet implemented.",
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy');
+    } catch (error) {
+      return dateString;
+    }
   };
 
   return (
@@ -48,7 +153,7 @@ const BusinessCardJobs = () => {
             <ArrowLeft size={16} />
             <span>Back to Business Cards</span>
           </Button>
-          <Button className="flex items-center gap-1">
+          <Button className="flex items-center gap-1" onClick={() => navigate("/batches/business-cards/jobs/new")}>
             <Plus size={16} />
             <span>Add New Job</span>
           </Button>
@@ -86,10 +191,41 @@ const BusinessCardJobs = () => {
         
         {/* Filter Bar */}
         <div className="flex border-b p-4 bg-gray-50 gap-2">
-          <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">All</Badge>
-          <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Gloss</Badge>
-          <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Matt</Badge>
-          <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Soft Touch</Badge>
+          <Badge 
+            variant="outline" 
+            className={`cursor-pointer hover:bg-gray-100 ${!laminationFilter ? 'bg-gray-200 border-gray-300' : ''}`}
+            onClick={() => setLaminationFilter(null)}
+          >
+            All
+          </Badge>
+          <Badge 
+            variant="outline" 
+            className={`cursor-pointer hover:bg-gray-100 ${laminationFilter === 'gloss' ? 'bg-gray-200 border-gray-300' : ''}`}
+            onClick={() => setLaminationFilter('gloss')}
+          >
+            Gloss
+          </Badge>
+          <Badge 
+            variant="outline" 
+            className={`cursor-pointer hover:bg-gray-100 ${laminationFilter === 'matt' ? 'bg-gray-200 border-gray-300' : ''}`}
+            onClick={() => setLaminationFilter('matt')}
+          >
+            Matt
+          </Badge>
+          <Badge 
+            variant="outline" 
+            className={`cursor-pointer hover:bg-gray-100 ${laminationFilter === 'soft_touch' ? 'bg-gray-200 border-gray-300' : ''}`}
+            onClick={() => setLaminationFilter('soft_touch')}
+          >
+            Soft Touch
+          </Badge>
+          <Badge 
+            variant="outline" 
+            className={`cursor-pointer hover:bg-gray-100 ${laminationFilter === 'none' ? 'bg-gray-200 border-gray-300' : ''}`}
+            onClick={() => setLaminationFilter('none')}
+          >
+            None
+          </Badge>
         </div>
         
         {/* Table */}
@@ -109,19 +245,36 @@ const BusinessCardJobs = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {jobs.length > 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="h-24 text-center">
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+                      <span className="ml-2">Loading...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : jobs.length > 0 ? (
                 jobs.map((job) => (
                   <TableRow key={job.id}>
-                    <TableCell><input type="checkbox" /></TableCell>
+                    <TableCell><input type="checkbox" className="rounded border-gray-300" /></TableCell>
                     <TableCell>{job.name}</TableCell>
-                    <TableCell>{job.file_name}</TableCell>
+                    <TableCell>
+                      <span className="text-blue-600 hover:underline cursor-pointer" 
+                            onClick={() => window.open(job.pdf_url, '_blank')}>
+                        {job.file_name}
+                      </span>
+                    </TableCell>
                     <TableCell>{job.quantity}</TableCell>
-                    <TableCell>{job.lamination_type}</TableCell>
-                    <TableCell>{job.due_date}</TableCell>
-                    <TableCell>{job.uploaded_at}</TableCell>
+                    <TableCell>
+                      {job.lamination_type === 'none' ? 'None' : 
+                       job.lamination_type.charAt(0).toUpperCase() + job.lamination_type.slice(1)}
+                    </TableCell>
+                    <TableCell>{formatDate(job.due_date)}</TableCell>
+                    <TableCell>{formatDate(job.uploaded_at)}</TableCell>
                     <TableCell><JobStatusBadge status={job.status} /></TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">View</Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleViewJob(job.id)}>View</Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -146,6 +299,25 @@ const BusinessCardJobs = () => {
             </TableBody>
           </Table>
         </div>
+        
+        {/* Pagination - This would be implemented for a real app with many records */}
+        {jobs.length > 0 && (
+          <div className="p-4 border-t">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink href="#" isActive>1</PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext href="#" />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </div>
     </div>
   );
