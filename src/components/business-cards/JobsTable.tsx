@@ -1,10 +1,9 @@
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { UploadCloud } from "lucide-react";
 import { format } from "date-fns";
 import JobStatusBadge from "@/components/JobStatusBadge";
-import { useToast } from "@/hooks/use-toast";
+import JobActions from "./JobActions";
 
 export type JobStatus = "queued" | "batched" | "completed" | "cancelled";
 export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
@@ -24,12 +23,10 @@ export interface Job {
 interface JobsTableProps {
   jobs: Job[];
   isLoading: boolean;
-  handleViewJob: (jobId: string) => void;
+  onRefresh: () => void;
 }
 
-const JobsTable = ({ jobs, isLoading, handleViewJob }: JobsTableProps) => {
-  const { toast } = useToast();
-  
+const JobsTable = ({ jobs, isLoading, onRefresh }: JobsTableProps) => {
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy');
@@ -84,12 +81,6 @@ const JobsTable = ({ jobs, isLoading, handleViewJob }: JobsTableProps) => {
               onClick={() => {
                 if (job.pdf_url) {
                   window.open(job.pdf_url, '_blank');
-                } else {
-                  toast({
-                    title: "File unavailable",
-                    description: "The PDF file is not available for viewing.",
-                    variant: "destructive",
-                  });
                 }
               }}
             >
@@ -105,7 +96,11 @@ const JobsTable = ({ jobs, isLoading, handleViewJob }: JobsTableProps) => {
           <TableCell>{formatDate(job.uploaded_at)}</TableCell>
           <TableCell><JobStatusBadge status={job.status} /></TableCell>
           <TableCell className="text-right">
-            <Button variant="ghost" size="sm" onClick={() => handleViewJob(job.id)}>View</Button>
+            <JobActions 
+              jobId={job.id} 
+              pdfUrl={job.pdf_url} 
+              onJobDeleted={onRefresh}
+            />
           </TableCell>
         </TableRow>
       ))}

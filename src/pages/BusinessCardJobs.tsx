@@ -21,7 +21,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-// Import our new components
+// Import our components
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import StatusFilterTabs from "@/components/business-cards/StatusFilterTabs";
 import LaminationFilter from "@/components/business-cards/LaminationFilter";
@@ -42,77 +42,69 @@ const BusinessCardJobs = () => {
   });
   const [laminationFilter, setLaminationFilter] = useState<LaminationType | null>(null);
 
-  useEffect(() => {
+  // Fetch jobs function that can be called to refresh the data
+  const fetchJobs = async () => {
     if (!user) return;
     
-    const fetchJobs = async () => {
-      setIsLoading(true);
-      try {
-        let query = supabase
-          .from('business_card_jobs')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        
-        // Apply status filter
-        if (filterView !== 'all') {
-          query = query.eq('status', filterView);
-        }
-        
-        // Apply lamination filter
-        if (laminationFilter) {
-          query = query.eq('lamination_type', laminationFilter);
-        }
-        
-        const { data, error } = await query;
-        
-        if (error) {
-          throw error;
-        }
-        
-        setJobs(data || []);
-        
-        // Count jobs for each status
-        const { data: allJobs, error: countError } = await supabase
-          .from('business_card_jobs')
-          .select('status')
-          .eq('user_id', user.id);
-        
-        if (countError) {
-          throw countError;
-        }
-        
-        const counts = {
-          all: allJobs?.length || 0,
-          queued: allJobs?.filter(job => job.status === 'queued').length || 0,
-          batched: allJobs?.filter(job => job.status === 'batched').length || 0,
-          completed: allJobs?.filter(job => job.status === 'completed').length || 0
-        };
-        
-        setFilterCounts(counts);
-      } catch (error) {
-        console.error('Error fetching jobs:', error);
-        toast({
-          title: "Error fetching jobs",
-          description: "There was a problem loading your jobs.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
+    setIsLoading(true);
+    try {
+      let query = supabase
+        .from('business_card_jobs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      // Apply status filter
+      if (filterView !== 'all') {
+        query = query.eq('status', filterView);
       }
-    };
-    
+      
+      // Apply lamination filter
+      if (laminationFilter) {
+        query = query.eq('lamination_type', laminationFilter);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      setJobs(data || []);
+      
+      // Count jobs for each status
+      const { data: allJobs, error: countError } = await supabase
+        .from('business_card_jobs')
+        .select('status')
+        .eq('user_id', user.id);
+      
+      if (countError) {
+        throw countError;
+      }
+      
+      const counts = {
+        all: allJobs?.length || 0,
+        queued: allJobs?.filter(job => job.status === 'queued').length || 0,
+        batched: allJobs?.filter(job => job.status === 'batched').length || 0,
+        completed: allJobs?.filter(job => job.status === 'completed').length || 0
+      };
+      
+      setFilterCounts(counts);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      toast({
+        title: "Error fetching jobs",
+        description: "There was a problem loading your jobs.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchJobs();
   }, [user, filterView, laminationFilter, toast]);
-
-  const handleViewJob = (jobId: string) => {
-    // In a real app, this would navigate to a job detail page
-    console.log("View job:", jobId);
-    toast({
-      title: "Feature not implemented",
-      description: "Job details view is not yet implemented.",
-    });
-  };
 
   return (
     <div>
@@ -154,8 +146,8 @@ const BusinessCardJobs = () => {
             <TableBody>
               <JobsTable 
                 jobs={jobs} 
-                isLoading={isLoading} 
-                handleViewJob={handleViewJob} 
+                isLoading={isLoading}
+                onRefresh={fetchJobs}
               />
             </TableBody>
           </Table>
