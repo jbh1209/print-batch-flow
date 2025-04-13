@@ -71,7 +71,8 @@ export function drawTableHeader(
   colStarts: number[],
   helveticaBold: any,
   margin: number,
-  colWidths: number[]
+  colWidths: number[],
+  includeSlotInfo: boolean = false
 ): void {
   // Draw table header with bold font
   page.drawText("Job Name", {
@@ -105,6 +106,17 @@ export function drawTableHeader(
     font: helveticaBold,
     color: rgb(0, 0, 0)
   });
+  
+  // Add slot info column if needed
+  if (includeSlotInfo) {
+    page.drawText("Slot Allocation", {
+      x: colStarts[4],
+      y: tableY,
+      size: 12,
+      font: helveticaBold,
+      color: rgb(0, 0, 0)
+    });
+  }
   
   // Draw separator line
   page.drawLine({

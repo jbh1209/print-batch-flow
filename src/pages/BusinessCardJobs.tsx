@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; 
 import {
@@ -169,7 +168,9 @@ const BusinessCardJobs = () => {
           {/* Batch Controls */}
           <BatchControls 
             selectedJobs={getSelectedJobObjects()}
+            allAvailableJobs={jobs}
             onBatchComplete={handleBatchComplete}
+            onSelectJob={handleSelectJob}
           />
         </div>
         

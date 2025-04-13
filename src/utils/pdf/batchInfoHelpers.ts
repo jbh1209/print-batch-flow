@@ -10,7 +10,8 @@ export function drawBatchInfo(
   jobs: Job[],
   helveticaFont: any,
   helveticaBold: any,
-  margin: number
+  margin: number,
+  sheetsRequired: number = 0 // Allow passing in optimized sheet count
 ): void {
   // Draw batch header
   page.drawText(`Batch Overview: ${batchName}`, {
@@ -39,7 +40,9 @@ export function drawBatchInfo(
   });
   
   const totalCards = jobs.reduce((sum, job) => sum + job.quantity, 0);
-  const sheetsRequired = Math.ceil(totalCards / 24);
+  
+  // If sheetsRequired is provided, use it, otherwise calculate
+  const calculatedSheetsRequired = sheetsRequired || Math.ceil(totalCards / 24);
   
   page.drawText(`Total Cards: ${totalCards}`, {
     x: margin,
@@ -49,11 +52,22 @@ export function drawBatchInfo(
     color: rgb(0, 0, 0)
   });
   
-  page.drawText(`Sheets Required: ${sheetsRequired}`, {
+  page.drawText(`Sheets Required: ${calculatedSheetsRequired}`, {
     x: margin,
     y: page.getHeight() - margin - 90,
     size: 12,
     font: helveticaFont,
     color: rgb(0, 0, 0)
   });
+  
+  // Add a note about optimization
+  if (sheetsRequired > 0) {
+    page.drawText(`Note: Sheet count optimized based on job quantities and slot allocation`, {
+      x: margin,
+      y: page.getHeight() - margin - 110,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.4, 0.4, 0.4)
+    });
+  }
 }

@@ -2,6 +2,7 @@
 import { PDFPage, rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { format } from "date-fns";
+import { JobDistributionItem } from "../batchOptimizationHelpers";
 
 // Function to draw a single job row
 export function drawJobRow(
@@ -13,7 +14,8 @@ export function drawJobRow(
   margin: number,
   colWidths: number[],
   rowHeight: number,
-  index: number
+  index: number,
+  slotInfo?: { slots: number; quantityPerSlot: number }
 ): PDFPage {
   // Truncate job name if too long
   let jobName = job.name;
@@ -53,6 +55,17 @@ export function drawJobRow(
     color: rgb(0, 0, 0)
   });
   
+  // Add slot allocation information if provided
+  if (slotInfo) {
+    page.drawText(`${slotInfo.slots} slots (${slotInfo.quantityPerSlot}/slot)`, {
+      x: colStarts[4],
+      y: rowY,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0, 0, 0)
+    });
+  }
+  
   // Add light gray row background for every other row
   if (index % 2 === 1) {
     page.drawRectangle({
@@ -67,4 +80,118 @@ export function drawJobRow(
   }
   
   return page;
+}
+
+// Draw optimization information in the PDF
+export function drawOptimizationInfo(
+  page: PDFPage,
+  distribution: JobDistributionItem[],
+  startY: number,
+  colStarts: number[],
+  helveticaFont: any,
+  helveticaBold: any,
+  margin: number,
+  colWidths: number[]
+): number {
+  let y = startY;
+  
+  // Draw section header
+  page.drawText("Optimized Job Distribution", {
+    x: margin,
+    y,
+    size: 14,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  });
+  
+  y -= 25;
+  
+  // Draw header
+  page.drawText("Job Name", {
+    x: colStarts[0],
+    y,
+    size: 12,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  });
+  
+  page.drawText("Quantity", {
+    x: colStarts[2],
+    y,
+    size: 12,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  });
+  
+  page.drawText("Slot Allocation", {
+    x: colStarts[3] + 30,
+    y,
+    size: 12,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  });
+  
+  y -= 20;
+  
+  // Draw separator line
+  page.drawLine({
+    start: { x: margin, y: y + 10 },
+    end: { x: margin + colWidths.reduce((a, b) => a + b, 0), y: y + 10 },
+    thickness: 1,
+    color: rgb(0, 0, 0)
+  });
+  
+  // Draw each job's optimization info
+  const rowHeight = 20;
+  distribution.forEach((item, i) => {
+    // Truncate job name if too long
+    let jobName = item.job.name;
+    if (jobName.length > 30) {
+      jobName = jobName.substring(0, 27) + "...";
+    }
+    
+    // Draw job name
+    page.drawText(jobName, {
+      x: colStarts[0],
+      y,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0, 0, 0)
+    });
+    
+    // Draw quantity
+    page.drawText(item.job.quantity.toString(), {
+      x: colStarts[2],
+      y,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0, 0, 0)
+    });
+    
+    // Draw slot allocation
+    page.drawText(`${item.slotsNeeded} slots (${item.quantityPerSlot}/slot)`, {
+      x: colStarts[3] + 30,
+      y,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0, 0, 0)
+    });
+    
+    // Add light gray background for every other row
+    if (i % 2 === 1) {
+      page.drawRectangle({
+        x: margin,
+        y: y - 5,
+        width: colWidths.reduce((a, b) => a + b, 0),
+        height: rowHeight,
+        color: rgb(0.95, 0.95, 0.95),
+        opacity: 0.5,
+        borderWidth: 0
+      });
+    }
+    
+    y -= rowHeight;
+  });
+  
+  return y;
 }
