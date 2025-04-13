@@ -23,7 +23,7 @@ const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
         <CardDescription>Manage your batch</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {batch.status !== BatchStatus.completed && (
+        {batch.status !== "completed" && (
           <Button 
             className="w-full flex items-center gap-2"
             variant={batch.status === "pending" ? "default" : "outline"}
