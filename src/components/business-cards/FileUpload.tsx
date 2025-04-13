@@ -40,33 +40,35 @@ const FileUpload = ({
             <div className="space-y-4">
               {!selectedFile ? (
                 <>
-                  <Card className="border-dashed border-2 hover:border-primary/50 transition-colors cursor-pointer">
-                    <CardContent className="p-6 flex flex-col items-center justify-center gap-4">
-                      <UploadCloud className="h-10 w-10 text-muted-foreground" />
-                      <div className="text-center">
-                        <p className="text-sm font-medium mb-1">
-                          Drag and drop your PDF file here,<br /> or click to browse
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Only PDF files are accepted. Max file size: 10MB
-                        </p>
-                      </div>
-                      <input 
-                        id="file-upload"
-                        type="file" 
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        accept="application/pdf"
-                        onChange={(e) => {
-                          fileInputHandler(e);
-                          // This triggers react-hook-form validation
-                          if (e.target.files?.[0]) {
-                            onChange(e.target.files[0]);
-                          }
-                        }}
-                        {...field}
-                      />
-                    </CardContent>
-                  </Card>
+                  <div className="relative">
+                    <Card className="border-dashed border-2 hover:border-primary/50 transition-colors cursor-pointer">
+                      <CardContent className="p-6 flex flex-col items-center justify-center gap-4">
+                        <UploadCloud className="h-10 w-10 text-muted-foreground" />
+                        <div className="text-center">
+                          <p className="text-sm font-medium mb-1">
+                            Drag and drop your PDF file here,<br /> or click to browse
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Only PDF files are accepted. Max file size: 10MB
+                          </p>
+                        </div>
+                        <input 
+                          id="file-upload"
+                          type="file" 
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          accept="application/pdf"
+                          onChange={(e) => {
+                            fileInputHandler(e);
+                            // This triggers react-hook-form validation
+                            if (e.target.files?.[0]) {
+                              onChange(e.target.files[0]);
+                            }
+                          }}
+                          {...field}
+                        />
+                      </CardContent>
+                    </Card>
+                  </div>
                   
                   {fieldState.error && (
                     <Alert variant="destructive">
