@@ -9,7 +9,7 @@ type JobData = {
   name: string;
   quantity: number;
   double_sided: boolean;
-  lamination_type: string;
+  lamination_type: "none" | "gloss" | "matt" | "soft_touch";
   paper_type: string;
   due_date: string;
   pdf_url?: string;
