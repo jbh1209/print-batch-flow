@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { BatchDetailsType } from "./types/BatchTypes";
+import { BatchDetailsType, BatchStatus } from "./types/BatchTypes";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
