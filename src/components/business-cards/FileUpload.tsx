@@ -1,12 +1,10 @@
 
-import { useState } from "react";
 import { FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, FileCheck } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { toast as sonnerToast } from "sonner";
 import { Control } from "react-hook-form";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 interface FileUploadProps {
   control: Control<any>;
@@ -15,27 +13,11 @@ interface FileUploadProps {
 }
 
 const FileUpload = ({ control, selectedFile, setSelectedFile }: FileUploadProps) => {
-  const { toast } = useToast();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.type !== "application/pdf") {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a PDF file",
-          variant: "destructive",
-        });
-        return;
-      }
-      setSelectedFile(file);
-      
-      // Show notification that file was selected
-      sonnerToast.success("File selected", {
-        description: file.name
-      });
-    }
-  };
+  const { handleFileChange } = useFileUpload({
+    acceptedTypes: ["application/pdf"],
+    maxSizeInMB: 10,
+    onFileSelected: (file) => setSelectedFile(file)
+  });
 
   return (
     <FormField

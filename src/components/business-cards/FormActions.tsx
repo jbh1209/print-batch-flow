@@ -7,22 +7,32 @@ interface FormActionsProps {
   cancelPath: string;
   submitLabel?: string;
   cancelLabel?: string;
+  onCancel?: () => void;
 }
 
 const FormActions = ({ 
   isSubmitting, 
   cancelPath, 
   submitLabel = "Create Job",
-  cancelLabel = "Cancel"
+  cancelLabel = "Cancel",
+  onCancel
 }: FormActionsProps) => {
   const navigate = useNavigate();
+
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+      return;
+    }
+    navigate(cancelPath);
+  };
 
   return (
     <div className="flex justify-end space-x-2">
       <Button 
         type="button" 
         variant="outline" 
-        onClick={() => navigate(cancelPath)}
+        onClick={handleCancel}
       >
         {cancelLabel}
       </Button>
