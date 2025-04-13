@@ -5,6 +5,8 @@ import StatusFilterTabs from "@/components/business-cards/StatusFilterTabs";
 import JobsTableContainer from "@/components/business-cards/JobsTableContainer";
 import FilterBar from "@/components/business-cards/FilterBar";
 import { useBusinessCardJobsList } from "@/hooks/useBusinessCardJobsList";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 const BusinessCardJobs = () => {
   const navigate = useNavigate();
@@ -15,9 +17,11 @@ const BusinessCardJobs = () => {
     filterCounts, 
     laminationFilter, 
     selectedJobs,
+    isFixingBatchedJobs,
     setFilterView, 
     setLaminationFilter, 
     fetchJobs, 
+    fixBatchedJobsWithoutBatch,
     handleSelectJob, 
     handleSelectAllJobs,
     getSelectedJobObjects
@@ -52,6 +56,31 @@ const BusinessCardJobs = () => {
           onBatchComplete={handleBatchComplete}
           onSelectJob={handleSelectJob}
         />
+        
+        {/* Fix Orphaned Jobs Button - only show if there are jobs stuck in batched state */}
+        {filterCounts.batched > 0 && (
+          <div className="border-t p-3 bg-amber-50 flex justify-between items-center">
+            <div className="text-sm text-amber-800">
+              <span className="font-medium">Note:</span> Some jobs may be stuck in "batched" status after a batch was deleted.
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="bg-white"
+              onClick={fixBatchedJobsWithoutBatch}
+              disabled={isFixingBatchedJobs}
+            >
+              {isFixingBatchedJobs ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Fixing...
+                </>
+              ) : (
+                'Fix Orphaned Jobs'
+              )}
+            </Button>
+          </div>
+        )}
         
         {/* Jobs Table */}
         <JobsTableContainer 

@@ -19,6 +19,7 @@ export const useBusinessCardJobsList = () => {
   });
   const [laminationFilter, setLaminationFilter] = useState<LaminationType | null>(null);
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
+  const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
   // Fetch jobs function that can be called to refresh the data
   const fetchJobs = async () => {
@@ -83,9 +84,61 @@ export const useBusinessCardJobsList = () => {
     }
   };
 
+  // New function to fix jobs that are marked as batched but have no batch_id
+  const fixBatchedJobsWithoutBatch = async () => {
+    if (!user) return;
+    
+    setIsFixingBatchedJobs(true);
+    try {
+      // Find all jobs that are marked as batched but have no batch_id
+      const { data: orphanedJobs, error: findError } = await supabase
+        .from('business_card_jobs')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'batched')
+        .is('batch_id', null);
+      
+      if (findError) throw findError;
+      
+      if (orphanedJobs && orphanedJobs.length > 0) {
+        // Reset these jobs to queued status
+        const { error: updateError } = await supabase
+          .from('business_card_jobs')
+          .update({ status: 'queued' })
+          .in('id', orphanedJobs.map(job => job.id));
+        
+        if (updateError) throw updateError;
+        
+        toast({
+          title: "Jobs fixed",
+          description: `Reset ${orphanedJobs.length} orphaned jobs back to queued status`,
+        });
+        
+        // Refresh the job list
+        await fetchJobs();
+      }
+    } catch (error) {
+      console.error('Error fixing batched jobs:', error);
+      toast({
+        title: "Error fixing jobs",
+        description: "Failed to reset jobs with missing batch references.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFixingBatchedJobs(false);
+    }
+  };
+
   useEffect(() => {
     fetchJobs();
   }, [user, filterView, laminationFilter, toast]);
+  
+  // Run the fix operation once when component mounts
+  useEffect(() => {
+    if (user) {
+      fixBatchedJobsWithoutBatch();
+    }
+  }, [user]);
   
   // Handle job selection
   const handleSelectJob = (jobId: string, isSelected: boolean) => {
@@ -121,9 +174,11 @@ export const useBusinessCardJobsList = () => {
     filterCounts,
     laminationFilter,
     selectedJobs,
+    isFixingBatchedJobs,
     setFilterView,
     setLaminationFilter,
     fetchJobs,
+    fixBatchedJobsWithoutBatch,
     handleSelectJob,
     handleSelectAllJobs,
     getSelectedJobObjects
