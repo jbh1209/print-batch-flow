@@ -2,10 +2,13 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import SearchBar from "./SearchBar";
-import { Bell, HelpCircle, User } from "lucide-react";
+import { Bell, HelpCircle, LogOut } from "lucide-react";
 import { Button } from "./ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 const Layout = () => {
+  const { user, signOut } = useAuth();
+
   return (
     <div className="flex h-screen bg-batchflow-background">
       <Sidebar />
@@ -19,8 +22,11 @@ const Layout = () => {
             <Button variant="ghost" size="icon">
               <HelpCircle size={20} />
             </Button>
+            <Button variant="ghost" size="icon" onClick={signOut}>
+              <LogOut size={20} />
+            </Button>
             <div className="h-8 w-8 rounded-full bg-sky-400 flex items-center justify-center text-white font-medium">
-              JA
+              {user?.email?.[0].toUpperCase() || 'U'}
             </div>
           </div>
         </header>

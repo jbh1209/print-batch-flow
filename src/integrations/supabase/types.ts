@@ -9,16 +9,176 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      batches: {
+        Row: {
+          back_pdf_url: string | null
+          created_at: string
+          created_by: string
+          date_created: string
+          due_date: string
+          front_pdf_url: string | null
+          id: string
+          lamination_type: Database["public"]["Enums"]["lamination_type"]
+          name: string
+          sheets_required: number
+          status: Database["public"]["Enums"]["batch_status"]
+          updated_at: string
+        }
+        Insert: {
+          back_pdf_url?: string | null
+          created_at?: string
+          created_by: string
+          date_created?: string
+          due_date: string
+          front_pdf_url?: string | null
+          id?: string
+          lamination_type: Database["public"]["Enums"]["lamination_type"]
+          name: string
+          sheets_required: number
+          status?: Database["public"]["Enums"]["batch_status"]
+          updated_at?: string
+        }
+        Update: {
+          back_pdf_url?: string | null
+          created_at?: string
+          created_by?: string
+          date_created?: string
+          due_date?: string
+          front_pdf_url?: string | null
+          id?: string
+          lamination_type?: Database["public"]["Enums"]["lamination_type"]
+          name?: string
+          sheets_required?: number
+          status?: Database["public"]["Enums"]["batch_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      business_card_jobs: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          double_sided: boolean
+          due_date: string
+          file_name: string
+          id: string
+          lamination_type: Database["public"]["Enums"]["lamination_type"]
+          name: string
+          paper_type: string
+          pdf_url: string
+          quantity: number
+          status: Database["public"]["Enums"]["job_status"]
+          updated_at: string
+          uploaded_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          double_sided?: boolean
+          due_date: string
+          file_name: string
+          id?: string
+          lamination_type?: Database["public"]["Enums"]["lamination_type"]
+          name: string
+          paper_type?: string
+          pdf_url: string
+          quantity: number
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string
+          uploaded_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          double_sided?: boolean
+          due_date?: string
+          file_name?: string
+          id?: string
+          lamination_type?: Database["public"]["Enums"]["lamination_type"]
+          name?: string
+          paper_type?: string
+          pdf_url?: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string
+          uploaded_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_business_card_jobs_batch"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: { role: Database["public"]["Enums"]["app_role"] }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      batch_status: "pending" | "processing" | "completed" | "cancelled"
+      job_status: "queued" | "batched" | "completed" | "cancelled"
+      lamination_type: "gloss" | "matt" | "soft_touch" | "none"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +293,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      batch_status: ["pending", "processing", "completed", "cancelled"],
+      job_status: ["queued", "batched", "completed", "cancelled"],
+      lamination_type: ["gloss", "matt", "soft_touch", "none"],
+    },
   },
 } as const
