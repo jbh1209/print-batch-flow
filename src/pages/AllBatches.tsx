@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Layers, Loader2, ArrowLeft, CreditCard, FileText } from "lucide-react";
@@ -156,9 +156,9 @@ const AllBatches = () => {
               
               <Button 
                 className="w-full mt-4" 
-                onClick={() => navigate(getProductUrl(batch.product_type))}
+                onClick={() => navigate("/")} // Changed to navigate to dashboard
               >
-                View Details
+                Back to Dashboard
               </Button>
             </div>
           ))}
@@ -169,3 +169,4 @@ const AllBatches = () => {
 };
 
 export default AllBatches;
+
