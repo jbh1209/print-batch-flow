@@ -5,7 +5,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 // Import our refactored helpers
 import { mmToPoints } from "./pdf/pdfUnitHelpers";
 import { calculateDimensions } from "./pdf/impositionDimensionsHelper";
-import { drawBatchInfo, drawSideInfo } from "./pdf/impositionBatchInfoHelper";
+import { drawSideInfo } from "./pdf/impositionBatchInfoHelper";
 import { drawCardGrid } from "./pdf/gridDrawingHelpers";
 import { loadJobPDFs, createDuplicatedImpositionPDFs } from "./pdf/jobPdfLoader";
 
