@@ -14,56 +14,70 @@ export async function generateAndUploadBatchPDFs(
   overviewUrl: string;
   impositionUrl: string;
 }> {
-  // Generate batch overview A4 PDF
-  const batchOverviewPDF = await generateBatchOverview(selectedJobs, name);
-  
-  // Generate imposition sheet (320x455mm) with duplicated pages for front/back printing
-  const impositionSheetPDF = await generateImpositionSheet(selectedJobs);
-  
-  // Set file paths for uploads with clear naming convention
-  // Keep userId as the first folder for RLS policy to work
-  const timestamp = Date.now();
-  const overviewFilePath = `${userId}/${timestamp}-overview-${name}.pdf`;
-  const impositionFilePath = `${userId}/${timestamp}-imposition-${name}.pdf`;
-  
-  // Upload batch overview
-  const { error: overviewError } = await supabase.storage
-    .from("pdf_files")
-    .upload(overviewFilePath, batchOverviewPDF);
+  try {
+    console.log("Starting PDF generation for batch:", name);
     
-  if (overviewError) {
-    throw new Error(`Failed to upload batch overview: ${overviewError.message}`);
-  }
-  
-  // Get URL for batch overview - it will be a storage URL that we'll generate signed URLs for when needed
-  const { data: overviewUrlData } = supabase.storage
-    .from("pdf_files")
-    .getPublicUrl(overviewFilePath);
+    // Generate batch overview A4 PDF
+    const batchOverviewPDF = await generateBatchOverview(selectedJobs, name);
+    console.log("Successfully generated batch overview PDF");
     
-  if (!overviewUrlData?.publicUrl) {
-    throw new Error("Failed to get public URL for batch overview");
-  }
-  
-  // Upload imposition sheet
-  const { error: impositionError } = await supabase.storage
-    .from("pdf_files")
-    .upload(impositionFilePath, impositionSheetPDF);
+    // Generate imposition sheet (320x455mm) with duplicated pages for front/back printing
+    const impositionSheetPDF = await generateImpositionSheet(selectedJobs);
+    console.log("Successfully generated imposition sheet PDF");
     
-  if (impositionError) {
-    throw new Error(`Failed to upload imposition sheet: ${impositionError.message}`);
-  }
-  
-  // Get URL for imposition sheet - it will be a storage URL that we'll generate signed URLs for when needed
-  const { data: impositionUrlData } = supabase.storage
-    .from("pdf_files")
-    .getPublicUrl(impositionFilePath);
+    // Set file paths for uploads with clear naming convention
+    // Keep userId as the first folder for RLS policy to work
+    const timestamp = Date.now();
+    const overviewFilePath = `${userId}/${timestamp}-overview-${name}.pdf`;
+    const impositionFilePath = `${userId}/${timestamp}-imposition-${name}.pdf`;
     
-  if (!impositionUrlData?.publicUrl) {
-    throw new Error("Failed to get public URL for imposition sheet");
+    console.log("Uploading batch overview PDF...");
+    // Upload batch overview
+    const { error: overviewError } = await supabase.storage
+      .from("pdf_files")
+      .upload(overviewFilePath, batchOverviewPDF);
+      
+    if (overviewError) {
+      console.error("Overview upload error:", overviewError);
+      throw new Error(`Failed to upload batch overview: ${overviewError.message}`);
+    }
+    
+    // Get URL for batch overview
+    const { data: overviewUrlData } = supabase.storage
+      .from("pdf_files")
+      .getPublicUrl(overviewFilePath);
+      
+    if (!overviewUrlData?.publicUrl) {
+      throw new Error("Failed to get public URL for batch overview");
+    }
+    
+    console.log("Uploading imposition sheet PDF...");
+    // Upload imposition sheet
+    const { error: impositionError } = await supabase.storage
+      .from("pdf_files")
+      .upload(impositionFilePath, impositionSheetPDF);
+      
+    if (impositionError) {
+      console.error("Imposition upload error:", impositionError);
+      throw new Error(`Failed to upload imposition sheet: ${impositionError.message}`);
+    }
+    
+    // Get URL for imposition sheet
+    const { data: impositionUrlData } = supabase.storage
+      .from("pdf_files")
+      .getPublicUrl(impositionFilePath);
+      
+    if (!impositionUrlData?.publicUrl) {
+      throw new Error("Failed to get public URL for imposition sheet");
+    }
+    
+    console.log("Successfully uploaded both PDFs");
+    return {
+      overviewUrl: overviewUrlData.publicUrl,
+      impositionUrl: impositionUrlData.publicUrl
+    };
+  } catch (error) {
+    console.error("Error in generateAndUploadBatchPDFs:", error);
+    throw error;
   }
-  
-  return {
-    overviewUrl: overviewUrlData.publicUrl,
-    impositionUrl: impositionUrlData.publicUrl
-  };
 }

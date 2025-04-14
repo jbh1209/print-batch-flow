@@ -29,7 +29,7 @@ export function drawJobInfo(
     jobName = jobName.substring(0, 12) + "...";
   }
   
-  // Draw job ID in white text for better contrast
+  // Draw job name in white text for better contrast
   page.drawText(jobName, {
     x: x + 2,
     y: y + mmToPoints(3),
@@ -38,8 +38,12 @@ export function drawJobInfo(
     color: rgb(1, 1, 1) // White text
   });
   
-  // Draw job ID and quantity info
-  const infoText = `ID: ${job.id.substring(0, 8)} | Qty: ${job.quantity} | Due: ${format(new Date(job.due_date), 'MMM dd')}`;
+  // Make sure job.id is defined before using it
+  const jobId = job.id ? job.id.substring(0, 8) : "unknown";
+  const dueDate = job.due_date ? format(new Date(job.due_date), 'MMM dd') : "unknown";
+  
+  // Draw job ID and quantity info with null checks
+  const infoText = `ID: ${jobId} | Qty: ${job.quantity || 0} | Due: ${dueDate}`;
   page.drawText(infoText, {
     x: x + placeholderWidth - 85,
     y: y + mmToPoints(3),

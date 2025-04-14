@@ -52,28 +52,13 @@ export function drawSideInfo(
   const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm');
   const sideText = `${batchName} Sheet (${pageType}) - ${formattedLamination} Lamination | Total Jobs: ${jobs.length} | Total Cards: ${totalCards} | Generated: ${timestamp}`;
   
-  // Save the current graphics state
-  page.pushOperators({
-    type: 'BeginSave',
-  });
-  
-  // Translate and rotate for vertical text (90 degrees)
-  page.pushOperators({
-    type: 'ConcatTransformationMatrix',
-    matrix: [0, 1, -1, 0, mmToPoints(20), 0],
-  });
-  
-  // Draw the text vertically
+  // Draw the text directly without rotation transformation to avoid PDF operator errors
   page.drawText(sideText, {
-    x: mmToPoints(50), // Positioned from the bottom edge (now left after rotation)
-    y: -mmToPoints(7),  // Slight offset from the edge (now right after rotation)
-    size: 9,
+    x: mmToPoints(20),
+    y: mmToPoints(10),
+    size: 8,
     font: helveticaBold,
-    color: rgb(0, 0, 0)
-  });
-  
-  // Restore the graphics state
-  page.pushOperators({
-    type: 'EndSave',
+    color: rgb(0, 0, 0),
+    rotate: { type: 'degrees', angle: 90 }
   });
 }
