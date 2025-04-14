@@ -40,26 +40,38 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
   // Check if the status is not completed
   const isNotCompleted = batch.status !== "completed";
   
-  // Check if PDFs are available
-  const hasImpositionPDF = !!batch.front_pdf_url;
-  const hasOverviewPDF = !!batch.back_pdf_url;
+  // Check if PDFs are available and valid URLs
+  const hasImpositionPDF = !!batch.front_pdf_url && typeof batch.front_pdf_url === 'string';
+  const hasOverviewPDF = !!batch.back_pdf_url && typeof batch.back_pdf_url === 'string';
   const hasPDFs = hasImpositionPDF || hasOverviewPDF;
 
   const handleViewPdf = async (url: string | null, name: string) => {
+    if (!url) {
+      toast.error(`No ${name} PDF available`);
+      return;
+    }
+    
     try {
       toast.loading(`Opening ${name}...`);
       await handlePdfAction(url, 'view', `${batch.name}-${name}.pdf`);
     } catch (error) {
-      toast.error(`Error opening ${name}`);
+      console.error(`Error viewing ${name} PDF:`, error);
+      toast.error(`Error opening ${name} PDF`);
     }
   };
 
   const handleDownloadPdf = async (url: string | null, name: string) => {
+    if (!url) {
+      toast.error(`No ${name} PDF available`);
+      return;
+    }
+    
     try {
       toast.loading(`Preparing ${name} for download...`);
       await handlePdfAction(url, 'download', `${batch.name}-${name}.pdf`);
     } catch (error) {
-      toast.error(`Error downloading ${name}`);
+      console.error(`Error downloading ${name} PDF:`, error);
+      toast.error(`Error downloading ${name} PDF`);
     }
   };
 
