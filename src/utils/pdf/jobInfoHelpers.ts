@@ -3,7 +3,7 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { rgb } from "pdf-lib";
 import { format } from "date-fns";
 
-// Draw job information at the bottom of the placeholder
+// Draw job information at the bottom of the placeholder with improved null handling
 export function drawJobInfo(
   page: any,
   job: Job,
@@ -14,43 +14,61 @@ export function drawJobInfo(
   helveticaFont: any,
   helveticaBold: any
 ) {
-  // Draw black highlight background for text area
-  page.drawRectangle({
-    x,
-    y,
-    width: placeholderWidth,
-    height: textAreaHeight,
-    color: rgb(0, 0, 0),
-  });
-  
-  // Draw job name (truncated if necessary)
-  let jobName = job.name;
-  if (jobName.length > 15) {
-    jobName = jobName.substring(0, 12) + "...";
+  try {
+    // Draw black highlight background for text area
+    page.drawRectangle({
+      x,
+      y,
+      width: placeholderWidth,
+      height: textAreaHeight,
+      color: rgb(0, 0, 0),
+    });
+    
+    // Ensure job object exists
+    if (!job) {
+      console.error("Null job object provided to drawJobInfo");
+      return;
+    }
+    
+    // Get job name with fallback
+    let jobName = job.name || "Untitled Job";
+    if (jobName.length > 15) {
+      jobName = jobName.substring(0, 12) + "...";
+    }
+    
+    // Draw job name in white text for better contrast
+    page.drawText(jobName, {
+      x: x + 2,
+      y: y + mmToPoints(3),
+      size: 7,
+      font: helveticaBold,
+      color: rgb(1, 1, 1) // White text
+    });
+    
+    // Make sure job properties are defined before using them
+    const jobId = job.id ? job.id.substring(0, 8) : "unknown";
+    
+    let dueDate = "unknown";
+    try {
+      if (job.due_date) {
+        dueDate = format(new Date(job.due_date), 'MMM dd');
+      }
+    } catch (error) {
+      console.error("Error formatting date:", error);
+    }
+    
+    // Draw job ID and quantity info with null checks
+    const infoText = `ID: ${jobId} | Qty: ${job.quantity || 0} | Due: ${dueDate}`;
+    page.drawText(infoText, {
+      x: x + placeholderWidth - 85,
+      y: y + mmToPoints(3),
+      size: 6,
+      font: helveticaFont,
+      color: rgb(1, 1, 1) // White text
+    });
+  } catch (error) {
+    console.error("Error in drawJobInfo:", error);
   }
-  
-  // Draw job name in white text for better contrast
-  page.drawText(jobName, {
-    x: x + 2,
-    y: y + mmToPoints(3),
-    size: 7,
-    font: helveticaBold,
-    color: rgb(1, 1, 1) // White text
-  });
-  
-  // Make sure job.id is defined before using it
-  const jobId = job.id ? job.id.substring(0, 8) : "unknown";
-  const dueDate = job.due_date ? format(new Date(job.due_date), 'MMM dd') : "unknown";
-  
-  // Draw job ID and quantity info with null checks
-  const infoText = `ID: ${jobId} | Qty: ${job.quantity || 0} | Due: ${dueDate}`;
-  page.drawText(infoText, {
-    x: x + placeholderWidth - 85,
-    y: y + mmToPoints(3),
-    size: 6,
-    font: helveticaFont,
-    color: rgb(1, 1, 1) // White text
-  });
 }
 
 // Import mmToPoints for use in this file
