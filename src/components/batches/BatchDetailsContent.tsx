@@ -4,7 +4,6 @@ import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
 import BatchActionsCard from "./BatchActionsCard";
 import RelatedJobsCard from "./RelatedJobsCard";
-import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -33,7 +32,6 @@ const BatchDetailsContent = ({
       {productType === "Business Cards" && relatedJobs.length > 0 && (
         <RelatedJobsCard 
           jobs={relatedJobs} 
-          handleViewPDF={(url) => handlePdfAction(url, 'view')} 
         />
       )}
     </>
