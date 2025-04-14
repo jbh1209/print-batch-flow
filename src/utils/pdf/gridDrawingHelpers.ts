@@ -1,4 +1,3 @@
-
 // This file now serves as the main entry point for grid drawing functionality
 // but delegates most work to other specialized modules
 
@@ -6,7 +5,8 @@ import { PDFDocument, rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { calculateDimensions } from "./impositionDimensionsHelper";
 import { drawEmptyPlaceholder } from "./placeholderDrawingHelpers";
-import { drawSpecificJobPage, drawJobPlaceholder } from "./jobDrawingHelpers";
+import { drawSpecificJobPage } from "./jobPageHelpers";
+import { drawJobPlaceholder } from "./jobPlaceholderHelpers";
 
 // Main function to draw the grid of cards on the imposition sheet
 export function drawCardGrid(
@@ -87,7 +87,6 @@ export function drawCardGrid(
 
 // Re-export functions from other files for backward compatibility
 export { drawEmptyPlaceholder } from './placeholderDrawingHelpers';
-export { drawJobPlaceholder, drawSpecificJobPage, drawJobInfo, embedJobPDF } from './jobDrawingHelpers';
 
 // Helper function used internally
 import { mmToPoints } from "./pdfUnitHelpers";
