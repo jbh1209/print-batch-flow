@@ -41,8 +41,8 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     
     console.log("Creating duplicated imposition PDFs...");
     // Create both front and back imposition sheets - KEY FOR DUPLICATING PAGES
-    // Use 21 instead of 24 for cards per sheet (3x7 grid)
-    const { frontPDFs, backPDFs } = await createDuplicatedImpositionPDFs(jobs, 21);
+    // Use 24 instead of 21 for cards per sheet (3x8 grid)
+    const { frontPDFs, backPDFs } = await createDuplicatedImpositionPDFs(jobs, 24);
     
     console.log(`Front PDFs count: ${frontPDFs.length}, Back PDFs count: ${backPDFs.length}`);
     
@@ -51,7 +51,7 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
       console.warn("No valid front PDFs were created for imposition, creating fallbacks");
       
       // Create at least one fallback PDF for each job
-      for (let i = 0; i < Math.min(jobs.length, 21); i++) {
+      for (let i = 0; i < Math.min(jobs.length, 24); i++) {
         const job = jobs[i];
         const emptyPdf = await PDFDocument.create();
         const page = emptyPdf.addPage([350, 200]);

@@ -1,6 +1,55 @@
 
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
+import { supabase } from "@/integrations/supabase/client";
+
+// Helper function to get a signed URL for a storage object
+async function getSignedUrl(url: string): Promise<string> {
+  try {
+    if (!url) return '';
+    
+    // Extract the bucket and file path from the URL
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    
+    // Look for bucket name (typically "pdf_files" or other bucket name)
+    const bucketIndex = pathParts.findIndex(part => 
+      part === 'pdf_files' || 
+      part === 'batches' || 
+      part.includes('_files')
+    );
+    
+    if (bucketIndex === -1) {
+      console.warn('Could not identify bucket in URL:', url);
+      return url; // Return original URL if we can't parse it
+    }
+    
+    const bucket = pathParts[bucketIndex];
+    
+    // Get file path - everything after the bucket name
+    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+    
+    console.log(`Creating signed URL for bucket: ${bucket}, file: ${filePath}`);
+    
+    // Create a signed URL with one hour expiry
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(filePath, 3600, {
+        download: true // Force download header for proper content type
+      });
+    
+    if (error) {
+      console.error('Error getting signed URL:', error);
+      throw error;
+    }
+    
+    console.log('Got signed URL successfully:', data.signedUrl.substring(0, 50) + '...');
+    return data.signedUrl;
+  } catch (error) {
+    console.error('Error generating signed URL:', error);
+    return url; // Fall back to original URL in case of errors
+  }
+}
 
 // Load all job PDFs with better error handling and logging
 export async function loadJobPDFs(jobs: Job[], duplicateForImposition = false) {
@@ -37,11 +86,15 @@ export async function loadJobPDFs(jobs: Job[], duplicateForImposition = false) {
       
       console.log(`Loading PDF for job ${job.id || index} from URL: ${job.pdf_url}`);
       
+      // Get a signed URL for the file instead of using the public URL directly
+      const signedUrl = await getSignedUrl(job.pdf_url);
+      console.log(`Using signed URL for job ${job.id || index}`);
+      
       // Fetch the PDF with better error handling
       try {
-        // Add timestamp to URL to prevent caching
-        const nocacheUrl = `${job.pdf_url}?nocache=${Date.now()}`;
-        console.log(`Using URL with cache busting: ${nocacheUrl}`);
+        // Add timestamp to prevent caching
+        const nocacheUrl = `${signedUrl}${signedUrl.includes('?') ? '&' : '?'}nocache=${Date.now()}`;
+        console.log(`Using URL with cache busting: ${nocacheUrl.substring(0, 50)}...`);
         
         // Fetch the PDF with cache busting
         const response = await fetch(nocacheUrl, { 
@@ -140,9 +193,13 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
         continue;
       }
       
-      // Add timestamp to URL to prevent caching
-      const nocacheUrl = `${job.pdf_url}?nocache=${Date.now()}`;
-      console.log(`Using URL with cache busting: ${nocacheUrl}`);
+      // Get a signed URL for the file instead of using the public URL directly
+      const signedUrl = await getSignedUrl(job.pdf_url);
+      console.log(`Using signed URL for job ${job.id}`);
+      
+      // Add timestamp to prevent caching
+      const nocacheUrl = `${signedUrl}${signedUrl.includes('?') ? '&' : '?'}nocache=${Date.now()}`;
+      console.log(`Using URL with cache busting: ${nocacheUrl.substring(0, 50)}...`);
       
       // Fetch with cache busting
       const response = await fetch(nocacheUrl, {
@@ -181,8 +238,8 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
       }
       
       // Calculate how many copies of this job we need based on quantity
-      // For business cards, typically 21 cards per sheet (3x7 grid)
-      const copiesNeeded = Math.max(1, Math.ceil((job.quantity || 1) / 21));
+      // For business cards, typically 24 cards per sheet (3x8 grid)
+      const copiesNeeded = Math.max(1, Math.ceil((job.quantity || 1) / 24));
       console.log(`Job ${job.id} needs ${copiesNeeded} copies for ${job.quantity || 0} cards`);
       
       // Add copies to the front and back arrays - THIS IS KEY FOR DUPLICATION

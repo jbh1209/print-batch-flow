@@ -41,7 +41,7 @@ const getSignedUrl = async (url: string | null, expiresIn = 3600): Promise<strin
     
     console.log(`Requesting signed URL for bucket: ${bucket}, file: ${filePath}`);
     
-    // Generate a direct download URL with download parameter
+    // Generate a signed URL for the storage object
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUrl(filePath, expiresIn, {

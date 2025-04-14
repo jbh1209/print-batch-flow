@@ -11,9 +11,9 @@ export function calculateDimensions(pageWidth: number, pageHeight: number) {
   const placeholderWidth = mmToPoints(96);
   const placeholderHeight = mmToPoints(56);
   
-  // Calculate grid layout (3x7 grid)
+  // Calculate grid layout (3x8 grid) - UPDATED from 3x7 to 3x8
   const columns = 3;
-  const rows = 7;
+  const rows = 8;
   
   // Calculate spacing for centering on the sheet
   const totalGridWidth = columns * placeholderWidth;
