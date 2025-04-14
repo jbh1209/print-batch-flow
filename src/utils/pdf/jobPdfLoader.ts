@@ -1,4 +1,3 @@
-
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { loadSingleJobPdf, loadMultipleJobPdfs } from "./pdfLoaderCore";
@@ -77,7 +76,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
       frontPDFs.push({
         job,
         pdfDoc: jobData.pdfDoc,
-        page: 0,
+        page: 0, // Front is always page 0
         position: currentPosition
       });
       
@@ -89,7 +88,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
         backPDFs.push({
           job,
           pdfDoc: jobData.pdfDoc,
-          page: jobData.pdfDoc.getPageCount() > 1 ? 1 : 0,
+          page: jobData.pdfDoc.getPageCount() > 1 ? 1 : 0, // Use page 1 if exists, otherwise page 0
           position: backPosition
         });
       }
@@ -102,19 +101,18 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     }
   }
   
-  // Sort arrays by position
+  // Sort arrays by position for consistent rendering
   frontPDFs.sort((a, b) => a.position - b.position);
   backPDFs.sort((a, b) => a.position - b.position);
   
-  // Log final positions for debugging
   console.log("\nFinal front PDF positions:");
   frontPDFs.forEach((pdf) => {
-    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
+    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name}) - Page ${pdf.page}`);
   });
   
   console.log("\nFinal back PDF positions:");
   backPDFs.forEach((pdf) => {
-    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
+    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name}) - Page ${pdf.page}`);
   });
   
   return { frontPDFs, backPDFs };

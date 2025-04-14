@@ -9,14 +9,19 @@ export async function drawSpecificJobPage(
   page: any,
   x: number,
   y: number,
-  pageData: { job: Job; pdfDoc: PDFDocument; page: number },
+  pageData: { 
+    job: Job; 
+    pdfDoc: PDFDocument; 
+    page: number;
+    embeddedPage?: any 
+  },
   placeholderWidth: number,
   placeholderHeight: number,
   textAreaHeight: number,
   helveticaFont: any,
   helveticaBold: any
 ) {
-  const { job, pdfDoc, page: pageNumber } = pageData;
+  const { job, pdfDoc, page: pageNumber, embeddedPage } = pageData;
   
   // Draw placeholder border
   page.drawRectangle({
@@ -29,31 +34,15 @@ export async function drawSpecificJobPage(
     color: rgb(1, 1, 1) // White background
   });
   
-  console.log(`Drawing page ${pageNumber} from job ${job.id} PDF (${pdfDoc.getPageCount()} pages available)`);
+  console.log(`Drawing page ${pageNumber} from job ${job.id} PDF at position (${x}, ${y})`);
   
   try {
-    // Check if the PDF has enough pages
-    if (!pdfDoc || pdfDoc.getPageCount() <= pageNumber) {
-      console.error(`PDF for job ${job.id} doesn't have page ${pageNumber}`);
-      
-      // Draw error message
-      page.drawText("Page not found", {
-        x: x + placeholderWidth / 2 - 40,
-        y: y + placeholderHeight / 2,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.8, 0, 0) // Red text
-      });
-      
-      // Still draw job info
-      drawJobInfo(page, job, x, y, placeholderWidth, textAreaHeight, helveticaFont, helveticaBold);
-      return;
+    if (!embeddedPage) {
+      throw new Error("No embedded page provided");
     }
     
-    // Get the specific page
+    // Get source page for dimensions
     const sourcePage = pdfDoc.getPage(pageNumber);
-    
-    // Calculate scaling to fit the card area while preserving aspect ratio
     const originalWidth = sourcePage.getWidth();
     const originalHeight = sourcePage.getHeight();
     
@@ -75,46 +64,23 @@ export async function drawSpecificJobPage(
     const embedX = x + (placeholderWidth - scaledWidth) / 2;
     const embedY = y + textAreaHeight + (availableHeight - scaledHeight) / 2;
     
-    console.log(`Embedding page at position (${embedX}, ${embedY}) with size ${scaledWidth}x${scaledHeight}`);
+    console.log(`Drawing embedded page at (${embedX}, ${embedY}) with size ${scaledWidth}x${scaledHeight}`);
     
-    // Embed the page into the document - critical for rendering
-    try {
-      // Directly embed the page without timeout - simplified approach
-      const embeddedPages = await page.doc.embedPdf(pdfDoc, [pageNumber]);
-      
-      if (!embeddedPages || embeddedPages.length === 0) {
-        throw new Error(`Failed to embed page ${pageNumber} for job ${job.id}`);
-      }
-      
-      const embeddedPage = embeddedPages[0];
-      
-      // Draw the embedded PDF page
-      page.drawPage(embeddedPage, {
-        x: embedX,
-        y: embedY,
-        width: scaledWidth,
-        height: scaledHeight
-      });
-      
-      console.log(`Successfully embedded page ${pageNumber} for job ${job.id}`);
-    } catch (embedError) {
-      console.error(`Error embedding page: ${embedError}`);
-      
-      // Draw error message
-      page.drawText("Error embedding page", {
-        x: x + placeholderWidth / 2 - 50,
-        y: y + placeholderHeight / 2,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.8, 0, 0) // Red text
-      });
-    }
+    // Draw the embedded PDF page
+    page.drawPage(embeddedPage, {
+      x: embedX,
+      y: embedY,
+      width: scaledWidth,
+      height: scaledHeight
+    });
+    
+    console.log(`Successfully drew page for job ${job.id}`);
   } catch (error) {
-    console.error(`Error embedding specific page for job ${job.id}:`, error);
+    console.error(`Error drawing specific page for job ${job.id}:`, error);
     
     // Draw error message
     try {
-      page.drawText(`Error: ${error.message || "Embedding failed"}`, {
+      page.drawText(`Error: ${error.message || "Drawing failed"}`, {
         x: x + placeholderWidth / 2 - 50,
         y: y + placeholderHeight / 2,
         size: 8,
