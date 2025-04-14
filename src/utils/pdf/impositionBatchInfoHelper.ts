@@ -22,11 +22,12 @@ export function drawBatchInfo(
     const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
     
     // Draw background rectangle for header text with INCREASED HEIGHT
+    // CRITICAL FIX: Move the whole header area DOWN significantly to avoid overlap with cards
     page.drawRectangle({
       x: mmToPoints(5),
-      y: page.getHeight() - mmToPoints(50), // Increased significantly from 35 to 50mm
+      y: page.getHeight() - mmToPoints(25), // MOVED DOWN to 25mm (from 50mm)
       width: page.getWidth() - mmToPoints(10),
-      height: mmToPoints(45), // Increased significantly from 30 to 45mm
+      height: mmToPoints(20), // REDUCED height to 20mm (from 45mm)
       color: rgb(1, 1, 1), // White background
       borderColor: rgb(0.9, 0.9, 0.9),
       borderWidth: 0.5
@@ -35,7 +36,7 @@ export function drawBatchInfo(
     // Draw header text on top of the rectangle - MOVED UP much higher
     page.drawText(`Business Card Imposition Sheet (${pageType}) - ${formattedLamination} Lamination`, {
       x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(20), // Adjusted significantly from 15 to 20mm
+      y: page.getHeight() - mmToPoints(15), // Adjusted to 15mm
       size: 14,
       font: helveticaBold,
       color: rgb(0, 0, 0)
@@ -44,10 +45,10 @@ export function drawBatchInfo(
     // Calculate total with null check
     const totalCards = jobs.reduce((sum, job) => sum + (job.quantity || 0), 0);
     
-    // Move this text down significantly for better spacing
+    // CRITICAL: Move this text down to avoid overlap with cards
     page.drawText(`Total Jobs: ${jobs.length} | Total Cards: ${totalCards} | Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, {
       x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(40), // Adjusted significantly from 28 to 40mm
+      y: page.getHeight() - mmToPoints(22), // Adjusted to avoid overlap
       size: 10,
       font: helveticaFont,
       color: rgb(0, 0, 0)

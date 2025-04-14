@@ -42,6 +42,10 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     const actualBatchName = batchName || generateDefaultBatchName();
     console.log("Final batch name for display:", actualBatchName);
     
+    // CRITICAL: We need to add more space at the top margin to prevent overlap 
+    // Adjust the vertical margin in the dimensions if needed
+    dimensions.verticalMargin = mmToPoints(35); // Increased from default to avoid header overlap
+    
     console.log("Loading job PDFs as backup...");
     // Load job PDFs first - this ensures we have all PDFs loaded before creating pages
     const validJobPDFs = await loadJobPDFs(jobs);

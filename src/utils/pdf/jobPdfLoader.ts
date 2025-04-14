@@ -44,8 +44,8 @@ export async function loadJobPDFs(jobs: Job[]) {
 export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet: number) {
   console.log(`Creating imposition PDFs for ${jobs.length} jobs with ${slotsPerSheet} slots per sheet...`);
   
-  const frontPDFs: { job: Job; pdfDoc: PDFDocument; page: number }[] = [];
-  const backPDFs: { job: Job; pdfDoc: PDFDocument; page: number }[] = [];
+  const frontPDFs: { job: Job; pdfDoc: PDFDocument; page: number; position: number }[] = [];
+  const backPDFs: { job: Job; pdfDoc: PDFDocument; page: number; position: number }[] = [];
   
   // Load all PDFs first using the specialized function
   const jobPDFs = await loadMultipleJobPdfs(jobs);
@@ -56,16 +56,12 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     console.log(`Job ${job.id} (${job.name}): PDF ${jobPDFs.has(job.id) ? 'available' : 'missing'}`);
   });
   
-  // IMPORTANT: Process jobs in sequence instead of trying to fill slots as much as possible
-  // This ensures we maintain job variety in the imposition
-  let slotsRemaining = slotsPerSheet;
-  let currentJobIndex = 0;
+  // CRITICAL NEW IMPLEMENTATION: Process jobs in order of the provided jobs array
+  // For each job, add all its copies consecutively
+  let currentPosition = 0;
   
-  // First pass: Add one of each job to ensure variety
-  // This fixes the issue of only seeing the first PDF repeated
-  for (let i = 0; i < jobs.length && frontPDFs.length < slotsPerSheet; i++) {
-    const job = jobs[i];
-    
+  // Iterate through jobs in the order they were provided
+  for (const job of jobs) {
     if (!jobPDFs.has(job.id)) {
       console.warn(`Skipping job ${job.id} due to missing PDF`);
       continue;
@@ -74,107 +70,42 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     const { pdfDoc } = jobPDFs.get(job.id)!;
     const pageCount = pdfDoc.getPageCount();
     
-    console.log(`Adding one copy of job ${job.id} (${job.name}) to ensure variety`);
+    // Calculate how many copies of this job we need
+    const copiesToAdd = job.quantity || 1;
+    console.log(`Adding ${copiesToAdd} copies of job ${job.id} (${job.name})`);
     
-    // Add one front page for this job
-    frontPDFs.push({ 
-      job, 
-      pdfDoc,
-      page: 0  // First page index
-    });
-    
-    // Add back page if job is double-sided and has a second page
-    if (job.double_sided && pageCount > 1) {
-      backPDFs.push({ 
+    // Add all copies of this job at once
+    for (let i = 0; i < copiesToAdd && currentPosition < slotsPerSheet; i++) {
+      // Add front page for this job copy
+      frontPDFs.push({ 
         job, 
         pdfDoc,
-        page: 1  // Second page index
+        page: 0,  // First page index
+        position: currentPosition  // Keep track of the position for back side alignment
       });
-    }
-    
-    slotsRemaining--;
-    if (slotsRemaining <= 0) break;
-  }
-  
-  // Second pass: Fill remaining slots proportionally based on quantity
-  if (slotsRemaining > 0) {
-    console.log(`After first pass: ${frontPDFs.length} slots used, ${slotsRemaining} remaining`);
-    
-    // Calculate total remaining quantity
-    const totalRemainingQuantity = jobs.reduce((sum, job) => {
-      const alreadyAdded = frontPDFs.filter(item => item.job.id === job.id).length;
-      return sum + Math.max(0, (job.quantity || 1) - alreadyAdded);
-    }, 0);
-    
-    console.log(`Total remaining quantity across all jobs: ${totalRemainingQuantity}`);
-    
-    // Distribute remaining slots proportionally
-    for (const job of jobs) {
-      if (!jobPDFs.has(job.id)) continue;
       
-      const { pdfDoc } = jobPDFs.get(job.id)!;
-      const pageCount = pdfDoc.getPageCount();
-      
-      // Count how many we've already added
-      const alreadyAdded = frontPDFs.filter(item => item.job.id === job.id).length;
-      
-      // Calculate how many more we should add based on proportion
-      const remainingForThisJob = Math.max(0, (job.quantity || 1) - alreadyAdded);
-      const proportion = totalRemainingQuantity > 0 ? remainingForThisJob / totalRemainingQuantity : 0;
-      let slotsForThisJob = Math.min(Math.round(proportion * slotsRemaining), remainingForThisJob);
-      
-      console.log(`Job ${job.id}: already added ${alreadyAdded}, adding ${slotsForThisJob} more`);
-      
-      // Add calculated number of slots for this job
-      for (let i = 0; i < slotsForThisJob && slotsRemaining > 0; i++) {
-        frontPDFs.push({ 
+      // Add back page if job is double-sided and has a second page
+      if (job.double_sided) {
+        // CRITICAL: For double-sided cards, we need to flip the position for proper alignment
+        // This ensures front left aligns with back right, etc.
+        const backPosition = calculateBackPosition(currentPosition, slotsPerSheet);
+        
+        backPDFs.push({ 
           job, 
           pdfDoc,
-          page: 0 // First page index
+          page: pageCount > 1 ? 1 : 0,  // Use second page if available, otherwise reuse first page
+          position: backPosition  // Use the flipped position for back side
         });
-        
-        // Add back page if job is double-sided and has a second page
-        if (job.double_sided && pageCount > 1) {
-          backPDFs.push({ 
-            job, 
-            pdfDoc,
-            page: 1 // Second page index
-          });
-        }
-        
-        slotsRemaining--;
       }
+      
+      currentPosition++;
+      if (currentPosition >= slotsPerSheet) break;
     }
   }
   
-  // If we still have slots remaining, fill them with jobs in sequence
-  while (slotsRemaining > 0 && jobs.length > 0) {
-    const jobIndex = currentJobIndex % jobs.length;
-    const job = jobs[jobIndex];
-    currentJobIndex++;
-    
-    if (!jobPDFs.has(job.id)) continue;
-    
-    const { pdfDoc } = jobPDFs.get(job.id)!;
-    const pageCount = pdfDoc.getPageCount();
-    
-    frontPDFs.push({ 
-      job, 
-      pdfDoc,
-      page: 0 // First page index
-    });
-    
-    // Add back page if job is double-sided and has a second page
-    if (job.double_sided && pageCount > 1) {
-      backPDFs.push({ 
-        job, 
-        pdfDoc,
-        page: 1 // Second page index
-      });
-    }
-    
-    slotsRemaining--;
-  }
+  // Sort arrays by position to ensure correct placement
+  frontPDFs.sort((a, b) => a.position - b.position);
+  backPDFs.sort((a, b) => a.position - b.position);
   
   console.log(`Created ${frontPDFs.length} front pages and ${backPDFs.length} back pages for imposition`);
   
@@ -192,4 +123,29 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
   });
   
   return { frontPDFs, backPDFs };
+}
+
+// CRITICAL NEW FUNCTION: Calculate the corresponding position on the back side
+// This ensures that when the paper is flipped, front and back align correctly
+function calculateBackPosition(frontPosition: number, slotsPerSheet: number) {
+  // For a 3x8 grid (24 slots), we need to:
+  // 1. Determine the row (0-7)
+  // 2. Determine the column (0-2)
+  // 3. Calculate the flipped position
+  
+  const columns = 3; // Standard is 3 columns
+  const rows = slotsPerSheet / columns; // Should be 8 rows for 24 slots
+  
+  const row = Math.floor(frontPosition / columns);
+  const col = frontPosition % columns;
+  
+  // When flipping for double-sided printing:
+  // - Same row
+  // - Column becomes (columns - 1 - col)
+  const flippedCol = (columns - 1) - col;
+  const backPosition = (row * columns) + flippedCol;
+  
+  console.log(`Front position ${frontPosition} (row ${row}, col ${col}) maps to back position ${backPosition} (row ${row}, col ${flippedCol})`);
+  
+  return backPosition;
 }

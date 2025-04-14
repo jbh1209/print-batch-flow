@@ -16,7 +16,7 @@ export function drawCardGrid(
   dimensions: ReturnType<typeof calculateDimensions>,
   helveticaFont: any,
   helveticaBold: any,
-  pdfPages?: { job: Job; pdfDoc: PDFDocument; page: number }[]
+  pdfPages?: { job: Job; pdfDoc: PDFDocument; page: number; position?: number }[]
 ) {
   console.log("Drawing card grid...");
   console.log(`validJobPDFs: ${validJobPDFs.length}, pdfPages: ${pdfPages?.length || 'none'}`);
@@ -47,19 +47,29 @@ export function drawCardGrid(
       console.log(`Drawing position ${positionIndex} at (${x}, ${y})`);
       
       if (usePageDuplication) {
-        // Draw from specific page array (either front or back) - HANDLES DUPLICATION
-        if (positionIndex >= pdfPages!.length) {
-          // Draw empty placeholder when we run out of pages
+        // CRITICAL CHANGE: Check for page with matching position first
+        let pageData = null;
+        if (pdfPages) {
+          // First try to find by position property
+          pageData = pdfPages.find(p => p.position === positionIndex);
+          
+          // If not found by position, fall back to array index (for backward compatibility)
+          if (!pageData && positionIndex < pdfPages.length) {
+            pageData = pdfPages[positionIndex];
+          }
+        }
+        
+        if (!pageData) {
+          // Draw empty placeholder when no page data is available
           console.log(`Drawing empty placeholder at position ${positionIndex} (no page data)`);
           drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
         } else {
           // Draw specific page from job PDF
           console.log(`Drawing job page at position ${positionIndex} from provided pages array`);
-          const pageData = pdfPages![positionIndex];
           
           // Better null checking before attempting to draw
-          if (!pageData) {
-            console.error(`Null page data at position ${positionIndex}`);
+          if (!pageData.job || !pageData.pdfDoc) {
+            console.error(`Null page data for position ${positionIndex}`);
             drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
             continue;
           }
