@@ -1,4 +1,3 @@
-
 // This file now serves as the main entry point for grid drawing functionality
 // but delegates most work to other specialized modules
 
@@ -31,10 +30,12 @@ export function drawCardGrid(
     textAreaHeight
   } = dimensions;
   
-  // If using page duplication for imposition
-  const usePageDuplication = Array.isArray(pdfPages) && pdfPages.length > 0;
-  console.log(`Using page duplication mode: ${usePageDuplication}`);
-  
+  // Always use page duplication mode if pdfPages is provided
+  if (!pdfPages || pdfPages.length === 0) {
+    console.error("No PDF pages provided for imposition");
+    return;
+  }
+
   // Draw placeholders in grid
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < columns; col++) {
@@ -46,60 +47,34 @@ export function drawCardGrid(
       const positionIndex = row * columns + col;
       console.log(`Drawing position ${positionIndex} at (${x}, ${y})`);
       
-      if (usePageDuplication) {
-        // Look for a page with this exact position
-        const pageData = pdfPages?.find(p => p.position === positionIndex);
-        
-        if (!pageData) {
-          // Draw empty placeholder when no job is assigned to this position
-          console.log(`Drawing empty placeholder at position ${positionIndex} (no matching page)`);
-          drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
-        } else {
-          // Draw specific page from job PDF
-          console.log(`Drawing job ${pageData.job.id} (${pageData.job.name}) at position ${positionIndex}`);
-          
-          // Better null checking before attempting to draw
-          if (!pageData.job || !pageData.pdfDoc) {
-            console.error(`Null page data for position ${positionIndex}`);
-            drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
-            continue;
-          }
-          
-          // This is critical for duplication - we use the specific page data
-          drawSpecificJobPage(
-            page, 
-            x, 
-            y, 
-            pageData, 
-            placeholderWidth, 
-            placeholderHeight, 
-            textAreaHeight, 
-            helveticaFont, 
-            helveticaBold
-          );
-        }
+      // Look for a page with this exact position
+      const pageData = pdfPages.find(p => p.position === positionIndex);
+      
+      if (!pageData) {
+        // Draw empty placeholder when no job is assigned to this position
+        console.log(`Drawing empty placeholder at position ${positionIndex} (no matching page)`);
+        drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
       } else {
-        // Original behavior without page duplication (fallback)
-        if (positionIndex >= validJobPDFs.length) {
-          // Draw empty placeholder
-          console.log(`Drawing empty placeholder at position ${positionIndex} (fallback mode)`);
+        // Draw specific page from job PDF
+        console.log(`Drawing job ${pageData.job.id} (${pageData.job.name}) at position ${positionIndex}`);
+        
+        if (!pageData.job || !pageData.pdfDoc) {
+          console.error(`Null page data for position ${positionIndex}`);
           drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
-        } else {
-          // Draw job placeholder with PDF
-          console.log(`Drawing job at position ${positionIndex} (fallback mode)`);
-          const jobData = validJobPDFs[positionIndex];
-          drawJobPlaceholder(
-            page, 
-            x, 
-            y, 
-            jobData, 
-            placeholderWidth, 
-            placeholderHeight, 
-            textAreaHeight, 
-            helveticaFont, 
-            helveticaBold
-          );
+          continue;
         }
+        
+        drawSpecificJobPage(
+          page, 
+          x, 
+          y, 
+          pageData, 
+          placeholderWidth, 
+          placeholderHeight, 
+          textAreaHeight, 
+          helveticaFont, 
+          helveticaBold
+        );
       }
     }
   }

@@ -1,4 +1,3 @@
-
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { loadSingleJobPdf, loadMultipleJobPdfs } from "./pdfLoaderCore";
@@ -47,63 +46,53 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
   const frontPDFs: { job: Job; pdfDoc: PDFDocument; page: number; position: number }[] = [];
   const backPDFs: { job: Job; pdfDoc: PDFDocument; page: number; position: number }[] = [];
   
-  // Load all PDFs first using the specialized function
+  // Load all PDFs first
   const jobPDFs = await loadMultipleJobPdfs(jobs);
   console.log(`Successfully loaded PDFs for ${jobPDFs.size} out of ${jobs.length} jobs`);
   
-  // Debug job IDs and PDF availability
+  // Debug job quantities
   jobs.forEach(job => {
-    console.log(`Job ${job.id} (${job.name}): PDF ${jobPDFs.has(job.id) ? 'available' : 'missing'}`);
+    console.log(`Job ${job.id} (${job.name}): Quantity ${job.quantity || 1}, PDF ${jobPDFs.has(job.id) ? 'available' : 'missing'}`);
   });
   
-  // Process each job in the order they appear in the jobs array
   let currentPosition = 0;
   
-  // Debug logging for job quantities
-  jobs.forEach(job => {
-    console.log(`Job ${job.id} (${job.name}): Quantity ${job.quantity || 1}`);
-  });
-  
-  // For each job, add the required number of copies based on its quantity
+  // Process each job and its quantities
   for (const job of jobs) {
     if (!job.id || !jobPDFs.has(job.id)) {
       console.warn(`Skipping job ${job.id || 'unknown'} due to missing PDF`);
       continue;
     }
     
-    const { pdfDoc } = jobPDFs.get(job.id)!;
-    const pageCount = pdfDoc.getPageCount();
-    
-    // Calculate how many copies we need for this job
+    const jobData = jobPDFs.get(job.id)!;
     const quantity = job.quantity || 1;
-    console.log(`Processing job ${job.id} (${job.name}) with quantity ${quantity}`);
     
-    // Add each copy of this job
+    console.log(`Processing job ${job.id} (${job.name}) - adding ${quantity} copies at position ${currentPosition}`);
+    
+    // Add all copies of this job
     for (let i = 0; i < quantity && currentPosition < slotsPerSheet; i++) {
-      console.log(`Adding copy ${i+1}/${quantity} of job ${job.id} at position ${currentPosition}`);
+      console.log(`Adding copy ${i + 1}/${quantity} of job ${job.id} at position ${currentPosition}`);
       
       // Add front page
       frontPDFs.push({
         job,
-        pdfDoc,
-        page: 0, // First page
+        pdfDoc: jobData.pdfDoc,
+        page: 0,
         position: currentPosition
       });
       
-      // Add back page if job is double-sided
+      // Add back page if double-sided
       if (job.double_sided) {
-        // Calculate the corresponding back position
         const backPosition = calculateBackPosition(currentPosition, slotsPerSheet);
         
         backPDFs.push({
           job,
-          pdfDoc,
-          page: pageCount > 1 ? 1 : 0, // Use second page if available, otherwise first page
+          pdfDoc: jobData.pdfDoc,
+          page: jobData.pdfDoc.getPageCount() > 1 ? 1 : 0,
           position: backPosition
         });
       }
       
-      // Move to next position
       currentPosition++;
       if (currentPosition >= slotsPerSheet) {
         console.log(`Reached maximum slots (${slotsPerSheet})`);
@@ -112,14 +101,12 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     }
   }
   
-  // Sort arrays by position to ensure correct placement
+  // Sort arrays by position
   frontPDFs.sort((a, b) => a.position - b.position);
   backPDFs.sort((a, b) => a.position - b.position);
   
-  console.log(`Created ${frontPDFs.length} front pages and ${backPDFs.length} back pages for imposition`);
-  
-  // Debug final job distribution
-  console.log("Final PDF positions:");
+  // Debug final positions
+  console.log("\nFinal PDF positions:");
   frontPDFs.forEach((pdf) => {
     console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
   });
@@ -150,3 +137,4 @@ function calculateBackPosition(frontPosition: number, slotsPerSheet: number) {
   
   return backPosition;
 }
+
