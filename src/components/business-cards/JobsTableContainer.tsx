@@ -24,6 +24,7 @@ interface JobsTableContainerProps {
   selectedJobs: string[];
   onSelectJob: (jobId: string, isSelected: boolean) => void;
   onSelectAllJobs: (isSelected: boolean) => void;
+  error?: string | null;
 }
 
 const JobsTableContainer = ({ 
@@ -32,7 +33,8 @@ const JobsTableContainer = ({
   onRefresh,
   selectedJobs,
   onSelectJob,
-  onSelectAllJobs 
+  onSelectAllJobs,
+  error
 }: JobsTableContainerProps) => {
   return (
     <>
@@ -59,12 +61,13 @@ const JobsTableContainer = ({
               selectedJobs={selectedJobs}
               onSelectJob={onSelectJob}
               onSelectAllJobs={onSelectAllJobs}
+              error={error}
             />
           </TableBody>
         </Table>
       </div>
       
-      {jobs.length > 0 && (
+      {!isLoading && !error && jobs.length > 0 && (
         <div className="p-4 border-t">
           <Pagination>
             <PaginationContent>

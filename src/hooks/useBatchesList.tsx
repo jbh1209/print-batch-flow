@@ -18,19 +18,33 @@ export const useBatchesList = () => {
   const { toast } = useToast();
   const [batches, setBatches] = useState<BatchSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchBatches = async () => {
-    if (!user) return;
-    
     setIsLoading(true);
+    setError(null);
+    
     try {
+      if (!user) {
+        console.log("No authenticated user found");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Fetching batches for user:", user.id);
+      
       const { data, error } = await supabase
         .from("batches")
         .select("*")
         .eq("created_by", user.id)
         .order("created_at", { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
+      
+      console.log("Batches data received:", data?.length || 0, "records");
       
       // Determine product type from batch name
       const processedBatches = data?.map(batch => {
@@ -59,6 +73,7 @@ export const useBatchesList = () => {
       setBatches(processedBatches || []);
     } catch (error) {
       console.error("Error fetching batches:", error);
+      setError("Failed to load batch data");
       toast({
         title: "Error loading batches",
         description: "Failed to load batch data. Please try again.",
@@ -70,9 +85,7 @@ export const useBatchesList = () => {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchBatches();
-    }
+    fetchBatches();
   }, [user]);
 
   const getProductUrl = (productType: string) => {
@@ -101,6 +114,7 @@ export const useBatchesList = () => {
   return {
     batches,
     isLoading,
+    error,
     fetchBatches,
     getProductUrl,
     getBatchUrl

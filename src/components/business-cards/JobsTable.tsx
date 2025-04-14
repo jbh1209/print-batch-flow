@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { UploadCloud } from "lucide-react";
 import { format } from "date-fns";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import JobActions from "./JobActions";
+import EmptyState from "./EmptyState";
 
 export type JobStatus = "queued" | "batched" | "completed" | "cancelled";
 export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
@@ -30,6 +30,7 @@ interface JobsTableProps {
   selectedJobs: string[];
   onSelectJob: (jobId: string, isSelected: boolean) => void;
   onSelectAllJobs: (isSelected: boolean) => void;
+  error?: string | null;
 }
 
 const JobsTable = ({ 
@@ -38,7 +39,8 @@ const JobsTable = ({
   onRefresh,
   selectedJobs,
   onSelectJob,
-  onSelectAllJobs
+  onSelectAllJobs,
+  error
 }: JobsTableProps) => {
   const [selectAll, setSelectAll] = useState(false);
 
@@ -63,11 +65,23 @@ const JobsTable = ({
   if (isLoading) {
     return (
       <TableRow>
-        <TableCell colSpan={9} className="h-24 text-center">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-            <span className="ml-2">Loading...</span>
-          </div>
+        <TableCell colSpan={9} className="h-24">
+          <EmptyState type="loading" entityName="jobs" />
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (error) {
+    return (
+      <TableRow>
+        <TableCell colSpan={9} className="h-64">
+          <EmptyState 
+            type="error" 
+            entityName="jobs" 
+            errorMessage={error}
+            onRetry={onRefresh} 
+          />
         </TableCell>
       </TableRow>
     );
@@ -76,19 +90,12 @@ const JobsTable = ({
   if (jobs.length === 0) {
     return (
       <TableRow>
-        <TableCell colSpan={9} className="h-64 text-center">
-          <div className="flex flex-col items-center justify-center text-gray-500">
-            <div className="bg-gray-100 rounded-full p-3 mb-3">
-              <UploadCloud size={24} />
-            </div>
-            <h3 className="font-medium mb-1">No jobs found</h3>
-            <p className="text-sm mb-4">There are no business card jobs available.</p>
-            <p className="text-sm text-gray-400 max-w-lg">
-              You can add a new job using the "Add New Job" button. 
-              If you're experiencing issues, please check if storage and 
-              database permissions are set up correctly.
-            </p>
-          </div>
+        <TableCell colSpan={9} className="h-64">
+          <EmptyState 
+            type="empty" 
+            entityName="jobs"
+            createPath="/batches/business-cards/jobs/new"
+          />
         </TableCell>
       </TableRow>
     );

@@ -11,7 +11,7 @@ import BatchesEmpty from "@/components/batches/BatchesEmpty";
 const AllBatches = () => {
   const [searchParams] = useSearchParams();
   const batchId = searchParams.get('batchId');
-  const { batches, isLoading, getBatchUrl } = useBatchesList();
+  const { batches, isLoading, error, fetchBatches, getBatchUrl } = useBatchesList();
 
   // If we're viewing a specific batch, render the BatchDetails component
   if (batchId) {
@@ -32,13 +32,13 @@ const AllBatches = () => {
     <div>
       <AllBatchesHeader />
 
-      {isLoading ? (
-        <BatchesLoading />
-      ) : batches.length === 0 ? (
-        <BatchesEmpty />
-      ) : (
-        <BatchesList batches={batches} getBatchUrl={getBatchUrl} />
-      )}
+      <BatchesList 
+        batches={batches} 
+        getBatchUrl={getBatchUrl} 
+        isLoading={isLoading}
+        error={error}
+        onRetry={fetchBatches}
+      />
     </div>
   );
 };

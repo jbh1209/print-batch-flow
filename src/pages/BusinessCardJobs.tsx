@@ -6,13 +6,14 @@ import JobsTableContainer from "@/components/business-cards/JobsTableContainer";
 import FilterBar from "@/components/business-cards/FilterBar";
 import { useBusinessCardJobsList } from "@/hooks/useBusinessCardJobsList";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 const BusinessCardJobs = () => {
   const navigate = useNavigate();
   const { 
     jobs, 
     isLoading, 
+    error,
     filterView, 
     filterCounts, 
     laminationFilter, 
@@ -38,6 +39,27 @@ const BusinessCardJobs = () => {
         title="All Business Card Jobs" 
         subtitle="View and manage all business card jobs" 
       />
+      
+      {/* Error message if there's an issue fetching data */}
+      {error && !isLoading && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-4">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            <div>
+              <p className="font-medium">There was a problem loading your jobs</p>
+              <p className="text-sm mt-1">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => fetchJobs()}
+              >
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="bg-white rounded-lg border shadow mb-8">
         {/* Tabs */}
@@ -86,6 +108,7 @@ const BusinessCardJobs = () => {
         <JobsTableContainer 
           jobs={jobs}
           isLoading={isLoading}
+          error={error}
           onRefresh={fetchJobs}
           selectedJobs={selectedJobs}
           onSelectJob={handleSelectJob}

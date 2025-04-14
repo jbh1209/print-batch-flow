@@ -23,13 +23,14 @@ import BusinessCardJobNew from "@/pages/BusinessCardJobNew";
 import BusinessCardJobEdit from "@/pages/BusinessCardJobEdit";
 import AllBatches from "@/pages/AllBatches";
 import BusinessCardBatches from "@/pages/BusinessCardBatches";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const App: React.FC = () => {
   return (
     <BrowserRouter>
       <ThemeProvider defaultTheme="light">
         <Routes>
-          <Route path="/" element={<Layout />}>
+          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="/index" element={<Index />} />
             <Route path="/settings" element={<Settings />} />

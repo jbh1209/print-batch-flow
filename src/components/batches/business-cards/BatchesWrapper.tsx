@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import BatchesTable from "./BatchesTable";
 import { LaminationType } from "@/components/business-cards/JobsTable";
+import EmptyState from "@/components/business-cards/EmptyState";
 
 interface Batch {
   id: string;
@@ -27,6 +28,7 @@ interface Batch {
 interface BatchesWrapperProps {
   batches: Batch[];
   isLoading: boolean;
+  error?: string | null;
   onRefresh: () => void;
   onViewPDF: (url: string | null) => void;
   onDeleteBatch: (batchId: string) => void;
@@ -35,11 +37,45 @@ interface BatchesWrapperProps {
 const BatchesWrapper = ({
   batches,
   isLoading,
+  error,
   onRefresh,
   onViewPDF,
   onDeleteBatch
 }: BatchesWrapperProps) => {
   const navigate = useNavigate();
+  
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg border shadow p-8">
+        <EmptyState type="loading" entityName="batches" />
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg border shadow p-8">
+        <EmptyState 
+          type="error" 
+          entityName="batches" 
+          errorMessage={error}
+          onRetry={onRefresh} 
+        />
+      </div>
+    );
+  }
+  
+  if (batches.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border shadow p-8">
+        <EmptyState 
+          type="empty" 
+          entityName="batches"
+          createPath="/batches/business-cards/jobs"
+        />
+      </div>
+    );
+  }
   
   return (
     <div className="bg-white rounded-lg border shadow mb-8">
@@ -66,7 +102,7 @@ const BatchesWrapper = ({
           <TableBody>
             <BatchesTable
               batches={batches}
-              isLoading={isLoading}
+              isLoading={false}
               onViewPDF={onViewPDF}
               onDeleteBatch={onDeleteBatch}
             />

@@ -25,14 +25,23 @@ export const useBusinessCardBatches = (batchId: string | null) => {
   const { toast } = useToast();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchBatches = async () => {
-    if (!user) return;
-    
     setIsLoading(true);
+    setError(null);
+    
     try {
+      if (!user) {
+        console.log("No authenticated user found for business card batches");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Fetching business card batches for user:", user.id);
+      
       let query = supabase
         .from("batches")
         .select("*")
@@ -45,11 +54,18 @@ export const useBusinessCardBatches = (batchId: string | null) => {
       
       const { data, error } = await query.order("created_at", { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error fetching batches:", error);
+        throw error;
+      }
+      
+      console.log("Business card batches received:", data?.length || 0, "records");
+      
       setBatches(data || []);
       
       // If we're looking for a specific batch and didn't find it
       if (batchId && (!data || data.length === 0)) {
+        console.log("Requested batch not found:", batchId);
         toast({
           title: "Batch not found",
           description: "The requested batch could not be found or you don't have permission to view it.",
@@ -58,6 +74,7 @@ export const useBusinessCardBatches = (batchId: string | null) => {
       }
     } catch (error) {
       console.error("Error fetching batches:", error);
+      setError("Failed to load batch data");
       toast({
         title: "Error loading batches",
         description: "Failed to load batch data. Please try again.",
@@ -77,6 +94,8 @@ export const useBusinessCardBatches = (batchId: string | null) => {
     
     setIsDeleting(true);
     try {
+      console.log("Deleting batch:", batchToDelete);
+      
       // First reset all jobs in this batch back to queued
       const { error: jobsError } = await supabase
         .from("business_card_jobs")
@@ -86,7 +105,10 @@ export const useBusinessCardBatches = (batchId: string | null) => {
         })
         .eq("batch_id", batchToDelete);
       
-      if (jobsError) throw jobsError;
+      if (jobsError) {
+        console.error("Error resetting jobs in batch:", jobsError);
+        throw jobsError;
+      }
       
       // Then delete the batch
       const { error: deleteError } = await supabase
@@ -94,7 +116,12 @@ export const useBusinessCardBatches = (batchId: string | null) => {
         .delete()
         .eq("id", batchToDelete);
       
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error("Error deleting batch:", deleteError);
+        throw deleteError;
+      }
+      
+      console.log("Batch deleted successfully");
       
       toast({
         title: "Batch deleted",
@@ -117,14 +144,13 @@ export const useBusinessCardBatches = (batchId: string | null) => {
   };
 
   useEffect(() => {
-    if (!batchId) {
-      fetchBatches();
-    }
+    fetchBatches();
   }, [user, batchId]);
 
   return {
     batches,
     isLoading,
+    error,
     batchToDelete,
     isDeleting,
     fetchBatches,

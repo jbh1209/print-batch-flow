@@ -11,6 +11,7 @@ export const useBusinessCardJobsList = () => {
   const [filterView, setFilterView] = useState<JobStatus | "all">("all");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterCounts, setFilterCounts] = useState({
     all: 0,
     queued: 0,
@@ -23,10 +24,18 @@ export const useBusinessCardJobsList = () => {
 
   // Fetch jobs function that can be called to refresh the data
   const fetchJobs = async () => {
-    if (!user) return;
-    
     setIsLoading(true);
+    setError(null);
+    
     try {
+      if (!user) {
+        console.log("No authenticated user found for jobs");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Fetching jobs for user:", user.id);
+      
       let query = supabase
         .from('business_card_jobs')
         .select('*')
@@ -46,8 +55,11 @@ export const useBusinessCardJobsList = () => {
       const { data, error } = await query;
       
       if (error) {
+        console.error("Supabase error fetching jobs:", error);
         throw error;
       }
+      
+      console.log("Jobs data received:", data?.length || 0, "jobs");
       
       setJobs(data || []);
       
@@ -58,6 +70,7 @@ export const useBusinessCardJobsList = () => {
         .eq('user_id', user.id);
       
       if (countError) {
+        console.error("Error counting jobs by status:", countError);
         throw countError;
       }
       
@@ -68,12 +81,15 @@ export const useBusinessCardJobsList = () => {
         completed: allJobs?.filter(job => job.status === 'completed').length || 0
       };
       
+      console.log("Job counts by status:", counts);
+      
       setFilterCounts(counts);
       
       // Clear selected jobs when filters change
       setSelectedJobs([]);
     } catch (error) {
       console.error('Error fetching jobs:', error);
+      setError("Failed to load jobs data");
       toast({
         title: "Error fetching jobs",
         description: "There was a problem loading your jobs.",
@@ -86,10 +102,15 @@ export const useBusinessCardJobsList = () => {
 
   // New function to fix jobs that are marked as batched but have no batch_id
   const fixBatchedJobsWithoutBatch = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log("No authenticated user found for fix operation");
+      return;
+    }
     
     setIsFixingBatchedJobs(true);
     try {
+      console.log("Finding orphaned batched jobs");
+      
       // Find all jobs that are marked as batched but have no batch_id
       const { data: orphanedJobs, error: findError } = await supabase
         .from('business_card_jobs')
@@ -98,7 +119,12 @@ export const useBusinessCardJobsList = () => {
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      if (findError) throw findError;
+      if (findError) {
+        console.error("Error finding orphaned jobs:", findError);
+        throw findError;
+      }
+      
+      console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Reset these jobs to queued status
@@ -107,7 +133,12 @@ export const useBusinessCardJobsList = () => {
           .update({ status: 'queued' })
           .in('id', orphanedJobs.map(job => job.id));
         
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error("Error fixing orphaned jobs:", updateError);
+          throw updateError;
+        }
+        
+        console.log(`Reset ${orphanedJobs.length} jobs to queued status`);
         
         toast({
           title: "Jobs fixed",
@@ -131,7 +162,7 @@ export const useBusinessCardJobsList = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, [user, filterView, laminationFilter, toast]);
+  }, [user, filterView, laminationFilter]);
   
   // Run the fix operation once when component mounts
   useEffect(() => {
@@ -170,6 +201,7 @@ export const useBusinessCardJobsList = () => {
   return {
     jobs,
     isLoading,
+    error,
     filterView,
     filterCounts,
     laminationFilter,

@@ -5,6 +5,9 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import BatchDetails from "@/components/batches/BatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import BatchDeleteDialog from "@/components/batches/business-cards/BatchDeleteDialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const BusinessCardBatches = () => {
   const [searchParams] = useSearchParams();
@@ -13,6 +16,7 @@ const BusinessCardBatches = () => {
   const {
     batches,
     isLoading,
+    error,
     batchToDelete,
     isDeleting,
     fetchBatches,
@@ -39,9 +43,30 @@ const BusinessCardBatches = () => {
         subtitle="View and manage all your business card batches" 
       />
 
+      {/* Error message if there's an issue fetching data */}
+      {error && !isLoading && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error loading batches</AlertTitle>
+          <AlertDescription>
+            {error}
+            <div className="mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={fetchBatches}
+              >
+                Try Again
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <BatchesWrapper 
         batches={batches}
         isLoading={isLoading}
+        error={error}
         onRefresh={fetchBatches}
         onViewPDF={handleViewPDF}
         onDeleteBatch={setBatchToDelete}
