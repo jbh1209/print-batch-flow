@@ -40,13 +40,15 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     const batchName = `DXB-BC-00001`; // Fixed batch name as a fallback
     
     console.log("Creating duplicated imposition PDFs...");
-    // Create both front and back imposition sheets
+    // Create both front and back imposition sheets - KEY FOR DUPLICATING PAGES
     const { frontPDFs, backPDFs } = await createDuplicatedImpositionPDFs(jobs, 1);
     
+    console.log(`Front PDFs count: ${frontPDFs.length}, Back PDFs count: ${backPDFs.length}`);
+    
+    // Create fallback PDFs - we need to ensure we have something to display
     if (frontPDFs.length === 0) {
-      console.warn("No valid front PDFs were created for imposition, creating fallback");
+      console.warn("No valid front PDFs were created for imposition, creating fallbacks");
       
-      // Create fallback PDFs - we need to ensure we have something to display
       for (let i = 0; i < Math.min(jobs.length, 24); i++) {
         const job = jobs[i];
         const emptyPdf = await PDFDocument.create();
@@ -63,8 +65,6 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
           page: 0
         });
       }
-    } else {
-      console.log(`Created ${frontPDFs.length} front PDFs for imposition`);
     }
     
     console.log("Creating front page");
@@ -74,22 +74,17 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     // Draw batch information at top (no rotation)
     drawBatchInfo(frontPage, jobs, helveticaFont, helveticaBold, "Front");
     
-    // Draw side information (simple text)
+    // Draw side information (side text)
     drawSideInfo(frontPage, jobs, helveticaFont, helveticaBold, batchName, "Front");
     
     console.log("Loading job PDFs as backup...");
     // Load job PDFs for backup approach if needed
     const validJobPDFs = await loadJobPDFs(jobs);
+    console.log(`Loaded ${validJobPDFs.length} job PDFs as backup`);
     
     console.log("Drawing front grid...");
-    // First try to use the frontPDFs array, fall back to validJobPDFs if needed
-    if (frontPDFs.length > 0) {
-      console.log("Drawing grid with front PDFs");
-      drawCardGrid(frontPage, validJobPDFs, dimensions, helveticaFont, helveticaBold, frontPDFs);
-    } else {
-      console.log("Drawing grid with valid job PDFs");
-      drawCardGrid(frontPage, validJobPDFs, dimensions, helveticaFont, helveticaBold);
-    }
+    // First try to use the frontPDFs array - this is crucial for job duplication
+    drawCardGrid(frontPage, validJobPDFs, dimensions, helveticaFont, helveticaBold, frontPDFs);
     
     // If we have back pages, create a back imposition sheet
     if (backPDFs.length > 0) {
@@ -106,7 +101,7 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
       drawCardGrid(backPage, validJobPDFs, dimensions, helveticaFont, helveticaBold, backPDFs);
     } else if (jobs.some(job => job.double_sided)) {
       // Create a back page anyway if any jobs are double-sided
-      console.log("Creating back page for double-sided jobs (fallback)");
+      console.log("Creating back page for double-sided jobs");
       let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
       
       // Draw batch information for back page

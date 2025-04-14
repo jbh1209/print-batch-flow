@@ -1,3 +1,4 @@
+
 // This file now serves as the main entry point for grid drawing functionality
 // but delegates most work to other specialized modules
 
@@ -17,6 +18,9 @@ export function drawCardGrid(
   helveticaBold: any,
   pdfPages?: { job: Job; pdfDoc: PDFDocument; page: number }[]
 ) {
+  console.log("Drawing card grid...");
+  console.log(`validJobPDFs: ${validJobPDFs.length}, pdfPages: ${pdfPages?.length || 'none'}`);
+  
   const {
     placeholderWidth,
     placeholderHeight,
@@ -29,6 +33,7 @@ export function drawCardGrid(
   
   // If using page duplication for imposition
   const usePageDuplication = Array.isArray(pdfPages) && pdfPages.length > 0;
+  console.log(`Using page duplication: ${usePageDuplication}`);
   
   // Draw placeholders in 3x8 grid
   for (let row = 0; row < rows; row++) {
@@ -41,13 +46,17 @@ export function drawCardGrid(
       const positionIndex = row * columns + col;
       
       if (usePageDuplication) {
-        // Draw from specific page array (either front or back)
+        // Draw from specific page array (either front or back) - HANDLES DUPLICATION
         if (positionIndex >= pdfPages!.length) {
-          // Draw empty placeholder
+          // Draw empty placeholder when we run out of pages
+          console.log(`Drawing empty placeholder at position ${positionIndex}`);
           drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
         } else {
           // Draw specific page from job PDF
+          console.log(`Drawing job page at position ${positionIndex}`);
           const pageData = pdfPages![positionIndex];
+          
+          // This is critical for duplication - we use the specific page data
           drawSpecificJobPage(
             page, 
             x, 
@@ -61,12 +70,14 @@ export function drawCardGrid(
           );
         }
       } else {
-        // Original behavior without page duplication
+        // Original behavior without page duplication (fallback)
         if (positionIndex >= validJobPDFs.length) {
           // Draw empty placeholder
+          console.log(`Drawing empty placeholder at position ${positionIndex} (fallback)`);
           drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
         } else {
           // Draw job placeholder with PDF
+          console.log(`Drawing job at position ${positionIndex} (fallback)`);
           const jobData = validJobPDFs[positionIndex];
           drawJobPlaceholder(
             page, 

@@ -29,7 +29,7 @@ export async function loadJobPDFs(jobs: Job[], duplicateForImposition = false) {
     });
 
   // Load actual PDFs where URLs exist
-  const jobPDFs = await Promise.all(jobs.map(async (job, index) => {
+  const jobPDFPromises = jobs.map(async (job, index) => {
     try {
       if (!job.pdf_url) {
         return null; // Will be handled by the empty PDF fallback
@@ -37,63 +37,79 @@ export async function loadJobPDFs(jobs: Job[], duplicateForImposition = false) {
       
       console.log(`Loading PDF for job ${job.id || index} from URL: ${job.pdf_url}`);
       
-      // Test if the URL is reachable first
-      const headResponse = await fetch(job.pdf_url, { method: 'HEAD' });
-      if (!headResponse.ok) {
-        console.error(`PDF URL not reachable for job ${job.id || index}: ${headResponse.statusText} (${headResponse.status})`);
-        return null;
-      }
-      
-      const response = await fetch(job.pdf_url);
-      if (!response.ok) {
-        console.error(`Failed to fetch PDF for job ${job.id || index}: ${response.statusText} (${response.status})`);
-        // Log the response body for debug purposes
-        try {
-          const errorText = await response.text();
-          console.error(`Response body: ${errorText}`);
-        } catch (e) {
-          console.error(`Could not read response body: ${e}`);
-        }
-        return null;
-      }
-      
-      const pdfBytes = await response.arrayBuffer();
-      if (!pdfBytes || pdfBytes.byteLength === 0) {
-        console.error(`Empty PDF file received for job ${job.id || index}`);
-        return null;
-      }
-      
-      console.log(`Successfully fetched PDF for job ${job.id || index}, size: ${pdfBytes.byteLength} bytes`);
-      
+      // Fetch the PDF with better error handling
       try {
-        const pdfDoc = await PDFDocument.load(pdfBytes);
-        const pageCount = pdfDoc.getPageCount();
-        console.log(`PDF loaded with ${pageCount} pages for job ${job.id || index}`);
+        // First check if we can access the URL
+        const headResponse = await fetch(job.pdf_url, { 
+          method: 'HEAD',
+          cache: 'no-cache' // Prevent caching issues
+        });
         
-        if (pageCount === 0) {
-          console.warn(`PDF has 0 pages for job ${job.id || index}`);
+        if (!headResponse.ok) {
+          console.error(`PDF URL not reachable for job ${job.id || index}: ${headResponse.statusText} (${headResponse.status})`);
           return null;
         }
         
-        // If we need to duplicate pages for imposition (front/back printing)
-        if (duplicateForImposition && pageCount > 1) {
-          // Create a new document with duplicated pages in the correct order
-          return { job, pdfDoc, isDuplicated: true };
-        } else {
-          return { job, pdfDoc, isDuplicated: false };
+        // Now actually fetch the PDF
+        const response = await fetch(job.pdf_url, { 
+          cache: 'no-cache' // Prevent caching issues
+        });
+        
+        if (!response.ok) {
+          console.error(`Failed to fetch PDF for job ${job.id || index}: ${response.statusText} (${response.status})`);
+          try {
+            const errorText = await response.text();
+            console.error(`Response body: ${errorText}`);
+          } catch (e) {
+            console.error(`Could not read response body: ${e}`);
+          }
+          return null;
+        }
+        
+        const pdfBytes = await response.arrayBuffer();
+        if (!pdfBytes || pdfBytes.byteLength === 0) {
+          console.error(`Empty PDF file received for job ${job.id || index}`);
+          return null;
+        }
+        
+        console.log(`Successfully fetched PDF for job ${job.id || index}, size: ${pdfBytes.byteLength} bytes`);
+        
+        try {
+          const pdfDoc = await PDFDocument.load(pdfBytes, { 
+            ignoreEncryption: true // Try to open even encrypted PDFs
+          });
+          
+          const pageCount = pdfDoc.getPageCount();
+          console.log(`PDF loaded with ${pageCount} pages for job ${job.id || index}`);
+          
+          if (pageCount === 0) {
+            console.warn(`PDF has 0 pages for job ${job.id || index}`);
+            return null;
+          }
+          
+          // If we need to duplicate pages for imposition (front/back printing)
+          if (duplicateForImposition && pageCount > 1) {
+            // Create a new document with duplicated pages in the correct order
+            return { job, pdfDoc, isDuplicated: true };
+          } else {
+            return { job, pdfDoc, isDuplicated: false };
+          }
+        } catch (error) {
+          console.error(`Error parsing PDF for job ${job.id || index}:`, error);
+          return null;
         }
       } catch (error) {
-        console.error(`Error parsing PDF for job ${job.id || index}:`, error);
+        console.error(`Error fetching PDF for job ${job.id || index}:`, error);
         return null;
       }
     } catch (error) {
       console.error(`Error loading PDF for job ${job.id || index}:`, error);
       return null;
     }
-  }));
+  });
   
   // Combine the results, filter out nulls, and include fallback empty PDFs
-  const allPdfLoads = [...jobPDFs, ...await Promise.all(emptyPdfPromises)];
+  const allPdfLoads = [...await Promise.all(jobPDFPromises), ...await Promise.all(emptyPdfPromises)];
   
   // Filter out any failed PDF loads
   const validPDFs = allPdfLoads.filter(item => item !== null) as { 
@@ -140,14 +156,10 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
       
       // Fetch and load the original PDF
       try {
-        // Test if the URL is reachable first
-        const headResponse = await fetch(job.pdf_url, { method: 'HEAD' });
-        if (!headResponse.ok) {
-          console.error(`PDF URL not reachable for job ${job.id}: ${headResponse.statusText} (${headResponse.status})`);
-          continue;
-        }
+        const response = await fetch(job.pdf_url, {
+          cache: 'no-cache' // Prevent caching issues
+        });
         
-        const response = await fetch(job.pdf_url);
         if (!response.ok) {
           console.error(`Failed to fetch PDF for job ${job.id}: ${response.statusText} (${response.status})`);
           continue;
@@ -160,7 +172,10 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
         }
         
         try {
-          const originalPdfDoc = await PDFDocument.load(pdfBytes);
+          const originalPdfDoc = await PDFDocument.load(pdfBytes, {
+            ignoreEncryption: true // Try to open even encrypted PDFs
+          });
+          
           const pageCount = originalPdfDoc.getPageCount();
           console.log(`PDF loaded with ${pageCount} pages for job ${job.id}`);
           
@@ -175,7 +190,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
           const copiesNeeded = Math.max(1, Math.ceil((job.quantity || 1) / 24));
           console.log(`Job ${job.id} needs ${copiesNeeded} copies for ${job.quantity || 0} cards`);
           
-          // Add copies to the front and back arrays
+          // Add copies to the front and back arrays - THIS IS KEY FOR DUPLICATION
           for (let i = 0; i < copiesNeeded; i++) {
             // Front page (always the first page)
             frontPDFs.push({ 
@@ -184,8 +199,8 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
               page: 0 // First page index
             });
             
-            // Back page (second page if available)
-            if (pageCount > 1) {
+            // Back page (second page if available and job is double-sided)
+            if (pageCount > 1 && job.double_sided) {
               backPDFs.push({ 
                 job, 
                 pdfDoc: originalPdfDoc,

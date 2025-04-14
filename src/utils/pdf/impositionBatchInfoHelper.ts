@@ -67,18 +67,49 @@ export function drawSideInfo(
     
     // Create the side text content
     const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm');
-    const sideText = `${batchName} Sheet (${pageType}) - ${formattedLamination} Lamination | Total Jobs: ${jobs.length} | Total Cards: ${totalCards} | Generated: ${timestamp}`;
+    const sideText = `${batchName} Sheet (${pageType}) - ${formattedLamination} Lamination | Jobs: ${jobs.length} | Cards: ${totalCards} | ${timestamp}`;
     
-    // Draw the side text directly (without using rotation operator directly)
-    // Instead, use the simple rotation option that is more PDF-lib compatible
+    // Draw left side text (rotated 90 degrees)
     page.drawText(sideText, {
-      x: mmToPoints(10),
-      y: mmToPoints(10),
+      x: mmToPoints(5),
+      y: page.getHeight() / 2,
       size: 8,
       font: helveticaBold,
-      color: rgb(0, 0, 0)
+      color: rgb(0, 0, 0),
+      rotate: {
+        angle: -Math.PI / 2,
+        xSkew: 0,
+        ySkew: 0,
+      }
+    });
+    
+    // Draw right side text (rotated -90 degrees)
+    page.drawText(sideText, {
+      x: page.getWidth() - mmToPoints(5),
+      y: page.getHeight() / 2,
+      size: 8,
+      font: helveticaBold,
+      color: rgb(0, 0, 0),
+      rotate: {
+        angle: Math.PI / 2,
+        xSkew: 0,
+        ySkew: 0,
+      }
     });
   } catch (error) {
     console.error("Error drawing side info:", error);
+    
+    // Fallback to simpler drawing without rotation
+    try {
+      page.drawText("Business Card Imposition Sheet", {
+        x: mmToPoints(10),
+        y: mmToPoints(10),
+        size: 8,
+        font: helveticaBold,
+        color: rgb(0, 0, 0)
+      });
+    } catch (fallbackError) {
+      console.error("Error in fallback side info drawing:", fallbackError);
+    }
   }
 }

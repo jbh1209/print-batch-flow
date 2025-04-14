@@ -44,6 +44,7 @@ export async function embedJobPDF(
     
     // Get the first page from the source document
     try {
+      // Embed the PDF page - critical for rendering
       const [jobFirstPage] = await page.doc.embedPdf(jobPdfDoc, [0]);
       
       if (!jobFirstPage) {
