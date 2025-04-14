@@ -20,7 +20,12 @@ export const handlePdfAction = (
   try {
     if (action === 'view') {
       // Open in a new tab
-      window.open(url, '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
+      
+      // Show toast to check popup blocker if window might not have opened
+      setTimeout(() => {
+        toast.info("If the PDF didn't open, please check your popup blocker settings");
+      }, 1000);
     } else {
       // Create a temporary link to download the file
       const link = document.createElement('a');
@@ -29,6 +34,8 @@ export const handlePdfAction = (
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      toast.success("Download initiated");
     }
   } catch (error) {
     console.error("Error handling PDF:", error);

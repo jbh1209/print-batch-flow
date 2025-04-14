@@ -1,7 +1,6 @@
 
 import { CheckCircle2, Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -14,10 +13,9 @@ import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
-  handleViewPDF: (url: string | null) => void;
 }
 
-const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
+const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
   // Helper function to determine button text based on status
   const getButtonText = (status: BatchStatus) => {
     switch (status) {
@@ -55,53 +53,55 @@ const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
           </Button>
         )}
         
-        {(batch.front_pdf_url || batch.back_pdf_url) && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">PDFs</p>
-            <div className="flex flex-col gap-2">
-              {batch.front_pdf_url && (
-                <div className="flex flex-col gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePdfAction(batch.front_pdf_url, 'view')}
-                    className="flex items-center justify-start gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View Imposition PDF
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePdfAction(batch.front_pdf_url, 'download')}
-                    className="flex items-center justify-start gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Imposition PDF
-                  </Button>
-                </div>
-              )}
-              {batch.back_pdf_url && (
-                <div className="flex flex-col gap-2 mt-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePdfAction(batch.back_pdf_url, 'view')}
-                    className="flex items-center justify-start gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View Overview PDF
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePdfAction(batch.back_pdf_url, 'download')}
-                    className="flex items-center justify-start gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Overview PDF
-                  </Button>
-                </div>
-              )}
-            </div>
+        {/* PDF Actions */}
+        <div className="space-y-2">
+          <p className="text-sm font-medium">PDFs</p>
+          <div className="flex flex-col gap-2">
+            {/* Imposition PDF (front_pdf_url) */}
+            {batch.front_pdf_url && (
+              <div className="flex flex-col gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => handlePdfAction(batch.front_pdf_url, 'view', `${batch.name}-imposition.pdf`)}
+                  className="flex items-center justify-start gap-2"
+                >
+                  <Eye className="h-4 w-4" />
+                  View Imposition PDF
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handlePdfAction(batch.front_pdf_url, 'download', `${batch.name}-imposition.pdf`)}
+                  className="flex items-center justify-start gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Imposition PDF
+                </Button>
+              </div>
+            )}
+            
+            {/* Overview PDF (back_pdf_url) */}
+            {batch.back_pdf_url && (
+              <div className="flex flex-col gap-2 mt-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => handlePdfAction(batch.back_pdf_url, 'view', `${batch.name}-overview.pdf`)}
+                  className="flex items-center justify-start gap-2"
+                >
+                  <Eye className="h-4 w-4" />
+                  View Overview PDF
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handlePdfAction(batch.back_pdf_url, 'download', `${batch.name}-overview.pdf`)}
+                  className="flex items-center justify-start gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Overview PDF
+                </Button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   );
