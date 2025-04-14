@@ -54,31 +54,8 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     
     console.log(`Front PDFs count: ${frontPDFs.length}, Back PDFs count: ${backPDFs.length}`);
     
-    // Create fallback PDFs if needed
-    if (frontPDFs.length === 0) {
-      console.warn("No valid front PDFs were created for imposition, creating fallbacks");
-      
-      // Create at least one fallback PDF for each job
-      for (let i = 0; i < Math.min(jobs.length, 24); i++) {
-        const job = jobs[i];
-        const emptyPdf = await PDFDocument.create();
-        const page = emptyPdf.addPage([350, 200]);
-        page.drawText(`No PDF available: ${job.name || job.id}`, {
-          x: 50,
-          y: 100,
-          size: 12
-        });
-        
-        frontPDFs.push({
-          job,
-          pdfDoc: emptyPdf,
-          page: 0
-        });
-      }
-    }
-    
+    // Create front page with bigger margins at top to avoid overlap 
     console.log("Creating front page");
-    // Generate front page
     let frontPage = pdfDoc.addPage([pageWidth, pageHeight]);
     
     // Draw batch information at top (no rotation)

@@ -21,21 +21,21 @@ export function drawBatchInfo(
     
     const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
     
-    // Draw background rectangle for header text with INCREASED HEIGHT to prevent overlap
+    // Draw background rectangle for header text with INCREASED HEIGHT
     page.drawRectangle({
       x: mmToPoints(5),
-      y: page.getHeight() - mmToPoints(35), // Increased from 30 to 35mm
+      y: page.getHeight() - mmToPoints(50), // Increased significantly from 35 to 50mm
       width: page.getWidth() - mmToPoints(10),
-      height: mmToPoints(30), // Increased from 25 to 30mm
+      height: mmToPoints(45), // Increased significantly from 30 to 45mm
       color: rgb(1, 1, 1), // White background
       borderColor: rgb(0.9, 0.9, 0.9),
       borderWidth: 0.5
     });
     
-    // Draw header text on top of the rectangle - MOVED UP for better spacing
+    // Draw header text on top of the rectangle - MOVED UP much higher
     page.drawText(`Business Card Imposition Sheet (${pageType}) - ${formattedLamination} Lamination`, {
       x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(15), // Adjusted from 12 to 15mm
+      y: page.getHeight() - mmToPoints(20), // Adjusted significantly from 15 to 20mm
       size: 14,
       font: helveticaBold,
       color: rgb(0, 0, 0)
@@ -44,10 +44,10 @@ export function drawBatchInfo(
     // Calculate total with null check
     const totalCards = jobs.reduce((sum, job) => sum + (job.quantity || 0), 0);
     
-    // Move this text down slightly for better spacing
+    // Move this text down significantly for better spacing
     page.drawText(`Total Jobs: ${jobs.length} | Total Cards: ${totalCards} | Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, {
       x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(28), // Adjusted from 24 to 28mm
+      y: page.getHeight() - mmToPoints(40), // Adjusted significantly from 28 to 40mm
       size: 10,
       font: helveticaFont,
       color: rgb(0, 0, 0)

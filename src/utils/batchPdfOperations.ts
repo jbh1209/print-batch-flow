@@ -17,6 +17,7 @@ export async function generateAndUploadBatchPDFs(
 }> {
   try {
     console.log("Starting PDF generation for batch:", name);
+    console.log("Batch name being used:", name); // Added debug logging for batch name
     
     // Generate batch overview A4 PDF
     const batchOverviewPDF = await generateBatchOverview(selectedJobs, name);
