@@ -21,6 +21,18 @@ export function drawBatchInfo(
     
     const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
     
+    // Draw background rectangle for header text to prevent overlap
+    page.drawRectangle({
+      x: mmToPoints(5),
+      y: page.getHeight() - mmToPoints(25),
+      width: page.getWidth() - mmToPoints(10),
+      height: mmToPoints(20),
+      color: rgb(1, 1, 1), // White background
+      borderColor: rgb(0.9, 0.9, 0.9),
+      borderWidth: 0.5
+    });
+    
+    // Draw header text on top of the rectangle
     page.drawText(`Business Card Imposition Sheet (${pageType}) - ${formattedLamination} Lamination`, {
       x: mmToPoints(10),
       y: page.getHeight() - mmToPoints(10),
@@ -65,9 +77,16 @@ export function drawSideInfo(
     
     const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
     
+    // Format the batch name properly - ensure it's a proper batch ID format
+    let formattedBatchName = batchName;
+    if (batchName.startsWith("DXB-BC-") && batchName.length > 15) {
+      // Extract just the first part of the batch name if it's too long
+      formattedBatchName = batchName.substring(0, 12);
+    }
+    
     // Create the side text content
     const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm');
-    const sideText = `${batchName} Sheet (${pageType}) - ${formattedLamination} Lamination | Jobs: ${jobs.length} | Cards: ${totalCards} | ${timestamp}`;
+    const sideText = `${formattedBatchName} | ${pageType} | ${formattedLamination} | Jobs: ${jobs.length} | Cards: ${totalCards} | ${timestamp}`;
     
     // Draw left side text (rotated 90 degrees counterclockwise)
     const leftX = mmToPoints(5);

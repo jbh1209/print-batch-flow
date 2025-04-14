@@ -36,12 +36,18 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     // Define dimensions
     const dimensions = calculateDimensions(pageWidth, pageHeight);
     
-    // Generate a batch name for display
-    const batchName = `DXB-BC-${new Date().getTime().toString().substring(6)}`; // Dynamic batch name
+    // Generate a cleaner batch name format for display
+    const timestamp = new Date().getTime();
+    // Format as DXB-BC-YYMMDD instead of using timestamp digits
+    const today = new Date();
+    const year = today.getFullYear().toString().slice(2);
+    const month = (today.getMonth() + 1).toString().padStart(2, '0');
+    const day = today.getDate().toString().padStart(2, '0');
+    const batchName = `DXB-BC-${year}${month}${day}`; // Better formatted batch name
     
     console.log("Creating duplicated imposition PDFs...");
-    // Create both front and back imposition sheets - KEY FOR DUPLICATING PAGES
-    // Use 24 instead of 21 for cards per sheet (3x8 grid)
+    // Create both front and back imposition sheets
+    // Use 24 slots per sheet (3x8 grid)
     const { frontPDFs, backPDFs } = await createDuplicatedImpositionPDFs(jobs, 24);
     
     console.log(`Front PDFs count: ${frontPDFs.length}, Back PDFs count: ${backPDFs.length}`);
@@ -107,7 +113,7 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
       let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
       
       // Draw batch information for back page
-      drawBatchInfo(backPage, jobs, helveticaFont, helveticaBold, "Back (Placeholder)");
+      drawBatchInfo(backPage, jobs, helveticaFont, helveticaBold, "Back");
       
       // Draw side information
       drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, batchName, "Back");

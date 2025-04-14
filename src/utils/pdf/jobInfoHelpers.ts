@@ -2,6 +2,7 @@
 import { Job } from "@/components/business-cards/JobsTable";
 import { rgb } from "pdf-lib";
 import { format } from "date-fns";
+import { mmToPoints } from "./pdfUnitHelpers";
 
 // Draw job information at the bottom of the placeholder with improved null handling
 export function drawJobInfo(
@@ -50,36 +51,54 @@ export function drawJobInfo(
     
     // Get job name with fallback
     let jobName = job.name || "Untitled Job";
-    if (jobName.length > 15) {
-      jobName = jobName.substring(0, 12) + "...";
+    if (jobName.length > 12) { // Shortened from 15 to 12 chars to prevent overflow
+      jobName = jobName.substring(0, 9) + "...";
     }
     
     // Draw job name in white text for better contrast - FIXED Y POSITIONING
     page.drawText(jobName, {
       x: x + 2,
-      y: y + textAreaHeight/2,
+      y: y + textAreaHeight/2 + 1, // Slightly higher position
       size: 7,
       font: helveticaBold,
       color: rgb(1, 1, 1) // White text
     });
     
     // Make sure job properties are defined before using them
-    const jobId = job.id ? job.id.substring(0, 8) : "unknown";
+    const jobId = job.id ? job.id.substring(0, 6) : "unknown"; // Shortened from 8 to 6 chars
     
     let dueDate = "unknown";
     try {
       if (job.due_date) {
-        dueDate = format(new Date(job.due_date), 'MMM dd');
+        dueDate = format(new Date(job.due_date), 'MM/dd'); // Changed format from 'MMM dd' to 'MM/dd' for brevity
       }
     } catch (error) {
       console.error("Error formatting date:", error);
     }
     
-    // Draw job ID and quantity info with null checks - FIXED Y POSITIONING
-    const infoText = `ID: ${jobId} | Qty: ${job.quantity || 0} | Due: ${dueDate}`;
-    page.drawText(infoText, {
-      x: x + placeholderWidth - 85,
-      y: y + textAreaHeight/2,
+    // Draw job ID and quantity info with null checks - improved positioning
+    // Place more to the right with better spacing
+    page.drawText(`ID:${jobId}`, { // Removed space after colon
+      x: x + placeholderWidth - 95,
+      y: y + textAreaHeight/2 + 1, // Slightly higher position
+      size: 6,
+      font: helveticaFont,
+      color: rgb(1, 1, 1) // White text
+    });
+    
+    // Draw quantity separately
+    page.drawText(`Qty:${job.quantity || 0}`, { // Removed space after colon
+      x: x + placeholderWidth - 60,
+      y: y + textAreaHeight/2 + 1, // Slightly higher position
+      size: 6,
+      font: helveticaFont,
+      color: rgb(1, 1, 1) // White text
+    });
+    
+    // Draw due date separately
+    page.drawText(`Due:${dueDate}`, { // Removed space after colon
+      x: x + placeholderWidth - 30,
+      y: y + textAreaHeight/2 + 1, // Slightly higher position
       size: 6,
       font: helveticaFont,
       color: rgb(1, 1, 1) // White text
@@ -109,6 +128,3 @@ export function drawJobInfo(
     }
   }
 }
-
-// Import mmToPoints for use in this file
-import { mmToPoints } from "./pdfUnitHelpers";
