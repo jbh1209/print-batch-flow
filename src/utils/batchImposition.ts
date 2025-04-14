@@ -10,8 +10,9 @@ import { drawCardGrid } from "./pdf/gridDrawingHelpers";
 import { loadJobPDFs, createDuplicatedImpositionPDFs } from "./pdf/jobPdfLoader";
 
 // Main function to generate the imposition sheet with improved error handling
-export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> {
+export async function generateImpositionSheet(jobs: Job[], batchName: string = ""): Promise<Uint8Array> {
   console.log("Starting imposition sheet generation for", jobs.length, "jobs");
+  console.log("Using batch name:", batchName);
   
   try {
     // Validate input
@@ -36,14 +37,9 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     // Define dimensions
     const dimensions = calculateDimensions(pageWidth, pageHeight);
     
-    // Generate a cleaner batch name format for display
-    const timestamp = new Date().getTime();
-    // Format as DXB-BC-YYMMDD instead of using timestamp digits
-    const today = new Date();
-    const year = today.getFullYear().toString().slice(2);
-    const month = (today.getMonth() + 1).toString().padStart(2, '0');
-    const day = today.getDate().toString().padStart(2, '0');
-    const batchName = `DXB-BC-${year}${month}${day}`; // Better formatted batch name
+    // Use provided batch name or generate a default
+    const actualBatchName = batchName || generateDefaultBatchName();
+    console.log("Final batch name for display:", actualBatchName);
     
     console.log("Creating duplicated imposition PDFs...");
     // Create both front and back imposition sheets
@@ -82,8 +78,8 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     // Draw batch information at top (no rotation)
     drawBatchInfo(frontPage, jobs, helveticaFont, helveticaBold, "Front");
     
-    // Draw side information (side text)
-    drawSideInfo(frontPage, jobs, helveticaFont, helveticaBold, batchName, "Front");
+    // Draw side information (side text) with correct batch name
+    drawSideInfo(frontPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Front");
     
     console.log("Loading job PDFs as backup...");
     // Load job PDFs for backup approach if needed
@@ -102,8 +98,8 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
       // Draw batch information for back page
       drawBatchInfo(backPage, jobs, helveticaFont, helveticaBold, "Back");
       
-      // Draw side information
-      drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, batchName, "Back");
+      // Draw side information with correct batch name
+      drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
       
       console.log("Drawing back grid...");
       drawCardGrid(backPage, validJobPDFs, dimensions, helveticaFont, helveticaBold, backPDFs);
@@ -115,8 +111,8 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
       // Draw batch information for back page
       drawBatchInfo(backPage, jobs, helveticaFont, helveticaBold, "Back");
       
-      // Draw side information
-      drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, batchName, "Back");
+      // Draw side information with correct batch name
+      drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
       
       console.log("Drawing back grid with placeholder...");
       drawCardGrid(backPage, validJobPDFs, dimensions, helveticaFont, helveticaBold);
@@ -175,4 +171,14 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
       throw error; // Re-throw the original error if we can't create a fallback
     }
   }
+}
+
+// Helper function to generate a default batch name if none is provided
+function generateDefaultBatchName(): string {
+  // Format as DXB-BC-YYMMDD-sequence
+  const today = new Date();
+  const year = today.getFullYear().toString().slice(2);
+  const month = (today.getMonth() + 1).toString().padStart(2, '0');
+  const day = today.getDate().toString().padStart(2, '0');
+  return `DXB-BC-${year}${month}${day}`;
 }

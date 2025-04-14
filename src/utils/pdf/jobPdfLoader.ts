@@ -1,4 +1,3 @@
-
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { supabase } from "@/integrations/supabase/client";
@@ -163,17 +162,22 @@ export async function loadJobPDFs(jobs: Job[], duplicateForImposition = false) {
 }
 
 // Generate duplicated PDF pages for imposition printing with improved handling
-export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: number) {
-  console.log(`Creating imposition PDFs for ${jobs.length} jobs with quantity ${quantity}...`);
+export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet: number) {
+  console.log(`Creating imposition PDFs for ${jobs.length} jobs with ${slotsPerSheet} slots per sheet...`);
   
   const frontPDFs: { job: Job; pdfDoc: PDFDocument; page: number }[] = [];
   const backPDFs: { job: Job; pdfDoc: PDFDocument; page: number }[] = [];
   
-  // Process each job
+  // First, create a mapping of jobs to their loaded PDFs
+  const jobPDFs = new Map<string, { job: Job; pdfDoc: PDFDocument }>();
+  
+  // Load all PDFs first - critical for different cards to show up
+  console.log("Loading all job PDFs first...");
   for (const job of jobs) {
     try {
       if (!job.pdf_url) {
         console.error(`Missing PDF URL for job ${job.id}`);
+        
         // Create empty placeholder PDF for this job
         const emptyPdf = await PDFDocument.create();
         const page = emptyPdf.addPage([350, 200]);
@@ -183,13 +187,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
           size: 12
         });
         
-        // Add to front PDFs only
-        frontPDFs.push({ 
-          job, 
-          pdfDoc: emptyPdf,
-          page: 0
-        });
-        
+        jobPDFs.set(job.id, { job, pdfDoc: emptyPdf });
         continue;
       }
       
@@ -199,7 +197,6 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
       
       // Add timestamp to prevent caching
       const nocacheUrl = `${signedUrl}${signedUrl.includes('?') ? '&' : '?'}nocache=${Date.now()}`;
-      console.log(`Using URL with cache busting: ${nocacheUrl.substring(0, 50)}...`);
       
       // Fetch with cache busting
       const response = await fetch(nocacheUrl, {
@@ -237,35 +234,12 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
         continue;
       }
       
-      // Calculate how many copies of this job we need based on quantity
-      // For business cards, typically 24 cards per sheet (3x8 grid)
-      const copiesNeeded = Math.max(1, Math.ceil((job.quantity || 1) / 24));
-      console.log(`Job ${job.id} needs ${copiesNeeded} copies for ${job.quantity || 0} cards`);
-      
-      // Add copies to the front and back arrays - THIS IS KEY FOR DUPLICATION
-      for (let i = 0; i < copiesNeeded; i++) {
-        // Front page (always the first page)
-        frontPDFs.push({ 
-          job, 
-          pdfDoc: originalPdfDoc,
-          page: 0 // First page index
-        });
-        
-        // Back page (second page if available and job is double-sided)
-        if (pageCount > 1 && job.double_sided) {
-          backPDFs.push({ 
-            job, 
-            pdfDoc: originalPdfDoc,
-            page: 1 // Second page index
-          });
-        }
-      }
-      
-      // Log the current count of pages we're accumulating
-      console.log(`Current counts - Front: ${frontPDFs.length}, Back: ${backPDFs.length}`);
+      // Store the loaded PDF in our map
+      jobPDFs.set(job.id, { job, pdfDoc: originalPdfDoc });
     } catch (error) {
-      console.error(`Error in PDF processing for job ${job.id}:`, error);
-      // Create a fallback PDF for this job
+      console.error(`Error loading PDF for job ${job.id}:`, error);
+      
+      // Create a fallback PDF
       try {
         const fallbackPdf = await PDFDocument.create();
         const page = fallbackPdf.addPage([350, 200]);
@@ -275,17 +249,72 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
           size: 12
         });
         
-        frontPDFs.push({ 
-          job, 
-          pdfDoc: fallbackPdf,
-          page: 0
-        });
+        jobPDFs.set(job.id, { job, pdfDoc: fallbackPdf });
       } catch (fallbackError) {
-        console.error(`Couldn't even create fallback PDF for job ${job.id}:`, fallbackError);
+        console.error(`Couldn't create fallback PDF for job ${job.id}:`, fallbackError);
       }
     }
   }
   
+  console.log(`Successfully loaded PDFs for ${jobPDFs.size} out of ${jobs.length} jobs`);
+  
+  // Now, distribute the jobs across the slots based on quantity needed
+  let remainingSlots = slotsPerSheet;
+  let totalSlotsUsed = 0;
+  
+  // Process each job and add enough copies to the output arrays
+  for (const job of jobs) {
+    // Skip if we couldn't load a PDF for this job
+    if (!jobPDFs.has(job.id)) {
+      console.warn(`Skipping job ${job.id} due to missing PDF`);
+      continue;
+    }
+    
+    const { pdfDoc } = jobPDFs.get(job.id)!;
+    const pageCount = pdfDoc.getPageCount();
+    
+    // Calculate how many slots this job requires (cap at remaining slots)
+    const jobQuantity = job.quantity || 1;
+    const slotsNeeded = Math.min(jobQuantity, remainingSlots);
+    
+    console.log(`Job ${job.id} needs ${slotsNeeded} out of ${jobQuantity} slots (${remainingSlots} slots remaining)`);
+    
+    if (slotsNeeded <= 0) {
+      console.warn(`No slots available for job ${job.id}, will be excluded from sheet`);
+      continue;
+    }
+    
+    // Add front pages for this job
+    for (let i = 0; i < slotsNeeded; i++) {
+      frontPDFs.push({ 
+        job, 
+        pdfDoc,
+        page: 0 // First page index
+      });
+      totalSlotsUsed++;
+    }
+    
+    // Add back pages if job is double-sided and has a second page
+    if (job.double_sided && pageCount > 1) {
+      for (let i = 0; i < slotsNeeded; i++) {
+        backPDFs.push({ 
+          job, 
+          pdfDoc,
+          page: 1 // Second page index
+        });
+      }
+    }
+    
+    // Update remaining slots
+    remainingSlots -= slotsNeeded;
+    
+    if (remainingSlots <= 0) {
+      console.log("All slots filled, stopping job distribution");
+      break;
+    }
+  }
+  
   console.log(`Created ${frontPDFs.length} front pages and ${backPDFs.length} back pages for imposition`);
+  console.log(`Total slots used: ${totalSlotsUsed} out of ${slotsPerSheet}`);
   return { frontPDFs, backPDFs };
 }

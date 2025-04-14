@@ -23,7 +23,8 @@ export async function generateAndUploadBatchPDFs(
     console.log("Successfully generated batch overview PDF");
     
     // Generate imposition sheet (320x455mm) with duplicated pages for front/back printing
-    const impositionSheetPDF = await generateImpositionSheet(selectedJobs);
+    // Pass the batch name to ensure it's displayed correctly
+    const impositionSheetPDF = await generateImpositionSheet(selectedJobs, name);
     console.log("Successfully generated imposition sheet PDF");
     
     // Force bucket to be created and public

@@ -76,29 +76,28 @@ export function drawJobInfo(
       console.error("Error formatting date:", error);
     }
     
-    // Draw job ID and quantity info with null checks - improved positioning
-    // Place more to the right with better spacing
+    // Better positioning and spacing of job info elements
     page.drawText(`ID:${jobId}`, { // Removed space after colon
-      x: x + placeholderWidth - 95,
-      y: y + textAreaHeight/2 + 1, // Slightly higher position
+      x: x + placeholderWidth - 90, // Adjusted positioning
+      y: y + textAreaHeight/2 + 1,
       size: 6,
       font: helveticaFont,
       color: rgb(1, 1, 1) // White text
     });
     
-    // Draw quantity separately
+    // Draw quantity separately with more space
     page.drawText(`Qty:${job.quantity || 0}`, { // Removed space after colon
-      x: x + placeholderWidth - 60,
-      y: y + textAreaHeight/2 + 1, // Slightly higher position
+      x: x + placeholderWidth - 55, // Adjusted positioning
+      y: y + textAreaHeight/2 + 1,
       size: 6,
       font: helveticaFont,
       color: rgb(1, 1, 1) // White text
     });
     
-    // Draw due date separately
+    // Draw due date separately with more space
     page.drawText(`Due:${dueDate}`, { // Removed space after colon
-      x: x + placeholderWidth - 30,
-      y: y + textAreaHeight/2 + 1, // Slightly higher position
+      x: x + placeholderWidth - 25, // Adjusted positioning
+      y: y + textAreaHeight/2 + 1,
       size: 6,
       font: helveticaFont,
       color: rgb(1, 1, 1) // White text

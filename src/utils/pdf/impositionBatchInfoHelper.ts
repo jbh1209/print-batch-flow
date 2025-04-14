@@ -21,21 +21,21 @@ export function drawBatchInfo(
     
     const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
     
-    // Draw background rectangle for header text to prevent overlap
+    // Draw background rectangle for header text with MORE HEIGHT to prevent overlap
     page.drawRectangle({
       x: mmToPoints(5),
-      y: page.getHeight() - mmToPoints(25),
+      y: page.getHeight() - mmToPoints(30), // Increased from 25 to 30mm
       width: page.getWidth() - mmToPoints(10),
-      height: mmToPoints(20),
+      height: mmToPoints(25), // Increased from 20 to 25mm
       color: rgb(1, 1, 1), // White background
       borderColor: rgb(0.9, 0.9, 0.9),
       borderWidth: 0.5
     });
     
-    // Draw header text on top of the rectangle
+    // Draw header text on top of the rectangle - MOVED UP for better spacing
     page.drawText(`Business Card Imposition Sheet (${pageType}) - ${formattedLamination} Lamination`, {
       x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(10),
+      y: page.getHeight() - mmToPoints(12), // Adjusted from 10 to 12mm
       size: 14,
       font: helveticaBold,
       color: rgb(0, 0, 0)
@@ -44,9 +44,10 @@ export function drawBatchInfo(
     // Calculate total with null check
     const totalCards = jobs.reduce((sum, job) => sum + (job.quantity || 0), 0);
     
+    // Move this text down slightly for better spacing
     page.drawText(`Total Jobs: ${jobs.length} | Total Cards: ${totalCards} | Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, {
       x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(20),
+      y: page.getHeight() - mmToPoints(24), // Adjusted from 20 to 24mm
       size: 10,
       font: helveticaFont,
       color: rgb(0, 0, 0)
@@ -77,12 +78,9 @@ export function drawSideInfo(
     
     const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
     
-    // Format the batch name properly - ensure it's a proper batch ID format
+    // Use the actual batch name instead of generating a date-based one
+    // Do not modify the batchName parameter - use it directly
     let formattedBatchName = batchName;
-    if (batchName.startsWith("DXB-BC-") && batchName.length > 15) {
-      // Extract just the first part of the batch name if it's too long
-      formattedBatchName = batchName.substring(0, 12);
-    }
     
     // Create the side text content
     const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm');
