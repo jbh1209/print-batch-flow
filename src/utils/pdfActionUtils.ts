@@ -28,9 +28,15 @@ const getSignedUrl = async (url: string | null, expiresIn = 3600): Promise<strin
     
     console.log(`Requesting signed URL for bucket: ${bucket}, file: ${filePath}`);
     
+    // Generate a direct download URL with download=true query parameter
     const { data, error } = await supabase.storage
       .from(bucket)
-      .createSignedUrl(filePath, expiresIn);
+      .createSignedUrl(filePath, expiresIn, {
+        download: true, // Force download header to be set for proper content type
+        transform: { // No transformations for PDFs
+          quality: 100
+        }
+      });
       
     if (error) {
       console.error('Error getting signed URL:', error);
@@ -70,40 +76,10 @@ export const handlePdfAction = async (
     if (!signedUrl) {
       throw new Error("Could not generate a signed URL for this PDF");
     }
-    
-    // First check if the PDF is accessible by sending a HEAD request with credentials
-    const checkResponse = await fetch(signedUrl, { 
-      method: 'HEAD',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
-    });
-    
-    console.log(`PDF HEAD request status: ${checkResponse.status} ${checkResponse.statusText}`);
-    console.log(`Response headers:`, Object.fromEntries([...checkResponse.headers.entries()]));
-    
-    if (!checkResponse.ok) {
-      throw new Error(`PDF access error (${checkResponse.status}): ${checkResponse.statusText}`);
-    }
-    
-    // Try to verify content type if possible
-    const contentType = checkResponse.headers.get('content-type');
-    if (contentType && !contentType.includes('pdf') && !contentType.includes('octet-stream')) {
-      console.warn(`Warning: Content type is not PDF: ${contentType}`);
-    }
+
+    console.log(`Signed URL generated: ${signedUrl.substring(0, 100)}...`);
     
     if (action === 'view') {
-      // Alternative method: fetch and create a blob URL
-      if (contentType && contentType.includes('text/html')) {
-        // If it's HTML, likely an error page, try to fetch and display actual error
-        const response = await fetch(signedUrl);
-        const text = await response.text();
-        console.error("Received HTML instead of PDF:", text.substring(0, 500) + "...");
-        throw new Error("Server returned HTML instead of PDF - likely an access error");
-      }
-      
       // Open in a new tab
       const newWindow = window.open(signedUrl, '_blank', 'noopener,noreferrer');
       
@@ -112,10 +88,7 @@ export const handlePdfAction = async (
         toast.info("Opening PDF in current tab as popup was blocked");
         window.location.href = signedUrl;
       } else {
-        // Show toast to check popup blocker if window might not have opened
-        setTimeout(() => {
-          toast.info("If the PDF didn't open, please check your popup blocker settings");
-        }, 1000);
+        toast.success("PDF opened in new tab");
       }
     } else {
       console.log(`Initiating download of ${filename || url.split('/').pop()}`);
@@ -136,24 +109,10 @@ export const handlePdfAction = async (
     if (error instanceof Error) {
       console.error("Error details:", error.message);
       
-      if (error.message.includes("Could not generate")) {
-        toast.error("Could not generate a secure access link for this PDF. Please check if you're logged in.");
-      } else if (error.message.includes("403")) {
-        toast.error("Permission denied: You don't have access to this PDF. This may be due to Supabase storage permissions.");
-      } else if (error.message.includes("404")) {
-        toast.error("PDF not found: The file may have been moved or deleted.");
-      } else if (error.message.includes("CORS") || error.message.includes("cross-origin")) {
-        toast.error("CORS error: The server is blocking access to the PDF from this domain.");
-      } else if (error.message.includes("HTML")) {
-        toast.error("Access denied: The server returned an error page instead of the PDF.");
-      } else {
-        toast.error(`Failed to access PDF: ${error.message.substring(0, 100)}`);
-      }
+      toast.error(`PDF access error: ${error.message}`);
+      toast.info("Try logging out and back in if you're experiencing permission issues");
     } else {
       toast.error("Failed to access PDF. Please ensure you're logged in.");
     }
-    
-    // Provide troubleshooting information
-    toast.info("Try logging out and back in if you're experiencing permission issues");
   }
 };

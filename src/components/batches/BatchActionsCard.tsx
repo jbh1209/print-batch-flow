@@ -45,14 +45,23 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
   const hasOverviewPDF = !!batch.back_pdf_url;
   const hasPDFs = hasImpositionPDF || hasOverviewPDF;
 
-  // Helper to log PDF URL
-  const logPdfUrl = (url: string | null, label: string) => {
-    console.log(`${label} PDF URL:`, url);
+  const handleViewPdf = async (url: string | null, name: string) => {
+    try {
+      toast.loading(`Opening ${name}...`);
+      await handlePdfAction(url, 'view', `${batch.name}-${name}.pdf`);
+    } catch (error) {
+      toast.error(`Error opening ${name}`);
+    }
   };
 
-  // Log PDF URLs for debugging
-  if (hasImpositionPDF) logPdfUrl(batch.front_pdf_url, "Imposition");
-  if (hasOverviewPDF) logPdfUrl(batch.back_pdf_url, "Overview");
+  const handleDownloadPdf = async (url: string | null, name: string) => {
+    try {
+      toast.loading(`Preparing ${name} for download...`);
+      await handlePdfAction(url, 'download', `${batch.name}-${name}.pdf`);
+    } catch (error) {
+      toast.error(`Error downloading ${name}`);
+    }
+  };
 
   return (
     <Card>
@@ -89,7 +98,7 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
               <div className="flex flex-col gap-2">
                 <Button 
                   variant="outline" 
-                  onClick={() => handlePdfAction(batch.front_pdf_url, 'view', `${batch.name}-imposition.pdf`)}
+                  onClick={() => handleViewPdf(batch.front_pdf_url, 'imposition')}
                   className="flex items-center justify-start gap-2"
                 >
                   <Eye className="h-4 w-4" />
@@ -97,7 +106,7 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => handlePdfAction(batch.front_pdf_url, 'download', `${batch.name}-imposition.pdf`)}
+                  onClick={() => handleDownloadPdf(batch.front_pdf_url, 'imposition')}
                   className="flex items-center justify-start gap-2"
                 >
                   <Download className="h-4 w-4" />
@@ -111,7 +120,7 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
               <div className="flex flex-col gap-2 mt-2">
                 <Button 
                   variant="outline" 
-                  onClick={() => handlePdfAction(batch.back_pdf_url, 'view', `${batch.name}-overview.pdf`)}
+                  onClick={() => handleViewPdf(batch.back_pdf_url, 'overview')}
                   className="flex items-center justify-start gap-2"
                 >
                   <Eye className="h-4 w-4" />
@@ -119,7 +128,7 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => handlePdfAction(batch.back_pdf_url, 'download', `${batch.name}-overview.pdf`)}
+                  onClick={() => handleDownloadPdf(batch.back_pdf_url, 'overview')}
                   className="flex items-center justify-start gap-2"
                 >
                   <Download className="h-4 w-4" />
