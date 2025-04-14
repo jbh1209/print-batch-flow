@@ -7,12 +7,14 @@ import { mmToPoints } from "./pdf/pdfUnitHelpers";
 import { calculateDimensions } from "./pdf/impositionDimensionsHelper";
 import { drawSideInfo } from "./pdf/impositionBatchInfoHelper";
 import { drawCardGrid } from "./pdf/gridDrawingHelpers";
-import { loadJobPDFs, createImpositionLayout } from "./pdf/jobPdfLoader";
+import { createImpositionLayout } from "./pdf/jobPdfLoader";
 
-// Main function to generate the imposition sheet with improved error handling
+// Main function to generate the imposition sheet with completely rewritten logic
 export async function generateImpositionSheet(jobs: Job[], batchName: string = ""): Promise<Uint8Array> {
-  console.log("Starting imposition sheet generation for", jobs.length, "jobs");
-  console.log("Using batch name:", batchName);
+  console.log("-------------------------");
+  console.log("STARTING IMPOSITION SHEET GENERATION");
+  console.log("Jobs: ", jobs.length, "Batch Name:", batchName);
+  console.log("-------------------------");
   
   try {
     // Validate input
@@ -20,11 +22,6 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
       console.error("No jobs provided for imposition sheet generation");
       throw new Error("No jobs provided for imposition sheet generation");
     }
-    
-    console.log("Job details for imposition:");
-    jobs.forEach(job => {
-      console.log(`Job ${job.id}: ${job.name}, Quantity: ${job.quantity}, Double-sided: ${job.double_sided}`);
-    });
     
     // Create a new PDF document
     console.log("Creating new PDF document");
@@ -46,20 +43,15 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     const actualBatchName = batchName || generateDefaultBatchName();
     console.log("Final batch name for display:", actualBatchName);
     
-    console.log("Loading job PDFs as backup...");
-    // Load job PDFs first - this ensures we have all PDFs loaded before creating pages
-    const validJobPDFs = await loadJobPDFs(jobs);
-    console.log(`Loaded ${validJobPDFs.length} job PDFs as backup`);
-    
     console.log("Creating imposition layout...");
     // Create both front and back imposition sheets
     // Use 24 slots per sheet (3x8 grid)
     const { frontPositions, backPositions } = await createImpositionLayout(jobs, 24);
     
-    console.log(`Front positions: ${frontPositions.length}, Back positions: ${backPositions.length}`);
+    console.log(`Layout created - Front positions: ${frontPositions.length}, Back positions: ${backPositions.length}`);
     
     // Create front page
-    console.log("Creating front page");
+    console.log("Creating front page...");
     let frontPage = pdfDoc.addPage([pageWidth, pageHeight]);
     
     // Draw side information (side text)
@@ -67,18 +59,18 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     
     console.log("Drawing front grid...");
     // Use the frontPositions array for job placement
-    await drawCardGrid(frontPage, validJobPDFs, dimensions, helveticaFont, helveticaBold, frontPositions);
+    await drawCardGrid(frontPage, dimensions, helveticaFont, helveticaBold, frontPositions);
     
     // If we have back pages, create a back imposition sheet
     if (backPositions.length > 0) {
-      console.log("Creating back page");
+      console.log("Creating back page...");
       let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
       
       // Draw side information
       drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
       
       console.log("Drawing back grid...");
-      await drawCardGrid(backPage, validJobPDFs, dimensions, helveticaFont, helveticaBold, backPositions);
+      await drawCardGrid(backPage, dimensions, helveticaFont, helveticaBold, backPositions);
     } else if (jobs.some(job => job.double_sided)) {
       // Create a back page anyway if any jobs are double-sided
       console.log("Creating back page for double-sided jobs");
@@ -88,7 +80,7 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
       drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
       
       console.log("Drawing back grid with placeholder...");
-      await drawCardGrid(backPage, validJobPDFs, dimensions, helveticaFont, helveticaBold);
+      await drawCardGrid(backPage, dimensions, helveticaFont, helveticaBold);
     }
     
     console.log("Serializing PDF document...");
@@ -125,18 +117,6 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
         size: 12,
         font
       });
-      
-      // List jobs with URLs
-      let y = errorPage.getHeight() - 200;
-      for (const job of jobs) {
-        errorPage.drawText(`Job ${job.id}: ${job.name || "Unnamed"} - ${job.pdf_url ? "Has URL" : "No URL"}`, {
-          x: 50,
-          y,
-          size: 10,
-          font
-        });
-        y -= 15;
-      }
       
       return await errorPdf.save();
     } catch (fallbackError) {

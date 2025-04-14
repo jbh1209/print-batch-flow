@@ -4,7 +4,7 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { loadSingleJobPdf, loadMultipleJobPdfs } from "./pdfLoaderCore";
 import { createEmptyPdf } from "./emptyPdfGenerator";
 
-// Load all job PDFs with better error handling and logging
+// Store job PDFs with better error handling and logging
 export async function loadJobPDFs(jobs: Job[]) {
   console.log(`Starting to load ${jobs.length} job PDFs...`);
   
@@ -55,30 +55,31 @@ export interface SheetLayout {
 }
 
 /**
- * Creates a position mapping for imposition with proper front/back alignment
- * This is the core function that determines which job goes where on the sheet
+ * Creates a mapping between jobs and positions with explicit tracking of quantities
  */
 export async function createImpositionLayout(jobs: Job[], slotsPerSheet: number): Promise<SheetLayout> {
-  console.log(`Creating imposition layout for ${jobs.length} jobs with ${slotsPerSheet} slots per sheet...`);
+  console.log(`CREATING NEW IMPOSITION LAYOUT for ${jobs.length} jobs with ${slotsPerSheet} slots per sheet`);
   
-  const frontPositions: PositionMapping[] = [];
-  const backPositions: PositionMapping[] = [];
-  
-  // Load all PDFs first
+  // Load all PDFs first - we'll use this to get page counts
   const jobPDFs = await loadMultipleJobPdfs(jobs);
   console.log(`Successfully loaded PDFs for ${jobPDFs.size} out of ${jobs.length} jobs`);
   
-  // Debug logging for quantities
+  // Create arrays for front and back positions
+  const frontPositions: PositionMapping[] = [];
+  const backPositions: PositionMapping[] = [];
+  
+  // Debug logging for quantities and double-sided flags
   jobs.forEach(job => {
-    console.log(`Job ${job.id} (${job.name}): Quantity ${job.quantity || 1}, Double-sided: ${job.double_sided}`);
+    console.log(`Job ID ${job.id} (${job.name}): Quantity ${job.quantity || 1}, Double-sided: ${job.double_sided}`);
   });
   
+  // IMPORTANT: Current position counter
   let currentPosition = 0;
   
-  // Process each job and its quantities
+  // Process each job one at a time, handling all its quantities before moving to next job
   for (const job of jobs) {
     if (!job.id || !jobPDFs.has(job.id)) {
-      console.warn(`Skipping job ${job.id || 'unknown'} due to missing PDF`);
+      console.warn(`Skipping job ${job.id || 'unknown'}: Missing PDF`);
       continue;
     }
     
@@ -90,7 +91,8 @@ export async function createImpositionLayout(jobs: Job[], slotsPerSheet: number)
     
     // Add copies based on quantity
     for (let i = 0; i < quantity && currentPosition < slotsPerSheet; i++) {
-      console.log(`Adding copy ${i + 1}/${quantity} of job ${job.id} at position ${currentPosition}`);
+      const copyNumber = i + 1;
+      console.log(`Adding copy ${copyNumber}/${quantity} of job ${job.id} at position ${currentPosition}`);
       
       // Add front page with PDF content
       frontPositions.push({
@@ -115,7 +117,7 @@ export async function createImpositionLayout(jobs: Job[], slotsPerSheet: number)
       
       currentPosition++;
       if (currentPosition >= slotsPerSheet) {
-        console.log(`Reached maximum slots (${slotsPerSheet})`);
+        console.log(`Reached maximum slots (${slotsPerSheet}) - no more jobs can be added`);
         break;
       }
     }
@@ -140,27 +142,23 @@ export async function createImpositionLayout(jobs: Job[], slotsPerSheet: number)
 
 /**
  * Calculate the corresponding position on the back side for double-sided printing
- * This uses a mirroring approach to ensure proper alignment when printed double-sided
  */
 function calculateBackPosition(frontPosition: number, slotsPerSheet: number): number {
-  // For a 3x8 grid (24 slots), we need to:
-  // 1. Determine the row (0-7)
-  // 2. Determine the column (0-2)
-  // 3. Calculate the mirrored position
-  
-  const columns = 3; // Standard is 3 columns
-  const rows = slotsPerSheet / columns; // Should be 8 rows for 24 slots
+  // For a typical business card imposition sheet with 3 columns
+  const columns = 3;
+  const rows = Math.ceil(slotsPerSheet / columns);
   
   const row = Math.floor(frontPosition / columns);
   const col = frontPosition % columns;
   
-  // When flipping for double-sided printing:
-  // - Same row
-  // - Column becomes (columns - 1 - col)
-  const mirroredCol = (columns - 1) - col;
+  // For back sides, we need to mirror the column position
+  // If front position is at column 0, back is at column 2
+  // If front position is at column 1, back is at column 1
+  // If front position is at column 2, back is at column 0
+  const mirroredCol = columns - 1 - col;
   const backPosition = (row * columns) + mirroredCol;
   
-  console.log(`Front position ${frontPosition} (row ${row}, col ${col}) maps to back position ${backPosition} (row ${row}, col ${mirroredCol})`);
+  console.log(`MAPPING: Front position ${frontPosition} (row ${row}, col ${col}) maps to back position ${backPosition} (row ${row}, col ${mirroredCol})`);
   
   return backPosition;
 }
