@@ -1,3 +1,4 @@
+
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { loadSingleJobPdf, loadMultipleJobPdfs } from "./pdfLoaderCore";
@@ -72,7 +73,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     for (let i = 0; i < quantity && currentPosition < slotsPerSheet; i++) {
       console.log(`Adding copy ${i + 1}/${quantity} of job ${job.id} at position ${currentPosition}`);
       
-      // Add front page
+      // Add front page with PDF content
       frontPDFs.push({
         job,
         pdfDoc: jobData.pdfDoc,

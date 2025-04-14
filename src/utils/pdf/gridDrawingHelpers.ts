@@ -64,4 +64,3 @@ export function drawCardGrid(
 }
 
 export { drawEmptyPlaceholder } from './placeholderDrawingHelpers';
-
