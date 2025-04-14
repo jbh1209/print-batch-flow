@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { MoreHorizontal, Pencil, Trash2, Eye, Download } from "lucide-react";
+import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface JobActionsProps {
   jobId: string;
@@ -35,9 +36,8 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleViewJob = (jobId: string) => {
-    // In the future, this could navigate to a job detail view
-    window.open(pdfUrl, '_blank');
+  const handleViewJob = (jobId: string, pdfUrl: string) => {
+    handlePdfAction(pdfUrl, 'view');
   };
 
   const handleEditJob = (jobId: string) => {
@@ -45,21 +45,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
   };
 
   const handleDownloadPdf = () => {
-    if (pdfUrl) {
-      // Create a temporary link to download the file
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = pdfUrl.split('/').pop() || 'business-card.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      toast({
-        title: "Error",
-        description: "PDF URL is not available",
-        variant: "destructive"
-      });
-    }
+    handlePdfAction(pdfUrl, 'download');
   };
 
   const handleDeleteJob = async () => {
@@ -101,7 +87,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => handleViewJob(jobId)} className="flex items-center gap-2">
+          <DropdownMenuItem onClick={() => handleViewJob(jobId, pdfUrl)} className="flex items-center gap-2">
             <Eye size={16} />
             <span>View PDF</span>
           </DropdownMenuItem>

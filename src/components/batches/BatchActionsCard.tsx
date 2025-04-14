@@ -1,5 +1,5 @@
 
-import { CheckCircle2, Download, Eye, AlertTriangle, ExternalLink } from "lucide-react";
+import { CheckCircle2, Download, Eye, AlertTriangle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,12 +12,15 @@ import {
 import { BatchDetailsType, BatchStatus } from "./types/BatchTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
 }
 
 const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
+  const { user } = useAuth();
+  
   // Helper function to determine button text based on status
   const getButtonText = (status: BatchStatus) => {
     switch (status) {
@@ -45,10 +48,6 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
   // Helper to log PDF URL
   const logPdfUrl = (url: string | null, label: string) => {
     console.log(`${label} PDF URL:`, url);
-    if (url) {
-      const encodedUrl = encodeURIComponent(url);
-      console.log(`Encoded ${label} PDF URL:`, encodedUrl);
-    }
   };
 
   // Log PDF URLs for debugging
@@ -104,15 +103,6 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
                   <Download className="h-4 w-4" />
                   Download Imposition PDF
                 </Button>
-                <a 
-                  href={batch.front_pdf_url || '#'}
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Open direct URL
-                </a>
               </div>
             )}
             
@@ -135,15 +125,6 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
                   <Download className="h-4 w-4" />
                   Download Overview PDF
                 </Button>
-                <a 
-                  href={batch.back_pdf_url || '#'}
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Open direct URL
-                </a>
               </div>
             )}
           </div>
@@ -152,20 +133,15 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
       
       {hasPDFs && (
         <CardFooter className="pt-0 flex flex-col items-start">
-          <p className="text-xs text-muted-foreground">
-            If PDFs don't open, check storage permissions in Supabase.
-          </p>
-          <button 
-            onClick={() => {
-              if (batch.front_pdf_url) {
-                navigator.clipboard.writeText(batch.front_pdf_url);
-                toast.success("PDF URL copied to clipboard");
-              }
-            }}
-            className="text-xs text-blue-600 hover:underline mt-2"
-          >
-            Copy URL to clipboard
-          </button>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            <p>PDFs are securely stored and require authentication to access</p>
+          </div>
+          {!user && (
+            <p className="text-xs text-amber-600 mt-1">
+              You must be logged in to access these files
+            </p>
+          )}
         </CardFooter>
       )}
     </Card>

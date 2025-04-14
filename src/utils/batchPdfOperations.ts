@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Job } from "@/components/business-cards/JobsTable";
 import { generateBatchOverview } from "./batchGeneration";
@@ -22,9 +21,10 @@ export async function generateAndUploadBatchPDFs(
   const impositionSheetPDF = await generateImpositionSheet(selectedJobs);
   
   // Set file paths for uploads with clear naming convention
+  // Keep userId as the first folder for RLS policy to work
   const timestamp = Date.now();
-  const overviewFilePath = `batches/${userId}/${timestamp}-overview-${name}.pdf`;
-  const impositionFilePath = `batches/${userId}/${timestamp}-imposition-${name}.pdf`;
+  const overviewFilePath = `${userId}/${timestamp}-overview-${name}.pdf`;
+  const impositionFilePath = `${userId}/${timestamp}-imposition-${name}.pdf`;
   
   // Upload batch overview
   const { error: overviewError } = await supabase.storage
@@ -35,7 +35,7 @@ export async function generateAndUploadBatchPDFs(
     throw new Error(`Failed to upload batch overview: ${overviewError.message}`);
   }
   
-  // Get URL for batch overview
+  // Get URL for batch overview - it will be a storage URL that we'll generate signed URLs for when needed
   const { data: overviewUrlData } = supabase.storage
     .from("pdf_files")
     .getPublicUrl(overviewFilePath);
@@ -53,7 +53,7 @@ export async function generateAndUploadBatchPDFs(
     throw new Error(`Failed to upload imposition sheet: ${impositionError.message}`);
   }
   
-  // Get URL for imposition sheet
+  // Get URL for imposition sheet - it will be a storage URL that we'll generate signed URLs for when needed
   const { data: impositionUrlData } = supabase.storage
     .from("pdf_files")
     .getPublicUrl(impositionFilePath);

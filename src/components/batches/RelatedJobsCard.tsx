@@ -53,15 +53,7 @@ const RelatedJobsCard = ({ jobs, handleViewPDF }: RelatedJobsCardProps) => {
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">View PDF</span>
                       </Button>
-                      <a 
-                        href={job.pdf_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        <span className="sr-only">Direct Link</span>
-                      </a>
+                      {/* Removed direct link as we now use signed URLs */}
                     </div>
                   )}
                 </TableCell>
