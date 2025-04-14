@@ -1,21 +1,12 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { format } from "date-fns";
 import { rgb } from "pdf-lib";
 import { mmToPoints } from "./pdfUnitHelpers";
 
 // Draw batch information at the top of the sheet
-export function drawBatchInfo(
-  page: any, 
-  jobs: Job[], 
-  helveticaFont: any, 
-  helveticaBold: any,
-  pageType: string = "Front"
-) {
-  // COMPLETELY REMOVED THE HEADER DRAWING CODE
-  // We will now rely only on the side information text
-  // This resolves the problem with text appearing behind cards
-  console.log("Header text removed as requested");
+export function drawBatchInfo() {
+  // Completely removed to prevent interference
+  console.log("Header text drawing removed to prevent interference");
 }
 
 // Draw vertical side information text for the imposition sheet

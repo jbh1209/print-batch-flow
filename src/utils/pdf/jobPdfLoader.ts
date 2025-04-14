@@ -39,7 +39,6 @@ export async function loadJobPDFs(jobs: Job[]) {
   return validPDFs;
 }
 
-// Generate PDF pages for imposition printing with correct job ordering
 export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet: number) {
   console.log(`Creating imposition PDFs for ${jobs.length} jobs with ${slotsPerSheet} slots per sheet...`);
   
@@ -50,9 +49,9 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
   const jobPDFs = await loadMultipleJobPdfs(jobs);
   console.log(`Successfully loaded PDFs for ${jobPDFs.size} out of ${jobs.length} jobs`);
   
-  // Debug job quantities
+  // Debug each job's quantity
   jobs.forEach(job => {
-    console.log(`Job ${job.id} (${job.name}): Quantity ${job.quantity || 1}, PDF ${jobPDFs.has(job.id) ? 'available' : 'missing'}`);
+    console.log(`Job ${job.id} (${job.name}): Quantity ${job.quantity || 1}`);
   });
   
   let currentPosition = 0;
@@ -67,7 +66,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     const jobData = jobPDFs.get(job.id)!;
     const quantity = job.quantity || 1;
     
-    console.log(`Processing job ${job.id} (${job.name}) - adding ${quantity} copies at position ${currentPosition}`);
+    console.log(`Adding ${quantity} copies of job ${job.id} starting at position ${currentPosition}`);
     
     // Add all copies of this job
     for (let i = 0; i < quantity && currentPosition < slotsPerSheet; i++) {
@@ -84,6 +83,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
       // Add back page if double-sided
       if (job.double_sided) {
         const backPosition = calculateBackPosition(currentPosition, slotsPerSheet);
+        console.log(`Adding back page for job ${job.id} at position ${backPosition}`);
         
         backPDFs.push({
           job,
@@ -105,10 +105,13 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
   frontPDFs.sort((a, b) => a.position - b.position);
   backPDFs.sort((a, b) => a.position - b.position);
   
-  // Debug final positions
+  // Log final positions for debugging
   console.log("\nFinal PDF positions:");
   frontPDFs.forEach((pdf) => {
-    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
+    console.log(`Front position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
+  });
+  backPDFs.forEach((pdf) => {
+    console.log(`Back position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
   });
   
   return { frontPDFs, backPDFs };
@@ -137,4 +140,3 @@ function calculateBackPosition(frontPosition: number, slotsPerSheet: number) {
   
   return backPosition;
 }
-
