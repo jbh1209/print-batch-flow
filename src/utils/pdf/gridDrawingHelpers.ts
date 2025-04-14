@@ -35,7 +35,7 @@ export function drawCardGrid(
   const usePageDuplication = Array.isArray(pdfPages) && pdfPages.length > 0;
   console.log(`Using page duplication mode: ${usePageDuplication}`);
   
-  // Draw placeholders in 3x8 grid
+  // Draw placeholders in grid
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < columns; col++) {
       // Calculate position of this placeholder
@@ -60,12 +60,6 @@ export function drawCardGrid(
           // Better null checking before attempting to draw
           if (!pageData) {
             console.error(`Null page data at position ${positionIndex}`);
-            drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
-            continue;
-          }
-          
-          if (!pageData.pdfDoc) {
-            console.error(`Missing PDF document at position ${positionIndex} for job ${pageData.job?.id || "unknown"}`);
             drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
             continue;
           }

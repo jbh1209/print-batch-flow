@@ -26,55 +26,8 @@ export async function generateAndUploadBatchPDFs(
     const impositionSheetPDF = await generateImpositionSheet(selectedJobs);
     console.log("Successfully generated imposition sheet PDF");
     
-    // Ensure the "pdf_files" bucket exists and is public
-    try {
-      // First try to get the bucket to check if it exists
-      const { error: getBucketError } = await supabase
-        .storage
-        .getBucket("pdf_files");
-      
-      if (getBucketError) {
-        // If bucket doesn't exist, attempt to create it with public access
-        console.log("Attempt to create pdf_files bucket");
-        const { error: createBucketError } = await supabase
-          .storage
-          .createBucket("pdf_files", {
-            public: true, // CRITICAL: Make bucket public
-            fileSizeLimit: 52428800, // 50MB
-            allowedMimeTypes: ["application/pdf"]
-          });
-        
-        if (createBucketError) {
-          console.error("Error creating bucket:", createBucketError);
-          // Don't throw, just continue and try to upload anyway
-        } else {
-          // If bucket was created, update its permissions to be public
-          const { error: updateBucketError } = await supabase
-            .storage
-            .updateBucket("pdf_files", {
-              public: true // Ensure it's public
-            });
-            
-          if (updateBucketError) {
-            console.error("Error updating bucket to public:", updateBucketError);
-          }
-        }
-      } else {
-        // If bucket exists, make sure it's public
-        const { error: updateBucketError } = await supabase
-          .storage
-          .updateBucket("pdf_files", {
-            public: true
-          });
-          
-        if (updateBucketError) {
-          console.error("Error updating bucket to public:", updateBucketError);
-        }
-      }
-    } catch (bucketError) {
-      console.error("Error checking/creating bucket:", bucketError);
-      // Continue anyway as the bucket might already exist
-    }
+    // Force bucket to be created and public
+    await ensurePublicBucket("pdf_files");
     
     // Set file paths for uploads with clear naming convention
     // Keep userId as the first folder for RLS policy to work
@@ -112,7 +65,7 @@ export async function generateAndUploadBatchPDFs(
       .from("pdf_files")
       .upload(impositionFilePath, impositionSheetPDF, {
         contentType: "application/pdf",
-        cacheControl: "3600",
+        cacheControl: "no-cache", // Prevent caching issues
         upsert: true
       });
       
@@ -141,5 +94,54 @@ export async function generateAndUploadBatchPDFs(
   } catch (error) {
     console.error("Error in generateAndUploadBatchPDFs:", error);
     throw error;
+  }
+}
+
+// Separate function to ensure bucket exists and is public
+async function ensurePublicBucket(bucketName: string) {
+  try {
+    // First check if bucket exists
+    const { data: bucketData, error: getBucketError } = await supabase.storage.getBucket(bucketName);
+    
+    if (getBucketError) {
+      console.log(`Bucket '${bucketName}' doesn't exist yet, creating it...`);
+      
+      // Create the bucket with public access
+      const { error: createError } = await supabase.storage.createBucket(bucketName, { 
+        public: true,
+        fileSizeLimit: 52428800 // 50MB
+      });
+      
+      if (createError) {
+        console.error(`Failed to create bucket '${bucketName}':`, createError);
+        return false;
+      }
+      
+      console.log(`Successfully created public bucket '${bucketName}'`);
+      return true;
+    }
+    
+    // If bucket exists but isn't public, update it
+    if (bucketData && !bucketData.public) {
+      console.log(`Bucket '${bucketName}' exists but is not public, updating...`);
+      
+      const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+        public: true
+      });
+      
+      if (updateError) {
+        console.error(`Failed to update bucket '${bucketName}' to public:`, updateError);
+        return false;
+      }
+      
+      console.log(`Successfully updated bucket '${bucketName}' to be public`);
+    } else {
+      console.log(`Bucket '${bucketName}' already exists and is public`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Error ensuring public bucket '${bucketName}':`, error);
+    return false;
   }
 }

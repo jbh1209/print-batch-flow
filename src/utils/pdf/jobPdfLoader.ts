@@ -39,23 +39,22 @@ export async function loadJobPDFs(jobs: Job[], duplicateForImposition = false) {
       
       // Fetch the PDF with better error handling
       try {
-        // Fetch the PDF with cache control and CORS settings
-        const response = await fetch(job.pdf_url, { 
-          cache: 'no-cache', // Prevent caching issues
+        // Add timestamp to URL to prevent caching
+        const nocacheUrl = `${job.pdf_url}?nocache=${Date.now()}`;
+        console.log(`Using URL with cache busting: ${nocacheUrl}`);
+        
+        // Fetch the PDF with cache busting
+        const response = await fetch(nocacheUrl, { 
+          cache: 'no-store', // Force fresh fetch
           credentials: 'same-origin',
           headers: {
-            'Accept': 'application/pdf'
+            'Accept': 'application/pdf',
+            'Pragma': 'no-cache'
           }
         });
         
         if (!response.ok) {
           console.error(`Failed to fetch PDF for job ${job.id || index}: ${response.statusText} (${response.status})`);
-          try {
-            const errorText = await response.text();
-            console.error(`Response body: ${errorText.substring(0, 200)}...`);
-          } catch (e) {
-            console.error(`Could not read response body: ${e}`);
-          }
           return null;
         }
         
@@ -69,7 +68,7 @@ export async function loadJobPDFs(jobs: Job[], duplicateForImposition = false) {
         
         try {
           const pdfDoc = await PDFDocument.load(pdfBytes, { 
-            ignoreEncryption: true // Try to open even encrypted PDFs
+            ignoreEncryption: true
           });
           
           const pageCount = pdfDoc.getPageCount();
@@ -117,7 +116,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
   const frontPDFs: { job: Job; pdfDoc: PDFDocument; page: number }[] = [];
   const backPDFs: { job: Job; pdfDoc: PDFDocument; page: number }[] = [];
   
-  // First load all the PDFs we'll need
+  // Process each job
   for (const job of jobs) {
     try {
       if (!job.pdf_url) {
@@ -131,7 +130,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
           size: 12
         });
         
-        // Add to front PDFs only (no back needed for empty)
+        // Add to front PDFs only
         frontPDFs.push({ 
           job, 
           pdfDoc: emptyPdf,
@@ -141,99 +140,92 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
         continue;
       }
       
-      console.log(`Processing PDF for job ${job.id} from URL: ${job.pdf_url}`);
+      // Add timestamp to URL to prevent caching
+      const nocacheUrl = `${job.pdf_url}?nocache=${Date.now()}`;
+      console.log(`Using URL with cache busting: ${nocacheUrl}`);
       
-      // Fetch and load the original PDF
-      try {
-        // Logging for better debugging
-        console.log(`Fetching PDF from ${job.pdf_url} with no-store cache control`);
-        
-        const response = await fetch(job.pdf_url, {
-          cache: 'no-store', // Force fresh fetch every time
-          credentials: 'same-origin',
-          headers: {
-            'Accept': 'application/pdf'
-          }
-        });
-        
-        if (!response.ok) {
-          console.error(`Failed to fetch PDF for job ${job.id}: ${response.statusText} (${response.status})`);
-          // Create a fallback PDF for this job
-          const fallbackPdf = await PDFDocument.create();
-          const fallbackPage = fallbackPdf.addPage([350, 200]);
-          fallbackPage.drawText(`No PDF available: ${job.id}`, {
-            x: 50,
-            y: 100,
-            size: 12
-          });
-          
-          // Add to front PDFs
-          frontPDFs.push({ 
-            job, 
-            pdfDoc: fallbackPdf,
-            page: 0
-          });
-          continue;
+      // Fetch with cache busting
+      const response = await fetch(nocacheUrl, {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/pdf',
+          'Pragma': 'no-cache'
         }
-        
-        const pdfBytes = await response.arrayBuffer();
-        if (!pdfBytes || pdfBytes.byteLength === 0) {
-          console.error(`Empty PDF file received for job ${job.id}`);
-          continue;
-        }
-        
-        console.log(`PDF fetched successfully for job ${job.id}, size: ${pdfBytes.byteLength} bytes`);
-        
-        try {
-          const originalPdfDoc = await PDFDocument.load(pdfBytes, {
-            ignoreEncryption: true // Try to open even encrypted PDFs
-          });
-          
-          const pageCount = originalPdfDoc.getPageCount();
-          console.log(`PDF loaded with ${pageCount} pages for job ${job.id}`);
-          
-          // Skip jobs without PDFs
-          if (pageCount === 0) {
-            console.warn(`No pages found in PDF for job ${job.id}`);
-            continue;
-          }
-          
-          // Calculate how many copies of this job we need based on quantity
-          // For business cards, typically 24 cards per sheet (3x8 grid)
-          const copiesNeeded = Math.max(1, Math.ceil((job.quantity || 1) / 24));
-          console.log(`Job ${job.id} needs ${copiesNeeded} copies for ${job.quantity || 0} cards`);
-          
-          // Add copies to the front and back arrays - THIS IS KEY FOR DUPLICATION
-          for (let i = 0; i < copiesNeeded; i++) {
-            // Front page (always the first page)
-            frontPDFs.push({ 
-              job, 
-              pdfDoc: originalPdfDoc,
-              page: 0 // First page index
-            });
-            
-            // Back page (second page if available and job is double-sided)
-            if (pageCount > 1 && job.double_sided) {
-              backPDFs.push({ 
-                job, 
-                pdfDoc: originalPdfDoc,
-                page: 1 // Second page index
-              });
-            }
-          }
-          
-          // Log the current count of pages we're accumulating
-          console.log(`Current counts - Front: ${frontPDFs.length}, Back: ${backPDFs.length}`);
-        } catch (error) {
-          console.error(`Error processing PDF document for job ${job.id}:`, error);
-          continue;
-        }
-      } catch (error) {
-        console.error(`Error fetching PDF for job ${job.id}:`, error);
+      });
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch PDF for job ${job.id}: ${response.statusText} (${response.status})`);
         continue;
       }
+      
+      const pdfBytes = await response.arrayBuffer();
+      if (!pdfBytes || pdfBytes.byteLength === 0) {
+        console.error(`Empty PDF file received for job ${job.id}`);
+        continue;
+      }
+      
+      console.log(`Successfully fetched PDF for job ${job.id}, size: ${pdfBytes.byteLength} bytes`);
+      
+      const originalPdfDoc = await PDFDocument.load(pdfBytes, {
+        ignoreEncryption: true
+      });
+      
+      const pageCount = originalPdfDoc.getPageCount();
+      console.log(`PDF loaded with ${pageCount} pages for job ${job.id}`);
+      
+      // Skip jobs without PDFs
+      if (pageCount === 0) {
+        console.warn(`No pages found in PDF for job ${job.id}`);
+        continue;
+      }
+      
+      // Calculate how many copies of this job we need based on quantity
+      // For business cards, typically 21 cards per sheet (3x7 grid)
+      const copiesNeeded = Math.max(1, Math.ceil((job.quantity || 1) / 21));
+      console.log(`Job ${job.id} needs ${copiesNeeded} copies for ${job.quantity || 0} cards`);
+      
+      // Add copies to the front and back arrays - THIS IS KEY FOR DUPLICATION
+      for (let i = 0; i < copiesNeeded; i++) {
+        // Front page (always the first page)
+        frontPDFs.push({ 
+          job, 
+          pdfDoc: originalPdfDoc,
+          page: 0 // First page index
+        });
+        
+        // Back page (second page if available and job is double-sided)
+        if (pageCount > 1 && job.double_sided) {
+          backPDFs.push({ 
+            job, 
+            pdfDoc: originalPdfDoc,
+            page: 1 // Second page index
+          });
+        }
+      }
+      
+      // Log the current count of pages we're accumulating
+      console.log(`Current counts - Front: ${frontPDFs.length}, Back: ${backPDFs.length}`);
     } catch (error) {
-      console.error(`Error in PDF processing loop for job ${job.id}:`, error);
+      console.error(`Error in PDF processing for job ${job.id}:`, error);
+      // Create a fallback PDF for this job
+      try {
+        const fallbackPdf = await PDFDocument.create();
+        const page = fallbackPdf.addPage([350, 200]);
+        page.drawText(`Error loading PDF for: ${job.name || job.id}`, {
+          x: 50,
+          y: 100,
+          size: 12
+        });
+        
+        frontPDFs.push({ 
+          job, 
+          pdfDoc: fallbackPdf,
+          page: 0
+        });
+      } catch (fallbackError) {
+        console.error(`Couldn't even create fallback PDF for job ${job.id}:`, fallbackError);
+      }
     }
   }
   
