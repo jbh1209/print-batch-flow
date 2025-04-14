@@ -1,6 +1,6 @@
 
 import { format } from "date-fns";
-import { Layers, CalendarIcon, Clock, Eye, Trash2 } from "lucide-react";
+import { Layers, CalendarIcon, Clock, Eye, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { toast } from "sonner";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { BatchDetailsType } from "./types/BatchTypes";
 
@@ -25,6 +26,31 @@ const BatchDetailsCard = ({ batch, handleViewPDF, onDeleteClick }: BatchDetailsC
       return format(new Date(dateString), 'MMM dd, yyyy');
     } catch (error) {
       return dateString;
+    }
+  };
+
+  const handlePdfAction = (url: string | null, action: 'view' | 'download') => {
+    if (!url) {
+      toast.error("PDF URL is not available");
+      return;
+    }
+
+    try {
+      if (action === 'view') {
+        // Open in a new tab
+        window.open(url, '_blank');
+      } else {
+        // Create a temporary link to download the file
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = url.split('/').pop() || 'batch-pdf.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error("Error handling PDF:", error);
+      toast.error("Failed to process PDF. Please try again.");
     }
   };
 
@@ -76,37 +102,57 @@ const BatchDetailsCard = ({ batch, handleViewPDF, onDeleteClick }: BatchDetailsC
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
+      <CardFooter className="flex flex-col sm:flex-row gap-4">
         {batch.status !== 'completed' && (
           <Button
             variant="destructive"
             onClick={onDeleteClick}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto"
           >
             <Trash2 className="h-4 w-4" />
             Delete Batch
           </Button>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 ml-auto">
           {batch.front_pdf_url && (
-            <Button 
-              variant="outline" 
-              onClick={() => window.open(batch.front_pdf_url, '_blank')}
-              className="flex items-center gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              View Front PDF
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => handlePdfAction(batch.front_pdf_url, 'view')}
+                className="flex items-center gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                View Imposition PDF
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => handlePdfAction(batch.front_pdf_url, 'download')}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download Imposition PDF
+              </Button>
+            </div>
           )}
           {batch.back_pdf_url && (
-            <Button 
-              variant="outline" 
-              onClick={() => window.open(batch.back_pdf_url, '_blank')}
-              className="flex items-center gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              View Back PDF
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => handlePdfAction(batch.back_pdf_url, 'view')}
+                className="flex items-center gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                View Overview PDF
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => handlePdfAction(batch.back_pdf_url, 'download')}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download Overview PDF
+              </Button>
+            </div>
           )}
         </div>
       </CardFooter>

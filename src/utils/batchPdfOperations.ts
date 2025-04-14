@@ -21,9 +21,10 @@ export async function generateAndUploadBatchPDFs(
   // Generate imposition sheet (320x455mm) with duplicated pages for front/back printing
   const impositionSheetPDF = await generateImpositionSheet(selectedJobs);
   
-  // Set file paths for uploads
-  const overviewFilePath = `batches/${userId}/${Date.now()}-overview-${name}.pdf`;
-  const impositionFilePath = `batches/${userId}/${Date.now()}-imposition-${name}.pdf`;
+  // Set file paths for uploads with clear naming convention
+  const timestamp = Date.now();
+  const overviewFilePath = `batches/${userId}/${timestamp}-overview-${name}.pdf`;
+  const impositionFilePath = `batches/${userId}/${timestamp}-imposition-${name}.pdf`;
   
   // Upload batch overview
   const { error: overviewError } = await supabase.storage
