@@ -55,6 +55,11 @@ const BatchConfirmDialog = ({
           <DialogTitle>Create New Batch</DialogTitle>
           <DialogDescription>
             You are about to create a batch with {selectedJobs.length} jobs
+            {!isCompatible && (
+              <div className="text-destructive mt-2 font-medium">
+                Warning: Selected jobs have different lamination types
+              </div>
+            )}
           </DialogDescription>
         </DialogHeader>
         

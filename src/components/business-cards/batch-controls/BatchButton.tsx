@@ -24,8 +24,9 @@ const BatchButton = ({
   onClick, 
   optimization 
 }: BatchButtonProps) => {
-  // Fixed: The button should only be disabled if no jobs are selected OR jobs are incompatible
-  const isDisabled = selectedJobsCount === 0 || !isCompatible;
+  // The button should only be disabled if no jobs are selected
+  // Jobs with different lamination types will show as destructive but still be clickable
+  const isDisabled = selectedJobsCount === 0;
   
   return (
     <div className="flex gap-2 items-center">
@@ -49,10 +50,12 @@ const BatchButton = ({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge variant="outline" className="flex gap-1 items-center">
-                <LayoutGrid className="h-3 w-3" />
-                {optimization.sheetsRequired} sheets ({Math.round(optimization.slotUtilization)}% utilization)
-              </Badge>
+              <div className="inline-flex">
+                <Badge variant="outline" className="flex gap-1 items-center">
+                  <LayoutGrid className="h-3 w-3" />
+                  {optimization.sheetsRequired} sheets ({Math.round(optimization.slotUtilization)}% utilization)
+                </Badge>
+              </div>
             </TooltipTrigger>
             <TooltipContent>
               <p>Sheet utilization: {Math.round(optimization.slotUtilization)}%</p>
