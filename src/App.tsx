@@ -9,6 +9,7 @@ import Settings from "@/pages/Settings";
 import Users from "@/pages/Users";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
+import Index from "@/pages/Index";
 import BusinessCards from "@/pages/BusinessCards";
 import Postcards from "@/pages/Postcards";
 import Flyers from "@/pages/Flyers";
@@ -30,6 +31,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
+            <Route path="/index" element={<Index />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/users" element={<Users />} />
             
