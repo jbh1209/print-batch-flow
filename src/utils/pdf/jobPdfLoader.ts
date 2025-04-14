@@ -1,3 +1,4 @@
+
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { loadSingleJobPdf, loadMultipleJobPdfs } from "./pdfLoaderCore";
@@ -39,11 +40,29 @@ export async function loadJobPDFs(jobs: Job[]) {
   return validPDFs;
 }
 
-export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet: number) {
-  console.log(`Creating imposition PDFs for ${jobs.length} jobs with ${slotsPerSheet} slots per sheet...`);
+// Type definitions for position mapping
+export interface PositionMapping {
+  job: Job;
+  pdfDoc: PDFDocument;
+  page: number;
+  position: number;
+  embeddedPage?: any;
+}
+
+export interface SheetLayout {
+  frontPositions: PositionMapping[];
+  backPositions: PositionMapping[];
+}
+
+/**
+ * Creates a position mapping for imposition with proper front/back alignment
+ * This is the core function that determines which job goes where on the sheet
+ */
+export async function createImpositionLayout(jobs: Job[], slotsPerSheet: number): Promise<SheetLayout> {
+  console.log(`Creating imposition layout for ${jobs.length} jobs with ${slotsPerSheet} slots per sheet...`);
   
-  const frontPDFs: { job: Job; pdfDoc: PDFDocument; page: number; position: number }[] = [];
-  const backPDFs: { job: Job; pdfDoc: PDFDocument; page: number; position: number }[] = [];
+  const frontPositions: PositionMapping[] = [];
+  const backPositions: PositionMapping[] = [];
   
   // Load all PDFs first
   const jobPDFs = await loadMultipleJobPdfs(jobs);
@@ -51,7 +70,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
   
   // Debug logging for quantities
   jobs.forEach(job => {
-    console.log(`Job ${job.id} (${job.name}): Quantity ${job.quantity || 1}`);
+    console.log(`Job ${job.id} (${job.name}): Quantity ${job.quantity || 1}, Double-sided: ${job.double_sided}`);
   });
   
   let currentPosition = 0;
@@ -65,15 +84,16 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     
     const jobData = jobPDFs.get(job.id)!;
     const quantity = Math.max(1, job.quantity || 1); // Ensure at least 1 copy
+    const pageCount = jobData.pdfDoc.getPageCount();
     
-    console.log(`Processing job ${job.id} (${job.name}) - Quantity: ${quantity}`);
+    console.log(`Processing job ${job.id} (${job.name}) - Quantity: ${quantity}, Pages: ${pageCount}`);
     
     // Add copies based on quantity
     for (let i = 0; i < quantity && currentPosition < slotsPerSheet; i++) {
       console.log(`Adding copy ${i + 1}/${quantity} of job ${job.id} at position ${currentPosition}`);
       
       // Add front page with PDF content
-      frontPDFs.push({
+      frontPositions.push({
         job,
         pdfDoc: jobData.pdfDoc,
         page: 0, // Front is always page 0
@@ -85,10 +105,10 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
         const backPosition = calculateBackPosition(currentPosition, slotsPerSheet);
         console.log(`Adding back page for job ${job.id} at position ${backPosition}`);
         
-        backPDFs.push({
+        backPositions.push({
           job,
           pdfDoc: jobData.pdfDoc,
-          page: jobData.pdfDoc.getPageCount() > 1 ? 1 : 0, // Use page 1 if exists, otherwise page 0
+          page: pageCount > 1 ? 1 : 0, // Use page 1 if exists, otherwise page 0
           position: backPosition
         });
       }
@@ -102,28 +122,31 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
   }
   
   // Sort arrays by position for consistent rendering
-  frontPDFs.sort((a, b) => a.position - b.position);
-  backPDFs.sort((a, b) => a.position - b.position);
+  frontPositions.sort((a, b) => a.position - b.position);
+  backPositions.sort((a, b) => a.position - b.position);
   
-  console.log("\nFinal front PDF positions:");
-  frontPDFs.forEach((pdf) => {
-    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name}) - Page ${pdf.page}`);
+  console.log("\nFinal front positions layout:");
+  frontPositions.forEach((mapping) => {
+    console.log(`Position ${mapping.position}: Job ${mapping.job.id} (${mapping.job.name}) - Page ${mapping.page}`);
   });
   
-  console.log("\nFinal back PDF positions:");
-  backPDFs.forEach((pdf) => {
-    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name}) - Page ${pdf.page}`);
+  console.log("\nFinal back positions layout:");
+  backPositions.forEach((mapping) => {
+    console.log(`Position ${mapping.position}: Job ${mapping.job.id} (${mapping.job.name}) - Page ${mapping.page}`);
   });
   
-  return { frontPDFs, backPDFs };
+  return { frontPositions, backPositions };
 }
 
-// Calculate the corresponding position on the back side
-function calculateBackPosition(frontPosition: number, slotsPerSheet: number) {
+/**
+ * Calculate the corresponding position on the back side for double-sided printing
+ * This uses a mirroring approach to ensure proper alignment when printed double-sided
+ */
+function calculateBackPosition(frontPosition: number, slotsPerSheet: number): number {
   // For a 3x8 grid (24 slots), we need to:
   // 1. Determine the row (0-7)
   // 2. Determine the column (0-2)
-  // 3. Calculate the flipped position
+  // 3. Calculate the mirrored position
   
   const columns = 3; // Standard is 3 columns
   const rows = slotsPerSheet / columns; // Should be 8 rows for 24 slots
@@ -134,10 +157,10 @@ function calculateBackPosition(frontPosition: number, slotsPerSheet: number) {
   // When flipping for double-sided printing:
   // - Same row
   // - Column becomes (columns - 1 - col)
-  const flippedCol = (columns - 1) - col;
-  const backPosition = (row * columns) + flippedCol;
+  const mirroredCol = (columns - 1) - col;
+  const backPosition = (row * columns) + mirroredCol;
   
-  console.log(`Front position ${frontPosition} (row ${row}, col ${col}) maps to back position ${backPosition} (row ${row}, col ${flippedCol})`);
+  console.log(`Front position ${frontPosition} (row ${row}, col ${col}) maps to back position ${backPosition} (row ${row}, col ${mirroredCol})`);
   
   return backPosition;
 }

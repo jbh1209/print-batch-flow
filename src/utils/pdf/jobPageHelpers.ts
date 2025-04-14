@@ -4,7 +4,10 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { drawJobInfo } from "./jobInfoHelpers";
 import { mmToPoints } from "./pdfUnitHelpers";
 
-// Draw a specific page from a job PDF
+/**
+ * Draw a specific page from a job PDF
+ * This function has been updated to handle embedded pages more efficiently
+ */
 export async function drawSpecificJobPage(
   page: any,
   x: number,
