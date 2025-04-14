@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Job } from "./JobsTable";
 import { useBatchCreation } from "@/hooks/useBatchCreation";
 import { MIN_RECOMMENDED_JOBS } from "@/utils/batchOptimizationHelpers";
@@ -23,7 +23,7 @@ const BatchControls = ({
 }: BatchControlsProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [batchName, setBatchName] = useState("");
-  const { createBatch, isCreatingBatch } = useBatchCreation();
+  const { createBatch, isCreatingBatch, generateBatchNumber } = useBatchCreation();
   
   // Use our custom hook to get batch-related helper data
   const { 
@@ -33,19 +33,28 @@ const BatchControls = ({
     showBatchRecommendation 
   } = useBatchHelpers(selectedJobs, allAvailableJobs);
 
+  // Generate batch name when dialog opens or selection changes
+  useEffect(() => {
+    if (dialogOpen && selectedJobs.length > 0) {
+      const fetchBatchName = async () => {
+        const newBatchName = await generateBatchNumber("business_cards");
+        setBatchName(newBatchName);
+      };
+      fetchBatchName();
+    }
+  }, [dialogOpen, selectedJobs, generateBatchNumber]);
+
   const handleBatchClick = () => {
     if (selectedJobs.length === 0) {
       return;
     }
     
-    // Generate a default batch name
-    const defaultName = `Batch-${new Date().toISOString().split('T')[0]}`;
-    setBatchName(defaultName);
     setDialogOpen(true);
   };
 
   const handleConfirmBatch = async () => {
-    const success = await createBatch(selectedJobs, batchName);
+    // Use the auto-generated batch name - no custom name
+    const success = await createBatch(selectedJobs);
     if (success) {
       setDialogOpen(false);
       onBatchComplete();
@@ -71,7 +80,6 @@ const BatchControls = ({
         setIsOpen={setDialogOpen}
         selectedJobs={selectedJobs}
         batchName={batchName}
-        setBatchName={setBatchName}
         onConfirm={handleConfirmBatch}
         isCreatingBatch={isCreatingBatch}
         optimization={optimization}

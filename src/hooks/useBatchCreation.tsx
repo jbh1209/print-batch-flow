@@ -70,13 +70,8 @@ export function useBatchCreation() {
       const totalCards = selectedJobs.reduce((sum, job) => sum + job.quantity, 0);
       const sheetsRequired = Math.ceil(totalCards / 24);
       
-      // Generate batch name with standardized format if not provided
-      let name: string;
-      if (customBatchName && customBatchName.trim()) {
-        name = customBatchName.trim();
-      } else {
-        name = await generateBatchNumber("business_cards");
-      }
+      // Always generate batch name with standardized format
+      const name = await generateBatchNumber("business_cards");
       
       // Get earliest due date from jobs for the batch due date
       const earliestDueDate = selectedJobs.reduce((earliest, job) => {
@@ -144,6 +139,7 @@ export function useBatchCreation() {
 
   return {
     createBatch,
-    isCreatingBatch
+    isCreatingBatch,
+    generateBatchNumber
   };
 }

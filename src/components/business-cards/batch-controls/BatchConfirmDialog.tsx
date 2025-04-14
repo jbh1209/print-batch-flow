@@ -9,8 +9,6 @@ import {
   DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Loader, AlertCircle } from "lucide-react";
 import { Job } from "../JobsTable";
 import { BatchOptimization } from "@/utils/batchOptimizationHelpers";
@@ -21,7 +19,6 @@ interface BatchConfirmDialogProps {
   setIsOpen: (open: boolean) => void;
   selectedJobs: Job[];
   batchName: string;
-  setBatchName: (name: string) => void;
   onConfirm: () => Promise<void>;
   isCreatingBatch: boolean;
   optimization: BatchOptimization | null;
@@ -34,16 +31,12 @@ const BatchConfirmDialog = ({
   setIsOpen,
   selectedJobs,
   batchName,
-  setBatchName,
   onConfirm,
   isCreatingBatch,
   optimization,
   upcomingDueJobs,
   onSelectJob
 }: BatchConfirmDialogProps) => {
-  // Check if the batch name follows the standard format
-  const isStandardFormat = /^DXB-(BC|FLY|PC|PB|ZUND|COV|POST)-\d{5}$/.test(batchName);
-  
   // Get job details for display
   const getJobDetails = () => {
     const laminationTypes = new Set(selectedJobs.map(job => job.lamination_type));
@@ -84,18 +77,13 @@ const BatchConfirmDialog = ({
         
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="batch-name">Batch Name</Label>
-            <Input
-              id="batch-name"
-              value={batchName}
-              onChange={(e) => setBatchName(e.target.value)}
-              placeholder="Enter batch name"
-            />
-            {!isStandardFormat && (
-              <p className="text-xs text-amber-600">
-                Recommended format: DXB-BC-00001 (for Business Cards)
-              </p>
-            )}
+            <div className="flex items-center">
+              <div className="font-medium">Batch Name:</div>
+              <div className="ml-2 text-muted-foreground">{batchName}</div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Auto-generated batch ID following standard format
+            </p>
           </div>
           
           <div className="space-y-1 rounded-md bg-muted p-3 text-sm">
@@ -180,7 +168,7 @@ const BatchConfirmDialog = ({
           </Button>
           <Button 
             onClick={onConfirm}
-            disabled={!batchName.trim() || isCreatingBatch}
+            disabled={isCreatingBatch}
             className="gap-2"
           >
             {isCreatingBatch ? (
