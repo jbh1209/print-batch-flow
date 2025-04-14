@@ -29,7 +29,8 @@ export const useBatchHelpers = (selectedJobs: Job[], allAvailableJobs: Job[]) =>
     
     // All jobs should have the same lamination type
     const firstLamination = selectedJobs[0].lamination_type;
-    return selectedJobs.every(job => job.lamination_type === firstLamination);
+    const compatible = selectedJobs.every(job => job.lamination_type === firstLamination);
+    return compatible;
   };
   
   // Check if we should recommend creating a batch

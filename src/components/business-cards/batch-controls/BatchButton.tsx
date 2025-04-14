@@ -24,11 +24,14 @@ const BatchButton = ({
   onClick, 
   optimization 
 }: BatchButtonProps) => {
+  // Fixed: The button should only be disabled if no jobs are selected OR jobs are incompatible
+  const isDisabled = selectedJobsCount === 0 || !isCompatible;
+  
   return (
     <div className="flex gap-2 items-center">
       <Button 
         onClick={onClick}
-        disabled={selectedJobsCount === 0 || !isCompatible}
+        disabled={isDisabled}
         variant={isCompatible ? "default" : "destructive"}
         className="flex gap-2"
       >
