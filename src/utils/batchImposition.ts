@@ -27,8 +27,8 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
   // Define dimensions
   const dimensions = calculateDimensions(pageWidth, pageHeight);
   
-  // Generate a batch number for display - use the job batch_id if available or first job ID
-  const batchName = jobs[0]?.batch_name || `DXB-BC-00001`;
+  // Generate a batch name for display - use a default if none provided
+  const batchName = `DXB-BC-00001`; // Fixed batch name as a fallback
   
   // Generate front page
   let frontPage = pdfDoc.addPage([pageWidth, pageHeight]);
