@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LaminationType } from "@/components/business-cards/JobsTable";
+import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface Batch {
   id: string;
@@ -68,9 +69,7 @@ export const useBusinessCardBatches = (batchId: string | null) => {
   };
 
   const handleViewPDF = (url: string | null) => {
-    if (url) {
-      window.open(url, '_blank');
-    }
+    handlePdfAction(url, 'view');
   };
 
   const handleDeleteBatch = async () => {

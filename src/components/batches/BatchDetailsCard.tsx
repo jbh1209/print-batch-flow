@@ -10,9 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { toast } from "sonner";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { BatchDetailsType } from "./types/BatchTypes";
+import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface BatchDetailsCardProps {
   batch: BatchDetailsType;
@@ -26,31 +26,6 @@ const BatchDetailsCard = ({ batch, handleViewPDF, onDeleteClick }: BatchDetailsC
       return format(new Date(dateString), 'MMM dd, yyyy');
     } catch (error) {
       return dateString;
-    }
-  };
-
-  const handlePdfAction = (url: string | null, action: 'view' | 'download') => {
-    if (!url) {
-      toast.error("PDF URL is not available");
-      return;
-    }
-
-    try {
-      if (action === 'view') {
-        // Open in a new tab
-        window.open(url, '_blank');
-      } else {
-        // Create a temporary link to download the file
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = url.split('/').pop() || 'batch-pdf.pdf';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    } catch (error) {
-      console.error("Error handling PDF:", error);
-      toast.error("Failed to process PDF. Please try again.");
     }
   };
 

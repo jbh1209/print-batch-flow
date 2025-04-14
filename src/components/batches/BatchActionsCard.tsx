@@ -10,6 +10,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { BatchDetailsType, BatchStatus } from "./types/BatchTypes";
+import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
@@ -30,31 +31,6 @@ const BatchActionsCard = ({ batch, handleViewPDF }: BatchActionsCardProps) => {
         return "Update Status";
       default:
         return "Update Status";
-    }
-  };
-
-  const handlePdfAction = (url: string | null, action: 'view' | 'download') => {
-    if (!url) {
-      toast.error("PDF URL is not available");
-      return;
-    }
-
-    try {
-      if (action === 'view') {
-        // Open in a new tab
-        window.open(url, '_blank');
-      } else {
-        // Create a temporary link to download the file
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = url.split('/').pop() || 'batch-pdf.pdf';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    } catch (error) {
-      console.error("Error handling PDF:", error);
-      toast.error("Failed to process PDF. Please try again.");
     }
   };
 
