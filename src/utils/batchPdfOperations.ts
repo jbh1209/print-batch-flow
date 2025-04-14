@@ -26,7 +26,7 @@ export async function generateAndUploadBatchPDFs(
     const impositionSheetPDF = await generateImpositionSheet(selectedJobs);
     console.log("Successfully generated imposition sheet PDF");
     
-    // Ensure the "pdf_files" bucket exists
+    // Ensure the "pdf_files" bucket exists and is public
     try {
       // First try to get the bucket to check if it exists
       const { error: getBucketError } = await supabase
@@ -34,12 +34,12 @@ export async function generateAndUploadBatchPDFs(
         .getBucket("pdf_files");
       
       if (getBucketError) {
-        // If bucket doesn't exist, attempt to create it
+        // If bucket doesn't exist, attempt to create it with public access
         console.log("Attempt to create pdf_files bucket");
         const { error: createBucketError } = await supabase
           .storage
           .createBucket("pdf_files", {
-            public: true,
+            public: true, // CRITICAL: Make bucket public
             fileSizeLimit: 52428800, // 50MB
             allowedMimeTypes: ["application/pdf"]
           });
@@ -47,6 +47,28 @@ export async function generateAndUploadBatchPDFs(
         if (createBucketError) {
           console.error("Error creating bucket:", createBucketError);
           // Don't throw, just continue and try to upload anyway
+        } else {
+          // If bucket was created, update its permissions to be public
+          const { error: updateBucketError } = await supabase
+            .storage
+            .updateBucket("pdf_files", {
+              public: true // Ensure it's public
+            });
+            
+          if (updateBucketError) {
+            console.error("Error updating bucket to public:", updateBucketError);
+          }
+        }
+      } else {
+        // If bucket exists, make sure it's public
+        const { error: updateBucketError } = await supabase
+          .storage
+          .updateBucket("pdf_files", {
+            public: true
+          });
+          
+        if (updateBucketError) {
+          console.error("Error updating bucket to public:", updateBucketError);
         }
       }
     } catch (bucketError) {

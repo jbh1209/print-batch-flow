@@ -70,6 +70,7 @@ export function drawSideInfo(
     const sideText = `${batchName} Sheet (${pageType}) - ${formattedLamination} Lamination | Jobs: ${jobs.length} | Cards: ${totalCards} | ${timestamp}`;
     
     // Draw left side text (rotated 90 degrees counterclockwise)
+    // FIXED: Used negative values for proper y positioning when rotated
     page.drawText(sideText, {
       x: mmToPoints(5),
       y: page.getHeight() / 2,
@@ -77,7 +78,11 @@ export function drawSideInfo(
       font: helveticaBold,
       color: rgb(0, 0, 0),
       rotate: {
-        angle: Math.PI * 1.5, // 270 degrees (90 degrees counterclockwise)
+        angle: -Math.PI / 2, // -90 degrees (counterclockwise)
+        origin: {
+          x: mmToPoints(5),
+          y: page.getHeight() / 2
+        }
       }
     });
     
@@ -89,7 +94,11 @@ export function drawSideInfo(
       font: helveticaBold,
       color: rgb(0, 0, 0),
       rotate: {
-        angle: Math.PI / 2, // 90 degrees (90 degrees clockwise)
+        angle: Math.PI / 2, // 90 degrees (clockwise)
+        origin: {
+          x: page.getWidth() - mmToPoints(5),
+          y: page.getHeight() / 2
+        }
       }
     });
   } catch (error) {

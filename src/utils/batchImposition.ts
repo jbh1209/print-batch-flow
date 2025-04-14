@@ -41,7 +41,6 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     
     console.log("Creating duplicated imposition PDFs...");
     // Create both front and back imposition sheets - KEY FOR DUPLICATING PAGES
-    // Added better logging and fixed parameter
     const { frontPDFs, backPDFs } = await createDuplicatedImpositionPDFs(jobs, 24);
     
     console.log(`Front PDFs count: ${frontPDFs.length}, Back PDFs count: ${backPDFs.length}`);

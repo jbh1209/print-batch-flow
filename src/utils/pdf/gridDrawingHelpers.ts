@@ -57,8 +57,15 @@ export function drawCardGrid(
           console.log(`Drawing job page at position ${positionIndex} from provided pages array`);
           const pageData = pdfPages![positionIndex];
           
-          if (!pageData || !pageData.pdfDoc) {
-            console.error(`Invalid page data at position ${positionIndex}`);
+          // Better null checking before attempting to draw
+          if (!pageData) {
+            console.error(`Null page data at position ${positionIndex}`);
+            drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
+            continue;
+          }
+          
+          if (!pageData.pdfDoc) {
+            console.error(`Missing PDF document at position ${positionIndex} for job ${pageData.job?.id || "unknown"}`);
             drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
             continue;
           }

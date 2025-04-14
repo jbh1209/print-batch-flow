@@ -32,6 +32,7 @@ export async function drawSpecificJobPage(
   console.log(`Drawing page ${pageNumber} from job ${job.id} PDF (${pdfDoc.getPageCount()} pages available)`);
   
   try {
+    // Check if the PDF has enough pages
     if (pdfDoc.getPageCount() <= pageNumber) {
       console.error(`PDF for job ${job.id} doesn't have page ${pageNumber}`);
       
@@ -78,7 +79,21 @@ export async function drawSpecificJobPage(
     
     // Embed the page into the document - critical for rendering
     try {
-      const [embeddedPage] = await page.doc.embedPdf(pdfDoc, [pageNumber]);
+      // Create a timeout promise to prevent embedding from hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("PDF embedding timed out")), 10000);
+      });
+      
+      // Create the embedding promise
+      const embedPromise = page.doc.embedPdf(pdfDoc, [pageNumber]);
+      
+      // Race between embedding and timeout
+      const [embeddedPages] = await Promise.race([
+        embedPromise,
+        timeoutPromise
+      ]) as [any];
+      
+      const embeddedPage = embeddedPages[0];
       
       if (!embeddedPage) {
         throw new Error(`Failed to embed page ${pageNumber} for job ${job.id}`);
@@ -95,7 +110,15 @@ export async function drawSpecificJobPage(
       console.log(`Successfully embedded page ${pageNumber} for job ${job.id}`);
     } catch (embedError) {
       console.error(`Error embedding page: ${embedError}`);
-      throw embedError;
+      
+      // Draw error message
+      page.drawText("Error embedding page", {
+        x: x + placeholderWidth / 2 - 50,
+        y: y + placeholderHeight / 2,
+        size: 10,
+        font: helveticaFont,
+        color: rgb(0.8, 0, 0) // Red text
+      });
     }
   } catch (error) {
     console.error(`Error embedding specific page for job ${job.id}:`, error);

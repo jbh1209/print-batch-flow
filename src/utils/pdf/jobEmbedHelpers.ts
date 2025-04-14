@@ -44,9 +44,29 @@ export async function embedJobPDF(
     
     // Get the first page from the source document
     try {
+      // Access the page before embedding to verify it exists
+      const sourcePage = jobPdfDoc.getPage(0);
+      if (!sourcePage) {
+        throw new Error("Could not access page 0 of PDF");
+      }
+
       // Embed the PDF page - critical for rendering
       console.log("Attempting to embed PDF page");
-      const [jobFirstPage] = await page.doc.embedPdf(jobPdfDoc, [0]);
+      // Force timeout increase for embedding
+      const embedPromise = page.doc.embedPdf(jobPdfDoc, [0]);
+      
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("PDF embedding timed out")), 10000);
+      });
+      
+      // Race between embedding and timeout
+      const [embeddedPages] = await Promise.race([
+        embedPromise,
+        timeoutPromise
+      ]) as [any];
+      
+      const jobFirstPage = embeddedPages[0];
       
       if (!jobFirstPage) {
         console.error("Failed to embed PDF page");
@@ -62,8 +82,8 @@ export async function embedJobPDF(
       }
       
       // Calculate scaling to fit the card area while preserving aspect ratio
-      const originalWidth = jobFirstPage.width || 90;  // Default if width is not available
-      const originalHeight = jobFirstPage.height || 50; // Default if height is not available
+      const originalWidth = sourcePage.getWidth();
+      const originalHeight = sourcePage.getHeight();
       
       console.log(`Original PDF dimensions: ${originalWidth}x${originalHeight}`);
       

@@ -30,7 +30,7 @@ export function drawJobInfo(
       
       page.drawText("Unknown Job", {
         x: x + 2,
-        y: y + textAreaHeight/2,
+        y: y + textAreaHeight/2 - 3,
         size: 7,
         font: helveticaBold,
         color: rgb(1, 1, 1) // White text
@@ -54,10 +54,10 @@ export function drawJobInfo(
       jobName = jobName.substring(0, 12) + "...";
     }
     
-    // Draw job name in white text for better contrast
+    // Draw job name in white text for better contrast - FIXED Y POSITIONING
     page.drawText(jobName, {
       x: x + 2,
-      y: y + textAreaHeight/2,
+      y: y + textAreaHeight/2 - 3, // Adjust vertical positioning to center text
       size: 7,
       font: helveticaBold,
       color: rgb(1, 1, 1) // White text
@@ -75,11 +75,11 @@ export function drawJobInfo(
       console.error("Error formatting date:", error);
     }
     
-    // Draw job ID and quantity info with null checks
+    // Draw job ID and quantity info with null checks - FIXED Y POSITIONING
     const infoText = `ID: ${jobId} | Qty: ${job.quantity || 0} | Due: ${dueDate}`;
     page.drawText(infoText, {
       x: x + placeholderWidth - 85,
-      y: y + textAreaHeight/2,
+      y: y + textAreaHeight/2 - 3, // Adjust vertical positioning to center text
       size: 6,
       font: helveticaFont,
       color: rgb(1, 1, 1) // White text
@@ -99,7 +99,7 @@ export function drawJobInfo(
       
       page.drawText("Error displaying job info", {
         x: x + 2,
-        y: y + textAreaHeight/2,
+        y: y + textAreaHeight/2 - 3, // Adjust vertical positioning
         size: 6,
         font: helveticaFont,
         color: rgb(1, 1, 1) // White text
