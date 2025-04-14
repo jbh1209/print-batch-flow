@@ -7,17 +7,24 @@ import { toast } from "sonner";
  * @param action Action to perform - 'view' or 'download'
  * @param filename Optional filename for download (defaults to the last part of the URL)
  */
-export const handlePdfAction = (
+export const handlePdfAction = async (
   url: string | null,
   action: 'view' | 'download',
   filename?: string
-): void => {
+): Promise<void> => {
   if (!url) {
     toast.error("PDF URL is not available");
     return;
   }
 
   try {
+    // First check if the PDF is accessible by sending a HEAD request
+    const checkResponse = await fetch(url, { method: 'HEAD' });
+    
+    if (!checkResponse.ok) {
+      throw new Error(`PDF access error (${checkResponse.status}): ${checkResponse.statusText}`);
+    }
+    
     if (action === 'view') {
       // Open in a new tab
       window.open(url, '_blank', 'noopener,noreferrer');
@@ -38,7 +45,15 @@ export const handlePdfAction = (
       toast.success("Download initiated");
     }
   } catch (error) {
-    console.error("Error handling PDF:", error);
-    toast.error("Failed to process PDF. Please try again.");
+    console.error("Error accessing PDF:", error);
+    
+    // Provide a more helpful error message based on the error
+    if (error instanceof Error && error.message.includes("403")) {
+      toast.error("Permission denied: You don't have access to this PDF. This may be due to Supabase storage permissions.");
+    } else if (error instanceof Error && error.message.includes("404")) {
+      toast.error("PDF not found: The file may have been moved or deleted.");
+    } else {
+      toast.error("Failed to access PDF. Please check storage permissions in Supabase.");
+    }
   }
 };

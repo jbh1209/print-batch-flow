@@ -1,5 +1,5 @@
 
-import { CheckCircle2, Download, Eye } from "lucide-react";
+import { CheckCircle2, Download, Eye, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,9 +7,11 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from "@/components/ui/card";
 import { BatchDetailsType, BatchStatus } from "./types/BatchTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
+import { toast } from "sonner";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
@@ -34,6 +36,11 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
 
   // Check if the status is not completed
   const isNotCompleted = batch.status !== "completed";
+  
+  // Check if PDFs are available
+  const hasImpositionPDF = !!batch.front_pdf_url;
+  const hasOverviewPDF = !!batch.back_pdf_url;
+  const hasPDFs = hasImpositionPDF || hasOverviewPDF;
 
   return (
     <Card>
@@ -56,9 +63,17 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
         {/* PDF Actions */}
         <div className="space-y-2">
           <p className="text-sm font-medium">PDFs</p>
+          
+          {!hasPDFs && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 border rounded-md">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <span>No PDFs available for this batch</span>
+            </div>
+          )}
+          
           <div className="flex flex-col gap-2">
             {/* Imposition PDF (front_pdf_url) */}
-            {batch.front_pdf_url && (
+            {hasImpositionPDF && (
               <div className="flex flex-col gap-2">
                 <Button 
                   variant="outline" 
@@ -80,7 +95,7 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
             )}
             
             {/* Overview PDF (back_pdf_url) */}
-            {batch.back_pdf_url && (
+            {hasOverviewPDF && (
               <div className="flex flex-col gap-2 mt-2">
                 <Button 
                   variant="outline" 
@@ -103,6 +118,14 @@ const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
           </div>
         </div>
       </CardContent>
+      
+      {hasPDFs && (
+        <CardFooter className="pt-0">
+          <p className="text-xs text-muted-foreground">
+            If PDFs don't open, check storage permissions in Supabase.
+          </p>
+        </CardFooter>
+      )}
     </Card>
   );
 };
