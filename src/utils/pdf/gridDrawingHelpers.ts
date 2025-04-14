@@ -14,8 +14,13 @@ export function drawCardGrid(
   helveticaBold: any,
   pdfPages?: { job: Job; pdfDoc: PDFDocument; page: number; position?: number }[]
 ) {
-  console.log("Drawing card grid...");
-  console.log("PDF Pages array:", pdfPages?.map(p => `Job ${p.job.id} at position ${p.position}`));
+  console.log("Drawing card grid with following data:");
+  console.log("Valid job PDFs:", validJobPDFs.map(p => `Job ${p.job.id}`));
+  console.log("PDF Pages for positions:", pdfPages?.map(p => ({
+    jobId: p.job.id,
+    position: p.position,
+    quantity: p.job.quantity
+  })));
   
   const {
     placeholderWidth,
@@ -34,27 +39,25 @@ export function drawCardGrid(
       const y = page.getHeight() - verticalMargin - (row + 1) * placeholderHeight;
       const positionIndex = row * columns + col;
       
-      console.log(`Processing grid position ${positionIndex}`);
-      
       // Find page for this position
       const pageData = pdfPages?.find(p => p.position === positionIndex);
       
-      if (!pageData) {
-        console.log(`No job assigned to position ${positionIndex}, drawing empty placeholder`);
-        drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
-      } else {
-        console.log(`Drawing job ${pageData.job.id} at position ${positionIndex}`);
+      if (pageData) {
+        console.log(`Position ${positionIndex}: Drawing job ${pageData.job.id} (${pageData.job.name})`);
         drawSpecificJobPage(
-          page, 
-          x, 
-          y, 
-          pageData, 
-          placeholderWidth, 
-          placeholderHeight, 
-          textAreaHeight, 
-          helveticaFont, 
+          page,
+          x,
+          y,
+          pageData,
+          placeholderWidth,
+          placeholderHeight,
+          textAreaHeight,
+          helveticaFont,
           helveticaBold
         );
+      } else {
+        console.log(`Position ${positionIndex}: Drawing empty placeholder`);
+        drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
       }
     }
   }

@@ -49,7 +49,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
   const jobPDFs = await loadMultipleJobPdfs(jobs);
   console.log(`Successfully loaded PDFs for ${jobPDFs.size} out of ${jobs.length} jobs`);
   
-  // Debug each job's quantity
+  // Debug logging for quantities
   jobs.forEach(job => {
     console.log(`Job ${job.id} (${job.name}): Quantity ${job.quantity || 1}`);
   });
@@ -64,11 +64,11 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     }
     
     const jobData = jobPDFs.get(job.id)!;
-    const quantity = job.quantity || 1;
+    const quantity = Math.max(1, job.quantity || 1); // Ensure at least 1 copy
     
-    console.log(`Adding ${quantity} copies of job ${job.id} starting at position ${currentPosition}`);
+    console.log(`Processing job ${job.id} (${job.name}) - Quantity: ${quantity}`);
     
-    // Add all copies of this job
+    // Add copies based on quantity
     for (let i = 0; i < quantity && currentPosition < slotsPerSheet; i++) {
       console.log(`Adding copy ${i + 1}/${quantity} of job ${job.id} at position ${currentPosition}`);
       
@@ -106,12 +106,14 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
   backPDFs.sort((a, b) => a.position - b.position);
   
   // Log final positions for debugging
-  console.log("\nFinal PDF positions:");
+  console.log("\nFinal front PDF positions:");
   frontPDFs.forEach((pdf) => {
-    console.log(`Front position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
+    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
   });
+  
+  console.log("\nFinal back PDF positions:");
   backPDFs.forEach((pdf) => {
-    console.log(`Back position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
+    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
   });
   
   return { frontPDFs, backPDFs };
