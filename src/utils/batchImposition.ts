@@ -44,7 +44,25 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     const { frontPDFs, backPDFs } = await createDuplicatedImpositionPDFs(jobs, 1);
     
     if (frontPDFs.length === 0) {
-      console.error("No valid front PDFs were created for imposition");
+      console.warn("No valid front PDFs were created for imposition, creating fallback");
+      
+      // Create fallback PDFs - we need to ensure we have something to display
+      for (let i = 0; i < Math.min(jobs.length, 24); i++) {
+        const job = jobs[i];
+        const emptyPdf = await PDFDocument.create();
+        const page = emptyPdf.addPage([350, 200]);
+        page.drawText(`No PDF available: ${job.name || job.id}`, {
+          x: 50,
+          y: 100,
+          size: 12
+        });
+        
+        frontPDFs.push({
+          job,
+          pdfDoc: emptyPdf,
+          page: 0
+        });
+      }
     } else {
       console.log(`Created ${frontPDFs.length} front PDFs for imposition`);
     }
@@ -59,7 +77,7 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     // Draw side information (simple text)
     drawSideInfo(frontPage, jobs, helveticaFont, helveticaBold, batchName, "Front");
     
-    console.log("Loading job PDFs...");
+    console.log("Loading job PDFs as backup...");
     // Load job PDFs for backup approach if needed
     const validJobPDFs = await loadJobPDFs(jobs);
     
@@ -86,6 +104,19 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
       
       console.log("Drawing back grid...");
       drawCardGrid(backPage, validJobPDFs, dimensions, helveticaFont, helveticaBold, backPDFs);
+    } else if (jobs.some(job => job.double_sided)) {
+      // Create a back page anyway if any jobs are double-sided
+      console.log("Creating back page for double-sided jobs (fallback)");
+      let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
+      
+      // Draw batch information for back page
+      drawBatchInfo(backPage, jobs, helveticaFont, helveticaBold, "Back (Placeholder)");
+      
+      // Draw side information
+      drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, batchName, "Back");
+      
+      console.log("Drawing back grid with placeholder...");
+      drawCardGrid(backPage, validJobPDFs, dimensions, helveticaFont, helveticaBold);
     }
     
     console.log("Serializing PDF document...");
@@ -93,6 +124,51 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     return await pdfDoc.save();
   } catch (error) {
     console.error("Error generating imposition sheet:", error);
-    throw error;
+    
+    // Create a simple error PDF as a fallback
+    try {
+      const errorPdf = await PDFDocument.create();
+      const errorPage = errorPdf.addPage([mmToPoints(320), mmToPoints(455)]);
+      const font = await errorPdf.embedFont(StandardFonts.Helvetica);
+      
+      errorPage.drawText("Error Generating Imposition Sheet", {
+        x: 50,
+        y: errorPage.getHeight() - 50,
+        size: 24,
+        font
+      });
+      
+      errorPage.drawText(`Error: ${error instanceof Error ? error.message : "Unknown error"}`, {
+        x: 50,
+        y: errorPage.getHeight() - 100,
+        size: 12,
+        font,
+        color: rgb(0.8, 0, 0)
+      });
+      
+      errorPage.drawText("Please check that all job PDFs are valid and accessible.", {
+        x: 50,
+        y: errorPage.getHeight() - 150,
+        size: 12,
+        font
+      });
+      
+      // List jobs with URLs
+      let y = errorPage.getHeight() - 200;
+      for (const job of jobs) {
+        errorPage.drawText(`Job ${job.id}: ${job.name || "Unnamed"} - ${job.pdf_url ? "Has URL" : "No URL"}`, {
+          x: 50,
+          y,
+          size: 10,
+          font
+        });
+        y -= 15;
+      }
+      
+      return await errorPdf.save();
+    } catch (fallbackError) {
+      console.error("Error creating fallback error PDF:", fallbackError);
+      throw error; // Re-throw the original error if we can't create a fallback
+    }
   }
 }

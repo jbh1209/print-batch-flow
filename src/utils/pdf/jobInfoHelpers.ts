@@ -15,6 +15,30 @@ export function drawJobInfo(
   helveticaBold: any
 ) {
   try {
+    // Ensure job object exists
+    if (!job) {
+      console.error("Null job object provided to drawJobInfo");
+      
+      // Draw a gray box with "Unknown Job" text
+      page.drawRectangle({
+        x,
+        y,
+        width: placeholderWidth,
+        height: textAreaHeight,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+      
+      page.drawText("Unknown Job", {
+        x: x + 2,
+        y: y + mmToPoints(3),
+        size: 7,
+        font: helveticaBold,
+        color: rgb(1, 1, 1) // White text
+      });
+      
+      return;
+    }
+    
     // Draw black highlight background for text area
     page.drawRectangle({
       x,
@@ -23,12 +47,6 @@ export function drawJobInfo(
       height: textAreaHeight,
       color: rgb(0, 0, 0),
     });
-    
-    // Ensure job object exists
-    if (!job) {
-      console.error("Null job object provided to drawJobInfo");
-      return;
-    }
     
     // Get job name with fallback
     let jobName = job.name || "Untitled Job";
@@ -68,6 +86,27 @@ export function drawJobInfo(
     });
   } catch (error) {
     console.error("Error in drawJobInfo:", error);
+    
+    // Attempt to draw minimal info on error
+    try {
+      page.drawRectangle({
+        x,
+        y,
+        width: placeholderWidth,
+        height: textAreaHeight,
+        color: rgb(0.5, 0, 0),
+      });
+      
+      page.drawText("Error displaying job info", {
+        x: x + 2,
+        y: y + mmToPoints(3),
+        size: 6,
+        font: helveticaFont,
+        color: rgb(1, 1, 1) // White text
+      });
+    } catch (drawError) {
+      console.error("Failed to draw error message:", drawError);
+    }
   }
 }
 
