@@ -26,8 +26,10 @@ export async function drawSpecificJobPage(
     height: placeholderHeight,
     borderColor: rgb(0, 0, 0),
     borderWidth: 0.5,
-    color: rgb(1, 1, 1)
+    color: rgb(1, 1, 1) // White background
   });
+  
+  console.log(`Drawing page ${pageNumber} from job ${job.id} PDF (${pdfDoc.getPageCount()} pages available)`);
   
   try {
     if (pdfDoc.getPageCount() <= pageNumber) {
@@ -39,35 +41,43 @@ export async function drawSpecificJobPage(
         y: y + placeholderHeight / 2,
         size: 10,
         font: helveticaFont,
-        color: rgb(0.8, 0, 0)
+        color: rgb(0.8, 0, 0) // Red text
       });
-    } else {
-      // Get the specific page
-      const sourcePage = pdfDoc.getPage(pageNumber);
       
-      // Calculate scaling to fit the card area while preserving aspect ratio
-      const originalWidth = sourcePage.getWidth();
-      const originalHeight = sourcePage.getHeight();
-      
-      // Leave space for text at bottom
-      const availableHeight = placeholderHeight - textAreaHeight;
-      
-      // Calculate scale factors for width and height
-      const scaleX = (placeholderWidth - mmToPoints(6)) / originalWidth;
-      const scaleY = (availableHeight - mmToPoints(6)) / originalHeight;
-      
-      // Use the smaller scale factor to ensure it fits
-      const scale = Math.min(scaleX, scaleY);
-      
-      // Calculate dimensions after scaling
-      const scaledWidth = originalWidth * scale;
-      const scaledHeight = originalHeight * scale;
-      
-      // Calculate position to center within placeholder
-      const embedX = x + (placeholderWidth - scaledWidth) / 2;
-      const embedY = y + textAreaHeight + (availableHeight - scaledHeight) / 2;
-      
-      // Embed the page into the document - critical for rendering
+      // Still draw job info
+      drawJobInfo(page, job, x, y, placeholderWidth, textAreaHeight, helveticaFont, helveticaBold);
+      return;
+    }
+    
+    // Get the specific page
+    const sourcePage = pdfDoc.getPage(pageNumber);
+    
+    // Calculate scaling to fit the card area while preserving aspect ratio
+    const originalWidth = sourcePage.getWidth();
+    const originalHeight = sourcePage.getHeight();
+    
+    // Leave space for text at bottom
+    const availableHeight = placeholderHeight - textAreaHeight;
+    
+    // Calculate scale factors for width and height
+    const scaleX = (placeholderWidth - mmToPoints(6)) / originalWidth;
+    const scaleY = (availableHeight - mmToPoints(6)) / originalHeight;
+    
+    // Use the smaller scale factor to ensure it fits
+    const scale = Math.min(scaleX, scaleY);
+    
+    // Calculate dimensions after scaling
+    const scaledWidth = originalWidth * scale;
+    const scaledHeight = originalHeight * scale;
+    
+    // Calculate position to center within placeholder
+    const embedX = x + (placeholderWidth - scaledWidth) / 2;
+    const embedY = y + textAreaHeight + (availableHeight - scaledHeight) / 2;
+    
+    console.log(`Embedding page at position (${embedX}, ${embedY}) with size ${scaledWidth}x${scaledHeight}`);
+    
+    // Embed the page into the document - critical for rendering
+    try {
       const [embeddedPage] = await page.doc.embedPdf(pdfDoc, [pageNumber]);
       
       if (!embeddedPage) {
@@ -81,6 +91,11 @@ export async function drawSpecificJobPage(
         width: scaledWidth,
         height: scaledHeight
       });
+      
+      console.log(`Successfully embedded page ${pageNumber} for job ${job.id}`);
+    } catch (embedError) {
+      console.error(`Error embedding page: ${embedError}`);
+      throw embedError;
     }
   } catch (error) {
     console.error(`Error embedding specific page for job ${job.id}:`, error);
@@ -92,13 +107,13 @@ export async function drawSpecificJobPage(
         y: y + placeholderHeight / 2,
         size: 8,
         font: helveticaFont,
-        color: rgb(0.8, 0, 0)
+        color: rgb(0.8, 0, 0) // Red text
       });
     } catch (drawError) {
       console.error(`Error drawing error message: ${drawError}`);
     }
   }
   
-  // Draw job info at the bottom
+  // Draw job info at the bottom - always do this even if embedding fails
   drawJobInfo(page, job, x, y, placeholderWidth, textAreaHeight, helveticaFont, helveticaBold);
 }

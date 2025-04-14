@@ -45,6 +45,7 @@ export async function embedJobPDF(
     // Get the first page from the source document
     try {
       // Embed the PDF page - critical for rendering
+      console.log("Attempting to embed PDF page");
       const [jobFirstPage] = await page.doc.embedPdf(jobPdfDoc, [0]);
       
       if (!jobFirstPage) {
@@ -64,6 +65,8 @@ export async function embedJobPDF(
       const originalWidth = jobFirstPage.width || 90;  // Default if width is not available
       const originalHeight = jobFirstPage.height || 50; // Default if height is not available
       
+      console.log(`Original PDF dimensions: ${originalWidth}x${originalHeight}`);
+      
       // Leave space for text at bottom
       const availableHeight = placeholderHeight - textAreaHeight;
       
@@ -73,6 +76,7 @@ export async function embedJobPDF(
       
       // Use the smaller scale factor to ensure it fits
       const scale = Math.min(scaleX, scaleY);
+      console.log(`Scale factors - x: ${scaleX}, y: ${scaleY}, using: ${scale}`);
       
       // Calculate dimensions after scaling
       const scaledWidth = originalWidth * scale;

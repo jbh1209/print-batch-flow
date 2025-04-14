@@ -36,12 +36,13 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     // Define dimensions
     const dimensions = calculateDimensions(pageWidth, pageHeight);
     
-    // Generate a batch name for display - use a default if none provided
-    const batchName = `DXB-BC-00001`; // Fixed batch name as a fallback
+    // Generate a batch name for display
+    const batchName = `DXB-BC-${new Date().getTime().toString().substring(6)}`; // Dynamic batch name
     
     console.log("Creating duplicated imposition PDFs...");
     // Create both front and back imposition sheets - KEY FOR DUPLICATING PAGES
-    const { frontPDFs, backPDFs } = await createDuplicatedImpositionPDFs(jobs, 1);
+    // Added better logging and fixed parameter
+    const { frontPDFs, backPDFs } = await createDuplicatedImpositionPDFs(jobs, 24);
     
     console.log(`Front PDFs count: ${frontPDFs.length}, Back PDFs count: ${backPDFs.length}`);
     
@@ -49,6 +50,7 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
     if (frontPDFs.length === 0) {
       console.warn("No valid front PDFs were created for imposition, creating fallbacks");
       
+      // Create at least one fallback PDF for each job
       for (let i = 0; i < Math.min(jobs.length, 24); i++) {
         const job = jobs[i];
         const emptyPdf = await PDFDocument.create();
@@ -125,12 +127,13 @@ export async function generateImpositionSheet(jobs: Job[]): Promise<Uint8Array> 
       const errorPdf = await PDFDocument.create();
       const errorPage = errorPdf.addPage([mmToPoints(320), mmToPoints(455)]);
       const font = await errorPdf.embedFont(StandardFonts.Helvetica);
+      const boldFont = await errorPdf.embedFont(StandardFonts.HelveticaBold);
       
       errorPage.drawText("Error Generating Imposition Sheet", {
         x: 50,
         y: errorPage.getHeight() - 50,
         size: 24,
-        font
+        font: boldFont
       });
       
       errorPage.drawText(`Error: ${error instanceof Error ? error.message : "Unknown error"}`, {

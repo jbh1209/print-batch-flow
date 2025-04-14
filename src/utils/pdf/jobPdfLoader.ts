@@ -39,18 +39,7 @@ export async function loadJobPDFs(jobs: Job[], duplicateForImposition = false) {
       
       // Fetch the PDF with better error handling
       try {
-        // First check if we can access the URL
-        const headResponse = await fetch(job.pdf_url, { 
-          method: 'HEAD',
-          cache: 'no-cache' // Prevent caching issues
-        });
-        
-        if (!headResponse.ok) {
-          console.error(`PDF URL not reachable for job ${job.id || index}: ${headResponse.statusText} (${headResponse.status})`);
-          return null;
-        }
-        
-        // Now actually fetch the PDF
+        // Fetch the PDF directly - removed HEAD check which could be causing issues
         const response = await fetch(job.pdf_url, { 
           cache: 'no-cache' // Prevent caching issues
         });
@@ -59,7 +48,7 @@ export async function loadJobPDFs(jobs: Job[], duplicateForImposition = false) {
           console.error(`Failed to fetch PDF for job ${job.id || index}: ${response.statusText} (${response.status})`);
           try {
             const errorText = await response.text();
-            console.error(`Response body: ${errorText}`);
+            console.error(`Response body: ${errorText.substring(0, 200)}...`);
           } catch (e) {
             console.error(`Could not read response body: ${e}`);
           }
@@ -129,6 +118,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
   const frontPDFs: { job: Job; pdfDoc: PDFDocument; page: number }[] = [];
   const backPDFs: { job: Job; pdfDoc: PDFDocument; page: number }[] = [];
   
+  // First load all the PDFs we'll need
   for (const job of jobs) {
     try {
       if (!job.pdf_url) {
@@ -157,7 +147,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
       // Fetch and load the original PDF
       try {
         const response = await fetch(job.pdf_url, {
-          cache: 'no-cache' // Prevent caching issues
+          cache: 'no-store' // Force fresh fetch every time
         });
         
         if (!response.ok) {
@@ -187,6 +177,7 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], quantity: numb
           
           // Calculate how many copies of this job we need based on quantity
           // For business cards, typically 24 cards per sheet (3x8 grid)
+          // Use actual quantity for duplication, not just 1
           const copiesNeeded = Math.max(1, Math.ceil((job.quantity || 1) / 24));
           console.log(`Job ${job.id} needs ${copiesNeeded} copies for ${job.quantity || 0} cards`);
           

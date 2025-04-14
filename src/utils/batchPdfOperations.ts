@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Job } from "@/components/business-cards/JobsTable";
 import { generateBatchOverview } from "./batchGeneration";
@@ -25,6 +26,34 @@ export async function generateAndUploadBatchPDFs(
     const impositionSheetPDF = await generateImpositionSheet(selectedJobs);
     console.log("Successfully generated imposition sheet PDF");
     
+    // Ensure the "pdf_files" bucket exists
+    try {
+      // First try to get the bucket to check if it exists
+      const { error: getBucketError } = await supabase
+        .storage
+        .getBucket("pdf_files");
+      
+      if (getBucketError) {
+        // If bucket doesn't exist, attempt to create it
+        console.log("Attempt to create pdf_files bucket");
+        const { error: createBucketError } = await supabase
+          .storage
+          .createBucket("pdf_files", {
+            public: true,
+            fileSizeLimit: 52428800, // 50MB
+            allowedMimeTypes: ["application/pdf"]
+          });
+        
+        if (createBucketError) {
+          console.error("Error creating bucket:", createBucketError);
+          // Don't throw, just continue and try to upload anyway
+        }
+      }
+    } catch (bucketError) {
+      console.error("Error checking/creating bucket:", bucketError);
+      // Continue anyway as the bucket might already exist
+    }
+    
     // Set file paths for uploads with clear naming convention
     // Keep userId as the first folder for RLS policy to work
     const timestamp = Date.now();
@@ -35,7 +64,11 @@ export async function generateAndUploadBatchPDFs(
     // Upload batch overview
     const { error: overviewError } = await supabase.storage
       .from("pdf_files")
-      .upload(overviewFilePath, batchOverviewPDF);
+      .upload(overviewFilePath, batchOverviewPDF, {
+        contentType: "application/pdf",
+        cacheControl: "3600",
+        upsert: true
+      });
       
     if (overviewError) {
       console.error("Overview upload error:", overviewError);
@@ -55,7 +88,11 @@ export async function generateAndUploadBatchPDFs(
     // Upload imposition sheet
     const { error: impositionError } = await supabase.storage
       .from("pdf_files")
-      .upload(impositionFilePath, impositionSheetPDF);
+      .upload(impositionFilePath, impositionSheetPDF, {
+        contentType: "application/pdf",
+        cacheControl: "3600",
+        upsert: true
+      });
       
     if (impositionError) {
       console.error("Imposition upload error:", impositionError);
@@ -72,6 +109,9 @@ export async function generateAndUploadBatchPDFs(
     }
     
     console.log("Successfully uploaded both PDFs");
+    console.log("Overview URL:", overviewUrlData.publicUrl);
+    console.log("Imposition URL:", impositionUrlData.publicUrl);
+    
     return {
       overviewUrl: overviewUrlData.publicUrl,
       impositionUrl: impositionUrlData.publicUrl
