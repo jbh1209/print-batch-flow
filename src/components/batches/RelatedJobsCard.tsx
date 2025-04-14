@@ -1,5 +1,5 @@
 
-import { FileText, Eye } from "lucide-react";
+import { FileText, Eye, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -44,14 +44,25 @@ const RelatedJobsCard = ({ jobs, handleViewPDF }: RelatedJobsCardProps) => {
                 </TableCell>
                 <TableCell className="text-right">
                   {job.pdf_url && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => handleViewPDF(job.pdf_url)}
-                    >
-                      <Eye className="h-4 w-4" />
-                      <span className="sr-only">View PDF</span>
-                    </Button>
+                    <div className="flex justify-end items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleViewPDF(job.pdf_url)}
+                      >
+                        <Eye className="h-4 w-4" />
+                        <span className="sr-only">View PDF</span>
+                      </Button>
+                      <a 
+                        href={job.pdf_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        <span className="sr-only">Direct Link</span>
+                      </a>
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
