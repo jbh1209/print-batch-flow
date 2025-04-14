@@ -1,3 +1,4 @@
+
 import { Job } from "@/components/business-cards/JobsTable";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
@@ -41,8 +42,8 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     const actualBatchName = batchName || generateDefaultBatchName();
     console.log("Final batch name for display:", actualBatchName);
     
-    // Adjust the vertical margin to give more space at top
-    dimensions.verticalMargin = mmToPoints(25); // Reduced from 35 to 25 since we removed the header
+    // CRITICAL: Remove vertical margin adjustment - use the natural centering
+    // This will prevent empty space at the top where header text used to be
     
     console.log("Loading job PDFs as backup...");
     // Load job PDFs first - this ensures we have all PDFs loaded before creating pages
@@ -60,9 +61,6 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     console.log("Creating front page");
     let frontPage = pdfDoc.addPage([pageWidth, pageHeight]);
     
-    // REMOVED: Draw batch information at top (no rotation) - removed per user request
-    // Just keeping the side information for reference
-    
     // Draw side information (side text) with correct batch name
     drawSideInfo(frontPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Front");
     
@@ -75,9 +73,6 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
       console.log("Creating back page");
       let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
       
-      // REMOVED: Draw batch information for back page 
-      // Just keeping the side information for reference
-      
       // Draw side information with correct batch name
       drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
       
@@ -87,9 +82,6 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
       // Create a back page anyway if any jobs are double-sided
       console.log("Creating back page for double-sided jobs");
       let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
-      
-      // REMOVED: Draw batch information for back page
-      // Just keeping the side information for reference
       
       // Draw side information with correct batch name
       drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
