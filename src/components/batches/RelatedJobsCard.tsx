@@ -1,5 +1,5 @@
 
-import { FileText, Eye, ExternalLink } from "lucide-react";
+import { FileText, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,13 +11,13 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { Job } from "./types/BatchTypes";
+import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface RelatedJobsCardProps {
   jobs: Job[];
-  handleViewPDF: (url: string) => void;
 }
 
-const RelatedJobsCard = ({ jobs, handleViewPDF }: RelatedJobsCardProps) => {
+const RelatedJobsCard = ({ jobs }: RelatedJobsCardProps) => {
   return (
     <Card className="mt-6">
       <CardHeader>
@@ -48,12 +48,19 @@ const RelatedJobsCard = ({ jobs, handleViewPDF }: RelatedJobsCardProps) => {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleViewPDF(job.pdf_url)}
+                        onClick={() => handlePdfAction(job.pdf_url, 'view')}
                       >
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">View PDF</span>
                       </Button>
-                      {/* Removed direct link as we now use signed URLs */}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handlePdfAction(job.pdf_url, 'download', `${job.name}.pdf`)}
+                      >
+                        <Download className="h-4 w-4" />
+                        <span className="sr-only">Download PDF</span>
+                      </Button>
                     </div>
                   )}
                 </TableCell>
