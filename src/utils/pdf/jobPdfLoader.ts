@@ -56,14 +56,18 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     console.log(`Job ${job.id} (${job.name}): PDF ${jobPDFs.has(job.id) ? 'available' : 'missing'}`);
   });
   
-  // CRITICAL NEW IMPLEMENTATION: Process jobs in order of the provided jobs array
-  // For each job, add all its copies consecutively
+  // COMPLETELY REDESIGNED IMPLEMENTATION:
+  // We place jobs sequentially in the order they appear in the jobs array
+  // For each job, we place all its copies in consecutive slots
   let currentPosition = 0;
   
-  // Iterate through jobs in the order they were provided
+  // For debug tracking
+  const jobCounts = new Map<string, number>();
+  
+  // Process each job in order as provided in the input array
   for (const job of jobs) {
-    if (!jobPDFs.has(job.id)) {
-      console.warn(`Skipping job ${job.id} due to missing PDF`);
+    if (!job.id || !jobPDFs.has(job.id)) {
+      console.warn(`Skipping job ${job.id || 'unknown'} due to missing PDF`);
       continue;
     }
     
@@ -74,20 +78,22 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
     const copiesToAdd = job.quantity || 1;
     console.log(`Adding ${copiesToAdd} copies of job ${job.id} (${job.name})`);
     
-    // Add all copies of this job at once
+    // Track how many copies we've actually added
+    jobCounts.set(job.id, copiesToAdd);
+    
+    // Add all copies of this job at once in consecutive slots
     for (let i = 0; i < copiesToAdd && currentPosition < slotsPerSheet; i++) {
       // Add front page for this job copy
       frontPDFs.push({ 
         job, 
         pdfDoc,
         page: 0,  // First page index
-        position: currentPosition  // Keep track of the position for back side alignment
+        position: currentPosition  // Sequential position
       });
       
       // Add back page if job is double-sided and has a second page
       if (job.double_sided) {
         // CRITICAL: For double-sided cards, we need to flip the position for proper alignment
-        // This ensures front left aligns with back right, etc.
         const backPosition = calculateBackPosition(currentPosition, slotsPerSheet);
         
         backPDFs.push({ 
@@ -99,7 +105,10 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
       }
       
       currentPosition++;
-      if (currentPosition >= slotsPerSheet) break;
+      if (currentPosition >= slotsPerSheet) {
+        console.log(`Reached maximum slots (${slotsPerSheet})`);
+        break;
+      }
     }
   }
   
@@ -110,22 +119,28 @@ export async function createDuplicatedImpositionPDFs(jobs: Job[], slotsPerSheet:
   console.log(`Created ${frontPDFs.length} front pages and ${backPDFs.length} back pages for imposition`);
   
   // Debug final distribution
-  const jobDistribution = new Map<string, number>();
-  frontPDFs.forEach(item => {
-    const jobId = item.job.id;
-    jobDistribution.set(jobId, (jobDistribution.get(jobId) || 0) + 1);
+  console.log("Final job distribution:");
+  jobCounts.forEach((count, jobId) => {
+    const job = jobs.find(j => j.id === jobId);
+    console.log(`Job ${jobId} (${job?.name}): ${count} copies`);
   });
   
-  console.log("Final job distribution:");
-  jobDistribution.forEach((count, jobId) => {
-    const job = jobs.find(j => j.id === jobId);
-    console.log(`Job ${jobId} (${job?.name}): ${count} slots`);
+  // Debug front PDF positions
+  console.log("Front PDF positions:");
+  frontPDFs.forEach((pdf, idx) => {
+    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
+  });
+  
+  // Debug back PDF positions
+  console.log("Back PDF positions:");
+  backPDFs.forEach((pdf, idx) => {
+    console.log(`Position ${pdf.position}: Job ${pdf.job.id} (${pdf.job.name})`);
   });
   
   return { frontPDFs, backPDFs };
 }
 
-// CRITICAL NEW FUNCTION: Calculate the corresponding position on the back side
+// Calculate the corresponding position on the back side
 // This ensures that when the paper is flipped, front and back align correctly
 function calculateBackPosition(frontPosition: number, slotsPerSheet: number) {
   // For a 3x8 grid (24 slots), we need to:

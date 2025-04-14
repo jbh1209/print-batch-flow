@@ -12,50 +12,10 @@ export function drawBatchInfo(
   helveticaBold: any,
   pageType: string = "Front"
 ) {
-  try {
-    // Get lamination type with proper null checks and default
-    let laminationType = 'none';
-    if (jobs && jobs.length > 0 && jobs[0] && jobs[0].lamination_type) {
-      laminationType = jobs[0].lamination_type;
-    }
-    
-    const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
-    
-    // Draw background rectangle for header text with INCREASED HEIGHT
-    // CRITICAL FIX: Move the whole header area DOWN significantly to avoid overlap with cards
-    page.drawRectangle({
-      x: mmToPoints(5),
-      y: page.getHeight() - mmToPoints(25), // MOVED DOWN to 25mm (from 50mm)
-      width: page.getWidth() - mmToPoints(10),
-      height: mmToPoints(20), // REDUCED height to 20mm (from 45mm)
-      color: rgb(1, 1, 1), // White background
-      borderColor: rgb(0.9, 0.9, 0.9),
-      borderWidth: 0.5
-    });
-    
-    // Draw header text on top of the rectangle - MOVED UP much higher
-    page.drawText(`Business Card Imposition Sheet (${pageType}) - ${formattedLamination} Lamination`, {
-      x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(15), // Adjusted to 15mm
-      size: 14,
-      font: helveticaBold,
-      color: rgb(0, 0, 0)
-    });
-    
-    // Calculate total with null check
-    const totalCards = jobs.reduce((sum, job) => sum + (job.quantity || 0), 0);
-    
-    // CRITICAL: Move this text down to avoid overlap with cards
-    page.drawText(`Total Jobs: ${jobs.length} | Total Cards: ${totalCards} | Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, {
-      x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(22), // Adjusted to avoid overlap
-      size: 10,
-      font: helveticaFont,
-      color: rgb(0, 0, 0)
-    });
-  } catch (error) {
-    console.error("Error drawing batch info:", error);
-  }
+  // COMPLETELY REMOVED THE HEADER DRAWING CODE
+  // We will now rely only on the side information text
+  // This resolves the problem with text appearing behind cards
+  console.log("Header text removed as requested");
 }
 
 // Draw vertical side information text for the imposition sheet

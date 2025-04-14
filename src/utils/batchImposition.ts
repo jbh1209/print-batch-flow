@@ -1,4 +1,3 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
@@ -37,14 +36,13 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     // Define dimensions
     const dimensions = calculateDimensions(pageWidth, pageHeight);
     
-    // CRITICAL: Use provided batch name directly without generating a default
+    // Use provided batch name directly without generating a default
     // This ensures the batch name from the database is used on the imposition sheet
     const actualBatchName = batchName || generateDefaultBatchName();
     console.log("Final batch name for display:", actualBatchName);
     
-    // CRITICAL: We need to add more space at the top margin to prevent overlap 
-    // Adjust the vertical margin in the dimensions if needed
-    dimensions.verticalMargin = mmToPoints(35); // Increased from default to avoid header overlap
+    // Adjust the vertical margin to give more space at top
+    dimensions.verticalMargin = mmToPoints(25); // Reduced from 35 to 25 since we removed the header
     
     console.log("Loading job PDFs as backup...");
     // Load job PDFs first - this ensures we have all PDFs loaded before creating pages
@@ -58,14 +56,14 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     
     console.log(`Front PDFs count: ${frontPDFs.length}, Back PDFs count: ${backPDFs.length}`);
     
-    // Create front page with bigger margins at top to avoid overlap 
+    // Create front page
     console.log("Creating front page");
     let frontPage = pdfDoc.addPage([pageWidth, pageHeight]);
     
-    // Draw batch information at top (no rotation)
-    drawBatchInfo(frontPage, jobs, helveticaFont, helveticaBold, "Front");
+    // REMOVED: Draw batch information at top (no rotation) - removed per user request
+    // Just keeping the side information for reference
     
-    // Draw side information (side text) with correct batch name - VITAL: use actualBatchName here
+    // Draw side information (side text) with correct batch name
     drawSideInfo(frontPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Front");
     
     console.log("Drawing front grid...");
@@ -77,8 +75,8 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
       console.log("Creating back page");
       let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
       
-      // Draw batch information for back page
-      drawBatchInfo(backPage, jobs, helveticaFont, helveticaBold, "Back");
+      // REMOVED: Draw batch information for back page 
+      // Just keeping the side information for reference
       
       // Draw side information with correct batch name
       drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
@@ -90,8 +88,8 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
       console.log("Creating back page for double-sided jobs");
       let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
       
-      // Draw batch information for back page
-      drawBatchInfo(backPage, jobs, helveticaFont, helveticaBold, "Back");
+      // REMOVED: Draw batch information for back page
+      // Just keeping the side information for reference
       
       // Draw side information with correct batch name
       drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
