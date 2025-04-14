@@ -37,9 +37,15 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     // Define dimensions
     const dimensions = calculateDimensions(pageWidth, pageHeight);
     
-    // Use provided batch name or generate a default
+    // CRITICAL: Use provided batch name directly without generating a default
+    // This ensures the batch name from the database is used on the imposition sheet
     const actualBatchName = batchName || generateDefaultBatchName();
     console.log("Final batch name for display:", actualBatchName);
+    
+    console.log("Loading job PDFs as backup...");
+    // Load job PDFs first - this ensures we have all PDFs loaded before creating pages
+    const validJobPDFs = await loadJobPDFs(jobs);
+    console.log(`Loaded ${validJobPDFs.length} job PDFs as backup`);
     
     console.log("Creating duplicated imposition PDFs...");
     // Create both front and back imposition sheets
@@ -78,13 +84,8 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     // Draw batch information at top (no rotation)
     drawBatchInfo(frontPage, jobs, helveticaFont, helveticaBold, "Front");
     
-    // Draw side information (side text) with correct batch name
+    // Draw side information (side text) with correct batch name - VITAL: use actualBatchName here
     drawSideInfo(frontPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Front");
-    
-    console.log("Loading job PDFs as backup...");
-    // Load job PDFs for backup approach if needed
-    const validJobPDFs = await loadJobPDFs(jobs);
-    console.log(`Loaded ${validJobPDFs.length} job PDFs as backup`);
     
     console.log("Drawing front grid...");
     // First try to use the frontPDFs array - this is crucial for job duplication

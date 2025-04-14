@@ -30,7 +30,7 @@ export function drawJobInfo(
       });
       
       page.drawText("Unknown Job", {
-        x: x + 2,
+        x: x + 4, // Increased padding from 2 to 4
         y: y + textAreaHeight/2,
         size: 7,
         font: helveticaBold,
@@ -55,10 +55,10 @@ export function drawJobInfo(
       jobName = jobName.substring(0, 9) + "...";
     }
     
-    // Draw job name in white text for better contrast - FIXED Y POSITIONING
+    // Draw job name in white text with INCREASED LEFT PADDING
     page.drawText(jobName, {
-      x: x + 2,
-      y: y + textAreaHeight/2 + 1, // Slightly higher position
+      x: x + 4, // Increased padding from 2 to 4
+      y: y + textAreaHeight/2 + 1,
       size: 7,
       font: helveticaBold,
       color: rgb(1, 1, 1) // White text
@@ -76,27 +76,27 @@ export function drawJobInfo(
       console.error("Error formatting date:", error);
     }
     
-    // Better positioning and spacing of job info elements
+    // Better positioning and spacing of job info elements with MORE RIGHT PADDING
     page.drawText(`ID:${jobId}`, { // Removed space after colon
-      x: x + placeholderWidth - 90, // Adjusted positioning
+      x: x + placeholderWidth - 92, // Adjusted positioning and increased right padding
       y: y + textAreaHeight/2 + 1,
       size: 6,
       font: helveticaFont,
       color: rgb(1, 1, 1) // White text
     });
     
-    // Draw quantity separately with more space
+    // Draw quantity separately with more space and padding
     page.drawText(`Qty:${job.quantity || 0}`, { // Removed space after colon
-      x: x + placeholderWidth - 55, // Adjusted positioning
+      x: x + placeholderWidth - 58, // Adjusted positioning and increased right padding
       y: y + textAreaHeight/2 + 1,
       size: 6,
       font: helveticaFont,
       color: rgb(1, 1, 1) // White text
     });
     
-    // Draw due date separately with more space
+    // Draw due date separately with more space and padding
     page.drawText(`Due:${dueDate}`, { // Removed space after colon
-      x: x + placeholderWidth - 25, // Adjusted positioning
+      x: x + placeholderWidth - 28, // Adjusted positioning and increased right padding
       y: y + textAreaHeight/2 + 1,
       size: 6,
       font: helveticaFont,
@@ -116,7 +116,7 @@ export function drawJobInfo(
       });
       
       page.drawText("Error displaying job info", {
-        x: x + 2,
+        x: x + 4, // Increased padding from 2 to 4
         y: y + textAreaHeight/2,
         size: 6,
         font: helveticaFont,

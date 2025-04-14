@@ -21,12 +21,12 @@ export function drawBatchInfo(
     
     const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
     
-    // Draw background rectangle for header text with MORE HEIGHT to prevent overlap
+    // Draw background rectangle for header text with INCREASED HEIGHT to prevent overlap
     page.drawRectangle({
       x: mmToPoints(5),
-      y: page.getHeight() - mmToPoints(30), // Increased from 25 to 30mm
+      y: page.getHeight() - mmToPoints(35), // Increased from 30 to 35mm
       width: page.getWidth() - mmToPoints(10),
-      height: mmToPoints(25), // Increased from 20 to 25mm
+      height: mmToPoints(30), // Increased from 25 to 30mm
       color: rgb(1, 1, 1), // White background
       borderColor: rgb(0.9, 0.9, 0.9),
       borderWidth: 0.5
@@ -35,7 +35,7 @@ export function drawBatchInfo(
     // Draw header text on top of the rectangle - MOVED UP for better spacing
     page.drawText(`Business Card Imposition Sheet (${pageType}) - ${formattedLamination} Lamination`, {
       x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(12), // Adjusted from 10 to 12mm
+      y: page.getHeight() - mmToPoints(15), // Adjusted from 12 to 15mm
       size: 14,
       font: helveticaBold,
       color: rgb(0, 0, 0)
@@ -47,7 +47,7 @@ export function drawBatchInfo(
     // Move this text down slightly for better spacing
     page.drawText(`Total Jobs: ${jobs.length} | Total Cards: ${totalCards} | Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, {
       x: mmToPoints(10),
-      y: page.getHeight() - mmToPoints(24), // Adjusted from 20 to 24mm
+      y: page.getHeight() - mmToPoints(28), // Adjusted from 24 to 28mm
       size: 10,
       font: helveticaFont,
       color: rgb(0, 0, 0)
@@ -78,9 +78,8 @@ export function drawSideInfo(
     
     const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
     
-    // Use the actual batch name instead of generating a date-based one
-    // Do not modify the batchName parameter - use it directly
-    let formattedBatchName = batchName;
+    // Use the provided batch name directly - do not modify it
+    const formattedBatchName = batchName;
     
     // Create the side text content
     const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm');
