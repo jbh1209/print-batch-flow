@@ -47,25 +47,16 @@ export function drawCardGrid(
       console.log(`Drawing position ${positionIndex} at (${x}, ${y})`);
       
       if (usePageDuplication) {
-        // CRITICAL CHANGE: Check for page with matching position first
-        let pageData = null;
-        if (pdfPages) {
-          // First try to find by position property
-          pageData = pdfPages.find(p => p.position === positionIndex);
-          
-          // If not found by position, fall back to array index (for backward compatibility)
-          if (!pageData && positionIndex < pdfPages.length) {
-            pageData = pdfPages[positionIndex];
-          }
-        }
+        // Look for a page with this exact position
+        const pageData = pdfPages?.find(p => p.position === positionIndex);
         
         if (!pageData) {
-          // Draw empty placeholder when no page data is available
-          console.log(`Drawing empty placeholder at position ${positionIndex} (no page data)`);
+          // Draw empty placeholder when no job is assigned to this position
+          console.log(`Drawing empty placeholder at position ${positionIndex} (no matching page)`);
           drawEmptyPlaceholder(page, x, y, placeholderWidth, placeholderHeight, helveticaFont);
         } else {
           // Draw specific page from job PDF
-          console.log(`Drawing job page at position ${positionIndex} from provided pages array`);
+          console.log(`Drawing job ${pageData.job.id} (${pageData.job.name}) at position ${positionIndex}`);
           
           // Better null checking before attempting to draw
           if (!pageData.job || !pageData.pdfDoc) {

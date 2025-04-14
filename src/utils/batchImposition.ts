@@ -21,6 +21,11 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
       throw new Error("No jobs provided for imposition sheet generation");
     }
     
+    console.log("Job details for imposition:");
+    jobs.forEach(job => {
+      console.log(`Job ${job.id}: ${job.name}, Quantity: ${job.quantity}, Double-sided: ${job.double_sided}`);
+    });
+    
     // Create a new PDF document
     console.log("Creating new PDF document");
     const pdfDoc = await PDFDocument.create();
@@ -37,35 +42,32 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     // Define dimensions
     const dimensions = calculateDimensions(pageWidth, pageHeight);
     
-    // Use provided batch name directly without generating a default
-    // This ensures the batch name from the database is used on the imposition sheet
+    // Use provided batch name directly
     const actualBatchName = batchName || generateDefaultBatchName();
     console.log("Final batch name for display:", actualBatchName);
-    
-    // CRITICAL: Remove vertical margin adjustment - use the natural centering
-    // This will prevent empty space at the top where header text used to be
     
     console.log("Loading job PDFs as backup...");
     // Load job PDFs first - this ensures we have all PDFs loaded before creating pages
     const validJobPDFs = await loadJobPDFs(jobs);
     console.log(`Loaded ${validJobPDFs.length} job PDFs as backup`);
     
-    console.log("Creating duplicated imposition PDFs...");
+    console.log("Creating imposition PDFs...");
     // Create both front and back imposition sheets
     // Use 24 slots per sheet (3x8 grid)
     const { frontPDFs, backPDFs } = await createDuplicatedImpositionPDFs(jobs, 24);
     
     console.log(`Front PDFs count: ${frontPDFs.length}, Back PDFs count: ${backPDFs.length}`);
+    console.log("Front positions:", frontPDFs.map(p => `${p.position}:${p.job.id}`).join(', '));
     
     // Create front page
     console.log("Creating front page");
     let frontPage = pdfDoc.addPage([pageWidth, pageHeight]);
     
-    // Draw side information (side text) with correct batch name
+    // Draw side information (side text)
     drawSideInfo(frontPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Front");
     
     console.log("Drawing front grid...");
-    // First try to use the frontPDFs array - this is crucial for job duplication
+    // Use the frontPDFs array for job placement
     drawCardGrid(frontPage, validJobPDFs, dimensions, helveticaFont, helveticaBold, frontPDFs);
     
     // If we have back pages, create a back imposition sheet
@@ -73,7 +75,7 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
       console.log("Creating back page");
       let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
       
-      // Draw side information with correct batch name
+      // Draw side information
       drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
       
       console.log("Drawing back grid...");
@@ -83,7 +85,7 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
       console.log("Creating back page for double-sided jobs");
       let backPage = pdfDoc.addPage([pageWidth, pageHeight]);
       
-      // Draw side information with correct batch name
+      // Draw side information
       drawSideInfo(backPage, jobs, helveticaFont, helveticaBold, actualBatchName, "Back");
       
       console.log("Drawing back grid with placeholder...");
