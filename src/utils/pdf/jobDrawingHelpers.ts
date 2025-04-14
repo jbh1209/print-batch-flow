@@ -183,14 +183,13 @@ export function drawJobInfo(
   helveticaFont: any,
   helveticaBold: any
 ) {
-  // Draw semitransparent white background for text area
+  // Draw black highlight background for text area
   page.drawRectangle({
     x,
     y,
     width: placeholderWidth,
     height: textAreaHeight,
-    color: rgb(1, 1, 1),
-    opacity: 0.8
+    color: rgb(0, 0, 0),
   });
   
   // Draw job name (truncated if necessary)
@@ -199,13 +198,13 @@ export function drawJobInfo(
     jobName = jobName.substring(0, 12) + "...";
   }
   
-  // Improve readability of job name
+  // Draw job ID in white text for better contrast
   page.drawText(jobName, {
     x: x + 2,
     y: y + mmToPoints(3),
     size: 7,
     font: helveticaBold,
-    color: rgb(0, 0, 0)
+    color: rgb(1, 1, 1) // White text
   });
   
   // Draw job ID and quantity info
@@ -215,6 +214,6 @@ export function drawJobInfo(
     y: y + mmToPoints(3),
     size: 6,
     font: helveticaFont,
-    color: rgb(0, 0, 0)
+    color: rgb(1, 1, 1) // White text
   });
 }

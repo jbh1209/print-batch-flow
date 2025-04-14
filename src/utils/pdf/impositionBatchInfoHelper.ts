@@ -33,3 +33,47 @@ export function drawBatchInfo(
     color: rgb(0, 0, 0)
   });
 }
+
+// Draw vertical side information text for the imposition sheet
+export function drawSideInfo(
+  page: any,
+  jobs: Job[],
+  helveticaFont: any,
+  helveticaBold: any,
+  batchName: string,
+  pageType: string = "Front"
+) {
+  // Calculate total number of cards for display
+  const totalCards = jobs.reduce((sum, job) => sum + job.quantity, 0);
+  const laminationType = jobs[0]?.lamination_type || 'none';
+  const formattedLamination = laminationType.charAt(0).toUpperCase() + laminationType.slice(1);
+  
+  // Create the side text content
+  const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm');
+  const sideText = `${batchName} Sheet (${pageType}) - ${formattedLamination} Lamination | Total Jobs: ${jobs.length} | Total Cards: ${totalCards} | Generated: ${timestamp}`;
+  
+  // Save the current graphics state
+  page.pushOperators({
+    type: 'BeginSave',
+  });
+  
+  // Translate and rotate for vertical text (90 degrees)
+  page.pushOperators({
+    type: 'ConcatTransformationMatrix',
+    matrix: [0, 1, -1, 0, mmToPoints(20), 0],
+  });
+  
+  // Draw the text vertically
+  page.drawText(sideText, {
+    x: mmToPoints(50), // Positioned from the bottom edge (now left after rotation)
+    y: -mmToPoints(7),  // Slight offset from the edge (now right after rotation)
+    size: 9,
+    font: helveticaBold,
+    color: rgb(0, 0, 0)
+  });
+  
+  // Restore the graphics state
+  page.pushOperators({
+    type: 'EndSave',
+  });
+}
