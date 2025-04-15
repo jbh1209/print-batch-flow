@@ -95,7 +95,7 @@ async function generateConsolidatedJobPdfs(jobs: Job[]): Promise<PDFDocument> {
       console.error(`Error processing PDF for job ${job.id}:`, error);
       
       // Add error page for this job
-      const errorPdf = await createErrorPdf(job, `Failed to process PDF: ${error}`);
+      const errorPdf = await createErrorPdf(job as any, `Failed to process PDF: ${error}`);
       const [errorPage] = await consolidatedPdf.copyPages(errorPdf, [0]);
       consolidatedPdf.addPage(errorPage);
     }
