@@ -20,6 +20,10 @@ export type Database = {
           id: string
           lamination_type: Database["public"]["Enums"]["lamination_type"]
           name: string
+          paper_type: string | null
+          paper_weight: string | null
+          printer_type: string | null
+          sheet_size: string | null
           sheets_required: number
           status: Database["public"]["Enums"]["batch_status"]
           updated_at: string
@@ -34,6 +38,10 @@ export type Database = {
           id?: string
           lamination_type: Database["public"]["Enums"]["lamination_type"]
           name: string
+          paper_type?: string | null
+          paper_weight?: string | null
+          printer_type?: string | null
+          sheet_size?: string | null
           sheets_required: number
           status?: Database["public"]["Enums"]["batch_status"]
           updated_at?: string
@@ -48,6 +56,10 @@ export type Database = {
           id?: string
           lamination_type?: Database["public"]["Enums"]["lamination_type"]
           name?: string
+          paper_type?: string | null
+          paper_weight?: string | null
+          printer_type?: string | null
+          sheet_size?: string | null
           sheets_required?: number
           status?: Database["public"]["Enums"]["batch_status"]
           updated_at?: string
@@ -116,6 +128,68 @@ export type Database = {
           },
         ]
       }
+      flyer_jobs: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          due_date: string
+          file_name: string
+          id: string
+          job_number: string
+          name: string
+          paper_type: Database["public"]["Enums"]["paper_type"]
+          paper_weight: string
+          pdf_url: string
+          quantity: number
+          size: Database["public"]["Enums"]["flyer_size"]
+          status: Database["public"]["Enums"]["job_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          due_date: string
+          file_name: string
+          id?: string
+          job_number: string
+          name: string
+          paper_type: Database["public"]["Enums"]["paper_type"]
+          paper_weight: string
+          pdf_url: string
+          quantity: number
+          size: Database["public"]["Enums"]["flyer_size"]
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          due_date?: string
+          file_name?: string
+          id?: string
+          job_number?: string
+          name?: string
+          paper_type?: Database["public"]["Enums"]["paper_type"]
+          paper_weight?: string
+          pdf_url?: string
+          quantity?: number
+          size?: Database["public"]["Enums"]["flyer_size"]
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flyer_jobs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -177,8 +251,12 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       batch_status: "pending" | "processing" | "completed" | "cancelled"
+      flyer_size: "A5" | "A4" | "DL" | "A3"
       job_status: "queued" | "batched" | "completed" | "cancelled"
       lamination_type: "gloss" | "matt" | "soft_touch" | "none"
+      paper_type: "Matt" | "Gloss"
+      printer_type: "HP 12000" | "HP 7900"
+      sheet_size: "455x640mm" | "530x750mm" | "320x455mm"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -296,8 +374,12 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       batch_status: ["pending", "processing", "completed", "cancelled"],
+      flyer_size: ["A5", "A4", "DL", "A3"],
       job_status: ["queued", "batched", "completed", "cancelled"],
       lamination_type: ["gloss", "matt", "soft_touch", "none"],
+      paper_type: ["Matt", "Gloss"],
+      printer_type: ["HP 12000", "HP 7900"],
+      sheet_size: ["455x640mm", "530x750mm", "320x455mm"],
     },
   },
 } as const
