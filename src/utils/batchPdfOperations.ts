@@ -28,7 +28,7 @@ export async function generateAndUploadBatchPDFs(
     const impositionSheetPDF = await generateImpositionSheet(selectedJobs, name);
     console.log("Successfully generated imposition sheet PDF");
     
-    // Force bucket to be created and public
+    // First check for bucket access and create it with public access if needed
     await ensurePublicBucket("pdf_files");
     
     // Set file paths for uploads with clear naming convention
@@ -38,12 +38,27 @@ export async function generateAndUploadBatchPDFs(
     const impositionFilePath = `${userId}/${timestamp}-imposition-${name}.pdf`;
     
     console.log("Uploading batch overview PDF...");
+    
+    // First check if the file already exists
+    const { data: existingOverview } = await supabase.storage
+      .from("pdf_files")
+      .list(`${userId}`, {
+        search: `${timestamp}-overview-${name}.pdf`
+      });
+      
+    if (existingOverview && existingOverview.length > 0) {
+      console.log("Found existing overview file, removing it first");
+      await supabase.storage
+        .from("pdf_files")
+        .remove([overviewFilePath]);
+    }
+    
     // Upload batch overview
     const { error: overviewError } = await supabase.storage
       .from("pdf_files")
       .upload(overviewFilePath, batchOverviewPDF, {
         contentType: "application/pdf",
-        cacheControl: "3600",
+        cacheControl: "no-cache",
         upsert: true
       });
       
@@ -62,6 +77,21 @@ export async function generateAndUploadBatchPDFs(
     }
     
     console.log("Uploading imposition sheet PDF...");
+    
+    // Check if imposition file exists
+    const { data: existingImposition } = await supabase.storage
+      .from("pdf_files")
+      .list(`${userId}`, {
+        search: `${timestamp}-imposition-${name}.pdf`
+      });
+      
+    if (existingImposition && existingImposition.length > 0) {
+      console.log("Found existing imposition file, removing it first");
+      await supabase.storage
+        .from("pdf_files")
+        .remove([impositionFilePath]);
+    }
+    
     // Upload imposition sheet
     const { error: impositionError } = await supabase.storage
       .from("pdf_files")
@@ -103,9 +133,14 @@ export async function generateAndUploadBatchPDFs(
 async function ensurePublicBucket(bucketName: string) {
   try {
     // First check if bucket exists
-    const { data: bucketData, error: getBucketError } = await supabase.storage.getBucket(bucketName);
+    const { data: buckets } = await supabase.storage.listBuckets();
     
-    if (getBucketError) {
+    let bucketExists = false;
+    if (buckets) {
+      bucketExists = buckets.some(bucket => bucket.name === bucketName);
+    }
+    
+    if (!bucketExists) {
       console.log(`Bucket '${bucketName}' doesn't exist yet, creating it...`);
       
       // Create the bucket with public access
@@ -122,6 +157,11 @@ async function ensurePublicBucket(bucketName: string) {
       console.log(`Successfully created public bucket '${bucketName}'`);
       return true;
     }
+    
+    console.log(`Bucket '${bucketName}' already exists`);
+    
+    // Get bucket details
+    const { data: bucketData, error: getBucketError } = await supabase.storage.getBucket(bucketName);
     
     // If bucket exists but isn't public, update it
     if (bucketData && !bucketData.public) {
