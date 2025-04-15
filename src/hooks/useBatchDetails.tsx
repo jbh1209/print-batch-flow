@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -68,8 +69,16 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
       
       // Transform the data to match BatchDetailsType, ensuring overview_pdf_url is included
       const batchData: BatchDetailsType = {
-        ...data,
-        overview_pdf_url: data.overview_pdf_url || null // Handle the case where it might be undefined
+        id: data.id,
+        name: data.name,
+        lamination_type: data.lamination_type,
+        sheets_required: data.sheets_required,
+        front_pdf_url: data.front_pdf_url,
+        back_pdf_url: data.back_pdf_url,
+        overview_pdf_url: data.overview_pdf_url || null,
+        due_date: data.due_date,
+        created_at: data.created_at,
+        status: data.status,
       };
       
       setBatch(batchData);
