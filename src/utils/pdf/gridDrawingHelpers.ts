@@ -8,6 +8,9 @@ import { PositionMapping } from "./jobPdfLoader";
 
 /**
  * Draw the entire card grid with proper positioning
+ * COMPLETELY REWRITTEN using a two-phase approach:
+ * 1. First embed all PDFs
+ * 2. Then draw all positions
  */
 export async function drawCardGrid(
   page: any,
@@ -79,65 +82,34 @@ export async function drawCardGrid(
 /**
  * Embed all PDF pages needed for the entire sheet in one go
  * This ensures all pages are embedded before any drawing happens
+ * COMPLETELY REWRITTEN to fix reference issues
  */
 async function embedAllPdfPages(page: any, positionMappings: PositionMapping[]) {
-  // Group by document to optimize embedding
-  const pdfGrouping = new Map<string, {
-    doc: PDFDocument,
-    pages: Set<number>,
-    mappings: PositionMapping[]
-  }>();
+  console.log(`Embedding ALL PDFs for ${positionMappings.length} positions in ONE BATCH`);
   
-  // First pass - group all PDFs by job ID and collect page numbers
-  console.log("Grouping PDFs by job ID for efficient embedding...");
-  positionMappings.forEach(mapping => {
-    const jobId = mapping.job.id;
-    
-    if (!pdfGrouping.has(jobId)) {
-      pdfGrouping.set(jobId, {
-        doc: mapping.pdfDoc,
-        pages: new Set<number>(),
-        mappings: []
-      });
-    }
-    
-    const group = pdfGrouping.get(jobId)!;
-    group.pages.add(mapping.page);
-    group.mappings.push(mapping);
-  });
-  
-  // Second pass - embed each PDF once with all necessary pages
-  console.log(`Embedding ${pdfGrouping.size} unique PDFs...`);
-  
-  for (const [jobId, group] of pdfGrouping.entries()) {
-    const pageArray = Array.from(group.pages);
-    
-    console.log(`Job ${jobId}: Embedding ${pageArray.length} pages: ${pageArray.join(', ')}`);
-    
+  // Process each position mapping directly - no more grouping by job ID
+  // This ensures each position maintains its own PDF reference
+  for (const mapping of positionMappings) {
     try {
-      // Embed the PDF with all required pages in one operation
-      const embeddedPages = await page.doc.embedPdf(group.doc, pageArray);
+      console.log(`Embedding PDF for position ${mapping.position} (job ${mapping.job.id}, page ${mapping.page})`);
       
-      // Map each embedded page back to its position mapping
-      pageArray.forEach((pageNum, index) => {
-        const embeddedPage = embeddedPages[index];
-        
-        // Find all mappings that need this page
-        const mappingsForPage = group.mappings.filter(m => m.page === pageNum);
-        
-        mappingsForPage.forEach(mapping => {
-          mapping.embeddedPage = embeddedPage;
-          console.log(`✓ Successfully associated embedded page with position ${mapping.position} (job ${jobId}, page ${pageNum})`);
-        });
-      });
+      // Embed just this specific page from this specific position's PDF copy
+      const embeddedPages = await page.doc.embedPdf(mapping.pdfDoc, [mapping.page]);
       
-      console.log(`✓ Successfully embedded all pages for job ${jobId}`);
+      if (!embeddedPages || embeddedPages.length === 0) {
+        console.error(`Failed to embed PDF for position ${mapping.position}`);
+        continue;
+      }
+      
+      // Store the embedded page reference directly in this position mapping
+      mapping.embeddedPage = embeddedPages[0];
+      console.log(`✓ Successfully embedded PDF for position ${mapping.position}`);
     } catch (error) {
-      console.error(`Failed to embed PDF for job ${jobId}:`, error);
+      console.error(`Error embedding PDF for position ${mapping.position}:`, error);
     }
   }
   
-  // Verification - ensure all mappings have embedded pages
+  // Final verification - check for any positions missing embedded pages
   const missingEmbeds = positionMappings.filter(m => !m.embeddedPage);
   if (missingEmbeds.length > 0) {
     console.error(`WARNING: ${missingEmbeds.length} positions are missing embedded pages`);

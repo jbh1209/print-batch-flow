@@ -47,6 +47,7 @@ export async function drawSpecificJobPage(
     let originalHeight = 0;
     
     try {
+      // Access the dimensions directly from the position mapping's PDF doc
       const sourcePage = positionMapping.pdfDoc.getPage(pageNumber);
       originalWidth = sourcePage.getWidth();
       originalHeight = sourcePage.getHeight();

@@ -4,7 +4,19 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { fetchPdfWithRetry, loadPdfFromBytes } from "./pdfFetchHelper";
 import { createEmptyPdf, createErrorPdf } from "./emptyPdfGenerator";
 
-// Core function to load a single job PDF
+// Create an independent copy of a PDF document to prevent reference sharing
+export async function createIndependentPdfCopy(sourcePdf: PDFDocument): Promise<PDFDocument> {
+  try {
+    // Save the document to bytes and reload it to create a completely fresh copy
+    const pdfBytes = await sourcePdf.save();
+    return await PDFDocument.load(pdfBytes);
+  } catch (error) {
+    console.error("Error creating independent PDF copy:", error);
+    throw error;
+  }
+}
+
+// Core function to load a single job PDF with isolation
 export async function loadSingleJobPdf(job: Job, index: number): Promise<{ 
   job: Job; 
   pdfDoc: PDFDocument; 
@@ -27,7 +39,7 @@ export async function loadSingleJobPdf(job: Job, index: number): Promise<{
       return { job, pdfDoc: errorPdf, isDuplicated: false };
     }
     
-    // Load the PDF document
+    // Load the PDF document - create a fresh instance every time
     const pdfDoc = await loadPdfFromBytes(pdfBytes, job.id || index.toString());
     if (!pdfDoc) {
       console.error(`Failed to load PDF for job ${job.id || index}`);
@@ -50,12 +62,12 @@ export async function loadSingleJobPdf(job: Job, index: number): Promise<{
   }
 }
 
-// Load a batch of PDFs with parallel processing
+// Load a batch of PDFs with parallel processing and explicit isolation
 export async function loadMultipleJobPdfs(jobs: Job[]): Promise<Map<string, { 
   job: Job; 
   pdfDoc: PDFDocument 
 }>> {
-  console.log(`Loading PDFs for ${jobs.length} jobs`);
+  console.log(`Loading PDFs for ${jobs.length} jobs with explicit isolation`);
   const jobPDFs = new Map<string, { job: Job; pdfDoc: PDFDocument }>();
   
   // Process job PDFs in parallel for better performance
@@ -75,6 +87,7 @@ export async function loadMultipleJobPdfs(jobs: Job[]): Promise<Map<string, {
         return { id: job.id, result: { job, pdfDoc: errorPdf } };
       }
       
+      // Create a completely fresh instance for each PDF
       const pdfDoc = await loadPdfFromBytes(pdfBytes, job.id);
       if (!pdfDoc) {
         console.error(`Failed to load PDF for job ${job.id}`);
