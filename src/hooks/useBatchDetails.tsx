@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -66,7 +65,14 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
       }
       
       console.log("Batch details received:", data?.id);
-      setBatch(data as BatchDetailsType);
+      
+      // Transform the data to match BatchDetailsType, ensuring overview_pdf_url is included
+      const batchData: BatchDetailsType = {
+        ...data,
+        overview_pdf_url: data.overview_pdf_url || null // Handle the case where it might be undefined
+      };
+      
+      setBatch(batchData);
       
       // Fetch related jobs based on product type
       let jobsData: Job[] = [];
