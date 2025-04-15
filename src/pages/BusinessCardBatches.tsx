@@ -1,4 +1,3 @@
-
 import { useSearchParams } from "react-router-dom";
 import { useBusinessCardBatches } from "@/hooks/useBusinessCardBatches";
 import JobsHeader from "@/components/business-cards/JobsHeader";

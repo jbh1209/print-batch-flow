@@ -1,170 +1,161 @@
 
-import { CheckCircle2, Download, Eye, AlertTriangle, Lock } from "lucide-react";
+import React from "react";
+import { Download, Printer, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardFooter,
 } from "@/components/ui/card";
-import { BatchDetailsType, BatchStatus } from "./types/BatchTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
+import { BatchDetailsType } from "./types/BatchTypes";
+import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
+  onDownloadJobPdfs?: () => Promise<void>;
 }
 
-const BatchActionsCard = ({ batch }: BatchActionsCardProps) => {
-  const { user } = useAuth();
-  
-  // Helper function to determine button text based on status
-  const getButtonText = (status: BatchStatus) => {
-    switch (status) {
-      case "pending":
-        return "Mark as Processing";
-      case "processing":
-        return "Mark as Completed";
-      case "cancelled":
-        return "Reactivate Batch";
-      case "completed":
-        return "Update Status";
-      default:
-        return "Update Status";
-    }
-  };
-
-  // Check if the status is not completed
-  const isNotCompleted = batch.status !== "completed";
-  
-  // Check if PDFs are available and valid URLs
-  const hasImpositionPDF = !!batch.front_pdf_url && typeof batch.front_pdf_url === 'string';
-  const hasOverviewPDF = !!batch.back_pdf_url && typeof batch.back_pdf_url === 'string';
-  const hasPDFs = hasImpositionPDF || hasOverviewPDF;
-
-  const handleViewPdf = async (url: string | null, name: string) => {
-    if (!url) {
-      toast.error(`No ${name} PDF available`);
+const BatchActionsCard = ({ batch, onDownloadJobPdfs }: BatchActionsCardProps) => {
+  const handleViewFrontPdf = async () => {
+    if (!batch.front_pdf_url) {
+      toast.error("No front PDF available for this batch");
       return;
     }
     
     try {
-      toast.loading(`Opening ${name}...`);
-      await handlePdfAction(url, 'view', `${batch.name}-${name}.pdf`);
+      toast.loading("Opening batch front PDF...");
+      await handlePdfAction(batch.front_pdf_url, 'view', `${batch.name}-front.pdf`);
     } catch (error) {
-      console.error(`Error viewing ${name} PDF:`, error);
-      toast.error(`Error opening ${name} PDF`);
+      console.error(`Error viewing front PDF for batch ${batch.id}:`, error);
+      toast.error("Error opening batch front PDF");
     }
   };
 
-  const handleDownloadPdf = async (url: string | null, name: string) => {
-    if (!url) {
-      toast.error(`No ${name} PDF available`);
+  const handleViewBackPdf = async () => {
+    if (!batch.back_pdf_url) {
+      toast.error("No back PDF available for this batch");
       return;
     }
     
     try {
-      toast.loading(`Preparing ${name} for download...`);
-      await handlePdfAction(url, 'download', `${batch.name}-${name}.pdf`);
+      toast.loading("Opening batch back PDF...");
+      await handlePdfAction(batch.back_pdf_url, 'view', `${batch.name}-back.pdf`);
     } catch (error) {
-      console.error(`Error downloading ${name} PDF:`, error);
-      toast.error(`Error downloading ${name} PDF`);
+      console.error(`Error viewing back PDF for batch ${batch.id}:`, error);
+      toast.error("Error opening batch back PDF");
+    }
+  };
+
+  const handleDownloadFrontPdf = async () => {
+    if (!batch.front_pdf_url) {
+      toast.error("No front PDF available for this batch");
+      return;
+    }
+    
+    try {
+      toast.loading("Downloading batch front PDF...");
+      await handlePdfAction(batch.front_pdf_url, 'download', `${batch.name}-front.pdf`);
+    } catch (error) {
+      console.error(`Error downloading front PDF for batch ${batch.id}:`, error);
+      toast.error("Error downloading batch front PDF");
+    }
+  };
+
+  const handleDownloadBackPdf = async () => {
+    if (!batch.back_pdf_url) {
+      toast.error("No back PDF available for this batch");
+      return;
+    }
+    
+    try {
+      toast.loading("Downloading batch back PDF...");
+      await handlePdfAction(batch.back_pdf_url, 'download', `${batch.name}-back.pdf`);
+    } catch (error) {
+      console.error(`Error downloading back PDF for batch ${batch.id}:`, error);
+      toast.error("Error downloading batch back PDF");
     }
   };
 
   return (
-    <Card>
+    <Card className="md:col-span-1">
       <CardHeader>
-        <CardTitle>Batch Actions</CardTitle>
-        <CardDescription>Manage your batch</CardDescription>
+        <CardTitle>Actions</CardTitle>
+        <CardDescription>Batch PDFs and options</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isNotCompleted && (
-          <Button 
-            className="w-full flex items-center gap-2"
-            variant={batch.status === "pending" ? "default" : "outline"}
-            disabled={batch.status === "completed"}
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            {getButtonText(batch.status)}
-          </Button>
-        )}
-        
-        {/* PDF Actions */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium">PDFs</p>
+        <div className="grid grid-cols-1 gap-4">
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Front PDF</h3>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleViewFrontPdf}
+                disabled={!batch.front_pdf_url}
+                className="flex items-center gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                View
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadFrontPdf}
+                disabled={!batch.front_pdf_url}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </Button>
+            </div>
+          </div>
           
-          {!hasPDFs && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 border rounded-md">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <span>No PDFs available for this batch</span>
+          {/* Only show back PDF section if there is a back PDF URL or it's a double-sided job */}
+          {batch.back_pdf_url && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Back PDF</h3>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewBackPdf}
+                  className="flex items-center gap-2"
+                >
+                  <Eye className="h-4 w-4" />
+                  View
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadBackPdf}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download
+                </Button>
+              </div>
             </div>
           )}
           
-          <div className="flex flex-col gap-2">
-            {/* Imposition PDF (front_pdf_url) */}
-            {hasImpositionPDF && (
-              <div className="flex flex-col gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleViewPdf(batch.front_pdf_url, 'imposition')}
-                  className="flex items-center justify-start gap-2"
-                >
-                  <Eye className="h-4 w-4" />
-                  View Imposition PDF
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleDownloadPdf(batch.front_pdf_url, 'imposition')}
-                  className="flex items-center justify-start gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Download Imposition PDF
-                </Button>
-              </div>
-            )}
-            
-            {/* Overview PDF (back_pdf_url) */}
-            {hasOverviewPDF && (
-              <div className="flex flex-col gap-2 mt-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleViewPdf(batch.back_pdf_url, 'overview')}
-                  className="flex items-center justify-start gap-2"
-                >
-                  <Eye className="h-4 w-4" />
-                  View Overview PDF
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleDownloadPdf(batch.back_pdf_url, 'overview')}
-                  className="flex items-center justify-start gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Download Overview PDF
-                </Button>
-              </div>
-            )}
+          {/* Download Job PDFs */}
+          <div className="space-y-2 pt-2 border-t border-gray-200">
+            <h3 className="text-sm font-medium">Job PDFs</h3>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onDownloadJobPdfs}
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Download All Job PDFs
+            </Button>
           </div>
         </div>
       </CardContent>
-      
-      {hasPDFs && (
-        <CardFooter className="pt-0 flex flex-col items-start">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Lock className="h-3 w-3" />
-            <p>PDFs are securely stored and require authentication to access</p>
-          </div>
-          {!user && (
-            <p className="text-xs text-amber-600 mt-1">
-              You must be logged in to access these files
-            </p>
-          )}
-        </CardFooter>
-      )}
     </Card>
   );
 };
