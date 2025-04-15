@@ -1,6 +1,7 @@
 
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
+import { getSignedUrl } from "./signedUrlHelper";
 
 // Load a PDF document as raw bytes to avoid reference issues entirely
 export async function loadPdfAsBytes(url: string, jobId: string): Promise<{ buffer: ArrayBuffer, pageCount: number } | null> {
@@ -11,9 +12,16 @@ export async function loadPdfAsBytes(url: string, jobId: string): Promise<{ buff
     }
     
     console.log(`Fetching PDF for job ${jobId} from URL: ${url}`);
+
+    // Get a signed URL if needed (for Supabase storage)
+    let fetchUrl = url;
+    if (url.includes('supabase.co/storage') || url.includes('storage.googleapis.com')) {
+      fetchUrl = await getSignedUrl(url);
+      console.log(`Using signed URL for job ${jobId}`);
+    }
     
     // Basic fetch with cache control
-    const response = await fetch(url, { 
+    const response = await fetch(fetchUrl, { 
       cache: 'no-store',
       headers: { 'Pragma': 'no-cache' }
     });
@@ -31,7 +39,7 @@ export async function loadPdfAsBytes(url: string, jobId: string): Promise<{ buff
     }
     
     // Load temporarily to get page count then discard the PDF object
-    const tempPdf = await PDFDocument.load(buffer);
+    const tempPdf = await PDFDocument.load(buffer.slice(0)); // Use a copy of the buffer
     const pageCount = tempPdf.getPageCount();
     
     console.log(`Successfully loaded PDF for job ${jobId}: ${buffer.byteLength} bytes, ${pageCount} pages`);

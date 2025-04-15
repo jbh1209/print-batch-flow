@@ -43,7 +43,7 @@ export async function processJobPdfs(
       }
       
       const { buffer, pageCount } = pdfData;
-      console.log(`Job ${job.id} PDF loaded with ${pageCount} pages`);
+      console.log(`Job ${job.id} PDF loaded with ${pageCount} pages, buffer size: ${buffer.byteLength} bytes`);
       
       // Create processed job entry
       const processedJob: ProcessedJobPages = {
@@ -59,32 +59,43 @@ export async function processJobPdfs(
         throw new Error("PDF has no pages");
       }
       
-      // Load PDF document for page extraction
-      const pdfDoc = await PDFDocument.load(buffer);
-      
-      // For single-sided jobs or front pages of double-sided jobs
-      if (pageCount >= 1) {
-        // Extract and duplicate front page
-        const frontPageBuffer = await extractAndDuplicatePage(pdfDoc, 0, allocation.slotsNeeded);
-        processedJob.frontPages = new Array(allocation.slotsNeeded).fill(frontPageBuffer);
+      try {
+        // Load PDF document for page extraction
+        const pdfDoc = await PDFDocument.load(buffer.slice(0)); // Create a copy of the buffer
         
-        console.log(`Created ${processedJob.frontPages.length} front page copies for job ${job.id}`);
-      }
-      
-      // For double-sided jobs, extract back pages if available
-      if (job.double_sided && pageCount >= 2) {
-        // Extract and duplicate back page
-        const backPageBuffer = await extractAndDuplicatePage(pdfDoc, 1, allocation.slotsNeeded);
-        processedJob.backPages = new Array(allocation.slotsNeeded).fill(backPageBuffer);
+        // For single-sided jobs or front pages of double-sided jobs
+        if (pageCount >= 1) {
+          // Extract and duplicate front page
+          const frontPageBuffer = await extractAndDuplicatePage(pdfDoc, 0, allocation.slotsNeeded);
+          if (frontPageBuffer) {
+            processedJob.frontPages = new Array(allocation.slotsNeeded).fill(frontPageBuffer);
+            console.log(`Created ${processedJob.frontPages.length} front page copies for job ${job.id}, size: ${frontPageBuffer.byteLength} bytes`);
+          } else {
+            throw new Error("Failed to extract front page");
+          }
+        }
         
-        console.log(`Created ${processedJob.backPages.length} back page copies for job ${job.id}`);
-      } else if (job.double_sided) {
-        // Double-sided but missing back page
-        console.warn(`Job ${job.id} is marked as double-sided but PDF doesn't have a back page`);
-        // Create an empty back page
-        const emptyPdf = await createErrorPdf(job, "Back side not provided");
-        const emptyPdfBytes = await emptyPdf.save();
-        processedJob.backPages = new Array(allocation.slotsNeeded).fill(emptyPdfBytes);
+        // For double-sided jobs, extract back pages if available
+        if (job.double_sided && pageCount >= 2) {
+          // Extract and duplicate back page
+          const backPageBuffer = await extractAndDuplicatePage(pdfDoc, 1, allocation.slotsNeeded);
+          if (backPageBuffer) {
+            processedJob.backPages = new Array(allocation.slotsNeeded).fill(backPageBuffer);
+            console.log(`Created ${processedJob.backPages.length} back page copies for job ${job.id}, size: ${backPageBuffer.byteLength} bytes`);
+          } else {
+            throw new Error("Failed to extract back page");
+          }
+        } else if (job.double_sided) {
+          // Double-sided but missing back page
+          console.warn(`Job ${job.id} is marked as double-sided but PDF doesn't have a back page`);
+          // Create an empty back page
+          const emptyPdf = await createErrorPdf(job, "Back side not provided");
+          const emptyPdfBytes = await emptyPdf.save();
+          processedJob.backPages = new Array(allocation.slotsNeeded).fill(emptyPdfBytes);
+        }
+      } catch (error) {
+        console.error(`Error extracting pages from PDF for job ${job.id}:`, error);
+        throw error;
       }
       
       processedJobs.push(processedJob);
@@ -118,14 +129,30 @@ async function extractAndDuplicatePage(
   sourcePdf: PDFDocument, 
   pageIndex: number,
   copies: number
-): Promise<ArrayBuffer> {
-  // Create a new PDF with just the required page
-  const extractedPdf = await PDFDocument.create();
-  
-  // Copy the page
-  const [copiedPage] = await extractedPdf.copyPages(sourcePdf, [pageIndex]);
-  extractedPdf.addPage(copiedPage);
-  
-  // Save it to bytes
-  return await extractedPdf.save();
+): Promise<ArrayBuffer | null> {
+  try {
+    console.log(`Extracting page ${pageIndex} from PDF with ${sourcePdf.getPageCount()} pages`);
+    
+    if (pageIndex >= sourcePdf.getPageCount()) {
+      console.error(`Page index ${pageIndex} is out of bounds`);
+      return null;
+    }
+    
+    // Create a new PDF with just the required page
+    const extractedPdf = await PDFDocument.create();
+    
+    // Copy the page
+    const [copiedPage] = await extractedPdf.copyPages(sourcePdf, [pageIndex]);
+    extractedPdf.addPage(copiedPage);
+    
+    // Save it to bytes
+    const pdfBytes = await extractedPdf.save();
+    
+    console.log(`Successfully extracted page ${pageIndex}, size: ${pdfBytes.byteLength} bytes`);
+    
+    return pdfBytes;
+  } catch (error) {
+    console.error(`Error extracting page ${pageIndex}:`, error);
+    return null;
+  }
 }

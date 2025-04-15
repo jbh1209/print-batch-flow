@@ -1,7 +1,7 @@
 
 import { PDFDocument, PDFPage, rgb, StandardFonts, RotationTypes } from "pdf-lib";
 import { mmToPoints } from "./pdfUnitHelpers";
-import { ImpositionSlot } from "./ImpositionEngine"; // Fixed import path
+import { ImpositionSlot } from "./ImpositionEngine"; // Import from the correct path
 
 export async function drawImpositionGrid(
   pdfDoc: PDFDocument,
@@ -101,8 +101,15 @@ async function drawSlotWithContent(
       color: rgb(1, 1, 1) // White background
     });
     
+    // Check if we have valid PDF bytes before trying to embed
+    if (!slot.pdfBytes || slot.pdfBytes.byteLength === 0) {
+      throw new Error(`No PDF data for job ${slot.jobId}`);
+    }
+    
     // Embed and draw PDF for this slot
     try {
+      console.log(`Embedding PDF for slot ${slot.position}, job ${slot.jobId}, size: ${slot.pdfBytes.byteLength} bytes`);
+      
       // Load PDF from bytes
       const embedPdf = await PDFDocument.load(slot.pdfBytes);
       
@@ -135,6 +142,8 @@ async function drawSlotWithContent(
           const embedX = x + (placeholderWidth - scaledWidth) / 2;
           const embedY = y + textAreaHeight + (availableHeight - scaledHeight) / 2;
           
+          console.log(`Drawing embedded PDF at (${embedX}, ${embedY}) with dimensions ${scaledWidth}x${scaledHeight}`);
+          
           // Draw the embedded page
           page.drawPage(embedPage, {
             x: embedX,
@@ -142,7 +151,11 @@ async function drawSlotWithContent(
             width: scaledWidth,
             height: scaledHeight
           });
+        } else {
+          throw new Error("Failed to embed page");
         }
+      } else {
+        throw new Error("PDF has no pages");
       }
     } catch (error) {
       console.error(`Error embedding PDF for slot ${slot.position}:`, error);
