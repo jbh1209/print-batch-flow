@@ -9,7 +9,7 @@ import {
   drawFooter 
 } from "./pdf/pageLayoutHelpers";
 import { drawBatchInfo } from "./pdf/batchInfoHelpers";
-import { drawJobRow, drawOptimizationInfo } from "./pdf/jobRowHelpers";
+import { drawJobRow } from "./pdf/jobRowHelpers";
 import { calculateOptimalDistribution } from "./batchOptimizationHelpers";
 
 // Main function to generate the batch overview PDF
@@ -42,8 +42,8 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
   );
   
   // Draw table header
-  const tableY = page.getHeight() - margin - 140;
-  const colWidths = [190, 100, 80, 100, 120]; // Added width for slot allocation column
+  const tableY = page.getHeight() - margin - 160;
+  const colWidths = [150, 80, 70, 80, 100]; // Adjusted column widths to prevent overflow
   const colStarts = calculateColumnStarts(margin, colWidths);
   
   drawTableHeader(page, tableY, colStarts, helveticaBold, margin, colWidths, true);
@@ -73,7 +73,7 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
         helveticaFont,
         colWidths
       );
-      rowY = page.getHeight() - margin - 80; // Start a bit lower on continuation pages
+      rowY = page.getHeight() - margin - 80;
     }
     
     // Get slot info for this job
@@ -94,38 +94,6 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
     );
     
     rowY -= rowHeight;
-  }
-  
-  // Add optimization details section
-  if (optimization) {
-    // Only add a new page if there's not enough space
-    if (rowY < margin + 100) {
-      page = addContinuationPage(
-        pdfDoc, 
-        batchName, 
-        margin, 
-        helveticaBold, 
-        colStarts,
-        helveticaFont,
-        colWidths
-      );
-      rowY = page.getHeight() - margin - 80;
-    } else {
-      // Add some spacing
-      rowY -= 40;
-    }
-    
-    // Draw optimization information
-    rowY = drawOptimizationInfo(
-      page,
-      optimization.distribution,
-      rowY,
-      colStarts,
-      helveticaFont,
-      helveticaBold,
-      margin,
-      colWidths
-    );
   }
   
   // Add footer
