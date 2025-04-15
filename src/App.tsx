@@ -1,4 +1,3 @@
-
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,6 +12,8 @@ import Index from "@/pages/Index";
 import BusinessCards from "@/pages/BusinessCards";
 import Postcards from "@/pages/Postcards";
 import Flyers from "@/pages/Flyers";
+import FlyerJobs from "@/pages/FlyerJobs";
+import FlyerJobNew from "@/pages/FlyerJobNew";
 import Stickers from "@/pages/Stickers";
 import Posters from "@/pages/Posters";
 import Sleeves from "@/pages/Sleeves";
@@ -47,9 +48,13 @@ const App: React.FC = () => {
             <Route path="/batches/business-cards/jobs/:id" element={<BusinessCardJobEdit />} />
             <Route path="/batches/business-cards/batches" element={<BusinessCardBatches />} />
             
-            {/* Product Routes */}
-            <Route path="/batches/postcards" element={<Postcards />} />
+            {/* Flyers Routes */}
             <Route path="/batches/flyers" element={<Flyers />} />
+            <Route path="/batches/flyers/jobs" element={<FlyerJobs />} />
+            <Route path="/batches/flyers/jobs/new" element={<FlyerJobNew />} />
+            
+            {/* Other Product Routes */}
+            <Route path="/batches/postcards" element={<Postcards />} />
             <Route path="/batches/stickers" element={<Stickers />} />
             <Route path="/batches/posters" element={<Posters />} />
             <Route path="/batches/sleeves" element={<Sleeves />} />
