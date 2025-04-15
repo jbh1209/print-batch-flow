@@ -1,3 +1,4 @@
+
 import { Job } from "@/components/business-cards/JobsTable";
 import { format } from "date-fns";
 import { rgb } from "pdf-lib";
