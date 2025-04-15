@@ -1,118 +1,61 @@
 
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
-import { fetchPdfWithRetry, loadPdfFromBytes } from "./pdfFetchHelper";
-import { createEmptyPdf, createErrorPdf } from "./emptyPdfGenerator";
 
-// Create an independent copy of a PDF document to prevent reference sharing
-export async function createIndependentPdfCopy(sourcePdf: PDFDocument): Promise<PDFDocument> {
+// Load a PDF document as raw bytes to avoid reference issues entirely
+export async function loadPdfAsBytes(url: string, jobId: string): Promise<{ buffer: ArrayBuffer, pageCount: number } | null> {
   try {
-    // Save the document to bytes and reload it to create a completely fresh copy
-    const pdfBytes = await sourcePdf.save();
-    return await PDFDocument.load(pdfBytes);
-  } catch (error) {
-    console.error("Error creating independent PDF copy:", error);
-    throw error;
-  }
-}
-
-// Core function to load a single job PDF with isolation
-export async function loadSingleJobPdf(job: Job, index: number): Promise<{ 
-  job: Job; 
-  pdfDoc: PDFDocument; 
-  isDuplicated: boolean 
-} | null> {
-  try {
-    if (!job.pdf_url) {
-      console.log(`No PDF URL for job ${job.id || index}, creating empty PDF`);
-      const emptyPdf = await createEmptyPdf(job);
-      return { job, pdfDoc: emptyPdf, isDuplicated: false };
-    }
-    
-    console.log(`Loading PDF for job ${job.id || index} from URL: ${job.pdf_url}`);
-    
-    // Fetch the PDF bytes
-    const pdfBytes = await fetchPdfWithRetry(job.pdf_url, job.id || index.toString());
-    if (!pdfBytes) {
-      console.error(`Failed to fetch PDF for job ${job.id || index}`);
-      const errorPdf = await createErrorPdf(job, "Failed to fetch PDF");
-      return { job, pdfDoc: errorPdf, isDuplicated: false };
-    }
-    
-    // Load the PDF document - create a fresh instance every time
-    const pdfDoc = await loadPdfFromBytes(pdfBytes, job.id || index.toString());
-    if (!pdfDoc) {
-      console.error(`Failed to load PDF for job ${job.id || index}`);
-      const errorPdf = await createErrorPdf(job, "Failed to parse PDF");
-      return { job, pdfDoc: errorPdf, isDuplicated: false };
-    }
-    
-    // Return the loaded PDF document
-    return { job, pdfDoc, isDuplicated: false };
-  } catch (error) {
-    console.error(`Error loading PDF for job ${job.id || index}:`, error);
-    
-    try {
-      const errorPdf = await createErrorPdf(job, error instanceof Error ? error.message : "Unknown error");
-      return { job, pdfDoc: errorPdf, isDuplicated: false };
-    } catch (fallbackError) {
-      console.error(`Couldn't create fallback PDF for job ${job.id || index}:`, fallbackError);
+    if (!url) {
+      console.error(`No URL provided for job ${jobId}`);
       return null;
     }
+    
+    console.log(`Fetching PDF for job ${jobId} from URL: ${url}`);
+    
+    // Basic fetch with cache control
+    const response = await fetch(url, { 
+      cache: 'no-store',
+      headers: { 'Pragma': 'no-cache' }
+    });
+    
+    if (!response.ok) {
+      console.error(`Failed to fetch PDF for job ${jobId}: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    
+    // Get raw bytes
+    const buffer = await response.arrayBuffer();
+    if (!buffer || buffer.byteLength === 0) {
+      console.error(`Empty PDF received for job ${jobId}`);
+      return null;
+    }
+    
+    // Load temporarily to get page count then discard the PDF object
+    const tempPdf = await PDFDocument.load(buffer);
+    const pageCount = tempPdf.getPageCount();
+    
+    console.log(`Successfully loaded PDF for job ${jobId}: ${buffer.byteLength} bytes, ${pageCount} pages`);
+    
+    // Return both the raw buffer and page count
+    return { buffer, pageCount };
+  } catch (error) {
+    console.error(`Error loading PDF for job ${jobId}:`, error);
+    return null;
   }
 }
 
-// Load a batch of PDFs with parallel processing and explicit isolation
-export async function loadMultipleJobPdfs(jobs: Job[]): Promise<Map<string, { 
-  job: Job; 
-  pdfDoc: PDFDocument 
-}>> {
-  console.log(`Loading PDFs for ${jobs.length} jobs with explicit isolation`);
-  const jobPDFs = new Map<string, { job: Job; pdfDoc: PDFDocument }>();
+// Create an empty PDF with a given text message
+export async function createEmptyPdfBytes(message: string): Promise<ArrayBuffer> {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage();
   
-  // Process job PDFs in parallel for better performance
-  const loadPromises = jobs.map(async (job) => {
-    try {
-      if (!job.pdf_url) {
-        console.error(`Missing PDF URL for job ${job.id}`);
-        const emptyPdf = await createEmptyPdf(job);
-        return { id: job.id, result: { job, pdfDoc: emptyPdf } };
-      }
-      
-      // Fetch and load PDF
-      const pdfBytes = await fetchPdfWithRetry(job.pdf_url, job.id);
-      if (!pdfBytes) {
-        console.error(`Failed to fetch PDF for job ${job.id}`);
-        const errorPdf = await createErrorPdf(job, "Failed to fetch PDF");
-        return { id: job.id, result: { job, pdfDoc: errorPdf } };
-      }
-      
-      // Create a completely fresh instance for each PDF
-      const pdfDoc = await loadPdfFromBytes(pdfBytes, job.id);
-      if (!pdfDoc) {
-        console.error(`Failed to load PDF for job ${job.id}`);
-        const errorPdf = await createErrorPdf(job, "Failed to parse PDF");
-        return { id: job.id, result: { job, pdfDoc: errorPdf } };
-      }
-      
-      return { id: job.id, result: { job, pdfDoc } };
-    } catch (error) {
-      console.error(`Error loading PDF for job ${job.id}:`, error);
-      
-      const errorPdf = await createErrorPdf(job, error instanceof Error ? error.message : "Unknown error");
-      return { id: job.id, result: { job, pdfDoc: errorPdf } };
-    }
+  // Draw error message centered
+  const { width, height } = page.getSize();
+  page.drawText(message, {
+    x: width / 2 - 50,
+    y: height / 2,
+    size: 14
   });
   
-  const results = await Promise.all(loadPromises);
-  
-  // Populate the map with results
-  results.forEach(({ id, result }) => {
-    if (id && result) {
-      jobPDFs.set(id, result);
-    }
-  });
-  
-  console.log(`Successfully loaded PDFs for ${jobPDFs.size} out of ${jobs.length} jobs`);
-  return jobPDFs;
+  return await pdfDoc.save();
 }
