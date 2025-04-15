@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -107,10 +106,16 @@ export const handlePdfAction = async (
       const displayFilename = filename || url.split('/').pop() || 'document.pdf';
       console.log(`Initiating download of ${displayFilename}`);
       
-      // Create a temporary link to download the file
+      // Prevent duplicate downloads by removing any existing temporary links
+      const existingLinks = document.querySelectorAll('a.pdf-download-link');
+      existingLinks.forEach(link => document.body.removeChild(link));
+      
+      // Create a single temporary link to download the file
       const link = document.createElement('a');
       link.href = accessUrl;
       link.download = displayFilename;
+      link.classList.add('pdf-download-link');
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
