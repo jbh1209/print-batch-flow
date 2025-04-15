@@ -1,5 +1,4 @@
-
-import { PDFDocument, PDFPage, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, PDFPage, rgb, StandardFonts, RotationTypes } from "pdf-lib";
 import { mmToPoints } from "./pdfUnitHelpers";
 import { ImpositionSlot } from "./slotAssignment";
 
@@ -330,7 +329,7 @@ function drawSideInfo(
       size: 8,
       font: helveticaBold,
       color: rgb(0, 0, 0),
-      rotate: { type: "degrees", angle: -90 }
+      rotate: { type: RotationTypes.Degrees, angle: -90 }
     });
     
     // Right side text (rotated 90 degrees clockwise)
@@ -343,7 +342,7 @@ function drawSideInfo(
       size: 8,
       font: helveticaBold,
       color: rgb(0, 0, 0),
-      rotate: { type: "degrees", angle: 90 }
+      rotate: { type: RotationTypes.Degrees, angle: 90 }
     });
   } catch (error) {
     console.error("Error drawing side info:", error);
