@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -76,7 +75,8 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        overview_pdf_url: data.overview_pdf_url || null, // Safely handle overview_pdf_url
+        // Add overview_pdf_url with null as default since it doesn't exist in the database response
+        overview_pdf_url: null,
         due_date: data.due_date,
         created_at: data.created_at,
         status: data.status,
