@@ -6,6 +6,7 @@ import BatchActionsCard from "./BatchActionsCard";
 import RelatedJobsCard from "./RelatedJobsCard";
 import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
+import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -34,6 +35,24 @@ const BatchDetailsContent = ({
       toast.error("Failed to download job PDFs");
     }
   };
+
+  const handleDownloadBatchOverviewSheet = async () => {
+    try {
+      // Check if batch overview PDF URL exists
+      const overviewPdfUrl = batch.overview_pdf_url;
+      
+      if (!overviewPdfUrl) {
+        toast.error("No batch overview sheet available");
+        return;
+      }
+
+      toast.loading("Downloading batch overview sheet...");
+      await handlePdfAction(overviewPdfUrl, 'download', `${batch.name}-overview.pdf`);
+    } catch (error) {
+      console.error("Error downloading batch overview sheet:", error);
+      toast.error("Failed to download batch overview sheet");
+    }
+  };
   
   return (
     <>
@@ -45,6 +64,7 @@ const BatchDetailsContent = ({
         <BatchActionsCard 
           batch={batch} 
           onDownloadJobPdfs={handleDownloadJobPdfs}
+          onDownloadBatchOverviewSheet={handleDownloadBatchOverviewSheet}
         />
       </div>
 
@@ -59,3 +79,4 @@ const BatchDetailsContent = ({
 };
 
 export default BatchDetailsContent;
+
