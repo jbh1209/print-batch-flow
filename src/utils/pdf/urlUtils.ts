@@ -1,0 +1,68 @@
+
+import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * Extracts bucket name and file path from a Supabase storage URL
+ */
+export const extractStoragePaths = (url: string) => {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    
+    // Look for "pdf_files" or other bucket name in the path
+    const bucketIndex = pathParts.findIndex(part => 
+      part === 'pdf_files' || 
+      part === 'batches' || 
+      part.includes('_files')
+    );
+    
+    if (bucketIndex === -1) {
+      console.error('Could not identify bucket in URL:', url);
+      return null;
+    }
+    
+    const bucket = pathParts[bucketIndex];
+    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+    
+    if (!filePath) {
+      console.error('Could not extract file path from URL:', url);
+      return null;
+    }
+    
+    return { bucket, filePath };
+  } catch (error) {
+    console.error('Error extracting paths from URL:', error);
+    return null;
+  }
+};
+
+/**
+ * Gets a signed URL for accessing a PDF
+ */
+export const getSignedUrl = async (url: string | null, expiresIn = 3600): Promise<string | null> => {
+  if (!url) return null;
+  
+  try {
+    const paths = extractStoragePaths(url);
+    if (!paths) return url;
+    
+    console.log(`Requesting signed URL for bucket: ${paths.bucket}, file: ${paths.filePath}`);
+    
+    const { data, error } = await supabase.storage
+      .from(paths.bucket)
+      .createSignedUrl(paths.filePath, expiresIn, {
+        download: true,
+      });
+      
+    if (error) {
+      console.error('Error getting signed URL:', error);
+      throw error;
+    }
+    
+    console.log('Signed URL generated successfully');
+    return data.signedUrl;
+  } catch (error) {
+    console.error('Error generating signed URL:', error);
+    return url;
+  }
+};
