@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -6,6 +5,7 @@ import { format } from "date-fns";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import JobActions from "./JobActions";
 import EmptyState from "./EmptyState";
+import DueDateIndicator from "./DueDateIndicator";
 
 export type JobStatus = "queued" | "batched" | "completed" | "cancelled";
 export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
@@ -152,9 +152,11 @@ const JobsTable = ({
             <TableCell>{job.quantity}</TableCell>
             <TableCell>
               {job.lamination_type === 'none' ? 'None' : 
-              job.lamination_type.charAt(0).toUpperCase() + job.lamination_type.slice(1)}
+                job.lamination_type.charAt(0).toUpperCase() + job.lamination_type.slice(1)}
             </TableCell>
-            <TableCell>{formatDate(job.due_date)}</TableCell>
+            <TableCell>
+              <DueDateIndicator dueDate={job.due_date} />
+            </TableCell>
             <TableCell>{formatDate(job.uploaded_at)}</TableCell>
             <TableCell><JobStatusBadge status={job.status} /></TableCell>
             <TableCell className="text-right">
