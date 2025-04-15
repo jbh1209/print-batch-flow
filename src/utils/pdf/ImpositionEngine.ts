@@ -80,6 +80,37 @@ export function createImpositionSlots(
 }
 
 /**
+ * Mirror the positions of back slots to ensure proper alignment when printed double-sided
+ * This transforms the positions so that when printed back-to-back, the cards align correctly
+ */
+export function mirrorBackSheetSlots(backSlots: ImpositionSlot[]): ImpositionSlot[] {
+  console.log("Mirroring back slots for proper double-sided printing alignment");
+  
+  // Standard grid is 3 columns x 8 rows = 24 positions (0-23)
+  const COLUMNS = 3;
+  const ROWS = 8;
+  
+  return backSlots.map(slot => {
+    // Calculate current row and column
+    const row = Math.floor(slot.position / COLUMNS);
+    const col = slot.position % COLUMNS;
+    
+    // For proper double-sided printing, we need to mirror horizontally
+    // New column = (COLUMNS - 1) - col
+    const mirroredCol = (COLUMNS - 1) - col;
+    
+    // Calculate new position
+    const mirroredPosition = row * COLUMNS + mirroredCol;
+    
+    // Create a new slot with the mirrored position
+    return {
+      ...slot,
+      position: mirroredPosition
+    };
+  });
+}
+
+/**
  * Calculate dimensions for the imposition grid
  */
 export function calculateSheetDimensions(pageWidth: number, pageHeight: number): SheetDimensions {

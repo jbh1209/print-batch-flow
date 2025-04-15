@@ -4,7 +4,7 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { mmToPoints } from "./pdfUnitHelpers";
 import calculateJobPageDistribution from "./JobPageDistributor";
 import { processJobPdfs } from "./PdfPageProcessor";
-import { createImpositionSlots, calculateSheetDimensions, createImpositionSheet } from "./ImpositionEngine";
+import { createImpositionSlots, calculateSheetDimensions, createImpositionSheet, mirrorBackSheetSlots } from "./ImpositionEngine";
 
 /**
  * Main function to generate imposition sheets for a batch of jobs
@@ -44,7 +44,13 @@ export async function generateBatchImposition(
     const processedJobPages = await processJobPdfs(jobs, slotRequirements);
     
     // Step 3: Assign processed pages to slots
-    const { frontSlots, backSlots } = createImpositionSlots(processedJobPages, quantityMap);
+    let { frontSlots, backSlots } = createImpositionSlots(processedJobPages, quantityMap);
+    
+    // Mirror back slots to ensure proper alignment when printed double-sided
+    if (backSlots.length > 0) {
+      backSlots = mirrorBackSheetSlots(backSlots);
+      console.log("Back slots have been mirrored for proper alignment");
+    }
     
     // Step 4: Create imposition sheets
     // Define custom page dimensions (320mm x 455mm)
