@@ -46,6 +46,7 @@ const BatchDetailsContent = ({
         return;
       }
 
+      console.log("Downloading batch overview sheet:", overviewPdfUrl);
       toast.loading("Downloading batch overview sheet...");
       await handlePdfAction(overviewPdfUrl, 'download', `${batch.name}-overview.pdf`);
     } catch (error) {
@@ -79,4 +80,3 @@ const BatchDetailsContent = ({
 };
 
 export default BatchDetailsContent;
-

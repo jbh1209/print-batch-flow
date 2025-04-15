@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -66,8 +67,8 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
       
       console.log("Batch details received:", data?.id);
       
-      // Transform the data to match BatchDetailsType, ensuring overview_pdf_url is included
-      // We explicitly construct the object to ensure all required properties are present
+      // For business card batches, we use the back_pdf_url as the overview_pdf_url
+      // since that's how the system is currently designed
       const batchData: BatchDetailsType = {
         id: data.id,
         name: data.name,
@@ -75,8 +76,8 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        // Add overview_pdf_url with null as default since it doesn't exist in the database response
-        overview_pdf_url: null,
+        // Use back_pdf_url as overview_pdf_url for business cards because that's how it was implemented
+        overview_pdf_url: data.back_pdf_url,
         due_date: data.due_date,
         created_at: data.created_at,
         status: data.status,
