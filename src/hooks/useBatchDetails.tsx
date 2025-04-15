@@ -68,6 +68,7 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
       console.log("Batch details received:", data?.id);
       
       // Transform the data to match BatchDetailsType, ensuring overview_pdf_url is included
+      // We explicitly construct the object to ensure all required properties are present
       const batchData: BatchDetailsType = {
         id: data.id,
         name: data.name,
@@ -75,7 +76,7 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        overview_pdf_url: data.overview_pdf_url || null,
+        overview_pdf_url: data.overview_pdf_url || null, // Safely handle overview_pdf_url
         due_date: data.due_date,
         created_at: data.created_at,
         status: data.status,
