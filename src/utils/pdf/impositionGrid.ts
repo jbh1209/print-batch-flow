@@ -330,9 +330,7 @@ function drawSideInfo(
       font: helveticaBold,
       color: rgb(0, 0, 0),
       rotate: {
-        type: 'degrees',
-        angle: 270,
-        origin: { x: leftX, y: centerY }
+        angle: -90,
       }
     });
     
@@ -346,9 +344,7 @@ function drawSideInfo(
       font: helveticaBold,
       color: rgb(0, 0, 0),
       rotate: {
-        type: 'degrees',
         angle: 90,
-        origin: { x: rightX, y: centerY }
       }
     });
   } catch (error) {
