@@ -1,4 +1,3 @@
-
 import { PDFDocument, PDFPage, rgb, StandardFonts } from "pdf-lib";
 import { mmToPoints } from "./pdfUnitHelpers";
 import { ImpositionSlot } from "./slotAssignment";
@@ -323,31 +322,27 @@ function drawSideInfo(
     const leftX = mmToPoints(5);
     const centerY = page.getHeight() / 2;
     
+    // Modified to match pdf-lib's API
     page.drawText(sideText, {
       x: leftX,
       y: centerY,
       size: 8,
       font: helveticaBold,
       color: rgb(0, 0, 0),
-      rotate: {
-        angle: -90,
-        origin: { x: leftX, y: centerY }
-      }
+      rotate: -Math.PI / 2  // Rotation in radians: -90 degrees
     });
     
     // Right side text (rotated 90 degrees clockwise)
     const rightX = page.getWidth() - mmToPoints(5);
     
+    // Modified to match pdf-lib's API
     page.drawText(sideText, {
       x: rightX,
       y: centerY,
       size: 8,
       font: helveticaBold,
       color: rgb(0, 0, 0),
-      rotate: {
-        angle: 90,
-        origin: { x: rightX, y: centerY }
-      }
+      rotate: Math.PI / 2  // Rotation in radians: 90 degrees
     });
   } catch (error) {
     console.error("Error drawing side info:", error);
