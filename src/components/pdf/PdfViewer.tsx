@@ -28,7 +28,7 @@ const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
         setIsLoading(true);
         setError(null);
         
-        console.log("Attempting to load PDF from:", url);
+        console.log("Attempting to load PDF from URL:", url);
         
         // Get signed URL if needed
         const pdfUrl = await getSignedUrl(url);
@@ -44,7 +44,7 @@ const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
         // Load the PDF document
         const loadingTask = pdfjsLib.getDocument(pdfUrl);
         loadingTask.onProgress = (progress) => {
-          console.log(`PDF loading: ${progress.loaded} of ${progress.total}`);
+          console.log(`PDF loading progress: ${progress.loaded} of ${progress.total}`);
         };
         
         const pdf = await loadingTask.promise;
@@ -73,7 +73,7 @@ const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
           viewport: viewport
         }).promise;
         
-        console.log("PDF rendering completed");
+        console.log("PDF rendering completed successfully");
 
       } catch (error) {
         console.error('Error rendering PDF:', error);
