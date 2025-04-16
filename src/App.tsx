@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import BusinessCardJobs from './pages/BusinessCardJobs';
 import BusinessCardBatches from './pages/BusinessCardBatches';
@@ -21,70 +22,29 @@ const ProtectedRoute = ({ element, protected: isProtected }) => {
   return element;
 };
 
-const routes = [
-  {
-    path: "/",
-    element: <Dashboard />,
-    protected: true
-  },
-  {
-    path: "/dashboard",
-    element: <Dashboard />,
-    protected: true
-  },
-  {
-    path: "/batches/business-cards/jobs",
-    element: <BusinessCardJobs />,
-    protected: true
-  },
-  {
-    path: "/batches/business-cards/jobs/new",
-    element: <BusinessCardJobNew />,
-    protected: true
-  },
-  {
-    path: "/batches/business-cards/batches",
-    element: <BusinessCardBatches />,
-    protected: true
-  },
-  {
-    path: "/batches/business-cards/batches/:batchId",
-    element: <BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards/batches" />,
-    protected: true
-  },
-  {
-    path: "/batches/flyers/jobs",
-    element: <FlyerJobs />,
-    protected: true
-  },
-  {
-    path: "/batches/flyers/jobs/new",
-    element: <FlyerJobNew />,
-    protected: true
-  },
-  {
-    path: "/batches/flyers/batches",
-    element: <FlyerBatches />,
-    protected: true
-  },
-  {
-    path: "/batches/flyers/batches/:batchId",
-    element: <BatchDetailsPage productType="Flyers" backUrl="/batches/flyers/batches" />,
-    protected: true
-  },
-];
-
 function App() {
   return (
     <Router>
       <Routes>
-        {routes.map((route, index) => (
-          <Route
-            key={index}
-            path={route.path}
-            element={<ProtectedRoute element={route.element} protected={route.protected} />}
+        {/* Protected routes inside Layout */}
+        <Route element={<Layout />}>
+          <Route path="/" element={<ProtectedRoute element={<Dashboard />} protected={true} />} />
+          <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} protected={true} />} />
+          <Route path="/batches/business-cards/jobs" element={<ProtectedRoute element={<BusinessCardJobs />} protected={true} />} />
+          <Route path="/batches/business-cards/jobs/new" element={<ProtectedRoute element={<BusinessCardJobNew />} protected={true} />} />
+          <Route path="/batches/business-cards/batches" element={<ProtectedRoute element={<BusinessCardBatches />} protected={true} />} />
+          <Route 
+            path="/batches/business-cards/batches/:batchId" 
+            element={<ProtectedRoute element={<BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards/batches" />} protected={true} />} 
           />
-        ))}
+          <Route path="/batches/flyers/jobs" element={<ProtectedRoute element={<FlyerJobs />} protected={true} />} />
+          <Route path="/batches/flyers/jobs/new" element={<ProtectedRoute element={<FlyerJobNew />} protected={true} />} />
+          <Route path="/batches/flyers/batches" element={<ProtectedRoute element={<FlyerBatches />} protected={true} />} />
+          <Route 
+            path="/batches/flyers/batches/:batchId" 
+            element={<ProtectedRoute element={<BatchDetailsPage productType="Flyers" backUrl="/batches/flyers/batches" />} protected={true} />} 
+          />
+        </Route>
       </Routes>
     </Router>
   );
