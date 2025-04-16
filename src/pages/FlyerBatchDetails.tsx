@@ -1,8 +1,7 @@
-
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerJob, FlyerBatch } from '@/components/batches/types/FlyerTypes';
+import { FlyerJob, FlyerBatch, BatchStatus } from '@/components/batches/types/FlyerTypes';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { 

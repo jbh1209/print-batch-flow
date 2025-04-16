@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerBatch, FlyerJob } from '@/components/batches/types/FlyerTypes';
+import { FlyerBatch, FlyerJob, BatchStatus, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
 
 export function useFlyerBatches() {
@@ -42,22 +41,22 @@ export function useFlyerBatches() {
     fetchBatches();
   }, [user]);
 
-  const createBatch = async (selectedJobs: FlyerJob[], batchData: Omit<FlyerBatch, 'id' | 'created_at' | 'sheets_required' | 'created_by'>) => {
+  const createBatch = async (selectedJobs: FlyerJob[], batchData: Omit<FlyerBatch, 'id' | 'created_at' | 'sheets_required' | 'created_by' | 'status'>) => {
     if (!user) throw new Error('User not authenticated');
     
     try {
       // Calculate sheets required based on job quantities and sizes
       const sheetsRequired = calculateSheetsRequired(selectedJobs);
       
-      // Create the batch
+      // Create the batch with proper typing for the status
       const { data, error: batchError } = await supabase
         .from('batches')
         .insert({
           ...batchData,
           sheets_required: sheetsRequired,
           created_by: user.id,
-          // Add required fields for compatibility with the batches table
-          lamination_type: 'none'
+          status: 'pending' as BatchStatus,
+          lamination_type: batchData.lamination_type || 'none' as LaminationType
         })
         .select()
         .single();
@@ -88,7 +87,6 @@ export function useFlyerBatches() {
   
   // Helper function to calculate sheets required based on job quantities and sizes
   const calculateSheetsRequired = (jobs: FlyerJob[]): number => {
-    // This is a simplified calculation that can be enhanced based on actual printing requirements
     let totalSheets = 0;
     
     for (const job of jobs) {

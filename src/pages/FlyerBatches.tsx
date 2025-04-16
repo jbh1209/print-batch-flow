@@ -7,6 +7,8 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import FlyerBatchDetails from "./FlyerBatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
+import { BatchSummary } from "@/components/batches/types/BatchTypes";
+import { FlyerBatch } from "@/components/batches/types/FlyerTypes";
 
 const FlyerBatches = () => {
   const [searchParams] = useSearchParams();
@@ -19,6 +21,16 @@ const FlyerBatches = () => {
     fetchBatches,
     handleViewPDF
   } = useFlyerBatches();
+
+  // Convert FlyerBatch[] to BatchSummary[] for BatchesWrapper
+  const batchSummaries: BatchSummary[] = batches.map(batch => ({
+    id: batch.id,
+    name: batch.name,
+    due_date: batch.due_date,
+    status: batch.status,
+    product_type: "Flyers",
+    sheets_required: batch.sheets_required
+  }));
 
   // If we're viewing a specific batch, render the BatchDetails component
   if (batchId) {
@@ -53,7 +65,7 @@ const FlyerBatches = () => {
       )}
 
       <BatchesWrapper 
-        batches={batches}
+        batches={batchSummaries}
         isLoading={isLoading}
         error={error}
         onRefresh={fetchBatches}
