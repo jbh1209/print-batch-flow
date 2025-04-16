@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,7 +63,6 @@ export const useDashboardStats = () => {
       if (businessCardJobsError) throw businessCardJobsError;
       
       // Fetch pending flyer jobs (jobs with status 'queued')
-      // Updated to also select the size property
       const { data: pendingFlyerJobs, error: flyerJobsError } = await supabase
         .from("flyer_jobs")
         .select("id, size")
@@ -104,7 +102,7 @@ export const useDashboardStats = () => {
       const batchTypeStats = [
         { name: "Business Cards", progress: 0, total: 50 },
         { name: "Flyers A5", progress: 0, total: 50 },
-        { name: "Flyers A6", progress: 0, total: 50 },
+        { name: "Flyers A4", progress: 0, total: 50 },
         { name: "Postcards", progress: 0, total: 50 }
       ];
       
@@ -115,11 +113,11 @@ export const useDashboardStats = () => {
       
       // For flyers, count queued jobs to determine "bucket fill" based on size
       if (pendingFlyerJobs) {
-        // Now pendingFlyerJobs has the size property, so we can safely filter by it
+        // Filter flyer jobs by size
         const flyerA5Jobs = pendingFlyerJobs.filter(job => job.size === "A5");
-        const flyerA6Jobs = pendingFlyerJobs.filter(job => job.size === "A6");
+        const flyerA4Jobs = pendingFlyerJobs.filter(job => job.size === "A4");
         batchTypeStats[1].progress = flyerA5Jobs?.length || 0;
-        batchTypeStats[2].progress = flyerA6Jobs?.length || 0;
+        batchTypeStats[2].progress = flyerA4Jobs?.length || 0;
       }
       
       // Calculate buckets at capacity (if any batch type is at 80% or more)
