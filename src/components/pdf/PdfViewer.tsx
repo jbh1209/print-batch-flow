@@ -1,13 +1,12 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { getSignedUrl } from '@/utils/pdf/urlUtils';
+import { getSignedUrl } from '@/utils/pdf/signedUrlHelper';
 
-// Configure PDF.js to use a local worker from the same library
-// This avoids CDN issues with the worker file
+// Using a local worker file from the pdfjs-dist package
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url
+  import.meta.url,
 ).toString();
 
 interface PdfViewerProps {
@@ -28,52 +27,30 @@ const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
         setIsLoading(true);
         setError(null);
         
-        console.log("Attempting to load PDF from URL:", url);
-        
-        // Get signed URL if needed
+        // Get signed URL using the helper that works for business cards
         const pdfUrl = await getSignedUrl(url);
         if (!pdfUrl) {
-          console.error('Could not get signed URL for PDF');
-          setError('Could not generate a valid URL for this PDF');
-          setIsLoading(false);
-          return;
+          throw new Error('Could not generate a valid URL for this PDF');
         }
-        
-        console.log("Using signed URL (first 100 chars):", pdfUrl.substring(0, 100));
 
         // Load the PDF document
-        const loadingTask = pdfjsLib.getDocument(pdfUrl);
-        loadingTask.onProgress = (progress) => {
-          console.log(`PDF loading progress: ${progress.loaded} of ${progress.total}`);
-        };
-        
-        const pdf = await loadingTask.promise;
-        console.log("PDF loaded successfully with", pdf.numPages, "pages");
-
-        // Get the first page
+        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
         const page = await pdf.getPage(1);
-
-        // Prepare canvas for rendering
-        const canvas = canvasRef.current;
-        if (!canvas) return;
         
+        const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
-        if (!context) return;
+        if (!context) throw new Error('Could not get canvas context');
 
-        // Set viewport and scale with better sizing
+        // Set viewport with better initial scale
         const viewport = page.getViewport({ scale: 1.5 });
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-        
-        console.log("Rendering PDF with viewport dimensions:", viewport.width, "x", viewport.height);
 
         // Render PDF page
         await page.render({
           canvasContext: context,
           viewport: viewport
         }).promise;
-        
-        console.log("PDF rendering completed successfully");
 
       } catch (error) {
         console.error('Error rendering PDF:', error);
