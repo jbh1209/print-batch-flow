@@ -13,24 +13,34 @@ export const getSignedUrl = async (url: string | null): Promise<string | null> =
       return url;
     }
 
-    // Extract bucket and path from URL
+    // Extract path parts for proper processing
     const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
+    const path = urlObj.pathname;
     
-    // Find the bucket name (usually 'pdf_files' or similar)
-    const bucketIndex = pathParts.findIndex(part => 
-      part === 'pdf_files' || 
-      part === 'storage' ||
-      part.includes('_files')
-    );
-    
-    if (bucketIndex === -1) {
-      console.warn('Could not identify bucket in URL:', url);
+    // Check if this is a Supabase storage URL
+    if (!path.includes('/storage/v1/object/public/')) {
+      console.log('Not a Supabase storage URL, returning as is');
       return url;
     }
     
-    const bucket = pathParts[bucketIndex];
-    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+    // Extract the bucket and file path correctly
+    // Format: /storage/v1/object/public/BUCKET_NAME/FILE_PATH
+    const publicPos = path.indexOf('/public/');
+    if (publicPos === -1) {
+      console.warn('Could not find /public/ in URL path:', url);
+      return url;
+    }
+    
+    const relevantPath = path.substring(publicPos + 8); // Skip '/public/'
+    const firstSlashPos = relevantPath.indexOf('/');
+    
+    if (firstSlashPos === -1) {
+      console.warn('Could not find file path in URL:', url);
+      return url;
+    }
+    
+    const bucket = relevantPath.substring(0, firstSlashPos);
+    const filePath = relevantPath.substring(firstSlashPos + 1);
     
     console.log('Extracted bucket:', bucket, 'path:', filePath);
     

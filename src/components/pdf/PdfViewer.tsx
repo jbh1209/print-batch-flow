@@ -2,10 +2,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { getSignedUrl } from '@/utils/pdf/signedUrlHelper';
-import { loadPdfAsBytes } from '@/utils/pdf/pdfLoaderCore';
 
-// Configure worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+// Configure worker with a direct CDN URL for better reliability
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
 interface PdfViewerProps {
   url: string | null;
@@ -25,29 +24,30 @@ const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
         setIsLoading(true);
         setError(null);
         
-        // Get signed URL using helper
-        const pdfUrl = await getSignedUrl(url);
-        if (!pdfUrl) {
+        console.log('Loading PDF from URL:', url);
+        
+        // Get signed URL if needed (handles all URL types)
+        const accessUrl = await getSignedUrl(url);
+        if (!accessUrl) {
           throw new Error('Could not generate a valid URL for this PDF');
         }
 
-        console.log('Loading PDF from URL:', pdfUrl);
-
-        // Load PDF using our core loader
-        const pdfData = await loadPdfAsBytes(pdfUrl, 'preview');
-        if (!pdfData) {
-          throw new Error('Failed to load PDF data');
-        }
-
-        // Load the PDF document using the array buffer
-        const pdf = await pdfjsLib.getDocument(pdfData.buffer).promise;
+        // Try loading the PDF directly without using loadPdfAsBytes
+        // This is more robust for certain URL types
+        const loadingTask = pdfjsLib.getDocument(accessUrl);
+        
+        const pdf = await loadingTask.promise;
+        console.log(`PDF loaded successfully with ${pdf.numPages} pages`);
+        
+        // Get the first page
         const page = await pdf.getPage(1);
         
+        // Set up canvas
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
         if (!context) throw new Error('Could not get canvas context');
 
-        // Set viewport with better initial scale
+        // Set viewport with reasonable scale
         const viewport = page.getViewport({ scale: 1.5 });
         canvas.height = viewport.height;
         canvas.width = viewport.width;
