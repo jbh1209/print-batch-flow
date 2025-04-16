@@ -15,6 +15,7 @@ import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { FileText, Eye, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
+import JobStatusBadge from "@/components/JobStatusBadge";
 
 export const FlyerJobsTable = () => {
   const { jobs, isLoading } = useFlyerJobs();
@@ -71,26 +72,7 @@ export const FlyerJobsTable = () => {
                 {format(new Date(job.due_date), "dd MMM yyyy")}
               </TableCell>
               <TableCell>
-                <Badge
-                  variant={job.status === "queued" ? "outline" : "default"}
-                  className={`${
-                    job.status === "queued" 
-                      ? "bg-blue-50 text-blue-700 border-blue-200" 
-                      : job.status === "in_batch" 
-                      ? "bg-green-50 text-green-700 border-green-200"
-                      : job.status === "completed"
-                      ? "bg-gray-50 text-gray-700 border-gray-200"
-                      : "bg-red-50 text-red-700 border-red-200"
-                  }`}
-                >
-                  {job.status === "queued" 
-                    ? "Queued" 
-                    : job.status === "in_batch" 
-                    ? "In Batch"
-                    : job.status === "completed"
-                    ? "Completed"
-                    : "Cancelled"}
-                </Badge>
+                <JobStatusBadge status={job.status} />
               </TableCell>
               <TableCell>
                 <Button 

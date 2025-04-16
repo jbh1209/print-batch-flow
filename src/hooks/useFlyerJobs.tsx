@@ -42,12 +42,13 @@ export function useFlyerJobs() {
     if (!user) throw new Error('User not authenticated');
 
     try {
+      // Here we explicitly set status to "queued" which is a valid value in Supabase's enum
       const { data, error } = await supabase
         .from('flyer_jobs')
         .insert({
           ...jobData,
           user_id: user.id,
-          status: 'queued' as JobStatus
+          status: 'queued'
         })
         .select()
         .single();
