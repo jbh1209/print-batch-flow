@@ -1,4 +1,5 @@
 
+
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";
 export type PrinterType = "HP 12000" | "HP 7900";
@@ -35,3 +36,4 @@ export interface FlyerBatch {
   due_date: string;
   sheets_required: number;
 }
+

@@ -12,11 +12,17 @@ import { format } from "date-fns";
 import { CalendarIcon, ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import { FlyerSize, PaperType } from "@/components/batches/types/FlyerTypes";
+import FileUpload from "@/components/business-cards/FileUpload";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export const FlyerJobForm = () => {
   const navigate = useNavigate();
   const { createJob } = useFlyerJobs();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
+  
   const [formData, setFormData] = useState({
     name: "",
     job_number: "",
@@ -24,9 +30,18 @@ export const FlyerJobForm = () => {
     paper_weight: "115gsm",
     paper_type: "Matt" as PaperType,
     quantity: 0,
-    due_date: new Date(),
-    pdf_url: "https://example.com/placeholder.pdf", // Placeholder for now
-    file_name: "sample-file.pdf"
+    due_date: new Date()
+  });
+
+  // Initialize the file upload hook
+  const { 
+    selectedFile, 
+    setSelectedFile, 
+    handleFileChange, 
+    fileInfo
+  } = useFileUpload({
+    acceptedTypes: ['application/pdf'],
+    maxSizeInMB: 10
   });
 
   const paperWeightOptions = ["115gsm", "130gsm", "170gsm", "200gsm", "250gsm"];
@@ -41,18 +56,55 @@ export const FlyerJobForm = () => {
       return;
     }
 
+    if (!selectedFile) {
+      toast.error("Please upload a PDF file");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
+      // Upload the PDF file to Supabase storage
+      const fileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
+      const filePath = `${user?.id}/${fileName}`;
+      
+      toast.loading("Uploading PDF file...");
+      
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('pdf_files')
+        .upload(filePath, selectedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error(`Error uploading file: ${uploadError.message}`);
+      }
+
+      // Get the public URL for the uploaded file
+      const { data: urlData } = supabase.storage
+        .from('pdf_files')
+        .getPublicUrl(filePath);
+
+      if (!urlData?.publicUrl) {
+        throw new Error("Failed to get public URL for uploaded file");
+      }
+
+      toast.success("File uploaded successfully");
+
+      // Create the job with the PDF URL
       await createJob({
         ...formData,
         due_date: formData.due_date.toISOString(),
+        pdf_url: urlData.publicUrl,
+        file_name: selectedFile.name
       });
+
       toast.success("Flyer job created successfully");
       navigate("/batches/flyers/jobs");
     } catch (error) {
       console.error("Error creating flyer job:", error);
-      toast.error("Failed to create flyer job");
+      toast.error(`Failed to create flyer job: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -196,13 +248,14 @@ export const FlyerJobForm = () => {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>File Upload</Label>
-          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-            <p className="text-gray-500">File upload functionality will be implemented separately</p>
-            <p className="text-sm text-gray-400 mt-1">Using placeholder file data for now</p>
-          </div>
-        </div>
+        <FileUpload
+          control={{} as any}
+          selectedFile={selectedFile}
+          setSelectedFile={setSelectedFile}
+          handleFileChange={handleFileChange}
+          isRequired={true}
+          helpText="Upload a PDF file of your flyer design (Max: 10MB)"
+        />
 
         <div className="flex justify-end space-x-2">
           <Button
