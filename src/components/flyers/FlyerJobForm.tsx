@@ -44,7 +44,10 @@ export const FlyerJobForm = () => {
     setIsSubmitting(true);
     
     try {
-      await createJob(formData);
+      await createJob({
+        ...formData,
+        due_date: formData.due_date.toISOString(),
+      });
       toast.success("Flyer job created successfully");
       navigate("/batches/flyers/jobs");
     } catch (error) {

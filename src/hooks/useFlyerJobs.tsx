@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerJob } from '@/components/batches/types/FlyerTypes';
+import { FlyerJob, JobStatus } from '@/components/batches/types/FlyerTypes';
 
 export function useFlyerJobs() {
   const { user } = useAuth();
@@ -38,7 +38,7 @@ export function useFlyerJobs() {
     fetchJobs();
   }, [user]);
 
-  const createJob = async (jobData: Omit<FlyerJob, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+  const createJob = async (jobData: Omit<FlyerJob, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'status'>) => {
     if (!user) throw new Error('User not authenticated');
 
     try {
@@ -47,6 +47,7 @@ export function useFlyerJobs() {
         .insert({
           ...jobData,
           user_id: user.id,
+          status: 'queued' as JobStatus
         })
         .select()
         .single();
