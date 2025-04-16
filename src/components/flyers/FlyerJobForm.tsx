@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
 import { useForm } from "react-hook-form";
@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -67,13 +66,13 @@ export const FlyerJobForm = () => {
   });
 
   // Update form value when file is selected
-  useState(() => {
+  useEffect(() => {
     if (selectedFile) {
       form.setValue("file", selectedFile, { shouldValidate: true });
     } else {
       form.setValue("file", undefined as any, { shouldValidate: false });
     }
-  });
+  }, [selectedFile, form]);
 
   const paperWeightOptions = ["115gsm", "130gsm", "170gsm", "200gsm", "250gsm"];
   const sizeOptions: FlyerSize[] = ["A5", "A4", "DL", "A3"];
@@ -116,9 +115,14 @@ export const FlyerJobForm = () => {
 
       toast.success("File uploaded successfully");
 
-      // Create the job with the PDF URL
+      // Create the job with the PDF URL - Ensure all required properties are provided
       await createJob({
-        ...data,
+        name: data.name,
+        job_number: data.job_number,
+        size: data.size,
+        paper_weight: data.paper_weight,
+        paper_type: data.paper_type,
+        quantity: data.quantity,
         due_date: data.due_date.toISOString(),
         pdf_url: urlData.publicUrl,
         file_name: selectedFile.name
