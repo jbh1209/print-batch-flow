@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,23 +9,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import BatchesTable from "./BatchesTable";
-import { LaminationType } from "@/components/business-cards/JobsTable";
 import EmptyState from "@/components/business-cards/EmptyState";
-
-interface Batch {
-  id: string;
-  name: string;
-  lamination_type: LaminationType;
-  sheets_required: number;
-  front_pdf_url: string | null;
-  back_pdf_url: string | null;
-  due_date: string;
-  created_at: string;
-  status: "pending" | "processing" | "completed" | "cancelled";
-}
+import { BatchSummary } from "@/components/batches/types/BatchTypes";
 
 interface BatchesWrapperProps {
-  batches: Batch[];
+  batches: BatchSummary[];
   isLoading: boolean;
   error?: string | null;
   onRefresh: () => void;
@@ -92,7 +79,6 @@ const BatchesWrapper = ({
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Lamination</TableHead>
               <TableHead>Sheets</TableHead>
               <TableHead>Due Date</TableHead>
               <TableHead>Created</TableHead>

@@ -29,7 +29,11 @@ const FlyerBatches = () => {
     due_date: batch.due_date,
     status: batch.status,
     product_type: "Flyers",
-    sheets_required: batch.sheets_required
+    sheets_required: batch.sheets_required,
+    lamination_type: batch.lamination_type,
+    front_pdf_url: batch.front_pdf_url,
+    back_pdf_url: batch.back_pdf_url,
+    created_at: batch.created_at
   }));
 
   // If we're viewing a specific batch, render the BatchDetails component

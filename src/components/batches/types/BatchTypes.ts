@@ -1,4 +1,3 @@
-
 // Define the status type to match what's in the database
 export type BatchStatus = "pending" | "processing" | "completed" | "cancelled";
 
@@ -22,6 +21,10 @@ export interface BatchSummary {
   status: string;
   product_type: string;
   sheets_required: number;
+  lamination_type?: string;
+  front_pdf_url?: string | null;
+  back_pdf_url?: string | null;
+  created_at?: string;
 }
 
 export interface Job {
