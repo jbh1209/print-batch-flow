@@ -64,9 +64,10 @@ export const useDashboardStats = () => {
       if (businessCardJobsError) throw businessCardJobsError;
       
       // Fetch pending flyer jobs (jobs with status 'queued')
+      // Updated to also select the size property
       const { data: pendingFlyerJobs, error: flyerJobsError } = await supabase
         .from("flyer_jobs")
-        .select("id")
+        .select("id, size")
         .eq("user_id", user.id)
         .eq("status", "queued");
       
@@ -114,6 +115,7 @@ export const useDashboardStats = () => {
       
       // For flyers, count queued jobs to determine "bucket fill" based on size
       if (pendingFlyerJobs) {
+        // Now pendingFlyerJobs has the size property, so we can safely filter by it
         const flyerA5Jobs = pendingFlyerJobs.filter(job => job.size === "A5");
         const flyerA6Jobs = pendingFlyerJobs.filter(job => job.size === "A6");
         batchTypeStats[1].progress = flyerA5Jobs?.length || 0;
