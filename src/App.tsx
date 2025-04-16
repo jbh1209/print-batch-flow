@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
@@ -67,8 +66,18 @@ function App() {
             element={<ProtectedRoute element={<BatchDetailsPage productType="Flyers" backUrl="/batches/flyers/batches" />} protected={true} />} 
           />
           
-          {/* Other product routes */}
+          {/* Postcards routes */}
           <Route path="/batches/postcards" element={<ProtectedRoute element={<Postcards />} protected={true} />} />
+          <Route path="/batches/postcards/jobs" element={<ProtectedRoute element={<PostcardJobs />} protected={true} />} />
+          <Route path="/batches/postcards/jobs/new" element={<ProtectedRoute element={<PostcardJobNew />} protected={true} />} />
+          <Route path="/batches/postcards/jobs/:jobId" element={<ProtectedRoute element={<PostcardJobDetail />} protected={true} />} />
+          <Route path="/batches/postcards/batches" element={<ProtectedRoute element={<PostcardBatches />} protected={true} />} />
+          <Route 
+            path="/batches/postcards/batches/:batchId" 
+            element={<ProtectedRoute element={<BatchDetailsPage productType="Postcards" backUrl="/batches/postcards/batches" />} protected={true} />} 
+          />
+          
+          {/* Other product routes */}
           <Route path="/batches/posters" element={<ProtectedRoute element={<Posters />} protected={true} />} />
           <Route path="/batches/stickers" element={<ProtectedRoute element={<Stickers />} protected={true} />} />
           <Route path="/batches/sleeves" element={<ProtectedRoute element={<Sleeves />} protected={true} />} />
