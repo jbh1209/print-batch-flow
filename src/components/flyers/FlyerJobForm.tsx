@@ -2,6 +2,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +19,21 @@ import FileUpload from "@/components/business-cards/FileUpload";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+
+// Form validation schema
+const formSchema = z.object({
+  name: z.string().min(1, "Job name is required"),
+  job_number: z.string().min(1, "Job number is required"),
+  size: z.enum(["A5", "A4", "DL", "A3"]),
+  paper_weight: z.string().min(1, "Paper weight is required"),
+  paper_type: z.enum(["Matt", "Gloss"]),
+  quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+  due_date: z.date(),
+  file: z.instanceof(File, { message: "PDF file is required" })
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 export const FlyerJobForm = () => {
   const navigate = useNavigate();
@@ -23,16 +41,6 @@ export const FlyerJobForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
   
-  const [formData, setFormData] = useState({
-    name: "",
-    job_number: "",
-    size: "A4" as FlyerSize,
-    paper_weight: "115gsm",
-    paper_type: "Matt" as PaperType,
-    quantity: 0,
-    due_date: new Date()
-  });
-
   // Initialize the file upload hook
   const { 
     selectedFile, 
@@ -44,18 +52,34 @@ export const FlyerJobForm = () => {
     maxSizeInMB: 10
   });
 
+  // Initialize react-hook-form with zod validation
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      job_number: "",
+      size: "A4",
+      paper_weight: "115gsm",
+      paper_type: "Matt",
+      quantity: 0,
+      due_date: new Date()
+    }
+  });
+
+  // Update form value when file is selected
+  useState(() => {
+    if (selectedFile) {
+      form.setValue("file", selectedFile, { shouldValidate: true });
+    } else {
+      form.setValue("file", undefined as any, { shouldValidate: false });
+    }
+  });
+
   const paperWeightOptions = ["115gsm", "130gsm", "170gsm", "200gsm", "250gsm"];
   const sizeOptions: FlyerSize[] = ["A5", "A4", "DL", "A3"];
   const paperTypeOptions: PaperType[] = ["Matt", "Gloss"];
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.name || !formData.job_number || formData.quantity <= 0) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
+  const onSubmit = async (data: FormValues) => {
     if (!selectedFile) {
       toast.error("Please upload a PDF file");
       return;
@@ -94,8 +118,8 @@ export const FlyerJobForm = () => {
 
       // Create the job with the PDF URL
       await createJob({
-        ...formData,
-        due_date: formData.due_date.toISOString(),
+        ...data,
+        due_date: data.due_date.toISOString(),
         pdf_url: urlData.publicUrl,
         file_name: selectedFile.name
       });
@@ -108,14 +132,6 @@ export const FlyerJobForm = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === "quantity" ? parseInt(value, 10) || 0 : value
-    }));
   };
 
   return (
@@ -132,154 +148,222 @@ export const FlyerJobForm = () => {
         <h2 className="text-xl font-semibold">Create New Flyer Job</h2>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl bg-white p-6 rounded-lg shadow">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Job Name*</Label>
-            <Input
-              id="name"
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-w-2xl bg-white p-6 rounded-lg shadow">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
               name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              required
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Job Name*</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="job_number">Job Number*</Label>
-            <Input
-              id="job_number"
+            
+            <FormField
+              control={form.control}
               name="job_number"
-              value={formData.job_number}
-              onChange={handleInputChange}
-              required
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Job Number*</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
-        </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="size">Size*</Label>
-            <Select
-              value={formData.size}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, size: value as FlyerSize }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select size" />
-              </SelectTrigger>
-              <SelectContent>
-                {sizeOptions.map((size) => (
-                  <SelectItem key={size} value={size}>{size}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-3 gap-4">
+            <FormField
+              control={form.control}
+              name="size"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Size*</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {sizeOptions.map((size) => (
+                        <SelectItem key={size} value={size}>{size}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="paper_weight"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Paper Weight*</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select weight" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {paperWeightOptions.map((weight) => (
+                        <SelectItem key={weight} value={weight}>{weight}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="paper_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Paper Type*</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {paperTypeOptions.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="paper_weight">Paper Weight*</Label>
-            <Select
-              value={formData.paper_weight}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, paper_weight: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select weight" />
-              </SelectTrigger>
-              <SelectContent>
-                {paperWeightOptions.map((weight) => (
-                  <SelectItem key={weight} value={weight}>{weight}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="paper_type">Paper Type*</Label>
-            <Select
-              value={formData.paper_type}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, paper_type: value as PaperType }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {paperTypeOptions.map((type) => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="quantity">Quantity*</Label>
-            <Input
-              id="quantity"
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
               name="quantity"
-              type="number"
-              value={formData.quantity || ""}
-              onChange={handleInputChange}
-              min="1"
-              required
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quantity*</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="due_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Due Date*</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? format(field.value, "PPP") : "Select a date"}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => field.onChange(date || new Date())}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="due_date">Due Date*</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.due_date ? format(formData.due_date, "PPP") : "Select a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={formData.due_date}
-                  onSelect={(date) => setFormData(prev => ({ ...prev, due_date: date || new Date() }))}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
 
-        <FileUpload
-          control={{} as any}
-          selectedFile={selectedFile}
-          setSelectedFile={setSelectedFile}
-          handleFileChange={handleFileChange}
-          isRequired={true}
-          helpText="Upload a PDF file of your flyer design (Max: 10MB)"
-        />
-
-        <div className="flex justify-end space-x-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/batches/flyers/jobs")}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                Saving...
-              </div>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Job
-              </>
+          <FormField
+            control={form.control}
+            name="file"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Upload PDF*</FormLabel>
+                <FormControl>
+                  <FileUpload
+                    control={form.control}
+                    selectedFile={selectedFile}
+                    setSelectedFile={(file) => {
+                      setSelectedFile(file);
+                      if (file) {
+                        field.onChange(file);
+                      } else {
+                        field.onChange(undefined);
+                      }
+                    }}
+                    handleFileChange={handleFileChange}
+                    isRequired={true}
+                    helpText="Upload a PDF file of your flyer design (Max: 10MB)"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-          </Button>
-        </div>
-      </form>
+          />
+
+          <div className="flex justify-end space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate("/batches/flyers/jobs")}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </div>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Job
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </Form>
     </div>
   );
 };
