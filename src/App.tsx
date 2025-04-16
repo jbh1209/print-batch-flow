@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
@@ -14,6 +15,10 @@ import FlyerBatches from './pages/FlyerBatches';
 import BusinessCards from './pages/BusinessCards';
 import Flyers from './pages/Flyers';
 import Postcards from './pages/Postcards';
+import PostcardJobs from './pages/PostcardJobs';
+import PostcardJobNew from './pages/PostcardJobNew';
+import PostcardJobDetail from './pages/PostcardJobDetail';
+import PostcardBatches from './pages/PostcardBatches';
 import Posters from './pages/Posters';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
