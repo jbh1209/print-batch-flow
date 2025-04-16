@@ -1,3 +1,4 @@
+
 import { useSearchParams } from "react-router-dom";
 import { useBusinessCardBatches } from "@/hooks/useBusinessCardBatches";
 import JobsHeader from "@/components/business-cards/JobsHeader";
@@ -7,6 +8,7 @@ import BatchDeleteDialog from "@/components/batches/business-cards/BatchDeleteDi
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BatchSummary } from "@/components/batches/types/BatchTypes";
 
 const BusinessCardBatches = () => {
   const [searchParams] = useSearchParams();
@@ -23,6 +25,20 @@ const BusinessCardBatches = () => {
     handleDeleteBatch,
     setBatchToDelete
   } = useBusinessCardBatches(batchId);
+
+  // Convert Batch[] to BatchSummary[] for BatchesWrapper
+  const batchSummaries: BatchSummary[] = batches.map(batch => ({
+    id: batch.id,
+    name: batch.name,
+    due_date: batch.due_date,
+    status: batch.status,
+    product_type: "Business Cards",
+    sheets_required: batch.sheets_required,
+    lamination_type: batch.lamination_type,
+    front_pdf_url: batch.front_pdf_url,
+    back_pdf_url: batch.back_pdf_url,
+    created_at: batch.created_at
+  }));
 
   // If we're viewing a specific batch, render the BatchDetails component
   if (batchId) {
@@ -63,7 +79,7 @@ const BusinessCardBatches = () => {
       )}
 
       <BatchesWrapper 
-        batches={batches}
+        batches={batchSummaries}
         isLoading={isLoading}
         error={error}
         onRefresh={fetchBatches}

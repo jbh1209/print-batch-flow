@@ -3,32 +3,16 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import {
-  Table,
-  TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2, Eye, Trash2, FileText } from "lucide-react";
-import { LaminationType } from "@/components/business-cards/JobsTable";
 import JobStatusBadge from "@/components/JobStatusBadge";
-
-interface Batch {
-  id: string;
-  name: string;
-  lamination_type: LaminationType;
-  sheets_required: number;
-  front_pdf_url: string | null;
-  back_pdf_url: string | null;
-  due_date: string;
-  created_at: string;
-  status: "pending" | "processing" | "completed" | "cancelled";
-}
+import { BatchSummary } from "@/components/batches/types/BatchTypes";
 
 interface BatchesTableProps {
-  batches: Batch[];
+  batches: BatchSummary[];
   isLoading: boolean;
   onViewPDF: (url: string | null) => void;
   onDeleteBatch: (batchId: string) => void;
@@ -90,13 +74,9 @@ const BatchesTable = ({
           <TableCell>
             <JobStatusBadge status={batch.status} />
           </TableCell>
-          <TableCell>
-            {batch.lamination_type === 'none' ? 'None' : 
-              batch.lamination_type.charAt(0).toUpperCase() + batch.lamination_type.slice(1)}
-          </TableCell>
           <TableCell>{batch.sheets_required}</TableCell>
           <TableCell>{formatDate(batch.due_date)}</TableCell>
-          <TableCell>{formatDate(batch.created_at)}</TableCell>
+          <TableCell>{batch.created_at ? formatDate(batch.created_at) : 'N/A'}</TableCell>
           <TableCell className="text-right">
             <div className="flex justify-end gap-2">
               {batch.front_pdf_url && (
