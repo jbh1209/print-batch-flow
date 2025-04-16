@@ -1,8 +1,7 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { AuthProvider } from './hooks/useAuth';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import { useAuth } from './hooks/useAuth';
 import Dashboard from './pages/Dashboard';
 import BusinessCardJobs from './pages/BusinessCardJobs';
 import BusinessCardBatches from './pages/BusinessCardBatches';
@@ -13,26 +12,16 @@ import FlyerJobNew from './pages/FlyerJobNew';
 import FlyerBatches from './pages/FlyerBatches';
 
 const ProtectedRoute = ({ element, protected: isProtected }) => {
-  const { user } = React.useContext(AuthProvider);
+  const { user } = useAuth();
 
   if (isProtected && !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return element;
 };
 
 const routes = [
-  {
-    path: "/login",
-    element: <Login />,
-    protected: false
-  },
-  {
-    path: "/register",
-    element: <Register />,
-    protected: false
-  },
   {
     path: "/",
     element: <Dashboard />,
@@ -78,23 +67,26 @@ const routes = [
     element: <FlyerBatches />,
     protected: true
   },
+  {
+    path: "/batches/flyers/batches/:batchId",
+    element: <BatchDetailsPage productType="Flyers" backUrl="/batches/flyers/batches" />,
+    protected: true
+  },
 ];
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {routes.map((route, index) => (
-            <Route
-              key={index}
-              path={route.path}
-              element={<ProtectedRoute element={route.element} protected={route.protected} />}
-            />
-          ))}
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <Router>
+      <Routes>
+        {routes.map((route, index) => (
+          <Route
+            key={index}
+            path={route.path}
+            element={<ProtectedRoute element={route.element} protected={route.protected} />}
+          />
+        ))}
+      </Routes>
+    </Router>
   );
 }
 

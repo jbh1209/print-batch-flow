@@ -47,16 +47,17 @@ const FlyerBatchDetails = () => {
     try {
       setIsLoading(true);
       
-      // Fetch batch details
+      // Fetch batch details from the batches table
       const { data: batchData, error: batchError } = await supabase
-        .from('flyer_batches')
+        .from('batches')
         .select('*')
         .eq('id', id)
         .single();
       
       if (batchError) throw batchError;
       
-      setBatch(batchData);
+      // Convert to FlyerBatch type
+      setBatch(batchData as FlyerBatch);
       
       // Fetch related jobs
       const { data: jobsData, error: jobsError } = await supabase
@@ -94,7 +95,7 @@ const FlyerBatchDetails = () => {
       
       // Delete the batch
       const { error: deleteError } = await supabase
-        .from('flyer_batches')
+        .from('batches')
         .delete()
         .eq('id', batch.id);
       

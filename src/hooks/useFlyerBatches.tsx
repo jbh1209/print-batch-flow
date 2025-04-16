@@ -18,15 +18,18 @@ export function useFlyerBatches() {
     setError(null);
 
     try {
+      // Use the "batches" table but filter by created_by
       const { data, error } = await supabase
-        .from('flyer_batches')
+        .from('batches')
         .select('*')
         .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      setBatches(data || []);
+      // Convert to FlyerBatch type
+      const flyerBatches: FlyerBatch[] = data || [];
+      setBatches(flyerBatches);
     } catch (err) {
       console.error('Error fetching flyer batches:', err);
       setError('Failed to load flyer batches');
@@ -39,7 +42,7 @@ export function useFlyerBatches() {
     fetchBatches();
   }, [user]);
 
-  const createBatch = async (selectedJobs: FlyerJob[], batchData: Omit<FlyerBatch, 'id' | 'created_at' | 'sheets_required'>) => {
+  const createBatch = async (selectedJobs: FlyerJob[], batchData: Omit<FlyerBatch, 'id' | 'created_at' | 'sheets_required' | 'created_by'>) => {
     if (!user) throw new Error('User not authenticated');
     
     try {
@@ -47,12 +50,14 @@ export function useFlyerBatches() {
       const sheetsRequired = calculateSheetsRequired(selectedJobs);
       
       // Create the batch
-      const { data: batchData, error: batchError } = await supabase
-        .from('flyer_batches')
+      const { data, error: batchError } = await supabase
+        .from('batches')
         .insert({
           ...batchData,
           sheets_required: sheetsRequired,
-          created_by: user.id
+          created_by: user.id,
+          // Add required fields for compatibility with the batches table
+          lamination_type: 'none'
         })
         .select()
         .single();
@@ -64,7 +69,7 @@ export function useFlyerBatches() {
       const { error: updateError } = await supabase
         .from('flyer_jobs')
         .update({ 
-          batch_id: batchData.id,
+          batch_id: data.id,
           status: 'batched' 
         })
         .in('id', jobIds);
@@ -74,7 +79,7 @@ export function useFlyerBatches() {
       // Refresh the batch list
       fetchBatches();
       
-      return batchData;
+      return data;
     } catch (err) {
       console.error('Error creating flyer batch:', err);
       throw err;

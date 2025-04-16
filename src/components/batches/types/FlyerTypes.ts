@@ -1,5 +1,4 @@
 
-
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";
 export type PrinterType = "HP 12000" | "HP 7900";
@@ -35,5 +34,10 @@ export interface FlyerBatch {
   created_at: string;
   due_date: string;
   sheets_required: number;
+  created_by: string;
+  updated_at?: string;
+  // These are optional as they might not be used for flyers but needed for compatibility
+  lamination_type?: string;
+  front_pdf_url?: string;
+  back_pdf_url?: string;
 }
-
