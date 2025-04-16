@@ -1,13 +1,21 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, ArrowLeft, Plus } from "lucide-react";
+import { useFlyerStats } from "@/hooks/useFlyerStats";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Flyers = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
+  const { pendingJobsCount, activeBatchesCount, isLoading, error } = useFlyerStats();
+
+  // Calculate capacity percentage (example logic - customize as needed)
+  const capacityPercentage = activeBatchesCount > 0 
+    ? Math.min(Math.round((activeBatchesCount / 5) * 100), 100) 
+    : 0;
 
   return (
     <div>
@@ -36,6 +44,12 @@ const Flyers = () => {
         Manage flyer batches and jobs
       </div>
       
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
       <Tabs 
         defaultValue="overview" 
         className="w-full"
@@ -52,7 +66,13 @@ const Flyers = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
               <h3 className="text-lg font-semibold mb-2">Pending Jobs</h3>
-              <div className="text-3xl font-bold">0</div>
+              <div className="text-3xl font-bold">
+                {isLoading ? (
+                  <div className="h-8 w-8 rounded-full border-t-2 border-b-2 border-primary animate-spin"></div>
+                ) : (
+                  pendingJobsCount
+                )}
+              </div>
               <p className="text-sm text-gray-500 mt-2">Unbatched jobs waiting for processing</p>
               
               <Button 
@@ -69,13 +89,22 @@ const Flyers = () => {
             
             <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
               <h3 className="text-lg font-semibold mb-2">Active Batches</h3>
-              <div className="text-3xl font-bold">0</div>
+              <div className="text-3xl font-bold">
+                {isLoading ? (
+                  <div className="h-8 w-8 rounded-full border-t-2 border-b-2 border-primary animate-spin"></div>
+                ) : (
+                  activeBatchesCount
+                )}
+              </div>
               <p className="text-sm text-gray-500 mt-2">Batches currently in production</p>
               
               <Button 
                 variant="outline" 
                 className="w-full mt-4"
-                onClick={() => setActiveTab("batches")}
+                onClick={() => {
+                  setActiveTab("batches");
+                  navigate("/batches/flyers/batches");
+                }}
               >
                 View All Batches
               </Button>
@@ -83,7 +112,7 @@ const Flyers = () => {
             
             <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
               <h3 className="text-lg font-semibold mb-2">Capacity</h3>
-              <div className="text-3xl font-bold">0%</div>
+              <div className="text-3xl font-bold">{capacityPercentage}%</div>
               <p className="text-sm text-gray-500 mt-2">Current batch bucket capacity</p>
               
               <Button 
