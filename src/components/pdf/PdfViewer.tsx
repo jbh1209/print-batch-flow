@@ -1,10 +1,10 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { getSignedUrl } from '@/utils/pdf/signedUrlHelper';
 
-// Configure worker with a direct CDN URL for better reliability
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+// Set CDN worker URL
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface PdfViewerProps {
   url: string | null;
@@ -12,63 +12,34 @@ interface PdfViewerProps {
 }
 
 const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadPDF = async () => {
-      if (!url || !canvasRef.current) return;
-
+    const setupPdfUrl = async () => {
+      if (!url) return;
+      
       try {
         setIsLoading(true);
         setError(null);
         
-        console.log('Loading PDF from URL:', url);
-        
-        // Get signed URL if needed (handles all URL types)
-        const accessUrl = await getSignedUrl(url);
-        if (!accessUrl) {
+        const signedUrl = await getSignedUrl(url);
+        if (!signedUrl) {
           throw new Error('Could not generate a valid URL for this PDF');
         }
-
-        // Try loading the PDF directly without using loadPdfAsBytes
-        // This is more robust for certain URL types
-        const loadingTask = pdfjsLib.getDocument(accessUrl);
         
-        const pdf = await loadingTask.promise;
-        console.log(`PDF loaded successfully with ${pdf.numPages} pages`);
-        
-        // Get the first page
-        const page = await pdf.getPage(1);
-        
-        // Set up canvas
-        const canvas = canvasRef.current;
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('Could not get canvas context');
-
-        // Set viewport with reasonable scale
-        const viewport = page.getViewport({ scale: 1.5 });
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        // Render PDF page
-        await page.render({
-          canvasContext: context,
-          viewport: viewport
-        }).promise;
-
-        console.log('PDF rendered successfully');
-
+        console.log('PDF URL ready:', signedUrl);
+        setPdfUrl(signedUrl);
       } catch (error) {
-        console.error('Error rendering PDF:', error);
-        setError(error instanceof Error ? error.message : 'Failed to render PDF');
+        console.error('Error setting up PDF URL:', error);
+        setError(error instanceof Error ? error.message : 'Failed to setup PDF URL');
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadPDF();
+    setupPdfUrl();
   }, [url]);
 
   if (isLoading) {
@@ -93,7 +64,7 @@ const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
     );
   }
 
-  if (!url) {
+  if (!pdfUrl) {
     return (
       <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
         <p className="text-gray-500">No PDF available</p>
@@ -102,8 +73,12 @@ const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
   }
 
   return (
-    <div className={`overflow-auto ${className}`}>
-      <canvas ref={canvasRef} className="max-w-full h-auto mx-auto" />
+    <div className={`overflow-hidden ${className}`}>
+      <iframe
+        src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(pdfUrl)}`}
+        className="w-full h-[600px] border-0"
+        title="PDF Viewer"
+      />
     </div>
   );
 };
