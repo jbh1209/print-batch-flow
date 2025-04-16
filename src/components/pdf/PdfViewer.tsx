@@ -2,12 +2,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { getSignedUrl } from '@/utils/pdf/signedUrlHelper';
+import { loadPdfAsBytes } from '@/utils/pdf/pdfLoaderCore';
 
-// Using a local worker file from the pdfjs-dist package
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
-).toString();
+// Configure worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
 interface PdfViewerProps {
   url: string | null;
@@ -27,14 +25,22 @@ const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
         setIsLoading(true);
         setError(null);
         
-        // Get signed URL using the helper that works for business cards
+        // Get signed URL using helper
         const pdfUrl = await getSignedUrl(url);
         if (!pdfUrl) {
           throw new Error('Could not generate a valid URL for this PDF');
         }
 
-        // Load the PDF document
-        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+        console.log('Loading PDF from URL:', pdfUrl);
+
+        // Load PDF using our core loader
+        const pdfData = await loadPdfAsBytes(pdfUrl, 'preview');
+        if (!pdfData) {
+          throw new Error('Failed to load PDF data');
+        }
+
+        // Load the PDF document using the array buffer
+        const pdf = await pdfjsLib.getDocument(pdfData.buffer).promise;
         const page = await pdf.getPage(1);
         
         const canvas = canvasRef.current;
@@ -52,9 +58,11 @@ const PdfViewer = ({ url, className = '' }: PdfViewerProps) => {
           viewport: viewport
         }).promise;
 
+        console.log('PDF rendered successfully');
+
       } catch (error) {
         console.error('Error rendering PDF:', error);
-        setError('Failed to render PDF. Please try downloading instead.');
+        setError(error instanceof Error ? error.message : 'Failed to render PDF');
       } finally {
         setIsLoading(false);
       }
