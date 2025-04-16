@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import PdfViewer from "@/components/pdf/PdfViewer";
 
 const FlyerJobDetail = () => {
   const { jobId } = useParams();
@@ -163,12 +163,10 @@ const FlyerJobDetail = () => {
       
       <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
         <h3 className="text-lg font-semibold mb-4">PDF Preview</h3>
-        <div className="flex flex-col items-center justify-center bg-gray-50 rounded-md border border-dashed border-gray-200 p-8">
-          <FileText className="h-16 w-16 text-gray-400 mb-4" />
-          <Button onClick={handleDownloadPDF}>
-            View PDF
-          </Button>
-        </div>
+        <PdfViewer 
+          url={job?.pdf_url || null} 
+          className="max-h-[600px] border rounded-lg"
+        />
       </div>
     </div>
   );
