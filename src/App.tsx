@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
@@ -9,6 +10,7 @@ import BatchDetailsPage from './pages/BatchDetailsPage';
 import BusinessCardJobNew from './pages/BusinessCardJobNew';
 import FlyerJobs from './pages/FlyerJobs';
 import FlyerJobNew from './pages/FlyerJobNew';
+import FlyerJobDetail from './pages/FlyerJobDetail';
 import FlyerBatches from './pages/FlyerBatches';
 import BusinessCards from './pages/BusinessCards';
 import Flyers from './pages/Flyers';
@@ -58,6 +60,7 @@ function App() {
           <Route path="/batches/flyers" element={<ProtectedRoute element={<Flyers />} protected={true} />} />
           <Route path="/batches/flyers/jobs" element={<ProtectedRoute element={<FlyerJobs />} protected={true} />} />
           <Route path="/batches/flyers/jobs/new" element={<ProtectedRoute element={<FlyerJobNew />} protected={true} />} />
+          <Route path="/batches/flyers/jobs/:jobId" element={<ProtectedRoute element={<FlyerJobDetail />} protected={true} />} />
           <Route path="/batches/flyers/batches" element={<ProtectedRoute element={<FlyerBatches />} protected={true} />} />
           <Route 
             path="/batches/flyers/batches/:batchId" 
