@@ -190,6 +190,71 @@ export type Database = {
           },
         ]
       }
+      postcard_jobs: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          due_date: string
+          file_name: string
+          id: string
+          job_number: string
+          lamination_type: string
+          name: string
+          paper_type: string
+          paper_weight: string
+          pdf_url: string
+          quantity: number
+          size: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          due_date: string
+          file_name: string
+          id?: string
+          job_number: string
+          lamination_type?: string
+          name: string
+          paper_type: string
+          paper_weight: string
+          pdf_url: string
+          quantity: number
+          size?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          due_date?: string
+          file_name?: string
+          id?: string
+          job_number?: string
+          lamination_type?: string
+          name?: string
+          paper_type?: string
+          paper_weight?: string
+          pdf_url?: string
+          quantity?: number
+          size?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postcard_jobs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
