@@ -54,27 +54,50 @@ export const useDashboardStats = () => {
       
       if (batchesError) throw batchesError;
       
-      // Fetch pending jobs (jobs with status 'queued')
-      const { data: pendingJobs, error: jobsError } = await supabase
+      // Fetch pending business card jobs (jobs with status 'queued')
+      const { data: pendingBusinessCardJobs, error: businessCardJobsError } = await supabase
         .from("business_card_jobs")
         .select("id")
         .eq("user_id", user.id)
         .eq("status", "queued");
       
-      if (jobsError) throw jobsError;
+      if (businessCardJobsError) throw businessCardJobsError;
+      
+      // Fetch pending flyer jobs (jobs with status 'queued')
+      const { data: pendingFlyerJobs, error: flyerJobsError } = await supabase
+        .from("flyer_jobs")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "queued");
+      
+      if (flyerJobsError) throw flyerJobsError;
+      
+      // Calculate total pending jobs from all job types
+      const totalPendingJobs = (pendingBusinessCardJobs?.length || 0) + (pendingFlyerJobs?.length || 0);
       
       // Fetch jobs completed today
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const { data: completedToday, error: completedError } = await supabase
+      const { data: completedTodayBusinessCards, error: completedBusinessCardsError } = await supabase
         .from("business_card_jobs")
         .select("id")
         .eq("user_id", user.id)
         .eq("status", "completed")
         .gte("updated_at", today.toISOString());
       
-      if (completedError) throw completedError;
+      if (completedBusinessCardsError) throw completedBusinessCardsError;
+      
+      const { data: completedTodayFlyers, error: completedFlyersError } = await supabase
+        .from("flyer_jobs")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "completed")
+        .gte("updated_at", today.toISOString());
+      
+      if (completedFlyersError) throw completedFlyersError;
+      
+      const totalCompletedToday = (completedTodayBusinessCards?.length || 0) + (completedTodayFlyers?.length || 0);
       
       // Fetch batch type statistics
       const batchTypeStats = [
@@ -85,16 +108,16 @@ export const useDashboardStats = () => {
       ];
       
       // For business cards, count queued jobs to determine "bucket fill"
-      const { data: businessCardJobs, error: businessCardError } = await supabase
-        .from("business_card_jobs")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("status", "queued");
+      if (pendingBusinessCardJobs) {
+        batchTypeStats[0].progress = pendingBusinessCardJobs.length;
+      }
       
-      if (businessCardError) throw businessCardError;
-      
-      if (businessCardJobs) {
-        batchTypeStats[0].progress = businessCardJobs.length;
+      // For flyers, count queued jobs to determine "bucket fill" based on size
+      if (pendingFlyerJobs) {
+        const flyerA5Jobs = pendingFlyerJobs.filter(job => job.size === "A5");
+        const flyerA6Jobs = pendingFlyerJobs.filter(job => job.size === "A6");
+        batchTypeStats[1].progress = flyerA5Jobs?.length || 0;
+        batchTypeStats[2].progress = flyerA6Jobs?.length || 0;
       }
       
       // Calculate buckets at capacity (if any batch type is at 80% or more)
@@ -102,36 +125,69 @@ export const useDashboardStats = () => {
         type => (type.progress / type.total) >= 0.8
       ).length;
       
-      // Fetch recent activity (simplified - in real app would include more info)
-      const { data: recentJobs, error: recentError } = await supabase
+      // Fetch recent activity from multiple job types
+      const { data: recentBusinessCardJobs, error: recentBusinessCardError } = await supabase
         .from("business_card_jobs")
         .select("id, name, status, updated_at")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false })
-        .limit(5);
+        .limit(3);
       
-      if (recentError) throw recentError;
+      if (recentBusinessCardError) throw recentBusinessCardError;
       
-      // Transform job data to activity format
-      const recentActivity = recentJobs?.map(job => {
-        let action = "Created";
-        if (job.status === "batched") action = "Batched";
-        if (job.status === "completed") action = "Completed";
-        if (job.status === "cancelled") action = "Cancelled";
-        
-        return {
-          id: job.id,
-          type: 'job' as const,
-          name: job.name,
-          action,
-          timestamp: job.updated_at
-        };
-      }) || [];
+      const { data: recentFlyerJobs, error: recentFlyerError } = await supabase
+        .from("flyer_jobs")
+        .select("id, name, status, updated_at")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(3);
+      
+      if (recentFlyerError) throw recentFlyerError;
+      
+      // Transform job data to activity format and merge
+      let recentActivity = [
+        ...(recentBusinessCardJobs?.map(job => {
+          let action = "Created";
+          if (job.status === "batched") action = "Batched";
+          if (job.status === "completed") action = "Completed";
+          if (job.status === "cancelled") action = "Cancelled";
+          
+          return {
+            id: job.id,
+            type: 'job' as const,
+            name: job.name || "Business Card Job",
+            action,
+            timestamp: job.updated_at
+          };
+        }) || []),
+        ...(recentFlyerJobs?.map(job => {
+          let action = "Created";
+          if (job.status === "batched") action = "Batched";
+          if (job.status === "completed") action = "Completed";
+          if (job.status === "cancelled") action = "Cancelled";
+          
+          return {
+            id: job.id,
+            type: 'job' as const,
+            name: job.name || "Flyer Job",
+            action,
+            timestamp: job.updated_at
+          };
+        }) || [])
+      ];
+      
+      // Sort by timestamp (newest first)
+      recentActivity.sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      
+      // Limit to 5 items
+      recentActivity = recentActivity.slice(0, 5);
       
       setStats({
         activeBatches: activeBatches?.length || 0,
-        pendingJobs: pendingJobs?.length || 0,
-        printedToday: completedToday?.length || 0,
+        pendingJobs: totalPendingJobs,
+        printedToday: totalCompletedToday,
         bucketsFilled,
         batchTypeStats,
         recentActivity,
