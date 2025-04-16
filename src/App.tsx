@@ -20,6 +20,7 @@ import Stickers from './pages/Stickers';
 import Sleeves from './pages/Sleeves';
 import Boxes from './pages/Boxes';
 import Covers from './pages/Covers';
+import AllBatches from './pages/AllBatches';
 
 const ProtectedRoute = ({ element, protected: isProtected }) => {
   const { user } = useAuth();
@@ -39,6 +40,9 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<ProtectedRoute element={<Dashboard />} protected={true} />} />
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} protected={true} />} />
+          
+          {/* All Batches route */}
+          <Route path="/batches" element={<ProtectedRoute element={<AllBatches />} protected={true} />} />
           
           {/* Business Cards routes */}
           <Route path="/batches/business-cards" element={<ProtectedRoute element={<BusinessCards />} protected={true} />} />
