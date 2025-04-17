@@ -1,23 +1,19 @@
 
-import { useState } from "react";
-
-interface FilterCounts {
-  all: number;
-  queued: number;
-  batched: number;
-  completed: number;
-}
-
 interface StatusFilterTabsProps {
-  filterView: "all" | "queued" | "batched" | "completed";
-  filterCounts: FilterCounts;
-  onFilterChange: (filter: "all" | "queued" | "batched" | "completed") => void;
+  filterView: 'all' | 'queued' | 'batched' | 'completed';
+  setFilterView: (view: 'all' | 'queued' | 'batched' | 'completed') => void;
+  filterCounts: {
+    all: number;
+    queued: number;
+    batched: number;
+    completed: number;
+  };
 }
 
-export const StatusFilterTabs = ({
-  filterView,
-  filterCounts,
-  onFilterChange,
+export const StatusFilterTabs = ({ 
+  filterView, 
+  setFilterView,
+  filterCounts 
 }: StatusFilterTabsProps) => {
   return (
     <div className="border-b">
@@ -26,7 +22,7 @@ export const StatusFilterTabs = ({
           className={`px-4 py-2 text-sm font-medium ${
             filterView === 'all' ? 'border-b-2 border-primary text-primary' : 'text-gray-500'
           }`}
-          onClick={() => onFilterChange('all')}
+          onClick={() => setFilterView('all')}
         >
           All ({filterCounts.all})
         </button>
@@ -34,7 +30,7 @@ export const StatusFilterTabs = ({
           className={`px-4 py-2 text-sm font-medium ${
             filterView === 'queued' ? 'border-b-2 border-primary text-primary' : 'text-gray-500'
           }`}
-          onClick={() => onFilterChange('queued')}
+          onClick={() => setFilterView('queued')}
         >
           Queued ({filterCounts.queued})
         </button>
@@ -42,7 +38,7 @@ export const StatusFilterTabs = ({
           className={`px-4 py-2 text-sm font-medium ${
             filterView === 'batched' ? 'border-b-2 border-primary text-primary' : 'text-gray-500'
           }`}
-          onClick={() => onFilterChange('batched')}
+          onClick={() => setFilterView('batched')}
         >
           Batched ({filterCounts.batched})
         </button>
@@ -50,7 +46,7 @@ export const StatusFilterTabs = ({
           className={`px-4 py-2 text-sm font-medium ${
             filterView === 'completed' ? 'border-b-2 border-primary text-primary' : 'text-gray-500'
           }`}
-          onClick={() => onFilterChange('completed')}
+          onClick={() => setFilterView('completed')}
         >
           Completed ({filterCounts.completed})
         </button>
