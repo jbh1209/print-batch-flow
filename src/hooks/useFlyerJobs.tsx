@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerJob, JobStatus } from '@/components/batches/types/FlyerTypes';
+import { FlyerJob } from '@/components/batches/types/FlyerTypes';
 
 export function useFlyerJobs() {
   const { user } = useAuth();
@@ -11,19 +11,22 @@ export function useFlyerJobs() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchJobs = async () => {
-    if (!user) return;
-
-    setIsLoading(true);
-    setError(null);
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const { data, error } = await supabase
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
         .from('flyer_jobs')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
 
       setJobs(data || []);
     } catch (err) {
@@ -38,29 +41,21 @@ export function useFlyerJobs() {
     fetchJobs();
   }, [user]);
 
-  const createJob = async (jobData: Omit<FlyerJob, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'status'>) => {
-    if (!user) throw new Error('User not authenticated');
-
+  const deleteJob = async (jobId: string) => {
     try {
-      // Here we explicitly set status to "queued" which is a valid value in Supabase's enum
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('flyer_jobs')
-        .insert({
-          ...jobData,
-          user_id: user.id,
-          status: 'queued'
-        })
-        .select()
-        .single();
+        .delete()
+        .eq('id', jobId)
+        .eq('user_id', user?.id);
 
       if (error) throw error;
 
-      // Refresh jobs list
-      fetchJobs();
-
-      return data;
+      // Update the jobs list after deletion
+      setJobs(jobs.filter(job => job.id !== jobId));
+      return true;
     } catch (err) {
-      console.error('Error creating flyer job:', err);
+      console.error('Error deleting flyer job:', err);
       throw err;
     }
   };
@@ -70,6 +65,6 @@ export function useFlyerJobs() {
     isLoading,
     error,
     fetchJobs,
-    createJob,
+    deleteJob
   };
 }
