@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useFlyerBatches } from "@/hooks/useFlyerBatches";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
-import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { LaminationType } from "@/components/batches/types/FlyerTypes";
 
 const FlyerBatches = () => {
   const [searchParams] = useSearchParams();
@@ -37,7 +37,7 @@ const FlyerBatches = () => {
   const [batchName, setBatchName] = useState("");
   const [paperType, setPaperType] = useState("Gloss");
   const [paperWeight, setPaperWeight] = useState("130gsm");
-  const [laminationType, setLaminationType] = useState("none");
+  const [laminationType, setLaminationType] = useState<LaminationType>("none");
   const [isCreating, setIsCreating] = useState(false);
   const [printerType, setPrinterType] = useState("HP 12000");
   const [sheetSize, setSheetSize] = useState("530x750mm");
@@ -90,7 +90,7 @@ const FlyerBatches = () => {
         name: batchName,
         paper_type: paperType,
         paper_weight: paperWeight,
-        lamination_type: laminationType,
+        lamination_type: laminationType, // This is now properly typed as LaminationType
         due_date: new Date().toISOString(),
         printer_type: printerType,
         sheet_size: sheetSize
@@ -231,7 +231,10 @@ const FlyerBatches = () => {
               <Label htmlFor="lamination" className="text-right">
                 Lamination
               </Label>
-              <Select value={laminationType} onValueChange={setLaminationType}>
+              <Select 
+                value={laminationType} 
+                onValueChange={(value) => setLaminationType(value as LaminationType)}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select lamination type" />
                 </SelectTrigger>
