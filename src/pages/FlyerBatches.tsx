@@ -39,6 +39,8 @@ const FlyerBatches = () => {
   const [paperWeight, setPaperWeight] = useState("130gsm");
   const [laminationType, setLaminationType] = useState("none");
   const [isCreating, setIsCreating] = useState(false);
+  const [printerType, setPrinterType] = useState("HP 12000");
+  const [sheetSize, setSheetSize] = useState("530x750mm");
 
   // Filter jobs that are not batched already
   const availableJobs = flyerJobs.filter(job => job.status === "queued");
@@ -89,7 +91,9 @@ const FlyerBatches = () => {
         paper_type: paperType,
         paper_weight: paperWeight,
         lamination_type: laminationType,
-        due_date: new Date().toISOString() // Default due date to today
+        due_date: new Date().toISOString(),
+        printer_type: printerType,
+        sheet_size: sheetSize
       };
       
       await createBatch(jobsToAdd, batchData);
@@ -119,21 +123,23 @@ const FlyerBatches = () => {
 
   return (
     <div>
-      <JobsHeader 
-        title="Flyer Batches" 
-        subtitle="View and manage all your flyer batches" 
-        action={
-          <Button 
-            onClick={() => {
-              setIsCreateDialogOpen(true); 
-              fetchJobs();
-            }}
-            disabled={jobsLoading}
-          >
-            Create Batch
-          </Button>
-        }
-      />
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <div className="flex items-center">
+            <h1 className="text-2xl font-bold tracking-tight">Flyer Batches</h1>
+          </div>
+          <p className="text-gray-500 mt-1">View and manage all your flyer batches</p>
+        </div>
+        <Button 
+          onClick={() => {
+            setIsCreateDialogOpen(true); 
+            fetchJobs();
+          }}
+          disabled={jobsLoading}
+        >
+          Create Batch
+        </Button>
+      </div>
 
       {/* Error message if there's an issue fetching data */}
       {error && !isLoading && (
@@ -234,6 +240,37 @@ const FlyerBatches = () => {
                   <SelectItem value="matt">Matt</SelectItem>
                   <SelectItem value="gloss">Gloss</SelectItem>
                   <SelectItem value="soft_touch">Soft Touch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="printerType" className="text-right">
+                Printer Type
+              </Label>
+              <Select value={printerType} onValueChange={setPrinterType}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select printer type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="HP 12000">HP 12000</SelectItem>
+                  <SelectItem value="HP 7900">HP 7900</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="sheetSize" className="text-right">
+                Sheet Size
+              </Label>
+              <Select value={sheetSize} onValueChange={setSheetSize}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select sheet size" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="455x640mm">455x640mm</SelectItem>
+                  <SelectItem value="530x750mm">530x750mm</SelectItem>
+                  <SelectItem value="320x455mm">320x455mm</SelectItem>
                 </SelectContent>
               </Select>
             </div>

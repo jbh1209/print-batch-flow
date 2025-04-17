@@ -60,11 +60,43 @@ export function useFlyerJobs() {
     }
   };
 
+  // Add the createJob method
+  const createJob = async (jobData: Omit<FlyerJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const newJob = {
+        ...jobData,
+        user_id: user.id,
+        status: 'queued' as const
+      };
+
+      const { data, error } = await supabase
+        .from('flyer_jobs')
+        .insert(newJob)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update the jobs list with the new job
+      setJobs(prevJobs => [data, ...prevJobs]);
+
+      return data;
+    } catch (err) {
+      console.error('Error creating flyer job:', err);
+      throw err;
+    }
+  };
+
   return {
     jobs,
     isLoading,
     error,
     fetchJobs,
-    deleteJob
+    deleteJob,
+    createJob
   };
 }
