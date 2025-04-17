@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -133,16 +132,14 @@ export function useFlyerJobs() {
         
         console.log(`Reset ${orphanedJobs.length} jobs to queued status`);
         
-        toast(`Reset ${orphanedJobs.length} orphaned jobs back to queued status`);
+        toast.success(`Reset ${orphanedJobs.length} orphaned jobs back to queued status`);
         
         // Refresh the job list
         await fetchJobs();
       }
     } catch (error) {
       console.error('Error fixing batched jobs:', error);
-      toast(`Failed to reset jobs with missing batch references.`, {
-        variant: "destructive",
-      });
+      toast.error(`Failed to reset jobs with missing batch references.`);
     } finally {
       setIsFixingBatchedJobs(false);
     }
