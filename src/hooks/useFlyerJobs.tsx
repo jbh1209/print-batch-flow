@@ -133,19 +133,14 @@ export function useFlyerJobs() {
         
         console.log(`Reset ${orphanedJobs.length} jobs to queued status`);
         
-        toast({
-          title: "Jobs fixed",
-          description: `Reset ${orphanedJobs.length} orphaned jobs back to queued status`,
-        });
+        toast(`Reset ${orphanedJobs.length} orphaned jobs back to queued status`);
         
         // Refresh the job list
         await fetchJobs();
       }
     } catch (error) {
       console.error('Error fixing batched jobs:', error);
-      toast({
-        title: "Error fixing jobs",
-        description: "Failed to reset jobs with missing batch references.",
+      toast(`Failed to reset jobs with missing batch references.`, {
         variant: "destructive",
       });
     } finally {
