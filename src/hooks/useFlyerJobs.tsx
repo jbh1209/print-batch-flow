@@ -2,9 +2,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerJob } from '@/components/batches/types/FlyerTypes';
+import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { useFlyerJobOperations } from './flyers/useFlyerJobOperations';
 import { useFlyerBatchFix } from './flyers/useFlyerBatchFix';
+import { toast } from 'sonner';
 
 export function useFlyerJobs() {
   const { user } = useAuth();
@@ -12,7 +13,7 @@ export function useFlyerJobs() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const { deleteJob, createJob } = useFlyerJobOperations();
+  const { deleteJob, createJob, createBatchWithSelectedJobs, isCreatingBatch } = useFlyerJobOperations();
   
   const fetchJobs = async () => {
     if (!user) {
@@ -51,8 +52,10 @@ export function useFlyerJobs() {
       await deleteJob(jobId);
       // Update the jobs list after deletion
       setJobs(jobs.filter(job => job.id !== jobId));
+      toast.success("Job deleted successfully");
       return true;
     } catch (err) {
+      toast.error("Error deleting job");
       throw err;
     }
   };
@@ -69,6 +72,35 @@ export function useFlyerJobs() {
     }
   };
 
+  // Wrap the create batch operation
+  const handleCreateBatch = async (
+    selectedJobs: FlyerJob[],
+    batchProperties: {
+      paperType: string;
+      paperWeight: string;
+      laminationType: LaminationType;
+      printerType: string;
+      sheetSize: string;
+    }
+  ) => {
+    try {
+      const batch = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
+      
+      // Update local state to reflect the batched jobs
+      setJobs(prevJobs => 
+        prevJobs.map(job => 
+          selectedJobs.some(selectedJob => selectedJob.id === job.id)
+            ? { ...job, status: 'batched', batch_id: batch.id }
+            : job
+        )
+      );
+      
+      return batch;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   // Initialize the batch fix hook with our fetchJobs method
   const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useFlyerBatchFix(fetchJobs);
 
@@ -79,6 +111,8 @@ export function useFlyerJobs() {
     fetchJobs,
     deleteJob: handleDeleteJob,
     createJob: handleCreateJob,
+    createBatch: handleCreateBatch,
+    isCreatingBatch,
     fixBatchedJobsWithoutBatch,
     isFixingBatchedJobs
   };

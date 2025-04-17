@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerBatch, FlyerJob, BatchStatus, LaminationType } from '@/components/batches/types/FlyerTypes';
+import { FlyerBatch } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
 
 export function useFlyerBatches() {
@@ -40,88 +41,6 @@ export function useFlyerBatches() {
   useEffect(() => {
     fetchBatches();
   }, [user]);
-
-  const createBatch = async (selectedJobs: FlyerJob[], batchData: Omit<FlyerBatch, 'id' | 'created_at' | 'sheets_required' | 'created_by' | 'status'>) => {
-    if (!user) throw new Error('User not authenticated');
-    
-    try {
-      // Calculate sheets required based on job quantities and sizes
-      const sheetsRequired = calculateSheetsRequired(selectedJobs);
-      
-      // Create the batch with proper typing for the status
-      const { data, error: batchError } = await supabase
-        .from('batches')
-        .insert({
-          ...batchData,
-          sheets_required: sheetsRequired,
-          created_by: user.id,
-          status: 'pending' as BatchStatus,
-          lamination_type: batchData.lamination_type || 'none' as LaminationType
-        })
-        .select()
-        .single();
-      
-      if (batchError) throw batchError;
-      
-      // Update all selected jobs to be part of this batch
-      const jobIds = selectedJobs.map(job => job.id);
-      const { error: updateError } = await supabase
-        .from('flyer_jobs')
-        .update({ 
-          batch_id: data.id,
-          status: 'batched' 
-        })
-        .in('id', jobIds);
-      
-      if (updateError) throw updateError;
-      
-      // Refresh the batch list
-      fetchBatches();
-      
-      return data;
-    } catch (err) {
-      console.error('Error creating flyer batch:', err);
-      throw err;
-    }
-  };
-  
-  // Helper function to calculate sheets required based on job quantities and sizes
-  const calculateSheetsRequired = (jobs: FlyerJob[]): number => {
-    let totalSheets = 0;
-    
-    for (const job of jobs) {
-      // Calculate sheets based on size and quantity
-      let sheetsPerJob = 0;
-      
-      switch (job.size) {
-        case 'A5':
-          // Assuming 2 A5s per sheet
-          sheetsPerJob = Math.ceil(job.quantity / 2);
-          break;
-        case 'A4':
-          // Assuming 1 A4 per sheet
-          sheetsPerJob = job.quantity;
-          break;
-        case 'DL':
-          // Assuming 3 DLs per sheet
-          sheetsPerJob = Math.ceil(job.quantity / 3);
-          break;
-        case 'A3':
-          // Assuming 1 A3 per sheet (special case)
-          sheetsPerJob = job.quantity * 1.5; // A3 might require more paper
-          break;
-        default:
-          sheetsPerJob = job.quantity;
-      }
-      
-      totalSheets += sheetsPerJob;
-    }
-    
-    // Add some extra sheets for setup and testing
-    totalSheets = Math.ceil(totalSheets * 1.1); // 10% extra
-    
-    return totalSheets;
-  };
   
   const handleViewPDF = (url: string | null) => {
     if (!url) {
@@ -137,7 +56,6 @@ export function useFlyerBatches() {
     isLoading,
     error,
     fetchBatches,
-    createBatch,
     handleViewPDF
   };
 }
