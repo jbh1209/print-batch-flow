@@ -152,7 +152,11 @@ function drawCompactJobsTable(
       if (Object.prototype.toString.call(job.due_date) === '[object Date]') {
         dueDateFormatted = (job.due_date as Date).toLocaleDateString();
       } else if (typeof job.due_date === 'string') {
-        dueDateFormatted = new Date(job.due_date).toLocaleDateString();
+        // Fixed: Properly handling string to Date conversion
+        const parsedDate = new Date(String(job.due_date));
+        dueDateFormatted = parsedDate.toString() !== 'Invalid Date' 
+          ? parsedDate.toLocaleDateString() 
+          : 'Invalid Date';
       }
     }
     
