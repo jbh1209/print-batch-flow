@@ -145,18 +145,21 @@ function drawCompactJobsTable(
     });
     
     // Draw due date (column 2) - formatted differently based on job type
-    // Fix the instanceof check and handle potential null value
     let dueDateFormatted = 'Unknown';
     if (job.due_date) {
       // Check if it's a date object (avoiding instanceof which doesn't work with union types)
       if (Object.prototype.toString.call(job.due_date) === '[object Date]') {
         dueDateFormatted = (job.due_date as Date).toLocaleDateString();
       } else if (typeof job.due_date === 'string') {
-        // Fixed: Properly handling string to Date conversion
-        const parsedDate = new Date(String(job.due_date));
-        dueDateFormatted = parsedDate.toString() !== 'Invalid Date' 
-          ? parsedDate.toLocaleDateString() 
-          : 'Invalid Date';
+        try {
+          // Properly handle the string to Date conversion
+          const parsedDate = new Date(job.due_date);
+          dueDateFormatted = !isNaN(parsedDate.getTime()) 
+            ? parsedDate.toLocaleDateString() 
+            : 'Invalid Date';
+        } catch {
+          dueDateFormatted = 'Invalid Date';
+        }
       }
     }
     
