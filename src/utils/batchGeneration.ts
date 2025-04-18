@@ -1,3 +1,4 @@
+
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
@@ -11,6 +12,11 @@ import { drawBatchInfo } from "./pdf/batchInfoHelpers";
 import { calculateOptimalDistribution } from "./batchOptimizationHelpers";
 import { calculateGridLayout } from "./pdf/gridLayoutHelper";
 import { loadPdfAsBytes } from "./pdf/pdfLoaderCore";
+
+// Check if jobs are of type Job (business cards) - moved outside to avoid scope issues
+function isBusinessCardJobs(jobs: Job[] | FlyerJob[]): jobs is Job[] {
+  return jobs.length > 0 && 'double_sided' in jobs[0];
+}
 
 // Generic function that accepts either Job or FlyerJob
 export async function generateBatchOverview(jobs: Job[] | FlyerJob[], batchName: string): Promise<Uint8Array> {
@@ -46,11 +52,6 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[], batchName:
     margin, 
     optimization.sheetsRequired
   );
-  
-  // Check if jobs are of type Job (business cards)
-  function isBusinessCardJobs(jobs: Job[] | FlyerJob[]): jobs is Job[] {
-    return jobs.length > 0 && 'double_sided' in jobs[0];
-  }
   
   // Draw compact jobs table in top 25% of page
   const tableY = pageHeight - margin - 160;
@@ -148,7 +149,7 @@ function drawCompactJobsTable(
     if (job.due_date) {
       // Check if it's a date object (avoiding instanceof which doesn't work with union types)
       if (Object.prototype.toString.call(job.due_date) === '[object Date]') {
-        dueDateFormatted = (job.due_date as Date).toLocaleDateString();
+        dueDateFormatted = (job.due_date as unknown as Date).toLocaleDateString();
       } else if (typeof job.due_date === 'string') {
         try {
           // Cast to unknown first, then to string as TypeScript requires for safety
@@ -302,3 +303,4 @@ async function addJobPreviews(
     }
   }
 }
+
