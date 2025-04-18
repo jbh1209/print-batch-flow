@@ -98,24 +98,27 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
       const jobPdf = await PDFDocument.load(pdfData.buffer);
       if (jobPdf.getPageCount() === 0) continue;
 
-      // Copy the first page
-      const [jobPage] = await pdfDoc.copyPages(jobPdf, [0]);
+      // Get the first page from the loaded PDF
+      const [firstPage] = jobPdf.getPages();
+      
+      // Embed the page into our document - this is the key fix
+      const embeddedPage = await pdfDoc.embedPage(firstPage);
       
       // Calculate position in grid
       const x = margin + currentCol * (gridConfig.cellWidth + gridConfig.padding);
       const y = gridConfig.startY - currentRow * (gridConfig.cellHeight + gridConfig.padding);
       
-      // Add the page to the document and scale it to fit the cell
+      // Add the embedded page to the document and scale it to fit the cell
       const scale = Math.min(
-        gridConfig.cellWidth / jobPage.getWidth(),
-        gridConfig.cellHeight / jobPage.getHeight()
+        gridConfig.cellWidth / embeddedPage.width,
+        gridConfig.cellHeight / embeddedPage.height
       );
       
-      page.drawPage(jobPage, {
+      page.drawPage(embeddedPage, {
         x,
         y: y - gridConfig.cellHeight, // Adjust y position
-        width: jobPage.getWidth() * scale,
-        height: jobPage.getHeight() * scale
+        width: embeddedPage.width * scale,
+        height: embeddedPage.height * scale
       });
       
       // Add job name below preview
