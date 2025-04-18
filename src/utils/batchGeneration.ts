@@ -11,6 +11,8 @@ import {
 import { drawBatchInfo } from "./pdf/batchInfoHelpers";
 import { drawJobRow } from "./pdf/jobRowHelpers";
 import { calculateOptimalDistribution } from "./batchOptimizationHelpers";
+import { calculateGridLayout } from "./pdf/gridLayoutHelper";
+import { loadPdfAsBytes } from "./pdf/pdfLoaderCore";
 
 // Main function to generate the batch overview PDF
 export async function generateBatchOverview(jobs: Job[], batchName: string): Promise<Uint8Array> {
@@ -41,18 +43,17 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
     optimization.sheetsRequired
   );
   
-  // Draw table header
+  // Draw table header and jobs list (abbreviated version)
   const tableY = page.getHeight() - margin - 160;
-  const colWidths = [150, 80, 70, 80, 100]; // Adjusted column widths to prevent overflow
+  const colWidths = [150, 80, 70, 80, 100];
   const colStarts = calculateColumnStarts(margin, colWidths);
   
   drawTableHeader(page, tableY, colStarts, helveticaBold, margin, colWidths, true);
   
-  // Draw job entries
   let rowY = tableY - 30;
   const rowHeight = 20;
   
-  // Find corresponding distribution info for each job
+  // Draw job entries with distribution info
   const distributionMap = new Map(
     optimization.distribution.map(item => [item.job.id, { 
       slots: item.slotsNeeded, 
@@ -60,26 +61,8 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
     }])
   );
   
-  // Draw job entries
   for (let i = 0; i < jobs.length; i++) {
-    // If we're about to go off the page, add a new page
-    if (rowY < margin + 30) {
-      page = addContinuationPage(
-        pdfDoc, 
-        batchName, 
-        margin, 
-        helveticaBold, 
-        colStarts,
-        helveticaFont,
-        colWidths
-      );
-      rowY = page.getHeight() - margin - 80;
-    }
-    
-    // Get slot info for this job
     const slotInfo = distributionMap.get(jobs[i].id);
-    
-    // Draw job row
     page = drawJobRow(
       page, 
       jobs[i], 
@@ -92,8 +75,67 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
       i,
       slotInfo
     );
-    
     rowY -= rowHeight;
+  }
+  
+  // Calculate grid layout for job previews
+  const gridConfig = calculateGridLayout(jobs.length, page.getHeight());
+  
+  // Add job previews in grid layout
+  let currentRow = 0;
+  let currentCol = 0;
+  
+  for (let i = 0; i < jobs.length && i < 9; i++) {
+    const job = jobs[i];
+    if (!job.pdf_url) continue;
+
+    try {
+      // Load the job's PDF
+      const pdfData = await loadPdfAsBytes(job.pdf_url, job.id);
+      if (!pdfData?.buffer) continue;
+
+      // Load the PDF document
+      const jobPdf = await PDFDocument.load(pdfData.buffer);
+      if (jobPdf.getPageCount() === 0) continue;
+
+      // Copy the first page
+      const [jobPage] = await pdfDoc.copyPages(jobPdf, [0]);
+      
+      // Calculate position in grid
+      const x = margin + currentCol * (gridConfig.cellWidth + gridConfig.padding);
+      const y = gridConfig.startY - currentRow * (gridConfig.cellHeight + gridConfig.padding);
+      
+      // Add the page to the document and scale it to fit the cell
+      const scale = Math.min(
+        gridConfig.cellWidth / jobPage.getWidth(),
+        gridConfig.cellHeight / jobPage.getHeight()
+      );
+      
+      page.drawPage(jobPage, {
+        x,
+        y: y - gridConfig.cellHeight, // Adjust y position
+        width: jobPage.getWidth() * scale,
+        height: jobPage.getHeight() * scale
+      });
+      
+      // Add job name below preview
+      page.drawText(job.name, {
+        x: x + (gridConfig.cellWidth / 2) - (job.name.length * 3),
+        y: y - gridConfig.cellHeight - 15,
+        size: 8,
+        font: helveticaFont
+      });
+      
+      // Update grid position
+      currentCol++;
+      if (currentCol >= gridConfig.columns) {
+        currentCol = 0;
+        currentRow++;
+      }
+    } catch (error) {
+      console.error(`Error adding preview for job ${job.id}:`, error);
+      continue;
+    }
   }
   
   // Add footer
