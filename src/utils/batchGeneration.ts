@@ -18,6 +18,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[], batchName:
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const helveticaItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
   
   // Create first page - single page overview
   const page = addNewPage(pdfDoc);
@@ -25,9 +26,16 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[], batchName:
   const margin = 50;
   
   // Calculate optimal distribution if jobs are of type Job (business cards)
-  const optimization = isBusinessCardJobs(jobs) 
-    ? calculateOptimalDistribution(jobs)
-    : { sheetsRequired: Math.ceil(jobs.reduce((sum, job) => sum + job.quantity, 0) / 4) };
+  let optimization;
+  if (isBusinessCardJobs(jobs)) {
+    optimization = calculateOptimalDistribution(jobs);
+  } else {
+    // Simple optimization for flyer jobs
+    optimization = { 
+      sheetsRequired: Math.ceil(jobs.reduce((sum, job) => sum + job.quantity, 0) / 4),
+      distribution: null
+    };
+  }
   
   // Draw batch info in top section
   drawBatchInfo(
@@ -56,6 +64,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[], batchName:
     colStarts, 
     helveticaFont, 
     helveticaBold, 
+    helveticaItalic,
     margin, 
     colWidths,
     isBusinessCardJobs(jobs) ? optimization.distribution : null
@@ -82,7 +91,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[], batchName:
 
 // Helper function to check if jobs are of type Job (business cards)
 function isBusinessCardJobs(jobs: Job[] | FlyerJob[]): jobs is Job[] {
-  return jobs.length > 0 && 'is_double_sided' in jobs[0];
+  return jobs.length > 0 && 'double_sided' in jobs[0];
 }
 
 // Function to draw compact jobs table
@@ -93,6 +102,7 @@ function drawCompactJobsTable(
   colStarts: number[],
   helveticaFont: any,
   helveticaBold: any,
+  helveticaItalic: any,
   margin: number,
   colWidths: number[],
   distribution: any = null
@@ -157,7 +167,7 @@ function drawCompactJobsTable(
     // Column 4: Double-sided or Size depending on job type
     if (isBusinessCardJobs(jobs)) {
       // For business cards: Draw double-sided info
-      page.drawText((job as Job).is_double_sided ? 'Yes' : 'No', {
+      page.drawText((job as Job).double_sided ? 'Yes' : 'No', {
         x: colStarts[3],
         y: jobY,
         size: 8,
@@ -278,3 +288,4 @@ async function addJobPreviews(
     }
   }
 }
+
