@@ -1,4 +1,3 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
@@ -145,7 +144,8 @@ function drawCompactJobsTable(
     });
     
     // Draw due date (column 2) - formatted differently based on job type
-    const dueDate = job.due_date instanceof Date ? 
+    // Use type check instead of instanceof (which doesn't work with union types here)
+    const dueDate = typeof job.due_date === 'object' && job.due_date instanceof Date ? 
       job.due_date.toLocaleDateString() : 
       (typeof job.due_date === 'string' ? new Date(job.due_date).toLocaleDateString() : 'Unknown');
     
@@ -288,4 +288,3 @@ async function addJobPreviews(
     }
   }
 }
-
