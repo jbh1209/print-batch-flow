@@ -14,37 +14,45 @@ export function calculateGridLayout(jobCount: number, pageHeight: number): GridC
   // Reserve top 25% for job info, use bottom 75% for previews
   const previewAreaHeight = pageHeight * 0.75;
   const startY = pageHeight - (pageHeight * 0.25); // Start Y for preview grid
+  const previewWidth = 500; // Estimated total width available for previews
   
   // Calculate optimal grid based on job count and available space
-  if (jobCount <= 4) {
-    // 2x2 grid
-    return {
-      columns: 2,
-      rows: 2,
-      cellWidth: 250,
-      cellHeight: previewAreaHeight / 2.5, // Allow for padding
-      startY,
-      padding: 20
-    };
+  let columns: number;
+  let rows: number;
+  
+  if (jobCount <= 2) {
+    // 2x1 grid for 1-2 jobs
+    columns = 2;
+    rows = 1;
+  } else if (jobCount <= 4) {
+    // 2x2 grid for 3-4 jobs
+    columns = 2;
+    rows = 2;
   } else if (jobCount <= 6) {
-    // 3x2 grid
-    return {
-      columns: 3,
-      rows: 2,
-      cellWidth: 160,
-      cellHeight: previewAreaHeight / 2.5,
-      startY,
-      padding: 15
-    };
+    // 3x2 grid for 5-6 jobs
+    columns = 3;
+    rows = 2;
+  } else if (jobCount <= 9) {
+    // 3x3 grid for 7-9 jobs
+    columns = 3;
+    rows = 3;
   } else {
-    // 3x3 grid
-    return {
-      columns: 3,
-      rows: 3,
-      cellWidth: 160,
-      cellHeight: previewAreaHeight / 3.5,
-      startY,
-      padding: 15
-    };
+    // 4x3 grid for 10+ jobs
+    columns = 4;
+    rows = 3;
   }
+  
+  // Calculate cell dimensions based on available space
+  const cellPadding = 10;
+  const cellWidth = (previewWidth - (cellPadding * (columns + 1))) / columns;
+  const cellHeight = (previewAreaHeight - (cellPadding * (rows + 1))) / rows;
+  
+  return {
+    columns,
+    rows,
+    cellWidth,
+    cellHeight,
+    startY,
+    padding: cellPadding
+  };
 }

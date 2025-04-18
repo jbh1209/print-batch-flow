@@ -1,11 +1,10 @@
 
 import { useState, useEffect } from 'react';
-import { PDFDocument } from 'pdf-lib';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
 import { Button } from '@/components/ui/button';
 import { Download, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { getSignedUrl } from '@/utils/pdf/signedUrlHelper';
+import { generateBatchOverview } from '@/utils/batchGeneration';
 
 interface FlyerBatchOverviewProps {
   jobs: FlyerJob[];
@@ -34,124 +33,10 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
       setOverviewUrl(null);
       toast.loading("Generating batch overview...");
 
-      // Create a new PDF document
-      const mergedPdf = await PDFDocument.create();
-      
-      // Add a cover page with batch information
-      const coverPage = mergedPdf.addPage([595, 842]); // A4 size
-      
-      // Add batch name and job information
-      coverPage.drawText(`Batch Overview: ${batchName}`, {
-        x: 50,
-        y: 800,
-        size: 24
-      });
-      
-      coverPage.drawText(`Total Jobs: ${jobs.length}`, {
-        x: 50,
-        y: 750,
-        size: 14
-      });
-      
-      coverPage.drawText(`Generated: ${new Date().toLocaleString()}`, {
-        x: 50,
-        y: 730,
-        size: 12
-      });
-      
-      // Add job details
-      coverPage.drawText('Jobs in this batch:', {
-        x: 50,
-        y: 680,
-        size: 16
-      });
-      
-      let yPosition = 650;
-      for (const job of jobs) {
-        coverPage.drawText(`• ${job.name} (${job.job_number}) - ${job.size}, ${job.quantity} pcs`, {
-          x: 70,
-          y: yPosition,
-          size: 12
-        });
-        yPosition -= 20;
-      }
-      
-      // For each job, add preview pages from its PDF
-      for (let i = 0; i < jobs.length; i++) {
-        const job = jobs[i];
-        
-        if (!job.pdf_url) {
-          console.warn(`Job ${job.id} has no PDF URL`);
-          continue;
-        }
-        
-        // Add a separator page for the job
-        const separatorPage = mergedPdf.addPage([595, 842]);
-        separatorPage.drawText(`Job: ${job.name}`, {
-          x: 50,
-          y: 800,
-          size: 20
-        });
-        
-        separatorPage.drawText(`Job Number: ${job.job_number}`, {
-          x: 50,
-          y: 770,
-          size: 14
-        });
-        
-        separatorPage.drawText(`Size: ${job.size}, Quantity: ${job.quantity}`, {
-          x: 50,
-          y: 750,
-          size: 12
-        });
-        
-        separatorPage.drawText(`Paper: ${job.paper_weight} ${job.paper_type}`, {
-          x: 50,
-          y: 730,
-          size: 12
-        });
-        
-        // Try to embed the job PDF
-        try {
-          const signedUrl = await getSignedUrl(job.pdf_url);
-          if (!signedUrl) {
-            console.error(`Failed to get signed URL for job ${job.id}`);
-            continue;
-          }
-          
-          const response = await fetch(signedUrl);
-          if (!response.ok) {
-            console.error(`Failed to fetch PDF for job ${job.id}: ${response.status}`);
-            continue;
-          }
-          
-          const jobPdfBytes = await response.arrayBuffer();
-          const jobPdf = await PDFDocument.load(jobPdfBytes);
-          
-          // Only add first page as preview
-          const [firstPage] = await mergedPdf.copyPages(jobPdf, [0]);
-          mergedPdf.addPage(firstPage);
-        } catch (error) {
-          console.error(`Error processing PDF for job ${job.id}:`, error);
-          
-          // Add an error page instead
-          const errorPage = mergedPdf.addPage([595, 842]);
-          errorPage.drawText(`Error loading PDF for job ${job.name}`, {
-            x: 50,
-            y: 800,
-            size: 16
-          });
-          
-          errorPage.drawText(`Error: ${error instanceof Error ? error.message : "Unknown error"}`, {
-            x: 50,
-            y: 750,
-            size: 12
-          });
-        }
-      }
+      // Generate the single-page batch overview
+      const pdfBytes = await generateBatchOverview(jobs, batchName);
       
       // Convert PDF to a data URL for preview
-      const pdfBytes = await mergedPdf.save();
       const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setOverviewUrl(url);
