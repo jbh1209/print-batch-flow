@@ -1,5 +1,4 @@
 
-import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useFlyerBatches } from "@/hooks/useFlyerBatches";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -8,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import FlyerBatchDetails from "./FlyerBatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
-import { toast } from "sonner";
+import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
+import JobsHeader from "@/components/business-cards/JobsHeader";
 
 const FlyerBatches = () => {
   const [searchParams] = useSearchParams();
@@ -18,9 +18,14 @@ const FlyerBatches = () => {
     batches,
     isLoading,
     error,
+    batchToDelete,
+    isDeleting,
     fetchBatches,
-    handleViewPDF
-  } = useFlyerBatches();
+    handleViewPDF,
+    handleDeleteBatch,
+    handleViewBatchDetails,
+    setBatchToDelete
+  } = useFlyerBatches(batchId);
 
   // Convert FlyerBatch[] to BatchSummary[] for BatchesWrapper
   const batchSummaries: BatchSummary[] = batches.map(batch => ({
@@ -43,15 +48,10 @@ const FlyerBatches = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="flex items-center">
-            <FileText className="h-6 w-6 mr-2 text-batchflow-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Flyer Batches</h1>
-          </div>
-          <p className="text-gray-500 mt-1">View and manage all your flyer batches</p>
-        </div>
-      </div>
+      <JobsHeader 
+        title="Flyer Batches" 
+        subtitle="View and manage all your flyer batches" 
+      />
 
       {/* Error message if there's an issue fetching data */}
       {error && !isLoading && (
@@ -79,7 +79,16 @@ const FlyerBatches = () => {
         error={error}
         onRefresh={fetchBatches}
         onViewPDF={handleViewPDF}
-        onDeleteBatch={(id) => console.log('Delete batch', id)}
+        onDeleteBatch={setBatchToDelete}
+        onViewDetails={handleViewBatchDetails}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <BatchDeleteDialog 
+        isOpen={!!batchToDelete}
+        isDeleting={isDeleting}
+        onClose={() => setBatchToDelete(null)}
+        onConfirmDelete={handleDeleteBatch}
       />
     </div>
   );
