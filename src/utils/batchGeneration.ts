@@ -152,8 +152,9 @@ function drawCompactJobsTable(
         dueDateFormatted = (job.due_date as Date).toLocaleDateString();
       } else if (typeof job.due_date === 'string') {
         try {
-          // Properly handle the string to Date conversion
-          const parsedDate = new Date(job.due_date);
+          // Fixed: Properly handle the string to Date conversion
+          // Cast to unknown first, then to Date to satisfy TypeScript
+          const parsedDate = new Date(job.due_date as unknown as string);
           dueDateFormatted = !isNaN(parsedDate.getTime()) 
             ? parsedDate.toLocaleDateString() 
             : 'Invalid Date';
