@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ interface BatchesWrapperProps {
   onRefresh: () => void;
   onViewPDF: (url: string | null) => void;
   onDeleteBatch: (batchId: string) => void;
+  onViewDetails?: (batchId: string) => void; // Add this line to support viewing batch details
 }
 
 const BatchesWrapper = ({
@@ -27,7 +29,8 @@ const BatchesWrapper = ({
   error,
   onRefresh,
   onViewPDF,
-  onDeleteBatch
+  onDeleteBatch,
+  onViewDetails
 }: BatchesWrapperProps) => {
   const navigate = useNavigate();
   
@@ -91,6 +94,7 @@ const BatchesWrapper = ({
               isLoading={false}
               onViewPDF={onViewPDF}
               onDeleteBatch={onDeleteBatch}
+              onViewDetails={onViewDetails} // Pass the onViewDetails prop to BatchesTable
             />
           </TableBody>
         </Table>

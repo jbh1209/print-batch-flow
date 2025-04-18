@@ -1,14 +1,9 @@
 
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import {
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, Eye, Trash2, FileText } from "lucide-react";
-import JobStatusBadge from "@/components/JobStatusBadge";
+import { TableCell, TableRow } from "@/components/ui/table";
+import { Eye, Trash2, FileText } from "lucide-react";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
 
 interface BatchesTableProps {
@@ -16,89 +11,76 @@ interface BatchesTableProps {
   isLoading: boolean;
   onViewPDF: (url: string | null) => void;
   onDeleteBatch: (batchId: string) => void;
+  onViewDetails?: (batchId: string) => void; // Add this line to support viewing batch details
 }
 
-const BatchesTable = ({ 
-  batches, 
-  isLoading, 
-  onViewPDF, 
-  onDeleteBatch 
+const BatchesTable = ({
+  batches,
+  isLoading,
+  onViewPDF,
+  onDeleteBatch,
+  onViewDetails
 }: BatchesTableProps) => {
-  const navigate = useNavigate();
-
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
-    } catch (error) {
-      return dateString;
-    }
-  };
-
   if (isLoading) {
-    return (
-      <TableRow>
-        <TableCell colSpan={7} className="h-24 text-center">
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-            <span className="ml-2">Loading batches...</span>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  }
-
-  if (batches.length === 0) {
-    return (
-      <TableRow>
-        <TableCell colSpan={7} className="h-24 text-center">
-          <div className="flex flex-col items-center justify-center text-gray-500">
-            <div className="bg-gray-100 rounded-full p-3 mb-3">
-              <FileText size={24} className="text-gray-400" />
-            </div>
-            <h3 className="font-medium mb-1">No batches found</h3>
-            <p className="text-sm mb-4">You haven't created any batches yet.</p>
-            <Button onClick={() => navigate("/batches/business-cards/jobs")}>
-              Create a Batch
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
+    return <TableRow>
+      <TableCell colSpan={6} className="text-center py-8">Loading batches...</TableCell>
+    </TableRow>;
   }
 
   return (
     <>
       {batches.map((batch) => (
         <TableRow key={batch.id}>
-          <TableCell className="font-medium">{batch.name}</TableCell>
+          <TableCell>{batch.name}</TableCell>
           <TableCell>
-            <JobStatusBadge status={batch.status} />
+            <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+              batch.status === 'completed'
+                ? 'bg-green-100 text-green-800'
+                : batch.status === 'processing'
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-gray-100 text-gray-800'
+            }`}>
+              {batch.status.charAt(0).toUpperCase() + batch.status.slice(1)}
+            </span>
           </TableCell>
           <TableCell>{batch.sheets_required}</TableCell>
-          <TableCell>{formatDate(batch.due_date)}</TableCell>
-          <TableCell>{batch.created_at ? formatDate(batch.created_at) : 'N/A'}</TableCell>
-          <TableCell className="text-right">
-            <div className="flex justify-end gap-2">
-              {batch.front_pdf_url && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => onViewPDF(batch.front_pdf_url)}
-                >
-                  <Eye className="h-4 w-4" />
-                  <span className="sr-only">View</span>
-                </Button>
-              )}
+          <TableCell>
+            {format(new Date(batch.due_date), 'MMM d, yyyy')}
+          </TableCell>
+          <TableCell>
+            {batch.created_at && format(new Date(batch.created_at), 'MMM d, yyyy')}
+          </TableCell>
+          <TableCell className="text-right space-x-2">
+            {batch.front_pdf_url && (
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                onClick={() => onDeleteBatch(batch.id)}
-                disabled={batch.status === 'completed'}
+                onClick={() => onViewPDF(batch.front_pdf_url)}
+                title="View PDF"
               >
-                <Trash2 className="h-4 w-4 text-red-500" />
-                <span className="sr-only">Delete</span>
+                <FileText className="h-4 w-4" />
               </Button>
-            </div>
+            )}
+            
+            {onViewDetails && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onViewDetails(batch.id)}
+                title="View Details"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onDeleteBatch(batch.id)}
+              title="Delete Batch"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </TableCell>
         </TableRow>
       ))}
