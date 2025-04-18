@@ -7,12 +7,14 @@ interface FileUploadFieldProps {
   selectedFile: File | null;
   setSelectedFile: (file: File | null) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isEdit?: boolean;
 }
 
 export const FileUploadField = ({
   selectedFile,
   setSelectedFile,
-  handleFileChange
+  handleFileChange,
+  isEdit = false
 }: FileUploadFieldProps) => {
   const { control } = useFormContext();
 
@@ -22,15 +24,17 @@ export const FileUploadField = ({
       name="file"
       render={({ field }) => (
         <FormItem>
-          <FormLabel>Upload PDF*</FormLabel>
+          <FormLabel>Upload PDF{isEdit ? '' : '*'}</FormLabel>
           <FormControl>
             <FileUpload
               control={control}
               selectedFile={selectedFile}
               setSelectedFile={setSelectedFile}
               handleFileChange={handleFileChange}
-              isRequired={true}
-              helpText="Upload a PDF file of your flyer design (Max: 10MB)"
+              isRequired={!isEdit}
+              helpText={isEdit 
+                ? "Upload a new PDF file to replace the current one (Optional)" 
+                : "Upload a PDF file of your flyer design (Max: 10MB)"}
             />
           </FormControl>
           <FormMessage />

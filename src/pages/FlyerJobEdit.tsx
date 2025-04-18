@@ -38,7 +38,7 @@ const FlyerJobEdit = () => {
     };
 
     fetchJob();
-  }, [jobId, user]);
+  }, [jobId, user, navigate]);
 
   if (isLoading) {
     return (

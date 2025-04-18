@@ -8,12 +8,14 @@ interface FlyerJobFormFieldsProps {
   selectedFile: File | null;
   setSelectedFile: (file: File | null) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isEdit?: boolean; // Make this prop optional
 }
 
 export const FlyerJobFormFields = ({ 
   selectedFile, 
   setSelectedFile, 
-  handleFileChange 
+  handleFileChange,
+  isEdit = false // Default to false for backward compatibility
 }: FlyerJobFormFieldsProps) => {
   return (
     <>
@@ -24,6 +26,7 @@ export const FlyerJobFormFields = ({
         selectedFile={selectedFile}
         setSelectedFile={setSelectedFile}
         handleFileChange={handleFileChange}
+        isEdit={isEdit}
       />
     </>
   );

@@ -47,16 +47,15 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
   useEffect(() => {
     if (selectedFile) {
       form.setValue("file", selectedFile, { shouldValidate: true });
-    } else {
+    } else if (mode === 'create') {
+      // Only clear the file field if we're creating (required for new jobs)
       form.setValue("file", undefined as any, { shouldValidate: false });
     }
-  }, [selectedFile, form]);
+  }, [selectedFile, form, mode]);
 
   const onSubmit = async (data: FlyerJobFormValues) => {
-    const success = await handleSubmit(data, selectedFile!, initialData?.id);
-    if (success) {
-      navigate("/batches/flyers/jobs");
-    }
+    // Pass the job ID if we're in edit mode
+    await handleSubmit(data, selectedFile, mode === 'edit' ? initialData?.id : undefined);
   };
 
   return (

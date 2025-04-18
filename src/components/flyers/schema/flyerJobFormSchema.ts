@@ -10,7 +10,7 @@ export const flyerJobFormSchema = z.object({
   paper_type: z.enum(["Matt", "Gloss"]),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
   due_date: z.date(),
-  file: z.instanceof(File, { message: "PDF file is required" })
+  file: z.instanceof(File, { message: "PDF file is required" }).optional()
 });
 
 export type FlyerJobFormValues = z.infer<typeof flyerJobFormSchema>;
