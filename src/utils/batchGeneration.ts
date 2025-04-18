@@ -1,4 +1,3 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
@@ -48,6 +47,11 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[], batchName:
     optimization.sheetsRequired
   );
   
+  // Check if jobs are of type Job (business cards)
+  function isBusinessCardJobs(jobs: Job[] | FlyerJob[]): jobs is Job[] {
+    return jobs.length > 0 && 'double_sided' in jobs[0];
+  }
+  
   // Draw compact jobs table in top 25% of page
   const tableY = pageHeight - margin - 160;
   const colWidths = isBusinessCardJobs(jobs) 
@@ -87,11 +91,6 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[], batchName:
   drawFooter(page, margin, batchName, helveticaFont);
   
   return await pdfDoc.save();
-}
-
-// Helper function to check if jobs are of type Job (business cards)
-function isBusinessCardJobs(jobs: Job[] | FlyerJob[]): jobs is Job[] {
-  return jobs.length > 0 && 'double_sided' in jobs[0];
 }
 
 // Function to draw compact jobs table
@@ -152,9 +151,9 @@ function drawCompactJobsTable(
         dueDateFormatted = (job.due_date as Date).toLocaleDateString();
       } else if (typeof job.due_date === 'string') {
         try {
-          // Fixed: Properly handle the string to Date conversion
-          // Cast to unknown first, then to Date to satisfy TypeScript
-          const parsedDate = new Date(job.due_date as unknown as string);
+          // Cast to unknown first, then to string as TypeScript requires for safety
+          const dateString = job.due_date as string;
+          const parsedDate = new Date(dateString);
           dueDateFormatted = !isNaN(parsedDate.getTime()) 
             ? parsedDate.toLocaleDateString() 
             : 'Invalid Date';
