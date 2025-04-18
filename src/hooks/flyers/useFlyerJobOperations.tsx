@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,8 +78,8 @@ export function useFlyerJobOperations() {
       // Calculate sheets required based on job quantities and sizes
       const sheetsRequired = calculateSheetsRequired(selectedJobs);
       
-      // Generate a batch number in the format DXB-FL-00001
-      const batchNumber = await generateBatchNumber();
+      // Generate a batch number in the format DXB-FL-00001 specifically for flyer batches
+      const batchNumber = await generateFlyerBatchNumber();
       
       // Create the batch
       const { data: batchData, error: batchError } = await supabase
@@ -128,6 +127,7 @@ export function useFlyerJobOperations() {
   
   // Helper function to calculate sheets required
   const calculateSheetsRequired = (jobs: FlyerJob[]): number => {
+    
     let totalSheets = 0;
     
     for (const job of jobs) {
@@ -164,18 +164,19 @@ export function useFlyerJobOperations() {
     return totalSheets;
   };
 
-  // Generate a batch number in the format DXB-FL-00001
-  const generateBatchNumber = async (): Promise<string> => {
+  // Generate a batch number specifically for flyer batches, starting with 00001
+  const generateFlyerBatchNumber = async (): Promise<string> => {
     try {
-      // Get the count of existing batches
-      const { count, error } = await supabase
+      // Get the count of existing flyer batches only (with DXB-FL prefix)
+      const { data, error } = await supabase
         .from('batches')
-        .select('*', { count: 'exact', head: true });
+        .select('name')
+        .filter('name', 'ilike', 'DXB-FL-%');
       
       if (error) throw error;
       
-      // Generate the batch number
-      const batchCount = (count || 0) + 1;
+      // Generate the batch number starting from 00001
+      const batchCount = (data?.length || 0) + 1;
       const batchNumber = `DXB-FL-${batchCount.toString().padStart(5, '0')}`;
       
       return batchNumber;

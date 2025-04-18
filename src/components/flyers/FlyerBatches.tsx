@@ -19,7 +19,8 @@ const FlyerBatches = () => {
     isLoading,
     error,
     fetchBatches,
-    handleViewPDF
+    handleViewPDF,
+    handleViewBatchDetails
   } = useFlyerBatches();
 
   // Convert FlyerBatch[] to BatchSummary[] for BatchesWrapper
@@ -56,6 +57,7 @@ const FlyerBatches = () => {
         error={error}
         onRefresh={fetchBatches}
         onViewPDF={handleViewPDF}
+        onViewDetails={handleViewBatchDetails}
         onDeleteBatch={(id) => console.log('Delete batch', id)}
       />
     </div>
