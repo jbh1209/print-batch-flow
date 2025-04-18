@@ -45,7 +45,8 @@ export const useBusinessCardBatches = (batchId: string | null) => {
       let query = supabase
         .from("batches")
         .select("*")
-        .eq("created_by", user.id);
+        .eq("created_by", user.id)
+        .filter('name', 'ilike', 'DXB-BC-%'); // Only fetch business card batches (prefix DXB-BC-)
         
       // If batchId is specified, filter to only show that batch
       if (batchId) {
@@ -143,6 +144,10 @@ export const useBusinessCardBatches = (batchId: string | null) => {
     }
   };
 
+  const handleViewBatchDetails = (batchId: string) => {
+    navigate(`/batches/business-cards/batches?batchId=${batchId}`);
+  };
+
   useEffect(() => {
     fetchBatches();
   }, [user, batchId]);
@@ -156,6 +161,7 @@ export const useBusinessCardBatches = (batchId: string | null) => {
     fetchBatches,
     handleViewPDF,
     handleDeleteBatch,
+    handleViewBatchDetails,
     setBatchToDelete
   };
 };

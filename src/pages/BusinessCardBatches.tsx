@@ -23,6 +23,7 @@ const BusinessCardBatches = () => {
     fetchBatches,
     handleViewPDF,
     handleDeleteBatch,
+    handleViewBatchDetails,
     setBatchToDelete
   } = useBusinessCardBatches(batchId);
 
@@ -85,6 +86,7 @@ const BusinessCardBatches = () => {
         onRefresh={fetchBatches}
         onViewPDF={handleViewPDF}
         onDeleteBatch={setBatchToDelete}
+        onViewDetails={handleViewBatchDetails}
       />
 
       {/* Delete Confirmation Dialog */}
