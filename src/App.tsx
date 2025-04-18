@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
@@ -27,6 +26,7 @@ import Sleeves from './pages/Sleeves';
 import Boxes from './pages/Boxes';
 import Covers from './pages/Covers';
 import AllBatches from './pages/AllBatches';
+import FlyerJobEdit from './pages/FlyerJobEdit';
 
 const ProtectedRoute = ({ element, protected: isProtected }) => {
   const { user } = useAuth();
@@ -65,6 +65,7 @@ function App() {
           <Route path="/batches/flyers/jobs" element={<ProtectedRoute element={<FlyerJobs />} protected={true} />} />
           <Route path="/batches/flyers/jobs/new" element={<ProtectedRoute element={<FlyerJobNew />} protected={true} />} />
           <Route path="/batches/flyers/jobs/:jobId" element={<ProtectedRoute element={<FlyerJobDetail />} protected={true} />} />
+          <Route path="/batches/flyers/jobs/:jobId/edit" element={<ProtectedRoute element={<FlyerJobEdit />} protected={true} />} />
           <Route path="/batches/flyers/batches" element={<ProtectedRoute element={<FlyerBatches />} protected={true} />} />
           <Route 
             path="/batches/flyers/batches/:batchId" 

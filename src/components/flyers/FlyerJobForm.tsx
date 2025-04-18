@@ -5,17 +5,23 @@ import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FlyerJobFormFields } from "./components/FlyerJobFormFields";
 import { useFlyerJobSubmit } from "./hooks/useFlyerJobSubmit";
 import { flyerJobFormSchema, type FlyerJobFormValues } from "./schema/flyerJobFormSchema";
+import { FlyerJob } from "../batches/types/FlyerTypes";
+import FormActions from "../business-cards/FormActions";
 
-export const FlyerJobForm = () => {
+interface FlyerJobFormProps {
+  mode?: 'create' | 'edit';
+  initialData?: FlyerJob;
+}
+
+export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps) => {
   const navigate = useNavigate();
   const { handleSubmit, isSubmitting } = useFlyerJobSubmit();
   
-  // Initialize the file upload hook
   const { 
     selectedFile, 
     setSelectedFile, 
@@ -25,21 +31,19 @@ export const FlyerJobForm = () => {
     maxSizeInMB: 10
   });
 
-  // Initialize react-hook-form with zod validation
   const form = useForm<FlyerJobFormValues>({
     resolver: zodResolver(flyerJobFormSchema),
     defaultValues: {
-      name: "",
-      job_number: "",
-      size: "A4",
-      paper_weight: "115gsm",
-      paper_type: "Matt",
-      quantity: 0,
-      due_date: new Date()
+      name: initialData?.name || "",
+      job_number: initialData?.job_number || "",
+      size: initialData?.size || "A4",
+      paper_weight: initialData?.paper_weight || "115gsm",
+      paper_type: initialData?.paper_type || "Matt",
+      quantity: initialData?.quantity || 0,
+      due_date: initialData ? new Date(initialData.due_date) : new Date()
     }
   });
 
-  // Update form value when file is selected
   useEffect(() => {
     if (selectedFile) {
       form.setValue("file", selectedFile, { shouldValidate: true });
@@ -49,7 +53,10 @@ export const FlyerJobForm = () => {
   }, [selectedFile, form]);
 
   const onSubmit = async (data: FlyerJobFormValues) => {
-    await handleSubmit(data, selectedFile!);
+    const success = await handleSubmit(data, selectedFile!, initialData?.id);
+    if (success) {
+      navigate("/batches/flyers/jobs");
+    }
   };
 
   return (
@@ -63,7 +70,9 @@ export const FlyerJobForm = () => {
         >
           <ArrowLeft size={16} className="mr-1" /> Back to Jobs
         </Button>
-        <h2 className="text-xl font-semibold">Create New Flyer Job</h2>
+        <h2 className="text-xl font-semibold">
+          {mode === 'create' ? 'Create New Flyer Job' : 'Edit Flyer Job'}
+        </h2>
       </div>
 
       <FormProvider {...form}>
@@ -73,30 +82,14 @@ export const FlyerJobForm = () => {
               selectedFile={selectedFile}
               setSelectedFile={setSelectedFile}
               handleFileChange={handleFileChange}
+              isEdit={mode === 'edit'}
             />
 
-            <div className="flex justify-end space-x-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/batches/flyers/jobs")}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                    Saving...
-                  </div>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Job
-                  </>
-                )}
-              </Button>
-            </div>
+            <FormActions 
+              isSubmitting={isSubmitting}
+              submitLabel={mode === 'create' ? 'Create Job' : 'Save Changes'}
+              cancelPath="/batches/flyers/jobs"
+            />
           </form>
         </Form>
       </FormProvider>
