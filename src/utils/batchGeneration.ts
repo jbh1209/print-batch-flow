@@ -5,34 +5,27 @@ import {
   addNewPage,
   calculateColumnStarts,
   drawTableHeader,
-  addContinuationPage,
   drawFooter 
 } from "./pdf/pageLayoutHelpers";
 import { drawBatchInfo } from "./pdf/batchInfoHelpers";
-import { drawJobRow } from "./pdf/jobRowHelpers";
 import { calculateOptimalDistribution } from "./batchOptimizationHelpers";
 import { calculateGridLayout } from "./pdf/gridLayoutHelper";
 import { loadPdfAsBytes } from "./pdf/pdfLoaderCore";
 
-// Main function to generate the batch overview PDF
 export async function generateBatchOverview(jobs: Job[], batchName: string): Promise<Uint8Array> {
-  // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
-  
-  // Embed fonts for later use
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   
-  // Create first page and draw header content
-  let page = addNewPage(pdfDoc);
-  
-  // Page margins
+  // Create first page
+  const page = addNewPage(pdfDoc);
+  const pageHeight = page.getHeight();
   const margin = 50;
   
-  // Calculate optimal distribution for these jobs
+  // Calculate optimal distribution
   const optimization = calculateOptimalDistribution(jobs);
   
-  // Draw batch information
+  // Draw batch info in top section
   drawBatchInfo(
     page, 
     batchName, 
@@ -43,17 +36,16 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
     optimization.sheetsRequired
   );
   
-  // Draw table header and jobs list (abbreviated version)
-  const tableY = page.getHeight() - margin - 160;
+  // Draw compact jobs table in top 25% of page
+  const tableY = pageHeight - margin - 160;
   const colWidths = [150, 80, 70, 80, 100];
   const colStarts = calculateColumnStarts(margin, colWidths);
   
   drawTableHeader(page, tableY, colStarts, helveticaBold, margin, colWidths, true);
   
   let rowY = tableY - 30;
-  const rowHeight = 20;
+  const rowHeight = 15; // Reduced height for compact layout
   
-  // Draw job entries with distribution info
   const distributionMap = new Map(
     optimization.distribution.map(item => [item.job.id, { 
       slots: item.slotsNeeded, 
@@ -61,25 +53,38 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
     }])
   );
   
+  // Draw job list with compact spacing
   for (let i = 0; i < jobs.length; i++) {
     const slotInfo = distributionMap.get(jobs[i].id);
-    page = drawJobRow(
-      page, 
-      jobs[i], 
-      rowY, 
-      colStarts, 
-      helveticaFont, 
-      margin, 
-      colWidths,
-      rowHeight, 
-      i,
-      slotInfo
-    );
-    rowY -= rowHeight;
+    const jobY = rowY - (i * rowHeight);
+    
+    // Draw job row with reduced spacing
+    page.drawText(jobs[i].name, {
+      x: colStarts[0],
+      y: jobY,
+      size: 8,
+      font: helveticaFont
+    });
+    
+    page.drawText(jobs[i].quantity.toString(), {
+      x: colStarts[2],
+      y: jobY,
+      size: 8,
+      font: helveticaFont
+    });
+    
+    if (slotInfo) {
+      page.drawText(`${slotInfo.slots} x ${slotInfo.quantityPerSlot}`, {
+        x: colStarts[4],
+        y: jobY,
+        size: 8,
+        font: helveticaFont
+      });
+    }
   }
   
-  // Calculate grid layout for job previews
-  const gridConfig = calculateGridLayout(jobs.length, page.getHeight());
+  // Calculate grid layout for preview area
+  const gridConfig = calculateGridLayout(jobs.length, pageHeight);
   
   // Add job previews in grid layout
   let currentRow = 0;
@@ -88,40 +93,39 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
   for (let i = 0; i < jobs.length && i < 9; i++) {
     const job = jobs[i];
     if (!job.pdf_url) continue;
-
+    
     try {
-      // Load the job's PDF
+      // Load and embed the job's PDF
       const pdfData = await loadPdfAsBytes(job.pdf_url, job.id);
       if (!pdfData?.buffer) continue;
-
-      // Load the PDF document
+      
+      // Load PDF document
       const jobPdf = await PDFDocument.load(pdfData.buffer);
       if (jobPdf.getPageCount() === 0) continue;
-
-      // Get the first page from the loaded PDF
-      const [firstPage] = jobPdf.getPages();
       
-      // Embed the page into our document - this is the key fix
+      // Get and embed first page
+      const [firstPage] = jobPdf.getPages();
       const embeddedPage = await pdfDoc.embedPage(firstPage);
       
       // Calculate position in grid
       const x = margin + currentCol * (gridConfig.cellWidth + gridConfig.padding);
       const y = gridConfig.startY - currentRow * (gridConfig.cellHeight + gridConfig.padding);
       
-      // Add the embedded page to the document and scale it to fit the cell
+      // Scale to fit cell while maintaining aspect ratio
       const scale = Math.min(
         gridConfig.cellWidth / embeddedPage.width,
         gridConfig.cellHeight / embeddedPage.height
       );
       
+      // Draw embedded page
       page.drawPage(embeddedPage, {
         x,
-        y: y - gridConfig.cellHeight, // Adjust y position
+        y: y - gridConfig.cellHeight,
         width: embeddedPage.width * scale,
         height: embeddedPage.height * scale
       });
       
-      // Add job name below preview
+      // Add job info below preview
       page.drawText(job.name, {
         x: x + (gridConfig.cellWidth / 2) - (job.name.length * 3),
         y: y - gridConfig.cellHeight - 15,
@@ -144,6 +148,5 @@ export async function generateBatchOverview(jobs: Job[], batchName: string): Pro
   // Add footer
   drawFooter(page, margin, batchName, helveticaFont);
   
-  // Serialize the PDFDocument to bytes
   return await pdfDoc.save();
 }

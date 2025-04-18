@@ -11,15 +11,19 @@ interface GridConfig {
 }
 
 export function calculateGridLayout(jobCount: number, pageHeight: number): GridConfig {
-  // Define grid configurations based on job count
+  // Reserve top 25% for job info, use bottom 75% for previews
+  const previewAreaHeight = pageHeight * 0.75;
+  const startY = pageHeight - (pageHeight * 0.25); // Start Y for preview grid
+  
+  // Calculate optimal grid based on job count and available space
   if (jobCount <= 4) {
     // 2x2 grid
     return {
       columns: 2,
       rows: 2,
-      cellWidth: 250, // ~Half of A4 width with margins
-      cellHeight: 180,
-      startY: pageHeight - 400, // Position below batch info
+      cellWidth: 250,
+      cellHeight: previewAreaHeight / 2.5, // Allow for padding
+      startY,
       padding: 20
     };
   } else if (jobCount <= 6) {
@@ -28,8 +32,8 @@ export function calculateGridLayout(jobCount: number, pageHeight: number): GridC
       columns: 3,
       rows: 2,
       cellWidth: 160,
-      cellHeight: 180,
-      startY: pageHeight - 400,
+      cellHeight: previewAreaHeight / 2.5,
+      startY,
       padding: 15
     };
   } else {
@@ -38,8 +42,8 @@ export function calculateGridLayout(jobCount: number, pageHeight: number): GridC
       columns: 3,
       rows: 3,
       cellWidth: 160,
-      cellHeight: 120,
-      startY: pageHeight - 400,
+      cellHeight: previewAreaHeight / 3.5,
+      startY,
       padding: 15
     };
   }
