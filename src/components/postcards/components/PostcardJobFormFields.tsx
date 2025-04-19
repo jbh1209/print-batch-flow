@@ -45,7 +45,7 @@ export const PostcardJobFormFields = ({
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Job Name*</FormLabel>
+                <FormLabel>Client*</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
