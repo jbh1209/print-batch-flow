@@ -57,10 +57,7 @@ export function usePostcardJobOperations() {
     selectedJobs: PostcardJob[], 
     batchProperties: {
       paperType: string;
-      paperWeight: string;
       laminationType: LaminationType;
-      printerType: string;
-      sheetSize: string;
     }
   ) => {
     if (!user) {
@@ -86,11 +83,8 @@ export function usePostcardJobOperations() {
         .insert({
           name: batchNumber,
           paper_type: batchProperties.paperType,
-          paper_weight: batchProperties.paperWeight,
           lamination_type: batchProperties.laminationType,
           due_date: new Date().toISOString(),
-          printer_type: batchProperties.printerType,
-          sheet_size: batchProperties.sheetSize,
           sheets_required: sheetsRequired,
           created_by: user.id,
           status: 'pending'

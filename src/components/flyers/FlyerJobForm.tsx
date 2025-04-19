@@ -16,9 +16,10 @@ import FormActions from "../business-cards/FormActions";
 interface FlyerJobFormProps {
   mode?: 'create' | 'edit';
   initialData?: FlyerJob;
+  productType?: string; // Added productType prop
 }
 
-export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps) => {
+export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flyer' }: FlyerJobFormProps) => {
   const navigate = useNavigate();
   const { handleSubmit, isSubmitting } = useFlyerJobSubmit();
   
@@ -53,6 +54,14 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
     }
   }, [selectedFile, form, mode]);
 
+  // Determine navigation path based on productType
+  const getNavigationPath = () => {
+    if (productType === 'postcard') {
+      return "/batches/postcards/jobs";
+    }
+    return "/batches/flyers/jobs";
+  };
+
   const onSubmit = async (data: FlyerJobFormValues) => {
     // Pass the job ID if we're in edit mode
     await handleSubmit(data, selectedFile, mode === 'edit' ? initialData?.id : undefined);
@@ -65,12 +74,13 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
           variant="outline" 
           size="sm" 
           className="mr-4"
-          onClick={() => navigate("/batches/flyers/jobs")}
+          onClick={() => navigate(getNavigationPath())}
         >
           <ArrowLeft size={16} className="mr-1" /> Back to Jobs
         </Button>
         <h2 className="text-xl font-semibold">
-          {mode === 'create' ? 'Create New Flyer Job' : 'Edit Flyer Job'}
+          {mode === 'create' ? `Create New ${productType === 'postcard' ? 'Postcard' : 'Flyer'} Job` : 
+           `Edit ${productType === 'postcard' ? 'Postcard' : 'Flyer'} Job`}
         </h2>
       </div>
 
@@ -87,7 +97,7 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
             <FormActions 
               isSubmitting={isSubmitting}
               submitLabel={mode === 'create' ? 'Create Job' : 'Save Changes'}
-              cancelPath="/batches/flyers/jobs"
+              cancelPath={getNavigationPath()}
             />
           </form>
         </Form>

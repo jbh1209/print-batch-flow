@@ -30,7 +30,25 @@ export function usePostcardBatches(batchId?: string | null) {
 
       if (fetchError) throw fetchError;
 
-      setBatches(data || []);
+      // Filter only postcard batches by name pattern and convert to PostcardBatch type
+      const postcardBatches = data?.filter(batch => 
+        batch.name && batch.name.startsWith('DXB-PC-')
+      ).map(batch => ({
+        id: batch.id,
+        name: batch.name,
+        status: batch.status,
+        paper_type: batch.paper_type as "350gsm Matt" | "350gsm Gloss",
+        lamination_type: batch.lamination_type,
+        created_at: batch.created_at,
+        due_date: batch.due_date,
+        sheets_required: batch.sheets_required,
+        created_by: batch.created_by,
+        updated_at: batch.updated_at,
+        front_pdf_url: batch.front_pdf_url,
+        back_pdf_url: batch.back_pdf_url
+      })) || [];
+
+      setBatches(postcardBatches);
     } catch (err) {
       console.error('Error fetching postcard batches:', err);
       setError('Failed to load batches');

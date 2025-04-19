@@ -1,3 +1,4 @@
+
 export type PostcardSize = "A6";
 export type PaperType = "350gsm Matt" | "350gsm Gloss";
 export type LaminationType = "matt" | "gloss" | "soft_touch" | "none";
@@ -10,6 +11,7 @@ export interface PostcardJob {
   job_number: string;
   size: PostcardSize;
   paper_type: PaperType;
+  paper_weight?: string; // Make paper_weight optional since it's included in paper_type for postcards
   lamination_type: LaminationType;
   quantity: number;
   due_date: string;
