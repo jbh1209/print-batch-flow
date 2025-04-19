@@ -13,7 +13,7 @@ export const JobDetailsFields = () => {
         name="name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Job Name*</FormLabel>
+            <FormLabel>Client*</FormLabel>
             <FormControl>
               <Input {...field} />
             </FormControl>

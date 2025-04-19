@@ -3,7 +3,7 @@ import * as z from "zod";
 import { FlyerSize, PaperType } from "@/components/batches/types/FlyerTypes";
 
 export const flyerJobFormSchema = z.object({
-  name: z.string().min(1, "Job name is required"),
+  name: z.string().min(1, "Client name is required"),  // Changed from "Job name is required"
   job_number: z.string().min(1, "Job number is required"),
   size: z.enum(["A5", "A4", "DL", "A3"]),
   paper_weight: z.string().min(1, "Paper weight is required"),
