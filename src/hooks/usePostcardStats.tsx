@@ -18,7 +18,7 @@ export function usePostcardStats() {
         setIsLoading(true);
         setError(null);
 
-        // Query postcard_jobs table for pending jobs
+        // Query postcard_jobs table for pending jobs (specifically for postcards)
         const { count: pendingCount, error: pendingError } = await supabase
           .from('postcard_jobs')
           .select('*', { count: 'exact', head: true })
@@ -27,17 +27,20 @@ export function usePostcardStats() {
 
         if (pendingError) throw pendingError;
         
-        // For active batches, we'll use the batches table with a filter
-        const { count: activeCount, error: activeError } = await supabase
+        // For active batches, only count postcard batches (those with DXB-PC prefix)
+        const { data: batchesData, error: batchesError } = await supabase
           .from('batches')
-          .select('*', { count: 'exact', head: true })
+          .select('*')
           .eq('created_by', user.id)
-          .in('status', ['pending', 'processing']);
+          .in('status', ['pending', 'processing'])
+          .ilike('name', 'DXB-PC-%');
 
-        if (activeError) throw activeError;
+        if (batchesError) throw batchesError;
+
+        const postcardBatchesCount = batchesData?.length || 0;
 
         setPendingJobsCount(pendingCount || 0);
-        setActiveBatchesCount(activeCount || 0);
+        setActiveBatchesCount(postcardBatchesCount);
       } catch (err) {
         console.error('Error fetching postcard stats:', err);
         setError('Failed to load stats');

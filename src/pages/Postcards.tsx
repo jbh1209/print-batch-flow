@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,7 @@ const Postcards = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const { pendingJobsCount, activeBatchesCount, isLoading, error } = usePostcardStats();
 
-  // Calculate capacity percentage (example logic - customize as needed)
+  // Only calculate capacity if there are active batches, otherwise it's 0%
   const capacityPercentage = activeBatchesCount > 0 
     ? Math.min(Math.round((activeBatchesCount / 5) * 100), 100) 
     : 0;

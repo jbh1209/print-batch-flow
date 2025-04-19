@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,14 +25,13 @@ export function usePostcardBatches(batchId?: string | null) {
         .from('batches')
         .select('*')
         .eq('created_by', user.id)
+        .ilike('name', 'DXB-PC-%')  // Explicitly filter for postcard batches only
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 
-      // Filter only postcard batches by name pattern and convert to PostcardBatch type
-      const postcardBatches = data?.filter(batch => 
-        batch.name && batch.name.startsWith('DXB-PC-')
-      ).map(batch => ({
+      // Convert to PostcardBatch type
+      const postcardBatches = data?.map(batch => ({
         id: batch.id,
         name: batch.name,
         status: batch.status as any,
