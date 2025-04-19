@@ -10,7 +10,7 @@ export function useStorageBuckets() {
     try {
       setIsInitializing(true);
       
-      // Check if postcards bucket exists
+      // Check if pdf_files bucket exists
       const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
       if (bucketsError) {
@@ -19,9 +19,9 @@ export function useStorageBuckets() {
       
       const existingBuckets = buckets.map(b => b.name);
       
-      // Create postcards bucket if it doesn't exist
-      if (!existingBuckets.includes('postcards')) {
-        const { error: createError } = await supabase.storage.createBucket('postcards', {
+      // Create pdf_files bucket if it doesn't exist
+      if (!existingBuckets.includes('pdf_files')) {
+        const { error: createError } = await supabase.storage.createBucket('pdf_files', {
           public: true,
           fileSizeLimit: 10485760 // 10MB limit for PDFs
         });
@@ -30,7 +30,7 @@ export function useStorageBuckets() {
           throw createError;
         }
         
-        console.log('Created postcards storage bucket');
+        console.log('Created pdf_files storage bucket');
       }
       
     } catch (err) {
@@ -47,3 +47,4 @@ export function useStorageBuckets() {
   
   return { isInitializing, error };
 }
+

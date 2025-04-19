@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,17 +48,20 @@ export function usePostcardJobOperations() {
         const filePath = `postcard-jobs/${user.id}/${fileName}`;
         
         const { error: uploadError, data: fileData } = await supabase.storage
-          .from('postcards')
-          .upload(filePath, jobData.file);
+          .from('pdf_files')
+          .upload(filePath, jobData.file, {
+            cacheControl: '3600',
+            upsert: false
+          });
           
         if (uploadError) {
           console.error('Error uploading PDF:', uploadError);
-          throw uploadError;
+          throw new Error(`Failed to upload PDF: ${uploadError.message}`);
         }
         
         // Get the public URL for the uploaded file
         const { data: urlData } = await supabase.storage
-          .from('postcards')
+          .from('pdf_files')
           .getPublicUrl(filePath);
           
         pdf_url = urlData.publicUrl;
