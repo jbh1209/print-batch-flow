@@ -24,7 +24,7 @@ const PostcardJobNew = () => {
         </Button>
       </div>
 
-      <FlyerJobForm />
+      <FlyerJobForm productType="postcard" />
     </div>
   );
 };

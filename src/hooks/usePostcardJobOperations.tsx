@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { PostcardJob, LaminationType } from '@/components/batches/types/PostcardTypes';
+import { PostcardJob, LaminationType, PaperType } from '@/components/batches/types/PostcardTypes';
 import { toast } from 'sonner';
 
 export function usePostcardJobOperations() {
@@ -32,8 +32,12 @@ export function usePostcardJobOperations() {
     }
 
     try {
+      // For postcards, get the paper_weight from paper_type or provide a default
+      const paperWeight = jobData.paper_weight || extractPaperWeight(jobData.paper_type);
+      
       const newJob = {
         ...jobData,
+        paper_weight: paperWeight, // Ensure paper_weight is provided
         user_id: user.id,
         status: 'queued' as const
       };
@@ -51,6 +55,13 @@ export function usePostcardJobOperations() {
       console.error('Error creating postcard job:', err);
       throw err;
     }
+  };
+
+  // Helper function to extract weight from paper type
+  const extractPaperWeight = (paperType: PaperType): string => {
+    // Extract the weight portion (e.g., "350gsm" from "350gsm Matt")
+    const match = paperType.match(/(\d+gsm)/);
+    return match ? match[0] : "350gsm"; // Default to 350gsm if not found
   };
 
   const createBatchWithSelectedJobs = async (

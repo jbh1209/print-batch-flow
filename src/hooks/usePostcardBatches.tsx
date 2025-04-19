@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { PostcardBatch } from '@/components/batches/types/PostcardTypes';
+import { PostcardBatch, PaperType, LaminationType } from '@/components/batches/types/PostcardTypes';
 import { toast } from 'sonner';
 
 export function usePostcardBatches(batchId?: string | null) {
@@ -36,9 +36,9 @@ export function usePostcardBatches(batchId?: string | null) {
       ).map(batch => ({
         id: batch.id,
         name: batch.name,
-        status: batch.status,
-        paper_type: batch.paper_type as "350gsm Matt" | "350gsm Gloss",
-        lamination_type: batch.lamination_type,
+        status: batch.status as any,
+        paper_type: parsePaperType(batch.paper_type),
+        lamination_type: batch.lamination_type as LaminationType,
         created_at: batch.created_at,
         due_date: batch.due_date,
         sheets_required: batch.sheets_required,
@@ -55,6 +55,14 @@ export function usePostcardBatches(batchId?: string | null) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to parse paper_type to ensure it matches PaperType
+  const parsePaperType = (paperType: string | null): PaperType => {
+    if (paperType === "350gsm Matt" || paperType === "350gsm Gloss") {
+      return paperType;
+    }
+    return "350gsm Matt"; // default
   };
 
   useEffect(() => {
