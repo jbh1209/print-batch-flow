@@ -1,4 +1,3 @@
-
 export type PostcardSize = "A6";
 export type PaperType = "350gsm Matt" | "350gsm Gloss";
 export type LaminationType = "matt" | "gloss" | "soft_touch" | "none";
@@ -36,4 +35,28 @@ export interface PostcardBatch {
   updated_at?: string;
   front_pdf_url?: string;
   back_pdf_url?: string;
+}
+
+export interface PostcardBatchSummary {
+  id: string;
+  name: string;
+  due_date: string;
+  status: BatchStatus;
+  product_type: "Postcards";
+  sheets_required: number;
+  lamination_type?: LaminationType;
+  front_pdf_url?: string | null;
+  back_pdf_url?: string | null;
+  created_at?: string;
+}
+
+export interface PostcardPreviewProps {
+  jobs: PostcardJob[];
+  previewScale?: number;
+  onClose?: () => void;
+}
+
+export interface PostcardBatchProps {
+  batch: PostcardBatch;
+  onRefresh?: () => void;
 }
