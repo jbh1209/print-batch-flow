@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -147,7 +146,7 @@ const PostcardJobDetail = () => {
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm font-medium text-gray-500">Job Name:</span>
+                <span className="text-sm font-medium text-gray-500">Client:</span>
                 <span>{job.name}</span>
               </div>
               <div className="flex justify-between">

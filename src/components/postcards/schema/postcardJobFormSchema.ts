@@ -3,7 +3,7 @@ import * as z from "zod";
 import { PostcardSize, PaperType, LaminationType } from "@/components/batches/types/PostcardTypes";
 
 export const postCardJobFormSchema = z.object({
-  name: z.string().min(1, "Job name is required"),
+  name: z.string().min(1, "Client name is required"),
   job_number: z.string().min(1, "Job number is required"),
   size: z.literal("A6"),
   paper_type: z.enum(["350gsm Matt", "350gsm Gloss"]),
