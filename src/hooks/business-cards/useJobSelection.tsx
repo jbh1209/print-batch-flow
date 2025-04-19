@@ -13,8 +13,12 @@ export const useJobSelection = () => {
     }
   };
 
-  const handleSelectAllJobs = (isSelected: boolean) => {
-    setSelectedJobs([]);
+  const handleSelectAllJobs = (isSelected: boolean, jobs: Job[] = []) => {
+    if (isSelected) {
+      setSelectedJobs(jobs.map(job => job.id));
+    } else {
+      setSelectedJobs([]);
+    }
   };
 
   const getSelectedJobObjects = (jobs: Job[]) => {
@@ -23,6 +27,7 @@ export const useJobSelection = () => {
 
   return {
     selectedJobs,
+    setSelectedJobs,
     handleSelectJob,
     handleSelectAllJobs,
     getSelectedJobObjects,

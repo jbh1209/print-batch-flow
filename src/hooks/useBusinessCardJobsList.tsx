@@ -26,6 +26,7 @@ export const useBusinessCardJobsList = () => {
 
   const {
     selectedJobs,
+    setSelectedJobs,
     handleSelectJob,
     handleSelectAllJobs,
     getSelectedJobObjects,
