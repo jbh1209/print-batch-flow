@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 export function usePostcardJobOperations() {
   const { user } = useAuth();
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const deleteJob = async (jobId: string) => {
     try {
@@ -26,34 +27,82 @@ export function usePostcardJobOperations() {
     }
   };
 
-  const createJob = async (jobData: Omit<PostcardJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>) => {
+  const createJob = async (jobData: Omit<PostcardJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'> & { file?: File }) => {
     if (!user) {
       throw new Error('User not authenticated');
     }
 
+    setIsSubmitting(true);
     try {
+      console.log("Creating postcard job with data:", jobData);
+      
+      // Handle file upload if a file is provided
+      let pdf_url = jobData.pdf_url;
+      let file_name = jobData.file_name;
+      
+      if (jobData.file) {
+        file_name = jobData.file.name;
+        
+        // First upload the file to storage
+        const fileExt = jobData.file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+        const filePath = `postcard-jobs/${user.id}/${fileName}`;
+        
+        const { error: uploadError, data: fileData } = await supabase.storage
+          .from('postcards')
+          .upload(filePath, jobData.file);
+          
+        if (uploadError) {
+          console.error('Error uploading PDF:', uploadError);
+          throw uploadError;
+        }
+        
+        // Get the public URL for the uploaded file
+        const { data: urlData } = await supabase.storage
+          .from('postcards')
+          .getPublicUrl(filePath);
+          
+        pdf_url = urlData.publicUrl;
+      }
+      
       // For postcards, get the paper_weight from paper_type or provide a default
       const paperWeight = jobData.paper_weight || extractPaperWeight(jobData.paper_type);
       
-      const newJob = {
-        ...jobData,
-        paper_weight: paperWeight, // Ensure paper_weight is provided
+      const newJobData = {
+        name: jobData.name,
+        job_number: jobData.job_number,
+        size: jobData.size,
+        paper_type: jobData.paper_type,
+        paper_weight: paperWeight,
+        lamination_type: jobData.lamination_type,
+        double_sided: jobData.double_sided,
+        quantity: jobData.quantity,
+        due_date: jobData.due_date,
+        pdf_url: pdf_url,
+        file_name: file_name,
         user_id: user.id,
         status: 'queued' as const
       };
+      
+      console.log("Submitting postcard job data:", newJobData);
 
       const { data, error } = await supabase
         .from('postcard_jobs')
-        .insert(newJob)
+        .insert(newJobData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error inserting postcard job:', error);
+        throw error;
+      }
 
       return data;
     } catch (err) {
       console.error('Error creating postcard job:', err);
       throw err;
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -157,6 +206,7 @@ export function usePostcardJobOperations() {
     deleteJob,
     createJob,
     createBatchWithSelectedJobs,
-    isCreatingBatch
+    isCreatingBatch,
+    isSubmitting
   };
 }

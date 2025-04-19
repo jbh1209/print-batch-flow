@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
@@ -10,7 +11,6 @@ import { PostcardJob } from "../batches/types/PostcardTypes";
 import FormActions from "../business-cards/FormActions";
 import { PostcardJobFormFields } from "./components/PostcardJobFormFields";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 
 interface PostcardJobFormProps {
   mode?: 'create' | 'edit';
@@ -19,8 +19,7 @@ interface PostcardJobFormProps {
 
 export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFormProps) => {
   const navigate = useNavigate();
-  const { createJob } = usePostcardJobOperations();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { createJob, isSubmitting } = usePostcardJobOperations();
   
   const { 
     selectedFile, 
@@ -55,8 +54,6 @@ export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFor
 
   const handleSubmit = async (data: PostcardJobFormValues) => {
     try {
-      setIsSubmitting(true);
-      
       if (!selectedFile && mode === 'create') {
         toast.error('Please upload a PDF file');
         return;
@@ -72,8 +69,9 @@ export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFor
         double_sided: data.double_sided,
         quantity: data.quantity,
         due_date: data.due_date.toISOString(),
-        pdf_url: "", // Will be set by createJob after file upload
-        file_name: selectedFile?.name || initialData?.file_name || ""
+        pdf_url: initialData?.pdf_url || "", // Will be set by createJob after file upload
+        file_name: selectedFile?.name || initialData?.file_name || "",
+        file: selectedFile // Pass the file to be uploaded
       };
 
       await createJob(jobData);
@@ -83,8 +81,6 @@ export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFor
     } catch (error) {
       console.error("Error submitting job:", error);
       toast.error("Failed to save job");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
