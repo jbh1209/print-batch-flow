@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { FlyerJobForm } from "@/components/flyers/FlyerJobForm";
+import { PostcardJobForm } from "@/components/postcards/PostcardJobForm";
 
 const PostcardJobNew = () => {
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ const PostcardJobNew = () => {
         </Button>
       </div>
 
-      <FlyerJobForm productType="postcard" />
+      <PostcardJobForm />
     </div>
   );
 };
