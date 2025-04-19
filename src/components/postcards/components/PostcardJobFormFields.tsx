@@ -11,6 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { laminationOptions, laminationLabels, paperTypeOptions } from "../schema/postcardJobFormSchema";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 
 interface PostcardJobFormFieldsProps {
   selectedFile: File | null;
@@ -28,7 +29,6 @@ export const PostcardJobFormFields = ({
   const { control, watch } = useFormContext();
   const [fileError, setFileError] = useState<string | null>(null);
 
-  // For file upload display
   const handleFileRemove = () => {
     setSelectedFile(null);
     setFileError(null);
@@ -110,6 +110,22 @@ export const PostcardJobFormFields = ({
                   </SelectContent>
                 </Select>
                 <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={control}
+            name="double_sided"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between space-y-0">
+                <FormLabel>Double Sided</FormLabel>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
               </FormItem>
             )}
           />

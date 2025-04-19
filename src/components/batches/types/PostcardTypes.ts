@@ -11,8 +11,9 @@ export interface PostcardJob {
   job_number: string;
   size: PostcardSize;
   paper_type: PaperType;
-  paper_weight: string; // Changed from optional to required to match DB schema
+  paper_weight: string;
   lamination_type: LaminationType;
+  double_sided: boolean;
   quantity: number;
   due_date: string;
   pdf_url: string;

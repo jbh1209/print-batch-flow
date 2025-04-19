@@ -8,6 +8,7 @@ export const postCardJobFormSchema = z.object({
   size: z.literal("A6"),
   paper_type: z.enum(["350gsm Matt", "350gsm Gloss"]),
   lamination_type: z.enum(["matt", "gloss", "soft_touch", "none"]),
+  double_sided: z.boolean().default(true),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
   due_date: z.date(),
   file: z.instanceof(File, { message: "PDF file is required" }).optional()
