@@ -110,6 +110,14 @@ const FlyerJobDetail = () => {
           <h3 className="text-lg font-semibold mb-4">Job Details</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4">
             <div>
+              <h4 className="text-sm font-medium text-gray-500">Client</h4>
+              <p>{job.name}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Job Number</h4>
+              <p>{job.job_number}</p>
+            </div>
+            <div>
               <h4 className="text-sm font-medium text-gray-500">Size</h4>
               <p>{job.size}</p>
             </div>
