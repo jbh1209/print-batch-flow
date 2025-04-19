@@ -1,4 +1,3 @@
-
 import { Control } from "react-hook-form";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -36,9 +35,9 @@ const JobFormFields = ({ control }: JobFormFieldsProps) => {
         name="name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Job Name</FormLabel>
+            <FormLabel>Client</FormLabel>
             <FormControl>
-              <Input placeholder="e.g. John Smith Business Cards" {...field} />
+              <Input placeholder="e.g. John Smith" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>

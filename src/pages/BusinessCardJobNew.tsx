@@ -17,7 +17,7 @@ import FormActions from "@/components/business-cards/FormActions";
 
 // Form schema for validation
 const formSchema = z.object({
-  name: z.string().min(1, "Job name is required"),
+  name: z.string().min(1, "Client name is required"),  // Updated validation message
   quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
   doubleSided: z.boolean().default(false),
   laminationType: z.enum(["none", "gloss", "matt", "soft_touch"]),
