@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -17,7 +16,8 @@ import FormActions from "@/components/business-cards/FormActions";
 
 // Form schema for validation
 const formSchema = z.object({
-  name: z.string().min(1, "Client name is required"),  // Updated validation message
+  jobNumber: z.string().min(1, "Job number is required"),
+  name: z.string().min(1, "Client name is required"),
   quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
   doubleSided: z.boolean().default(false),
   laminationType: z.enum(["none", "gloss", "matt", "soft_touch"]),
@@ -40,6 +40,7 @@ const BusinessCardJobNew = () => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      jobNumber: `BC-${Date.now().toString().slice(-8)}`,
       name: "",
       quantity: 100,
       doubleSided: false,
@@ -103,6 +104,7 @@ const BusinessCardJobNew = () => {
       const { error: insertError } = await supabase
         .from("business_card_jobs")
         .insert({
+          job_number: data.jobNumber,
           name: data.name,
           quantity: data.quantity,
           double_sided: data.doubleSided,

@@ -74,6 +74,7 @@ export type Database = {
           due_date: string
           file_name: string
           id: string
+          job_number: string
           lamination_type: Database["public"]["Enums"]["lamination_type"]
           name: string
           paper_type: string
@@ -91,6 +92,7 @@ export type Database = {
           due_date: string
           file_name: string
           id?: string
+          job_number: string
           lamination_type?: Database["public"]["Enums"]["lamination_type"]
           name: string
           paper_type?: string
@@ -108,6 +110,7 @@ export type Database = {
           due_date?: string
           file_name?: string
           id?: string
+          job_number?: string
           lamination_type?: Database["public"]["Enums"]["lamination_type"]
           name?: string
           paper_type?: string
