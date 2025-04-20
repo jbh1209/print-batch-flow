@@ -5,11 +5,28 @@ import { ArrowLeft } from "lucide-react";
 import { PostcardJobForm } from "@/components/postcards/PostcardJobForm";
 import { useStorageBuckets } from "@/hooks/useStorageBuckets";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const PostcardJobNew = () => {
   const navigate = useNavigate();
   const { isInitializing, error } = useStorageBuckets();
+  const { user, loading } = useAuth();
+  
+  // Handle not authenticated state
+  if (!loading && !user) {
+    return (
+      <div>
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You need to be logged in to create postcard jobs
+          </AlertDescription>
+        </Alert>
+        <Button onClick={() => navigate("/auth")}>Log in</Button>
+      </div>
+    );
+  }
   
   return (
     <div>
@@ -37,11 +54,12 @@ const PostcardJobNew = () => {
       
       {error && (
         <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <PostcardJobForm />
+      {(!loading && user) && <PostcardJobForm />}
     </div>
   );
 };

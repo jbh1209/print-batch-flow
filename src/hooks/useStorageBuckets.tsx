@@ -1,36 +1,42 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 export function useStorageBuckets() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const initializeBuckets = async () => {
     try {
       setIsInitializing(true);
+      setError(null);
+      
+      // Only proceed if user is authenticated
+      if (!user) {
+        setError('Authentication required to access storage');
+        setIsInitializing(false);
+        return;
+      }
       
       // Check if pdf_files bucket exists
       const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
       if (bucketsError) {
-        throw bucketsError;
+        console.error('Error listing buckets:', bucketsError);
+        setError('Failed to check storage buckets');
+        return;
       }
       
-      const existingBuckets = buckets.map(b => b.name);
+      // Check if pdf_files bucket exists
+      const pdfBucketExists = buckets.some(b => b.name === 'pdf_files');
       
-      // Create pdf_files bucket if it doesn't exist
-      if (!existingBuckets.includes('pdf_files')) {
-        const { error: createError } = await supabase.storage.createBucket('pdf_files', {
-          public: true,
-          fileSizeLimit: 10485760 // 10MB limit for PDFs
-        });
-        
-        if (createError) {
-          throw createError;
-        }
-        
-        console.log('Created pdf_files storage bucket');
+      // We don't need to create the bucket - it should already exist in the Supabase project
+      // Just inform the user if there's an issue
+      if (!pdfBucketExists) {
+        console.warn('pdf_files bucket does not exist in storage');
+        setError('Storage not properly configured. Please contact administrator.');
       }
       
     } catch (err) {
@@ -43,8 +49,7 @@ export function useStorageBuckets() {
   
   useEffect(() => {
     initializeBuckets();
-  }, []);
+  }, [user]); // Re-run when user auth state changes
   
   return { isInitializing, error };
 }
-
