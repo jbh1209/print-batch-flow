@@ -81,6 +81,7 @@ export function usePostcardJobOperations() {
       // Extract paper weight from paper type if not provided
       const paperWeight = jobData.paper_weight || extractPaperWeight(jobData.paper_type);
 
+      // Create the job record - remove double_sided field as it doesn't exist in the table
       const jobRecord = {
         name: jobData.name,
         job_number: jobData.job_number,
@@ -88,7 +89,7 @@ export function usePostcardJobOperations() {
         paper_type: jobData.paper_type,
         paper_weight: paperWeight,
         lamination_type: jobData.lamination_type,
-        double_sided: jobData.double_sided,
+        // Removed double_sided field as it doesn't exist in the database
         quantity: jobData.quantity,
         due_date: jobData.due_date,
         pdf_url: pdfUrl,

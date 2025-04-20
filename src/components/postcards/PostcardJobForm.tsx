@@ -38,7 +38,6 @@ export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFor
       size: "A6",
       paper_type: initialData?.paper_type || "350gsm Matt",
       lamination_type: initialData?.lamination_type || "none",
-      double_sided: initialData?.double_sided ?? true,
       quantity: initialData?.quantity || 0,
       due_date: initialData ? new Date(initialData.due_date) : new Date()
     }
@@ -66,7 +65,6 @@ export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFor
         paper_type: data.paper_type,
         paper_weight: data.paper_type.match(/(\d+gsm)/)?.[0] || "350gsm", // Extract the weight from paper type
         lamination_type: data.lamination_type,
-        double_sided: data.double_sided,
         quantity: data.quantity,
         due_date: data.due_date.toISOString(),
         pdf_url: initialData?.pdf_url || "", // Will be set by createJob after file upload
