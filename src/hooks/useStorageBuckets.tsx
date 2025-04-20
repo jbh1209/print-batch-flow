@@ -2,13 +2,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
 export function useStorageBuckets() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
-  // This function now simply checks if required buckets exist - it doesn't try to create them
+  // Check if required storage buckets exist
   const checkBuckets = async () => {
     try {
       setIsInitializing(true);
@@ -24,20 +25,18 @@ export function useStorageBuckets() {
       const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
       if (bucketsError) {
-        console.error('Error listing buckets:', bucketsError);
-        setError('Failed to check storage buckets');
+        console.error('Error listing storage buckets:', bucketsError);
+        setError('Failed to verify storage configuration');
         return;
       }
       
-      // We expect these buckets to exist in the Supabase project
-      const requiredBuckets = ['pdf_files'];
-      const missingBuckets = requiredBuckets.filter(
-        required => !buckets.some(b => b.name === required)
-      );
+      // Check for the pdf_files bucket which should exist in the project
+      const hasPdfBucket = buckets.some(bucket => bucket.name === 'pdf_files');
       
-      if (missingBuckets.length > 0) {
-        console.warn(`Missing required buckets: ${missingBuckets.join(', ')}`);
-        setError('Storage not properly configured. Please contact administrator.');
+      if (!hasPdfBucket) {
+        console.warn('PDF files bucket does not exist');
+        setError('Storage not properly configured for PDF uploads');
+        toast.error('Storage configuration issue. Please contact administrator.');
       }
       
     } catch (err) {
@@ -49,8 +48,10 @@ export function useStorageBuckets() {
   };
   
   useEffect(() => {
-    checkBuckets();
-  }, [user]); // Re-run when user auth state changes
+    if (!loading) {
+      checkBuckets();
+    }
+  }, [user, loading]); // Re-run when user auth state changes or loading completes
   
   return { isInitializing, error };
 }

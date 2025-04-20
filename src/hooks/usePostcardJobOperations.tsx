@@ -1,6 +1,5 @@
 
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { PostcardJob } from '@/components/batches/types/PostcardTypes';
 import { toast } from 'sonner';
 import { uploadPostcardPDF } from '@/services/postcards/postcard-storage';
@@ -28,8 +27,16 @@ export function usePostcardJobOperations() {
 
     // If a file was uploaded, process it
     if (jobData.file) {
-      fileName = jobData.file.name;
-      pdfUrl = await uploadPostcardPDF(userId, jobData.file);
+      try {
+        fileName = jobData.file.name;
+        pdfUrl = await uploadPostcardPDF(userId, jobData.file);
+        console.log('File uploaded successfully:', pdfUrl);
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        throw new Error('Failed to upload PDF file');
+      }
+    } else if (!pdfUrl) {
+      throw new Error('PDF file is required for new jobs');
     }
 
     // Extract paper weight from paper type if not provided
@@ -61,9 +68,12 @@ export function usePostcardJobOperations() {
       const preparedData = await prepareJobData(jobData, validUser.id);
       console.log("Submitting postcard job data:", preparedData);
       
-      return await createPostcardJobRecord(preparedData);
+      const result = await createPostcardJobRecord(preparedData);
+      toast.success('Postcard job created successfully');
+      return result;
     } catch (err) {
       console.error('Error creating postcard job:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to create job');
       throw err;
     } finally {
       setIsSubmitting(false);
