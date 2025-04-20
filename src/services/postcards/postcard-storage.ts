@@ -3,12 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export async function uploadPostcardPDF(userId: string, file: File): Promise<string> {
+  if (!userId || !file) {
+    throw new Error('Missing required parameters for file upload');
+  }
+
   const fileExt = file.name.split('.').pop();
   const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
   const filePath = `postcard-jobs/${userId}/${fileName}`;
   
   try {
-    const { error: uploadError, data: fileData } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('pdf_files')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -20,7 +24,7 @@ export async function uploadPostcardPDF(userId: string, file: File): Promise<str
       throw new Error(`Failed to upload PDF: ${uploadError.message}`);
     }
     
-    const { data: urlData } = await supabase.storage
+    const { data: urlData } = supabase.storage
       .from('pdf_files')
       .getPublicUrl(filePath);
       

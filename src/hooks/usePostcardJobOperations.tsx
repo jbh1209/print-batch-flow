@@ -9,7 +9,6 @@ import { extractPaperWeight } from '@/utils/paper-weight';
 import { useJobValidation } from './useJobValidation';
 
 export function usePostcardJobOperations() {
-  const { user } = useAuth();
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { validateUser } = useJobValidation();
@@ -23,14 +22,17 @@ export function usePostcardJobOperations() {
     jobData: Omit<PostcardJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'> & { file?: File },
     userId: string
   ) => {
+    // Start with default values
     let pdfUrl = jobData.pdf_url;
     let fileName = jobData.file_name;
 
+    // If a file was uploaded, process it
     if (jobData.file) {
       fileName = jobData.file.name;
       pdfUrl = await uploadPostcardPDF(userId, jobData.file);
     }
 
+    // Extract paper weight from paper type if not provided
     const paperWeight = jobData.paper_weight || extractPaperWeight(jobData.paper_type);
 
     return {

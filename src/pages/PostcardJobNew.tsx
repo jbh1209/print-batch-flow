@@ -16,8 +16,8 @@ const PostcardJobNew = () => {
   // Handle not authenticated state
   if (!loading && !user) {
     return (
-      <div>
-        <Alert variant="destructive" className="mb-4">
+      <div className="space-y-4">
+        <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             You need to be logged in to create postcard jobs
@@ -48,7 +48,7 @@ const PostcardJobNew = () => {
       {isInitializing && (
         <div className="flex items-center space-x-2 mb-4 text-blue-600">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Initializing storage...</span>
+          <span>Checking storage...</span>
         </div>
       )}
       
@@ -59,7 +59,7 @@ const PostcardJobNew = () => {
         </Alert>
       )}
 
-      {(!loading && user) && <PostcardJobForm />}
+      {(!loading && user && !error) && <PostcardJobForm />}
     </div>
   );
 };

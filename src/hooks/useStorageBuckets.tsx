@@ -8,19 +8,19 @@ export function useStorageBuckets() {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  const initializeBuckets = async () => {
+  // This function now simply checks if required buckets exist - it doesn't try to create them
+  const checkBuckets = async () => {
     try {
       setIsInitializing(true);
       setError(null);
       
       // Only proceed if user is authenticated
       if (!user) {
-        setError('Authentication required to access storage');
         setIsInitializing(false);
         return;
       }
       
-      // Check if pdf_files bucket exists
+      // Check if required buckets exist
       const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
       if (bucketsError) {
@@ -29,26 +29,27 @@ export function useStorageBuckets() {
         return;
       }
       
-      // Check if pdf_files bucket exists
-      const pdfBucketExists = buckets.some(b => b.name === 'pdf_files');
+      // We expect these buckets to exist in the Supabase project
+      const requiredBuckets = ['pdf_files'];
+      const missingBuckets = requiredBuckets.filter(
+        required => !buckets.some(b => b.name === required)
+      );
       
-      // We don't need to create the bucket - it should already exist in the Supabase project
-      // Just inform the user if there's an issue
-      if (!pdfBucketExists) {
-        console.warn('pdf_files bucket does not exist in storage');
+      if (missingBuckets.length > 0) {
+        console.warn(`Missing required buckets: ${missingBuckets.join(', ')}`);
         setError('Storage not properly configured. Please contact administrator.');
       }
       
     } catch (err) {
-      console.error('Error initializing storage buckets:', err);
-      setError('Failed to initialize storage. Some file uploads may not work correctly.');
+      console.error('Error checking storage buckets:', err);
+      setError('Failed to initialize storage');
     } finally {
       setIsInitializing(false);
     }
   };
   
   useEffect(() => {
-    initializeBuckets();
+    checkBuckets();
   }, [user]); // Re-run when user auth state changes
   
   return { isInitializing, error };
