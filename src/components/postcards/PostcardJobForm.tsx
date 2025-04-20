@@ -75,7 +75,6 @@ export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFor
       };
 
       await createJob(jobData);
-      toast.success(`Postcard job ${mode === 'create' ? 'created' : 'updated'} successfully`);
       navigate("/batches/postcards/jobs");
       
     } catch (error) {
