@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -190,10 +191,6 @@ const PostcardJobDetail = () => {
               <div className="flex justify-between">
                 <span className="text-sm font-medium text-gray-500">Lamination:</span>
                 <span>{laminationLabels[job.lamination_type]}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium text-gray-500">Sides:</span>
-                <span>{job.double_sided ? 'Double-sided' : 'Single-sided'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm font-medium text-gray-500">Quantity:</span>
