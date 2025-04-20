@@ -3,13 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { PostcardJobForm } from "@/components/postcards/PostcardJobForm";
-import { useStorageBuckets } from "@/hooks/useStorageBuckets";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
 
 const PostcardJobNew = () => {
   const navigate = useNavigate();
-  const { isInitializing, error } = useStorageBuckets();
   const { user, loading } = useAuth();
   
   // Handle authentication state
@@ -53,21 +51,7 @@ const PostcardJobNew = () => {
         </Button>
       </div>
 
-      {isInitializing && (
-        <div className="flex items-center space-x-2 mb-4 text-blue-600">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Checking storage...</span>
-        </div>
-      )}
-      
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {!isInitializing && !error && <PostcardJobForm />}
+      <PostcardJobForm />
     </div>
   );
 };

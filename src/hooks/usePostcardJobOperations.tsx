@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { PostcardJob } from '@/components/batches/types/PostcardTypes';
 import { toast } from 'sonner';
-import { uploadPostcardPDF } from '@/services/postcards/postcard-storage';
+import { supabase } from '@/integrations/supabase/client';
 import { createPostcardJobRecord, deletePostcardJob } from '@/services/postcards/postcard-job-service';
 import { extractPaperWeight } from '@/utils/paper-weight';
 import { useJobValidation } from './useJobValidation';
@@ -29,8 +29,38 @@ export function usePostcardJobOperations() {
     if (jobData.file) {
       try {
         fileName = jobData.file.name;
-        pdfUrl = await uploadPostcardPDF(userId, jobData.file);
-        console.log('File uploaded successfully:', pdfUrl);
+        
+        // Upload file using direct Supabase storage API (same approach as flyers)
+        const uniqueFileName = `${Date.now()}_${jobData.file.name.replace(/\s+/g, '_')}`;
+        const filePath = `${userId}/${uniqueFileName}`;
+        
+        console.log(`Uploading file to pdf_files/${filePath}`);
+        
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('pdf_files')
+          .upload(filePath, jobData.file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+          
+        if (uploadError) {
+          console.error('Error uploading PDF:', uploadError);
+          toast.error('Failed to upload PDF file');
+          throw new Error(`Upload failed: ${uploadError.message}`);
+        }
+        
+        // Get the public URL for the uploaded file
+        const { data: urlData } = supabase.storage
+          .from('pdf_files')
+          .getPublicUrl(filePath);
+          
+        if (!urlData?.publicUrl) {
+          throw new Error('Failed to generate public URL for uploaded file');
+        }
+        
+        console.log('PDF uploaded successfully:', urlData.publicUrl);
+        pdfUrl = urlData.publicUrl;
+        
       } catch (error) {
         console.error('Error uploading file:', error);
         throw new Error('Failed to upload PDF file');
