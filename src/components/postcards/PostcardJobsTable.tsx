@@ -1,11 +1,10 @@
-
 import { useState } from "react";
 import { usePostcardJobs } from "@/hooks/usePostcardJobs";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PostcardBatchCreateDialog from "./PostcardBatchCreateDialog";
-import { Table } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PostcardJob } from "@/components/batches/types/PostcardTypes";
 import { toast } from "sonner";
 
@@ -66,7 +65,6 @@ const PostcardJobsTable = () => {
     </div>
   );
 
-  // Render tabs, selection/batch controls, jobs table
   return (
     <div className="bg-white rounded-lg border shadow">
       <div className="flex gap-4 border-b px-6 pt-4">
@@ -94,9 +92,9 @@ const PostcardJobsTable = () => {
       </div>
 
       <Table>
-        <thead>
-          <tr>
-            <th>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">
               <input
                 type="checkbox"
                 aria-label="Select all"
@@ -104,21 +102,21 @@ const PostcardJobsTable = () => {
                 onChange={e => handleSelectAll(e.target.checked)}
                 disabled={availableJobs.length === 0}
               />
-            </th>
-            <th>Client Name</th>
-            <th>Job Number</th>
-            <th>Size</th>
-            <th>Paper</th>
-            <th>Lamination</th>
-            <th>Quantity</th>
-            <th>Due Date</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+            <TableHead>Client Name</TableHead>
+            <TableHead>Job Number</TableHead>
+            <TableHead>Size</TableHead>
+            <TableHead>Paper</TableHead>
+            <TableHead>Lamination</TableHead>
+            <TableHead>Quantity</TableHead>
+            <TableHead>Due Date</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {filteredJobs.map(job => (
-            <tr key={job.id}>
-              <td>
+            <TableRow key={job.id}>
+              <TableCell>
                 <input
                   type="checkbox"
                   checked={!!selectedJobs.find(j => j.id === job.id)}
@@ -126,18 +124,18 @@ const PostcardJobsTable = () => {
                   onChange={e => handleSelectJob(job.id, e.target.checked)}
                   aria-label="Select job"
                 />
-              </td>
-              <td>{job.name}</td>
-              <td>{job.job_number}</td>
-              <td>{job.size}</td>
-              <td>{job.paper_type}</td>
-              <td>{job.lamination_type}</td>
-              <td>{job.quantity}</td>
-              <td>{job.due_date && new Date(job.due_date).toLocaleDateString()}</td>
-              <td>{job.status}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="font-medium">{job.name}</TableCell>
+              <TableCell>{job.job_number}</TableCell>
+              <TableCell>{job.size}</TableCell>
+              <TableCell>{job.paper_type}</TableCell>
+              <TableCell>{job.lamination_type}</TableCell>
+              <TableCell>{job.quantity}</TableCell>
+              <TableCell>{job.due_date && new Date(job.due_date).toLocaleDateString()}</TableCell>
+              <TableCell>{job.status}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
+        </TableBody>
       </Table>
 
       <PostcardBatchCreateDialog
