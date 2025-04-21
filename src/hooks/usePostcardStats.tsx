@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +6,7 @@ export function usePostcardStats() {
   const { user } = useAuth();
   const [pendingJobsCount, setPendingJobsCount] = useState(0);
   const [activeBatchesCount, setActiveBatchesCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

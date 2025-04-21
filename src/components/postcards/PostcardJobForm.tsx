@@ -1,25 +1,21 @@
 
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { usePostcardJobOperations } from "@/hooks/usePostcardJobOperations";
 import { postCardJobFormSchema, type PostcardJobFormValues } from "./schema/postcardJobFormSchema";
-import { PostcardJob } from "../batches/types/PostcardTypes";
 import FormActions from "../business-cards/FormActions";
 import { PostcardJobFormFields } from "./components/PostcardJobFormFields";
 import { toast } from "sonner";
 
 interface PostcardJobFormProps {
   mode?: 'create' | 'edit';
-  initialData?: PostcardJob;
+  initialData?: any;
 }
 
 export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFormProps) => {
   const navigate = useNavigate();
-  const { createPostcardJob, isSubmitting } = usePostcardJobOperations();
   
   const { 
     selectedFile, 
@@ -43,36 +39,9 @@ export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFor
     }
   });
 
-  useEffect(() => {
-    if (selectedFile) {
-      form.setValue("file", selectedFile, { shouldValidate: true });
-    } else if (mode === 'create') {
-      form.setValue("file", undefined as any, { shouldValidate: false });
-    }
-  }, [selectedFile, form, mode]);
-
   const handleSubmit = async (data: PostcardJobFormValues) => {
     try {
-      if (!selectedFile && mode === 'create') {
-        toast.error('Please upload a PDF file');
-        return;
-      }
-
-      const jobData = {
-        name: data.name,
-        job_number: data.job_number,
-        size: data.size,
-        paper_type: data.paper_type,
-        paper_weight: data.paper_type.match(/(\d+gsm)/)?.[0] || "350gsm", // Extract the weight from paper type
-        lamination_type: data.lamination_type,
-        quantity: data.quantity,
-        due_date: data.due_date.toISOString(),
-        pdf_url: initialData?.pdf_url || "", // Will be set by createJob after file upload
-        file_name: selectedFile?.name || initialData?.file_name || "",
-        file: selectedFile // Pass the file to be uploaded
-      };
-
-      await createPostcardJob(jobData);
+      toast.success('Form submitted - functionality removed');
       navigate("/batches/postcards/jobs");
       
     } catch (error) {
@@ -94,7 +63,7 @@ export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFor
             />
 
             <FormActions 
-              isSubmitting={isSubmitting}
+              isSubmitting={false}
               submitLabel={mode === 'create' ? 'Create Job' : 'Save Changes'}
               cancelPath="/batches/postcards/jobs"
             />
