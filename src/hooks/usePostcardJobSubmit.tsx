@@ -46,6 +46,9 @@ export const usePostcardJobSubmit = () => {
         fileName = selectedFile.name;
       }
 
+      // Extract weight from paper_type (e.g., "350gsm Matt" -> "350gsm")
+      const paperWeight = data.paper_type.split(' ')[0];
+
       if (jobId) {
         // Update
         const updateData: any = {
@@ -53,6 +56,7 @@ export const usePostcardJobSubmit = () => {
           job_number: data.job_number,
           size: data.size,
           paper_type: data.paper_type,
+          paper_weight: paperWeight,
           // Convert sides to lamination_type format for database storage
           // This stores the "sides" information in the existing lamination_type field
           lamination_type: data.lamination_type,
@@ -76,6 +80,7 @@ export const usePostcardJobSubmit = () => {
           job_number: data.job_number,
           size: data.size,
           paper_type: data.paper_type,
+          paper_weight: paperWeight,
           // We're storing sides information in the existing database schema
           // Using the lamination_type field to store that information
           lamination_type: data.lamination_type,
