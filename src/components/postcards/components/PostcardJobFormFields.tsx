@@ -1,8 +1,8 @@
 
-import { JobDetailsFields } from "./form-sections/JobDetailsFields";
-import { PrintSpecsFields } from "./form-sections/PrintSpecsFields";
-import { QuantityDateFields } from "./form-sections/QuantityDateFields";
-import { FileUploadField } from "./form-sections/FileUploadField";
+import { JobDetailsFields } from "./form-fields/JobDetailsFields";
+import { PrintSpecsFields } from "./form-fields/PrintSpecsFields";
+import { QuantityAndDateFields } from "./form-fields/QuantityAndDateFields";
+import { FileUploadField } from "./form-fields/FileUploadField";
 
 interface PostcardJobFormFieldsProps {
   selectedFile: File | null;
@@ -11,18 +11,18 @@ interface PostcardJobFormFieldsProps {
   isEdit?: boolean;
 }
 
-export const PostcardJobFormFields = ({ 
-  selectedFile, 
-  setSelectedFile, 
+export const PostcardJobFormFields = ({
+  selectedFile,
+  setSelectedFile,
   handleFileChange,
-  isEdit = false
+  isEdit = false,
 }: PostcardJobFormFieldsProps) => {
   return (
     <>
       <JobDetailsFields />
       <PrintSpecsFields />
-      <QuantityDateFields />
-      <FileUploadField 
+      <QuantityAndDateFields />
+      <FileUploadField
         selectedFile={selectedFile}
         setSelectedFile={setSelectedFile}
         handleFileChange={handleFileChange}
