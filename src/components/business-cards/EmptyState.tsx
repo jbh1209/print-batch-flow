@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, AlertCircle, Loader2 } from "lucide-react";
@@ -27,7 +26,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     if (createPath) return createPath;
     
     if (location.pathname.includes('/postcards')) {
-      // If we're on the postcard batches page, direct to jobs page for batching
+      // If we're on the postcard batches page, direct to jobs selection for batching
       if (location.pathname.endsWith('/batches')) {
         return "/batches/postcards/jobs";
       }
@@ -78,7 +77,11 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <p className="text-sm text-gray-400 mb-4">Get started by creating your first {entityName.toLowerCase()}</p>
       
       <Button asChild>
-        <Link to={getCreatePath()}>Create {entityName}</Link>
+        <Link to={getCreatePath()}>
+          {entityName === "batches" && location.pathname.includes('/postcards') 
+            ? "Select Jobs to Batch" 
+            : `Create ${entityName}`}
+        </Link>
       </Button>
     </div>
   );
