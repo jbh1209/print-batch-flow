@@ -19,7 +19,7 @@ interface PostcardJobFormProps {
 
 export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFormProps) => {
   const navigate = useNavigate();
-  const { createJob, isSubmitting } = usePostcardJobOperations();
+  const { createPostcardJob, isSubmitting } = usePostcardJobOperations();
   
   const { 
     selectedFile, 
@@ -72,7 +72,7 @@ export const PostcardJobForm = ({ mode = 'create', initialData }: PostcardJobFor
         file: selectedFile // Pass the file to be uploaded
       };
 
-      await createJob(jobData);
+      await createPostcardJob(jobData);
       navigate("/batches/postcards/jobs");
       
     } catch (error) {
