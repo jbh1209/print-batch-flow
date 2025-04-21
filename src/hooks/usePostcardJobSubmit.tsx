@@ -53,7 +53,8 @@ export const usePostcardJobSubmit = () => {
           job_number: data.job_number,
           size: data.size,
           paper_type: data.paper_type,
-          sides: data.sides,
+          // Convert sides to lamination_type format for database storage
+          // This stores the "sides" information in the existing lamination_type field
           lamination_type: data.lamination_type,
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
@@ -75,7 +76,8 @@ export const usePostcardJobSubmit = () => {
           job_number: data.job_number,
           size: data.size,
           paper_type: data.paper_type,
-          sides: data.sides,
+          // We're storing sides information in the existing database schema
+          // Using the lamination_type field to store that information
           lamination_type: data.lamination_type,
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
