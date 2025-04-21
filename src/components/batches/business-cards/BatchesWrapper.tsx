@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -61,7 +60,6 @@ const BatchesWrapper = ({
         <EmptyState 
           type="empty" 
           entityName="batches"
-          createPath="/batches/business-cards/jobs"
         />
       </div>
     );
