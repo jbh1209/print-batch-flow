@@ -3,6 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus } from "lucide-react";
+import { PostcardJobsTable } from "@/components/postcards/PostcardJobsTable";
 
 const PostcardJobs = () => {
   const navigate = useNavigate();
@@ -30,17 +31,7 @@ const PostcardJobs = () => {
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-lg shadow text-center">
-        <h3 className="text-xl font-medium text-gray-700">Postcard Jobs</h3>
-        <p className="text-gray-500 mt-2">Functionality has been reset</p>
-        <Button 
-          variant="outline" 
-          className="mt-4"
-          onClick={() => navigate("/batches/postcards/jobs/new")}
-        >
-          Create a New Job
-        </Button>
-      </div>
+      <PostcardJobsTable />
     </div>
   );
 };

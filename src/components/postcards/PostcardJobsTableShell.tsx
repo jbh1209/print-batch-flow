@@ -1,17 +1,26 @@
 
 import React from 'react';
+import { Table } from '@/components/ui/table';
 import EmptyState from '../business-cards/EmptyState';
+import { PostcardJobsTableHeader } from './components/PostcardJobsTableHeader';
+import { PostcardJobsTableBody } from './components/PostcardJobsTableBody';
 
 interface PostcardJobsTableShellProps {
   isLoading: boolean;
   error: string | null;
   onRefresh: () => void;
+  jobs?: any[];
+  onViewJob?: (jobId: string) => void;
+  onDeleteJob?: (jobId: string) => void;
 }
 
 const PostcardJobsTableShell: React.FC<PostcardJobsTableShellProps> = ({
   isLoading,
   error,
   onRefresh,
+  jobs = [],
+  onViewJob = () => {},
+  onDeleteJob = () => {},
 }) => {
   if (isLoading) {
     return (
@@ -34,14 +43,27 @@ const PostcardJobsTableShell: React.FC<PostcardJobsTableShellProps> = ({
     );
   }
 
+  if (jobs.length === 0) {
+    return (
+      <div className="p-8">
+        <EmptyState
+          type="empty"
+          entityName="jobs"
+          createPath="/batches/postcards/jobs/new"
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="p-8">
-      <EmptyState
-        type="empty"
-        entityName="jobs"
-        createPath="/batches/postcards/jobs/new"
+    <Table>
+      <PostcardJobsTableHeader />
+      <PostcardJobsTableBody 
+        jobs={jobs} 
+        onViewJob={onViewJob} 
+        onDeleteJob={onDeleteJob} 
       />
-    </div>
+    </Table>
   );
 };
 
