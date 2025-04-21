@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, AlertCircle, Loader2 } from "lucide-react";
@@ -26,9 +27,9 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     if (createPath) return createPath;
     
     if (location.pathname.includes('/postcards')) {
-      // If we're on the postcard batches page
+      // If we're on the postcard batches page, direct to jobs page for batching
       if (location.pathname.endsWith('/batches')) {
-        return "/batches/postcards/jobs/new"; // Creating jobs for postcard batches
+        return "/batches/postcards/jobs";
       }
       return "/batches/postcards/jobs/new";
     } else if (location.pathname.includes('/business-cards')) {
@@ -84,3 +85,4 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 };
 
 export default EmptyState;
+
