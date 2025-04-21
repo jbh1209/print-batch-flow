@@ -1,8 +1,6 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Eye, Trash2 } from 'lucide-react';
-import EmptyState from '../business-cards/EmptyState';
+import PostcardJobsTableShell from './PostcardJobsTableShell';
 
 interface PostcardJobsTableProps {
   jobs: any[];
@@ -18,45 +16,16 @@ interface PostcardJobsTableProps {
 }
 
 export const PostcardJobsTable: React.FC<PostcardJobsTableProps> = ({
-  jobs,
   isLoading,
   error,
-  onViewJob,
-  onDeleteJob,
   onRefresh,
-  selectedJobs = [],
-  onSelectJob,
-  onSelectAllJobs,
-  selectableJobIds = []
 }) => {
-  if (isLoading) {
-    return (
-      <div className="p-8">
-        <EmptyState type="loading" entityName="jobs" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8">
-        <EmptyState 
-          type="error" 
-          entityName="jobs" 
-          errorMessage={error}
-          onRetry={onRefresh}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="p-8">
-      <EmptyState 
-        type="empty" 
-        entityName="jobs"
-        createPath="/batches/postcards/jobs/new"
-      />
-    </div>
+    <PostcardJobsTableShell
+      isLoading={isLoading}
+      error={error}
+      onRefresh={onRefresh}
+    />
   );
 };
+
