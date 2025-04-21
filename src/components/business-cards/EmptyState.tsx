@@ -27,6 +27,10 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     if (createPath) return createPath;
     
     if (location.pathname.includes('/postcards')) {
+      // If we're on the batches page, but looking at jobs
+      if (location.pathname.endsWith('/batches')) {
+        return "/batches/postcards/jobs/new"; // Creating jobs for postcards
+      } 
       return "/batches/postcards/jobs/new";
     } else if (location.pathname.includes('/business-cards')) {
       return "/batches/business-cards/jobs/new";
