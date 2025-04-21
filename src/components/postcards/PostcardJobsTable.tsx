@@ -1,60 +1,153 @@
 
-import React from 'react';
-import { Table } from '@/components/ui/table';
-import { LoadingSpinner } from '@/components/flyers/components/LoadingSpinner';
-import { PostcardJobsTableHeader } from './components/PostcardJobsTableHeader';
-import { PostcardJobsTableBody } from './components/PostcardJobsTableBody';
-import { EmptyJobsMessage } from '@/components/flyers/components/EmptyJobsMessage';
-import { usePostcardJobs } from '@/hooks/usePostcardJobs';
+import { useState } from "react";
+import { usePostcardJobs } from "@/hooks/usePostcardJobs";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import PostcardBatchCreateDialog from "./PostcardBatchCreateDialog";
+import { Table } from "@/components/ui/table";
+import { PostcardJob } from "@/components/batches/types/PostcardTypes";
+import { toast } from "sonner";
 
-export const PostcardJobsTable = () => {
-  const { jobs, isLoading, error, fetchJobs, handleViewJob, handleDeleteJob } = usePostcardJobs();
+// Example status types: "queued" | "batched" | "completed"
+// Adjust as needed by actual PostcardJob status values
+const STATUS_TYPES = ["all", "queued", "batched", "completed"];
 
-  if (isLoading) {
-    return <LoadingSpinner />;
-  }
+const PostcardJobsTable = () => {
+  const navigate = useNavigate();
+  const { jobs, isLoading, error, fetchJobs } = usePostcardJobs();
+  const [selectedJobs, setSelectedJobs] = useState<PostcardJob[]>([]);
+  const [filterView, setFilterView] = useState<"all" | "queued" | "batched" | "completed">("all");
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
 
-  if (error) {
-    return (
-      <div className="bg-white rounded-lg border shadow p-8">
-        <div className="text-center">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading jobs</h3>
-          <p className="text-gray-500 mb-4">{error}</p>
-          <button 
-            onClick={fetchJobs} 
-            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const filteredJobs = filterView === 'all' ? jobs : jobs.filter(job => job.status === filterView);
+  const availableJobs = jobs.filter(job => job.status === "queued");
 
-  if (jobs.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border border-dashed border-gray-300 p-8">
-        <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-          <svg className="h-6 w-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-1">No postcard jobs found</h3>
-        <p className="text-gray-500 text-center mb-4">Get started by creating your first postcard job.</p>
-      </div>
-    );
-  }
+  // Counts for status tabs
+  const filterCounts = {
+    all: jobs.length,
+    queued: jobs.filter(job => job.status === "queued").length,
+    batched: jobs.filter(job => job.status === "batched").length,
+    completed: jobs.filter(job => job.status === "completed").length,
+  };
 
+  // Selection logic
+  const handleSelectJob = (jobId: string, isSelected: boolean) => {
+    if (isSelected) {
+      const job = jobs.find(j => j.id === jobId && j.status === "queued");
+      if (job) setSelectedJobs([...selectedJobs, job]);
+    } else {
+      setSelectedJobs(selectedJobs.filter(j => j.id !== jobId));
+    }
+  };
+  const handleSelectAll = (isSelected: boolean) => {
+    if (isSelected) setSelectedJobs(availableJobs);
+    else setSelectedJobs([]);
+  };
+
+  // Create batch
+  const handleOpenBatchDialog = () => setIsBatchDialogOpen(true);
+  const handleBatchDialogClose = () => setIsBatchDialogOpen(false);
+  const handleBatchSuccess = () => {
+    setIsBatchDialogOpen(false);
+    setSelectedJobs([]);
+    fetchJobs();
+    toast.success("Batch created successfully");
+  };
+
+  if (isLoading) return <div className="p-10 text-center text-muted-foreground">Loading...</div>;
+  if (error) return <div className="p-10 text-center text-red-500">{error}</div>;
+  if (!jobs.length) return (
+    <div className="p-10 text-center text-muted-foreground">
+      No jobs found.<br />
+      <Button className="mt-4" onClick={() => navigate("/batches/postcards/jobs/new")}>
+        <Plus size={16} className="mr-1" /> Add New Job
+      </Button>
+    </div>
+  );
+
+  // Render tabs, selection/batch controls, jobs table
   return (
-    <div className="bg-white rounded-lg border shadow overflow-hidden">
+    <div className="bg-white rounded-lg border shadow">
+      <div className="flex gap-4 border-b px-6 pt-4">
+        {STATUS_TYPES.map(status => (
+          <button
+            key={status}
+            className={`px-3 py-2 rounded-t ${filterView === status ? 'bg-primary text-white' : ''}`}
+            onClick={() => setFilterView(status as any)}
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)} ({filterCounts[status as keyof typeof filterCounts]})
+          </button>
+        ))}
+      </div>
+
+      <div className="flex justify-between items-center px-6 py-3 border-b gap-2">
+        <div className="text-sm text-muted-foreground">
+          {selectedJobs.length} of {availableJobs.length} jobs selected
+        </div>
+        <Button
+          disabled={selectedJobs.length === 0}
+          onClick={handleOpenBatchDialog}
+        >
+          Create Batch
+        </Button>
+      </div>
+
       <Table>
-        <PostcardJobsTableHeader />
-        <PostcardJobsTableBody 
-          jobs={jobs} 
-          onViewJob={handleViewJob} 
-          onDeleteJob={handleDeleteJob} 
-        />
+        <thead>
+          <tr>
+            <th>
+              <input
+                type="checkbox"
+                aria-label="Select all"
+                checked={selectedJobs.length === availableJobs.length && availableJobs.length > 0}
+                onChange={e => handleSelectAll(e.target.checked)}
+                disabled={availableJobs.length === 0}
+              />
+            </th>
+            <th>Client Name</th>
+            <th>Job Number</th>
+            <th>Size</th>
+            <th>Paper</th>
+            <th>Lamination</th>
+            <th>Quantity</th>
+            <th>Due Date</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredJobs.map(job => (
+            <tr key={job.id}>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={!!selectedJobs.find(j => j.id === job.id)}
+                  disabled={job.status !== "queued"}
+                  onChange={e => handleSelectJob(job.id, e.target.checked)}
+                  aria-label="Select job"
+                />
+              </td>
+              <td>{job.name}</td>
+              <td>{job.job_number}</td>
+              <td>{job.size}</td>
+              <td>{job.paper_type}</td>
+              <td>{job.lamination_type}</td>
+              <td>{job.quantity}</td>
+              <td>{job.due_date && new Date(job.due_date).toLocaleDateString()}</td>
+              <td>{job.status}</td>
+            </tr>
+          ))}
+        </tbody>
       </Table>
+
+      <PostcardBatchCreateDialog
+        isOpen={isBatchDialogOpen}
+        onClose={handleBatchDialogClose}
+        onSuccess={handleBatchSuccess}
+        preSelectedJobs={selectedJobs}
+      />
     </div>
   );
 };
+
+export default PostcardJobsTable;
