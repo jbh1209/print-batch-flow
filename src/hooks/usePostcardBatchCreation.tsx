@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { usePostcardJobs } from './usePostcardJobs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { PostcardJob } from "@/components/batches/types/PostcardTypes";
+import { PostcardJob, LaminationType } from "@/components/batches/types/PostcardTypes";
 
 export function usePostcardBatchCreation() {
   const { jobs, fetchJobs } = usePostcardJobs();
@@ -24,13 +24,17 @@ export function usePostcardBatchCreation() {
       // Batch number
       const batchNumber = await generateBatchNumber();
 
+      // Cast laminationType to valid type to satisfy TypeScript
+      // This ensures the value is one of the allowed types for the database
+      const validLaminationType = validateLaminationType(laminationType);
+
       // Create the batch
       const { data: batchData, error: batchError } = await supabase
         .from('batches')
         .insert({
           name: batchNumber,
           paper_type: paperType,
-          lamination_type: laminationType,
+          lamination_type: validLaminationType,
           due_date: new Date().toISOString(),
           printer_type: "HP 12000",
           sheet_size: "530x750mm",
@@ -65,6 +69,17 @@ export function usePostcardBatchCreation() {
     } finally {
       setIsCreatingBatch(false);
     }
+  };
+
+  // Helper function to validate lamination type
+  const validateLaminationType = (type: string): LaminationType => {
+    const validTypes: LaminationType[] = ["gloss", "matt", "soft_touch", "none"];
+    if (validTypes.includes(type as LaminationType)) {
+      return type as LaminationType;
+    }
+    // Default to "none" if invalid type provided
+    console.warn(`Invalid lamination type: ${type}, defaulting to "none"`);
+    return "none";
   };
 
   // DXB-PC-00001 format (paralleling flyers)
