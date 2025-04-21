@@ -2,7 +2,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, AlertCircle, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 interface EmptyStateProps {
   type: "loading" | "error" | "empty";
@@ -19,6 +19,23 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   errorMessage,
   onRetry
 }) => {
+  // Get current location to determine the correct create path
+  const location = useLocation();
+  
+  // Determine the appropriate create path based on the current route
+  const getCreatePath = () => {
+    if (createPath) return createPath;
+    
+    if (location.pathname.includes('/postcards')) {
+      return "/batches/postcards/jobs/new";
+    } else if (location.pathname.includes('/business-cards')) {
+      return "/batches/business-cards/jobs/new";
+    } else if (location.pathname.includes('/flyers')) {
+      return "/batches/flyers/jobs/new";
+    }
+    
+    return "/";
+  };
   
   if (type === "loading") {
     return (
@@ -56,11 +73,9 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <h3 className="font-medium text-lg mb-1">No {entityName} found</h3>
       <p className="text-sm text-gray-400 mb-4">Get started by creating your first {entityName.toLowerCase()}</p>
       
-      {createPath && (
-        <Button asChild>
-          <Link to={createPath}>Create {entityName}</Link>
-        </Button>
-      )}
+      <Button asChild>
+        <Link to={getCreatePath()}>Create {entityName}</Link>
+      </Button>
     </div>
   );
 };
