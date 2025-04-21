@@ -8,6 +8,7 @@ import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
+import BatchDetails from "@/components/batches/BatchDetails";
 
 const PostcardBatches = () => {
   const [searchParams] = useSearchParams();
@@ -43,10 +44,11 @@ const PostcardBatches = () => {
   // If we're viewing a specific batch, use the BatchDetails component
   if (batchId) {
     return (
-      <div>
-        <h2>Batch Details will be displayed here</h2>
-        <Button onClick={() => window.history.back()}>Back</Button>
-      </div>
+      <BatchDetails 
+        batchId={batchId} 
+        productType="Postcards"
+        backUrl="/batches/postcards/batches"
+      />
     );
   }
 
