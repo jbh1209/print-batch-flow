@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { BaseBatch, BaseJob, ProductConfig, BatchStatus, TableName } from "@/config/productTypes";
+import { BaseBatch, BaseJob, ProductConfig, BatchStatus } from "@/config/productTypes";
 
 interface UseGenericBatchDetailsProps {
   batchId: string;
@@ -56,7 +56,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       
       console.log("Batch details received:", data?.id);
       
-      // Ensure these fields are always defined, even if null
+      // Ensure all properties are defined correctly for the BaseBatch interface
       const batchData: BaseBatch = {
         id: data.id,
         name: data.name,
@@ -64,28 +64,32 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url || null,
         back_pdf_url: data.back_pdf_url || null,
-        overview_pdf_url: data.overview_pdf_url || null,
+        overview_pdf_url: data.overview_pdf_url || null, // Ensure this property is present
         due_date: data.due_date,
         created_at: data.created_at,
         created_by: data.created_by,
         lamination_type: data.lamination_type,
         paper_type: data.paper_type,
         paper_weight: data.paper_weight,
+        updated_at: data.updated_at
       };
       
       setBatch(batchData);
       
       // Fetch related jobs from the product-specific table
       if (config.tableName) {
+        const tableName = config.tableName;
+        
+        // Use a specific list of fields to select from the table
         const { data: jobs, error: jobsError } = await supabase
-          .from(config.tableName as TableName)
+          .from(tableName)
           .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
       
         if (jobsError) throw jobsError;
         
-        // Use a type assertion for jobs
+        // Use a type assertion to handle the job data
         setRelatedJobs((jobs || []) as BaseJob[]);
       }
     } catch (error) {
@@ -106,18 +110,18 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
     
     setIsDeleting(true);
     try {
+      const tableName = config.tableName;
+      
       // First reset all jobs in this batch back to queued status
-      if (config.tableName) {
-        const { error: jobsError } = await supabase
-          .from(config.tableName as TableName)
-          .update({ 
-            status: "queued",
-            batch_id: null
-          })
-          .eq("batch_id", batchToDelete);
-        
-        if (jobsError) throw jobsError;
-      }
+      const { error: jobsError } = await supabase
+        .from(tableName)
+        .update({ 
+          status: "queued",
+          batch_id: null
+        })
+        .eq("batch_id", batchToDelete);
+      
+      if (jobsError) throw jobsError;
       
       // Then delete the batch
       const { error: deleteError } = await supabase

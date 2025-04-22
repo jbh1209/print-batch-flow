@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BaseJob, ProductConfig, JobStatus, TableName } from '@/config/productTypes';
+import { BaseJob, ProductConfig, JobStatus } from '@/config/productTypes';
 import { useGenericBatch } from './useGenericBatch';
 import { GenericJobFormValues } from '@/lib/schema/genericJobFormSchema';
 
@@ -30,9 +30,11 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       if (!config.tableName) {
         throw new Error(`Invalid table name for ${config.productType}`);
       }
+      
+      const tableName = config.tableName;
 
       const { data, error: fetchError } = await supabase
-        .from(config.tableName as TableName)
+        .from(tableName)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -55,8 +57,10 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   // Delete a job
   const deleteJob = async (jobId: string) => {
     try {
+      const tableName = config.tableName;
+      
       const { error } = await supabase
-        .from(config.tableName as TableName)
+        .from(tableName)
         .delete()
         .eq('id', jobId)
         .eq('user_id', user?.id);
@@ -83,6 +87,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
 
     try {
+      const tableName = config.tableName;
+      
       const newJob = {
         ...jobData,
         user_id: user.id,
@@ -90,7 +96,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       };
 
       const { data, error } = await supabase
-        .from(config.tableName as TableName)
+        .from(tableName)
         .insert(newJob)
         .select()
         .single();
@@ -113,8 +119,10 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
 
     try {
+      const tableName = config.tableName;
+      
       const { data, error } = await supabase
-        .from(config.tableName as TableName)
+        .from(tableName)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', user.id)
@@ -142,8 +150,10 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
 
     try {
+      const tableName = config.tableName;
+      
       const { data, error } = await supabase
-        .from(config.tableName as TableName)
+        .from(tableName)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', user.id)
@@ -197,9 +207,11 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     try {
       console.log("Finding orphaned batched jobs");
       
+      const tableName = config.tableName;
+      
       // Find all jobs that are marked as batched but have no batch_id
       const { data: orphanedJobs, error: findError } = await supabase
-        .from(config.tableName as TableName)
+        .from(tableName)
         .select('id')
         .eq('user_id', user.id)
         .eq('status', 'batched')
@@ -212,7 +224,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Reset these jobs to queued status
         const { error: updateError } = await supabase
-          .from(config.tableName as TableName)
+          .from(tableName)
           .update({ status: 'queued' })
           .in('id', orphanedJobs.map(job => job.id));
         

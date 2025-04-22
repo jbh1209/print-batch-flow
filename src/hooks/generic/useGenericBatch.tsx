@@ -66,9 +66,10 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
       
-      // Use a type assertion to handle the dynamic table name
+      const tableName = config.tableName;
+      // Use a type assertion for the database operation
       const { error: updateError } = await supabase
-        .from(config.tableName as TableName)
+        .from(tableName)
         .update({ 
           batch_id: batchData.id,
           status: 'batched' 
@@ -78,7 +79,16 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       if (updateError) throw updateError;
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
-      return batchData as BaseBatch;
+      
+      // Add the missing overview_pdf_url property to the batch data
+      const batchWithCorrectProps: BaseBatch = {
+        ...batchData,
+        overview_pdf_url: null,
+        front_pdf_url: batchData.front_pdf_url || null,
+        back_pdf_url: batchData.back_pdf_url || null
+      };
+      
+      return batchWithCorrectProps;
       
     } catch (err) {
       console.error(`Error creating ${config.productType} batch:`, err);
@@ -212,9 +222,11 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     if (!user) return false;
     
     try {
+      const tableName = config.tableName;
+      
       // First, reset all jobs in this batch back to queued status
       const { error: resetError } = await supabase
-        .from(config.tableName as TableName)
+        .from(tableName)
         .update({ 
           status: 'queued',
           batch_id: null

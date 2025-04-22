@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 // Shared types
@@ -64,9 +63,9 @@ export interface BaseBatch {
   due_date: string;
   created_by: string;
   updated_at?: string;
-  front_pdf_url: string | null; // Changed to non-optional but nullable
-  back_pdf_url: string | null; // Changed to non-optional but nullable
-  overview_pdf_url: string | null; // Added this property
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
+  overview_pdf_url: string | null;
   lamination_type: LaminationType;
   paper_type?: string;
   paper_weight?: string;
