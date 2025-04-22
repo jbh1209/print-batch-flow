@@ -98,11 +98,11 @@ const PostcardBatches = () => {
       />
 
       <DeleteBatchDialog
-        open={!!batchToDelete}
+        isOpen={!!batchToDelete}
         batchName={batches.find(b => b.id === batchToDelete)?.name || ""}
         isDeleting={isDeleting}
-        onConfirm={handleDeleteBatch}
-        onCancel={() => setBatchToDelete(null)}
+        onConfirmDelete={handleDeleteBatch}
+        onClose={() => setBatchToDelete(null)}
       />
     </div>
   );
