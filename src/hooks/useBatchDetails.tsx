@@ -67,8 +67,7 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
       
       console.log("Batch details received:", data?.id);
       
-      // For business card batches, we use the back_pdf_url as the overview_pdf_url
-      // since that's how the system is currently designed
+      // Map the batch data based on product type
       const batchData: BatchDetailsType = {
         id: data.id,
         name: data.name,
@@ -76,7 +75,7 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        // Use back_pdf_url as overview_pdf_url for business cards because that's how it was implemented
+        // Use back_pdf_url as overview_pdf_url (this will be the batch overview for any product type)
         overview_pdf_url: data.back_pdf_url,
         due_date: data.due_date,
         created_at: data.created_at,
@@ -88,8 +87,6 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
       // Fetch related jobs based on product type
       let jobsData: Job[] = [];
       
-      // Determine which table to query based on product type
-      // Currently only business cards have a dedicated table
       if (productType === "Business Cards") {
         console.log("Fetching related jobs for business card batch");
         
@@ -104,10 +101,40 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
           throw jobsError;
         }
         
-        console.log(`Found ${jobs?.length || 0} related jobs`);
+        jobsData = jobs || [];
+      } else if (productType === "Postcards") {
+        console.log("Fetching related jobs for postcard batch");
+        
+        const { data: jobs, error: jobsError } = await supabase
+          .from("postcard_jobs")
+          .select("id, name, quantity, status, pdf_url")
+          .eq("batch_id", batchId)
+          .order("name");
+        
+        if (jobsError) {
+          console.error("Error fetching related jobs:", jobsError);
+          throw jobsError;
+        }
+        
+        jobsData = jobs || [];
+      } else if (productType === "Flyers") {
+        console.log("Fetching related jobs for flyer batch");
+        
+        const { data: jobs, error: jobsError } = await supabase
+          .from("flyer_jobs")
+          .select("id, name, quantity, status, pdf_url")
+          .eq("batch_id", batchId)
+          .order("name");
+        
+        if (jobsError) {
+          console.error("Error fetching related jobs:", jobsError);
+          throw jobsError;
+        }
+        
         jobsData = jobs || [];
       }
       
+      console.log(`Found ${jobsData?.length || 0} related jobs`);
       setRelatedJobs(jobsData);
     } catch (error) {
       console.error("Error fetching batch details:", error);
@@ -131,6 +158,26 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
       if (productType === "Business Cards") {
         const { error: jobsError } = await supabase
           .from("business_card_jobs")
+          .update({ 
+            status: "queued",  // Set status back to queued
+            batch_id: null     // Remove batch_id reference
+          })
+          .eq("batch_id", batchToDelete);
+        
+        if (jobsError) throw jobsError;
+      } else if (productType === "Postcards") {
+        const { error: jobsError } = await supabase
+          .from("postcard_jobs")
+          .update({ 
+            status: "queued",  // Set status back to queued
+            batch_id: null     // Remove batch_id reference
+          })
+          .eq("batch_id", batchToDelete);
+        
+        if (jobsError) throw jobsError;
+      } else if (productType === "Flyers") {
+        const { error: jobsError } = await supabase
+          .from("flyer_jobs")
           .update({ 
             status: "queued",  // Set status back to queued
             batch_id: null     // Remove batch_id reference
