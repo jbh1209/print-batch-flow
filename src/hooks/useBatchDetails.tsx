@@ -102,21 +102,6 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
         }
         
         jobsData = jobs || [];
-      } else if (productType === "Postcards") {
-        console.log("Fetching related jobs for postcard batch");
-        
-        const { data: jobs, error: jobsError } = await supabase
-          .from("postcard_jobs")
-          .select("id, name, quantity, status, pdf_url")
-          .eq("batch_id", batchId)
-          .order("name");
-        
-        if (jobsError) {
-          console.error("Error fetching related jobs:", jobsError);
-          throw jobsError;
-        }
-        
-        jobsData = jobs || [];
       } else if (productType === "Flyers") {
         console.log("Fetching related jobs for flyer batch");
         
@@ -158,16 +143,6 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
       if (productType === "Business Cards") {
         const { error: jobsError } = await supabase
           .from("business_card_jobs")
-          .update({ 
-            status: "queued",  // Set status back to queued
-            batch_id: null     // Remove batch_id reference
-          })
-          .eq("batch_id", batchToDelete);
-        
-        if (jobsError) throw jobsError;
-      } else if (productType === "Postcards") {
-        const { error: jobsError } = await supabase
-          .from("postcard_jobs")
           .update({ 
             status: "queued",  // Set status back to queued
             batch_id: null     // Remove batch_id reference
