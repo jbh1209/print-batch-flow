@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BaseJob, ProductConfig, JobStatus } from '@/config/productTypes';
+import { BaseJob, ProductConfig, JobStatus, ExistingTableName } from '@/config/productTypes';
 import { useGenericBatch } from './useGenericBatch';
 import { GenericJobFormValues } from '@/lib/schema/genericJobFormSchema';
 
@@ -15,6 +15,21 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   
   const { createBatchWithSelectedJobs, isCreatingBatch } = useGenericBatch<T>(config);
   
+  // Helper function to check if a table exists in our database
+  const isExistingTable = (tableName: string): tableName is ExistingTableName => {
+    const existingTables: ExistingTableName[] = [
+      "flyer_jobs",
+      "postcard_jobs", 
+      "business_card_jobs",
+      "poster_jobs",
+      "batches", 
+      "profiles", 
+      "user_roles"
+    ];
+    
+    return existingTables.includes(tableName as ExistingTableName);
+  };
+
   // Fetch all jobs for this product type
   const fetchJobs = async () => {
     if (!user) {
@@ -32,16 +47,26 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       }
       
       const tableName = config.tableName;
+      
+      // Check if the table exists before querying
+      if (!isExistingTable(tableName)) {
+        console.log(`Table ${tableName} doesn't exist yet, skipping fetch`);
+        setJobs([] as T[]);
+        setIsLoading(false);
+        return;
+      }
 
+      // Use type assertion for the table name to satisfy TypeScript
       const { data, error: fetchError } = await supabase
-        .from(tableName)
+        .from(tableName as ExistingTableName)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 
-      setJobs(data as T[] || []);
+      // Use type assertion here since we know the data structure matches T
+      setJobs((data || []) as T[]);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
@@ -59,8 +84,14 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     try {
       const tableName = config.tableName;
       
+      // Check if the table exists before querying
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
+      }
+      
+      // Use type assertion for the table name to satisfy TypeScript
       const { error } = await supabase
-        .from(tableName)
+        .from(tableName as ExistingTableName)
         .delete()
         .eq('id', jobId)
         .eq('user_id', user?.id);
@@ -89,23 +120,29 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     try {
       const tableName = config.tableName;
       
+      // Check if the table exists before querying
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Table ${tableName} doesn't exist yet, cannot create job`);
+      }
+      
       const newJob = {
         ...jobData,
         user_id: user.id,
         status: 'queued' as JobStatus
       };
 
+      // Use type assertion for the table name to satisfy TypeScript
       const { data, error } = await supabase
-        .from(tableName)
+        .from(tableName as ExistingTableName)
         .insert(newJob)
         .select()
         .single();
 
       if (error) throw error;
 
-      // Update local state
-      setJobs(prevJobs => [data as T, ...prevJobs]);
-      return data as T;
+      // Update local state - use type assertion since we know this will match T
+      setJobs(prevJobs => [(data as unknown) as T, ...prevJobs]);
+      return (data as unknown) as T;
     } catch (err) {
       console.error(`Error creating ${config.productType} job:`, err);
       throw err;
@@ -121,8 +158,14 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     try {
       const tableName = config.tableName;
       
+      // Check if the table exists before querying
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
+      }
+      
+      // Use type assertion for the table name to satisfy TypeScript
       const { data, error } = await supabase
-        .from(tableName)
+        .from(tableName as ExistingTableName)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', user.id)
@@ -131,12 +174,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       if (error) throw error;
 
-      // Update local state
+      // Update local state with type assertion
       setJobs(prevJobs => 
-        prevJobs.map(job => job.id === jobId ? { ...job, ...data } as T : job)
+        prevJobs.map(job => job.id === jobId ? { ...job, ...(data as unknown as T) } : job)
       );
       
-      return data as T;
+      return (data as unknown) as T;
     } catch (err) {
       console.error(`Error updating ${config.productType} job:`, err);
       throw err;
@@ -152,8 +195,14 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     try {
       const tableName = config.tableName;
       
+      // Check if the table exists before querying
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
+      }
+      
+      // Use type assertion for the table name to satisfy TypeScript
       const { data, error } = await supabase
-        .from(tableName)
+        .from(tableName as ExistingTableName)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', user.id)
@@ -161,7 +210,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       if (error) throw error;
       
-      return data as T;
+      return (data as unknown) as T;
     } catch (err) {
       console.error(`Error getting ${config.productType} job:`, err);
       throw err;
@@ -209,9 +258,16 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       
       const tableName = config.tableName;
       
+      // Check if the table exists before querying
+      if (!isExistingTable(tableName)) {
+        console.log(`Table ${tableName} doesn't exist yet, skipping fix operation`);
+        return;
+      }
+      
       // Find all jobs that are marked as batched but have no batch_id
+      // Use type assertion for the table name to satisfy TypeScript
       const { data: orphanedJobs, error: findError } = await supabase
-        .from(tableName)
+        .from(tableName as ExistingTableName)
         .select('id')
         .eq('user_id', user.id)
         .eq('status', 'batched')
@@ -223,8 +279,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Reset these jobs to queued status
+        // Use type assertion for the table name to satisfy TypeScript
         const { error: updateError } = await supabase
-          .from(tableName)
+          .from(tableName as ExistingTableName)
           .update({ status: 'queued' })
           .in('id', orphanedJobs.map(job => job.id));
         

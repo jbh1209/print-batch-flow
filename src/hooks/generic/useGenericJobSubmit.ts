@@ -106,9 +106,9 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           updateData.file_name = fileName;
         }
         
-        // Use type assertion to handle the table name type mismatch
+        // Use type assertion to handle the table name type
         const { error } = await supabase
-          .from(tableName as any)
+          .from(tableName as ExistingTableName)
           .update(updateData)
           .eq('id', jobId);
           
@@ -133,9 +133,9 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         if (data.paper_type) newJobData.paper_type = data.paper_type;
         if (data.paper_weight) newJobData.paper_weight = data.paper_weight;
         
-        // Use type assertion to handle the table name type mismatch
+        // Use type assertion to handle the table name type
         const { error } = await supabase
-          .from(tableName as any)
+          .from(tableName as ExistingTableName)
           .insert(newJobData);
 
         if (error) throw error;

@@ -7,7 +7,9 @@ import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 export function useGenericFlyerJobs() {
   const config = productConfigs["Flyers"];
   
-  // Use type assertion to handle the compatibility between FlyerJob and BaseJob
-  // This is safe because the structures match where they overlap for API usage
-  return useGenericJobs<BaseJob>(config);
+  // Use explicit typing and type casting to ensure compatibility
+  const genericJobs = useGenericJobs<BaseJob>(config);
+  
+  // Cast the return value to maintain type consistency
+  return genericJobs;
 }
