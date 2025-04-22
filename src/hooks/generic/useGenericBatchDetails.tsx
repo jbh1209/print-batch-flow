@@ -79,7 +79,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url || null,
         back_pdf_url: data.back_pdf_url || null,
-        overview_pdf_url: data.overview_pdf_url || null,
+        overview_pdf_url: null, // Add virtual property as it's not in the DB
         due_date: data.due_date,
         created_at: data.created_at,
         created_by: data.created_by,
@@ -95,16 +95,17 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       const tableName = config.tableName;
       if (isExistingTable(tableName)) {
         // Use a specific list of fields to select from the table
+        // Use type assertion to handle the type mismatch
         const { data: jobs, error: jobsError } = await supabase
-          .from(tableName)
+          .from(tableName as any)
           .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
       
         if (jobsError) throw jobsError;
         
-        // Type assertion to handle jobs data
-        setRelatedJobs((jobs || []) as unknown as BaseJob[]);
+        // Explicitly cast jobs to the correct type
+        setRelatedJobs(jobs ? jobs as unknown as BaseJob[] : []);
       } else {
         // For tables that don't exist yet, return empty jobs array
         setRelatedJobs([]);
@@ -131,8 +132,9 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       
       if (isExistingTable(tableName)) {
         // First reset all jobs in this batch back to queued status
+        // Use type assertion to handle the type mismatch
         const { error: jobsError } = await supabase
-          .from(tableName)
+          .from(tableName as any)
           .update({ 
             status: "queued",
             batch_id: null

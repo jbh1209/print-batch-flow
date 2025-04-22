@@ -70,8 +70,9 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           created_by: user.id,
           status: 'pending',
           front_pdf_url: null,
-          back_pdf_url: null,
-          overview_pdf_url: null
+          back_pdf_url: null
+          // Note: The database schema doesn't actually have overview_pdf_url column
+          // so we don't include it here in the insert
         })
         .select()
         .single();
@@ -85,9 +86,9 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Handle database tables that don't exist yet by checking against the allowed tables
       if (isExistingTable(tableName)) {
-        // Use the table name directly since we've verified it exists
+        // Use type assertion to handle the type mismatch
         const { error: updateError } = await supabase
-          .from(tableName)
+          .from(tableName as any)
           .update({ 
             batch_id: batchData.id,
             status: 'batched' 
@@ -101,10 +102,11 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
-      // Ensure the batch object has all required properties
+      // Create a complete batch object with the required properties
+      // including the virtual overview_pdf_url property
       const fullBatch: BaseBatch = {
         ...batchData,
-        overview_pdf_url: batchData.overview_pdf_url || null,
+        overview_pdf_url: null, // Add this virtual property
         front_pdf_url: batchData.front_pdf_url || null,
         back_pdf_url: batchData.back_pdf_url || null,
         lamination_type: batchData.lamination_type || "none"
@@ -226,12 +228,12 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (error) throw error;
       
-      // Ensure all properties in BaseBatch interface are present
+      // Ensure all properties in BaseBatch interface are present, including overview_pdf_url
       return (data || []).map(batch => ({
         ...batch,
         front_pdf_url: batch.front_pdf_url || null,
         back_pdf_url: batch.back_pdf_url || null,
-        overview_pdf_url: batch.overview_pdf_url || null,
+        overview_pdf_url: null, // Add this virtual property since it doesn't exist in DB
         lamination_type: batch.lamination_type || "none"
       })) as BaseBatch[];
     } catch (error) {
@@ -249,8 +251,9 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (isExistingTable(tableName)) {
         // First, reset all jobs in this batch back to queued status
+        // Use type assertion to avoid the TypeScript error
         const { error: resetError } = await supabase
-          .from(tableName)
+          .from(tableName as any)
           .update({ 
             status: 'queued',
             batch_id: null

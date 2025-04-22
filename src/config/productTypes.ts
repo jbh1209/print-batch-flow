@@ -1,4 +1,3 @@
-
 import { SupabaseClient } from "@supabase/supabase-js";
 
 // Define table names that actually exist in the database
@@ -73,7 +72,7 @@ export interface BaseBatch {
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
-  overview_pdf_url: string | null;
+  overview_pdf_url: string | null; // Virtual property not in DB but needed for UI
   due_date: string;
   created_at: string;
   created_by: string;
@@ -158,7 +157,7 @@ export const productConfigs: Record<string, ProductConfig> = {
   },
   "Posters": {
     productType: "Posters",
-    tableName: "poster_jobs", // This is part of TableName now
+    tableName: "poster_jobs", // This is an existing table name now
     ui: {
       title: "Posters",
       jobFormTitle: "Poster",
@@ -176,11 +175,10 @@ export const productConfigs: Record<string, ProductConfig> = {
     availableSizes: ["A3", "A2", "A1", "A0"],
     availableLaminationTypes: ["none", "matt"],
   },
-  // Updated these product configs to use temporary tables for now
-  // since they aren't actually implemented in the database yet
+  
   "Stickers": {
     productType: "Stickers",
-    tableName: "batches" as TableName, // Cast to match TableName until sticker_jobs is created
+    tableName: "batches" as TableName, // Use an existing table for now
     ui: {
       title: "Stickers",
       jobFormTitle: "Sticker",
@@ -198,9 +196,10 @@ export const productConfigs: Record<string, ProductConfig> = {
     availableSizes: ["A3", "A2", "A1", "A0"],
     availableLaminationTypes: ["none"],
   },
+
   "Sleeves": {
     productType: "Sleeves",
-    tableName: "batches" as TableName, // Cast to match TableName until sleeve_jobs is created
+    tableName: "batches" as TableName, // Use an existing table for now
     ui: {
       title: "Sleeves",
       jobFormTitle: "Sleeve",
@@ -216,9 +215,10 @@ export const productConfigs: Record<string, ProductConfig> = {
     },
     availableLaminationTypes: ["none"],
   },
+
   "Boxes": {
     productType: "Boxes",
-    tableName: "batches" as TableName, // Cast to match TableName until box_jobs is created
+    tableName: "batches" as TableName, // Use an existing table for now
     ui: {
       title: "Boxes",
       jobFormTitle: "Box",
@@ -234,9 +234,10 @@ export const productConfigs: Record<string, ProductConfig> = {
     },
     availableLaminationTypes: ["none"],
   },
+
   "Covers": {
     productType: "Covers",
-    tableName: "batches" as TableName, // Cast to match TableName until cover_jobs is created
+    tableName: "batches" as TableName, // Use an existing table for now
     ui: {
       title: "Covers",
       jobFormTitle: "Cover",
