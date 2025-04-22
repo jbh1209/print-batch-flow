@@ -9,7 +9,8 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FileText } from "lucide-react"; // Import the icon that was missing
+import { FileText } from "lucide-react";
+import { BatchDetailsType, LaminationType } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -80,11 +81,17 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
   }
 
   // Create a typed version of the batch object that matches BatchDetailsType
-  const batchForDetails = {
-    ...batch,
+  const batchForDetails: BatchDetailsType = {
+    id: batch.id,
+    name: batch.name,
+    lamination_type: batch.lamination_type as LaminationType,
+    sheets_required: batch.sheets_required,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
     overview_pdf_url: batch.overview_pdf_url,
+    due_date: batch.due_date,
+    created_at: batch.created_at,
+    status: batch.status,
   };
 
   return (

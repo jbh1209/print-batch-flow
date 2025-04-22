@@ -1,10 +1,12 @@
+
 import { SupabaseClient } from "@supabase/supabase-js";
 
+// Update TableName type to include only tables that actually exist in the database
 export type TableName = 
   | "flyer_jobs" 
   | "postcard_jobs" 
   | "business_card_jobs"
-  | "poster_jobs"
+  | "poster_jobs"  // This is used but wasn't in the original type
   | "batches"
   | "profiles"
   | "user_roles";
@@ -15,7 +17,7 @@ export type LaminationType = "none" | "matt" | "gloss" | "soft_touch";
 
 export interface ProductConfig {
   productType: string;
-  tableName: TableName;
+  tableName: TableName; // Using the updated TableName type
   ui: {
     title: string;
     jobFormTitle: string;
@@ -26,6 +28,9 @@ export interface ProductConfig {
     jobsPath: string;
     newJobPath: string;
     batchesPath: string;
+    // Add these missing properties
+    jobDetailPath: (id: string) => string;
+    jobEditPath: (id: string) => string;
   };
   hasSize?: boolean;
   hasPaperType?: boolean;
@@ -33,6 +38,7 @@ export interface ProductConfig {
   availableSizes?: string[];
   availablePaperTypes?: string[];
   availablePaperWeights?: string[];
+  availableLaminationTypes?: LaminationType[]; // Add this missing property
 }
 
 export interface BaseJob {
@@ -60,11 +66,11 @@ export interface BaseBatch {
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
-  overview_pdf_url: string | null;
+  overview_pdf_url: string | null; // Ensure this is always included
   due_date: string;
   created_at: string;
   created_by: string;
-  lamination_type?: LaminationType;
+  lamination_type: LaminationType; // Must be required, not optional
   paper_type?: string;
   paper_weight?: string;
   updated_at: string;
@@ -83,13 +89,17 @@ export const productConfigs: Record<string, ProductConfig> = {
       basePath: "/batches/business-cards",
       jobsPath: "/batches/business-cards/jobs",
       newJobPath: "/batches/business-cards/jobs/new",
-      batchesPath: "/batches/business-cards/batches"
+      batchesPath: "/batches/business-cards/batches",
+      // Add the missing path functions
+      jobDetailPath: (id: string) => `/batches/business-cards/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/business-cards/jobs/${id}/edit`,
     },
     hasSize: false,
     hasPaperType: true,
     hasPaperWeight: true,
     availablePaperTypes: ["gloss", "matte", "linen", "recycled"],
     availablePaperWeights: ["14pt", "16pt"],
+    availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
   },
   "Flyers": {
     productType: "Flyers",
@@ -103,7 +113,9 @@ export const productConfigs: Record<string, ProductConfig> = {
       basePath: "/batches/flyers",
       jobsPath: "/batches/flyers/jobs",
       newJobPath: "/batches/flyers/jobs/new",
-      batchesPath: "/batches/flyers/batches"
+      batchesPath: "/batches/flyers/batches",
+      jobDetailPath: (id: string) => `/batches/flyers/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/flyers/jobs/${id}/edit`,
     },
     hasSize: true,
     hasPaperType: true,
@@ -111,6 +123,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     availableSizes: ["A6", "A5", "A4", "A3", "DL"],
     availablePaperTypes: ["gloss", "matte", "silk", "uncoated"],
     availablePaperWeights: ["130gsm", "170gsm", "250gsm", "300gsm", "350gsm"],
+    availableLaminationTypes: ["none", "matt", "gloss"],
   },
   "Postcards": {
     productType: "Postcards",
@@ -124,7 +137,9 @@ export const productConfigs: Record<string, ProductConfig> = {
       basePath: "/batches/postcards",
       jobsPath: "/batches/postcards/jobs",
       newJobPath: "/batches/postcards/jobs/new",
-      batchesPath: "/batches/postcards/batches"
+      batchesPath: "/batches/postcards/batches",
+      jobDetailPath: (id: string) => `/batches/postcards/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/postcards/jobs/${id}/edit`,
     },
     hasSize: true,
     hasPaperType: true,
@@ -132,10 +147,11 @@ export const productConfigs: Record<string, ProductConfig> = {
     availableSizes: ["A6", "A5", "A4", "DL"],
     availablePaperTypes: ["gloss", "matte", "silk", "uncoated"],
     availablePaperWeights: ["250gsm", "300gsm", "350gsm", "400gsm"],
+    availableLaminationTypes: ["none", "matt", "gloss"],
   },
   "Posters": {
     productType: "Posters",
-    tableName: "poster_jobs",
+    tableName: "poster_jobs", // This is part of TableName now
     ui: {
       title: "Posters",
       jobFormTitle: "Poster",
@@ -145,14 +161,19 @@ export const productConfigs: Record<string, ProductConfig> = {
       basePath: "/batches/posters",
       jobsPath: "/batches/posters/jobs",
       newJobPath: "/batches/posters/jobs/new",
-      batchesPath: "/batches/posters/batches"
+      batchesPath: "/batches/posters/batches",
+      jobDetailPath: (id: string) => `/batches/posters/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/posters/jobs/${id}/edit`,
     },
     hasSize: true,
     availableSizes: ["A3", "A2", "A1", "A0"],
+    availableLaminationTypes: ["none", "matt"],
   },
+  // Updated these product configs to use temporary tables for now
+  // since they aren't actually implemented in the database yet
   "Stickers": {
     productType: "Stickers",
-    tableName: "sticker_jobs",
+    tableName: "batches" as TableName, // Cast to match TableName until sticker_jobs is created
     ui: {
       title: "Stickers",
       jobFormTitle: "Sticker",
@@ -162,14 +183,17 @@ export const productConfigs: Record<string, ProductConfig> = {
       basePath: "/batches/stickers",
       jobsPath: "/batches/stickers/jobs",
       newJobPath: "/batches/stickers/jobs/new",
-      batchesPath: "/batches/stickers/batches"
+      batchesPath: "/batches/stickers/batches",
+      jobDetailPath: (id: string) => `/batches/stickers/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/stickers/jobs/${id}/edit`,
     },
     hasSize: true,
     availableSizes: ["A3", "A2", "A1", "A0"],
+    availableLaminationTypes: ["none"],
   },
   "Sleeves": {
     productType: "Sleeves",
-    tableName: "sleeve_jobs",
+    tableName: "batches" as TableName, // Cast to match TableName until sleeve_jobs is created
     ui: {
       title: "Sleeves",
       jobFormTitle: "Sleeve",
@@ -179,12 +203,15 @@ export const productConfigs: Record<string, ProductConfig> = {
       basePath: "/batches/sleeves",
       jobsPath: "/batches/sleeves/jobs",
       newJobPath: "/batches/sleeves/jobs/new",
-      batchesPath: "/batches/sleeves/batches"
+      batchesPath: "/batches/sleeves/batches",
+      jobDetailPath: (id: string) => `/batches/sleeves/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/sleeves/jobs/${id}/edit`,
     },
+    availableLaminationTypes: ["none"],
   },
   "Boxes": {
     productType: "Boxes",
-    tableName: "box_jobs",
+    tableName: "batches" as TableName, // Cast to match TableName until box_jobs is created
     ui: {
       title: "Boxes",
       jobFormTitle: "Box",
@@ -194,12 +221,15 @@ export const productConfigs: Record<string, ProductConfig> = {
       basePath: "/batches/boxes",
       jobsPath: "/batches/boxes/jobs",
       newJobPath: "/batches/boxes/jobs/new",
-      batchesPath: "/batches/boxes/batches"
+      batchesPath: "/batches/boxes/batches",
+      jobDetailPath: (id: string) => `/batches/boxes/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/boxes/jobs/${id}/edit`,
     },
+    availableLaminationTypes: ["none"],
   },
   "Covers": {
     productType: "Covers",
-    tableName: "cover_jobs",
+    tableName: "batches" as TableName, // Cast to match TableName until cover_jobs is created
     ui: {
       title: "Covers",
       jobFormTitle: "Cover",
@@ -209,7 +239,10 @@ export const productConfigs: Record<string, ProductConfig> = {
       basePath: "/batches/covers",
       jobsPath: "/batches/covers/jobs",
       newJobPath: "/batches/covers/jobs/new",
-      batchesPath: "/batches/covers/batches"
+      batchesPath: "/batches/covers/batches",
+      jobDetailPath: (id: string) => `/batches/covers/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/covers/jobs/${id}/edit`,
     },
+    availableLaminationTypes: ["none"],
   },
 };

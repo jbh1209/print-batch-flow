@@ -4,11 +4,26 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { BaseBatch, BaseJob, ProductConfig, BatchStatus } from "@/config/productTypes";
+import { BaseBatch, BaseJob, ProductConfig, BatchStatus, TableName } from "@/config/productTypes";
 
 interface UseGenericBatchDetailsProps {
   batchId: string;
   config: ProductConfig;
+}
+
+// Helper function to check if a table exists in our database
+function isExistingTable(tableName: TableName): boolean {
+  const existingTables: TableName[] = [
+    "flyer_jobs",
+    "postcard_jobs", 
+    "business_card_jobs",
+    "poster_jobs",
+    "batches", 
+    "profiles", 
+    "user_roles"
+  ];
+  
+  return existingTables.includes(tableName);
 }
 
 export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetailsProps) {
@@ -64,11 +79,11 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url || null,
         back_pdf_url: data.back_pdf_url || null,
-        overview_pdf_url: data.overview_pdf_url || null, // Ensure this property is present
+        overview_pdf_url: data.overview_pdf_url || null,
         due_date: data.due_date,
         created_at: data.created_at,
         created_by: data.created_by,
-        lamination_type: data.lamination_type,
+        lamination_type: data.lamination_type || "none",
         paper_type: data.paper_type,
         paper_weight: data.paper_weight,
         updated_at: data.updated_at
@@ -77,7 +92,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       setBatch(batchData);
       
       // Fetch related jobs from the product-specific table
-      if (config.tableName) {
+      if (config.tableName && isExistingTable(config.tableName)) {
         const tableName = config.tableName;
         
         // Use a specific list of fields to select from the table
@@ -90,7 +105,10 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         if (jobsError) throw jobsError;
         
         // Use a type assertion to handle the job data
-        setRelatedJobs((jobs || []) as BaseJob[]);
+        setRelatedJobs((jobs || []) as unknown as BaseJob[]);
+      } else {
+        // For tables that don't exist yet, return empty jobs array
+        setRelatedJobs([]);
       }
     } catch (error) {
       console.error("Error fetching batch details:", error);
@@ -112,16 +130,18 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
     try {
       const tableName = config.tableName;
       
-      // First reset all jobs in this batch back to queued status
-      const { error: jobsError } = await supabase
-        .from(tableName)
-        .update({ 
-          status: "queued",
-          batch_id: null
-        })
-        .eq("batch_id", batchToDelete);
-      
-      if (jobsError) throw jobsError;
+      if (isExistingTable(tableName)) {
+        // First reset all jobs in this batch back to queued status
+        const { error: jobsError } = await supabase
+          .from(tableName)
+          .update({ 
+            status: "queued",
+            batch_id: null
+          })
+          .eq("batch_id", batchToDelete);
+        
+        if (jobsError) throw jobsError;
+      }
       
       // Then delete the batch
       const { error: deleteError } = await supabase

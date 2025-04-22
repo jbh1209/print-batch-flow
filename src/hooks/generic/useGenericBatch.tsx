@@ -56,7 +56,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           status: 'pending',
           front_pdf_url: null,
           back_pdf_url: null,
-          overview_pdf_url: null
+          overview_pdf_url: null // Ensure this field is included
         })
         .select()
         .single();
@@ -67,28 +67,35 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const jobIds = selectedJobs.map(job => job.id);
       
       const tableName = config.tableName;
-      // Use a type assertion for the database operation
-      const { error: updateError } = await supabase
-        .from(tableName)
-        .update({ 
-          batch_id: batchData.id,
-          status: 'batched' 
-        })
-        .in('id', jobIds);
       
-      if (updateError) throw updateError;
+      // Handle database tables that don't exist yet by checking against the allowed tables
+      if (isExistingTable(tableName)) {
+        // Use type assertion for the database operation
+        const { error: updateError } = await supabase
+          .from(tableName)
+          .update({ 
+            batch_id: batchData.id,
+            status: 'batched' 
+          })
+          .in('id', jobIds);
+        
+        if (updateError) throw updateError;
+      } else {
+        console.log(`Table ${tableName} doesn't exist yet, skipping job updates`);
+      }
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
-      // Add the missing overview_pdf_url property to the batch data
-      const batchWithCorrectProps: BaseBatch = {
+      // Ensure all required properties exist in the returned batch object
+      const fullBatch: BaseBatch = {
         ...batchData,
-        overview_pdf_url: null,
+        overview_pdf_url: batchData.overview_pdf_url || null,
         front_pdf_url: batchData.front_pdf_url || null,
-        back_pdf_url: batchData.back_pdf_url || null
+        back_pdf_url: batchData.back_pdf_url || null,
+        lamination_type: batchData.lamination_type || "none"
       };
       
-      return batchWithCorrectProps;
+      return fullBatch;
       
     } catch (err) {
       console.error(`Error creating ${config.productType} batch:`, err);
@@ -98,6 +105,21 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       setIsCreatingBatch(false);
     }
   };
+
+  // Helper function to check if a table exists in our database
+  function isExistingTable(tableName: TableName): boolean {
+    const existingTables: TableName[] = [
+      "flyer_jobs",
+      "postcard_jobs", 
+      "business_card_jobs",
+      "poster_jobs",
+      "batches", 
+      "profiles", 
+      "user_roles"
+    ];
+    
+    return existingTables.includes(tableName);
+  }
 
   // Helper function to calculate sheets required based on job type
   const calculateSheetsRequired = (jobs: T[]): number => {
@@ -204,12 +226,13 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (error) throw error;
       
-      // Ensure front_pdf_url, back_pdf_url, and overview_pdf_url are always non-undefined
+      // Ensure all properties in BaseBatch interface are present
       return (data || []).map(batch => ({
         ...batch,
         front_pdf_url: batch.front_pdf_url || null,
         back_pdf_url: batch.back_pdf_url || null,
-        overview_pdf_url: batch.overview_pdf_url || null
+        overview_pdf_url: batch.overview_pdf_url || null,
+        lamination_type: batch.lamination_type || "none"
       })) as BaseBatch[];
     } catch (error) {
       console.error(`Error fetching ${config.productType} batches:`, error);
@@ -224,16 +247,18 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const tableName = config.tableName;
       
-      // First, reset all jobs in this batch back to queued status
-      const { error: resetError } = await supabase
-        .from(tableName)
-        .update({ 
-          status: 'queued',
-          batch_id: null
-        })
-        .eq('batch_id', batchId);
-      
-      if (resetError) throw resetError;
+      if (isExistingTable(tableName)) {
+        // First, reset all jobs in this batch back to queued status
+        const { error: resetError } = await supabase
+          .from(tableName)
+          .update({ 
+            status: 'queued',
+            batch_id: null
+          })
+          .eq('batch_id', batchId);
+        
+        if (resetError) throw resetError;
+      }
       
       // Now delete the batch
       const { error } = await supabase

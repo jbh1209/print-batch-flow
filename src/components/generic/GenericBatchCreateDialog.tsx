@@ -26,9 +26,12 @@ export function GenericBatchCreateDialog({
   isCreatingBatch
 }: GenericBatchCreateDialogProps) {
   // Batch properties
-  const [paperType, setPaperType] = useState(config.availablePaperTypes[0] || "");
-  const [paperWeight, setPaperWeight] = useState(config.availablePaperWeights[0] || "");
-  const [laminationType, setLaminationType] = useState<LaminationType>(config.availableLaminationTypes[0] || "none");
+  const [paperType, setPaperType] = useState(config.availablePaperTypes?.[0] || "");
+  const [paperWeight, setPaperWeight] = useState(config.availablePaperWeights?.[0] || "");
+  const [laminationType, setLaminationType] = useState<LaminationType>(
+    // Use the first lamination type if available, otherwise default to "none"
+    config.availableLaminationTypes?.[0] || "none"
+  );
   const [printerType, setPrinterType] = useState("HP 12000");
   const [sheetSize, setSheetSize] = useState("530x750mm");
   
