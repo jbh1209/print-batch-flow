@@ -13,16 +13,23 @@ import {
 interface DeleteBatchDialogProps {
   isOpen: boolean;
   isDeleting: boolean;
-  onCancel: () => void;
-  onDelete: () => void;
+  batchName?: string;
+  onClose: () => void;
+  onConfirmDelete: () => void;
 }
 
-const DeleteBatchDialog = ({ isOpen, isDeleting, onCancel, onDelete }: DeleteBatchDialogProps) => {
+const DeleteBatchDialog = ({ 
+  isOpen, 
+  isDeleting, 
+  batchName = "",
+  onClose, 
+  onConfirmDelete 
+}: DeleteBatchDialogProps) => {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Batch</DialogTitle>
+          <DialogTitle>Delete Batch{batchName ? ` - ${batchName}` : ""}</DialogTitle>
           <DialogDescription>
             Are you sure you want to delete this batch? This will return all jobs to the queue.
           </DialogDescription>
@@ -34,14 +41,14 @@ const DeleteBatchDialog = ({ isOpen, isDeleting, onCancel, onDelete }: DeleteBat
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={onCancel}
+            onClick={onClose}
             disabled={isDeleting}
           >
             Cancel
           </Button>
           <Button 
             variant="destructive"
-            onClick={onDelete}
+            onClick={onConfirmDelete}
             disabled={isDeleting}
           >
             {isDeleting ? (
