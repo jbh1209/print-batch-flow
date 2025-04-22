@@ -13,11 +13,6 @@ import FlyerJobDetail from './pages/FlyerJobDetail';
 import FlyerBatches from './pages/FlyerBatches';
 import BusinessCards from './pages/BusinessCards';
 import Flyers from './pages/Flyers';
-import Postcards from './pages/Postcards';
-import PostcardJobs from './pages/PostcardJobs';
-import PostcardJobNew from './pages/PostcardJobNew';
-import PostcardJobDetail from './pages/PostcardJobDetail';
-import PostcardBatches from './pages/PostcardBatches';
 import Posters from './pages/Posters';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
@@ -70,17 +65,6 @@ function App() {
           <Route 
             path="/batches/flyers/batches/:batchId" 
             element={<ProtectedRoute element={<BatchDetailsPage productType="Flyers" backUrl="/batches/flyers/batches" />} protected={true} />} 
-          />
-          
-          {/* Postcards routes */}
-          <Route path="/batches/postcards" element={<ProtectedRoute element={<Postcards />} protected={true} />} />
-          <Route path="/batches/postcards/jobs" element={<ProtectedRoute element={<PostcardJobs />} protected={true} />} />
-          <Route path="/batches/postcards/jobs/new" element={<ProtectedRoute element={<PostcardJobNew />} protected={true} />} />
-          <Route path="/batches/postcards/jobs/:jobId" element={<ProtectedRoute element={<PostcardJobDetail />} protected={true} />} />
-          <Route path="/batches/postcards/batches" element={<ProtectedRoute element={<PostcardBatches />} protected={true} />} />
-          <Route 
-            path="/batches/postcards/batches/:batchId" 
-            element={<ProtectedRoute element={<BatchDetailsPage productType="Postcards" backUrl="/batches/postcards/batches" />} protected={true} />} 
           />
           
           {/* Other product routes */}
