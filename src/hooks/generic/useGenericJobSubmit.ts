@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
-import { ProductConfig } from "@/config/productTypes";
+import { ProductConfig, TableName } from "@/config/productTypes";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,8 +84,9 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         }
         
         // Use the config's tableName to ensure we update the correct table
+        // Use a type assertion to handle the dynamic table name
         const { error } = await supabase
-          .from(config.tableName)
+          .from(config.tableName as TableName)
           .update(updateData)
           .eq('id', jobId);
           
@@ -111,8 +112,9 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         if (data.paper_weight) newJobData.paper_weight = data.paper_weight;
         
         // Use the config's tableName to ensure we insert into the correct table
+        // Use a type assertion to handle the dynamic table name
         const { error } = await supabase
-          .from(config.tableName)
+          .from(config.tableName as TableName)
           .insert(newJobData);
 
         if (error) throw error;

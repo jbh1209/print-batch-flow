@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BaseJob, BaseBatch, ProductConfig, LaminationType } from '@/config/productTypes';
+import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName } from '@/config/productTypes';
 
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -53,7 +53,10 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           sheet_size: batchProperties.sheetSize || "530x750mm",
           sheets_required: sheetsRequired,
           created_by: user.id,
-          status: 'pending'
+          status: 'pending',
+          front_pdf_url: null,
+          back_pdf_url: null,
+          overview_pdf_url: null
         })
         .select()
         .single();
@@ -62,8 +65,10 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
+      
+      // Use a type assertion to handle the dynamic table name
       const { error: updateError } = await supabase
-        .from(config.tableName)
+        .from(config.tableName as TableName)
         .update({ 
           batch_id: batchData.id,
           status: 'batched' 
@@ -94,7 +99,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Calculate differently based on product type
       if (config.productType === "Flyers") {
         // Use existing flyer calculation logic
-        const jobSize = job.size as string | undefined;
+        const jobSize = job.size;
         if (jobSize) {
           switch (jobSize) {
             case 'A5':
@@ -189,7 +194,13 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (error) throw error;
       
-      return data as BaseBatch[];
+      // Ensure front_pdf_url, back_pdf_url, and overview_pdf_url are always non-undefined
+      return (data || []).map(batch => ({
+        ...batch,
+        front_pdf_url: batch.front_pdf_url || null,
+        back_pdf_url: batch.back_pdf_url || null,
+        overview_pdf_url: batch.overview_pdf_url || null
+      })) as BaseBatch[];
     } catch (error) {
       console.error(`Error fetching ${config.productType} batches:`, error);
       return [];
@@ -203,7 +214,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       // First, reset all jobs in this batch back to queued status
       const { error: resetError } = await supabase
-        .from(config.tableName)
+        .from(config.tableName as TableName)
         .update({ 
           status: 'queued',
           batch_id: null

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { BaseBatch, BaseJob, ProductConfig, BatchStatus } from "@/config/productTypes";
+import { BaseBatch, BaseJob, ProductConfig, BatchStatus, TableName } from "@/config/productTypes";
 
 interface UseGenericBatchDetailsProps {
   batchId: string;
@@ -56,14 +56,15 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       
       console.log("Batch details received:", data?.id);
       
+      // Ensure these fields are always defined, even if null
       const batchData: BaseBatch = {
         id: data.id,
         name: data.name,
         status: data.status as BatchStatus,
         sheets_required: data.sheets_required,
-        front_pdf_url: data.front_pdf_url,
-        back_pdf_url: data.back_pdf_url,
-        overview_pdf_url: data.overview_pdf_url || null, // Allow for null value
+        front_pdf_url: data.front_pdf_url || null,
+        back_pdf_url: data.back_pdf_url || null,
+        overview_pdf_url: data.overview_pdf_url || null,
         due_date: data.due_date,
         created_at: data.created_at,
         created_by: data.created_by,
@@ -77,14 +78,14 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       // Fetch related jobs from the product-specific table
       if (config.tableName) {
         const { data: jobs, error: jobsError } = await supabase
-          .from(config.tableName)
+          .from(config.tableName as TableName)
           .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
       
         if (jobsError) throw jobsError;
         
-        // Assert that the data is of BaseJob[] type
+        // Use a type assertion for jobs
         setRelatedJobs((jobs || []) as BaseJob[]);
       }
     } catch (error) {
@@ -108,7 +109,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       // First reset all jobs in this batch back to queued status
       if (config.tableName) {
         const { error: jobsError } = await supabase
-          .from(config.tableName)
+          .from(config.tableName as TableName)
           .update({ 
             status: "queued",
             batch_id: null

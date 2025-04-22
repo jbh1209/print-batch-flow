@@ -31,6 +31,9 @@ export type LaminationType = "none" | "matt" | "gloss" | "soft_touch";
 // Base batch status type
 export type BatchStatus = "pending" | "processing" | "completed" | "cancelled";
 
+// Explicitly define allowed table names based on Supabase schema
+export type TableName = "flyer_jobs" | "postcard_jobs" | "poster_jobs" | "sticker_jobs" | "sleeve_jobs" | "box_jobs" | "cover_jobs" | "batches";
+
 // Base job interface that all product job types will extend
 export interface BaseJob {
   id: string;
@@ -61,9 +64,9 @@ export interface BaseBatch {
   due_date: string;
   created_by: string;
   updated_at?: string;
-  front_pdf_url?: string;
-  back_pdf_url?: string;
-  overview_pdf_url?: string;
+  front_pdf_url: string | null; // Changed to non-optional but nullable
+  back_pdf_url: string | null; // Changed to non-optional but nullable
+  overview_pdf_url: string | null; // Added this property
   lamination_type: LaminationType;
   paper_type?: string;
   paper_weight?: string;
@@ -91,7 +94,7 @@ export interface ProductFormConfig {
 // Product-specific configuration registry
 export interface ProductConfig {
   productType: ProductType;
-  tableName: string;
+  tableName: TableName; // Use our explicitly defined TableName type
   routes: ProductRouteConfig;
   ui: ProductFormConfig;
   hasLamination: boolean;

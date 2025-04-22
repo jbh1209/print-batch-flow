@@ -78,6 +78,14 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     );
   }
 
+  // Ensure all required properties exist in batch object for BatchDetailsType compatibility
+  const batchForDetails = {
+    ...batch,
+    front_pdf_url: batch.front_pdf_url || null,
+    back_pdf_url: batch.back_pdf_url || null,
+    overview_pdf_url: batch.overview_pdf_url || null,
+  };
+
   return (
     <div>
       <JobsHeader 
@@ -86,7 +94,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
       />
       
       <BatchDetailsContent
-        batch={batch}
+        batch={batchForDetails}
         relatedJobs={relatedJobs}
         productType={config.productType}
         onDeleteClick={handleDeleteClick}
