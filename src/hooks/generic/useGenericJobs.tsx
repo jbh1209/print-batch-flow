@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BaseJob, ProductConfig, JobStatus, ExistingTableName } from '@/config/productTypes';
+import { BaseJob, ProductConfig, JobStatus, ExistingTableName, LaminationType } from '@/config/productTypes';
 import { useGenericBatch } from './useGenericBatch';
 import { GenericJobFormValues } from '@/lib/schema/genericJobFormSchema';
 
@@ -229,7 +229,14 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   ) => {
     try {
-      const batch = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
+      // Type cast laminationType to LaminationType
+      const { laminationType, ...restProperties } = batchProperties;
+      const typedLaminationType = (laminationType || "none") as LaminationType;
+      
+      const batch = await createBatchWithSelectedJobs(selectedJobs, {
+        ...restProperties,
+        laminationType: typedLaminationType
+      });
       
       // Update local state to reflect the batched jobs
       setJobs(prevJobs => 
@@ -278,18 +285,31 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
+        // Get the IDs safely
+        const jobIds = orphanedJobs.map(job => {
+          if (job && typeof job === 'object' && 'id' in job) {
+            return job.id;
+          }
+          return null;
+        }).filter(id => id !== null) as string[];
+        
+        if (jobIds.length === 0) {
+          console.log("No valid job IDs found to update");
+          return;
+        }
+        
         // Reset these jobs to queued status
         // Use a safer approach for the Supabase query
         const { error: updateError } = await supabase
           .from(tableName as any)
           .update({ status: 'queued' })
-          .in('id', orphanedJobs.map(job => job.id));
+          .in('id', jobIds);
         
         if (updateError) throw updateError;
         
-        console.log(`Reset ${orphanedJobs.length} jobs to queued status`);
+        console.log(`Reset ${jobIds.length} jobs to queued status`);
         
-        toast.success(`Reset ${orphanedJobs.length} orphaned jobs back to queued status`);
+        toast.success(`Reset ${jobIds.length} orphaned jobs back to queued status`);
         
         // Refresh the job list
         await fetchJobs();

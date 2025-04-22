@@ -1,6 +1,6 @@
 
 import { z } from "zod";
-import { ProductConfig, ProductType } from "@/config/productTypes";
+import { ProductConfig } from "@/config/productTypes";
 
 // Create a generic job form schema based on product configuration
 export const createJobFormSchema = (config: ProductConfig) => {
@@ -44,15 +44,15 @@ export const getDefaultFormValues = (config: ProductConfig) => {
     due_date: new Date()
   };
 
-  if (config.hasSize) {
-    defaultValues.size = config.defaultSize || config.availableSizes[0];
+  if (config.hasSize && config.availableSizes && config.availableSizes.length > 0) {
+    defaultValues.size = config.availableSizes[0];
   }
 
-  if (config.hasPaperType) {
+  if (config.hasPaperType && config.availablePaperTypes && config.availablePaperTypes.length > 0) {
     defaultValues.paper_type = config.availablePaperTypes[0];
   }
 
-  if (config.hasPaperWeight) {
+  if (config.hasPaperWeight && config.availablePaperWeights && config.availablePaperWeights.length > 0) {
     defaultValues.paper_weight = config.availablePaperWeights[0];
   }
 
