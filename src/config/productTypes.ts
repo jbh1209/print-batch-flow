@@ -45,6 +45,10 @@ export interface BaseJob {
   user_id: string;
   created_at: string;
   updated_at: string;
+  // Make these optional since they're specific to certain product types
+  size?: string;
+  paper_type?: string;
+  paper_weight?: string;
 }
 
 // Base batch interface
@@ -60,6 +64,9 @@ export interface BaseBatch {
   front_pdf_url?: string;
   back_pdf_url?: string;
   overview_pdf_url?: string;
+  lamination_type: LaminationType;
+  paper_type?: string;
+  paper_weight?: string;
 }
 
 // Configuration for route paths

@@ -83,6 +83,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           updateData.file_name = fileName;
         }
         
+        // Use the config's tableName to ensure we update the correct table
         const { error } = await supabase
           .from(config.tableName)
           .update(updateData)
@@ -109,6 +110,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         if (data.paper_type) newJobData.paper_type = data.paper_type;
         if (data.paper_weight) newJobData.paper_weight = data.paper_weight;
         
+        // Use the config's tableName to ensure we insert into the correct table
         const { error } = await supabase
           .from(config.tableName)
           .insert(newJobData);

@@ -26,6 +26,11 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       setIsLoading(true);
       setError(null);
 
+      // Make sure we have a valid tableName
+      if (!config.tableName) {
+        throw new Error(`Invalid table name for ${config.productType}`);
+      }
+
       const { data, error: fetchError } = await supabase
         .from(config.tableName)
         .select('*')
@@ -45,7 +50,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   useEffect(() => {
     fetchJobs();
-  }, [user, config.tableName]);
+  }, [user]);
 
   // Delete a job
   const deleteJob = async (jobId: string) => {

@@ -63,24 +63,30 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        overview_pdf_url: data.overview_pdf_url,
+        overview_pdf_url: data.overview_pdf_url || null, // Allow for null value
         due_date: data.due_date,
         created_at: data.created_at,
         created_by: data.created_by,
+        lamination_type: data.lamination_type,
+        paper_type: data.paper_type,
+        paper_weight: data.paper_weight,
       };
       
       setBatch(batchData);
       
       // Fetch related jobs from the product-specific table
-      const { data: jobs, error: jobsError } = await supabase
-        .from(config.tableName)
-        .select("id, name, quantity, status, pdf_url")
-        .eq("batch_id", batchId)
-        .order("name");
+      if (config.tableName) {
+        const { data: jobs, error: jobsError } = await supabase
+          .from(config.tableName)
+          .select("id, name, quantity, status, pdf_url")
+          .eq("batch_id", batchId)
+          .order("name");
       
-      if (jobsError) throw jobsError;
-      
-      setRelatedJobs(jobs || []);
+        if (jobsError) throw jobsError;
+        
+        // Assert that the data is of BaseJob[] type
+        setRelatedJobs((jobs || []) as BaseJob[]);
+      }
     } catch (error) {
       console.error("Error fetching batch details:", error);
       setError("Failed to load batch details");
@@ -100,15 +106,17 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
     setIsDeleting(true);
     try {
       // First reset all jobs in this batch back to queued status
-      const { error: jobsError } = await supabase
-        .from(config.tableName)
-        .update({ 
-          status: "queued",
-          batch_id: null
-        })
-        .eq("batch_id", batchToDelete);
-      
-      if (jobsError) throw jobsError;
+      if (config.tableName) {
+        const { error: jobsError } = await supabase
+          .from(config.tableName)
+          .update({ 
+            status: "queued",
+            batch_id: null
+          })
+          .eq("batch_id", batchToDelete);
+        
+        if (jobsError) throw jobsError;
+      }
       
       // Then delete the batch
       const { error: deleteError } = await supabase

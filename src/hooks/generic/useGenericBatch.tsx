@@ -15,7 +15,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     batchProperties: {
       paperType?: string;
       paperWeight?: string;
-      laminationType?: string;
+      laminationType?: LaminationType;
       printerType?: string;
       sheetSize?: string;
     }
@@ -37,6 +37,9 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Generate a batch number format specific to the product type
       const batchNumber = await generateBatchNumber(config.productType);
       
+      // Convert lamination type to a known type to satisfy TypeScript
+      const laminationType: LaminationType = (batchProperties.laminationType || "none") as LaminationType;
+      
       // Create the batch
       const { data: batchData, error: batchError } = await supabase
         .from('batches')
@@ -44,7 +47,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           name: batchNumber,
           paper_type: batchProperties.paperType || null,
           paper_weight: batchProperties.paperWeight || null,
-          lamination_type: batchProperties.laminationType || "none",
+          lamination_type: laminationType,
           due_date: new Date().toISOString(), // Default to current date
           printer_type: batchProperties.printerType || "HP 12000",
           sheet_size: batchProperties.sheetSize || "530x750mm",
@@ -91,26 +94,30 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Calculate differently based on product type
       if (config.productType === "Flyers") {
         // Use existing flyer calculation logic
-        const size = job.size as string;
-        switch (size) {
-          case 'A5':
-            // Assuming 2 A5s per sheet
-            sheetsPerJob = Math.ceil(job.quantity / 2);
-            break;
-          case 'A4':
-            // Assuming 1 A4 per sheet
-            sheetsPerJob = job.quantity;
-            break;
-          case 'DL':
-            // Assuming 3 DLs per sheet
-            sheetsPerJob = Math.ceil(job.quantity / 3);
-            break;
-          case 'A3':
-            // Assuming 1 A3 per sheet (special case)
-            sheetsPerJob = job.quantity * 1.5; // A3 might require more paper
-            break;
-          default:
-            sheetsPerJob = job.quantity;
+        const jobSize = job.size as string | undefined;
+        if (jobSize) {
+          switch (jobSize) {
+            case 'A5':
+              // Assuming 2 A5s per sheet
+              sheetsPerJob = Math.ceil(job.quantity / 2);
+              break;
+            case 'A4':
+              // Assuming 1 A4 per sheet
+              sheetsPerJob = job.quantity;
+              break;
+            case 'DL':
+              // Assuming 3 DLs per sheet
+              sheetsPerJob = Math.ceil(job.quantity / 3);
+              break;
+            case 'A3':
+              // Assuming 1 A3 per sheet (special case)
+              sheetsPerJob = job.quantity * 1.5; // A3 might require more paper
+              break;
+            default:
+              sheetsPerJob = job.quantity;
+          }
+        } else {
+          sheetsPerJob = job.quantity;
         }
       } else {
         // Default calculation for other product types
