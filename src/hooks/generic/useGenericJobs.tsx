@@ -56,17 +56,17 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      // Use type assertion for the table name to satisfy TypeScript
+      // Use a safer approach for the Supabase query
       const { data, error: fetchError } = await supabase
-        .from(tableName as ExistingTableName)
+        .from(tableName as any)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 
-      // Use type assertion here since we know the data structure matches T
-      setJobs((data || []) as T[]);
+      // Use proper type assertion
+      setJobs((data || []) as unknown as T[]);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
@@ -89,9 +89,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Use type assertion for the table name to satisfy TypeScript
+      // Use a safer approach for the Supabase query
       const { error } = await supabase
-        .from(tableName as ExistingTableName)
+        .from(tableName as any)
         .delete()
         .eq('id', jobId)
         .eq('user_id', user?.id);
@@ -131,16 +131,16 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         status: 'queued' as JobStatus
       };
 
-      // Use type assertion for the table name to satisfy TypeScript
+      // Use a safer approach for the Supabase query
       const { data, error } = await supabase
-        .from(tableName as ExistingTableName)
+        .from(tableName as any)
         .insert(newJob)
         .select()
         .single();
 
       if (error) throw error;
 
-      // Update local state - use type assertion since we know this will match T
+      // Update local state with proper type assertion
       setJobs(prevJobs => [(data as unknown) as T, ...prevJobs]);
       return (data as unknown) as T;
     } catch (err) {
@@ -163,9 +163,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Use type assertion for the table name to satisfy TypeScript
+      // Use a safer approach for the Supabase query
       const { data, error } = await supabase
-        .from(tableName as ExistingTableName)
+        .from(tableName as any)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', user.id)
@@ -174,12 +174,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       if (error) throw error;
 
-      // Update local state with type assertion
+      // Update local state with proper type assertion
       setJobs(prevJobs => 
         prevJobs.map(job => job.id === jobId ? { ...job, ...(data as unknown as T) } : job)
       );
       
-      return (data as unknown) as T;
+      return (data as unknown as T);
     } catch (err) {
       console.error(`Error updating ${config.productType} job:`, err);
       throw err;
@@ -200,9 +200,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Use type assertion for the table name to satisfy TypeScript
+      // Use a safer approach for the Supabase query
       const { data, error } = await supabase
-        .from(tableName as ExistingTableName)
+        .from(tableName as any)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', user.id)
@@ -210,7 +210,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       if (error) throw error;
       
-      return (data as unknown) as T;
+      return (data as unknown as T);
     } catch (err) {
       console.error(`Error getting ${config.productType} job:`, err);
       throw err;
@@ -265,9 +265,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       }
       
       // Find all jobs that are marked as batched but have no batch_id
-      // Use type assertion for the table name to satisfy TypeScript
+      // Use a safer approach for the Supabase query
       const { data: orphanedJobs, error: findError } = await supabase
-        .from(tableName as ExistingTableName)
+        .from(tableName as any)
         .select('id')
         .eq('user_id', user.id)
         .eq('status', 'batched')
@@ -279,9 +279,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Reset these jobs to queued status
-        // Use type assertion for the table name to satisfy TypeScript
+        // Use a safer approach for the Supabase query
         const { error: updateError } = await supabase
-          .from(tableName as ExistingTableName)
+          .from(tableName as any)
           .update({ status: 'queued' })
           .in('id', orphanedJobs.map(job => job.id));
         

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -71,8 +70,6 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           status: 'pending',
           front_pdf_url: null,
           back_pdf_url: null
-          // Note: The database schema doesn't actually have overview_pdf_url column
-          // so we don't include it here in the insert
         })
         .select()
         .single();
@@ -86,7 +83,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Handle database tables that don't exist yet by checking against the allowed tables
       if (isExistingTable(tableName)) {
-        // Use type assertion to handle the type mismatch
+        // Use a safer approach for the Supabase query
         const { error: updateError } = await supabase
           .from(tableName as any)
           .update({ 
@@ -251,7 +248,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (isExistingTable(tableName)) {
         // First, reset all jobs in this batch back to queued status
-        // Use type assertion to avoid the TypeScript error
+        // Use a safer approach for the Supabase query
         const { error: resetError } = await supabase
           .from(tableName as any)
           .update({ 

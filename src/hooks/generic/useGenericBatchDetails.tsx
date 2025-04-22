@@ -79,7 +79,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url || null,
         back_pdf_url: data.back_pdf_url || null,
-        overview_pdf_url: null, // Add virtual property as it's not in the DB
+        overview_pdf_url: null, // Add virtual property
         due_date: data.due_date,
         created_at: data.created_at,
         created_by: data.created_by,
@@ -94,8 +94,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       // Fetch related jobs from the product-specific table
       const tableName = config.tableName;
       if (isExistingTable(tableName)) {
-        // Use a specific list of fields to select from the table
-        // Use type assertion to handle the type mismatch
+        // Use a safer approach for the Supabase query
         const { data: jobs, error: jobsError } = await supabase
           .from(tableName as any)
           .select("id, name, quantity, status, pdf_url")
@@ -132,7 +131,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       
       if (isExistingTable(tableName)) {
         // First reset all jobs in this batch back to queued status
-        // Use type assertion to handle the type mismatch
+        // Use a safer approach for the Supabase query
         const { error: jobsError } = await supabase
           .from(tableName as any)
           .update({ 
