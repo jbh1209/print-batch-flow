@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,7 +35,7 @@ export function usePostcardBatches(batchId?: string | null) {
       const postcardBatches = data?.map(batch => ({
         id: batch.id,
         name: batch.name,
-        status: batch.status as any,
+        status: batch.status,
         paper_type: parsePaperType(batch.paper_type),
         lamination_type: batch.lamination_type as LaminationType,
         created_at: batch.created_at,
@@ -109,7 +110,7 @@ export function usePostcardBatches(batchId?: string | null) {
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    navigate(`/batches/postcards/batches?batchId=${batchId}`);
+    navigate(`/batches/postcards/batches/${batchId}`);
   };
 
   return {
