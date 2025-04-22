@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { BaseBatch, BaseJob, ProductConfig, BatchStatus, TableName } from "@/config/productTypes";
+import { BaseBatch, BaseJob, ProductConfig, BatchStatus, TableName, ExistingTableName } from "@/config/productTypes";
 
 interface UseGenericBatchDetailsProps {
   batchId: string;
@@ -12,8 +12,8 @@ interface UseGenericBatchDetailsProps {
 }
 
 // Helper function to check if a table exists in our database
-function isExistingTable(tableName: TableName): boolean {
-  const existingTables: TableName[] = [
+const isExistingTable = (tableName: TableName): tableName is ExistingTableName => {
+  const existingTables: ExistingTableName[] = [
     "flyer_jobs",
     "postcard_jobs", 
     "business_card_jobs",
@@ -23,8 +23,8 @@ function isExistingTable(tableName: TableName): boolean {
     "user_roles"
   ];
   
-  return existingTables.includes(tableName);
-}
+  return existingTables.includes(tableName as ExistingTableName);
+};
 
 export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetailsProps) {
   const navigate = useNavigate();
@@ -92,9 +92,8 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       setBatch(batchData);
       
       // Fetch related jobs from the product-specific table
-      if (config.tableName && isExistingTable(config.tableName)) {
-        const tableName = config.tableName;
-        
+      const tableName = config.tableName;
+      if (isExistingTable(tableName)) {
         // Use a specific list of fields to select from the table
         const { data: jobs, error: jobsError } = await supabase
           .from(tableName)
@@ -104,7 +103,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       
         if (jobsError) throw jobsError;
         
-        // Use a type assertion to handle the job data
+        // Type assertion to handle jobs data
         setRelatedJobs((jobs || []) as unknown as BaseJob[]);
       } else {
         // For tables that don't exist yet, return empty jobs array

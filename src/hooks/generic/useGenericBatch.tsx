@@ -3,11 +3,26 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName } from '@/config/productTypes';
+import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName, ExistingTableName } from '@/config/productTypes';
 
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
+
+  // Helper function to check if a table exists in our database
+  const isExistingTable = (tableName: TableName): tableName is ExistingTableName => {
+    const existingTables: ExistingTableName[] = [
+      "flyer_jobs",
+      "postcard_jobs", 
+      "business_card_jobs",
+      "poster_jobs",
+      "batches", 
+      "profiles", 
+      "user_roles"
+    ];
+    
+    return existingTables.includes(tableName as ExistingTableName);
+  };
 
   // Create a batch with selected jobs
   const createBatchWithSelectedJobs = async (
@@ -56,7 +71,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           status: 'pending',
           front_pdf_url: null,
           back_pdf_url: null,
-          overview_pdf_url: null // Ensure this field is included
+          overview_pdf_url: null
         })
         .select()
         .single();
@@ -70,7 +85,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Handle database tables that don't exist yet by checking against the allowed tables
       if (isExistingTable(tableName)) {
-        // Use type assertion for the database operation
+        // Use the table name directly since we've verified it exists
         const { error: updateError } = await supabase
           .from(tableName)
           .update({ 
@@ -86,7 +101,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
-      // Ensure all required properties exist in the returned batch object
+      // Ensure the batch object has all required properties
       const fullBatch: BaseBatch = {
         ...batchData,
         overview_pdf_url: batchData.overview_pdf_url || null,
@@ -105,21 +120,6 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       setIsCreatingBatch(false);
     }
   };
-
-  // Helper function to check if a table exists in our database
-  function isExistingTable(tableName: TableName): boolean {
-    const existingTables: TableName[] = [
-      "flyer_jobs",
-      "postcard_jobs", 
-      "business_card_jobs",
-      "poster_jobs",
-      "batches", 
-      "profiles", 
-      "user_roles"
-    ];
-    
-    return existingTables.includes(tableName);
-  }
 
   // Helper function to calculate sheets required based on job type
   const calculateSheetsRequired = (jobs: T[]): number => {

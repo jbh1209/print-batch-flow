@@ -5,7 +5,22 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
-import { ProductConfig } from "@/config/productTypes";
+import { ProductConfig, ExistingTableName, TableName } from "@/config/productTypes";
+
+// Helper function to check if a table exists in our database
+const isExistingTable = (tableName: TableName): tableName is ExistingTableName => {
+  const existingTables: ExistingTableName[] = [
+    "flyer_jobs",
+    "postcard_jobs", 
+    "business_card_jobs",
+    "poster_jobs",
+    "batches", 
+    "profiles", 
+    "user_roles"
+  ];
+  
+  return existingTables.includes(tableName as ExistingTableName);
+};
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,6 +79,12 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
       }
 
       const tableName = config.tableName;
+      
+      // Check if the table exists in the database before operations
+      if (!isExistingTable(tableName)) {
+        toast.error(`Table ${tableName} is not yet implemented in the database`);
+        return false;
+      }
 
       if (jobId) {
         // We're updating an existing job
@@ -85,7 +106,6 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           updateData.file_name = fileName;
         }
         
-        // Use a type assertion to handle the dynamic table name
         const { error } = await supabase
           .from(tableName)
           .update(updateData)
@@ -112,7 +132,6 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         if (data.paper_type) newJobData.paper_type = data.paper_type;
         if (data.paper_weight) newJobData.paper_weight = data.paper_weight;
         
-        // Use a type assertion to handle the dynamic table name
         const { error } = await supabase
           .from(tableName)
           .insert(newJobData);

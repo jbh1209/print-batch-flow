@@ -1,10 +1,10 @@
 
 import { useGenericJobs } from "./useGenericJobs";
-import { productConfigs } from "@/config/productTypes";
-import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { productConfigs, BaseJob } from "@/config/productTypes";
 
+// This hook extends BaseJob to maintain compatibility with FlyerJob
 export function useGenericFlyerJobs() {
   const config = productConfigs["Flyers"];
   
-  return useGenericJobs<FlyerJob>(config);
+  return useGenericJobs<BaseJob>(config);
 }

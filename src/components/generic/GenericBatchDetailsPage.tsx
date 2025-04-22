@@ -84,7 +84,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
   const batchForDetails: BatchDetailsType = {
     id: batch.id,
     name: batch.name,
-    lamination_type: batch.lamination_type as LaminationType,
+    lamination_type: batch.lamination_type,
     sheets_required: batch.sheets_required,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,

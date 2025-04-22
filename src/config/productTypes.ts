@@ -1,23 +1,31 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 
-// Update TableName type to include only tables that actually exist in the database
-export type TableName = 
-  | "flyer_jobs" 
-  | "postcard_jobs" 
-  | "business_card_jobs"
-  | "poster_jobs"  // This is used but wasn't in the original type
-  | "batches"
-  | "profiles"
-  | "user_roles";
+// Define table names that actually exist in the database
+export type ExistingTableName = 
+  "flyer_jobs" | 
+  "postcard_jobs" | 
+  "business_card_jobs" |
+  "poster_jobs" | 
+  "batches" |
+  "profiles" |
+  "user_roles";
 
-export type JobStatus = "queued" | "processing" | "batched" | "printing" | "completed" | "error";
+// Include both existing and future/placeholder table names
+export type TableName = 
+  | ExistingTableName
+  | "sticker_jobs"
+  | "sleeve_jobs"
+  | "box_jobs"
+  | "cover_jobs";
+
+export type JobStatus = "queued" | "processing" | "batched" | "printing" | "completed" | "error" | "cancelled";
 export type BatchStatus = "pending" | "processing" | "completed" | "cancelled";
 export type LaminationType = "none" | "matt" | "gloss" | "soft_touch";
 
 export interface ProductConfig {
   productType: string;
-  tableName: TableName; // Using the updated TableName type
+  tableName: TableName;
   ui: {
     title: string;
     jobFormTitle: string;
@@ -28,7 +36,6 @@ export interface ProductConfig {
     jobsPath: string;
     newJobPath: string;
     batchesPath: string;
-    // Add these missing properties
     jobDetailPath: (id: string) => string;
     jobEditPath: (id: string) => string;
   };
@@ -38,7 +45,7 @@ export interface ProductConfig {
   availableSizes?: string[];
   availablePaperTypes?: string[];
   availablePaperWeights?: string[];
-  availableLaminationTypes?: LaminationType[]; // Add this missing property
+  availableLaminationTypes?: LaminationType[];
 }
 
 export interface BaseJob {
@@ -66,11 +73,11 @@ export interface BaseBatch {
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
-  overview_pdf_url: string | null; // Ensure this is always included
+  overview_pdf_url: string | null;
   due_date: string;
   created_at: string;
   created_by: string;
-  lamination_type: LaminationType; // Must be required, not optional
+  lamination_type: LaminationType;
   paper_type?: string;
   paper_weight?: string;
   updated_at: string;

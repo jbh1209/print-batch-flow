@@ -3,7 +3,7 @@ export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";
 export type PrinterType = "HP 12000" | "HP 7900";
 export type SheetSize = "455x640mm" | "530x750mm" | "320x455mm";
-export type JobStatus = "queued" | "batched" | "completed" | "cancelled";
+export type JobStatus = "queued" | "batched" | "completed" | "cancelled" | "processing" | "printing" | "error";
 export type BatchStatus = "pending" | "processing" | "completed" | "cancelled";
 export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
 
@@ -41,4 +41,5 @@ export interface FlyerBatch {
   lamination_type: LaminationType;
   front_pdf_url?: string;
   back_pdf_url?: string;
+  overview_pdf_url?: string;
 }
