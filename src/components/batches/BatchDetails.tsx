@@ -46,8 +46,9 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
           <DeleteBatchDialog 
             isOpen={!!batchToDelete}
             isDeleting={isDeleting}
-            onCancel={() => setBatchToDelete(null)}
-            onDelete={handleDeleteBatch}
+            batchName={batch?.name || ""}
+            onClose={() => setBatchToDelete(null)}
+            onConfirmDelete={handleDeleteBatch}
           />
         </>
       )}
