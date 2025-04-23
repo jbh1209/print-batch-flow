@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useBatchFixes(tableName: string | undefined, userId: string | undefined) {
+  const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
+
   const fixBatchedJobsWithoutBatch = async () => {
     if (!userId || !tableName) {
       console.log("No authenticated user or table name found for fix operation");
@@ -12,6 +14,7 @@ export function useBatchFixes(tableName: string | undefined, userId: string | un
     }
     
     try {
+      setIsFixingBatchedJobs(true);
       console.log("Finding orphaned batched jobs");
       
       if (!isExistingTable(tableName)) {
@@ -31,10 +34,10 @@ export function useBatchFixes(tableName: string | undefined, userId: string | un
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
+        // Fixed: Use proper type checking for job objects
         const jobIds = orphanedJobs
-          .filter((job): job is Record<string, any> => job !== null)
-          .map(job => job.id)
-          .filter((id): id is string => id !== null && typeof id === 'string');
+          .filter((job): job is { id: string } => job !== null && typeof job === 'object' && job.id !== undefined)
+          .map(job => job.id);
         
         if (jobIds.length === 0) {
           console.log("No valid job IDs found to update");
@@ -56,10 +59,13 @@ export function useBatchFixes(tableName: string | undefined, userId: string | un
     } catch (error) {
       console.error(`Error fixing batched jobs:`, error);
       toast.error(`Failed to reset jobs with missing batch references.`);
+    } finally {
+      setIsFixingBatchedJobs(false);
     }
   };
 
   return {
-    fixBatchedJobsWithoutBatch
+    fixBatchedJobsWithoutBatch,
+    isFixingBatchedJobs
   };
 }

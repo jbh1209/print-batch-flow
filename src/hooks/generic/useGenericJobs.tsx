@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { BaseJob, ProductConfig } from '@/config/productTypes';
+import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
 import { useGenericBatch } from './useGenericBatch';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
@@ -16,7 +16,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   
   const { createBatchWithSelectedJobs, isCreatingBatch } = useGenericBatch<T>(config);
   const { deleteJob, createJob, updateJob, getJobById } = useJobOperations(config.tableName, user?.id);
-  const { fixBatchedJobsWithoutBatch } = useBatchFixes(config.tableName, user?.id);
+  const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useBatchFixes(config.tableName, user?.id);
 
   // Fetch all jobs for this product type
   const fetchJobs = async () => {
@@ -100,13 +100,19 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     batchProperties: {
       paperType?: string;
       paperWeight?: string;
-      laminationType?: string;
+      laminationType?: LaminationType;
       printerType?: string;
       sheetSize?: string;
     }
   ) => {
     try {
-      const batch = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
+      // Fixed: Ensure laminationType is properly converted to LaminationType type
+      const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
+      
+      const batch = await createBatchWithSelectedJobs(selectedJobs, {
+        ...batchProperties,
+        laminationType: typedLaminationType
+      });
       
       setJobs(prevJobs => 
         prevJobs.map(job => 
@@ -141,6 +147,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     getJobById,
     createBatch: handleCreateBatch,
     isCreatingBatch,
-    fixBatchedJobsWithoutBatch: handleFixBatchedJobs
+    fixBatchedJobsWithoutBatch: handleFixBatchedJobs,
+    isFixingBatchedJobs
   };
 }
