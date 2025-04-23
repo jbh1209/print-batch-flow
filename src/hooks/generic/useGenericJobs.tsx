@@ -289,17 +289,18 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         // Safely extract job IDs, handling possible null values
         if (Array.isArray(orphanedJobs)) {
           for (const jobItem of orphanedJobs) {
-            // Explicit null check before accessing properties
+            // Explicit null check
             if (jobItem === null) {
               continue;
             }
             
-            // Type guard to ensure we have an object with an id property
-            if (typeof jobItem === 'object' && jobItem !== null && 'id' in jobItem) {
-              const job = jobItem;
+            // Type guard with non-null assertion for this specific block
+            if (typeof jobItem === 'object' && 'id' in jobItem) {
+              // Use a non-null assertion here since we've checked 'id' exists in jobItem
+              const jobId = jobItem.id;
               // Further check that id exists and is a string
-              if (job.id !== null && typeof job.id === 'string') {
-                jobIds.push(job.id);
+              if (jobId !== null && typeof jobId === 'string') {
+                jobIds.push(jobId);
               }
             }
           }
