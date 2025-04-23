@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -294,11 +295,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
               continue;
             }
             
-            // Perform a non-null assertion for TypeScript after we've confirmed jobItem is not null
-            const nonNullItem = jobItem; 
+            // Use type assertion after we've confirmed jobItem is not null
+            // This tells TypeScript that we've checked jobItem is not null
+            const nonNullItem = jobItem as Record<string, any>;
             
-            // Type guard to ensure it's an object with an id property
-            if (typeof nonNullItem === 'object' && 'id' in nonNullItem) {
+            // Type guard to ensure it has an id property
+            if ('id' in nonNullItem) {
               // Now we can safely access the id property
               const jobId = nonNullItem.id;
               
