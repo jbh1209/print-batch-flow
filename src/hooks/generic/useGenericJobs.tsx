@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -271,7 +272,6 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       }
       
       // Find all jobs that are marked as batched but have no batch_id
-      // Use a safer approach for the Supabase query
       const { data: orphanedJobs, error: findError } = await supabase
         .from(tableName as any)
         .select('id')
@@ -284,10 +284,15 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Get the IDs safely, ensuring job is not null before accessing properties
-        const jobIds = orphanedJobs
-          .filter((job): job is { id: string } => job != null && typeof job === 'object' && 'id' in job)
-          .map(job => job.id);
+        // First check if we have any valid jobs to update
+        const jobIds: string[] = [];
+        
+        // Safely extract job IDs, handling possible null values
+        for (const job of orphanedJobs) {
+          if (job && typeof job === 'object' && 'id' in job && typeof job.id === 'string') {
+            jobIds.push(job.id);
+          }
+        }
         
         if (jobIds.length === 0) {
           console.log("No valid job IDs found to update");
@@ -295,7 +300,6 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         }
         
         // Reset these jobs to queued status
-        // Use a safer approach for the Supabase query
         const { error: updateError } = await supabase
           .from(tableName as any)
           .update({ status: 'queued' })
