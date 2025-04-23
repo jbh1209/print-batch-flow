@@ -2,10 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { BaseJob, ProductConfig, JobStatus, ExistingTableName, LaminationType } from '@/config/productTypes';
+import { BaseJob, ProductConfig } from '@/config/productTypes';
 import { useGenericBatch } from './useGenericBatch';
-import { GenericJobFormValues } from '@/lib/schema/genericJobFormSchema';
+import { useJobOperations } from './useJobOperations';
+import { useBatchFixes } from './useBatchFixes';
+import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -14,21 +15,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const [error, setError] = useState<string | null>(null);
   
   const { createBatchWithSelectedJobs, isCreatingBatch } = useGenericBatch<T>(config);
-  
-  // Helper function to check if a table exists in our database
-  const isExistingTable = (tableName: string): tableName is ExistingTableName => {
-    const existingTables: ExistingTableName[] = [
-      "flyer_jobs",
-      "postcard_jobs", 
-      "business_card_jobs",
-      "poster_jobs",
-      "batches", 
-      "profiles", 
-      "user_roles"
-    ];
-    
-    return existingTables.includes(tableName as ExistingTableName);
-  };
+  const { deleteJob, createJob, updateJob, getJobById } = useJobOperations(config.tableName, user?.id);
+  const { fixBatchedJobsWithoutBatch } = useBatchFixes(config.tableName, user?.id);
 
   // Fetch all jobs for this product type
   const fetchJobs = async () => {
@@ -41,31 +29,25 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       setIsLoading(true);
       setError(null);
 
-      // Make sure we have a valid tableName
       if (!config.tableName) {
         throw new Error(`Invalid table name for ${config.productType}`);
       }
       
-      const tableName = config.tableName;
-      
-      // Check if the table exists before querying
-      if (!isExistingTable(tableName)) {
-        console.log(`Table ${tableName} doesn't exist yet, skipping fetch`);
+      if (!isExistingTable(config.tableName)) {
+        console.log(`Table ${config.tableName} doesn't exist yet, skipping fetch`);
         setJobs([] as T[]);
         setIsLoading(false);
         return;
       }
 
-      // Use a safer approach for the Supabase query
       const { data, error: fetchError } = await supabase
-        .from(tableName as any)
+        .from(config.tableName as any)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 
-      // Use proper type assertion
       setJobs((data || []) as unknown as T[]);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
@@ -79,145 +61,40 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     fetchJobs();
   }, [user]);
 
-  // Delete a job
-  const deleteJob = async (jobId: string) => {
-    try {
-      const tableName = config.tableName;
-      
-      // Check if the table exists before querying
-      if (!isExistingTable(tableName)) {
-        throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
-      }
-      
-      // Use a safer approach for the Supabase query
-      const { error } = await supabase
-        .from(tableName as any)
-        .delete()
-        .eq('id', jobId)
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      // Update local state
-      setJobs(jobs.filter(job => job.id !== jobId));
-      toast.success("Job deleted successfully");
-      return true;
-    } catch (err) {
-      console.error(`Error deleting ${config.productType} job:`, err);
-      toast.error("Error deleting job");
-      throw err;
+  // Handle job deletion with local state update
+  const handleDeleteJob = async (jobId: string) => {
+    const success = await deleteJob(jobId);
+    if (success) {
+      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
     }
+    return success;
   };
 
-  // Create a new job
-  const createJob = async (
+  // Handle job creation with local state update
+  const handleCreateJob = async (
     jobData: Omit<T, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>
   ) => {
     if (!user) {
       throw new Error('User not authenticated');
     }
-
-    try {
-      const tableName = config.tableName;
-      
-      // Check if the table exists before querying
-      if (!isExistingTable(tableName)) {
-        throw new Error(`Table ${tableName} doesn't exist yet, cannot create job`);
-      }
-      
-      const newJob = {
-        ...jobData,
-        user_id: user.id,
-        status: 'queued' as JobStatus
-      };
-
-      // Use a safer approach for the Supabase query
-      const { data, error } = await supabase
-        .from(tableName as any)
-        .insert(newJob)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Update local state with proper type assertion
-      setJobs(prevJobs => [(data as unknown) as T, ...prevJobs]);
-      return (data as unknown) as T;
-    } catch (err) {
-      console.error(`Error creating ${config.productType} job:`, err);
-      throw err;
-    }
+    const newJob = await createJob<T>(jobData, user.id);
+    setJobs(prevJobs => [newJob, ...prevJobs]);
+    return newJob;
   };
 
-  // Update an existing job
-  const updateJob = async (jobId: string, jobData: Partial<T>) => {
+  // Handle job update with local state update
+  const handleUpdateJob = async (jobId: string, jobData: Partial<T>) => {
     if (!user) {
       throw new Error('User not authenticated');
     }
-
-    try {
-      const tableName = config.tableName;
-      
-      // Check if the table exists before querying
-      if (!isExistingTable(tableName)) {
-        throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
-      }
-      
-      // Use a safer approach for the Supabase query
-      const { data, error } = await supabase
-        .from(tableName as any)
-        .update(jobData)
-        .eq('id', jobId)
-        .eq('user_id', user.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Update local state with proper type assertion
-      setJobs(prevJobs => 
-        prevJobs.map(job => job.id === jobId ? { ...job, ...(data as unknown as T) } : job)
-      );
-      
-      return (data as unknown as T);
-    } catch (err) {
-      console.error(`Error updating ${config.productType} job:`, err);
-      throw err;
-    }
+    const updatedJob = await updateJob<T>(jobId, jobData, user.id);
+    setJobs(prevJobs => 
+      prevJobs.map(job => job.id === jobId ? { ...job, ...updatedJob } : job)
+    );
+    return updatedJob;
   };
 
-  // Fetch a specific job by ID
-  const getJobById = async (jobId: string) => {
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-
-    try {
-      const tableName = config.tableName;
-      
-      // Check if the table exists before querying
-      if (!isExistingTable(tableName)) {
-        throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
-      }
-      
-      // Use a safer approach for the Supabase query
-      const { data, error } = await supabase
-        .from(tableName as any)
-        .select('*')
-        .eq('id', jobId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) throw error;
-      
-      return (data as unknown as T);
-    } catch (err) {
-      console.error(`Error getting ${config.productType} job:`, err);
-      throw err;
-    }
-  };
-
-  // Create a batch with selected jobs
+  // Handle batch creation with local state update
   const handleCreateBatch = async (
     selectedJobs: T[],
     batchProperties: {
@@ -229,16 +106,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   ) => {
     try {
-      // Type cast laminationType to LaminationType
-      const { laminationType, ...restProperties } = batchProperties;
-      const typedLaminationType = (laminationType || "none") as LaminationType;
+      const batch = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
       
-      const batch = await createBatchWithSelectedJobs(selectedJobs, {
-        ...restProperties,
-        laminationType: typedLaminationType
-      });
-      
-      // Update local state to reflect the batched jobs
       setJobs(prevJobs => 
         prevJobs.map(job => 
           selectedJobs.some(selectedJob => selectedJob.id === job.id)
@@ -253,88 +122,11 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   };
 
-  // Fix jobs that are marked as batched but have no batch_id
-  const fixBatchedJobsWithoutBatch = async () => {
-    if (!user) {
-      console.log("No authenticated user found for fix operation");
-      return;
-    }
-    
-    try {
-      console.log("Finding orphaned batched jobs");
-      
-      const tableName = config.tableName;
-      
-      // Check if the table exists before querying
-      if (!isExistingTable(tableName)) {
-        console.log(`Table ${tableName} doesn't exist yet, skipping fix operation`);
-        return;
-      }
-      
-      // Find all jobs that are marked as batched but have no batch_id
-      const { data: orphanedJobs, error: findError } = await supabase
-        .from(tableName as any)
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', 'batched')
-        .is('batch_id', null);
-      
-      if (findError) throw findError;
-      
-      console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
-      
-      if (orphanedJobs && orphanedJobs.length > 0) {
-        // First check if we have any valid jobs to update
-        const jobIds: string[] = [];
-        
-        // Safely extract job IDs, handling possible null values
-        if (Array.isArray(orphanedJobs)) {
-          for (const jobItem of orphanedJobs) {
-            // Skip null items
-            if (jobItem === null) {
-              continue;
-            }
-            
-            // Use type assertion after we've confirmed jobItem is not null
-            // This tells TypeScript that we've checked jobItem is not null
-            const nonNullItem = jobItem as Record<string, any>;
-            
-            // Type guard to ensure it has an id property
-            if ('id' in nonNullItem) {
-              // Now we can safely access the id property
-              const jobId = nonNullItem.id;
-              
-              // Further check that id exists and is a string
-              if (jobId !== null && typeof jobId === 'string') {
-                jobIds.push(jobId);
-              }
-            }
-          }
-        }
-        
-        if (jobIds.length === 0) {
-          console.log("No valid job IDs found to update");
-          return;
-        }
-        
-        // Reset these jobs to queued status
-        const { error: updateError } = await supabase
-          .from(tableName as any)
-          .update({ status: 'queued' })
-          .in('id', jobIds);
-        
-        if (updateError) throw updateError;
-        
-        console.log(`Reset ${jobIds.length} jobs to queued status`);
-        
-        toast.success(`Reset ${jobIds.length} orphaned jobs back to queued status`);
-        
-        // Refresh the job list
-        await fetchJobs();
-      }
-    } catch (error) {
-      console.error(`Error fixing batched ${config.productType} jobs:`, error);
-      toast.error(`Failed to reset jobs with missing batch references.`);
+  // Handle batch fixes with state refresh
+  const handleFixBatchedJobs = async () => {
+    const fixedCount = await fixBatchedJobsWithoutBatch();
+    if (fixedCount) {
+      await fetchJobs();
     }
   };
 
@@ -343,12 +135,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     isLoading,
     error,
     fetchJobs,
-    deleteJob,
-    createJob,
-    updateJob,
+    deleteJob: handleDeleteJob,
+    createJob: handleCreateJob,
+    updateJob: handleUpdateJob,
     getJobById,
     createBatch: handleCreateBatch,
     isCreatingBatch,
-    fixBatchedJobsWithoutBatch
+    fixBatchedJobsWithoutBatch: handleFixBatchedJobs
   };
 }
