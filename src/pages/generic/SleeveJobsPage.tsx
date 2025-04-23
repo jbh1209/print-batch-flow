@@ -5,9 +5,11 @@ import GenericJobsPage from "@/components/generic/GenericJobsPage";
 
 const SleeveJobsPage = () => {
   const config = productConfigs["Sleeves"];
-  const jobsHook = useGenericJobs(config);
+  
+  // Create a wrapper function that returns the hook result
+  const jobsHookWrapper = () => useGenericJobs(config);
 
-  return <GenericJobsPage config={config} useJobsHook={jobsHook} />;
+  return <GenericJobsPage config={config} useJobsHook={jobsHookWrapper} />;
 };
 
 export default SleeveJobsPage;
