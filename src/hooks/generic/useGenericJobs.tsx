@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -287,14 +286,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Get the IDs safely, ensuring job is not null before accessing properties
         const jobIds = orphanedJobs
-          .filter(job => job !== null) // Filter out null jobs first
-          .map(job => {
-            if (typeof job === 'object' && job !== null && 'id' in job) {
-              return job.id;
-            }
-            return null;
-          })
-          .filter((id): id is string => id !== null); // Type guard to ensure non-null
+          .filter((job): job is { id: string } => job != null && typeof job === 'object' && 'id' in job)
+          .map(job => job.id);
         
         if (jobIds.length === 0) {
           console.log("No valid job IDs found to update");
