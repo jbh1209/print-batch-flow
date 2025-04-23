@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { isExistingTable } from '@/utils/database/tableUtils';
 
+interface JobWithId {
+  id: string;
+}
+
 export function useBatchFixes(tableName: string | undefined, userId: string | undefined) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
@@ -34,9 +38,15 @@ export function useBatchFixes(tableName: string | undefined, userId: string | un
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Fixed: Use proper type checking for job objects
-        const jobIds = orphanedJobs
-          .filter((job): job is { id: string } => job !== null && typeof job === 'object' && job.id !== undefined)
+        // Fixed: Use a safer approach for extracting job IDs
+        const jobIds = (orphanedJobs as unknown[])
+          .filter((job): job is JobWithId => 
+            job !== null && 
+            typeof job === 'object' && 
+            job !== undefined && 
+            'id' in job && 
+            typeof job.id === 'string'
+          )
           .map(job => job.id);
         
         if (jobIds.length === 0) {
