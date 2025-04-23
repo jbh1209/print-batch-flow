@@ -282,6 +282,65 @@ export type Database = {
         }
         Relationships: []
       }
+      sleeve_jobs: {
+        Row: {
+          batch_id: string | null
+          created_at: string | null
+          due_date: string
+          file_name: string
+          id: string
+          job_number: string
+          name: string
+          pdf_url: string
+          quantity: number
+          single_sided: boolean
+          status: string
+          stock_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string | null
+          due_date: string
+          file_name: string
+          id?: string
+          job_number: string
+          name: string
+          pdf_url: string
+          quantity: number
+          single_sided?: boolean
+          status?: string
+          stock_type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string | null
+          due_date?: string
+          file_name?: string
+          id?: string
+          job_number?: string
+          name?: string
+          pdf_url?: string
+          quantity?: number
+          single_sided?: boolean
+          status?: string
+          stock_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sleeve_jobs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

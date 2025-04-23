@@ -34,6 +34,9 @@ import Boxes from './pages/Boxes';
 import Covers from './pages/Covers';
 import AllBatches from './pages/AllBatches';
 
+import SleeveJobsPage from './pages/generic/SleeveJobsPage';
+import SleeveJobNewPage from './pages/generic/SleeveJobNewPage';
+
 const ProtectedRoute = ({ element, protected: isProtected }) => {
   const { user } = useAuth();
 
@@ -96,6 +99,10 @@ function App() {
           {/* Admin routes */}
           <Route path="/users" element={<ProtectedRoute element={<Users />} protected={true} />} />
           <Route path="/settings" element={<ProtectedRoute element={<Settings />} protected={true} />} />
+          
+          {/* Add these routes inside the existing Routes component */}
+          <Route path="/batches/sleeves/jobs" element={<ProtectedRoute element={<SleeveJobsPage />} protected={true} />} />
+          <Route path="/batches/sleeves/jobs/new" element={<ProtectedRoute element={<SleeveJobNewPage />} protected={true} />} />
         </Route>
       </Routes>
     </Router>
