@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -289,8 +288,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         
         // Safely extract job IDs, handling possible null values
         for (const job of orphanedJobs) {
-          if (job && typeof job === 'object' && 'id' in job && typeof job.id === 'string') {
-            jobIds.push(job.id);
+          // Make sure job is not null before accessing properties
+          if (job !== null && typeof job === 'object' && 'id' in job && job.id !== null) {
+            // Additional type check to ensure id is a string
+            if (typeof job.id === 'string') {
+              jobIds.push(job.id);
+            }
           }
         }
         
