@@ -6,21 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
 import { ProductConfig, ExistingTableName, TableName } from "@/config/productTypes";
-
-// Helper function to check if a table exists in our database
-const isExistingTable = (tableName: TableName): tableName is ExistingTableName => {
-  const existingTables: ExistingTableName[] = [
-    "flyer_jobs",
-    "postcard_jobs", 
-    "business_card_jobs",
-    "poster_jobs",
-    "batches", 
-    "profiles", 
-    "user_roles"
-  ];
-  
-  return existingTables.includes(tableName as ExistingTableName);
-};
+import { isExistingTable } from "@/utils/database/tableUtils";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -95,10 +81,16 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           due_date: data.due_date.toISOString(),
         };
         
-        // Add optional fields if they exist in the form data
-        if (data.size) updateData.size = data.size;
-        if (data.paper_type) updateData.paper_type = data.paper_type;
-        if (data.paper_weight) updateData.paper_weight = data.paper_weight;
+        // Add product-specific fields
+        if (config.productType === "Sleeves") {
+          updateData.stock_type = data.stock_type;
+          updateData.single_sided = data.single_sided;
+        } else {
+          // Add optional fields if they exist in the form data
+          if ('size' in data) updateData.size = data.size;
+          if ('paper_type' in data) updateData.paper_type = data.paper_type;
+          if ('paper_weight' in data) updateData.paper_weight = data.paper_weight;
+        }
         
         // Only include file data if a new file was uploaded
         if (pdfUrl && fileName) {
@@ -128,10 +120,16 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           status: 'queued'
         };
         
-        // Add optional fields if they exist in the form data
-        if (data.size) newJobData.size = data.size;
-        if (data.paper_type) newJobData.paper_type = data.paper_type;
-        if (data.paper_weight) newJobData.paper_weight = data.paper_weight;
+        // Add product-specific fields
+        if (config.productType === "Sleeves") {
+          newJobData.stock_type = data.stock_type;
+          newJobData.single_sided = data.single_sided;
+        } else {
+          // Add optional fields if they exist in the form data
+          if ('size' in data) newJobData.size = data.size;
+          if ('paper_type' in data) newJobData.paper_type = data.paper_type;
+          if ('paper_weight' in data) newJobData.paper_weight = data.paper_weight;
+        }
         
         // Use a safer approach with type assertions for Supabase
         const { error } = await supabase
