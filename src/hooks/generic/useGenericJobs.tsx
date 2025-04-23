@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -297,8 +296,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
             
             // Type guard with non-null assertion for this specific block
             if (typeof jobItem === 'object' && jobItem !== null && 'id' in jobItem) {
-              // Ensure we access id safely with a null check
-              const jobId = jobItem.id;
+              // Access id property safely
+              const jobId = jobItem?.id;
               // Further check that id exists and is a string
               if (jobId !== null && typeof jobId === 'string') {
                 jobIds.push(jobId);
