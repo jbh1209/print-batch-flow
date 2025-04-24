@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { BaseBatch, BaseJob, ProductConfig, BatchStatus } from "@/config/productTypes";
-import { isExistingTable, getSupabaseTable } from "@/utils/database/tableUtils";
+import { isExistingTable, getSupabaseTable, SupabaseTableName } from "@/utils/database/tableUtils";
 
 interface UseGenericBatchDetailsProps {
   batchId: string;
@@ -33,7 +33,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       console.log(`Fetching batch details for batch ID: ${batchId}`);
       
       const { data, error } = await supabase
-        .from("batches")
+        .from("batches" as SupabaseTableName)
         .select("*")
         .eq("id", batchId)
         .eq("created_by", user.id)
@@ -80,10 +80,10 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       // Fetch related jobs from the product-specific table
       const tableName = config.tableName;
       if (isExistingTable(tableName)) {
-        // Get the table name as a simple string
+        // Get the properly typed table name
         const supabaseTable = getSupabaseTable(tableName);
         
-        // Use the table name string in the query
+        // Use the typed table name in the query
         const { data: jobs, error: jobsError } = await supabase
           .from(supabaseTable)
           .select("id, name, quantity, status, pdf_url")
@@ -119,7 +119,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Get the table name as a simple string
+        // Get the properly typed table name
         const supabaseTable = getSupabaseTable(tableName);
         
         // First reset all jobs in this batch back to queued status
@@ -136,7 +136,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       
       // Then delete the batch
       const { error: deleteError } = await supabase
-        .from("batches")
+        .from("batches" as SupabaseTableName)
         .delete()
         .eq("id", batchToDelete);
       

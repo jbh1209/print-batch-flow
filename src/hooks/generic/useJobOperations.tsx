@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, JobStatus, TableName } from '@/config/productTypes';
-import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
+import { isExistingTable, getSupabaseTable, SupabaseTableName } from '@/utils/database/tableUtils';
 
 export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +19,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Get the table name as a simple string
+      // Get the properly typed table name
       const supabaseTable = getSupabaseTable(tableName);
       
       const { error } = await supabase
@@ -52,7 +52,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot create job`);
       }
       
-      // Get the table name as a simple string
+      // Get the properly typed table name
       const supabaseTable = getSupabaseTable(tableName);
       
       const newJob = {
@@ -90,7 +90,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Get the table name as a simple string
+      // Get the properly typed table name
       const supabaseTable = getSupabaseTable(tableName);
       
       const { data, error } = await supabase
@@ -120,7 +120,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Get the table name as a simple string
+      // Get the properly typed table name
       const supabaseTable = getSupabaseTable(tableName);
       
       const { data, error } = await supabase

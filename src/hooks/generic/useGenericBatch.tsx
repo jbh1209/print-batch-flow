@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName } from '@/config/productTypes';
-import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
+import { isExistingTable, getSupabaseTable, SupabaseTableName } from '@/utils/database/tableUtils';
 
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -82,7 +82,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Get the count of existing batches for this product type
       const { data, error } = await supabase
-        .from('batches')
+        .from('batches' as SupabaseTableName)
         .select('name')
         .filter('name', 'ilike', `DXB-${productCode}-%`);
       
@@ -132,7 +132,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Create the batch
       const { data: batchData, error: batchError } = await supabase
-        .from('batches')
+        .from('batches' as SupabaseTableName)
         .insert({
           name: batchNumber,
           paper_type: batchProperties.paperType || null,
@@ -159,10 +159,10 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Handle database tables that don't exist yet by checking against the allowed tables
       if (isExistingTable(tableName)) {
-        // Get the table name as a simple string
+        // Get the table name as the properly typed constant
         const supabaseTable = getSupabaseTable(tableName);
         
-        // Use the table name string in the query
+        // Use the typed table name in the query
         const { error: updateError } = await supabase
           .from(supabaseTable)
           .update({ 
@@ -207,7 +207,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const productCode = getProductCode(config.productType);
       
       const { data, error } = await supabase
-        .from('batches')
+        .from('batches' as SupabaseTableName)
         .select('*')
         .eq('created_by', user.id)
         .filter('name', 'ilike', `DXB-${productCode}-%`)
@@ -237,10 +237,10 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Get the table name as a simple string
+        // Get the table name as the properly typed constant
         const supabaseTable = getSupabaseTable(tableName);
         
-        // Use the table name string in the query
+        // Use the typed table name in the query
         const { error: resetError } = await supabase
           .from(supabaseTable)
           .update({ 
@@ -254,7 +254,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Now delete the batch
       const { error } = await supabase
-        .from('batches')
+        .from('batches' as SupabaseTableName)
         .delete()
         .eq('id', batchId)
         .eq('created_by', user.id);
