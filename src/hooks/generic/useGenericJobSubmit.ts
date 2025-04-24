@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
 import { SleeveJobFormValues } from "@/lib/schema/sleeveJobFormSchema";
 import { ProductConfig, TableName } from "@/config/productTypes";
-import { isExistingTable } from "@/utils/database/tableUtils";
+import { isExistingTable, asSupabaseTable } from "@/utils/database/tableUtils";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,7 +102,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         }
         
         const { error } = await supabase
-          .from(tableName)
+          .from(asSupabaseTable(tableName))
           .update(updateData)
           .eq('id', jobId);
           
@@ -136,7 +136,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         }
         
         const { error } = await supabase
-          .from(tableName)
+          .from(asSupabaseTable(tableName))
           .insert(newJobData);
 
         if (error) throw error;

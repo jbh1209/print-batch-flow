@@ -4,27 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { BaseBatch, BaseJob, ProductConfig, BatchStatus, TableName, ExistingTableName } from "@/config/productTypes";
+import { BaseBatch, BaseJob, ProductConfig, BatchStatus, TableName } from "@/config/productTypes";
+import { isExistingTable, asSupabaseTable } from "@/utils/database/tableUtils";
 
 interface UseGenericBatchDetailsProps {
   batchId: string;
   config: ProductConfig;
 }
-
-// Helper function to check if a table exists in our database
-const isExistingTable = (tableName: TableName): tableName is ExistingTableName => {
-  const existingTables: ExistingTableName[] = [
-    "flyer_jobs",
-    "postcard_jobs", 
-    "business_card_jobs",
-    "poster_jobs",
-    "batches", 
-    "profiles", 
-    "user_roles"
-  ];
-  
-  return existingTables.includes(tableName as ExistingTableName);
-};
 
 export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetailsProps) {
   const navigate = useNavigate();
@@ -96,7 +82,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       if (isExistingTable(tableName)) {
         // Use a safer approach for the Supabase query
         const { data: jobs, error: jobsError } = await supabase
-          .from(tableName as any)
+          .from(asSupabaseTable(tableName))
           .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
@@ -133,7 +119,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         // First reset all jobs in this batch back to queued status
         // Use a safer approach for the Supabase query
         const { error: jobsError } = await supabase
-          .from(tableName as any)
+          .from(asSupabaseTable(tableName))
           .update({ 
             status: "queued",
             batch_id: null

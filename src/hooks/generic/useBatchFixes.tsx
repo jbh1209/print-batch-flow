@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TableName } from '@/config/productTypes';
-import { isExistingTable } from '@/utils/database/tableUtils';
+import { isExistingTable, asSupabaseTable } from '@/utils/database/tableUtils';
 
 interface JobWithId {
   id: string;
@@ -28,7 +28,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       }
       
       const { data: orphanedJobs, error: findError } = await supabase
-        .from(tableName)
+        .from(asSupabaseTable(tableName))
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
@@ -56,7 +56,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         }
         
         const { error: updateError } = await supabase
-          .from(tableName)
+          .from(asSupabaseTable(tableName))
           .update({ status: 'queued' })
           .in('id', jobIds);
         
