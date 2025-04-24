@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { BaseBatch, BaseJob, ProductConfig, BatchStatus, TableName } from "@/config/productTypes";
+import { BaseBatch, BaseJob, ProductConfig, BatchStatus } from "@/config/productTypes";
 import { isExistingTable, asSupabaseTable } from "@/utils/database/tableUtils";
 
 interface UseGenericBatchDetailsProps {
@@ -80,9 +80,12 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       // Fetch related jobs from the product-specific table
       const tableName = config.tableName;
       if (isExistingTable(tableName)) {
+        // Use the asSupabaseTable helper to get the right Supabase table name
+        const tableNameForQuery = asSupabaseTable(tableName);
+        
         // Use a safer approach for the Supabase query
         const { data: jobs, error: jobsError } = await supabase
-          .from(asSupabaseTable(tableName))
+          .from(tableNameForQuery)
           .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
@@ -116,10 +119,12 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
+        // Use the asSupabaseTable helper to get the right Supabase table name
+        const tableNameForQuery = asSupabaseTable(tableName);
+        
         // First reset all jobs in this batch back to queued status
-        // Use a safer approach for the Supabase query
         const { error: jobsError } = await supabase
-          .from(asSupabaseTable(tableName))
+          .from(tableNameForQuery)
           .update({ 
             status: "queued",
             batch_id: null

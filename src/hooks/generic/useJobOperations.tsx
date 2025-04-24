@@ -19,8 +19,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
+      // Use the asSupabaseTable helper to convert to a valid Supabase table name
+      const tableNameForQuery = asSupabaseTable(tableName);
+      
       const { error } = await supabase
-        .from(asSupabaseTable(tableName))
+        .from(tableNameForQuery)
         .delete()
         .eq('id', jobId)
         .eq('user_id', userId);
@@ -49,6 +52,9 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot create job`);
       }
       
+      // Use the asSupabaseTable helper to convert to a valid Supabase table name
+      const tableNameForQuery = asSupabaseTable(tableName);
+      
       const newJob = {
         ...jobData,
         user_id: userId,
@@ -56,7 +62,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       };
 
       const { data, error } = await supabase
-        .from(asSupabaseTable(tableName))
+        .from(tableNameForQuery)
         .insert(newJob)
         .select()
         .single();
@@ -84,8 +90,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
+      // Use the asSupabaseTable helper to convert to a valid Supabase table name
+      const tableNameForQuery = asSupabaseTable(tableName);
+      
       const { data, error } = await supabase
-        .from(asSupabaseTable(tableName))
+        .from(tableNameForQuery)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
@@ -111,8 +120,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
+      // Use the asSupabaseTable helper to convert to a valid Supabase table name
+      const tableNameForQuery = asSupabaseTable(tableName);
+      
       const { data, error } = await supabase
-        .from(asSupabaseTable(tableName))
+        .from(tableNameForQuery)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
