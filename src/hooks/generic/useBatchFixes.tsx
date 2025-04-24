@@ -30,7 +30,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use the table name directly with explicit type assertion
+      // Simplified type approach that avoids excessive instantiation
       const { data: orphanedJobs, error: findError } = await supabase
         .from(table)
         .select('id')

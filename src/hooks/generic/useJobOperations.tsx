@@ -61,16 +61,16 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
+      // Using a simplified approach to avoid recursive type instantiation
       const { data, error } = await supabase
         .from(table)
         .insert(newJob)
-        .select()
-        .single();
+        .select();
 
       if (error) throw error;
       
       // First convert to unknown, then to T to avoid direct type conversion errors
-      return data as unknown as T;
+      return (data && data[0]) as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -94,18 +94,18 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
+      // Using a simplified approach to avoid recursive type instantiation
       const { data, error } = await supabase
         .from(table)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
-        .select()
-        .single();
+        .select();
 
       if (error) throw error;
       
       // First convert to unknown, then to T to avoid direct type conversion errors
-      return data as unknown as T;
+      return (data && data[0]) as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -125,17 +125,18 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
+      // Using a simplified approach to avoid recursive type instantiation
       const { data, error } = await supabase
         .from(table)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
-        .single();
+        .limit(1);
 
       if (error) throw error;
       
       // First convert to unknown, then to T to avoid direct type conversion errors
-      return data as unknown as T;
+      return (data && data[0]) as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

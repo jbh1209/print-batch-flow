@@ -13,7 +13,7 @@ export type SupabaseTableName =
   | "user_roles";
 
 // Define table names that actually exist in the database - this must match exactly what's in Supabase
-export const existingTables: SupabaseTableName[] = [
+export const existingTables: readonly SupabaseTableName[] = [
   "flyer_jobs", 
   "postcard_jobs", 
   "business_card_jobs",
@@ -21,7 +21,7 @@ export const existingTables: SupabaseTableName[] = [
   "batches",
   "profiles",
   "user_roles"
-];
+] as const;
 
 // Type that represents all tables, including those that might not exist yet
 export type TableName = 

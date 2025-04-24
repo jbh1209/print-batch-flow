@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -162,7 +163,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Use the typed table name in the query
+        // Simplified approach to avoid excessive type nesting
         const { error: updateError } = await supabase
           .from(table)
           .update({ 
