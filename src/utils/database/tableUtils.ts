@@ -2,10 +2,6 @@
 import { Database } from "@/integrations/supabase/types";
 import { TableName } from "@/config/productTypes";
 
-// Use the actual types from the Supabase database
-type DbTables = Database['public']['Tables'];
-export type SupabaseTableName = keyof DbTables;
-
 // Define table names that actually exist in the database
 export const existingTables: TableName[] = [
   "flyer_jobs", 
@@ -24,13 +20,12 @@ export const isExistingTable = (tableName: TableName | undefined): boolean => {
   return existingTables.includes(tableName);
 };
 
-// Helper function to safely cast a TableName to SupabaseTableName for use with Supabase client
-export const asSupabaseTable = (tableName: TableName | undefined): SupabaseTableName => {
+// Use a simpler approach to map TableName to string without complex typings
+export const getSupabaseTable = (tableName: TableName | undefined): string => {
   if (!tableName || !isExistingTable(tableName)) {
     throw new Error(`Invalid or non-existent table name: ${tableName}`);
   }
   
-  // Here we need to ensure that TypeScript knows this is a valid Supabase table name
-  // We do a runtime check and then cast the result
-  return tableName as SupabaseTableName;
+  // Simple string cast to avoid type depth issues
+  return tableName;
 };

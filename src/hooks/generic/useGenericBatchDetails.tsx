@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { BaseBatch, BaseJob, ProductConfig, BatchStatus } from "@/config/productTypes";
-import { isExistingTable, asSupabaseTable } from "@/utils/database/tableUtils";
+import { isExistingTable, getSupabaseTable } from "@/utils/database/tableUtils";
 
 interface UseGenericBatchDetailsProps {
   batchId: string;
@@ -80,10 +80,10 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       // Fetch related jobs from the product-specific table
       const tableName = config.tableName;
       if (isExistingTable(tableName)) {
-        // Get the properly typed table name for Supabase
-        const supabaseTable = asSupabaseTable(tableName);
+        // Get the table name as a simple string
+        const supabaseTable = getSupabaseTable(tableName);
         
-        // Use the typed table name in the query
+        // Use the table name string in the query
         const { data: jobs, error: jobsError } = await supabase
           .from(supabaseTable)
           .select("id, name, quantity, status, pdf_url")
@@ -119,8 +119,8 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Get the properly typed table name for Supabase
-        const supabaseTable = asSupabaseTable(tableName);
+        // Get the table name as a simple string
+        const supabaseTable = getSupabaseTable(tableName);
         
         // First reset all jobs in this batch back to queued status
         const { error: jobsError } = await supabase

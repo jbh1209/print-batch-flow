@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, JobStatus, TableName } from '@/config/productTypes';
-import { isExistingTable, asSupabaseTable } from '@/utils/database/tableUtils';
+import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
 
 export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,8 +19,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Get the properly typed table name for Supabase
-      const supabaseTable = asSupabaseTable(tableName);
+      // Get the table name as a simple string
+      const supabaseTable = getSupabaseTable(tableName);
       
       const { error } = await supabase
         .from(supabaseTable)
@@ -52,8 +52,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot create job`);
       }
       
-      // Get the properly typed table name for Supabase
-      const supabaseTable = asSupabaseTable(tableName);
+      // Get the table name as a simple string
+      const supabaseTable = getSupabaseTable(tableName);
       
       const newJob = {
         ...jobData,
@@ -90,8 +90,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Get the properly typed table name for Supabase
-      const supabaseTable = asSupabaseTable(tableName);
+      // Get the table name as a simple string
+      const supabaseTable = getSupabaseTable(tableName);
       
       const { data, error } = await supabase
         .from(supabaseTable)
@@ -120,8 +120,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Get the properly typed table name for Supabase
-      const supabaseTable = asSupabaseTable(tableName);
+      // Get the table name as a simple string
+      const supabaseTable = getSupabaseTable(tableName);
       
       const { data, error } = await supabase
         .from(supabaseTable)

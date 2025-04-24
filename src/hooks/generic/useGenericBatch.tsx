@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName } from '@/config/productTypes';
-import { isExistingTable, asSupabaseTable } from '@/utils/database/tableUtils';
+import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
 
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -159,10 +159,10 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Handle database tables that don't exist yet by checking against the allowed tables
       if (isExistingTable(tableName)) {
-        // Get the properly typed table name for Supabase
-        const supabaseTable = asSupabaseTable(tableName);
+        // Get the table name as a simple string
+        const supabaseTable = getSupabaseTable(tableName);
         
-        // Use the typed table name in the query
+        // Use the table name string in the query
         const { error: updateError } = await supabase
           .from(supabaseTable)
           .update({ 
@@ -237,11 +237,10 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // First, reset all jobs in this batch back to queued status
-        // Get the properly typed table name for Supabase
-        const supabaseTable = asSupabaseTable(tableName);
+        // Get the table name as a simple string
+        const supabaseTable = getSupabaseTable(tableName);
         
-        // Use the typed table name in the query
+        // Use the table name string in the query
         const { error: resetError } = await supabase
           .from(supabaseTable)
           .update({ 
