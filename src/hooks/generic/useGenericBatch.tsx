@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -158,12 +159,12 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Handle database tables that don't exist yet by checking against the allowed tables
       if (isExistingTable(tableName)) {
-        // Use the asSupabaseTable helper to get the right Supabase table name
-        const tableNameForQuery = asSupabaseTable(tableName);
+        // Get the properly typed table name for Supabase
+        const supabaseTable = asSupabaseTable(tableName);
         
-        // Use a safer approach for the Supabase query
+        // Use the typed table name in the query
         const { error: updateError } = await supabase
-          .from(tableNameForQuery)
+          .from(supabaseTable)
           .update({ 
             batch_id: batchData.id,
             status: 'batched' 
@@ -236,12 +237,13 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Use the asSupabaseTable helper to get the right Supabase table name
-        const tableNameForQuery = asSupabaseTable(tableName);
-        
         // First, reset all jobs in this batch back to queued status
+        // Get the properly typed table name for Supabase
+        const supabaseTable = asSupabaseTable(tableName);
+        
+        // Use the typed table name in the query
         const { error: resetError } = await supabase
-          .from(tableNameForQuery)
+          .from(supabaseTable)
           .update({ 
             status: 'queued',
             batch_id: null

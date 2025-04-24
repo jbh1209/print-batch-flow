@@ -19,11 +19,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Use the asSupabaseTable helper to convert to a valid Supabase table name
-      const tableNameForQuery = asSupabaseTable(tableName);
+      // Get the properly typed table name for Supabase
+      const supabaseTable = asSupabaseTable(tableName);
       
       const { error } = await supabase
-        .from(tableNameForQuery)
+        .from(supabaseTable)
         .delete()
         .eq('id', jobId)
         .eq('user_id', userId);
@@ -52,8 +52,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot create job`);
       }
       
-      // Use the asSupabaseTable helper to convert to a valid Supabase table name
-      const tableNameForQuery = asSupabaseTable(tableName);
+      // Get the properly typed table name for Supabase
+      const supabaseTable = asSupabaseTable(tableName);
       
       const newJob = {
         ...jobData,
@@ -62,7 +62,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       };
 
       const { data, error } = await supabase
-        .from(tableNameForQuery)
+        .from(supabaseTable)
         .insert(newJob)
         .select()
         .single();
@@ -90,11 +90,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Use the asSupabaseTable helper to convert to a valid Supabase table name
-      const tableNameForQuery = asSupabaseTable(tableName);
+      // Get the properly typed table name for Supabase
+      const supabaseTable = asSupabaseTable(tableName);
       
       const { data, error } = await supabase
-        .from(tableNameForQuery)
+        .from(supabaseTable)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
@@ -120,11 +120,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Use the asSupabaseTable helper to convert to a valid Supabase table name
-      const tableNameForQuery = asSupabaseTable(tableName);
+      // Get the properly typed table name for Supabase
+      const supabaseTable = asSupabaseTable(tableName);
       
       const { data, error } = await supabase
-        .from(tableNameForQuery)
+        .from(supabaseTable)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)

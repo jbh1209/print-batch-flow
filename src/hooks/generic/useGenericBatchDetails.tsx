@@ -80,12 +80,12 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       // Fetch related jobs from the product-specific table
       const tableName = config.tableName;
       if (isExistingTable(tableName)) {
-        // Use the asSupabaseTable helper to get the right Supabase table name
-        const tableNameForQuery = asSupabaseTable(tableName);
+        // Get the properly typed table name for Supabase
+        const supabaseTable = asSupabaseTable(tableName);
         
-        // Use a safer approach for the Supabase query
+        // Use the typed table name in the query
         const { data: jobs, error: jobsError } = await supabase
-          .from(tableNameForQuery)
+          .from(supabaseTable)
           .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
@@ -119,12 +119,12 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Use the asSupabaseTable helper to get the right Supabase table name
-        const tableNameForQuery = asSupabaseTable(tableName);
+        // Get the properly typed table name for Supabase
+        const supabaseTable = asSupabaseTable(tableName);
         
         // First reset all jobs in this batch back to queued status
         const { error: jobsError } = await supabase
-          .from(tableNameForQuery)
+          .from(supabaseTable)
           .update({ 
             status: "queued",
             batch_id: null

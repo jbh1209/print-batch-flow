@@ -27,11 +27,12 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         return;
       }
       
-      // Use the asSupabaseTable helper to convert to a valid Supabase table name
-      const tableNameForQuery = asSupabaseTable(tableName);
+      // Get the properly typed table name for Supabase
+      const supabaseTable = asSupabaseTable(tableName);
       
+      // Use the typed table name in the query
       const { data: orphanedJobs, error: findError } = await supabase
-        .from(tableNameForQuery)
+        .from(supabaseTable)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
@@ -58,8 +59,9 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
           return;
         }
         
+        // Use the same typed table name for the update query
         const { error: updateError } = await supabase
-          .from(tableNameForQuery)
+          .from(supabaseTable)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
