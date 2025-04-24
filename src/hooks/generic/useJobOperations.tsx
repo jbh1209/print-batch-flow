@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, JobStatus, TableName } from '@/config/productTypes';
-import { isExistingTable, getSupabaseTable, SupabaseTableName } from '@/utils/database/tableUtils';
+import { isExistingTable, getSupabaseTable, ValidSupabaseTableName } from '@/utils/database/tableUtils';
 
 export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,11 +19,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Get the properly typed table name
-      const supabaseTable = getSupabaseTable(tableName);
+      // Get the valid table name
+      const validTableName = getSupabaseTable(tableName);
       
       const { error } = await supabase
-        .from(supabaseTable)
+        .from(validTableName)
         .delete()
         .eq('id', jobId)
         .eq('user_id', userId);
@@ -52,8 +52,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot create job`);
       }
       
-      // Get the properly typed table name
-      const supabaseTable = getSupabaseTable(tableName);
+      // Get the valid table name
+      const validTableName = getSupabaseTable(tableName);
       
       const newJob = {
         ...jobData,
@@ -62,7 +62,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       };
 
       const { data, error } = await supabase
-        .from(supabaseTable)
+        .from(validTableName)
         .insert(newJob)
         .select()
         .single();
@@ -90,11 +90,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Get the properly typed table name
-      const supabaseTable = getSupabaseTable(tableName);
+      // Get the valid table name
+      const validTableName = getSupabaseTable(tableName);
       
       const { data, error } = await supabase
-        .from(supabaseTable)
+        .from(validTableName)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
@@ -120,11 +120,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Get the properly typed table name
-      const supabaseTable = getSupabaseTable(tableName);
+      // Get the valid table name
+      const validTableName = getSupabaseTable(tableName);
       
       const { data, error } = await supabase
-        .from(supabaseTable)
+        .from(validTableName)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)

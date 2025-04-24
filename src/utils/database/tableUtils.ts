@@ -14,16 +14,9 @@ export const existingTables: TableName[] = [
   "user_roles"
 ];
 
-// Valid database tables that can be used with Supabase queries
-export type SupabaseTableName = 
-  | "flyer_jobs"
-  | "postcard_jobs"
-  | "business_card_jobs"
-  | "poster_jobs"
-  | "sleeve_jobs"
-  | "batches"
-  | "profiles"
-  | "user_roles";
+// Type that represents valid tables in Supabase database
+export type ValidSupabaseTableName = "flyer_jobs" | "postcard_jobs" | "business_card_jobs" | 
+  "poster_jobs" | "sleeve_jobs" | "batches" | "profiles" | "user_roles";
 
 // Function to check if a table exists in our database
 export const isExistingTable = (tableName: TableName | undefined): boolean => {
@@ -31,15 +24,14 @@ export const isExistingTable = (tableName: TableName | undefined): boolean => {
   return existingTables.includes(tableName);
 };
 
-// Function to safely cast a TableName to a string for Supabase queries
-export const getSupabaseTable = (tableName: TableName | undefined): SupabaseTableName => {
+// Function to safely cast a TableName to a ValidSupabaseTableName
+export function getSupabaseTable(tableName: TableName | undefined): ValidSupabaseTableName {
   if (!tableName || !isExistingTable(tableName)) {
     throw new Error(`Invalid or non-existent table name: ${tableName}`);
   }
   
-  // Cast to SupabaseTableName since we've verified it exists
-  return tableName as SupabaseTableName;
-};
+  return tableName as ValidSupabaseTableName;
+}
 
 // Alias for getSupabaseTable for backward compatibility
 export const asSupabaseTable = getSupabaseTable;

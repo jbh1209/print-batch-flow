@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName } from '@/config/productTypes';
-import { isExistingTable, getSupabaseTable, SupabaseTableName } from '@/utils/database/tableUtils';
+import { isExistingTable, getSupabaseTable, ValidSupabaseTableName } from '@/utils/database/tableUtils';
 
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -81,8 +81,9 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const productCode = getProductCode(productType);
       
       // Get the count of existing batches for this product type
+      // "batches" is always a valid table, so we can use it directly
       const { data, error } = await supabase
-        .from('batches' as SupabaseTableName)
+        .from("batches")
         .select('name')
         .filter('name', 'ilike', `DXB-${productCode}-%`);
       
@@ -130,9 +131,9 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Convert lamination type to a known type to satisfy TypeScript
       const laminationType: LaminationType = (batchProperties.laminationType || "none") as LaminationType;
       
-      // Create the batch
+      // Create the batch - "batches" is always a valid table
       const { data: batchData, error: batchError } = await supabase
-        .from('batches' as SupabaseTableName)
+        .from("batches")
         .insert({
           name: batchNumber,
           paper_type: batchProperties.paperType || null,
@@ -159,12 +160,12 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Handle database tables that don't exist yet by checking against the allowed tables
       if (isExistingTable(tableName)) {
-        // Get the table name as the properly typed constant
-        const supabaseTable = getSupabaseTable(tableName);
+        // Get the valid table name
+        const validTableName = getSupabaseTable(tableName);
         
         // Use the typed table name in the query
         const { error: updateError } = await supabase
-          .from(supabaseTable)
+          .from(validTableName)
           .update({ 
             batch_id: batchData.id,
             status: 'batched' 
@@ -179,13 +180,21 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
       // Create a complete batch object with the required properties
-      // including the virtual overview_pdf_url property
       const fullBatch: BaseBatch = {
-        ...batchData,
-        overview_pdf_url: null, // Add this virtual property
+        id: batchData.id,
+        name: batchData.name,
+        status: batchData.status,
+        sheets_required: batchData.sheets_required,
         front_pdf_url: batchData.front_pdf_url || null,
         back_pdf_url: batchData.back_pdf_url || null,
-        lamination_type: batchData.lamination_type || "none"
+        overview_pdf_url: null, // Add this virtual property
+        due_date: batchData.due_date,
+        created_at: batchData.created_at,
+        created_by: batchData.created_by,
+        lamination_type: batchData.lamination_type || "none",
+        paper_type: batchData.paper_type,
+        paper_weight: batchData.paper_weight,
+        updated_at: batchData.updated_at
       };
       
       return fullBatch;
@@ -206,8 +215,9 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const productCode = getProductCode(config.productType);
       
+      // "batches" is always a valid table
       const { data, error } = await supabase
-        .from('batches' as SupabaseTableName)
+        .from("batches")
         .select('*')
         .eq('created_by', user.id)
         .filter('name', 'ilike', `DXB-${productCode}-%`)
@@ -237,12 +247,12 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Get the table name as the properly typed constant
-        const supabaseTable = getSupabaseTable(tableName);
+        // Get the valid table name
+        const validTableName = getSupabaseTable(tableName);
         
         // Use the typed table name in the query
         const { error: resetError } = await supabase
-          .from(supabaseTable)
+          .from(validTableName)
           .update({ 
             status: 'queued',
             batch_id: null
@@ -252,9 +262,9 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         if (resetError) throw resetError;
       }
       
-      // Now delete the batch
+      // Now delete the batch - "batches" is always a valid table
       const { error } = await supabase
-        .from('batches' as SupabaseTableName)
+        .from("batches")
         .delete()
         .eq('id', batchId)
         .eq('created_by', user.id);

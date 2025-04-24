@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TableName } from '@/config/productTypes';
-import { isExistingTable, getSupabaseTable, SupabaseTableName } from '@/utils/database/tableUtils';
+import { isExistingTable, getSupabaseTable, ValidSupabaseTableName } from '@/utils/database/tableUtils';
 
 interface JobWithId {
   id: string;
@@ -27,12 +27,12 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         return;
       }
       
-      // Get the table name as the proper typed constant
-      const supabaseTable = getSupabaseTable(tableName);
+      // Get the valid table name
+      const validTableName = getSupabaseTable(tableName);
       
-      // Use the typed table name in the query
+      // Use the typed table name in the query as a string literal
       const { data: orphanedJobs, error: findError } = await supabase
-        .from(supabaseTable)
+        .from(validTableName)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
@@ -59,9 +59,9 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
           return;
         }
         
-        // Use the same typed table name for the update query
+        // Use the same validTableName for the update query
         const { error: updateError } = await supabase
-          .from(supabaseTable)
+          .from(validTableName)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
