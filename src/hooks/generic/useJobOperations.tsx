@@ -69,7 +69,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      return (data as unknown) as T;
+      return data as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -103,7 +103,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      return (data as unknown) as T;
+      return data as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -132,7 +132,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      return (data as unknown) as T;
+      return data as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

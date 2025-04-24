@@ -44,9 +44,9 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Fixed: Use a safer approach for extracting job IDs
-        const jobIds = (orphanedJobs as unknown[])
-          .filter((job): job is JobWithId => 
+        // Fixed: Properly type the job objects and ensure safe access to properties
+        const jobIds = orphanedJobs
+          .filter((job): job is { id: string } => 
             job !== null && 
             typeof job === 'object' && 
             job !== undefined && 

@@ -28,8 +28,7 @@ export type TableName =
   | SupabaseTableName 
   | "sticker_jobs" 
   | "box_jobs" 
-  | "cover_jobs" 
-  | "poster_jobs";
+  | "cover_jobs";
 
 // Function to check if a table exists in our database
 export const isExistingTable = (tableName: TableName | undefined): tableName is SupabaseTableName => {

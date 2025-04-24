@@ -1,4 +1,3 @@
-
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SupabaseTableName } from "@/utils/database/tableUtils";
 
@@ -83,7 +82,6 @@ export const productConfigs: Record<string, ProductConfig> = {
       jobsPath: "/batches/business-cards/jobs",
       newJobPath: "/batches/business-cards/jobs/new",
       batchesPath: "/batches/business-cards/batches",
-      // Add the missing path functions
       jobDetailPath: (id: string) => `/batches/business-cards/jobs/${id}`,
       jobEditPath: (id: string) => `/batches/business-cards/jobs/${id}/edit`,
     },
@@ -144,7 +142,7 @@ export const productConfigs: Record<string, ProductConfig> = {
   },
   "Posters": {
     productType: "Posters",
-    tableName: "poster_jobs", // This is an existing table name now
+    tableName: "batches", // Changed from "poster_jobs" to use an existing table for now
     ui: {
       title: "Posters",
       jobFormTitle: "Poster",
