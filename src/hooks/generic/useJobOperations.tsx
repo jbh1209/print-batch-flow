@@ -2,10 +2,10 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BaseJob, JobStatus } from '@/config/productTypes';
+import { BaseJob, JobStatus, TableName } from '@/config/productTypes';
 import { isExistingTable } from '@/utils/database/tableUtils';
 
-export function useJobOperations(tableName: string | undefined, userId: string | undefined) {
+export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +20,7 @@ export function useJobOperations(tableName: string | undefined, userId: string |
       }
       
       const { error } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .delete()
         .eq('id', jobId)
         .eq('user_id', userId);
@@ -56,7 +56,7 @@ export function useJobOperations(tableName: string | undefined, userId: string |
       };
 
       const { data, error } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .insert(newJob)
         .select()
         .single();
@@ -85,7 +85,7 @@ export function useJobOperations(tableName: string | undefined, userId: string |
       }
       
       const { data, error } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
@@ -112,7 +112,7 @@ export function useJobOperations(tableName: string | undefined, userId: string |
       }
       
       const { data, error } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)

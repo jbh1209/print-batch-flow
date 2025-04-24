@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
-import { ProductConfig, ExistingTableName, TableName } from "@/config/productTypes";
+import { SleeveJobFormValues } from "@/lib/schema/sleeveJobFormSchema";
+import { ProductConfig, TableName } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableUtils";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
@@ -14,7 +15,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
   const { user } = useAuth();
 
   const handleSubmit = async (
-    data: GenericJobFormValues,
+    data: GenericJobFormValues | SleeveJobFormValues,
     selectedFile: File | null,
     jobId?: string
   ) => {
@@ -83,8 +84,10 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         
         // Add product-specific fields
         if (config.productType === "Sleeves") {
-          updateData.stock_type = data.stock_type;
-          updateData.single_sided = data.single_sided;
+          // Make sure we correctly type the data as SleeveJobFormValues
+          const sleeveData = data as SleeveJobFormValues;
+          updateData.stock_type = sleeveData.stock_type;
+          updateData.single_sided = sleeveData.single_sided;
         } else {
           // Add optional fields if they exist in the form data
           if ('size' in data) updateData.size = data.size;
@@ -98,9 +101,8 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           updateData.file_name = fileName;
         }
         
-        // Use a safer approach with type assertions for Supabase
         const { error } = await supabase
-          .from(tableName as any)
+          .from(tableName)
           .update(updateData)
           .eq('id', jobId);
           
@@ -122,8 +124,10 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         
         // Add product-specific fields
         if (config.productType === "Sleeves") {
-          newJobData.stock_type = data.stock_type;
-          newJobData.single_sided = data.single_sided;
+          // Make sure we correctly type the data as SleeveJobFormValues
+          const sleeveData = data as SleeveJobFormValues;
+          newJobData.stock_type = sleeveData.stock_type;
+          newJobData.single_sided = sleeveData.single_sided;
         } else {
           // Add optional fields if they exist in the form data
           if ('size' in data) newJobData.size = data.size;
@@ -131,9 +135,8 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           if ('paper_weight' in data) newJobData.paper_weight = data.paper_weight;
         }
         
-        // Use a safer approach with type assertions for Supabase
         const { error } = await supabase
-          .from(tableName as any)
+          .from(tableName)
           .insert(newJobData);
 
         if (error) throw error;
