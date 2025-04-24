@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { BaseBatch, BaseJob, ProductConfig, BatchStatus } from "@/config/productTypes";
-import { isExistingTable, getSupabaseTable, SupabaseTableName } from "@/utils/database/tableUtils";
+import { isExistingTable, getSupabaseTable } from "@/utils/database/tableUtils";
 
 interface UseGenericBatchDetailsProps {
   batchId: string;
@@ -82,7 +82,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Get the valid table name
+        // Get the valid table name that matches Supabase types
         const table = getSupabaseTable(tableName);
         
         // Use the typed table name in the query

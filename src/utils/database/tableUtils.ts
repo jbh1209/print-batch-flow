@@ -1,12 +1,12 @@
 
 import { Database } from "@/integrations/supabase/types";
 
-// Define literal type using the actual table names from Supabase types
+// Define literal type using the actual table names from the Database types
+// IMPORTANT: Only include tables that actually exist in the Supabase database
 export type SupabaseTableName = 
   | "flyer_jobs" 
   | "postcard_jobs" 
   | "business_card_jobs"
-  | "poster_jobs" 
   | "sleeve_jobs"
   | "batches"
   | "profiles"
@@ -17,18 +17,22 @@ export const existingTables: SupabaseTableName[] = [
   "flyer_jobs", 
   "postcard_jobs", 
   "business_card_jobs",
-  "poster_jobs", 
   "sleeve_jobs",
   "batches",
   "profiles",
   "user_roles"
 ];
 
-// Type that represents valid tables in Supabase database
-export type TableName = SupabaseTableName | "sticker_jobs" | "box_jobs" | "cover_jobs";
+// Type that represents all tables, including those that might not exist yet
+export type TableName = 
+  | SupabaseTableName 
+  | "sticker_jobs" 
+  | "box_jobs" 
+  | "cover_jobs" 
+  | "poster_jobs";
 
 // Function to check if a table exists in our database
-export const isExistingTable = (tableName: TableName | undefined): boolean => {
+export const isExistingTable = (tableName: TableName | undefined): tableName is SupabaseTableName => {
   if (!tableName) return false;
   return existingTables.includes(tableName as SupabaseTableName);
 };
@@ -39,7 +43,7 @@ export function getSupabaseTable(tableName: TableName | undefined): SupabaseTabl
     throw new Error(`Invalid or non-existent table name: ${tableName}`);
   }
   
-  return tableName as SupabaseTableName;
+  return tableName;
 }
 
 // Alias for getSupabaseTable for backward compatibility

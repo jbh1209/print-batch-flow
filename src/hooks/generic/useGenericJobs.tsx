@@ -6,7 +6,7 @@ import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
 import { useGenericBatch } from './useGenericBatch';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
-import { isExistingTable, getSupabaseTable, SupabaseTableName } from '@/utils/database/tableUtils';
+import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -40,7 +40,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      // Get the valid table name
+      // Get the valid table name that matches Supabase types
       const table = getSupabaseTable(config.tableName);
 
       const { data, error: fetchError } = await supabase

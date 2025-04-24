@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TableName } from '@/config/productTypes';
-import { isExistingTable, getSupabaseTable, SupabaseTableName } from '@/utils/database/tableUtils';
+import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
 
 interface JobWithId {
   id: string;
@@ -27,10 +27,11 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         return;
       }
       
-      // Get the valid table name as literal string type
+      // Get the valid table name
+      // This will now return a type that TypeScript recognizes as valid for Supabase
       const table = getSupabaseTable(tableName);
       
-      // Use the table name directly
+      // Use the table name directly - it's now properly typed
       const { data: orphanedJobs, error: findError } = await supabase
         .from(table)
         .select('id')
@@ -59,7 +60,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
           return;
         }
         
-        // Use the same table name for the update query
+        // Use the same table name for the update query - already properly typed
         const { error: updateError } = await supabase
           .from(table)
           .update({ status: 'queued' })
