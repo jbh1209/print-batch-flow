@@ -159,7 +159,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       // Handle database tables that don't exist yet by checking against the allowed tables
       if (isExistingTable(tableName)) {
-        // Get the valid table name that matches Supabase types
+        // Get the valid table name
         const table = getSupabaseTable(tableName);
         
         // Use the typed table name in the query

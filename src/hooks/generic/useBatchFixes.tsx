@@ -28,10 +28,9 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       }
       
       // Get the valid table name
-      // This will now return a type that TypeScript recognizes as valid for Supabase
       const table = getSupabaseTable(tableName);
       
-      // Use the table name directly - it's now properly typed
+      // Use the table name directly with explicit type assertion
       const { data: orphanedJobs, error: findError } = await supabase
         .from(table)
         .select('id')
@@ -44,12 +43,11 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Fixed: Properly type the job objects and ensure safe access to properties
+        // Filter jobs to ensure they have valid IDs
         const jobIds = orphanedJobs
-          .filter((job): job is { id: string } => 
+          .filter((job): job is JobWithId => 
             job !== null && 
             typeof job === 'object' && 
-            job !== undefined && 
             'id' in job && 
             typeof job.id === 'string'
           )
@@ -60,7 +58,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
           return;
         }
         
-        // Use the same table name for the update query - already properly typed
+        // Update the jobs using the same table name
         const { error: updateError } = await supabase
           .from(table)
           .update({ status: 'queued' })
