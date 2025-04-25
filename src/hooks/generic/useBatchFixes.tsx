@@ -31,8 +31,9 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use a type-safe approach without complex generics
-      const { data: jobsData, error: findError } = await supabase
+      // Avoid complex type parameters by using any for the query result
+      // and proper typing for the processed data
+      const { data, error: findError } = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
@@ -41,15 +42,17 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (findError) throw findError;
       
-      // Safely convert the data to an array of job IDs
-      const jobs = (jobsData || []) as JobWithId[];
+      // Safely convert the data to an array of job IDs with explicit casting
+      const jobsData = data || [];
+      const jobs = jobsData as JobWithId[];
+      
       console.log(`Found ${jobs.length} orphaned jobs`);
       
       if (jobs.length > 0) {
         // Extract IDs as simple strings
         const jobIds = jobs.map(job => job.id);
         
-        // Simple update query with explicit types
+        // Simple update query without complex type parameters
         const { error: updateError } = await supabase
           .from(table)
           .update({ status: 'queued' })

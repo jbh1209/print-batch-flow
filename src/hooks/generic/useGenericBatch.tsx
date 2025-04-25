@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,15 +81,15 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const productCode = getProductCode(productType);
       
       // Get the count of existing batches for this product type
-      const response = await supabase
+      const { data, error } = await supabase
         .from("batches")
         .select('name')
         .filter('name', 'ilike', `DXB-${productCode}-%`);
       
-      if (response.error) throw response.error;
+      if (error) throw error;
       
       // Generate the batch number starting from 00001
-      const batchCount = (response.data?.length || 0) + 1;
+      const batchCount = (data?.length || 0) + 1;
       const batchNumber = `DXB-${productCode}-${batchCount.toString().padStart(5, '0')}`;
       
       return batchNumber;
@@ -110,7 +109,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       printerType?: string;
       sheetSize?: string;
     }
-  ) => {
+  ): Promise<BaseBatch> => {
     if (!user) {
       throw new Error('User not authenticated');
     }
@@ -131,10 +130,10 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Convert lamination type to a known type to satisfy TypeScript
       const laminationType: LaminationType = (batchProperties.laminationType || "none") as LaminationType;
       
-      // Explicitly use typed BatchStatus to avoid string assignment issues
+      // Explicitly define batch status to avoid string assignment issues
       const batchStatus: BatchStatus = "pending";
       
-      // Explicitly define batch insert data with proper typing
+      // Explicitly define batch insert data without complex type parameters
       const batchInsertData = {
         name: batchNumber,
         paper_type: batchProperties.paperType || null,
@@ -150,62 +149,64 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Use explicit typing approach for batch creation
-      const response = await supabase
+      // Use explicit response typing instead of complex generics
+      const { data, error } = await supabase
         .from("batches")
         .insert(batchInsertData)
         .select()
         .single();
         
-      if (response.error) throw response.error;
+      if (error) throw error;
       
-      const batchData = response.data;
+      if (!data) {
+        throw new Error('No data returned from batch creation');
+      }
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
       
       const tableName = config.tableName;
       
-      // Handle database tables that don't exist yet by checking against the allowed tables
+      // Handle database tables that don't exist yet
       if (isExistingTable(tableName)) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Execute update without complex generic types
-        const updateResponse = await supabase
+        // Execute update with simple typing
+        const { error: updateError } = await supabase
           .from(table)
           .update({ 
-            batch_id: batchData.id,
+            batch_id: data.id,
             status: 'batched' 
           })
           .in('id', jobIds);
         
-        if (updateResponse.error) throw updateResponse.error;
+        if (updateError) throw updateError;
       } else {
         console.log(`Table ${tableName} doesn't exist yet, skipping job updates`);
       }
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
-      // Explicitly define the batch object with proper types
-      const fullBatch: BaseBatch = {
-        id: batchData.id,
-        name: batchData.name,
-        status: batchData.status,
-        sheets_required: batchData.sheets_required,
-        front_pdf_url: batchData.front_pdf_url || null,
-        back_pdf_url: batchData.back_pdf_url || null,
+      // Explicitly define the returned batch object with proper types
+      const batch: BaseBatch = {
+        id: data.id,
+        name: data.name,
+        status: data.status,
+        sheets_required: data.sheets_required,
+        front_pdf_url: data.front_pdf_url || null,
+        back_pdf_url: data.back_pdf_url || null,
         overview_pdf_url: null, // Add this virtual property
-        due_date: batchData.due_date,
-        created_at: batchData.created_at,
-        created_by: batchData.created_by,
-        lamination_type: batchData.lamination_type || "none",
-        paper_type: batchData.paper_type,
-        paper_weight: batchData.paper_weight,
-        updated_at: batchData.updated_at
+        due_date: data.due_date,
+        created_at: data.created_at,
+        created_by: data.created_by,
+        lamination_type: data.lamination_type || "none",
+        paper_type: data.paper_type,
+        paper_weight: data.paper_weight,
+        updated_at: data.updated_at
       };
       
-      return fullBatch;
+      return batch;
       
     } catch (err) {
       console.error(`Error creating ${config.productType} batch:`, err);
@@ -217,28 +218,27 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   };
   
   // Get batches for this product type
-  const getBatches = async () => {
+  const getBatches = async (): Promise<BaseBatch[]> => {
     if (!user) return [];
     
     try {
       const productCode = getProductCode(config.productType);
       
-      // Use non-generic approach without complex type parameters
-      const response = await supabase
+      // Use simpler typing for database queries
+      const { data, error } = await supabase
         .from("batches")
         .select('*')
         .eq('created_by', user.id)
         .filter('name', 'ilike', `DXB-${productCode}-%`)
         .order('created_at', { ascending: false });
       
-      if (response.error) throw response.error;
+      if (error) throw error;
       
-      const data = response.data;
+      // Use simple array checks without complex generic types
+      if (!data) return [];
       
-      // Use simple type casting to avoid deep type instantiation
-      const batchesArray = Array.isArray(data) ? data : [];
-      
-      return batchesArray.map(batch => ({
+      // Map the data to the BaseBatch type without complex type inference
+      return data.map(batch => ({
         id: batch.id,
         name: batch.name,
         status: batch.status,
@@ -261,7 +261,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   };
   
   // Delete a batch and reset its jobs
-  const deleteBatch = async (batchId: string) => {
+  const deleteBatch = async (batchId: string): Promise<boolean> => {
     if (!user) return false;
     
     try {
@@ -271,8 +271,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Use simplified query without complex type parameters
-        const resetResponse = await supabase
+        // Use simple query without complex generic types
+        const { error: resetError } = await supabase
           .from(table)
           .update({ 
             status: 'queued',
@@ -280,17 +280,17 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           })
           .eq('batch_id', batchId);
         
-        if (resetResponse.error) throw resetResponse.error;
+        if (resetError) throw resetError;
       }
       
       // Now delete the batch
-      const deleteResponse = await supabase
+      const { error: deleteError } = await supabase
         .from("batches")
         .delete()
         .eq('id', batchId)
         .eq('created_by', user.id);
       
-      if (deleteResponse.error) throw deleteResponse.error;
+      if (deleteError) throw deleteError;
       
       toast.success("Batch deleted successfully");
       return true;
