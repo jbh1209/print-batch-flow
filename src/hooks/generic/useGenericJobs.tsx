@@ -43,6 +43,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       // Get the valid table name that matches Supabase types
       const table = getSupabaseTable(config.tableName);
 
+      // Simplified query without complex type parameters
       const { data, error: fetchError } = await supabase
         .from(table)
         .select('*')
@@ -51,6 +52,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       if (fetchError) throw fetchError;
 
+      // Use simple type casting to avoid deep type instantiation
       setJobs((data || []) as unknown as T[]);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
@@ -109,7 +111,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   ) => {
     try {
-      // Fixed: Ensure laminationType is properly converted to LaminationType type
+      // Ensure laminationType is properly converted to LaminationType type
       const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
       
       const batch = await createBatchWithSelectedJobs(selectedJobs, {

@@ -147,7 +147,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Simple insert with no complex type instantiation
+      // Use a simplified approach for batch creation
       const { data: batchData, error: batchError } = await supabase
         .from("batches")
         .insert(batchInsertData)
@@ -182,7 +182,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
-      // Explicitly define the batch object with proper types to avoid deep instantiation
+      // Explicitly define the batch object with proper types
       const fullBatch: BaseBatch = {
         id: batchData.id,
         name: batchData.name,
@@ -218,6 +218,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const productCode = getProductCode(config.productType);
       
+      // Use simplified query without complex type parameters
       const { data, error } = await supabase
         .from("batches")
         .select('*')
@@ -227,7 +228,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (error) throw error;
       
-      // Explicitly map and define types to avoid deep instantiation
+      // Use simple type casting to avoid deep type instantiation
       const batchesArray = Array.isArray(data) ? data : [];
       
       return batchesArray.map(batch => ({
@@ -263,7 +264,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Avoid complex type handling by using a simpler approach
+        // Use simplified query without complex type parameters
         const { error: resetError } = await supabase
           .from(table)
           .update({ 

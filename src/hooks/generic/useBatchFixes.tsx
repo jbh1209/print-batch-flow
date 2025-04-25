@@ -31,7 +31,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use raw query and explicit types to avoid type instantiation issues
+      // Use simpler query without complex type parameters
       const { data, error: findError } = await supabase
         .from(table)
         .select('id')
@@ -56,7 +56,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
           return;
         }
         
-        // Simple update query with no complex types
+        // Simple update query without complex type parameters
         const { error: updateError } = await supabase
           .from(table)
           .update({ status: 'queued' })
