@@ -62,7 +62,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Use explicit any for the query and type cast the result
+      // Use explicit typing for the query response
       const { data: rawData, error } = await supabase
         .from(table)
         .insert(newJob)
@@ -74,8 +74,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from insert operation');
       }
       
-      // Use simple type assertion instead of complex generic inference
-      return rawData[0] as T;
+      // Use type assertion with unknown as intermediate step
+      return (rawData[0] as unknown) as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -113,8 +113,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from update operation');
       }
       
-      // Use simple type assertion
-      return rawData[0] as T;
+      // Use type assertion with unknown as intermediate step
+      return (rawData[0] as unknown) as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -148,8 +148,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         return null as unknown as T;
       }
       
-      // Use simple type assertion
-      return rawData[0] as T;
+      // Use type assertion with unknown as intermediate step
+      return (rawData[0] as unknown) as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

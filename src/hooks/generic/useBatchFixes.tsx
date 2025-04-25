@@ -31,7 +31,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use 'any' for query result and manually type the processed data
+      // Explicitly type the Supabase query response instead of using generics
       const { data: rawData, error: findError } = await supabase
         .from(table)
         .select('id')
@@ -41,8 +41,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (findError) throw findError;
       
-      // Explicitly type the data without complex generic inference
-      const jobsData = (rawData || []) as Array<{ id: string }>;
+      // Explicitly cast to a simple array of objects with id property
+      const jobsData = (rawData || []) as JobWithId[];
       
       console.log(`Found ${jobsData.length} orphaned jobs`);
       

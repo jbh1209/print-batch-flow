@@ -6,6 +6,23 @@ import { toast } from 'sonner';
 import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName, BatchStatus } from '@/config/productTypes';
 import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
 
+// Define shapes of database results to avoid overly complex generic typing
+interface BatchInsertResult {
+  id: string;
+  name: string;
+  status: BatchStatus;
+  sheets_required: number;
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
+  due_date: string;
+  created_at: string;
+  created_by: string;
+  lamination_type: LaminationType;
+  paper_type: string | null;
+  paper_weight: string | null;
+  updated_at: string;
+}
+
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -100,7 +117,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     }
   };
 
-  // Create a batch with selected jobs - avoid complex generic types
+  // Create a batch with selected jobs
   const createBatchWithSelectedJobs = async (
     selectedJobs: T[], 
     batchProperties: {
@@ -150,23 +167,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Use explicit typing for database operation
-      type BatchInsertResult = {
-        id: string;
-        name: string;
-        status: BatchStatus;
-        sheets_required: number;
-        front_pdf_url: string | null;
-        back_pdf_url: string | null;
-        due_date: string;
-        created_at: string;
-        created_by: string;
-        lamination_type: LaminationType;
-        paper_type: string | null;
-        paper_weight: string | null;
-        updated_at: string;
-      };
-      
+      // Use a simpler approach without complex generic typing
       const { data: rawData, error } = await supabase
         .from("batches")
         .insert(batchInsertData)
@@ -179,8 +180,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         throw new Error('No data returned from batch creation');
       }
       
-      // Explicitly cast the data to avoid type instantiation issues
-      const batchData = rawData as BatchInsertResult;
+      // Explicitly cast the data
+      const batchData = rawData as unknown as BatchInsertResult;
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -244,23 +245,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const productCode = getProductCode(config.productType);
       
-      // Use explicit typing for database query
-      type BatchQueryResult = {
-        id: string;
-        name: string;
-        status: BatchStatus;
-        sheets_required: number;
-        front_pdf_url: string | null;
-        back_pdf_url: string | null;
-        due_date: string;
-        created_at: string;
-        created_by: string;
-        lamination_type: LaminationType;
-        paper_type: string | null;
-        paper_weight: string | null;
-        updated_at: string;
-      };
-      
+      // Use a simpler approach to typing
       const { data: rawData, error } = await supabase
         .from("batches")
         .select('*')
@@ -272,8 +257,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (!rawData) return [];
       
-      // Explicitly cast the data to avoid type instantiation issues
-      const batchesData = rawData as BatchQueryResult[];
+      // Type cast using unknown as intermediate step
+      const batchesData = rawData as unknown as BatchInsertResult[];
       
       // Map to the BaseBatch type with explicit typing
       return batchesData.map(batch => ({
@@ -309,7 +294,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Use simple query without complex generic types
+        // Use simpler query typing
         const { error: resetError } = await supabase
           .from(table)
           .update({ 
