@@ -33,7 +33,7 @@ export type TableName =
 // Function to check if a table exists in our database
 export const isExistingTable = (tableName: TableName | undefined): tableName is SupabaseTableName => {
   if (!tableName) return false;
-  return existingTables.includes(tableName as SupabaseTableName);
+  return (existingTables as ReadonlyArray<string>).includes(tableName);
 };
 
 // Function to safely get a SupabaseTableName

@@ -61,7 +61,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Execute a plain query and handle typing manually
+      // Use a non-generic approach to avoid type instantiation issues
       const { data, error } = await supabase
         .from(table)
         .insert(newJob)
@@ -69,9 +69,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      // Use a simple manual type assertion
-      const result = data && data.length > 0 ? data[0] : null;
-      return result as unknown as T;
+      // Simple manual casting to avoid complex type instantiation
+      if (!data || data.length === 0) {
+        throw new Error('No data returned from insert operation');
+      }
+      
+      // Force type with as unknown first to break the chain
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -95,7 +99,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Execute a plain query and handle typing manually
+      // Simplified query to avoid complex typing
       const { data, error } = await supabase
         .from(table)
         .update(jobData)
@@ -105,9 +109,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      // Use a simple manual type assertion
-      const result = data && data.length > 0 ? data[0] : null;
-      return result as unknown as T;
+      // Simple manual type assertion
+      if (!data || data.length === 0) {
+        throw new Error('No data returned from update operation');
+      }
+      
+      // Force type with as unknown first to break the chain
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -127,7 +135,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Execute a plain query and handle typing manually
+      // Simplified query to avoid complex typing
       const { data, error } = await supabase
         .from(table)
         .select('*')
@@ -137,9 +145,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      // Use a simple manual type assertion
-      const result = data && data.length > 0 ? data[0] : null;
-      return result as unknown as T;
+      // Simple manual casting without complex type instantiation
+      if (!data || data.length === 0) {
+        return null as unknown as T;
+      }
+      
+      // Force type with as unknown first to break the chain
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

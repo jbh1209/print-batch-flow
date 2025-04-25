@@ -100,7 +100,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     }
   };
 
-  // Create a batch with selected jobs
+  // Create a batch with selected jobs - avoid complex generic types
   const createBatchWithSelectedJobs = async (
     selectedJobs: T[], 
     batchProperties: {
@@ -131,23 +131,26 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Convert lamination type to a known type to satisfy TypeScript
       const laminationType: LaminationType = (batchProperties.laminationType || "none") as LaminationType;
       
-      // Create batch without relying on generic types
+      // Explicitly define batch insert data to avoid complex type instantiations
+      const batchInsertData = {
+        name: batchNumber,
+        paper_type: batchProperties.paperType || null,
+        paper_weight: batchProperties.paperWeight || null,
+        lamination_type: laminationType,
+        due_date: new Date().toISOString(), // Default to current date
+        printer_type: batchProperties.printerType || "HP 12000",
+        sheet_size: batchProperties.sheetSize || "530x750mm",
+        sheets_required: sheetsRequired,
+        created_by: user.id,
+        status: 'pending',
+        front_pdf_url: null,
+        back_pdf_url: null
+      };
+      
+      // Simple insert with no complex type instantiation
       const { data: batchData, error: batchError } = await supabase
         .from("batches")
-        .insert({
-          name: batchNumber,
-          paper_type: batchProperties.paperType || null,
-          paper_weight: batchProperties.paperWeight || null,
-          lamination_type: laminationType,
-          due_date: new Date().toISOString(), // Default to current date
-          printer_type: batchProperties.printerType || "HP 12000",
-          sheet_size: batchProperties.sheetSize || "530x750mm",
-          sheets_required: sheetsRequired,
-          created_by: user.id,
-          status: 'pending',
-          front_pdf_url: null,
-          back_pdf_url: null
-        })
+        .insert(batchInsertData)
         .select()
         .single();
         
@@ -179,7 +182,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
-      // Explicitly define the batch object with proper types
+      // Explicitly define the batch object with proper types to avoid deep instantiation
       const fullBatch: BaseBatch = {
         id: batchData.id,
         name: batchData.name,
@@ -224,13 +227,24 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (error) throw error;
       
-      // Ensure all properties in BaseBatch interface are present
-      return (data || []).map(batch => ({
-        ...batch,
+      // Explicitly map and define types to avoid deep instantiation
+      const batchesArray = Array.isArray(data) ? data : [];
+      
+      return batchesArray.map(batch => ({
+        id: batch.id,
+        name: batch.name,
+        status: batch.status,
+        sheets_required: batch.sheets_required,
         front_pdf_url: batch.front_pdf_url || null,
         back_pdf_url: batch.back_pdf_url || null,
         overview_pdf_url: null, // Add this virtual property since it doesn't exist in DB
-        lamination_type: batch.lamination_type || "none"
+        due_date: batch.due_date,
+        created_at: batch.created_at,
+        created_by: batch.created_by,
+        lamination_type: batch.lamination_type || "none",
+        paper_type: batch.paper_type,
+        paper_weight: batch.paper_weight,
+        updated_at: batch.updated_at
       })) as BaseBatch[];
     } catch (error) {
       console.error(`Error fetching ${config.productType} batches:`, error);
