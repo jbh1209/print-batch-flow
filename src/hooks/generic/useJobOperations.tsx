@@ -62,20 +62,20 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Avoid complex generic types by using any for the query
-      const { data, error } = await supabase
+      // Use explicit any for the query and type cast the result
+      const { data: rawData, error } = await supabase
         .from(table)
         .insert(newJob)
         .select();
 
       if (error) throw error;
       
-      if (!data || data.length === 0) {
+      if (!rawData || rawData.length === 0) {
         throw new Error('No data returned from insert operation');
       }
       
-      // Use simple type casting to avoid deep type instantiation
-      return data[0] as unknown as T;
+      // Use simple type assertion instead of complex generic inference
+      return rawData[0] as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -99,8 +99,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Avoid complex generic types by using any for the query
-      const { data, error } = await supabase
+      // Use explicit typing for the query result
+      const { data: rawData, error } = await supabase
         .from(table)
         .update(jobData)
         .eq('id', jobId)
@@ -109,12 +109,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      if (!data || data.length === 0) {
+      if (!rawData || rawData.length === 0) {
         throw new Error('No data returned from update operation');
       }
       
-      // Use simple type casting to avoid complex generic types
-      return data[0] as unknown as T;
+      // Use simple type assertion
+      return rawData[0] as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -134,8 +134,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Avoid complex generic types by using any for the query
-      const { data, error } = await supabase
+      // Explicitly type the query result
+      const { data: rawData, error } = await supabase
         .from(table)
         .select('*')
         .eq('id', jobId)
@@ -144,12 +144,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      if (!data || data.length === 0) {
+      if (!rawData || rawData.length === 0) {
         return null as unknown as T;
       }
       
-      // Use simple type casting to avoid complex generic types
-      return data[0] as unknown as T;
+      // Use simple type assertion
+      return rawData[0] as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

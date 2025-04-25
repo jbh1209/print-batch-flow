@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -130,10 +131,10 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Convert lamination type to a known type to satisfy TypeScript
       const laminationType: LaminationType = (batchProperties.laminationType || "none") as LaminationType;
       
-      // Explicitly define batch status to avoid string assignment issues
+      // Explicitly define batch status
       const batchStatus: BatchStatus = "pending";
       
-      // Explicitly define batch insert data without complex type parameters
+      // Define batch insert data with explicit types
       const batchInsertData = {
         name: batchNumber,
         paper_type: batchProperties.paperType || null,
@@ -149,8 +150,24 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Use explicit response typing instead of complex generics
-      const { data, error } = await supabase
+      // Use explicit typing for database operation
+      type BatchInsertResult = {
+        id: string;
+        name: string;
+        status: BatchStatus;
+        sheets_required: number;
+        front_pdf_url: string | null;
+        back_pdf_url: string | null;
+        due_date: string;
+        created_at: string;
+        created_by: string;
+        lamination_type: LaminationType;
+        paper_type: string | null;
+        paper_weight: string | null;
+        updated_at: string;
+      };
+      
+      const { data: rawData, error } = await supabase
         .from("batches")
         .insert(batchInsertData)
         .select()
@@ -158,9 +175,12 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         
       if (error) throw error;
       
-      if (!data) {
+      if (!rawData) {
         throw new Error('No data returned from batch creation');
       }
+      
+      // Explicitly cast the data to avoid type instantiation issues
+      const batchData = rawData as BatchInsertResult;
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -176,7 +196,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         const { error: updateError } = await supabase
           .from(table)
           .update({ 
-            batch_id: data.id,
+            batch_id: batchData.id,
             status: 'batched' 
           })
           .in('id', jobIds);
@@ -188,22 +208,22 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
-      // Explicitly define the returned batch object with proper types
+      // Explicitly define the returned batch object
       const batch: BaseBatch = {
-        id: data.id,
-        name: data.name,
-        status: data.status,
-        sheets_required: data.sheets_required,
-        front_pdf_url: data.front_pdf_url || null,
-        back_pdf_url: data.back_pdf_url || null,
+        id: batchData.id,
+        name: batchData.name,
+        status: batchData.status,
+        sheets_required: batchData.sheets_required,
+        front_pdf_url: batchData.front_pdf_url,
+        back_pdf_url: batchData.back_pdf_url,
         overview_pdf_url: null, // Add this virtual property
-        due_date: data.due_date,
-        created_at: data.created_at,
-        created_by: data.created_by,
-        lamination_type: data.lamination_type || "none",
-        paper_type: data.paper_type,
-        paper_weight: data.paper_weight,
-        updated_at: data.updated_at
+        due_date: batchData.due_date,
+        created_at: batchData.created_at,
+        created_by: batchData.created_by,
+        lamination_type: batchData.lamination_type || "none",
+        paper_type: batchData.paper_type,
+        paper_weight: batchData.paper_weight,
+        updated_at: batchData.updated_at
       };
       
       return batch;
@@ -224,8 +244,24 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const productCode = getProductCode(config.productType);
       
-      // Use simpler typing for database queries
-      const { data, error } = await supabase
+      // Use explicit typing for database query
+      type BatchQueryResult = {
+        id: string;
+        name: string;
+        status: BatchStatus;
+        sheets_required: number;
+        front_pdf_url: string | null;
+        back_pdf_url: string | null;
+        due_date: string;
+        created_at: string;
+        created_by: string;
+        lamination_type: LaminationType;
+        paper_type: string | null;
+        paper_weight: string | null;
+        updated_at: string;
+      };
+      
+      const { data: rawData, error } = await supabase
         .from("batches")
         .select('*')
         .eq('created_by', user.id)
@@ -234,18 +270,20 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (error) throw error;
       
-      // Use simple array checks without complex generic types
-      if (!data) return [];
+      if (!rawData) return [];
       
-      // Map the data to the BaseBatch type without complex type inference
-      return data.map(batch => ({
+      // Explicitly cast the data to avoid type instantiation issues
+      const batchesData = rawData as BatchQueryResult[];
+      
+      // Map to the BaseBatch type with explicit typing
+      return batchesData.map(batch => ({
         id: batch.id,
         name: batch.name,
         status: batch.status,
         sheets_required: batch.sheets_required,
-        front_pdf_url: batch.front_pdf_url || null,
-        back_pdf_url: batch.back_pdf_url || null,
-        overview_pdf_url: null, // Add this virtual property since it doesn't exist in DB
+        front_pdf_url: batch.front_pdf_url,
+        back_pdf_url: batch.back_pdf_url,
+        overview_pdf_url: null, // Virtual property
         due_date: batch.due_date,
         created_at: batch.created_at,
         created_by: batch.created_by,
@@ -253,7 +291,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         paper_type: batch.paper_type,
         paper_weight: batch.paper_weight,
         updated_at: batch.updated_at
-      })) as BaseBatch[];
+      }));
     } catch (error) {
       console.error(`Error fetching ${config.productType} batches:`, error);
       return [];
