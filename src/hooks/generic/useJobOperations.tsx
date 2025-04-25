@@ -22,13 +22,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      const result = await supabase
+      const { error } = await supabase
         .from(table)
         .delete()
         .eq('id', jobId)
         .eq('user_id', userId);
 
-      if (result.error) throw result.error;
+      if (error) throw error;
       
       toast.success("Job deleted successfully");
       return true;
@@ -62,20 +62,20 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Use a simpler approach without complex typing
-      const result = await supabase
+      // Use a direct approach without complex typing
+      const { data, error } = await supabase
         .from(table)
         .insert(newJob)
         .select();
 
-      if (result.error) throw result.error;
+      if (error) throw error;
       
-      if (!result.data || result.data.length === 0) {
+      if (!data || data.length === 0) {
         throw new Error('No data returned from insert operation');
       }
       
-      // Use type assertion with unknown as intermediate step
-      return result.data[0] as unknown as T;
+      // Use explicit type assertion for the return value
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -99,22 +99,22 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use a simpler approach without complex typing
-      const result = await supabase
+      // Use a direct approach without complex typing
+      const { data, error } = await supabase
         .from(table)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
         .select();
 
-      if (result.error) throw result.error;
+      if (error) throw error;
       
-      if (!result.data || result.data.length === 0) {
+      if (!data || data.length === 0) {
         throw new Error('No data returned from update operation');
       }
       
-      // Use type assertion with unknown as intermediate step
-      return result.data[0] as unknown as T;
+      // Use explicit type assertion for the return value
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -134,22 +134,22 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use a simpler approach without complex typing
-      const result = await supabase
+      // Use a direct approach without complex typing
+      const { data, error } = await supabase
         .from(table)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
         .limit(1);
 
-      if (result.error) throw result.error;
+      if (error) throw error;
       
-      if (!result.data || result.data.length === 0) {
+      if (!data || data.length === 0) {
         return null as unknown as T;
       }
       
-      // Use type assertion with unknown as intermediate step
-      return result.data[0] as unknown as T;
+      // Use explicit type assertion for the return value
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

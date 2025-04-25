@@ -31,20 +31,18 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use a basic query approach without complex typing
-      const result = await supabase
+      // Use a direct approach without complex typing
+      const { data: rawData, error } = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      if (result.error) throw result.error;
+      if (error) throw error;
       
-      const rawData = result.data || [];
-      
-      // Explicitly cast to a simple array of objects with id property
-      const jobsData = rawData as JobWithId[];
+      // Handle the case where data is null
+      const jobsData = (rawData || []) as JobWithId[];
       
       console.log(`Found ${jobsData.length} orphaned jobs`);
       
@@ -53,21 +51,23 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         const jobIds = jobsData.map(job => job.id);
         
         // Simple update query without complex type parameters
-        const updateResult = await supabase
+        const { error: updateError } = await supabase
           .from(table)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
-        if (updateResult.error) throw updateResult.error;
+        if (updateError) throw updateError;
         
         console.log(`Reset ${jobIds.length} jobs to queued status`);
         toast.success(`Reset ${jobIds.length} orphaned jobs back to queued status`);
         
         return jobIds.length;
       }
+      return 0;
     } catch (error) {
       console.error(`Error fixing batched jobs:`, error);
       toast.error(`Failed to reset jobs with missing batch references.`);
+      return 0;
     } finally {
       setIsFixingBatchedJobs(false);
     }
