@@ -70,6 +70,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       case "Sleeves": return "SL";
       case "Boxes": return "BX";
       case "Covers": return "CV";
+      case "Business Cards": return "BC";
       default: return "XX";
     }
   };
@@ -81,7 +82,6 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const productCode = getProductCode(productType);
       
       // Get the count of existing batches for this product type
-      // "batches" is always a valid table, so we can use it directly as a literal
       const { data, error } = await supabase
         .from("batches")
         .select('name')
@@ -163,7 +163,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Simplified approach to avoid excessive type nesting
+        // Avoid complex type handling by using a simpler approach
         const { error: updateError } = await supabase
           .from(table)
           .update({ 
@@ -179,7 +179,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
-      // Create a complete batch object with the required properties
+      // Explicitly define the batch object with proper types
       const fullBatch: BaseBatch = {
         id: batchData.id,
         name: batchData.name,
@@ -215,7 +215,6 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const productCode = getProductCode(config.productType);
       
-      // "batches" is always a valid table
       const { data, error } = await supabase
         .from("batches")
         .select('*')
@@ -225,7 +224,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (error) throw error;
       
-      // Ensure all properties in BaseBatch interface are present, including overview_pdf_url
+      // Ensure all properties in BaseBatch interface are present
       return (data || []).map(batch => ({
         ...batch,
         front_pdf_url: batch.front_pdf_url || null,
@@ -250,7 +249,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Use the typed table name in the query
+        // Avoid complex type handling by using a simpler approach
         const { error: resetError } = await supabase
           .from(table)
           .update({ 
@@ -262,7 +261,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         if (resetError) throw resetError;
       }
       
-      // Now delete the batch - "batches" is always a valid table
+      // Now delete the batch
       const { error } = await supabase
         .from("batches")
         .delete()

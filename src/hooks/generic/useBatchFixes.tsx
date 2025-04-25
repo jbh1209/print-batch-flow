@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { TableName } from '@/config/productTypes';
 import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
 
+// Simple interface for jobs with ID
 interface JobWithId {
   id: string;
 }
@@ -30,8 +31,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Simplified type approach that avoids excessive instantiation
-      const { data: orphanedJobs, error: findError } = await supabase
+      // Perform a simple query without complex typing
+      const { data, error: findError } = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
@@ -40,17 +41,14 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (findError) throw findError;
       
+      // Cast data to simpler type
+      const orphanedJobs = data as unknown as JobWithId[] | null;
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Filter jobs to ensure they have valid IDs
         const jobIds = orphanedJobs
-          .filter((job): job is JobWithId => 
-            job !== null && 
-            typeof job === 'object' && 
-            'id' in job && 
-            typeof job.id === 'string'
-          )
+          .filter(job => job && typeof job === 'object' && 'id' in job && typeof job.id === 'string')
           .map(job => job.id);
         
         if (jobIds.length === 0) {

@@ -61,7 +61,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Using a simplified approach to avoid recursive type instantiation
+      // Avoid complex type handling by using a simpler approach
       const { data, error } = await supabase
         .from(table)
         .insert(newJob)
@@ -69,7 +69,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      // First convert to unknown, then to T to avoid direct type conversion errors
+      // Safely convert the result
       return (data && data[0]) as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
@@ -94,7 +94,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Using a simplified approach to avoid recursive type instantiation
+      // Avoid complex type handling by using a simpler approach
       const { data, error } = await supabase
         .from(table)
         .update(jobData)
@@ -104,7 +104,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      // First convert to unknown, then to T to avoid direct type conversion errors
+      // Safely convert the result
       return (data && data[0]) as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
@@ -125,7 +125,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Using a simplified approach to avoid recursive type instantiation
+      // Avoid complex type handling by using a simpler approach
       const { data, error } = await supabase
         .from(table)
         .select('*')
@@ -135,7 +135,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      // First convert to unknown, then to T to avoid direct type conversion errors
+      // Safely convert the result
       return (data && data[0]) as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
