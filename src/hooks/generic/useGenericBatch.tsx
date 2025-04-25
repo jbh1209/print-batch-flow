@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName } from '@/config/productTypes';
+import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName, BatchStatus } from '@/config/productTypes';
 import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
 
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
@@ -131,7 +131,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Convert lamination type to a known type to satisfy TypeScript
       const laminationType: LaminationType = (batchProperties.laminationType || "none") as LaminationType;
       
-      // Explicitly define batch insert data to avoid complex type instantiations
+      // Explicitly define batch insert data with proper status typing
       const batchInsertData = {
         name: batchNumber,
         paper_type: batchProperties.paperType || null,
@@ -142,7 +142,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         sheet_size: batchProperties.sheetSize || "530x750mm",
         sheets_required: sheetsRequired,
         created_by: user.id,
-        status: 'pending',
+        status: 'pending' as BatchStatus, // Fix the status type here
         front_pdf_url: null,
         back_pdf_url: null
       };
