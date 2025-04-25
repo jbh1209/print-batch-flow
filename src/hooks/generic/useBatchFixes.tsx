@@ -31,18 +31,20 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Explicitly type the Supabase query response instead of using generics
-      const { data: rawData, error: findError } = await supabase
+      // Use a basic query approach without complex typing
+      const result = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      if (findError) throw findError;
+      if (result.error) throw result.error;
+      
+      const rawData = result.data || [];
       
       // Explicitly cast to a simple array of objects with id property
-      const jobsData = (rawData || []) as JobWithId[];
+      const jobsData = rawData as JobWithId[];
       
       console.log(`Found ${jobsData.length} orphaned jobs`);
       
@@ -51,12 +53,12 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         const jobIds = jobsData.map(job => job.id);
         
         // Simple update query without complex type parameters
-        const { error: updateError } = await supabase
+        const updateResult = await supabase
           .from(table)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
-        if (updateError) throw updateError;
+        if (updateResult.error) throw updateResult.error;
         
         console.log(`Reset ${jobIds.length} jobs to queued status`);
         toast.success(`Reset ${jobIds.length} orphaned jobs back to queued status`);

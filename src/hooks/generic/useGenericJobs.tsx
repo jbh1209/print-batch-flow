@@ -43,17 +43,18 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       // Get the valid table name that matches Supabase types
       const table = getSupabaseTable(config.tableName);
 
-      // Use explicit typing for the query result
-      const { data: rawData, error } = await supabase
+      // Use a simpler approach to avoid type recursion
+      const result = await supabase
         .from(table)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (result.error) throw result.error;
 
-      // Use type assertion with unknown as intermediate step
-      setJobs((rawData || []) as unknown as T[]);
+      // Cast the data to the expected type
+      const typedData = result.data as unknown as T[];
+      setJobs(typedData);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
