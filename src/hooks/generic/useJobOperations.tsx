@@ -61,7 +61,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Use a non-generic type for the query
+      // Execute a plain query and handle typing manually
       const { data, error } = await supabase
         .from(table)
         .insert(newJob)
@@ -69,8 +69,9 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      // Use a safe type assertion
-      return (data && data[0]) as unknown as T;
+      // Use a simple manual type assertion
+      const result = data && data.length > 0 ? data[0] : null;
+      return result as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -94,7 +95,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use a non-generic type for the query
+      // Execute a plain query and handle typing manually
       const { data, error } = await supabase
         .from(table)
         .update(jobData)
@@ -104,8 +105,9 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      // Use a safe type assertion
-      return (data && data[0]) as unknown as T;
+      // Use a simple manual type assertion
+      const result = data && data.length > 0 ? data[0] : null;
+      return result as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -125,7 +127,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use a non-generic type for the query
+      // Execute a plain query and handle typing manually
       const { data, error } = await supabase
         .from(table)
         .select('*')
@@ -135,8 +137,9 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      // Use a safe type assertion
-      return (data && data[0]) as unknown as T;
+      // Use a simple manual type assertion
+      const result = data && data.length > 0 ? data[0] : null;
+      return result as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

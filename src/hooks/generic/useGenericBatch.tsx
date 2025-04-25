@@ -131,7 +131,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Convert lamination type to a known type to satisfy TypeScript
       const laminationType: LaminationType = (batchProperties.laminationType || "none") as LaminationType;
       
-      // Create the batch - "batches" is always a valid table
+      // Create batch without relying on generic types
       const { data: batchData, error: batchError } = await supabase
         .from("batches")
         .insert({
@@ -163,7 +163,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Use a non-generic type for the query
+        // Execute update without complex generic types
         const { error: updateError } = await supabase
           .from(table)
           .update({ 
