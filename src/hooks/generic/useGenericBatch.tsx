@@ -163,7 +163,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Avoid complex type handling by using a simpler approach
+        // Use a non-generic type for the query
         const { error: updateError } = await supabase
           .from(table)
           .update({ 

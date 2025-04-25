@@ -31,7 +31,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Perform a simple query without complex typing
+      // Use a simple, non-generic type for the query
       const { data, error: findError } = await supabase
         .from(table)
         .select('id')
@@ -41,8 +41,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (findError) throw findError;
       
-      // Cast data to simpler type
-      const orphanedJobs = data as unknown as JobWithId[] | null;
+      // Simply cast data to a simpler type
+      const orphanedJobs = data as JobWithId[] | null;
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {

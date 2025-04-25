@@ -36,7 +36,7 @@ export const isExistingTable = (tableName: TableName | undefined): tableName is 
   return existingTables.includes(tableName as SupabaseTableName);
 };
 
-// Function to safely cast a TableName to a SupabaseTableName
+// Function to safely get a SupabaseTableName
 export function getSupabaseTable(tableName: TableName | undefined): SupabaseTableName {
   if (!tableName || !isExistingTable(tableName)) {
     throw new Error(`Invalid or non-existent table name: ${tableName}`);
