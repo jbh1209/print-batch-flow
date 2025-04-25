@@ -62,19 +62,20 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Use a simpler non-generic approach
-      const { data, error } = await supabase
+      // Use a non-generic typed approach
+      const response = await supabase
         .from(table)
         .insert(newJob)
         .select();
 
-      if (error) throw error;
+      if (response.error) throw response.error;
       
+      const data = response.data;
       if (!data || data.length === 0) {
         throw new Error('No data returned from insert operation');
       }
       
-      // Use simple type casting to avoid deep type instantiation
+      // Simple type casting to avoid complex type instantiation
       return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
@@ -100,20 +101,21 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       const table = getSupabaseTable(tableName);
       
       // Simplified query without complex type parameters
-      const { data, error } = await supabase
+      const response = await supabase
         .from(table)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
         .select();
 
-      if (error) throw error;
+      if (response.error) throw response.error;
       
+      const data = response.data;
       if (!data || data.length === 0) {
         throw new Error('No data returned from update operation');
       }
       
-      // Use simple type casting to avoid deep type instantiation
+      // Simple type casting to avoid deep type instantiation
       return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
@@ -135,20 +137,21 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       const table = getSupabaseTable(tableName);
       
       // Simplified query without complex type parameters
-      const { data, error } = await supabase
+      const response = await supabase
         .from(table)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
         .limit(1);
 
-      if (error) throw error;
+      if (response.error) throw response.error;
       
+      const data = response.data;
       if (!data || data.length === 0) {
         return null as unknown as T;
       }
       
-      // Use simple type casting to avoid deep type instantiation
+      // Simple type casting to avoid deep type instantiation
       return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
