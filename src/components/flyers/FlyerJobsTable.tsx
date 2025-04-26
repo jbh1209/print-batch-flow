@@ -86,6 +86,18 @@ export const FlyerJobsTable = () => {
     setIsBatchDialogOpen(true);
   };
 
+  // Handle fix batched jobs with explicit return type handling
+  const handleFixBatchedJobs = async () => {
+    try {
+      const fixedCount = await fixBatchedJobsWithoutBatch();
+      console.log(`Fixed ${fixedCount} jobs`);
+      return fixedCount;
+    } catch (err) {
+      console.error("Error fixing batched jobs:", err);
+      return 0;
+    }
+  };
+
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -117,7 +129,7 @@ export const FlyerJobsTable = () => {
         {/* Fix Orphaned Jobs Button - only show if there are jobs stuck in batched state */}
         {filterCounts.batched > 0 && (
           <BatchFixBanner 
-            onFixJobs={fixBatchedJobsWithoutBatch}
+            onFixJobs={handleFixBatchedJobs}
             isFixingBatchedJobs={isFixingBatchedJobs}
           />
         )}

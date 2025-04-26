@@ -31,13 +31,15 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use simple typing to avoid deep instantiation
-      const { data, error } = await supabase
+      // Explicitly type as any to avoid deep type instantiation
+      const result: any = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
-        .is('batch_id', null) as { data: JobWithId[] | null; error: any };
+        .is('batch_id', null);
+      
+      const { data, error } = result;
       
       if (error) throw error;
       
@@ -48,15 +50,15 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (jobsData.length > 0) {
         // Extract IDs as simple strings
-        const jobIds = jobsData.map(job => job.id);
+        const jobIds = jobsData.map((job: JobWithId) => job.id);
         
-        // Use simple typing for update operation
-        const { error: updateError } = await supabase
+        // Type the update operation result as any
+        const updateResult: any = await supabase
           .from(table)
           .update({ status: 'queued' })
-          .in('id', jobIds) as { error: any };
+          .in('id', jobIds);
         
-        if (updateError) throw updateError;
+        if (updateResult.error) throw updateResult.error;
         
         console.log(`Reset ${jobIds.length} jobs to queued status`);
         toast.success(`Reset ${jobIds.length} orphaned jobs back to queued status`);

@@ -25,11 +25,14 @@ export function useFlyerJobs() {
       setIsLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      // Use any type to avoid deep type instantiation
+      const result: any = await supabase
         .from('flyer_jobs')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false }) as { data: FlyerJob[] | null, error: any };
+        .order('created_at', { ascending: false });
+
+      const { data, error: fetchError } = result;
 
       if (fetchError) throw fetchError;
 

@@ -16,7 +16,9 @@ export function useGenericFlyerJobs() {
     fetchJobs: jobsHook.fetchJobs,
     createBatch: jobsHook.createBatch,
     isCreatingBatch: jobsHook.isCreatingBatch,
-    fixBatchedJobsWithoutBatch: jobsHook.fixBatchedJobsWithoutBatch,
+    fixBatchedJobsWithoutBatch: async (): Promise<number> => {
+      return await jobsHook.fixBatchedJobsWithoutBatch();
+    },
     isFixingBatchedJobs: jobsHook.isFixingBatchedJobs
   };
 }

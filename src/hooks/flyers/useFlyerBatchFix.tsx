@@ -6,18 +6,20 @@ import { toast } from 'sonner';
 export function useFlyerBatchFix(onSuccess?: () => Promise<void>) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
-  // Update to return Promise<number> for consistency with other implementations
+  // Return Promise<number> for consistency with other implementations
   const fixBatchedJobsWithoutBatch = async (): Promise<number> => {
     try {
       setIsFixingBatchedJobs(true);
       console.log("Finding orphaned flyer batched jobs");
       
-      // Use simple type casting to avoid deep instantiation issues
-      const { data, error } = await supabase
+      // Use any type to avoid deep type instantiation
+      const result: any = await supabase
         .from("flyer_jobs")
         .select('id')
         .eq('status', 'batched')
-        .is('batch_id', null) as { data: { id: string }[] | null; error: any };
+        .is('batch_id', null);
+      
+      const { data, error } = result;
       
       if (error) throw error;
       
@@ -27,15 +29,15 @@ export function useFlyerBatchFix(onSuccess?: () => Promise<void>) {
       
       if (jobsData.length > 0) {
         // Extract IDs
-        const jobIds = jobsData.map(job => job.id);
+        const jobIds = jobsData.map((job: { id: string }) => job.id);
         
-        // Use simple type casting
-        const { error: updateError } = await supabase
+        // Use any type for update result
+        const updateResult: any = await supabase
           .from("flyer_jobs")
           .update({ status: 'queued' })
-          .in('id', jobIds) as { error: any };
+          .in('id', jobIds);
         
-        if (updateError) throw updateError;
+        if (updateResult.error) throw updateResult.error;
         
         console.log(`Reset ${jobIds.length} flyer jobs to queued status`);
         toast.success(`Reset ${jobIds.length} orphaned flyer jobs back to queued status`);
