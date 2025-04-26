@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -168,11 +167,11 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       };
       
       // Insert the batch directly without complex typing
-      const { data, error } = await supabase
+      const { data, error } = await (supabase
         .from("batches")
         .insert(batchInsertData)
         .select()
-        .single();
+        .single() as any);
         
       if (error) throw error;
       
@@ -180,8 +179,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         throw new Error('No data returned from batch creation');
       }
       
-      // Convert to BatchData with intermediate unknown step
-      const batchData = data as unknown as BatchData;
+      // Cast directly to BatchData
+      const batchData = data as any as BatchData;
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -246,19 +245,19 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const productCode = getProductCode(config.productType);
       
       // Query without complex typing
-      const { data, error } = await supabase
+      const { data, error } = await (supabase
         .from("batches")
         .select('*')
         .eq('created_by', user.id)
         .filter('name', 'ilike', `DXB-${productCode}-%`)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as any);
       
       if (error) throw error;
       
       if (!data) return [];
       
-      // Cast with intermediate unknown step
-      const batchesData = data as unknown as BatchData[];
+      // Cast directly to BatchData[]
+      const batchesData = data as any as BatchData[];
       
       // Map to the BaseBatch type
       return batchesData.map(batch => ({

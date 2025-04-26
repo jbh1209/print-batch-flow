@@ -31,18 +31,18 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Avoid generic type parameters in the query
-      const { data, error } = await supabase
+      // Completely avoid type parameters in the query
+      const { data, error } = await (supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
-        .is('batch_id', null);
+        .is('batch_id', null) as any);
       
       if (error) throw error;
       
-      // Cast to unknown first, then to array to avoid deep type instantiation
-      const jobsData = data ? (data as unknown[]) as Array<{id: string}> : [];
+      // Simple array typing without generics
+      const jobsData = data ? (data as Array<JobWithId>) : [];
       
       console.log(`Found ${jobsData.length} orphaned jobs`);
       
@@ -50,11 +50,11 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Extract IDs as simple strings
         const jobIds = jobsData.map(job => job.id);
         
-        // Simple update query without complex type parameters
-        const { error: updateError } = await supabase
+        // Completely avoid type parameters in the query
+        const { error: updateError } = await (supabase
           .from(table)
           .update({ status: 'queued' })
-          .in('id', jobIds);
+          .in('id', jobIds) as any);
         
         if (updateError) throw updateError;
         

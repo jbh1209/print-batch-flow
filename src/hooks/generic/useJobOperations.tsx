@@ -62,11 +62,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Perform Supabase query without complex typing
-      const { data, error } = await supabase
+      // Use any to bypass TypeScript's type checking for the Supabase query
+      const { data, error } = await (supabase
         .from(table)
         .insert(newJob)
-        .select();
+        .select() as any);
 
       if (error) throw error;
       
@@ -74,8 +74,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from insert operation');
       }
       
-      // Use unknown as intermediate step to avoid deep type instantiation
-      return data[0] as unknown as T;
+      // Cast directly to T
+      return data[0] as any as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -99,13 +99,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Avoid complex typing by not specifying generics
-      const { data, error } = await supabase
+      // Use any to bypass TypeScript's type checking
+      const { data, error } = await (supabase
         .from(table)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
-        .select();
+        .select() as any);
 
       if (error) throw error;
       
@@ -113,8 +113,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from update operation');
       }
       
-      // Use unknown as intermediate step to break circular reference
-      return data[0] as unknown as T;
+      // Cast directly to T
+      return data[0] as any as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -134,22 +134,22 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Avoid complex type parameters in query
-      const { data, error } = await supabase
+      // Use any to bypass TypeScript's type checking
+      const { data, error } = await (supabase
         .from(table)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
-        .limit(1);
+        .limit(1) as any);
 
       if (error) throw error;
       
       if (!data || data.length === 0) {
-        return null as unknown as T;
+        return null as any as T;
       }
       
-      // Use unknown as intermediate step to avoid deep type instantiation
-      return data[0] as unknown as T;
+      // Cast directly to T
+      return data[0] as any as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;
