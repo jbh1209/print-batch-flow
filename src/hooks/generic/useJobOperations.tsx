@@ -74,8 +74,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from insert operation');
       }
       
-      // Use explicit type assertion for the return value
-      return data[0] as unknown as T;
+      // Avoid deep typing issues by using any as an intermediate step
+      return data[0] as any as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -113,8 +113,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from update operation');
       }
       
-      // Use explicit type assertion for the return value
-      return data[0] as unknown as T;
+      // Avoid deep typing issues by using any as an intermediate step
+      return data[0] as any as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -148,8 +148,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         return null as unknown as T;
       }
       
-      // Use explicit type assertion for the return value
-      return data[0] as unknown as T;
+      // Avoid deep typing issues by using any as an intermediate step
+      return data[0] as any as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

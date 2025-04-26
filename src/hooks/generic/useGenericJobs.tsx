@@ -52,8 +52,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       if (fetchError) throw fetchError;
 
-      // Use explicit type assertion for the jobs data
-      const typedData = (data || []) as unknown as T[];
+      // Use explicit type assertion with any as intermediate step
+      const typedData = (data || []) as any[] as T[];
       setJobs(typedData);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);

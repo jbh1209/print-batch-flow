@@ -181,8 +181,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         throw new Error('No data returned from batch creation');
       }
       
-      // Cast the returned data to our BatchData interface
-      const batchData = data as BatchData;
+      // Use simple typing by first casting to any
+      const batchData = data as any as BatchData;
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -258,8 +258,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (!data) return [];
       
-      // Cast the data to our BatchData interface
-      const batchesData = data as BatchData[];
+      // Cast the data to prevent complex typing issues
+      const batchesData = data as any[] as BatchData[];
       
       // Map to the BaseBatch type
       return batchesData.map(batch => ({
