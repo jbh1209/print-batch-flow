@@ -31,21 +31,13 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use an explicit type annotation to avoid deep instantiation issues
-      interface QueryResponse {
-        data: JobWithId[] | null;
-        error: any;
-      }
-      
-      // Use the explicit type
-      const response: QueryResponse = await supabase
+      // Use simple typing to avoid deep instantiation
+      const { data, error } = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
-        .is('batch_id', null);
-      
-      const { data, error } = response;
+        .is('batch_id', null) as { data: JobWithId[] | null; error: any };
       
       if (error) throw error;
       
@@ -58,18 +50,11 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Extract IDs as simple strings
         const jobIds = jobsData.map(job => job.id);
         
-        // Define explicit response type for update operation
-        interface UpdateResponse {
-          error: any;
-        }
-        
-        // Explicitly declare the response type
-        const updateResponse: UpdateResponse = await supabase
+        // Use simple typing for update operation
+        const { error: updateError } = await supabase
           .from(table)
           .update({ status: 'queued' })
-          .in('id', jobIds);
-        
-        const { error: updateError } = updateResponse;
+          .in('id', jobIds) as { error: any };
         
         if (updateError) throw updateError;
         

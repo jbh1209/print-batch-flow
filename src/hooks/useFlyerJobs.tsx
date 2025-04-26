@@ -29,7 +29,7 @@ export function useFlyerJobs() {
         .from('flyer_jobs')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as { data: FlyerJob[] | null, error: any };
 
       if (fetchError) throw fetchError;
 
@@ -101,14 +101,14 @@ export function useFlyerJobs() {
     }
   };
 
-  // Use the batch fix hook but ensure it returns a Promise<number>
+  // Use the batch fix hook
   const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useFlyerBatchFix();
 
-  // Create a wrapper function to make sure the return type is Promise<number>
+  // Create a wrapper function that ensures the return type is Promise<number>
   const handleFixBatchedJobs = async (): Promise<number> => {
     const result = await fixBatchedJobsWithoutBatch();
     await fetchJobs(); // Refresh the jobs list after fixing
-    return result; // Return the number of fixed jobs
+    return result;
   };
 
   return {
@@ -120,7 +120,7 @@ export function useFlyerJobs() {
     createJob: handleCreateJob,
     createBatch: handleCreateBatch,
     isCreatingBatch,
-    fixBatchedJobsWithoutBatch: handleFixBatchedJobs, // Use the wrapper
+    fixBatchedJobsWithoutBatch: handleFixBatchedJobs,
     isFixingBatchedJobs
   };
 }
