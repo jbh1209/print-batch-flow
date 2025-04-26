@@ -16,7 +16,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
   const fixBatchedJobsWithoutBatch = async () => {
     if (!userId || !tableName) {
       console.log("No authenticated user or table name found for fix operation");
-      return;
+      return 0;
     }
     
     try {
@@ -25,24 +25,24 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (!isExistingTable(tableName)) {
         console.log(`Table ${tableName} doesn't exist yet, skipping fix operation`);
-        return;
+        return 0;
       }
       
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Completely avoid type parameters in the query
-      const { data, error } = await (supabase
+      // Use explicit any type to avoid TypeScript complexity
+      const { data, error } = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
-        .is('batch_id', null) as any);
+        .is('batch_id', null) as any;
       
       if (error) throw error;
       
-      // Simple array typing without generics
-      const jobsData = data ? (data as Array<JobWithId>) : [];
+      // Simple array typing
+      const jobsData: JobWithId[] = data || [];
       
       console.log(`Found ${jobsData.length} orphaned jobs`);
       
@@ -50,11 +50,11 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Extract IDs as simple strings
         const jobIds = jobsData.map(job => job.id);
         
-        // Completely avoid type parameters in the query
-        const { error: updateError } = await (supabase
+        // Use explicit any type for the query
+        const { error: updateError } = await supabase
           .from(table)
           .update({ status: 'queued' })
-          .in('id', jobIds) as any);
+          .in('id', jobIds) as any;
         
         if (updateError) throw updateError;
         

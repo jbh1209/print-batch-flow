@@ -44,16 +44,16 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       const table = getSupabaseTable(config.tableName);
 
       // Use any to bypass TypeScript's type checking
-      const { data, error: fetchError } = await (supabase
+      const { data, error: fetchError } = await supabase
         .from(table)
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false }) as any);
+        .order('created_at', { ascending: false }) as any;
 
       if (fetchError) throw fetchError;
 
-      // Cast directly to T[]
-      setJobs(data ? (data as any[] as T[]) : []);
+      // Cast the result to T[]
+      setJobs(data ? (data as any[]) as T[] : []);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
@@ -111,7 +111,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   ) => {
     try {
-      // Ensure laminationType is properly converted to LaminationType type
+      // Ensure laminationType is properly typed
       const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
       
       const batch = await createBatchWithSelectedJobs(selectedJobs, {
@@ -139,6 +139,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     if (fixedCount) {
       await fetchJobs();
     }
+    return fixedCount;
   };
 
   return {

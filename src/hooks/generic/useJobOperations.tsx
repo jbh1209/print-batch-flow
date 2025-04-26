@@ -42,7 +42,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
   const createJob = async <T extends BaseJob>(
     jobData: Omit<T, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>,
     userId: string
-  ) => {
+  ): Promise<T> => {
     try {
       if (!tableName) {
         throw new Error(`Invalid table name`);
@@ -62,11 +62,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Use any to bypass TypeScript's type checking for the Supabase query
-      const { data, error } = await (supabase
+      // Use any to bypass TypeScript's type checking 
+      const { data, error } = await supabase
         .from(table)
         .insert(newJob)
-        .select() as any);
+        .select() as any;
 
       if (error) throw error;
       
@@ -74,7 +74,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from insert operation');
       }
       
-      // Cast directly to T
+      // Use a two-step cast to safely convert to T
       return data[0] as any as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
@@ -86,7 +86,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
     jobId: string,
     jobData: Partial<T>,
     userId: string
-  ) => {
+  ): Promise<T> => {
     try {
       if (!tableName) {
         throw new Error(`Invalid table name`);
@@ -100,12 +100,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       const table = getSupabaseTable(tableName);
       
       // Use any to bypass TypeScript's type checking
-      const { data, error } = await (supabase
+      const { data, error } = await supabase
         .from(table)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
-        .select() as any);
+        .select() as any;
 
       if (error) throw error;
       
@@ -113,7 +113,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from update operation');
       }
       
-      // Cast directly to T
+      // Use a two-step cast to safely convert to T
       return data[0] as any as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
@@ -121,7 +121,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
     }
   };
 
-  const getJobById = async <T extends BaseJob>(jobId: string, userId: string) => {
+  const getJobById = async <T extends BaseJob>(jobId: string, userId: string): Promise<T | null> => {
     try {
       if (!tableName) {
         throw new Error(`Invalid table name`);
@@ -135,20 +135,20 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       const table = getSupabaseTable(tableName);
       
       // Use any to bypass TypeScript's type checking
-      const { data, error } = await (supabase
+      const { data, error } = await supabase
         .from(table)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
-        .limit(1) as any);
+        .limit(1) as any;
 
       if (error) throw error;
       
       if (!data || data.length === 0) {
-        return null as any as T;
+        return null;
       }
       
-      // Cast directly to T
+      // Use a two-step cast to safely convert to T
       return data[0] as any as T;
     } catch (err) {
       console.error(`Error getting job:`, err);

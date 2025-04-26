@@ -144,7 +144,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       // Generate a batch number format specific to the product type
       const batchNumber = await generateBatchNumber(config.productType);
       
-      // Convert lamination type to a known type to satisfy TypeScript
+      // Convert lamination type to a known type
       const laminationType: LaminationType = (batchProperties.laminationType || "none") as LaminationType;
       
       // Explicitly define batch status
@@ -166,21 +166,20 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Insert the batch directly without complex typing
-      const { data, error } = await (supabase
+      // Insert the batch using any to bypass TypeScript complexity
+      const { data, error } = await supabase
         .from("batches")
         .insert(batchInsertData)
-        .select()
-        .single() as any);
+        .select() as any;
         
       if (error) throw error;
       
-      if (!data) {
+      if (!data || !data.length) {
         throw new Error('No data returned from batch creation');
       }
       
-      // Cast directly to BatchData
-      const batchData = data as any as BatchData;
+      // Cast to BatchData to avoid complex Supabase typing
+      const batchData: BatchData = data[0];
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -244,20 +243,20 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const productCode = getProductCode(config.productType);
       
-      // Query without complex typing
-      const { data, error } = await (supabase
+      // Query using any to bypass TypeScript complexity
+      const { data, error } = await supabase
         .from("batches")
         .select('*')
         .eq('created_by', user.id)
         .filter('name', 'ilike', `DXB-${productCode}-%`)
-        .order('created_at', { ascending: false }) as any);
+        .order('created_at', { ascending: false }) as any;
       
       if (error) throw error;
       
       if (!data) return [];
       
-      // Cast directly to BatchData[]
-      const batchesData = data as any as BatchData[];
+      // Cast to BatchData[] to avoid complex Supabase typing
+      const batchesData: BatchData[] = data;
       
       // Map to the BaseBatch type
       return batchesData.map(batch => ({
