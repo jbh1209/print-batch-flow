@@ -62,7 +62,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Use simple typing for Supabase query
+      // Perform Supabase query without complex typing
       const { data, error } = await supabase
         .from(table)
         .insert(newJob)
@@ -74,8 +74,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from insert operation');
       }
       
-      // Use basic type conversion
-      return data[0] as T;
+      // Use unknown as intermediate step to avoid deep type instantiation
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -99,7 +99,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use simple typing for Supabase query
+      // Avoid complex typing by not specifying generics
       const { data, error } = await supabase
         .from(table)
         .update(jobData)
@@ -113,8 +113,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from update operation');
       }
       
-      // Use basic type conversion
-      return data[0] as T;
+      // Use unknown as intermediate step to break circular reference
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -134,7 +134,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use simple typing for Supabase query
+      // Avoid complex type parameters in query
       const { data, error } = await supabase
         .from(table)
         .select('*')
@@ -145,11 +145,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       if (error) throw error;
       
       if (!data || data.length === 0) {
-        return null as any;
+        return null as unknown as T;
       }
       
-      // Use basic type conversion
-      return data[0] as T;
+      // Use unknown as intermediate step to avoid deep type instantiation
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

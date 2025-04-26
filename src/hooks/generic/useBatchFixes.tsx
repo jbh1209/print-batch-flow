@@ -31,7 +31,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use simple types and avoid generic parameters in query
+      // Avoid generic type parameters in the query
       const { data, error } = await supabase
         .from(table)
         .select('id')
@@ -41,8 +41,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (error) throw error;
       
-      // Use simple type assertion
-      const jobsData = data ? data as any[] : [];
+      // Cast to unknown first, then to array to avoid deep type instantiation
+      const jobsData = data ? (data as unknown[]) as Array<{id: string}> : [];
       
       console.log(`Found ${jobsData.length} orphaned jobs`);
       
