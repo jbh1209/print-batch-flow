@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName, BatchStatus } from '@/config/productTypes';
+import { BaseJob, BaseBatch, ProductConfig, LaminationType, BatchStatus } from '@/config/productTypes';
 import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
 
 // Define explicit interface for batch data to avoid recursive type issues
@@ -21,6 +20,16 @@ interface BatchData {
   paper_type: string | null;
   paper_weight: string | null;
   updated_at: string;
+}
+
+// Define simple response types to avoid deep instantiation
+interface SupabaseQueryResponse<T> {
+  data: T[] | null;
+  error: any;
+}
+
+interface SupabaseUpdateResponse {
+  error: any;
 }
 
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
@@ -99,11 +108,11 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const productCode = getProductCode(productType);
       
       // Get the count of existing batches for this product type
-      // Use any to bypass deep instantiation issue
-      const result = await supabase
+      // Use explicit type to avoid deep instantiation
+      const result: SupabaseQueryResponse<{name: string}> = await supabase
         .from("batches")
         .select('name')
-        .filter('name', 'ilike', `DXB-${productCode}-%`) as { data: any[] | null; error: any };
+        .filter('name', 'ilike', `DXB-${productCode}-%`);
       
       if (result.error) throw result.error;
       
@@ -168,11 +177,11 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Insert the batch using any type to bypass deep instantiation issue
-      const result = await supabase
+      // Insert the batch using explicit type
+      const result: SupabaseQueryResponse<BatchData> = await supabase
         .from("batches")
         .insert(batchInsertData)
-        .select() as { data: any[] | null; error: any };
+        .select();
         
       if (result.error) throw result.error;
       
@@ -180,8 +189,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         throw new Error('No data returned from batch creation');
       }
       
-      // Cast to BatchData to avoid complex Supabase typing
-      const batchData = result.data[0] as unknown as BatchData;
+      // Use the explicitly typed batch data
+      const batchData = result.data[0];
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -193,14 +202,14 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Execute update with any type to bypass deep instantiation issue
-        const updateResult = await supabase
+        // Execute update with explicit type
+        const updateResult: SupabaseUpdateResponse = await supabase
           .from(table)
           .update({ 
             batch_id: batchData.id,
             status: 'batched' 
           })
-          .in('id', jobIds) as { error: any };
+          .in('id', jobIds);
         
         if (updateResult.error) throw updateResult.error;
       } else {
@@ -246,7 +255,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const productCode = getProductCode(config.productType);
       
       // Query using explicitly typed response
-      const result: { data: any[] | null; error: any } = await supabase
+      const result: SupabaseQueryResponse<BatchData> = await supabase
         .from("batches")
         .select('*')
         .eq('created_by', user.id)
@@ -257,7 +266,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (!result.data) return [];
       
-      // Cast to BatchData[] to avoid complex Supabase typing
+      // Use the explicitly typed batch data
       const batchesData: BatchData[] = result.data;
       
       // Map to the BaseBatch type
@@ -295,7 +304,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         const table = getSupabaseTable(tableName);
         
         // Reset the jobs associated with this batch with explicitly typed response
-        const resetResult: { error: any } = await supabase
+        const resetResult: SupabaseUpdateResponse = await supabase
           .from(table)
           .update({ 
             status: 'queued',
@@ -307,7 +316,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       }
       
       // Now delete the batch with explicitly typed response
-      const deleteResult: { error: any } = await supabase
+      const deleteResult: SupabaseUpdateResponse = await supabase
         .from("batches")
         .delete()
         .eq('id', batchId)

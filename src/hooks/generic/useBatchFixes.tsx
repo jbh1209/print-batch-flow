@@ -31,8 +31,14 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Explicitly declare the response type and use any to bypass deep instantiation
-      const response: { data: any; error: any } = await supabase
+      // Use an explicit type annotation to avoid deep instantiation issues
+      interface QueryResponse {
+        data: JobWithId[] | null;
+        error: any;
+      }
+      
+      // Use the explicit type
+      const response: QueryResponse = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
@@ -52,8 +58,13 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Extract IDs as simple strings
         const jobIds = jobsData.map(job => job.id);
         
+        // Define explicit response type for update operation
+        interface UpdateResponse {
+          error: any;
+        }
+        
         // Explicitly declare the response type
-        const updateResponse: { error: any } = await supabase
+        const updateResponse: UpdateResponse = await supabase
           .from(table)
           .update({ status: 'queued' })
           .in('id', jobIds);

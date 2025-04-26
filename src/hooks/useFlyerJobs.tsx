@@ -101,8 +101,15 @@ export function useFlyerJobs() {
     }
   };
 
-  // Initialize the batch fix hook with our fetchJobs method
-  const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useFlyerBatchFix(fetchJobs);
+  // Use the batch fix hook but ensure it returns a Promise<number>
+  const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useFlyerBatchFix();
+
+  // Create a wrapper function to make sure the return type is Promise<number>
+  const handleFixBatchedJobs = async (): Promise<number> => {
+    const result = await fixBatchedJobsWithoutBatch();
+    await fetchJobs(); // Refresh the jobs list after fixing
+    return result; // Return the number of fixed jobs
+  };
 
   return {
     jobs,
@@ -113,7 +120,7 @@ export function useFlyerJobs() {
     createJob: handleCreateJob,
     createBatch: handleCreateBatch,
     isCreatingBatch,
-    fixBatchedJobsWithoutBatch,
+    fixBatchedJobsWithoutBatch: handleFixBatchedJobs, // Use the wrapper
     isFixingBatchedJobs
   };
 }

@@ -1,61 +1,58 @@
 
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export function useFlyerBatchFix(onJobsUpdated: () => Promise<void>) {
-  const { user } = useAuth();
+export function useFlyerBatchFix(onSuccess?: () => Promise<void>) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
-  // Fix jobs that are marked as batched but have no batch_id
-  const fixBatchedJobsWithoutBatch = async () => {
-    if (!user) {
-      console.log("No authenticated user found for fix operation");
-      return;
-    }
-    
-    setIsFixingBatchedJobs(true);
+  // Update to return Promise<number> for consistency with other implementations
+  const fixBatchedJobsWithoutBatch = async (): Promise<number> => {
     try {
-      console.log("Finding orphaned batched jobs");
+      setIsFixingBatchedJobs(true);
+      console.log("Finding orphaned flyer batched jobs");
       
-      // Find all jobs that are marked as batched but have no batch_id
-      const { data: orphanedJobs, error: findError } = await supabase
-        .from('flyer_jobs')
+      // Explicitly define the response type to avoid deep instantiation issue
+      const response = await supabase
+        .from("flyer_jobs")
         .select('id')
-        .eq('user_id', user.id)
         .eq('status', 'batched')
-        .is('batch_id', null);
+        .is('batch_id', null) as { data: any[] | null; error: any };
       
-      if (findError) {
-        console.error("Error finding orphaned jobs:", findError);
-        throw findError;
-      }
+      if (response.error) throw response.error;
       
-      console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
+      const jobsData = response.data || [];
       
-      if (orphanedJobs && orphanedJobs.length > 0) {
-        // Reset these jobs to queued status
-        const { error: updateError } = await supabase
-          .from('flyer_jobs')
-          .update({ status: 'queued' })
-          .in('id', orphanedJobs.map(job => job.id));
+      console.log(`Found ${jobsData.length} orphaned flyer jobs`);
+      
+      if (jobsData.length > 0) {
+        // Extract IDs
+        const jobIds = jobsData.map(job => job.id);
         
-        if (updateError) {
-          console.error("Error fixing orphaned jobs:", updateError);
-          throw updateError;
+        // Explicitly define the update response type
+        const updateResponse = await supabase
+          .from("flyer_jobs")
+          .update({ status: 'queued' })
+          .in('id', jobIds) as { error: any };
+        
+        if (updateResponse.error) throw updateResponse.error;
+        
+        console.log(`Reset ${jobIds.length} flyer jobs to queued status`);
+        toast.success(`Reset ${jobIds.length} orphaned flyer jobs back to queued status`);
+        
+        // Call the onSuccess callback if provided
+        if (onSuccess) {
+          await onSuccess();
         }
         
-        console.log(`Reset ${orphanedJobs.length} jobs to queued status`);
-        
-        toast.success(`Reset ${orphanedJobs.length} orphaned jobs back to queued status`);
-        
-        // Refresh the job list
-        await onJobsUpdated();
+        return jobIds.length;
       }
+      
+      return 0;
     } catch (error) {
-      console.error('Error fixing batched jobs:', error);
-      toast.error(`Failed to reset jobs with missing batch references.`);
+      console.error("Error fixing batched flyer jobs:", error);
+      toast.error("Failed to reset flyer jobs with missing batch references.");
+      return 0;
     } finally {
       setIsFixingBatchedJobs(false);
     }

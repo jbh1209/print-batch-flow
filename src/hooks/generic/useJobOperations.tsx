@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -22,8 +21,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Explicitly declare the response type
-      const result: { error: any } = await supabase
+      // Define explicit response type
+      interface DeleteResponse {
+        error: any;
+      }
+      
+      // Use explicit typing
+      const result: DeleteResponse = await supabase
         .from(table)
         .delete()
         .eq('id', jobId)
@@ -63,8 +67,14 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Explicitly declare the response type
-      const result: { data: any; error: any } = await supabase
+      // Define explicit response type
+      interface CreateResponse {
+        data: any[] | null;
+        error: any;
+      }
+      
+      // Use explicit typing
+      const result: CreateResponse = await supabase
         .from(table)
         .insert(newJob)
         .select();
