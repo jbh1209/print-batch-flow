@@ -13,7 +13,7 @@ interface JobWithId {
 export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
-  const fixBatchedJobsWithoutBatch = async () => {
+  const fixBatchedJobsWithoutBatch = async (): Promise<number> => {
     if (!userId || !tableName) {
       console.log("No authenticated user or table name found for fix operation");
       return 0;
@@ -31,13 +31,15 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use explicit any type to avoid TypeScript complexity
-      const { data, error } = await supabase
+      // Use explicitly typed query response
+      const response: { data: JobWithId[] | null; error: any } = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
-        .is('batch_id', null) as any;
+        .is('batch_id', null);
+      
+      const { data, error } = response;
       
       if (error) throw error;
       
@@ -50,11 +52,13 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Extract IDs as simple strings
         const jobIds = jobsData.map(job => job.id);
         
-        // Use explicit any type for the query
-        const { error: updateError } = await supabase
+        // Use explicitly typed update response
+        const updateResponse: { error: any } = await supabase
           .from(table)
           .update({ status: 'queued' })
-          .in('id', jobIds) as any;
+          .in('id', jobIds);
+        
+        const { error: updateError } = updateResponse;
         
         if (updateError) throw updateError;
         

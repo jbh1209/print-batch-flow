@@ -43,17 +43,17 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       // Get the valid table name that matches Supabase types
       const table = getSupabaseTable(config.tableName);
 
-      // Use any to bypass TypeScript's type checking
-      const { data, error: fetchError } = await supabase
+      // Use explicitly typed response
+      const result: { data: any[] | null; error: any } = await supabase
         .from(table)
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false }) as any;
+        .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
+      if (result.error) throw result.error;
 
       // Cast the result to T[]
-      setJobs(data ? (data as any[]) as T[] : []);
+      setJobs(result.data ? (result.data as T[]) : []);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
@@ -136,7 +136,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   // Handle batch fixes with state refresh
   const handleFixBatchedJobs = async () => {
     const fixedCount = await fixBatchedJobsWithoutBatch();
-    if (fixedCount) {
+    if (fixedCount > 0) {
       await fetchJobs();
     }
     return fixedCount;
