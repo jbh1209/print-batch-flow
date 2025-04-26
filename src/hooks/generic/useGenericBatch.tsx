@@ -21,7 +21,6 @@ interface BatchData {
   paper_type: string | null;
   paper_weight: string | null;
   updated_at: string;
-  [key: string]: any; // Allow for additional properties
 }
 
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
@@ -181,8 +180,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         throw new Error('No data returned from batch creation');
       }
       
-      // Use simple typing by first casting to any
-      const batchData = data as any as BatchData;
+      // Cast inserted data to batch type
+      const batchData = data as BatchData;
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -258,8 +257,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       
       if (!data) return [];
       
-      // Cast the data to prevent complex typing issues
-      const batchesData = data as any[] as BatchData[];
+      // Cast the data to batch array
+      const batchesData = data as BatchData[];
       
       // Map to the BaseBatch type
       return batchesData.map(batch => ({

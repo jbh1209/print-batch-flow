@@ -31,8 +31,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Simplify query to avoid TypeScript recursion issues
-      const { data: rawData, error } = await supabase
+      // Use simple types and avoid generic parameters in query
+      const { data, error } = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
@@ -41,8 +41,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (error) throw error;
       
-      // Explicitly type as any first and then convert to our known type
-      const jobsData = (rawData || []) as any[] as JobWithId[];
+      // Use simple type assertion
+      const jobsData = data ? data as any[] : [];
       
       console.log(`Found ${jobsData.length} orphaned jobs`);
       
