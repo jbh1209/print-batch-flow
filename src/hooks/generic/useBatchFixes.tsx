@@ -31,13 +31,13 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use explicitly typed query response
-      const response: { data: JobWithId[] | null; error: any } = await supabase
+      // Use any to bypass deep instantiation issue
+      const response = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
-        .is('batch_id', null);
+        .is('batch_id', null) as { data: JobWithId[] | null; error: any };
       
       const { data, error } = response;
       
@@ -52,11 +52,11 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Extract IDs as simple strings
         const jobIds = jobsData.map(job => job.id);
         
-        // Use explicitly typed update response
-        const updateResponse: { error: any } = await supabase
+        // Use any to bypass deep instantiation issue
+        const updateResponse = await supabase
           .from(table)
           .update({ status: 'queued' })
-          .in('id', jobIds);
+          .in('id', jobIds) as { error: any };
         
         const { error: updateError } = updateResponse;
         

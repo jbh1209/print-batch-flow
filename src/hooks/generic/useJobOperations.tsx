@@ -22,11 +22,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      const result: { error: any } = await supabase
+      // Use any to bypass deep instantiation issue
+      const result = await supabase
         .from(table)
         .delete()
         .eq('id', jobId)
-        .eq('user_id', userId);
+        .eq('user_id', userId) as { error: any };
 
       if (result.error) throw result.error;
       
@@ -62,11 +63,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Use explicitly typed response
-      const result: { data: any[] | null; error: any } = await supabase
+      // Use any to bypass deep instantiation issue
+      const result = await supabase
         .from(table)
         .insert(newJob)
-        .select();
+        .select() as { data: any[] | null; error: any };
 
       if (result.error) throw result.error;
       

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -98,10 +99,11 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       const productCode = getProductCode(productType);
       
       // Get the count of existing batches for this product type
-      const result: { data: any[] | null; error: any } = await supabase
+      // Use any to bypass deep instantiation issue
+      const result = await supabase
         .from("batches")
         .select('name')
-        .filter('name', 'ilike', `DXB-${productCode}-%`);
+        .filter('name', 'ilike', `DXB-${productCode}-%`) as { data: any[] | null; error: any };
       
       if (result.error) throw result.error;
       
@@ -166,11 +168,11 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Insert the batch using explicitly typed response
-      const result: { data: any[] | null; error: any } = await supabase
+      // Insert the batch using any type to bypass deep instantiation issue
+      const result = await supabase
         .from("batches")
         .insert(batchInsertData)
-        .select();
+        .select() as { data: any[] | null; error: any };
         
       if (result.error) throw result.error;
       
@@ -179,7 +181,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       }
       
       // Cast to BatchData to avoid complex Supabase typing
-      const batchData: BatchData = result.data[0];
+      const batchData = result.data[0] as unknown as BatchData;
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -191,14 +193,14 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Execute update with explicitly typed response
-        const updateResult: { error: any } = await supabase
+        // Execute update with any type to bypass deep instantiation issue
+        const updateResult = await supabase
           .from(table)
           .update({ 
             batch_id: batchData.id,
             status: 'batched' 
           })
-          .in('id', jobIds);
+          .in('id', jobIds) as { error: any };
         
         if (updateResult.error) throw updateResult.error;
       } else {
