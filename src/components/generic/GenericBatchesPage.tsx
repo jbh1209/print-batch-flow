@@ -8,10 +8,11 @@ import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { ProductConfig, BaseBatch } from "@/config/productTypes";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
 import GenericBatchDetailsPage from "./GenericBatchDetailsPage";
+import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 
 interface GenericBatchesPageProps {
   config: ProductConfig;
-  useBatchesHook: () => {
+  useBatchesHook?: () => {
     batches: BaseBatch[];
     isLoading: boolean;
     error: string | null;
@@ -22,12 +23,11 @@ interface GenericBatchesPageProps {
 }
 
 const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps) => {
-  const [searchParams] = useSearchParams();
-  const { batchId: urlBatchId } = useParams<{ batchId: string }>();
   const navigate = useNavigate();
+  const { batchId } = useParams<{ batchId: string }>();
   
-  // Check for batchId in either URL params or search params
-  const batchId = urlBatchId || searchParams.get('batchId');
+  // Use the provided hook or default to useGenericBatches
+  const batchesHookFn = useBatchesHook || (() => useGenericBatches(config));
   
   const {
     batches,
@@ -36,9 +36,9 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
     fetchBatches,
     handleViewPDF,
     handleViewBatchDetails
-  } = useBatchesHook();
+  } = batchesHookFn();
 
-  // If we're viewing a specific batch, render the BatchDetails component
+  // If we're viewing a specific batch, render the BatchDetailsPage component
   if (batchId) {
     return <GenericBatchDetailsPage config={config} batchId={batchId} />;
   }

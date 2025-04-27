@@ -109,7 +109,7 @@ function App() {
           <Route path="/batches/sleeves/batches" element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} />
           <Route 
             path="/batches/sleeves/batches/:batchId" 
-            element={<ProtectedRoute element={<BatchDetailsPage productType="Sleeves" backUrl="/batches/sleeves/batches" />} protected={true} />} 
+            element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Sleeves"]} batchId=":batchId" />} protected={true} />} 
           />
         </Route>
       </Routes>

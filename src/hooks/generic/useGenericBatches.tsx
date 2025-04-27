@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -80,8 +81,10 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    // Use the product-specific route format
-    navigate(`/batches/${config.productType.toLowerCase().replace(' ', '-')}/batches/${batchId}`);
+    // Use URL pattern with path parameters instead of query parameters
+    const path = `/batches/${config.productType.toLowerCase().replace(' ', '-')}/batches/${batchId}`;
+    console.log("Navigating to batch details:", path);
+    navigate(path);
   };
   
   const handleDeleteBatch = async () => {

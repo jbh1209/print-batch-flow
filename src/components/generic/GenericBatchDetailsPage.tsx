@@ -9,7 +9,6 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FlyerBatchOverview } from "@/components/flyers/FlyerBatchOverview";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -57,6 +56,8 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     );
   }
 
+  console.log("Rendering batch details for:", batch.name, "with related jobs:", relatedJobs.length);
+
   return (
     <div>
       <JobsHeader 
@@ -70,14 +71,6 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
         productType={config.productType}
         onDeleteClick={() => setBatchToDelete(batch.id)}
       />
-
-      {/* Always show Batch Overview if there are jobs */}
-      {relatedJobs.length > 0 && (
-        <FlyerBatchOverview 
-          jobs={relatedJobs}
-          batchName={batch.name}
-        />
-      )}
 
       <BatchDeleteDialog 
         isOpen={!!batchToDelete}
