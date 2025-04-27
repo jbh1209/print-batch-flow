@@ -16,13 +16,16 @@ export function drawTableRows(
 ) {
   let y = startY;
   
-  jobs.forEach((job, index) => {
+  // Limit display to top 8 jobs to prevent overlap with previews
+  const displayJobs = jobs.slice(0, 8);
+  
+  displayJobs.forEach((job, index) => {
     // Job name (truncate if too long)
     const name = job.name.length > 18 ? job.name.substring(0, 15) + '...' : job.name;
     page.drawText(name, {
       x: colStarts[0],
       y,
-      size: 10,
+      size: 9, // Smaller font
       font
     });
     
@@ -31,7 +34,7 @@ export function drawTableRows(
     page.drawText(dueDate, {
       x: colStarts[1],
       y,
-      size: 10,
+      size: 9, // Smaller font
       font
     });
     
@@ -39,7 +42,7 @@ export function drawTableRows(
     page.drawText(job.quantity.toString(), {
       x: colStarts[2],
       y,
-      size: 10,
+      size: 9, // Smaller font
       font
     });
     
@@ -50,7 +53,7 @@ export function drawTableRows(
       page.drawText(doubleSided, {
         x: colStarts[3],
         y,
-        size: 10,
+        size: 9, // Smaller font
         font
       });
     } else if (isFlyerJobs([job])) {
@@ -58,22 +61,32 @@ export function drawTableRows(
       page.drawText(flyerJob.size || 'N/A', {
         x: colStarts[3],
         y,
-        size: 10,
+        size: 9, // Smaller font
         font
       });
     } else if (isSleeveJobs([job])) {
       const sleeveJob = job as BaseJob;
-      // Check if stock_type exists before accessing it
       const stockType = 'stock_type' in sleeveJob ? sleeveJob.stock_type : 'Standard';
       page.drawText(stockType || 'Standard', {
         x: colStarts[3],
         y,
-        size: 10,
+        size: 9, // Smaller font
         font
       });
     }
     
-    // Update y for next row
-    y -= 20;
+    // Update y for next row - reduced vertical spacing
+    y -= 15; // Reduced from 20 to 15
   });
+  
+  // If there are more jobs than we displayed, add a note
+  if (jobs.length > displayJobs.length) {
+    page.drawText(`+ ${jobs.length - displayJobs.length} more jobs`, {
+      x: colStarts[0],
+      y: y - 5,
+      size: 9,
+      font,
+      color: rgb(0.5, 0.5, 0.5)
+    });
+  }
 }

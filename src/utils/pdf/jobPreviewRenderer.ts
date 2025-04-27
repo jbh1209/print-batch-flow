@@ -36,7 +36,7 @@ export async function addJobPreviews(
       const [firstPage] = jobPdf.getPages();
       const embeddedPage = await pdfDoc.embedPage(firstPage);
       
-      // Calculate position in grid
+      // Calculate position in grid - account for lower startY to avoid overlap with table
       const x = margin + currentCol * (gridConfig.cellWidth + gridConfig.padding);
       const y = gridConfig.startY - currentRow * (gridConfig.cellHeight + gridConfig.padding);
       

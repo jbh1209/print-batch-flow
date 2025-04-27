@@ -12,17 +12,18 @@ interface GridConfig {
 }
 
 export function calculateGridLayout(jobCount: number, pageHeight: number): GridConfig {
-  // Reserve top 20% for job info, use bottom 80% for previews
-  const previewAreaHeight = pageHeight * 0.8;
-  const startY = pageHeight - (pageHeight * 0.2); // Start Y for preview grid
-  const previewWidth = 510; // Slightly increased width for better spacing
+  // Reserve top 30% for job info and table, use bottom 70% for previews
+  const previewAreaHeight = pageHeight * 0.7;
+  // Start Y positioned lower to avoid overlapping with the job table
+  const startY = pageHeight - (pageHeight * 0.3) - 90; // Additional 90pts offset
+  const previewWidth = 510; // Width for preview area
   
   // Fixed 4x6 grid layout to handle up to 24 cards efficiently
   const columns = 4;
   const rows = 6;
   
   // Calculate cell dimensions based on available space
-  const cellPadding = 8; // Reduced padding for tighter layout
+  const cellPadding = 8;
   const cellWidth = (previewWidth - (cellPadding * (columns + 1))) / columns;
   const cellHeight = (previewAreaHeight - (cellPadding * (rows + 1))) / rows;
   

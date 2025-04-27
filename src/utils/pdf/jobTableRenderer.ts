@@ -33,8 +33,8 @@ export function drawCompactJobsTable(
     isSleeve
   );
   
-  // Draw the table rows
-  const rowY = tableY - 25;
+  // Draw the table rows in a more compact layout - reduced vertical spacing
+  const rowY = tableY - 20; // Reduced from 25 to 20
   drawTableRows(
     page,
     jobs,

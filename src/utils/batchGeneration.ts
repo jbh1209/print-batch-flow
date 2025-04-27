@@ -50,15 +50,15 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     optimization.sheetsRequired
   );
   
-  // Draw compact jobs table in top 25% of page
-  const tableY = pageHeight - margin - 160;
+  // Draw compact jobs table - reduced height and positioned higher
+  const tableY = pageHeight - margin - 90; // Moved up from 160 to 90
   const colWidths = isBusinessCardJobs(jobs) 
-    ? [150, 80, 70, 80, 100]  // Business card column widths
-    : [150, 60, 60, 70, 80];  // Flyer column widths
+    ? [150, 80, 70, 80, 100]
+    : [150, 60, 60, 70, 80];
   
   const colStarts = calculateColumnStarts(margin, colWidths);
   
-  // Draw table header
+  // Draw table header and jobs in a more compact form
   drawCompactJobsTable(
     page, 
     jobs, 
@@ -72,10 +72,10 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     isBusinessCardJobs(jobs) ? optimization.distribution : null
   );
   
-  // Calculate grid layout for preview area - fit all jobs on single page
+  // Calculate grid layout for preview area - starting further down
   const gridConfig = calculateGridLayout(jobs.length, pageHeight);
   
-  // Add job previews in grid layout
+  // Add job previews in grid layout - starting below the jobs table
   await addJobPreviews(
     page,
     jobs,
