@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import { useAuth } from './hooks/useAuth';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
+import { productConfigs } from './config/productTypes';  // Add this import
 
 // Business Card pages (unchanged)
 import BusinessCardJobs from './pages/BusinessCardJobs';
@@ -109,7 +110,7 @@ function App() {
           <Route path="/batches/sleeves/batches" element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} />
           <Route 
             path="/batches/sleeves/batches/:batchId" 
-            element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Sleeves"]} batchId=":batchId" />} protected={true} />} 
+            element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} 
           />
         </Route>
       </Routes>
