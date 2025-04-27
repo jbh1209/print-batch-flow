@@ -62,7 +62,7 @@ const FlyerBatchDetails = () => {
         sheets_required: batchData.sheets_required,
         front_pdf_url: batchData.front_pdf_url,
         back_pdf_url: batchData.back_pdf_url,
-        overview_pdf_url: batchData.overview_pdf_url || null,
+        overview_pdf_url: batchData.overview_pdf_url || null, // Add this line
         due_date: batchData.due_date,
         created_at: batchData.created_at,
         lamination_type: batchData.lamination_type,
