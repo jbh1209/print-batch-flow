@@ -1,13 +1,14 @@
 
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { BaseJob } from "@/config/productTypes";
 import { isBusinessCardJobs } from "./jobTypeUtils";
 import { drawTableHeader } from "./tableHeaderRenderer";
 import { drawTableRows } from "./tableRowRenderer";
 
 export function drawCompactJobsTable(
   page: any, 
-  jobs: Job[] | FlyerJob[], 
+  jobs: Job[] | FlyerJob[] | BaseJob[], 
   tableY: number,
   colStarts: number[],
   helveticaFont: any,
@@ -32,7 +33,7 @@ export function drawCompactJobsTable(
   const rowY = tableY - 25;
   drawTableRows(
     page,
-    jobs,
+    jobs as (Job[] | FlyerJob[]),  // Type assertion here since drawTableRows is already setup for these types
     rowY,
     colStarts,
     helveticaFont,

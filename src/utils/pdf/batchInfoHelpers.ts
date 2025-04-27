@@ -2,12 +2,13 @@
 import { PDFPage, rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { BaseJob } from "@/config/productTypes";
 import { format } from "date-fns";
 
 export function drawBatchInfo(
   page: PDFPage,
   batchName: string,
-  jobs: Job[] | FlyerJob[],
+  jobs: Job[] | FlyerJob[] | BaseJob[],
   helveticaFont: any,
   helveticaBold: any,
   margin: number,
@@ -36,7 +37,7 @@ export function drawBatchInfo(
   }
   
   // Check if we're dealing with business cards or flyers
-  const isBusinessCardJob = 'is_double_sided' in jobs[0];
+  const isBusinessCardJob = 'double_sided' in jobs[0];
   
   if (isBusinessCardJob) {
     // Business card specific info
@@ -96,7 +97,7 @@ export function drawBatchInfo(
     });
   } else {
     // Flyer specific info
-    const flyerJobs = jobs as FlyerJob[];
+    const flyerJobs = jobs as FlyerJob[] | BaseJob[];
     
     // Get paper information from the first job (assuming all jobs in a batch have the same paper)
     const paperWeight = flyerJobs[0]?.paper_weight || 'N/A';

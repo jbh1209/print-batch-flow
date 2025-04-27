@@ -1,11 +1,12 @@
 
 import { Job } from "@/components/business-cards/JobsTable";
+import { BaseJob } from "@/config/productTypes";
 import { generateBatchImposition } from "./pdf/BatchPdfGenerator";
 
 /**
  * Generates an imposition sheet for a batch of jobs
  */
-export async function generateImpositionSheet(jobs: Job[], batchName: string = ""): Promise<Uint8Array> {
+export async function generateImpositionSheet(jobs: Job[] | BaseJob[], batchName: string = ""): Promise<Uint8Array> {
   console.log("Starting imposition sheet generation for batch:", batchName);
   
   try {
@@ -19,7 +20,7 @@ export async function generateImpositionSheet(jobs: Job[], batchName: string = "
     const actualBatchName = batchName || generateDefaultBatchName();
     
     // Generate imposition PDF using our new system
-    return await generateBatchImposition(jobs, actualBatchName);
+    return await generateBatchImposition(jobs as Job[], actualBatchName);
     
   } catch (error) {
     console.error("Error in generateImpositionSheet:", error);

@@ -1,103 +1,87 @@
 
-import { rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { format } from "date-fns";
+import { rgb } from "pdf-lib";
 import { isBusinessCardJobs } from "./jobTypeUtils";
 
 export function drawTableRows(
   page: any,
   jobs: Job[] | FlyerJob[],
-  rowY: number,
+  startY: number,
   colStarts: number[],
-  helveticaFont: any,
+  font: any,
   distribution: any = null
 ) {
-  const rowHeight = 15; // Compact row height
+  let y = startY;
   
-  jobs.slice(0, 10).forEach((job, i) => {
-    const jobY = rowY - (i * rowHeight);
-    
-    // Draw job name
-    page.drawText(job.name.substring(0, 18) + (job.name.length > 18 ? '...' : ''), {
+  jobs.forEach((job, index) => {
+    // Job name (truncate if too long)
+    const name = job.name.length > 18 ? job.name.substring(0, 15) + '...' : job.name;
+    page.drawText(name, {
       x: colStarts[0],
-      y: jobY,
-      size: 8,
-      font: helveticaFont
+      y,
+      size: 10,
+      font
     });
     
-    // Draw due date
-    let dueDateFormatted = 'Unknown';
-    if (job.due_date) {
-      try {
-        const parsedDate = new Date(job.due_date);
-        dueDateFormatted = !isNaN(parsedDate.getTime()) 
-          ? parsedDate.toLocaleDateString() 
-          : 'Invalid Date';
-      } catch {
-        dueDateFormatted = 'Invalid Date';
-      }
-    }
-    
-    page.drawText(dueDateFormatted, {
+    // Due date (formatted)
+    const dueDate = job.due_date ? format(new Date(job.due_date), 'MMM d') : 'N/A';
+    page.drawText(dueDate, {
       x: colStarts[1],
-      y: jobY,
-      size: 8,
-      font: helveticaFont
+      y,
+      size: 10,
+      font
     });
     
-    // Draw quantity
+    // Quantity
     page.drawText(job.quantity.toString(), {
       x: colStarts[2],
-      y: jobY,
-      size: 8,
-      font: helveticaFont
+      y,
+      size: 10,
+      font
     });
     
-    // Draw double-sided or size
-    if (isBusinessCardJobs(jobs)) {
-      page.drawText((job as Job).double_sided ? 'Yes' : 'No', {
+    // Double-sided (business cards) or Size (flyers)
+    if (isBusinessCardJobs([job])) {
+      const businessCardJob = job as Job;
+      const doubleSided = businessCardJob.double_sided ? 'Yes' : 'No';
+      page.drawText(doubleSided, {
         x: colStarts[3],
-        y: jobY,
-        size: 8,
-        font: helveticaFont
+        y,
+        size: 10,
+        font
       });
-    } else {
-      page.drawText((job as FlyerJob).size || 'N/A', {
-        x: colStarts[3],
-        y: jobY,
-        size: 8,
-        font: helveticaFont
-      });
-    }
-    
-    // Draw allocation
-    if (distribution) {
-      const jobDist = distribution.find((d: any) => d.job.id === job.id);
-      if (jobDist) {
-        page.drawText(`${jobDist.slotsNeeded} x ${jobDist.quantityPerSlot}`, {
-          x: colStarts[4],
-          y: jobY,
-          size: 8,
-          font: helveticaFont
-        });
+      
+      // Slot allocation (if distribution data is available)
+      if (distribution) {
+        const jobDistribution = distribution.find(
+          (d: any) => d.job.id === job.id
+        );
+        if (jobDistribution) {
+          page.drawText(
+            `${jobDistribution.slotsNeeded} slots × ${jobDistribution.quantityPerSlot}/slot`,
+            {
+              x: colStarts[4],
+              y,
+              size: 10,
+              font
+            }
+          );
+        }
       }
     } else {
-      page.drawText(`1 x ${job.quantity}`, {
-        x: colStarts[4],
-        y: jobY,
-        size: 8,
-        font: helveticaFont
+      const flyerJob = job as FlyerJob;
+      // Display size for flyers instead of double-sided info
+      page.drawText(flyerJob.size || 'N/A', {
+        x: colStarts[3],
+        y,
+        size: 10,
+        font
       });
     }
+    
+    // Update y for next row
+    y -= 20;
   });
-  
-  // Show message for additional jobs
-  if (jobs.length > 10) {
-    page.drawText(`... and ${jobs.length - 10} more jobs`, {
-      x: colStarts[0],
-      y: rowY - (10 * rowHeight),
-      size: 8,
-      font: helveticaFont
-    });
-  }
 }

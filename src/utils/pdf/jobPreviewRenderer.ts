@@ -2,12 +2,13 @@
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { BaseJob } from "@/config/productTypes";
 import { loadPdfAsBytes } from "./pdfLoaderCore";
 import { isBusinessCardJobs } from "./jobTypeUtils";
 
 export async function addJobPreviews(
   page: any,
-  jobs: Job[] | FlyerJob[],
+  jobs: Job[] | FlyerJob[] | BaseJob[],
   gridConfig: any,
   margin: number,
   pdfDoc: any,
@@ -18,9 +19,8 @@ export async function addJobPreviews(
   
   for (let i = 0; i < jobs.length && i < gridConfig.columns * gridConfig.rows; i++) {
     const job = jobs[i];
-    const pdfUrl = isBusinessCardJobs(jobs) 
-      ? (job as Job).pdf_url 
-      : (job as FlyerJob).pdf_url;
+    // All job types have pdf_url
+    const pdfUrl = job.pdf_url;
     
     if (!pdfUrl) continue;
     
