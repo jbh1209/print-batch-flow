@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,10 +33,12 @@ export function useFlyerJobOperations() {
     }
 
     try {
+      // Fixed: Create a proper new job object with all required fields
       const newJob = {
         ...jobData,
         user_id: user.id,
-        status: 'queued' as const
+        status: 'queued' as const,
+        batch_id: null
       };
 
       const { data, error } = await supabase

@@ -1,7 +1,8 @@
+
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerJob, FlyerBatch, BatchStatus } from '@/components/batches/types/FlyerTypes';
+import { FlyerJob, FlyerBatch } from '@/components/batches/types/FlyerTypes';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { 
@@ -55,8 +56,13 @@ const FlyerBatchDetails = () => {
       
       if (batchError) throw batchError;
       
-      // Convert to FlyerBatch type
-      setBatch(batchData as FlyerBatch);
+      // Convert to FlyerBatch type with explicit type assertion and ensure overview_pdf_url is set
+      const flyerBatch: FlyerBatch = {
+        ...batchData,
+        overview_pdf_url: batchData.overview_pdf_url || null
+      };
+      
+      setBatch(flyerBatch);
       
       // Fetch related jobs
       const { data: jobsData, error: jobsError } = await supabase

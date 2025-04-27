@@ -40,8 +40,12 @@ export function useFlyerBatches(batchId: string | null = null) {
 
       if (fetchError) throw fetchError;
 
-      // Convert to FlyerBatch type
-      const flyerBatches: FlyerBatch[] = data || [];
+      // Convert to FlyerBatch type and ensure overview_pdf_url is set (even if null)
+      const flyerBatches: FlyerBatch[] = (data || []).map(batch => ({
+        ...batch,
+        overview_pdf_url: batch.overview_pdf_url || null
+      }));
+      
       setBatches(flyerBatches);
       
       // If we're looking for a specific batch and didn't find it
