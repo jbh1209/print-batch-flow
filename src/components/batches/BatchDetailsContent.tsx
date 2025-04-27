@@ -4,6 +4,7 @@ import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
 import BatchActionsCard from "./BatchActionsCard";
 import RelatedJobsCard from "./RelatedJobsCard";
+import { FlyerBatchOverview } from "../flyers/FlyerBatchOverview";
 import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
@@ -71,9 +72,13 @@ const BatchDetailsContent = ({
 
       {/* Show Related Jobs for all product types */}
       {relatedJobs.length > 0 && (
-        <RelatedJobsCard 
-          jobs={relatedJobs} 
-        />
+        <>
+          <RelatedJobsCard jobs={relatedJobs} />
+          <FlyerBatchOverview 
+            jobs={relatedJobs}
+            batchName={batch.name}
+          />
+        </>
       )}
     </>
   );

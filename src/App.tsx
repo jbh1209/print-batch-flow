@@ -103,13 +103,13 @@ function App() {
           <Route path="/users" element={<ProtectedRoute element={<Users />} protected={true} />} />
           <Route path="/settings" element={<ProtectedRoute element={<Settings />} protected={true} />} />
           
-          {/* Sleeve routes */}
+          {/* Update Sleeve routes */}
           <Route path="/batches/sleeves/jobs" element={<ProtectedRoute element={<SleeveJobsPage />} protected={true} />} />
           <Route path="/batches/sleeves/jobs/new" element={<ProtectedRoute element={<SleeveJobNewPage />} protected={true} />} />
           <Route path="/batches/sleeves/batches" element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} />
           <Route 
             path="/batches/sleeves/batches/:batchId" 
-            element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} 
+            element={<ProtectedRoute element={<BatchDetailsPage productType="Sleeves" backUrl="/batches/sleeves/batches" />} protected={true} />} 
           />
         </Route>
       </Routes>
