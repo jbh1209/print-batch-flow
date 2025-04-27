@@ -1,3 +1,4 @@
+
 import { BatchStatus, LaminationType } from "./BatchTypes";
 
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
@@ -13,7 +14,7 @@ export interface FlyerBatch {
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
-  overview_pdf_url: string | null; // Added this line
+  overview_pdf_url: string | null; // Added this property
   due_date: string;
   created_at: string;
   lamination_type: LaminationType;
@@ -45,5 +46,3 @@ export interface FlyerJob {
   created_at: string;
   updated_at: string;
 }
-
-
