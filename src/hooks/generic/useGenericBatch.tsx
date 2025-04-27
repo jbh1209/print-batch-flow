@@ -7,7 +7,7 @@ import { BaseJob, BaseBatch, ProductConfig, LaminationType, BatchStatus } from '
 import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
 import { useBatchHelper } from './useBatchHelper';
 
-// Simple interface for batch data
+// Simple interface for batch data returned from Supabase
 interface BatchData {
   id: string;
   name: string;
@@ -24,6 +24,15 @@ interface BatchData {
   updated_at: string;
 }
 
+// Properties for batch creation
+interface BatchProperties {
+  paperType?: string;
+  paperWeight?: string;
+  laminationType?: LaminationType;
+  printerType?: string;
+  sheetSize?: string;
+}
+
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -32,13 +41,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   // Create a batch with selected jobs
   const createBatchWithSelectedJobs = async (
     selectedJobs: T[], 
-    batchProperties: {
-      paperType?: string;
-      paperWeight?: string;
-      laminationType?: LaminationType;
-      printerType?: string;
-      sheetSize?: string;
-    }
+    batchProperties: BatchProperties
   ): Promise<BaseBatch> => {
     if (!user) {
       throw new Error('User not authenticated');
@@ -79,22 +82,20 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Explicitly type response as any
-      const result: any = await supabase
+      // Use direct typing for response
+      const { data: batchData, error: batchError } = await supabase
         .from("batches")
         .insert(batchInsertData)
         .select();
         
-      if (result.error) throw result.error;
+      if (batchError) throw batchError;
       
-      const data = result.data;
-      
-      if (!data || !data.length) {
+      if (!batchData || !batchData.length) {
         throw new Error('No data returned from batch creation');
       }
       
-      // Cast to BatchData type
-      const batchData = data[0] as BatchData;
+      // Cast the result to our BatchData interface
+      const batch = batchData[0] as BatchData;
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -106,16 +107,16 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Explicitly type response as any
-        const updateResult: any = await supabase
+        // Update jobs to be part of this batch
+        const { error: updateError } = await supabase
           .from(table)
           .update({ 
-            batch_id: batchData.id,
+            batch_id: batch.id,
             status: 'batched' 
           })
           .in('id', jobIds);
         
-        if (updateResult.error) throw updateResult.error;
+        if (updateError) throw updateError;
       } else {
         console.log(`Table ${tableName} doesn't exist yet, skipping job updates`);
       }
@@ -123,24 +124,24 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       
       // Create a BaseBatch object from the batchData
-      const batch: BaseBatch = {
-        id: batchData.id,
-        name: batchData.name,
-        status: batchData.status,
-        sheets_required: batchData.sheets_required,
-        front_pdf_url: batchData.front_pdf_url,
-        back_pdf_url: batchData.back_pdf_url,
+      const baseBatch: BaseBatch = {
+        id: batch.id,
+        name: batch.name,
+        status: batch.status,
+        sheets_required: batch.sheets_required,
+        front_pdf_url: batch.front_pdf_url,
+        back_pdf_url: batch.back_pdf_url,
         overview_pdf_url: null, // Add this virtual property
-        due_date: batchData.due_date,
-        created_at: batchData.created_at,
-        created_by: batchData.created_by,
-        lamination_type: batchData.lamination_type || "none",
-        paper_type: batchData.paper_type,
-        paper_weight: batchData.paper_weight,
-        updated_at: batchData.updated_at
+        due_date: batch.due_date,
+        created_at: batch.created_at,
+        created_by: batch.created_by,
+        lamination_type: batch.lamination_type || "none",
+        paper_type: batch.paper_type,
+        paper_weight: batch.paper_weight,
+        updated_at: batch.updated_at
       };
       
-      return batch;
+      return baseBatch;
       
     } catch (err) {
       console.error(`Error creating ${config.productType} batch:`, err);
@@ -158,17 +159,15 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const productCode = getProductCode(config.productType);
       
-      // Explicitly type response as any
-      const result: any = await supabase
+      // Use direct typing for response
+      const { data, error: fetchError } = await supabase
         .from("batches")
         .select('*')
         .eq('created_by', user.id)
         .filter('name', 'ilike', `DXB-${productCode}-%`)
         .order('created_at', { ascending: false });
       
-      if (result.error) throw result.error;
-      
-      const data = result.data;
+      if (fetchError) throw fetchError;
       
       if (!data) return [];
       
@@ -209,8 +208,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Explicitly type response as any
-        const resetResult: any = await supabase
+        // Reset jobs that were in this batch
+        const { error: resetError } = await supabase
           .from(table)
           .update({ 
             status: 'queued',
@@ -218,17 +217,17 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           })
           .eq('batch_id', batchId);
         
-        if (resetResult.error) throw resetResult.error;
+        if (resetError) throw resetError;
       }
       
-      // Explicitly type response as any
-      const deleteResult: any = await supabase
+      // Delete the batch
+      const { error: deleteError } = await supabase
         .from("batches")
         .delete()
         .eq('id', batchId)
         .eq('created_by', user.id);
       
-      if (deleteResult.error) throw deleteResult.error;
+      if (deleteError) throw deleteError;
       
       toast.success("Batch deleted successfully");
       return true;

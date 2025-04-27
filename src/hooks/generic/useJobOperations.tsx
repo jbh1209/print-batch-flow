@@ -22,14 +22,14 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Explicitly type the result as any
-      const result: any = await supabase
+      // Use direct type for response
+      const { error: deleteError } = await supabase
         .from(table)
         .delete()
         .eq('id', jobId)
         .eq('user_id', userId);
 
-      if (result.error) throw result.error;
+      if (deleteError) throw deleteError;
       
       toast.success("Job deleted successfully");
       return true;
@@ -63,15 +63,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Explicitly type the result as any
-      const result: any = await supabase
+      // Use any type for response to avoid deep type instantiation
+      const { data, error: createError } = await supabase
         .from(table)
         .insert(newJob)
         .select();
 
-      if (result.error) throw result.error;
-      
-      const data = result.data;
+      if (createError) throw createError;
       
       if (!data || data.length === 0) {
         throw new Error('No data returned from insert operation');
@@ -102,17 +100,15 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Explicitly type the result as any
-      const result: any = await supabase
+      // Use any type for response to avoid deep type instantiation
+      const { data, error: updateError } = await supabase
         .from(table)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
         .select();
 
-      if (result.error) throw result.error;
-      
-      const data = result.data;
+      if (updateError) throw updateError;
       
       if (!data || data.length === 0) {
         throw new Error('No data returned from update operation');
@@ -139,17 +135,15 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Explicitly type the result as any
-      const result: any = await supabase
+      // Use any type for response to avoid deep type instantiation
+      const { data, error: getError } = await supabase
         .from(table)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
         .limit(1);
 
-      if (result.error) throw result.error;
-      
-      const data = result.data;
+      if (getError) throw getError;
       
       if (!data || data.length === 0) {
         return null;

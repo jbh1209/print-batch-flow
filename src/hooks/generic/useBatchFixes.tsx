@@ -31,33 +31,32 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Explicitly type the result as any to avoid deep type instantiation
-      const result: any = await supabase
+      // Use any type to avoid excessive type instantiation
+      const { data, error } = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      // Use explicit typing for data
-      const data = result.data as JobWithId[] || [];
-      const error = result.error;
-      
       if (error) throw error;
       
-      console.log(`Found ${data.length} orphaned jobs`);
+      // Cast the data to a simple array type
+      const jobsData = data as JobWithId[] || [];
       
-      if (data.length > 0) {
+      console.log(`Found ${jobsData.length} orphaned jobs`);
+      
+      if (jobsData.length > 0) {
         // Extract IDs as simple strings
-        const jobIds = data.map((job: JobWithId) => job.id);
+        const jobIds = jobsData.map((job: JobWithId) => job.id);
         
-        // Explicitly type update result as any
-        const updateResult: any = await supabase
+        // Use any type to avoid excessive type instantiation
+        const { error: updateError } = await supabase
           .from(table)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
-        if (updateResult.error) throw updateResult.error;
+        if (updateError) throw updateError;
         
         console.log(`Reset ${jobIds.length} jobs to queued status`);
         toast.success(`Reset ${jobIds.length} orphaned jobs back to queued status`);

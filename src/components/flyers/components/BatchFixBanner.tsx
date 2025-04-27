@@ -9,9 +9,13 @@ interface BatchFixBannerProps {
 
 export const BatchFixBanner = ({ onFixJobs, isFixingBatchedJobs }: BatchFixBannerProps) => {
   const handleFixClick = async () => {
-    const fixedCount = await onFixJobs();
-    console.log(`Fixed ${fixedCount} jobs`);
-    // Additional handling based on fixedCount if needed
+    try {
+      const fixedCount = await onFixJobs();
+      console.log(`Fixed ${fixedCount} jobs`);
+      // Additional handling based on fixedCount if needed
+    } catch (error) {
+      console.error("Error fixing batched jobs:", error);
+    }
   };
 
   return (
