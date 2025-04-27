@@ -1,6 +1,7 @@
 
 import { PDFPage, rgb } from "pdf-lib";
-import { FlyerJob, BaseJob } from "@/config/productTypes";
+import { BaseJob } from "@/config/productTypes";
+import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 
 export function drawFlyerInfo(
   page: PDFPage,
@@ -29,7 +30,12 @@ export function drawFlyerInfo(
     color: rgb(1, 1, 1)
   });
   
-  const totalPieces = jobs.reduce((sum, job) => sum + job.quantity, 0);
+  // Fix the totalPieces calculation to handle different job types correctly
+  const totalPieces = jobs.reduce((sum, job) => {
+    // Ensure quantity is treated as a number
+    const quantity = typeof job.quantity === 'number' ? job.quantity : 0;
+    return sum + quantity;
+  }, 0);
   
   page.drawText(`Total Pieces: ${totalPieces}`, {
     x: margin,
