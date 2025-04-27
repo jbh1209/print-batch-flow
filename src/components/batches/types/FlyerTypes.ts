@@ -46,3 +46,4 @@ export interface FlyerJob {
   updated_at: string;
 }
 
+
