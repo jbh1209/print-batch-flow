@@ -5,8 +5,8 @@ import { BatchStatus, LaminationType } from "./BatchTypes";
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";
 
-// Re-export these types so they can be used by other files
-export { BatchStatus, LaminationType };
+// Re-export these types with proper 'export type' syntax
+export type { BatchStatus, LaminationType };
 
 export interface FlyerBatch {
   id: string;
@@ -39,7 +39,8 @@ export interface FlyerJob {
   quantity: number;
   due_date: string;
   batch_id: string | null;
-  status: "queued" | "batched" | "completed";
+  // Add "cancelled" to the status type to match what's coming from the database
+  status: "queued" | "batched" | "completed" | "cancelled";
   pdf_url: string;
   file_name: string;
   user_id: string;

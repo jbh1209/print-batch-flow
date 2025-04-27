@@ -56,10 +56,25 @@ const FlyerBatchDetails = () => {
       
       if (batchError) throw batchError;
       
-      // Convert to FlyerBatch type with explicit type assertion and ensure overview_pdf_url is set
+      // Create a properly typed FlyerBatch
       const flyerBatch: FlyerBatch = {
-        ...batchData,
-        overview_pdf_url: batchData.overview_pdf_url || null
+        id: batchData.id,
+        name: batchData.name,
+        status: batchData.status,
+        sheets_required: batchData.sheets_required,
+        front_pdf_url: batchData.front_pdf_url,
+        back_pdf_url: batchData.back_pdf_url,
+        overview_pdf_url: batchData.overview_pdf_url || null,
+        due_date: batchData.due_date,
+        created_at: batchData.created_at,
+        lamination_type: batchData.lamination_type,
+        paper_type: batchData.paper_type,
+        paper_weight: batchData.paper_weight,
+        sheet_size: batchData.sheet_size,
+        printer_type: batchData.printer_type,
+        created_by: batchData.created_by,
+        updated_at: batchData.updated_at,
+        date_created: batchData.date_created
       };
       
       setBatch(flyerBatch);
@@ -72,7 +87,26 @@ const FlyerBatchDetails = () => {
       
       if (jobsError) throw jobsError;
       
-      setJobs(jobsData || []);
+      // Properly cast job data to FlyerJob type
+      const typedJobs: FlyerJob[] = (jobsData || []).map(job => ({
+        id: job.id,
+        name: job.name,
+        job_number: job.job_number,
+        size: job.size,
+        paper_weight: job.paper_weight,
+        paper_type: job.paper_type,
+        quantity: job.quantity,
+        due_date: job.due_date,
+        batch_id: job.batch_id,
+        status: job.status,
+        pdf_url: job.pdf_url,
+        file_name: job.file_name,
+        user_id: job.user_id,
+        created_at: job.created_at,
+        updated_at: job.updated_at
+      }));
+      
+      setJobs(typedJobs);
     } catch (error) {
       console.error('Error fetching batch details:', error);
       toast.error('Failed to load batch details');

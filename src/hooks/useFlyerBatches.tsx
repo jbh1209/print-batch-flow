@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,9 +39,24 @@ export function useFlyerBatches(batchId: string | null = null) {
 
       if (fetchError) throw fetchError;
 
-      // Convert to FlyerBatch type and ensure overview_pdf_url is set (even if null)
+      // Convert to FlyerBatch type and ensure all required properties exist
       const flyerBatches: FlyerBatch[] = (data || []).map(batch => ({
-        ...batch,
+        id: batch.id,
+        name: batch.name,
+        status: batch.status,
+        sheets_required: batch.sheets_required,
+        front_pdf_url: batch.front_pdf_url,
+        back_pdf_url: batch.back_pdf_url,
+        due_date: batch.due_date,
+        created_at: batch.created_at,
+        lamination_type: batch.lamination_type,
+        paper_type: batch.paper_type,
+        paper_weight: batch.paper_weight,
+        sheet_size: batch.sheet_size,
+        printer_type: batch.printer_type,
+        created_by: batch.created_by,
+        updated_at: batch.updated_at,
+        date_created: batch.date_created,
         overview_pdf_url: batch.overview_pdf_url || null
       }));
       

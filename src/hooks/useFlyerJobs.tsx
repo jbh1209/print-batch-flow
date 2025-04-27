@@ -33,7 +33,26 @@ export function useFlyerJobs() {
 
       if (fetchError) throw fetchError;
 
-      setJobs(data || []);
+      // Explicitly cast and ensure type compatibility
+      const typedJobs: FlyerJob[] = (data || []).map(job => ({
+        id: job.id,
+        name: job.name,
+        job_number: job.job_number,
+        size: job.size,
+        paper_weight: job.paper_weight,
+        paper_type: job.paper_type,
+        quantity: job.quantity,
+        due_date: job.due_date,
+        batch_id: job.batch_id,
+        status: job.status,
+        pdf_url: job.pdf_url,
+        file_name: job.file_name,
+        user_id: job.user_id,
+        created_at: job.created_at,
+        updated_at: job.updated_at
+      }));
+      
+      setJobs(typedJobs);
     } catch (err) {
       console.error('Error fetching flyer jobs:', err);
       setError('Failed to load flyer jobs');
@@ -65,7 +84,7 @@ export function useFlyerJobs() {
     try {
       const newJob = await createJob(jobData);
       // Update the jobs list with the new job
-      setJobs(prevJobs => [newJob, ...prevJobs]);
+      setJobs(prevJobs => [newJob as FlyerJob, ...prevJobs]);
       return newJob;
     } catch (err) {
       throw err;
@@ -90,7 +109,7 @@ export function useFlyerJobs() {
       setJobs(prevJobs => 
         prevJobs.map(job => 
           selectedJobs.some(selectedJob => selectedJob.id === job.id)
-            ? { ...job, status: 'batched', batch_id: batch.id }
+            ? { ...job, status: 'batched' as const, batch_id: batch.id }
             : job
         )
       );
