@@ -100,14 +100,15 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
           const processedJobs = jobsData.map(job => {
             // Special handling for sleeve jobs
             if (isSleeveBatch && config.productType === "Sleeves") {
-              // Use type assertion for accessing stock_type
-              const typedJob = job as any;
+              // Use type assertion for accessing stock_type and for spreading
+              const typedJob = job as Record<string, any>;
               return {
-                ...job,
+                ...typedJob,
                 stock_type: typedJob.stock_type || "premium"
               };
             }
-            return job;
+            // Also need to use type assertion for any job object when spreading
+            return job as Record<string, any>;
           });
           
           setRelatedJobs(processedJobs as BaseJob[]);
