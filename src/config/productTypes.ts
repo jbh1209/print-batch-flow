@@ -63,6 +63,7 @@ export interface BaseJob {
   created_at: string;
   batch_id?: string | null;
   lamination_type?: LaminationType;
+  stock_type?: string; // Added stock_type property
 }
 
 export interface BaseBatch {

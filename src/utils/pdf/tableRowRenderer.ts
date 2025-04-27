@@ -1,12 +1,14 @@
+
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { BaseJob } from "@/config/productTypes";
 import { format } from "date-fns";
 import { rgb } from "pdf-lib";
-import { isBusinessCardJobs } from "./jobTypeUtils";
+import { isBusinessCardJobs, isFlyerJobs, isSleeveJobs } from "./jobTypeUtils";
 
 export function drawTableRows(
   page: any,
-  jobs: Job[] | FlyerJob[],
+  jobs: Job[] | FlyerJob[] | BaseJob[],
   startY: number,
   colStarts: number[],
   font: any,
@@ -61,7 +63,9 @@ export function drawTableRows(
       });
     } else if (isSleeveJobs([job])) {
       const sleeveJob = job as BaseJob;
-      page.drawText(sleeveJob.stock_type || 'Standard', {
+      // Check if stock_type exists before accessing it
+      const stockType = 'stock_type' in sleeveJob ? sleeveJob.stock_type : 'Standard';
+      page.drawText(stockType || 'Standard', {
         x: colStarts[3],
         y,
         size: 10,

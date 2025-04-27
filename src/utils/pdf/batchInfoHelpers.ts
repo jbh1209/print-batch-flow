@@ -1,3 +1,4 @@
+
 import { PDFPage, rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
@@ -149,7 +150,11 @@ export function drawBatchInfo(
     });
   } else if (isSleeveJobs(jobs)) {
     // Sleeve specific info
-    const stockType = jobs[0]?.stock_type || 'Standard';
+    const sleeveJobs = jobs as BaseJob[];
+    
+    // Get stock type information from the first job (assuming all jobs in a batch have the same stock type)
+    // Use optional chaining and nullish coalescing to handle potential undefined values
+    const stockType = sleeveJobs[0]?.stock_type || 'Standard';
     
     // Draw stock type info with background
     page.drawRectangle({
@@ -168,7 +173,7 @@ export function drawBatchInfo(
       color: rgb(1, 1, 1) // White text
     });
     
-    const totalPieces = jobs.reduce((sum, job) => sum + job.quantity, 0);
+    const totalPieces = sleeveJobs.reduce((sum, job) => sum + job.quantity, 0);
     
     page.drawText(`Total Pieces: ${totalPieces}`, {
       x: margin,
