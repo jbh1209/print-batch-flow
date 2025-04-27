@@ -9,10 +9,15 @@ import BatchDetailsHeader from '@/components/flyers/batch-details/BatchDetailsHe
 import BatchDetailsCard from '@/components/batches/BatchDetailsCard';
 import BatchActionsCard from '@/components/batches/BatchActionsCard';
 import RelatedJobsCard from '@/components/batches/RelatedJobsCard';
+import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
+import { FlyerJob } from '@/components/batches/types/FlyerTypes';
 
 const FlyerBatchDetails = () => {
   const [searchParams] = useSearchParams();
   const batchId = searchParams.get('batchId');
+  const [relatedJobs, setRelatedJobs] = useState<FlyerJob[]>([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   
   const {
     batches,
@@ -26,7 +31,35 @@ const FlyerBatchDetails = () => {
 
   const batch = batches[0];
 
-  if (isLoading) {
+  // Fetch related jobs for the current batch
+  useEffect(() => {
+    async function fetchRelatedJobs() {
+      if (!batchId) return;
+      
+      setIsLoadingJobs(true);
+      
+      try {
+        const { data, error } = await supabase
+          .from('flyer_jobs')
+          .select('*')
+          .eq('batch_id', batchId);
+          
+        if (error) throw error;
+        
+        setRelatedJobs(data || []);
+      } catch (err) {
+        console.error('Error fetching related jobs:', err);
+      } finally {
+        setIsLoadingJobs(false);
+      }
+    }
+    
+    if (batch) {
+      fetchRelatedJobs();
+    }
+  }, [batchId, batch]);
+
+  if (isLoading || isLoadingJobs) {
     return <FlyerBatchLoading />;
   }
 
@@ -50,11 +83,11 @@ const FlyerBatchDetails = () => {
       </div>
 
       {/* Related Jobs Card and Batch Overview */}
-      {batch.jobs && batch.jobs.length > 0 && (
+      {relatedJobs && relatedJobs.length > 0 && (
         <>
-          <RelatedJobsCard jobs={batch.jobs} />
+          <RelatedJobsCard jobs={relatedJobs} />
           <FlyerBatchOverview 
-            jobs={batch.jobs} 
+            jobs={relatedJobs} 
             batchName={batch.name} 
           />
         </>
