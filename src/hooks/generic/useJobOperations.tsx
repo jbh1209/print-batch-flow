@@ -22,14 +22,14 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use direct type for response
-      const { error: deleteError } = await supabase
+      // Use explicit response structure to avoid complex typing
+      const result = await supabase
         .from(table)
         .delete()
         .eq('id', jobId)
         .eq('user_id', userId);
 
-      if (deleteError) throw deleteError;
+      if (result.error) throw result.error;
       
       toast.success("Job deleted successfully");
       return true;
@@ -63,20 +63,20 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Use any type for response to avoid deep type instantiation
-      const { data, error: createError } = await supabase
+      // Use explicit response structure to avoid complex typing
+      const result = await supabase
         .from(table)
         .insert(newJob)
         .select();
 
-      if (createError) throw createError;
+      if (result.error) throw result.error;
       
-      if (!data || data.length === 0) {
+      if (!result.data || result.data.length === 0) {
         throw new Error('No data returned from insert operation');
       }
       
-      // First cast to unknown, then to T to avoid type instantiation issues
-      return data[0] as unknown as T;
+      // Two-step cast to avoid type instantiation issues
+      return result.data[0] as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -100,22 +100,22 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use any type for response to avoid deep type instantiation
-      const { data, error: updateError } = await supabase
+      // Use explicit response structure to avoid complex typing
+      const result = await supabase
         .from(table)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
         .select();
 
-      if (updateError) throw updateError;
+      if (result.error) throw result.error;
       
-      if (!data || data.length === 0) {
+      if (!result.data || result.data.length === 0) {
         throw new Error('No data returned from update operation');
       }
       
-      // First cast to unknown, then to T to avoid type instantiation issues
-      return data[0] as unknown as T;
+      // Two-step cast to avoid type instantiation issues
+      return result.data[0] as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -135,22 +135,22 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use any type for response to avoid deep type instantiation
-      const { data, error: getError } = await supabase
+      // Use explicit response structure to avoid complex typing
+      const result = await supabase
         .from(table)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
         .limit(1);
 
-      if (getError) throw getError;
+      if (result.error) throw result.error;
       
-      if (!data || data.length === 0) {
+      if (!result.data || result.data.length === 0) {
         return null;
       }
       
-      // First cast to unknown, then to T to avoid type instantiation issues
-      return data[0] as unknown as T;
+      // Two-step cast to avoid type instantiation issues
+      return result.data[0] as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

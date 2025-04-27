@@ -10,6 +10,7 @@ interface BatchFixBannerProps {
 export const BatchFixBanner = ({ onFixJobs, isFixingBatchedJobs }: BatchFixBannerProps) => {
   const handleFixClick = async () => {
     try {
+      // No need to annotate return type, let TypeScript infer it
       const fixedCount = await onFixJobs();
       console.log(`Fixed ${fixedCount} jobs`);
       // Additional handling based on fixedCount if needed

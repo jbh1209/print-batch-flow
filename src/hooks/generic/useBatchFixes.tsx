@@ -31,17 +31,20 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use any type to avoid excessive type instantiation
-      const { data, error } = await supabase
+      // Use explicit type for response to avoid deep type instantiation
+      const result = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
         .is('batch_id', null);
       
+      const error = result.error;
+      const data = result.data;
+      
       if (error) throw error;
       
-      // Cast the data to a simple array type
+      // Cast to simple array type
       const jobsData = data as JobWithId[] || [];
       
       console.log(`Found ${jobsData.length} orphaned jobs`);
@@ -50,11 +53,13 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Extract IDs as simple strings
         const jobIds = jobsData.map((job: JobWithId) => job.id);
         
-        // Use any type to avoid excessive type instantiation
-        const { error: updateError } = await supabase
+        // Use explicit type for response to avoid deep type instantiation
+        const updateResult = await supabase
           .from(table)
           .update({ status: 'queued' })
           .in('id', jobIds);
+        
+        const updateError = updateResult.error;
         
         if (updateError) throw updateError;
         

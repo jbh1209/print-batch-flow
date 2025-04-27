@@ -82,20 +82,20 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Use direct typing for response
-      const { data: batchData, error: batchError } = await supabase
+      // Use explicit response structure to avoid complex typing
+      const result = await supabase
         .from("batches")
         .insert(batchInsertData)
         .select();
         
-      if (batchError) throw batchError;
+      if (result.error) throw result.error;
       
-      if (!batchData || !batchData.length) {
+      if (!result.data || !result.data.length) {
         throw new Error('No data returned from batch creation');
       }
       
       // Cast the result to our BatchData interface
-      const batch = batchData[0] as BatchData;
+      const batch = result.data[0] as BatchData;
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -108,7 +108,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         const table = getSupabaseTable(tableName);
         
         // Update jobs to be part of this batch
-        const { error: updateError } = await supabase
+        const updateResult = await supabase
           .from(table)
           .update({ 
             batch_id: batch.id,
@@ -116,7 +116,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           })
           .in('id', jobIds);
         
-        if (updateError) throw updateError;
+        if (updateResult.error) throw updateResult.error;
       } else {
         console.log(`Table ${tableName} doesn't exist yet, skipping job updates`);
       }
@@ -159,20 +159,20 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const productCode = getProductCode(config.productType);
       
-      // Use direct typing for response
-      const { data, error: fetchError } = await supabase
+      // Use explicit response structure to avoid complex typing
+      const result = await supabase
         .from("batches")
         .select('*')
         .eq('created_by', user.id)
         .filter('name', 'ilike', `DXB-${productCode}-%`)
         .order('created_at', { ascending: false });
       
-      if (fetchError) throw fetchError;
+      if (result.error) throw result.error;
       
-      if (!data) return [];
+      if (!result.data) return [];
       
       // Use the simple BatchData type
-      const batchesData = data as BatchData[];
+      const batchesData = result.data as BatchData[];
       
       // Map to the BaseBatch type
       return batchesData.map(batch => ({
@@ -209,7 +209,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         const table = getSupabaseTable(tableName);
         
         // Reset jobs that were in this batch
-        const { error: resetError } = await supabase
+        const resetResult = await supabase
           .from(table)
           .update({ 
             status: 'queued',
@@ -217,17 +217,17 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
           })
           .eq('batch_id', batchId);
         
-        if (resetError) throw resetError;
+        if (resetResult.error) throw resetResult.error;
       }
       
       // Delete the batch
-      const { error: deleteError } = await supabase
+      const deleteResult = await supabase
         .from("batches")
         .delete()
         .eq('id', batchId)
         .eq('created_by', user.id);
       
-      if (deleteError) throw deleteError;
+      if (deleteResult.error) throw deleteResult.error;
       
       toast.success("Batch deleted successfully");
       return true;
