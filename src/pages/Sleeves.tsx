@@ -102,7 +102,7 @@ const Sleeves = () => {
                 className="w-full mt-4"
                 onClick={() => {
                   setActiveTab("batches");
-                  navigate("/batches/sleeves/batches");
+                  navigate(config.routes.batchesPath);
                 }}
               >
                 View All Batches
