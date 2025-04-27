@@ -84,8 +84,9 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       if (isExistingTable(tableName)) {
         console.log("Fetching related jobs from table:", tableName);
         
+        // Use type assertion to bypass TypeScript's static checking
         const { data: jobsData, error: jobsError } = await supabase
-          .from(tableName)
+          .from(tableName as any)
           .select("*")
           .eq("batch_id", batchId)
           .order("name");
@@ -97,10 +98,13 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
         
         if (Array.isArray(jobsData)) {
           const processedJobs = jobsData.map(job => {
+            // Special handling for sleeve jobs
             if (isSleeveBatch && config.productType === "Sleeves") {
+              // Use type assertion for accessing stock_type
+              const typedJob = job as any;
               return {
                 ...job,
-                stock_type: job.stock_type || "premium"
+                stock_type: typedJob.stock_type || "premium"
               };
             }
             return job;

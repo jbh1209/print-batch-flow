@@ -24,8 +24,9 @@ export function useBatchDeletion({ config }: UseBatchDeletionProps) {
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
+        // Use type assertion to bypass TypeScript's static checking
         const { error: jobsError } = await supabase
-          .from(tableName)
+          .from(tableName as any)
           .update({ 
             status: "queued",
             batch_id: null
