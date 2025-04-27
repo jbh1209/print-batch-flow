@@ -1,3 +1,4 @@
+
 import { SupabaseClient } from "@supabase/supabase-js";
 
 // Define table names that actually exist in the database
@@ -19,7 +20,7 @@ export type TableName =
   | "cover_jobs";
 
 export type JobStatus = "queued" | "processing" | "batched" | "printing" | "completed" | "error" | "cancelled";
-export type BatchStatus = "pending" | "processing" | "completed" | "cancelled";
+export type BatchStatus = "pending" | "processing" | "completed" | "cancelled" | "sent_to_print";
 export type LaminationType = "none" | "matt" | "gloss" | "soft_touch";
 
 export interface ProductConfig {

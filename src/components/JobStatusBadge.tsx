@@ -16,14 +16,23 @@ const JobStatusBadge = ({ status }: JobStatusBadgeProps) => {
         return "bg-green-100 text-green-800 border-green-200";
       case "cancelled":
         return "bg-red-100 text-red-800 border-red-200";
+      case "sent_to_print":
+        return "bg-purple-100 text-purple-800 border-purple-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
+  const getDisplayText = () => {
+    if (status === "sent_to_print") {
+      return "Sent to Print";
+    }
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
   return (
     <Badge className={`font-medium ${getVariant()}`} variant="outline">
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {getDisplayText()}
     </Badge>
   );
 };
