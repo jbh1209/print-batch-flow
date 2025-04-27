@@ -6,7 +6,6 @@ import { Plus, FileText } from "lucide-react";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import { GenericJobsTable } from "./GenericJobsTable";
 
-// Update the interface to accept number as the return type for fixBatchedJobsWithoutBatch
 interface GenericJobsPageProps {
   config: ProductConfig;
   useJobsHook: () => {
@@ -17,7 +16,7 @@ interface GenericJobsPageProps {
     fetchJobs: () => Promise<void>;
     createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
     isCreatingBatch: boolean;
-    fixBatchedJobsWithoutBatch: () => Promise<number>;
+    fixBatchedJobsWithoutBatch: () => Promise<void>;
     isFixingBatchedJobs?: boolean;
   };
 }

@@ -4,13 +4,27 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { BaseBatch, BaseJob, ProductConfig, BatchStatus } from "@/config/productTypes";
-import { isExistingTable, getSupabaseTable } from "@/utils/database/tableUtils";
+import { BaseBatch, BaseJob, ProductConfig, BatchStatus, TableName, ExistingTableName } from "@/config/productTypes";
 
 interface UseGenericBatchDetailsProps {
   batchId: string;
   config: ProductConfig;
 }
+
+// Helper function to check if a table exists in our database
+const isExistingTable = (tableName: TableName): tableName is ExistingTableName => {
+  const existingTables: ExistingTableName[] = [
+    "flyer_jobs",
+    "postcard_jobs", 
+    "business_card_jobs",
+    "poster_jobs",
+    "batches", 
+    "profiles", 
+    "user_roles"
+  ];
+  
+  return existingTables.includes(tableName as ExistingTableName);
+};
 
 export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetailsProps) {
   const navigate = useNavigate();
@@ -32,7 +46,6 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
     try {
       console.log(`Fetching batch details for batch ID: ${batchId}`);
       
-      // "batches" is always a valid table
       const { data, error } = await supabase
         .from("batches")
         .select("*")
@@ -80,14 +93,10 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       
       // Fetch related jobs from the product-specific table
       const tableName = config.tableName;
-      
       if (isExistingTable(tableName)) {
-        // Get the valid table name that matches Supabase types
-        const table = getSupabaseTable(tableName);
-        
-        // Use the typed table name in the query
+        // Use a safer approach for the Supabase query
         const { data: jobs, error: jobsError } = await supabase
-          .from(table)
+          .from(tableName as any)
           .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
@@ -121,12 +130,10 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Get the valid table name
-        const table = getSupabaseTable(tableName);
-        
         // First reset all jobs in this batch back to queued status
+        // Use a safer approach for the Supabase query
         const { error: jobsError } = await supabase
-          .from(table)
+          .from(tableName as any)
           .update({ 
             status: "queued",
             batch_id: null
@@ -136,7 +143,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         if (jobsError) throw jobsError;
       }
       
-      // Then delete the batch - "batches" is always a valid table
+      // Then delete the batch
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()

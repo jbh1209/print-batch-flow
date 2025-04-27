@@ -1,8 +1,22 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { SupabaseTableName } from "@/utils/database/tableUtils";
+
+// Define table names that actually exist in the database
+export type ExistingTableName = 
+  "flyer_jobs" | 
+  "postcard_jobs" | 
+  "business_card_jobs" |
+  "poster_jobs" | 
+  "sleeve_jobs" |  // Added this line
+  "batches" |
+  "profiles" |
+  "user_roles";
 
 // Include both existing and future/placeholder table names
-export type TableName = SupabaseTableName | "sticker_jobs" | "box_jobs" | "cover_jobs";
+export type TableName = 
+  | ExistingTableName
+  | "sticker_jobs"
+  | "box_jobs"
+  | "cover_jobs";
 
 export type JobStatus = "queued" | "processing" | "batched" | "printing" | "completed" | "error" | "cancelled";
 export type BatchStatus = "pending" | "processing" | "completed" | "cancelled";
@@ -82,6 +96,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       jobsPath: "/batches/business-cards/jobs",
       newJobPath: "/batches/business-cards/jobs/new",
       batchesPath: "/batches/business-cards/batches",
+      // Add the missing path functions
       jobDetailPath: (id: string) => `/batches/business-cards/jobs/${id}`,
       jobEditPath: (id: string) => `/batches/business-cards/jobs/${id}/edit`,
     },
@@ -142,7 +157,7 @@ export const productConfigs: Record<string, ProductConfig> = {
   },
   "Posters": {
     productType: "Posters",
-    tableName: "batches", // Changed from "poster_jobs" to use an existing table for now
+    tableName: "poster_jobs", // This is an existing table name now
     ui: {
       title: "Posters",
       jobFormTitle: "Poster",

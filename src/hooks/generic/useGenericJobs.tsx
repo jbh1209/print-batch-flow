@@ -6,7 +6,7 @@ import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
 import { useGenericBatch } from './useGenericBatch';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
-import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
+import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -40,20 +40,15 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      // Get the valid table name that matches Supabase types
-      const table = getSupabaseTable(config.tableName);
-
-      // Use explicitly typed response
-      const result: { data: any[] | null; error: any } = await supabase
-        .from(table)
+      const { data, error: fetchError } = await supabase
+        .from(config.tableName as any)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (result.error) throw result.error;
+      if (fetchError) throw fetchError;
 
-      // Cast the result to T[]
-      setJobs(result.data ? (result.data as T[]) : []);
+      setJobs((data || []) as unknown as T[]);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
@@ -111,7 +106,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   ) => {
     try {
-      // Ensure laminationType is properly typed
+      // Fixed: Ensure laminationType is properly converted to LaminationType type
       const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
       
       const batch = await createBatchWithSelectedJobs(selectedJobs, {
@@ -136,10 +131,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   // Handle batch fixes with state refresh
   const handleFixBatchedJobs = async () => {
     const fixedCount = await fixBatchedJobsWithoutBatch();
-    if (fixedCount > 0) {
+    if (fixedCount) {
       await fetchJobs();
     }
-    return fixedCount;
   };
 
   return {

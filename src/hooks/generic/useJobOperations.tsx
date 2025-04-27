@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, JobStatus, TableName } from '@/config/productTypes';
-import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
+import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const deleteJob = async (jobId: string): Promise<boolean> => {
+  const deleteJob = async (jobId: string) => {
     try {
       if (!tableName) {
         throw new Error(`Invalid table name`);
@@ -19,17 +19,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Get the valid table name
-      const table = getSupabaseTable(tableName);
-      
-      // Use explicit response structure to avoid complex typing
-      const result = await supabase
-        .from(table)
+      const { error } = await supabase
+        .from(tableName)
         .delete()
         .eq('id', jobId)
         .eq('user_id', userId);
 
-      if (result.error) throw result.error;
+      if (error) throw error;
       
       toast.success("Job deleted successfully");
       return true;
@@ -43,7 +39,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
   const createJob = async <T extends BaseJob>(
     jobData: Omit<T, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>,
     userId: string
-  ): Promise<T> => {
+  ) => {
     try {
       if (!tableName) {
         throw new Error(`Invalid table name`);
@@ -53,30 +49,21 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot create job`);
       }
       
-      // Get the valid table name
-      const table = getSupabaseTable(tableName);
-      
-      // Create a new job object with required fields
       const newJob = {
         ...jobData,
         user_id: userId,
         status: 'queued' as JobStatus
       };
 
-      // Use explicit response structure to avoid complex typing
-      const result = await supabase
-        .from(table)
+      const { data, error } = await supabase
+        .from(tableName)
         .insert(newJob)
-        .select();
+        .select()
+        .single();
 
-      if (result.error) throw result.error;
+      if (error) throw error;
       
-      if (!result.data || result.data.length === 0) {
-        throw new Error('No data returned from insert operation');
-      }
-      
-      // Two-step cast to avoid type instantiation issues
-      return result.data[0] as unknown as T;
+      return (data as unknown) as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -87,7 +74,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
     jobId: string,
     jobData: Partial<T>,
     userId: string
-  ): Promise<T> => {
+  ) => {
     try {
       if (!tableName) {
         throw new Error(`Invalid table name`);
@@ -97,32 +84,24 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Get the valid table name
-      const table = getSupabaseTable(tableName);
-      
-      // Use explicit response structure to avoid complex typing
-      const result = await supabase
-        .from(table)
+      const { data, error } = await supabase
+        .from(tableName)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
-        .select();
+        .select()
+        .single();
 
-      if (result.error) throw result.error;
+      if (error) throw error;
       
-      if (!result.data || result.data.length === 0) {
-        throw new Error('No data returned from update operation');
-      }
-      
-      // Two-step cast to avoid type instantiation issues
-      return result.data[0] as unknown as T;
+      return (data as unknown) as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
     }
   };
 
-  const getJobById = async <T extends BaseJob>(jobId: string, userId: string): Promise<T | null> => {
+  const getJobById = async <T extends BaseJob>(jobId: string, userId: string) => {
     try {
       if (!tableName) {
         throw new Error(`Invalid table name`);
@@ -132,25 +111,16 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Get the valid table name
-      const table = getSupabaseTable(tableName);
-      
-      // Use explicit response structure to avoid complex typing
-      const result = await supabase
-        .from(table)
+      const { data, error } = await supabase
+        .from(tableName)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
-        .limit(1);
+        .single();
 
-      if (result.error) throw result.error;
+      if (error) throw error;
       
-      if (!result.data || result.data.length === 0) {
-        return null;
-      }
-      
-      // Two-step cast to avoid type instantiation issues
-      return result.data[0] as unknown as T;
+      return (data as unknown) as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

@@ -1,40 +1,35 @@
 
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
 
 interface BatchFixBannerProps {
-  onFixJobs: () => Promise<number>;
+  onFixJobs: () => void;
   isFixingBatchedJobs: boolean;
 }
 
-export const BatchFixBanner = ({ onFixJobs, isFixingBatchedJobs }: BatchFixBannerProps) => {
-  const handleFixClick = async () => {
-    try {
-      // No need to annotate return type, let TypeScript infer it
-      const fixedCount = await onFixJobs();
-      console.log(`Fixed ${fixedCount} jobs`);
-      // Additional handling based on fixedCount if needed
-    } catch (error) {
-      console.error("Error fixing batched jobs:", error);
-    }
-  };
-
+export const BatchFixBanner = ({ 
+  onFixJobs, 
+  isFixingBatchedJobs 
+}: BatchFixBannerProps) => {
   return (
-    <div className="bg-amber-50 p-3 border-t border-b border-amber-200 flex justify-between items-center">
-      <div className="flex items-center text-amber-800">
-        <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0" />
-        <span className="text-sm">
-          Some jobs are marked as batched but not assigned to a batch. This can happen if batch creation was interrupted.
-        </span>
+    <div className="border-t p-3 bg-amber-50 flex justify-between items-center">
+      <div className="text-sm text-amber-800">
+        <span className="font-medium">Note:</span> Some jobs may be stuck in "batched" status after a batch was deleted.
       </div>
       <Button 
         variant="outline" 
-        size="sm" 
-        onClick={handleFixClick}
+        size="sm"
+        className="bg-white"
+        onClick={onFixJobs}
         disabled={isFixingBatchedJobs}
-        className="ml-4 flex-shrink-0 bg-white"
       >
-        {isFixingBatchedJobs ? "Fixing..." : "Fix Jobs"}
+        {isFixingBatchedJobs ? (
+          <>
+            <div className="h-3 w-3 mr-2 rounded-full border-t-2 border-b-2 border-primary animate-spin"></div>
+            Fixing...
+          </>
+        ) : (
+          'Fix Orphaned Jobs'
+        )}
       </Button>
     </div>
   );

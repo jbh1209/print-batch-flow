@@ -1,8 +1,9 @@
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Table } from "@/components/ui/table";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus } from "lucide-react"; // Added FileText import
 import { toast } from "sonner";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import { GenericBatchCreateDialog } from "./GenericBatchCreateDialog";
@@ -16,7 +17,6 @@ import { GenericJobsTableBody } from "./GenericJobsTableBody";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
-// Update the interface to accept Promise<number>
 interface GenericJobsTableProps {
   config: ProductConfig;
   jobs: BaseJob[];
@@ -26,7 +26,7 @@ interface GenericJobsTableProps {
   fetchJobs: () => Promise<void>;
   createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
   isCreatingBatch: boolean;
-  fixBatchedJobsWithoutBatch: () => Promise<number>;
+  fixBatchedJobsWithoutBatch: () => Promise<void>;
   isFixingBatchedJobs?: boolean;
 }
 

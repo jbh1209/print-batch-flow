@@ -3,9 +3,8 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TableName } from '@/config/productTypes';
-import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
+import { isExistingTable } from '@/utils/database/tableUtils';
 
-// Simple interface for jobs with ID
 interface JobWithId {
   id: string;
 }
@@ -13,10 +12,10 @@ interface JobWithId {
 export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
-  const fixBatchedJobsWithoutBatch = async (): Promise<number> => {
+  const fixBatchedJobsWithoutBatch = async () => {
     if (!userId || !tableName) {
       console.log("No authenticated user or table name found for fix operation");
-      return 0;
+      return;
     }
     
     try {
@@ -25,41 +24,41 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (!isExistingTable(tableName)) {
         console.log(`Table ${tableName} doesn't exist yet, skipping fix operation`);
-        return 0;
+        return;
       }
       
-      // Get the valid table name
-      const table = getSupabaseTable(tableName);
-      
-      // Use explicit type for response to avoid deep type instantiation
-      const result = await supabase
-        .from(table)
+      const { data: orphanedJobs, error: findError } = await supabase
+        .from(tableName)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      const error = result.error;
-      const data = result.data;
+      if (findError) throw findError;
       
-      if (error) throw error;
+      console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
-      // Cast to simple array type
-      const jobsData = data as JobWithId[] || [];
-      
-      console.log(`Found ${jobsData.length} orphaned jobs`);
-      
-      if (jobsData.length > 0) {
-        // Extract IDs as simple strings
-        const jobIds = jobsData.map((job: JobWithId) => job.id);
+      if (orphanedJobs && orphanedJobs.length > 0) {
+        // Fixed: Use a safer approach for extracting job IDs
+        const jobIds = (orphanedJobs as unknown[])
+          .filter((job): job is JobWithId => 
+            job !== null && 
+            typeof job === 'object' && 
+            job !== undefined && 
+            'id' in job && 
+            typeof job.id === 'string'
+          )
+          .map(job => job.id);
         
-        // Use explicit type for response to avoid deep type instantiation
-        const updateResult = await supabase
-          .from(table)
+        if (jobIds.length === 0) {
+          console.log("No valid job IDs found to update");
+          return;
+        }
+        
+        const { error: updateError } = await supabase
+          .from(tableName)
           .update({ status: 'queued' })
           .in('id', jobIds);
-        
-        const updateError = updateResult.error;
         
         if (updateError) throw updateError;
         
@@ -68,11 +67,9 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         
         return jobIds.length;
       }
-      return 0;
     } catch (error) {
       console.error(`Error fixing batched jobs:`, error);
       toast.error(`Failed to reset jobs with missing batch references.`);
-      return 0;
     } finally {
       setIsFixingBatchedJobs(false);
     }

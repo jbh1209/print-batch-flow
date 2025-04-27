@@ -25,14 +25,11 @@ export function useFlyerJobs() {
       setIsLoading(true);
       setError(null);
 
-      // Use any type to avoid deep type instantiation
-      const result: any = await supabase
+      const { data, error: fetchError } = await supabase
         .from('flyer_jobs')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-
-      const { data, error: fetchError } = result;
 
       if (fetchError) throw fetchError;
 
@@ -104,15 +101,8 @@ export function useFlyerJobs() {
     }
   };
 
-  // Use the batch fix hook
-  const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useFlyerBatchFix();
-
-  // Create a wrapper function that ensures the return type is Promise<number>
-  const handleFixBatchedJobs = async (): Promise<number> => {
-    const result = await fixBatchedJobsWithoutBatch();
-    await fetchJobs(); // Refresh the jobs list after fixing
-    return result;
-  };
+  // Initialize the batch fix hook with our fetchJobs method
+  const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useFlyerBatchFix(fetchJobs);
 
   return {
     jobs,
@@ -123,7 +113,7 @@ export function useFlyerJobs() {
     createJob: handleCreateJob,
     createBatch: handleCreateBatch,
     isCreatingBatch,
-    fixBatchedJobsWithoutBatch: handleFixBatchedJobs,
+    fixBatchedJobsWithoutBatch,
     isFixingBatchedJobs
   };
 }
