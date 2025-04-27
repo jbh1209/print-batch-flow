@@ -106,7 +106,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         console.log("Fetching related jobs from table:", tableName);
         
         // Use a safer approach for the Supabase query
-        const { data: jobs, error: jobsError } = await supabase
+        const { data: jobsData, error: jobsError } = await supabase
           .from(tableName as any)
           .select("*")
           .eq("batch_id", batchId)
@@ -117,16 +117,29 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
           throw jobsError;
         }
         
-        console.log("Related jobs received:", jobs?.length || 0);
+        console.log("Related jobs received:", jobsData?.length || 0);
         
-        // Add stock_type for sleeve jobs if needed
-        const processedJobs = jobs ? jobs.map(job => ({
-          ...job,
-          stock_type: job.stock_type || (isSleeveBatch ? "premium" : undefined)
-        })) : [];
-        
-        // Explicitly cast jobs to the correct type
-        setRelatedJobs(processedJobs as unknown as BaseJob[]);
+        // Make sure jobsData is actually an array before processing
+        if (Array.isArray(jobsData)) {
+          // Add stock_type for sleeve jobs if needed
+          const processedJobs = jobsData.map(job => {
+            // For sleeve jobs, make sure stock_type is defined
+            if (isSleeveBatch) {
+              return {
+                ...job,
+                stock_type: job.stock_type || "premium"
+              };
+            }
+            // For other job types, just return the job as is
+            return job;
+          });
+          
+          // Explicitly cast jobs to the correct type
+          setRelatedJobs(processedJobs as unknown as BaseJob[]);
+        } else {
+          // If jobsData is not an array (e.g., null or undefined), set empty array
+          setRelatedJobs([]);
+        }
       } else {
         console.log("Table does not exist yet:", tableName);
         // For tables that don't exist yet, return empty jobs array
