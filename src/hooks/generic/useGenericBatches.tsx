@@ -49,8 +49,14 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
 
       if (fetchError) throw fetchError;
 
-      // Convert to BaseBatch type
-      const genericBatches: BaseBatch[] = data || [];
+      // Convert to BaseBatch type with the required overview_pdf_url property
+      const genericBatches: BaseBatch[] = (data || []).map(batch => ({
+        ...batch,
+        overview_pdf_url: null, // Add the missing property
+        // Make sure lamination_type is set properly
+        lamination_type: batch.lamination_type || "none"
+      }));
+      
       setBatches(genericBatches);
       
       // If we're looking for a specific batch and didn't find it

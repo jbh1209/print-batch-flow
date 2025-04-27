@@ -1,12 +1,13 @@
 
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { ProductConfig, BaseBatch } from "@/config/productTypes";
-import { GenericBatchDetails } from "./GenericBatchDetailsPage";
+import { BatchSummary } from "@/components/batches/types/BatchTypes";
+import GenericBatchDetailsPage from "./GenericBatchDetailsPage";
 
 interface GenericBatchesPageProps {
   config: ProductConfig;
@@ -22,6 +23,7 @@ interface GenericBatchesPageProps {
 
 const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps) => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const batchId = searchParams.get('batchId');
   
   const {
@@ -35,8 +37,14 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
 
   // If we're viewing a specific batch, render the BatchDetails component
   if (batchId) {
-    return <GenericBatchDetails batchId={batchId} config={config} />;
+    return <GenericBatchDetailsPage batchId={batchId} config={config} />;
   }
+
+  // Convert BaseBatch[] to BatchSummary[] by adding the product_type property
+  const batchSummaries: BatchSummary[] = batches.map(batch => ({
+    ...batch,
+    product_type: config.productType,
+  }));
 
   return (
     <div>
@@ -68,7 +76,7 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
       )}
 
       <BatchesWrapper 
-        batches={batches}
+        batches={batchSummaries}
         isLoading={isLoading}
         error={error}
         onRefresh={fetchBatches}
