@@ -1,5 +1,3 @@
-
-// Import and re-export the BatchStatus type from the shared location
 import { BatchStatus, LaminationType } from "./BatchTypes";
 
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
@@ -47,3 +45,4 @@ export interface FlyerJob {
   created_at: string;
   updated_at: string;
 }
+
