@@ -1,6 +1,7 @@
 
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { BaseJob } from "@/config/productTypes";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { 
   addNewPage,
@@ -15,8 +16,8 @@ import { isBusinessCardJobs } from "./pdf/jobTypeUtils";
 import { drawCompactJobsTable } from "./pdf/jobTableRenderer";
 import { addJobPreviews } from "./pdf/jobPreviewRenderer";
 
-// Generic function that accepts either Job or FlyerJob
-export async function generateBatchOverview(jobs: Job[] | FlyerJob[], batchName: string): Promise<Uint8Array> {
+// Updated function that accepts BaseJob[] as a valid parameter type
+export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[], batchName: string): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);

@@ -1,6 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Job } from "@/components/business-cards/JobsTable";
+import { BaseJob } from "@/config/productTypes";
 import { generateBatchOverview } from "./batchGeneration";
 import { generateImpositionSheet } from "./batchImposition";
 
@@ -8,7 +8,7 @@ import { generateImpositionSheet } from "./batchImposition";
  * Handles generation and upload of batch PDFs
  */
 export async function generateAndUploadBatchPDFs(
-  selectedJobs: Job[], 
+  selectedJobs: Job[] | BaseJob[], 
   name: string, 
   userId: string
 ): Promise<{
