@@ -1,9 +1,9 @@
-
 import { PDFPage, rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
 import { format } from "date-fns";
+import { isBusinessCardJobs, isFlyerJobs, isSleeveJobs } from "./jobTypeUtils";
 
 export function drawBatchInfo(
   page: PDFPage,
@@ -36,10 +36,8 @@ export function drawBatchInfo(
     return;
   }
   
-  // Check if we're dealing with business cards or flyers
-  const isBusinessCardJob = 'double_sided' in jobs[0];
-  
-  if (isBusinessCardJob) {
+  // Check which type of job we're dealing with
+  if (isBusinessCardJobs(jobs)) {
     // Business card specific info
     const businessCardJobs = jobs as Job[];
     
@@ -95,7 +93,7 @@ export function drawBatchInfo(
       font: helveticaBold,
       color: rgb(1, 1, 1) // White text
     });
-  } else {
+  } else if (isFlyerJobs(jobs)) {
     // Flyer specific info
     const flyerJobs = jobs as FlyerJob[] | BaseJob[];
     
@@ -121,6 +119,56 @@ export function drawBatchInfo(
     });
     
     const totalPieces = flyerJobs.reduce((sum, job) => sum + job.quantity, 0);
+    
+    page.drawText(`Total Pieces: ${totalPieces}`, {
+      x: margin,
+      y: page.getHeight() - margin - 90,
+      size: 12,
+      font: helveticaFont,
+      color: rgb(0, 0, 0)
+    });
+    
+    // Draw sheets required info
+    page.drawRectangle({
+      x: margin - 5,
+      y: page.getHeight() - margin - 125,
+      width: 200,
+      height: 30,
+      color: rgb(0.102, 0.122, 0.173), // Dark background
+    });
+    
+    // Estimate sheets required
+    const estimatedSheets = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalPieces / 4);
+    
+    page.drawText(`Est. Sheets Required: ${estimatedSheets}`, {
+      x: margin,
+      y: page.getHeight() - margin - 110,
+      size: 14,
+      font: helveticaBold,
+      color: rgb(1, 1, 1) // White text
+    });
+  } else if (isSleeveJobs(jobs)) {
+    // Sleeve specific info
+    const stockType = jobs[0]?.stock_type || 'Standard';
+    
+    // Draw stock type info with background
+    page.drawRectangle({
+      x: margin - 5,
+      y: page.getHeight() - margin - 75,
+      width: 150,
+      height: 30,
+      color: rgb(0.102, 0.122, 0.173), // Dark background
+    });
+    
+    page.drawText(`Stock: ${stockType}`, {
+      x: margin,
+      y: page.getHeight() - margin - 60,
+      size: 12,
+      font: helveticaBold,
+      color: rgb(1, 1, 1) // White text
+    });
+    
+    const totalPieces = jobs.reduce((sum, job) => sum + job.quantity, 0);
     
     page.drawText(`Total Pieces: ${totalPieces}`, {
       x: margin,

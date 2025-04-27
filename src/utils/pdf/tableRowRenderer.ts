@@ -1,4 +1,3 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { format } from "date-fns";
@@ -42,7 +41,7 @@ export function drawTableRows(
       font
     });
     
-    // Double-sided (business cards) or Size (flyers)
+    // Stock Type or Size or Double-sided based on job type
     if (isBusinessCardJobs([job])) {
       const businessCardJob = job as Job;
       const doubleSided = businessCardJob.double_sided ? 'Yes' : 'No';
@@ -52,28 +51,17 @@ export function drawTableRows(
         size: 10,
         font
       });
-      
-      // Slot allocation (if distribution data is available)
-      if (distribution) {
-        const jobDistribution = distribution.find(
-          (d: any) => d.job.id === job.id
-        );
-        if (jobDistribution) {
-          page.drawText(
-            `${jobDistribution.slotsNeeded} slots × ${jobDistribution.quantityPerSlot}/slot`,
-            {
-              x: colStarts[4],
-              y,
-              size: 10,
-              font
-            }
-          );
-        }
-      }
-    } else {
+    } else if (isFlyerJobs([job])) {
       const flyerJob = job as FlyerJob;
-      // Display size for flyers instead of double-sided info
       page.drawText(flyerJob.size || 'N/A', {
+        x: colStarts[3],
+        y,
+        size: 10,
+        font
+      });
+    } else if (isSleeveJobs([job])) {
+      const sleeveJob = job as BaseJob;
+      page.drawText(sleeveJob.stock_type || 'Standard', {
         x: colStarts[3],
         y,
         size: 10,

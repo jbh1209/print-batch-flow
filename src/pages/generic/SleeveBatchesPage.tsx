@@ -1,4 +1,3 @@
-
 import { useParams } from "react-router-dom";
 import { productConfigs } from "@/config/productTypes";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
