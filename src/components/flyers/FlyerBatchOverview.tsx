@@ -1,13 +1,13 @@
 
 import { useState, useEffect } from 'react';
-import { FlyerJob } from '@/components/batches/types/FlyerTypes';
+import { BaseJob } from '@/config/productTypes';
 import { Button } from '@/components/ui/button';
 import { Download, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateBatchOverview } from '@/utils/batchGeneration';
 
 interface FlyerBatchOverviewProps {
-  jobs: FlyerJob[];
+  jobs: BaseJob[];
   batchName: string;
 }
 

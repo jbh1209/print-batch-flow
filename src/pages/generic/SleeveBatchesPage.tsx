@@ -1,6 +1,8 @@
+
 import { useParams } from "react-router-dom";
 import { productConfigs } from "@/config/productTypes";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
+import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 import GenericBatchDetailsPage from "@/components/generic/GenericBatchDetailsPage";
 import GenericBatchesPage from "@/components/generic/GenericBatchesPage";
 
