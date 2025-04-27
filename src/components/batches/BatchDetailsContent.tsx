@@ -1,4 +1,3 @@
-
 import React from "react";
 import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
@@ -15,13 +14,15 @@ interface BatchDetailsContentProps {
   relatedJobs: Job[];
   productType: string;
   onDeleteClick: () => void;
+  onRefresh?: () => void;
 }
 
 const BatchDetailsContent = ({ 
   batch, 
   relatedJobs, 
   productType,
-  onDeleteClick 
+  onDeleteClick,
+  onRefresh
 }: BatchDetailsContentProps) => {
   
   const handleDownloadJobPdfs = async () => {
@@ -74,7 +75,8 @@ const BatchDetailsContent = ({
       <div className="grid gap-6 md:grid-cols-3">
         <BatchDetailsCard 
           batch={batch}
-          onDeleteClick={onDeleteClick} 
+          onDeleteClick={onDeleteClick}
+          onStatusUpdate={onRefresh}
         />
         <BatchActionsCard 
           batch={batch} 

@@ -377,7 +377,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
-      batch_status: "pending" | "processing" | "completed" | "cancelled"
+      batch_status:
+        | "pending"
+        | "processing"
+        | "completed"
+        | "cancelled"
+        | "sent_to_print"
       flyer_size: "A5" | "A4" | "DL" | "A3"
       job_status: "queued" | "batched" | "completed" | "cancelled"
       lamination_type: "gloss" | "matt" | "soft_touch" | "none"
@@ -500,7 +505,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
-      batch_status: ["pending", "processing", "completed", "cancelled"],
+      batch_status: [
+        "pending",
+        "processing",
+        "completed",
+        "cancelled",
+        "sent_to_print",
+      ],
       flyer_size: ["A5", "A4", "DL", "A3"],
       job_status: ["queued", "batched", "completed", "cancelled"],
       lamination_type: ["gloss", "matt", "soft_touch", "none"],

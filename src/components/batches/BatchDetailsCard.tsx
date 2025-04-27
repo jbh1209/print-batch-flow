@@ -1,4 +1,3 @@
-
 import { format } from "date-fns";
 import { Layers, CalendarIcon, Clock, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,13 +11,15 @@ import {
 } from "@/components/ui/card";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { BatchDetailsType } from "./types/BatchTypes";
+import BatchStatusUpdate from "./BatchStatusUpdate";
 
 interface BatchDetailsCardProps {
   batch: BatchDetailsType;
   onDeleteClick: () => void;
+  onStatusUpdate?: () => void;
 }
 
-const BatchDetailsCard = ({ batch, onDeleteClick }: BatchDetailsCardProps) => {
+const BatchDetailsCard = ({ batch, onDeleteClick, onStatusUpdate }: BatchDetailsCardProps) => {
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy');
@@ -85,8 +86,13 @@ const BatchDetailsCard = ({ batch, onDeleteClick }: BatchDetailsCardProps) => {
           </div>
         </div>
       </CardContent>
-      <CardFooter>
-        {batch.status !== 'completed' && (
+      <CardFooter className="flex justify-between">
+        <BatchStatusUpdate 
+          batchId={batch.id}
+          currentStatus={batch.status}
+          onStatusUpdate={onStatusUpdate || (() => {})}
+        />
+        {batch.status !== 'completed' && batch.status !== 'sent_to_print' && (
           <Button
             variant="destructive"
             onClick={onDeleteClick}
