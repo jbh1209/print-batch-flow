@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LaminationType } from "@/components/business-cards/JobsTable";
+import { BatchStatus } from "@/components/batches/types/BatchTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface Batch {
@@ -16,7 +17,7 @@ interface Batch {
   back_pdf_url: string | null;
   due_date: string;
   created_at: string;
-  status: "pending" | "processing" | "completed" | "cancelled";
+  status: BatchStatus; // Now using our shared BatchStatus type
 }
 
 export const useBusinessCardBatches = (batchId: string | null) => {
