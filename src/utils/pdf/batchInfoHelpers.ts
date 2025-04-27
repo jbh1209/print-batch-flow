@@ -129,11 +129,11 @@ export function drawBatchInfo(
       color: rgb(0, 0, 0)
     });
     
-    // Draw sheets required info
+    // Draw sheets required info - moved up to avoid overlap
     page.drawRectangle({
-      x: margin - 5,
-      y: page.getHeight() - margin - 125,
-      width: 200,
+      x: 400, // Positioned to the right
+      y: page.getHeight() - margin - 75,
+      width: 180,
       height: 30,
       color: rgb(0.102, 0.122, 0.173), // Dark background
     });
@@ -141,10 +141,10 @@ export function drawBatchInfo(
     // Estimate sheets required
     const estimatedSheets = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalPieces / 4);
     
-    page.drawText(`Est. Sheets Required: ${estimatedSheets}`, {
-      x: margin,
-      y: page.getHeight() - margin - 110,
-      size: 14,
+    page.drawText(`Sheets: ${estimatedSheets}`, {
+      x: 410, // Positioned to the right
+      y: page.getHeight() - margin - 60,
+      size: 12,
       font: helveticaBold,
       color: rgb(1, 1, 1) // White text
     });
@@ -153,7 +153,6 @@ export function drawBatchInfo(
     const sleeveJobs = jobs as BaseJob[];
     
     // Get stock type information from the first job (assuming all jobs in a batch have the same stock type)
-    // Use optional chaining and nullish coalescing to handle potential undefined values
     const stockType = sleeveJobs[0]?.stock_type || 'Standard';
     
     // Draw stock type info with background
@@ -183,11 +182,11 @@ export function drawBatchInfo(
       color: rgb(0, 0, 0)
     });
     
-    // Draw sheets required info
+    // Draw sheets required info - moved to the right to avoid overlap
     page.drawRectangle({
-      x: margin - 5,
-      y: page.getHeight() - margin - 125,
-      width: 200,
+      x: 400, // Positioned to the right
+      y: page.getHeight() - margin - 75,
+      width: 180,
       height: 30,
       color: rgb(0.102, 0.122, 0.173), // Dark background
     });
@@ -195,10 +194,10 @@ export function drawBatchInfo(
     // Estimate sheets required
     const estimatedSheets = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalPieces / 4);
     
-    page.drawText(`Est. Sheets Required: ${estimatedSheets}`, {
-      x: margin,
-      y: page.getHeight() - margin - 110,
-      size: 14,
+    page.drawText(`Sheets: ${estimatedSheets}`, {
+      x: 410, // Positioned to the right
+      y: page.getHeight() - margin - 60,
+      size: 12,
       font: helveticaBold,
       color: rgb(1, 1, 1) // White text
     });

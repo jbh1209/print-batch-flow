@@ -4,7 +4,7 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
 import { loadPdfAsBytes } from "./pdfLoaderCore";
-import { isBusinessCardJobs } from "./jobTypeUtils";
+import { isBusinessCardJobs, isSleeveJobs } from "./jobTypeUtils";
 
 export async function addJobPreviews(
   page: any,
@@ -17,7 +17,14 @@ export async function addJobPreviews(
   let currentRow = 0;
   let currentCol = 0;
   
-  for (let i = 0; i < jobs.length && i < 24; i++) {
+  // Adjust preview layout for sleeve jobs
+  const isSleeveJobType = isSleeveJobs(jobs);
+  const previewScale = isSleeveJobType ? 0.8 : 0.9; // Smaller previews for sleeve jobs
+  
+  // Determine maximum number of previews based on job type
+  const maxPreviews = isSleeveJobType ? 12 : 24;
+  
+  for (let i = 0; i < jobs.length && i < maxPreviews; i++) {
     const job = jobs[i];
     const pdfUrl = job.pdf_url;
     
@@ -42,9 +49,9 @@ export async function addJobPreviews(
       
       // Scale to fit cell while maintaining aspect ratio
       const scale = Math.min(
-        (gridConfig.cellWidth - gridConfig.padding) / embeddedPage.width,
-        (gridConfig.cellHeight - gridConfig.padding - 20) / embeddedPage.height
-      );
+        (gridConfig.cellWidth * previewScale) / embeddedPage.width,
+        (gridConfig.cellHeight * previewScale) / embeddedPage.height
+      ) * 0.9; // Further reduce to 90% of available space
       
       // Center the preview in the cell
       const scaledWidth = embeddedPage.width * scale;
@@ -60,12 +67,13 @@ export async function addJobPreviews(
         height: scaledHeight
       });
       
-      // Add job info below preview
+      // Add job info below preview - smaller text for sleeve jobs
+      const textSize = isSleeveJobType ? 6 : 7;
       const jobName = job.name.substring(0, 20) + (job.name.length > 20 ? '...' : '');
       page.drawText(jobName, {
-        x: x + (gridConfig.cellWidth / 2) - (jobName.length * 2),
+        x: x + (gridConfig.cellWidth / 2) - (jobName.length * 1.8),
         y: y - gridConfig.cellHeight - 15,
-        size: 7,
+        size: textSize,
         font: helveticaFont
       });
       

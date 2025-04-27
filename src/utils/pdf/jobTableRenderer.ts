@@ -35,7 +35,7 @@ export function drawCompactJobsTable(
   
   // Draw the table rows in a more compact layout - reduced vertical spacing
   const rowY = tableY - 20; // Reduced from 25 to 20
-  drawTableRows(
+  const finalY = drawTableRows(
     page,
     jobs,
     rowY,
@@ -43,4 +43,7 @@ export function drawCompactJobsTable(
     helveticaFont,
     distribution
   );
+  
+  // Return the final Y position to help position elements that follow
+  return finalY;
 }

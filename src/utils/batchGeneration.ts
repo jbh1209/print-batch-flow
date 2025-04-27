@@ -12,7 +12,7 @@ import {
 import { drawBatchInfo } from "./pdf/batchInfoHelpers";
 import { calculateOptimalDistribution } from "./batchOptimizationHelpers";
 import { calculateGridLayout } from "./pdf/gridLayoutHelper";
-import { isBusinessCardJobs } from "./pdf/jobTypeUtils";
+import { isBusinessCardJobs, isSleeveJobs } from "./pdf/jobTypeUtils";
 import { drawCompactJobsTable } from "./pdf/jobTableRenderer";
 import { addJobPreviews } from "./pdf/jobPreviewRenderer";
 
@@ -50,16 +50,19 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     optimization.sheetsRequired
   );
   
-  // Draw compact jobs table - reduced height and positioned higher
-  const tableY = pageHeight - margin - 90; // Moved up from 160 to 90
+  // Draw compact jobs table - adjust position based on job type
+  const tableY = isSleeveJobs(jobs) 
+    ? pageHeight - margin - 130 // Position lower for sleeve jobs
+    : pageHeight - margin - 110; // Default position
+    
   const colWidths = isBusinessCardJobs(jobs) 
     ? [150, 80, 70, 80, 100]
-    : [150, 60, 60, 70, 80];
+    : [150, 60, 60, 100]; // Wider column for stock type
   
   const colStarts = calculateColumnStarts(margin, colWidths);
   
   // Draw table header and jobs in a more compact form
-  drawCompactJobsTable(
+  const finalTableY = drawCompactJobsTable(
     page, 
     jobs, 
     tableY, 

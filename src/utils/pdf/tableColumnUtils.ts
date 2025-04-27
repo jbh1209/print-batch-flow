@@ -1,17 +1,11 @@
 
-export function calculateColumnWidths(isBusinessCard: boolean): number[] {
-  if (isBusinessCard) {
-    return [150, 80, 70, 80, 100];  // Business card column widths
-  }
-  return [150, 80, 70, 80, 100];    // Standard column widths for flyers and sleeves
-}
-
-export function calculateHeaderLabels(isBusinessCard: boolean, isSleeve: boolean = false): string[] {
+export function calculateHeaderLabels(isBusinessCard: boolean = false, isSleeve: boolean = false): string[] {
   if (isBusinessCard) {
     return ["Job Name", "Due Date", "Quantity", "Double-sided", "Allocation"];
+  } else if (isSleeve) {
+    return ["Job Name", "Due Date", "Quantity", "Stock Type"];
+  } else {
+    // Default for flyers or other products
+    return ["Job Name", "Due Date", "Quantity", "Size", "Type"];
   }
-  if (isSleeve) {
-    return ["Job Name", "Due Date", "Quantity", "Stock Type", "Allocation"];
-  }
-  return ["Job Name", "Due Date", "Quantity", "Size", "Allocation"];
 }

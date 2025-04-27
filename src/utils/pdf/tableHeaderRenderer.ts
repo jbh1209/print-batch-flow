@@ -26,6 +26,9 @@ export function drawTableHeader(
   
   // Draw table header text - slightly smaller font
   headers.forEach((header, i) => {
+    // Skip drawing headers beyond the available colStarts
+    if (i >= colStarts.length) return;
+    
     page.drawText(header, {
       x: colStarts[i],
       y: tableY - 2, // Adjusted vertical alignment

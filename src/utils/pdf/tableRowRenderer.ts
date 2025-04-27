@@ -84,9 +84,12 @@ export function drawTableRows(
     page.drawText(`+ ${jobs.length - displayJobs.length} more jobs`, {
       x: colStarts[0],
       y: y - 5,
-      size: 9,
+      size: 8,
       font,
       color: rgb(0.5, 0.5, 0.5)
     });
   }
+  
+  // Return the final Y position to help position elements that follow the table
+  return y - 20; // Extra padding below the table
 }
