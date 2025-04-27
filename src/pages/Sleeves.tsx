@@ -7,7 +7,6 @@ import { Package, FileText, Plus, ArrowLeft } from "lucide-react";
 import { productConfigs } from "@/config/productTypes";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
-import { GenericJobForm } from "@/components/generic/GenericJobForm";
 
 const Sleeves = () => {
   const navigate = useNavigate();
@@ -168,4 +167,3 @@ const Sleeves = () => {
 };
 
 export default Sleeves;
-

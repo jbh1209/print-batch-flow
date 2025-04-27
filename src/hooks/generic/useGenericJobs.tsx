@@ -40,6 +40,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
@@ -48,6 +49,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       if (fetchError) throw fetchError;
 
+      // Use explicit type casting to avoid excessive type instantiation
       setJobs((data || []) as unknown as T[]);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);

@@ -2,26 +2,12 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName, ExistingTableName } from '@/config/productTypes';
+import { BaseJob, BaseBatch, ProductConfig, LaminationType, TableName } from '@/config/productTypes';
+import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
-
-  // Helper function to check if a table exists in our database
-  const isExistingTable = (tableName: TableName): tableName is ExistingTableName => {
-    const existingTables: ExistingTableName[] = [
-      "flyer_jobs",
-      "postcard_jobs", 
-      "business_card_jobs",
-      "poster_jobs",
-      "batches", 
-      "profiles", 
-      "user_roles"
-    ];
-    
-    return existingTables.includes(tableName as ExistingTableName);
-  };
 
   // Create a batch with selected jobs
   const createBatchWithSelectedJobs = async (

@@ -19,8 +19,9 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .delete()
         .eq('id', jobId)
         .eq('user_id', userId);
@@ -55,15 +56,17 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .insert(newJob)
         .select()
         .single();
 
       if (error) throw error;
       
-      return (data as unknown) as T;
+      // Use explicit type casting to avoid excessive type instantiation
+      return data as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -84,8 +87,9 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .update(jobData)
         .eq('id', jobId)
         .eq('user_id', userId)
@@ -94,7 +98,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      return (data as unknown) as T;
+      // Use explicit type casting to avoid excessive type instantiation
+      return data as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -111,8 +116,9 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .select('*')
         .eq('id', jobId)
         .eq('user_id', userId)
@@ -120,7 +126,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
 
       if (error) throw error;
       
-      return (data as unknown) as T;
+      // Use explicit type casting to avoid excessive type instantiation
+      return data as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;

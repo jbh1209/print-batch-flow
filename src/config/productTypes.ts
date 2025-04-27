@@ -6,7 +6,7 @@ export type ExistingTableName =
   "postcard_jobs" | 
   "business_card_jobs" |
   "poster_jobs" | 
-  "sleeve_jobs" |  // Added this line
+  "sleeve_jobs" |
   "batches" |
   "profiles" |
   "user_roles";
@@ -199,7 +199,7 @@ export const productConfigs: Record<string, ProductConfig> = {
 
   "Sleeves": {
     productType: "Sleeves",
-    tableName: "sleeve_jobs", // Updated to use the new table
+    tableName: "sleeve_jobs",
     ui: {
       title: "Sleeves",
       jobFormTitle: "Sleeve",

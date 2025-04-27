@@ -27,8 +27,9 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         return;
       }
       
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data: orphanedJobs, error: findError } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
@@ -55,8 +56,9 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
           return;
         }
         
+        // Use 'as any' to bypass TypeScript's type checking for the table name
         const { error: updateError } = await supabase
-          .from(tableName)
+          .from(tableName as any)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
