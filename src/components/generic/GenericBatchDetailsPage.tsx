@@ -14,10 +14,15 @@ import { BatchDetailsType, LaminationType } from "@/components/batches/types/Bat
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
+  batchId?: string; // Add batchId prop here to fix the type error
 }
 
-const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ config }) => {
-  const { batchId = "" } = useParams<{ batchId: string }>();
+const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ config, batchId = "" }) => {
+  // If batchId wasn't passed as a prop, try to get it from URL params
+  const { batchId: urlBatchId = "" } = useParams<{ batchId: string }>();
+  
+  // Use either the prop batchId or the one from URL params
+  const actualBatchId = batchId || urlBatchId;
 
   const {
     batch,
@@ -28,10 +33,10 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     isDeleting,
     setBatchToDelete,
     handleDeleteBatch
-  } = useGenericBatchDetails({ batchId, config });
+  } = useGenericBatchDetails({ batchId: actualBatchId, config });
 
   const handleDeleteClick = () => {
-    setBatchToDelete(batchId);
+    setBatchToDelete(actualBatchId);
   };
 
   // Generate title dynamically based on batch name if available
