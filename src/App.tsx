@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
@@ -39,6 +38,7 @@ import AllBatches from './pages/AllBatches';
 import SleeveJobsPage from './pages/generic/SleeveJobsPage';
 import SleeveJobNewPage from './pages/generic/SleeveJobNewPage';
 import SleeveBatchesPage from './pages/generic/SleeveBatchesPage';
+import GenericBatchDetailsPage from './components/generic/GenericBatchDetailsPage';
 
 const ProtectedRoute = ({ element, protected: isProtected }) => {
   const { user } = useAuth();
@@ -109,7 +109,7 @@ function App() {
           <Route path="/batches/sleeves/batches" element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} />
           <Route 
             path="/batches/sleeves/batches/:batchId" 
-            element={<ProtectedRoute element={<BatchDetailsPage productType="Sleeves" backUrl="/batches/sleeves/batches" />} protected={true} />} 
+            element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} 
           />
         </Route>
       </Routes>

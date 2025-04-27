@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,11 @@ interface GenericBatchesPageProps {
 
 const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps) => {
   const [searchParams] = useSearchParams();
+  const { batchId: urlBatchId } = useParams<{ batchId: string }>();
   const navigate = useNavigate();
-  const batchId = searchParams.get('batchId');
+  
+  // Check for batchId in either URL params or search params
+  const batchId = urlBatchId || searchParams.get('batchId');
   
   const {
     batches,
