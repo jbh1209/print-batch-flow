@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
@@ -34,8 +35,10 @@ import Boxes from './pages/Boxes';
 import Covers from './pages/Covers';
 import AllBatches from './pages/AllBatches';
 
+// Sleeve pages
 import SleeveJobsPage from './pages/generic/SleeveJobsPage';
 import SleeveJobNewPage from './pages/generic/SleeveJobNewPage';
+import SleeveBatchesPage from './pages/generic/SleeveBatchesPage';
 
 const ProtectedRoute = ({ element, protected: isProtected }) => {
   const { user } = useAuth();
@@ -100,9 +103,10 @@ function App() {
           <Route path="/users" element={<ProtectedRoute element={<Users />} protected={true} />} />
           <Route path="/settings" element={<ProtectedRoute element={<Settings />} protected={true} />} />
           
-          {/* Add these routes inside the existing Routes component */}
+          {/* Sleeve routes */}
           <Route path="/batches/sleeves/jobs" element={<ProtectedRoute element={<SleeveJobsPage />} protected={true} />} />
           <Route path="/batches/sleeves/jobs/new" element={<ProtectedRoute element={<SleeveJobNewPage />} protected={true} />} />
+          <Route path="/batches/sleeves/batches" element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} />
         </Route>
       </Routes>
     </Router>

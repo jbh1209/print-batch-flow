@@ -3,9 +3,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Package, FileText, Plus, ArrowLeft } from "lucide-react";
+import { Package, Plus, ArrowLeft } from "lucide-react";
 import { productConfigs } from "@/config/productTypes";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
 
 const Sleeves = () => {
@@ -102,7 +101,7 @@ const Sleeves = () => {
                 className="w-full mt-4"
                 onClick={() => {
                   setActiveTab("batches");
-                  navigate(config.routes.batchesPath);
+                  navigate("/batches/sleeves/batches");
                 }}
               >
                 View All Batches
