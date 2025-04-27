@@ -123,15 +123,18 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         if (Array.isArray(jobsData)) {
           // Add stock_type for sleeve jobs if needed
           const processedJobs = jobsData.map(job => {
+            // Type assertion to avoid TypeScript errors
+            const typedJob = job as Record<string, any>;
+            
             // For sleeve jobs, make sure stock_type is defined
             if (isSleeveBatch) {
               return {
-                ...job,
-                stock_type: job.stock_type || "premium"
+                ...typedJob,
+                stock_type: typedJob.stock_type || "premium"
               };
             }
             // For other job types, just return the job as is
-            return job;
+            return typedJob;
           });
           
           // Explicitly cast jobs to the correct type
