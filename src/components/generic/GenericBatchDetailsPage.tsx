@@ -1,6 +1,6 @@
 
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
 import { ProductConfig } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
@@ -12,11 +12,16 @@ import { Button } from "@/components/ui/button";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
-  batchId: string;
+  batchId?: string;
 }
 
-const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ config, batchId }) => {
+const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ config, batchId: propBatchId }) => {
   const navigate = useNavigate();
+  const { batchId: paramBatchId } = useParams<{ batchId: string }>();
+  
+  // Use the batchId from props or params
+  const batchId = propBatchId || paramBatchId;
+  
   const {
     batch,
     relatedJobs,
@@ -27,6 +32,11 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     setBatchToDelete,
     handleDeleteBatch
   } = useGenericBatchDetails({ batchId, config });
+
+  useEffect(() => {
+    console.log("GenericBatchDetailsPage - Batch ID:", batchId);
+    console.log("GenericBatchDetailsPage - Product Type:", config.productType);
+  }, [batchId, config]);
 
   if (isLoading) {
     return (

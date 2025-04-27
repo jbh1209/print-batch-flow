@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import { useAuth } from './hooks/useAuth';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
-import { productConfigs } from './config/productTypes';  // Add this import
+import { productConfigs } from './config/productTypes';
 
 // Business Card pages (unchanged)
 import BusinessCardJobs from './pages/BusinessCardJobs';
@@ -73,7 +73,7 @@ function App() {
             element={<ProtectedRoute element={<BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards/batches" />} protected={true} />} 
           />
           
-          {/* Flyers routes - Current implementation */}
+          {/* Flyer routes - Current implementation */}
           <Route path="/batches/flyers" element={<ProtectedRoute element={<Flyers />} protected={true} />} />
           <Route path="/batches/flyers/jobs" element={<ProtectedRoute element={<FlyerJobs />} protected={true} />} />
           <Route path="/batches/flyers/jobs/new" element={<ProtectedRoute element={<FlyerJobNew />} protected={true} />} />
@@ -110,7 +110,7 @@ function App() {
           <Route path="/batches/sleeves/batches" element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} />
           <Route 
             path="/batches/sleeves/batches/:batchId" 
-            element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} 
+            element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Sleeves"]} />} protected={true} />} 
           />
         </Route>
       </Routes>

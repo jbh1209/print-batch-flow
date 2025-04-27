@@ -18,6 +18,7 @@ const isExistingTable = (tableName: TableName): tableName is ExistingTableName =
     "postcard_jobs", 
     "business_card_jobs",
     "poster_jobs",
+    "sleeve_jobs",
     "batches", 
     "profiles", 
     "user_roles"
@@ -38,13 +39,18 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchBatchDetails = async () => {
-    if (!user || !batchId) return;
+    if (!user || !batchId) {
+      console.error("Missing user or batchId:", { user: !!user, batchId });
+      setIsLoading(false);
+      setError("Missing required information to fetch batch details");
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
     
     try {
-      console.log(`Fetching batch details for batch ID: ${batchId}`);
+      console.log(`Fetching batch details for batch ID: ${batchId} and product type: ${config.productType}`);
       
       const { data, error } = await supabase
         .from("batches")
@@ -69,7 +75,10 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         return;
       }
       
-      console.log("Batch details received:", data?.id);
+      console.log("Batch details received:", data);
+      
+      // Determine if this is likely a sleeve batch based on the name
+      const isSleeveBatch = data.name && data.name.startsWith('DXB-SL-');
       
       // Ensure all properties are defined correctly for the BaseBatch interface
       const batchData: BaseBatch = {
@@ -84,7 +93,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         created_at: data.created_at,
         created_by: data.created_by,
         lamination_type: data.lamination_type || "none",
-        paper_type: data.paper_type,
+        paper_type: data.paper_type || (isSleeveBatch ? "premium" : undefined),
         paper_weight: data.paper_weight,
         updated_at: data.updated_at
       };
@@ -94,18 +103,32 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       // Fetch related jobs from the product-specific table
       const tableName = config.tableName;
       if (isExistingTable(tableName)) {
+        console.log("Fetching related jobs from table:", tableName);
+        
         // Use a safer approach for the Supabase query
         const { data: jobs, error: jobsError } = await supabase
           .from(tableName as any)
-          .select("id, name, quantity, status, pdf_url")
+          .select("*")
           .eq("batch_id", batchId)
           .order("name");
       
-        if (jobsError) throw jobsError;
+        if (jobsError) {
+          console.error("Error fetching related jobs:", jobsError);
+          throw jobsError;
+        }
+        
+        console.log("Related jobs received:", jobs?.length || 0);
+        
+        // Add stock_type for sleeve jobs if needed
+        const processedJobs = jobs ? jobs.map(job => ({
+          ...job,
+          stock_type: job.stock_type || (isSleeveBatch ? "premium" : undefined)
+        })) : [];
         
         // Explicitly cast jobs to the correct type
-        setRelatedJobs(jobs ? jobs as unknown as BaseJob[] : []);
+        setRelatedJobs(processedJobs as unknown as BaseJob[]);
       } else {
+        console.log("Table does not exist yet:", tableName);
         // For tables that don't exist yet, return empty jobs array
         setRelatedJobs([]);
       }
@@ -172,10 +195,15 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
 
   useEffect(() => {
     if (batchId && user) {
+      console.log("Initiating batch details fetch for:", batchId);
       fetchBatchDetails();
     } else if (!user) {
       console.log("No authenticated user for batch details");
       setIsLoading(false);
+    } else if (!batchId) {
+      console.log("No batchId provided for batch details");
+      setIsLoading(false);
+      setError("Batch ID is required");
     }
   }, [batchId, user]);
 

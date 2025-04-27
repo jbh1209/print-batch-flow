@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { ProductConfig, BaseBatch } from "@/config/productTypes";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
-import GenericBatchDetailsPage from "./GenericBatchDetailsPage";
 import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 
 interface GenericBatchesPageProps {
@@ -37,11 +36,6 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
     handleViewPDF,
     handleViewBatchDetails
   } = batchesHookFn();
-
-  // If we're viewing a specific batch, render the BatchDetailsPage component
-  if (batchId) {
-    return <GenericBatchDetailsPage config={config} batchId={batchId} />;
-  }
 
   // Convert BaseBatch[] to BatchSummary[] by adding the product_type property
   const batchSummaries: BatchSummary[] = batches.map(batch => ({
