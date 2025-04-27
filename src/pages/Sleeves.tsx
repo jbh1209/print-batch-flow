@@ -1,12 +1,29 @@
 
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Package, Plus } from "lucide-react";
+import { Package, FileText, Plus, ArrowLeft } from "lucide-react";
 import { productConfigs } from "@/config/productTypes";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
+import { GenericJobForm } from "@/components/generic/GenericJobForm";
 
 const Sleeves = () => {
   const navigate = useNavigate();
   const config = productConfigs["Sleeves"];
+  const [activeTab, setActiveTab] = useState("overview");
+  
+  const { jobs, isLoading: jobsLoading } = useGenericJobs(config);
+  
+  // Calculate basic stats
+  const pendingJobsCount = jobs.filter(job => job.status === "queued").length;
+  const activeBatchesCount = jobs.filter(job => job.status === "batched").length;
+  
+  // Calculate capacity percentage (example logic - customize as needed)
+  const capacityPercentage = activeBatchesCount > 0 
+    ? Math.min(Math.round((activeBatchesCount / 5) * 100), 100) 
+    : 0;
 
   return (
     <div>
@@ -19,31 +36,136 @@ const Sleeves = () => {
           <p className="text-gray-500 mt-1">Manage sleeve batches and jobs</p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => navigate("/")}>
-            Back to Dashboard
+          <Button 
+            variant="outline" 
+            onClick={() => navigate("/")}
+          >
+            <ArrowLeft size={16} className="mr-1" />
+            <span>Back to Dashboard</span>
           </Button>
-          <Button onClick={() => navigate(config.routes.jobsPath)}>
-            <Plus className="mr-2 h-4 w-4" />
-            View Jobs
+          <Button onClick={() => navigate(config.routes.newJobPath)}>
+            <Plus size={16} className="mr-1" />
+            Add New Job
           </Button>
         </div>
       </div>
-
-      <div className="grid gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-          <div className="flex gap-4">
-            <Button onClick={() => navigate(config.routes.newJobPath)}>
-              Create New Job
-            </Button>
-            <Button variant="outline" onClick={() => navigate(config.routes.batchesPath)}>
-              View Batches
-            </Button>
+      
+      <Tabs 
+        defaultValue="overview" 
+        className="w-full"
+        value={activeTab}
+        onValueChange={setActiveTab}
+      >
+        <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="jobs" onClick={() => navigate("/batches/sleeves/jobs")}>Jobs</TabsTrigger>
+          <TabsTrigger value="batches" onClick={() => navigate("/batches/sleeves/batches")}>Batches</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold mb-2">Pending Jobs</h3>
+              <div className="text-3xl font-bold">
+                {jobsLoading ? (
+                  <div className="h-8 w-8 rounded-full border-t-2 border-b-2 border-primary animate-spin"></div>
+                ) : (
+                  pendingJobsCount
+                )}
+              </div>
+              <p className="text-sm text-gray-500 mt-2">Unbatched jobs waiting for processing</p>
+              
+              <Button 
+                variant="outline" 
+                className="w-full mt-4"
+                onClick={() => {
+                  setActiveTab("jobs");
+                  navigate("/batches/sleeves/jobs");
+                }}
+              >
+                View All Jobs
+              </Button>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold mb-2">Active Batches</h3>
+              <div className="text-3xl font-bold">
+                {jobsLoading ? (
+                  <div className="h-8 w-8 rounded-full border-t-2 border-b-2 border-primary animate-spin"></div>
+                ) : (
+                  activeBatchesCount
+                )}
+              </div>
+              <p className="text-sm text-gray-500 mt-2">Batches currently in production</p>
+              
+              <Button 
+                variant="outline" 
+                className="w-full mt-4"
+                onClick={() => {
+                  setActiveTab("batches");
+                  navigate("/batches/sleeves/batches");
+                }}
+              >
+                View All Batches
+              </Button>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold mb-2">Capacity</h3>
+              <div className="text-3xl font-bold">{capacityPercentage}%</div>
+              <p className="text-sm text-gray-500 mt-2">Current batch bucket capacity</p>
+              
+              <Button 
+                className="w-full mt-4"
+                onClick={() => navigate("/batches/sleeves/jobs/new")}
+              >
+                Add New Job
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
+          
+          <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
+            <h3 className="text-lg font-semibold mb-4">Sleeve Specifications</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Stock Type Options</h4>
+                <p>Premium, Standard</p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Default Printer</h4>
+                <p>HP 12000</p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Default Sheet Size</h4>
+                <p>530x750mm</p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Batching Strategy</h4>
+                <p>Grouped by stock type and size</p>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="jobs">
+          <div className="flex items-center justify-center p-12 text-gray-500">
+            Navigate to the Jobs tab to view sleeve jobs
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="batches">
+          <div className="flex items-center justify-center p-12 text-gray-500">
+            Navigate to the Batches tab to view sleeve batches
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 
 export default Sleeves;
+
