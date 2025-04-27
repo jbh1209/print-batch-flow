@@ -47,7 +47,7 @@ export function useFlyerBatches(batchId: string | null = null) {
         sheets_required: batch.sheets_required,
         front_pdf_url: batch.front_pdf_url,
         back_pdf_url: batch.back_pdf_url,
-        overview_pdf_url: batch.overview_pdf_url || null, // Ensure this property exists
+        overview_pdf_url: batch.overview_pdf_url || null, // Ensure this property exists even if null
         due_date: batch.due_date,
         created_at: batch.created_at,
         lamination_type: batch.lamination_type,
