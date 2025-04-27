@@ -15,7 +15,7 @@ export interface FlyerBatch {
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
-  overview_pdf_url: string | null;
+  overview_pdf_url: string | null; // Added this line
   due_date: string;
   created_at: string;
   lamination_type: LaminationType;
