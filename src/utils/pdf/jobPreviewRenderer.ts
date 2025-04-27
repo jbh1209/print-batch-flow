@@ -17,9 +17,8 @@ export async function addJobPreviews(
   let currentRow = 0;
   let currentCol = 0;
   
-  for (let i = 0; i < jobs.length && i < gridConfig.columns * gridConfig.rows; i++) {
+  for (let i = 0; i < jobs.length && i < 24; i++) {
     const job = jobs[i];
-    // All job types have pdf_url
     const pdfUrl = job.pdf_url;
     
     if (!pdfUrl) continue;
@@ -43,23 +42,30 @@ export async function addJobPreviews(
       
       // Scale to fit cell while maintaining aspect ratio
       const scale = Math.min(
-        gridConfig.cellWidth / embeddedPage.width,
-        gridConfig.cellHeight / embeddedPage.height
+        (gridConfig.cellWidth - gridConfig.padding) / embeddedPage.width,
+        (gridConfig.cellHeight - gridConfig.padding - 20) / embeddedPage.height
       );
+      
+      // Center the preview in the cell
+      const scaledWidth = embeddedPage.width * scale;
+      const scaledHeight = embeddedPage.height * scale;
+      const xOffset = (gridConfig.cellWidth - scaledWidth) / 2;
+      const yOffset = (gridConfig.cellHeight - scaledHeight - 20) / 2;
       
       // Draw embedded page
       page.drawPage(embeddedPage, {
-        x,
-        y: y - gridConfig.cellHeight,
-        width: embeddedPage.width * scale,
-        height: embeddedPage.height * scale
+        x: x + xOffset,
+        y: y - gridConfig.cellHeight + yOffset + 20,
+        width: scaledWidth,
+        height: scaledHeight
       });
       
       // Add job info below preview
-      page.drawText(job.name.substring(0, 25) + (job.name.length > 25 ? '...' : ''), {
-        x: x + (gridConfig.cellWidth / 2) - (job.name.length * 2.5),
+      const jobName = job.name.substring(0, 20) + (job.name.length > 20 ? '...' : '');
+      page.drawText(jobName, {
+        x: x + (gridConfig.cellWidth / 2) - (jobName.length * 2),
         y: y - gridConfig.cellHeight - 15,
-        size: 8,
+        size: 7,
         font: helveticaFont
       });
       

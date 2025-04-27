@@ -1,5 +1,6 @@
 
 import { PDFDocument, PDFPage } from "pdf-lib";
+import { mmToPoints } from "./pdfUnitHelpers";
 
 interface GridConfig {
   columns: number;
@@ -11,39 +12,17 @@ interface GridConfig {
 }
 
 export function calculateGridLayout(jobCount: number, pageHeight: number): GridConfig {
-  // Reserve top 25% for job info, use bottom 75% for previews
-  const previewAreaHeight = pageHeight * 0.75;
-  const startY = pageHeight - (pageHeight * 0.25); // Start Y for preview grid
-  const previewWidth = 500; // Estimated total width available for previews
+  // Reserve top 20% for job info, use bottom 80% for previews
+  const previewAreaHeight = pageHeight * 0.8;
+  const startY = pageHeight - (pageHeight * 0.2); // Start Y for preview grid
+  const previewWidth = 510; // Slightly increased width for better spacing
   
-  // Calculate optimal grid based on job count and available space
-  let columns: number;
-  let rows: number;
-  
-  if (jobCount <= 2) {
-    // 2x1 grid for 1-2 jobs
-    columns = 2;
-    rows = 1;
-  } else if (jobCount <= 4) {
-    // 2x2 grid for 3-4 jobs
-    columns = 2;
-    rows = 2;
-  } else if (jobCount <= 6) {
-    // 3x2 grid for 5-6 jobs
-    columns = 3;
-    rows = 2;
-  } else if (jobCount <= 9) {
-    // 3x3 grid for 7-9 jobs
-    columns = 3;
-    rows = 3;
-  } else {
-    // 4x3 grid for 10+ jobs
-    columns = 4;
-    rows = 3;
-  }
+  // Fixed 4x6 grid layout to handle up to 24 cards efficiently
+  const columns = 4;
+  const rows = 6;
   
   // Calculate cell dimensions based on available space
-  const cellPadding = 10;
+  const cellPadding = 8; // Reduced padding for tighter layout
   const cellWidth = (previewWidth - (cellPadding * (columns + 1))) / columns;
   const cellHeight = (previewAreaHeight - (cellPadding * (rows + 1))) / rows;
   
