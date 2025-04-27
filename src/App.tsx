@@ -107,6 +107,10 @@ function App() {
           <Route path="/batches/sleeves/jobs" element={<ProtectedRoute element={<SleeveJobsPage />} protected={true} />} />
           <Route path="/batches/sleeves/jobs/new" element={<ProtectedRoute element={<SleeveJobNewPage />} protected={true} />} />
           <Route path="/batches/sleeves/batches" element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} />
+          <Route 
+            path="/batches/sleeves/batches/:batchId" 
+            element={<ProtectedRoute element={<BatchDetailsPage productType="Sleeves" backUrl="/batches/sleeves/batches" />} protected={true} />} 
+          />
         </Route>
       </Routes>
     </Router>

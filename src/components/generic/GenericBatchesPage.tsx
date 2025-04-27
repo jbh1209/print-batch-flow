@@ -37,7 +37,7 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
 
   // If we're viewing a specific batch, render the BatchDetails component
   if (batchId) {
-    return <GenericBatchDetailsPage batchId={batchId} config={config} />;
+    return <GenericBatchDetailsPage config={config} batchId={batchId} />;
   }
 
   // Convert BaseBatch[] to BatchSummary[] by adding the product_type property

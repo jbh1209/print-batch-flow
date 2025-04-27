@@ -81,7 +81,8 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    navigate(`${config.routes.batchesPath}/${batchId}`);
+    // Update this to match the route pattern in App.tsx
+    navigate(`/batches/${config.productType.toLowerCase().replace(' ', '-')}/batches/${batchId}`);
   };
   
   const handleDeleteBatch = async () => {
