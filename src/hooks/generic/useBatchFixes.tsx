@@ -31,16 +31,16 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Using a simple type annotation rather than complex generic typing
-      const result = await supabase
+      // Explicitly type the result as any to avoid deep type instantiation
+      const result: any = await supabase
         .from(table)
         .select('id')
         .eq('user_id', userId)
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      // Use non-generic typing to simplify
-      const data = result.data || [];
+      // Use explicit typing for data
+      const data = result.data as JobWithId[] || [];
       const error = result.error;
       
       if (error) throw error;
@@ -51,8 +51,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Extract IDs as simple strings
         const jobIds = data.map((job: JobWithId) => job.id);
         
-        // Simple typing for update operation
-        const updateResult = await supabase
+        // Explicitly type update result as any
+        const updateResult: any = await supabase
           .from(table)
           .update({ status: 'queued' })
           .in('id', jobIds);

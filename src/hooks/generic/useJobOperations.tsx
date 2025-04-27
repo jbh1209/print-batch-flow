@@ -22,8 +22,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Simple, non-generic supabase call
-      const result = await supabase
+      // Explicitly type the result as any
+      const result: any = await supabase
         .from(table)
         .delete()
         .eq('id', jobId)
@@ -63,8 +63,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Simple typing for supabase call
-      const result = await supabase
+      // Explicitly type the result as any
+      const result: any = await supabase
         .from(table)
         .insert(newJob)
         .select();
@@ -77,8 +77,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from insert operation');
       }
       
-      // Cast the data to the correct type at return time
-      return data[0] as T;
+      // First cast to unknown, then to T to avoid type instantiation issues
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error creating job:`, err);
       throw err;
@@ -102,7 +102,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use any type for Supabase result
+      // Explicitly type the result as any
       const result: any = await supabase
         .from(table)
         .update(jobData)
@@ -118,7 +118,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from update operation');
       }
       
-      return data[0] as T;
+      // First cast to unknown, then to T to avoid type instantiation issues
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error updating job:`, err);
       throw err;
@@ -138,7 +139,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use any type for Supabase result
+      // Explicitly type the result as any
       const result: any = await supabase
         .from(table)
         .select('*')
@@ -154,7 +155,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         return null;
       }
       
-      return data[0] as T;
+      // First cast to unknown, then to T to avoid type instantiation issues
+      return data[0] as unknown as T;
     } catch (err) {
       console.error(`Error getting job:`, err);
       throw err;
