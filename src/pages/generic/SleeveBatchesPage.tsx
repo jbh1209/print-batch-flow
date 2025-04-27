@@ -1,17 +1,20 @@
-
 import { useParams } from "react-router-dom";
 import { productConfigs } from "@/config/productTypes";
-import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
+import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
+import GenericBatchDetailsPage from "@/components/generic/GenericBatchDetailsPage";
 import GenericBatchesPage from "@/components/generic/GenericBatchesPage";
 
 const SleeveBatchesPage = () => {
   const { batchId } = useParams<{ batchId: string }>();
   const config = productConfigs["Sleeves"];
   
-  // Create a wrapper function that returns the hook result
-  // Pass batchId to useGenericBatches to fetch details when needed
-  const batchesHookWrapper = () => useGenericBatches(config, batchId);
+  // If we have a batchId, show the batch details page
+  if (batchId) {
+    return <GenericBatchDetailsPage config={config} batchId={batchId} />;
+  }
 
+  // Otherwise show the batches list
+  const batchesHookWrapper = () => useGenericBatches(config);
   return <GenericBatchesPage config={config} useBatchesHook={batchesHookWrapper} />;
 };
 

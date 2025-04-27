@@ -1,6 +1,6 @@
 
-import React, { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
 import { ProductConfig } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
@@ -9,21 +9,15 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FileText } from "lucide-react";
-import { BatchDetailsType, LaminationType } from "@/components/batches/types/BatchTypes";
+import { FlyerBatchOverview } from "@/components/flyers/FlyerBatchOverview";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
-  batchId?: string; // Add batchId prop here to fix the type error
+  batchId: string;
 }
 
-const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ config, batchId = "" }) => {
-  // If batchId wasn't passed as a prop, try to get it from URL params
-  const { batchId: urlBatchId = "" } = useParams<{ batchId: string }>();
-  
-  // Use either the prop batchId or the one from URL params
-  const actualBatchId = batchId || urlBatchId;
-
+const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ config, batchId }) => {
+  const navigate = useNavigate();
   const {
     batch,
     relatedJobs,
@@ -33,19 +27,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     isDeleting,
     setBatchToDelete,
     handleDeleteBatch
-  } = useGenericBatchDetails({ batchId: actualBatchId, config });
-
-  const handleDeleteClick = () => {
-    setBatchToDelete(actualBatchId);
-  };
-
-  // Generate title dynamically based on batch name if available
-  const pageTitle = useMemo(() => {
-    if (batch) {
-      return `${batch.name} - ${config.ui.batchFormTitle} Details`;
-    }
-    return `${config.ui.batchFormTitle} Details`;
-  }, [batch, config.ui.batchFormTitle]);
+  } = useGenericBatchDetails({ batchId, config });
 
   if (isLoading) {
     return (
@@ -55,17 +37,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     );
   }
 
-  if (error) {
-    return (
-      <Alert variant="destructive" className="mb-6">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
-  }
-
-  if (!batch) {
+  if (error || !batch) {
     return (
       <Alert variant="destructive" className="mb-6">
         <AlertCircle className="h-4 w-4" />
@@ -75,9 +47,9 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
           <div className="mt-2">
             <Button 
               variant="outline" 
-              onClick={() => window.history.back()}
+              onClick={() => navigate(config.routes.batchesPath)}
             >
-              Go Back
+              Back to Batches
             </Button>
           </div>
         </AlertDescription>
@@ -85,33 +57,27 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     );
   }
 
-  // Create a typed version of the batch object that matches BatchDetailsType
-  const batchForDetails: BatchDetailsType = {
-    id: batch.id,
-    name: batch.name,
-    lamination_type: batch.lamination_type,
-    sheets_required: batch.sheets_required,
-    front_pdf_url: batch.front_pdf_url,
-    back_pdf_url: batch.back_pdf_url,
-    overview_pdf_url: batch.overview_pdf_url,
-    due_date: batch.due_date,
-    created_at: batch.created_at,
-    status: batch.status,
-  };
-
   return (
     <div>
       <JobsHeader 
-        title={pageTitle}
+        title={`${batch.name} - ${config.ui.batchFormTitle} Details`}
         subtitle={`View details and manage ${config.ui.title.toLowerCase()} batch`}
       />
       
       <BatchDetailsContent
-        batch={batchForDetails}
+        batch={batch}
         relatedJobs={relatedJobs}
         productType={config.productType}
-        onDeleteClick={handleDeleteClick}
+        onDeleteClick={() => setBatchToDelete(batch.id)}
       />
+
+      {/* Add Batch Overview section */}
+      {relatedJobs.length > 0 && (
+        <FlyerBatchOverview 
+          jobs={relatedJobs}
+          batchName={batch.name}
+        />
+      )}
 
       <BatchDeleteDialog 
         isOpen={!!batchToDelete}

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,7 +80,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    // Update this to match the route pattern in App.tsx
+    // Use the product-specific route format
     navigate(`/batches/${config.productType.toLowerCase().replace(' ', '-')}/batches/${batchId}`);
   };
   
