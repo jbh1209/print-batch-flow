@@ -71,7 +71,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
         onDeleteClick={() => setBatchToDelete(batch.id)}
       />
 
-      {/* Add Batch Overview section */}
+      {/* Always show Batch Overview if there are jobs */}
       {relatedJobs.length > 0 && (
         <FlyerBatchOverview 
           jobs={relatedJobs}

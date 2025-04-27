@@ -27,6 +27,9 @@ const BatchDetailsCard = ({ batch, onDeleteClick }: BatchDetailsCardProps) => {
     }
   };
 
+  // Determine if this is likely a sleeve batch based on the name
+  const isSleeveBatch = batch.name && batch.name.startsWith('DXB-SL-');
+
   return (
     <Card className="md:col-span-2">
       <CardHeader>
@@ -47,11 +50,20 @@ const BatchDetailsCard = ({ batch, onDeleteClick }: BatchDetailsCardProps) => {
             </div>
           </div>
           
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-gray-500">Lamination Type</p>
-            <p>{batch.lamination_type === 'none' ? 'None' : 
-              batch.lamination_type.charAt(0).toUpperCase() + batch.lamination_type.slice(1)}</p>
-          </div>
+          {!isSleeveBatch && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-500">Lamination Type</p>
+              <p>{batch.lamination_type === 'none' ? 'None' : 
+                batch.lamination_type.charAt(0).toUpperCase() + batch.lamination_type.slice(1)}</p>
+            </div>
+          )}
+          
+          {isSleeveBatch && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-500">Stock Type</p>
+              <p>Premium</p>
+            </div>
+          )}
 
           <div className="space-y-1">
             <p className="text-sm font-medium text-gray-500">Sheets Required</p>

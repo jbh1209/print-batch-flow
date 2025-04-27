@@ -69,8 +69,8 @@ const BatchDetailsContent = ({
         />
       </div>
 
-      {/* Related Jobs */}
-      {(productType === "Business Cards" || productType === "Flyers") && relatedJobs.length > 0 && (
+      {/* Show Related Jobs for all product types */}
+      {relatedJobs.length > 0 && (
         <RelatedJobsCard 
           jobs={relatedJobs} 
         />

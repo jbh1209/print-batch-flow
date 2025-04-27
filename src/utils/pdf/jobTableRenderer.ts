@@ -2,7 +2,7 @@
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
-import { isBusinessCardJobs } from "./jobTypeUtils";
+import { isBusinessCardJobs, isSleeveJobs } from "./jobTypeUtils";
 import { drawTableHeader } from "./tableHeaderRenderer";
 import { drawTableRows } from "./tableRowRenderer";
 
@@ -18,6 +18,9 @@ export function drawCompactJobsTable(
   colWidths: number[],
   distribution: any = null
 ) {
+  // Determine if these are sleeve jobs
+  const isSleeve = isSleeveJobs(jobs);
+  
   // Draw the table header
   drawTableHeader(
     page,
@@ -26,14 +29,15 @@ export function drawCompactJobsTable(
     helveticaBold,
     margin,
     colWidths,
-    isBusinessCardJobs(jobs)
+    isBusinessCardJobs(jobs),
+    isSleeve
   );
   
   // Draw the table rows
   const rowY = tableY - 25;
   drawTableRows(
     page,
-    jobs as (Job[] | FlyerJob[]),  // Type assertion here since drawTableRows is already setup for these types
+    jobs,
     rowY,
     colStarts,
     helveticaFont,

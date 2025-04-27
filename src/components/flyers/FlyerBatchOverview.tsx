@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Download, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateBatchOverview } from '@/utils/batchGeneration';
+import { isSleeveJobs } from '@/utils/pdf/jobTypeUtils';
 
 interface FlyerBatchOverviewProps {
   jobs: BaseJob[];
@@ -15,6 +16,9 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
   const [isGenerating, setIsGenerating] = useState(false);
   const [overviewUrl, setOverviewUrl] = useState<string | null>(null);
 
+  // Determine if we're working with sleeve jobs
+  const isSleeveJobsType = isSleeveJobs(jobs);
+  
   // Generate the batch overview PDF when jobs change
   useEffect(() => {
     if (jobs.length > 0) {
@@ -61,10 +65,13 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
     document.body.removeChild(link);
   };
 
+  // Determine title based on job type
+  const titleText = isSleeveJobsType ? "Sleeve Batch Overview" : "Batch Overview";
+
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium">Batch Overview</h3>
+        <h3 className="text-lg font-medium">{titleText}</h3>
         <div className="flex gap-2">
           <Button 
             variant="outline" 
