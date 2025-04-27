@@ -22,8 +22,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       // Get the valid table name
       const table = getSupabaseTable(tableName);
       
-      // Use any type to avoid deep instantiation issues
-      const result: any = await supabase
+      // Simple, non-generic supabase call
+      const result = await supabase
         .from(table)
         .delete()
         .eq('id', jobId)
@@ -63,8 +63,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
 
-      // Use any type for Supabase result to avoid deep type instantiation
-      const result: any = await supabase
+      // Simple typing for supabase call
+      const result = await supabase
         .from(table)
         .insert(newJob)
         .select();
@@ -77,6 +77,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error('No data returned from insert operation');
       }
       
+      // Cast the data to the correct type at return time
       return data[0] as T;
     } catch (err) {
       console.error(`Error creating job:`, err);

@@ -5,8 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, BaseBatch, ProductConfig, LaminationType, BatchStatus } from '@/config/productTypes';
 import { isExistingTable, getSupabaseTable } from '@/utils/database/tableUtils';
+import { useBatchHelper } from './useBatchHelper';
 
-// Define simple interfaces to avoid recursive type issues
+// Simpler interface for batch data
 interface BatchData {
   id: string;
   name: string;
@@ -26,98 +27,7 @@ interface BatchData {
 export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
-
-  // Helper function to calculate sheets required based on job type
-  const calculateSheetsRequired = (jobs: T[]): number => {
-    let totalSheets = 0;
-    
-    for (const job of jobs) {
-      let sheetsPerJob = 0;
-      
-      // Calculate differently based on product type
-      if (config.productType === "Flyers") {
-        // Use existing flyer calculation logic
-        const jobSize = job.size;
-        if (jobSize) {
-          switch (jobSize) {
-            case 'A5':
-              // Assuming 2 A5s per sheet
-              sheetsPerJob = Math.ceil(job.quantity / 2);
-              break;
-            case 'A4':
-              // Assuming 1 A4 per sheet
-              sheetsPerJob = job.quantity;
-              break;
-            case 'DL':
-              // Assuming 3 DLs per sheet
-              sheetsPerJob = Math.ceil(job.quantity / 3);
-              break;
-            case 'A3':
-              // Assuming 1 A3 per sheet (special case)
-              sheetsPerJob = job.quantity * 1.5; // A3 might require more paper
-              break;
-            default:
-              sheetsPerJob = job.quantity;
-          }
-        } else {
-          sheetsPerJob = job.quantity;
-        }
-      } else {
-        // Default calculation for other product types
-        // Use a simple multiplier based on quantity
-        sheetsPerJob = job.quantity;
-      }
-      
-      totalSheets += sheetsPerJob;
-    }
-    
-    // Add some extra sheets for setup and testing
-    totalSheets = Math.ceil(totalSheets * 1.1); // 10% extra
-    
-    return totalSheets;
-  };
-
-  // Helper to get 2-letter product code
-  const getProductCode = (productType: string): string => {
-    switch (productType) {
-      case "Flyers": return "FL";
-      case "Postcards": return "PC";
-      case "Posters": return "PO";
-      case "Stickers": return "ST";
-      case "Sleeves": return "SL";
-      case "Boxes": return "BX";
-      case "Covers": return "CV";
-      case "Business Cards": return "BC";
-      default: return "XX";
-    }
-  };
-
-  // Generate a batch number with format DXB-XX-00001 specific to product type
-  const generateBatchNumber = async (productType: string): Promise<string> => {
-    try {
-      // Get product code for batch prefix
-      const productCode = getProductCode(productType);
-      
-      // Use any type to avoid complex typing
-      const result: any = await supabase
-        .from("batches")
-        .select('name')
-        .filter('name', 'ilike', `DXB-${productCode}-%`);
-      
-      if (result.error) throw result.error;
-      
-      const data = result.data;
-      
-      // Generate the batch number starting from 00001
-      const batchCount = (data?.length || 0) + 1;
-      const batchNumber = `DXB-${productCode}-${batchCount.toString().padStart(5, '0')}`;
-      
-      return batchNumber;
-    } catch (err) {
-      console.error('Error generating batch number:', err);
-      return `DXB-${getProductCode(productType)}-${new Date().getTime()}`; // Fallback using timestamp
-    }
-  };
+  const { calculateSheetsRequired, generateBatchNumber } = useBatchHelper(config);
 
   // Create a batch with selected jobs
   const createBatchWithSelectedJobs = async (
@@ -169,8 +79,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         back_pdf_url: null
       };
       
-      // Use any type to avoid deep type instantiation
-      const result: any = await supabase
+      // Simple typing for insert operation
+      const result = await supabase
         .from("batches")
         .insert(batchInsertData)
         .select();
@@ -183,6 +93,7 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         throw new Error('No data returned from batch creation');
       }
       
+      // Cast to BatchData type
       const batchData = data[0] as BatchData;
       
       // Update all selected jobs to be part of this batch
@@ -195,8 +106,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Use any type for update operation
-        const updateResult: any = await supabase
+        // Simple typing for update operation
+        const updateResult = await supabase
           .from(table)
           .update({ 
             batch_id: batchData.id,
@@ -247,8 +158,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
     try {
       const productCode = getProductCode(config.productType);
       
-      // Use any type for query response
-      const result: any = await supabase
+      // Simple typing for query
+      const result = await supabase
         .from("batches")
         .select('*')
         .eq('created_by', user.id)
@@ -298,8 +209,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         // Get the valid table name
         const table = getSupabaseTable(tableName);
         
-        // Use any type for reset operation
-        const resetResult: any = await supabase
+        // Simple typing for reset operation
+        const resetResult = await supabase
           .from(table)
           .update({ 
             status: 'queued',
@@ -310,8 +221,8 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
         if (resetResult.error) throw resetResult.error;
       }
       
-      // Use any type for delete operation
-      const deleteResult: any = await supabase
+      // Simple typing for delete operation
+      const deleteResult = await supabase
         .from("batches")
         .delete()
         .eq('id', batchId)
@@ -325,6 +236,21 @@ export function useGenericBatch<T extends BaseJob>(config: ProductConfig) {
       console.error(`Error deleting ${config.productType} batch:`, error);
       toast.error("Failed to delete batch");
       return false;
+    }
+  };
+
+  // Helper to get 2-letter product code
+  const getProductCode = (productType: string): string => {
+    switch (productType) {
+      case "Flyers": return "FL";
+      case "Postcards": return "PC";
+      case "Posters": return "PO";
+      case "Stickers": return "ST";
+      case "Sleeves": return "SL";
+      case "Boxes": return "BX";
+      case "Covers": return "CV";
+      case "Business Cards": return "BC";
+      default: return "XX";
     }
   };
 
