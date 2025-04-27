@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,7 +62,7 @@ const FlyerBatchDetails = () => {
         sheets_required: batchData.sheets_required,
         front_pdf_url: batchData.front_pdf_url,
         back_pdf_url: batchData.back_pdf_url,
-        overview_pdf_url: batchData.overview_pdf_url || null, // Ensure this property exists
+        overview_pdf_url: null, // Since it's not in the database yet, default to null
         due_date: batchData.due_date,
         created_at: batchData.created_at,
         lamination_type: batchData.lamination_type,
