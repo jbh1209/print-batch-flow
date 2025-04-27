@@ -47,6 +47,7 @@ export function useFlyerBatches(batchId: string | null = null) {
         sheets_required: batch.sheets_required,
         front_pdf_url: batch.front_pdf_url,
         back_pdf_url: batch.back_pdf_url,
+        overview_pdf_url: batch.overview_pdf_url || null, // Explicitly add overview_pdf_url
         due_date: batch.due_date,
         created_at: batch.created_at,
         lamination_type: batch.lamination_type,
@@ -56,8 +57,7 @@ export function useFlyerBatches(batchId: string | null = null) {
         printer_type: batch.printer_type,
         created_by: batch.created_by,
         updated_at: batch.updated_at,
-        date_created: batch.date_created,
-        overview_pdf_url: batch.overview_pdf_url || null
+        date_created: batch.date_created
       }));
       
       setBatches(flyerBatches);

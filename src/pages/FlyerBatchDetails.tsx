@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,7 +55,6 @@ const FlyerBatchDetails = () => {
       
       if (batchError) throw batchError;
       
-      // Create a properly typed FlyerBatch
       const flyerBatch: FlyerBatch = {
         id: batchData.id,
         name: batchData.name,
