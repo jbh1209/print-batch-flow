@@ -8,6 +8,7 @@ import { FlyerBatchOverview } from "../flyers/FlyerBatchOverview";
 import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
+import { BaseJob } from "@/config/productTypes";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -56,6 +57,18 @@ const BatchDetailsContent = ({
     }
   };
   
+  // Convert Job[] to BaseJob[] for FlyerBatchOverview
+  const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
+    return jobs.map(job => ({
+      ...job,
+      job_number: job.name, // Use name as job_number
+      due_date: new Date().toISOString(), // Default due_date
+      file_name: job.name, // Use name as file_name
+      user_id: "", // Default user_id
+      created_at: new Date().toISOString(), // Default created_at
+    })) as BaseJob[];
+  };
+  
   return (
     <>
       <div className="grid gap-6 md:grid-cols-3">
@@ -75,7 +88,7 @@ const BatchDetailsContent = ({
         <>
           <RelatedJobsCard jobs={relatedJobs} />
           <FlyerBatchOverview 
-            jobs={relatedJobs}
+            jobs={convertToBaseJobs(relatedJobs)}
             batchName={batch.name}
           />
         </>
