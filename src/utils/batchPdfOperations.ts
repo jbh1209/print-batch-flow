@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Job } from "@/components/business-cards/JobsTable";
 import { BaseJob } from "@/config/productTypes";
@@ -53,27 +54,53 @@ export async function generateAndUploadBatchPDFs(
         .remove([overviewFilePath]);
     }
     
-    // Upload batch overview
-    const { error: overviewError } = await supabase.storage
-      .from("pdf_files")
-      .upload(overviewFilePath, batchOverviewPDF, {
-        contentType: "application/pdf",
-        cacheControl: "no-cache",
-        upsert: true
-      });
-      
-    if (overviewError) {
-      console.error("Overview upload error:", overviewError);
-      throw new Error(`Failed to upload batch overview: ${overviewError.message}`);
+    // Upload batch overview with timeout handling
+    let overviewUploadAttempts = 0;
+    let overviewUrl: string | null = null;
+    
+    while (overviewUploadAttempts < 3 && !overviewUrl) {
+      try {
+        // Upload batch overview
+        const { error: overviewError } = await supabase.storage
+          .from("pdf_files")
+          .upload(overviewFilePath, batchOverviewPDF, {
+            contentType: "application/pdf",
+            cacheControl: "no-cache",
+            upsert: true
+          });
+          
+        if (overviewError) {
+          console.error("Overview upload error:", overviewError);
+          overviewUploadAttempts++;
+          if (overviewUploadAttempts >= 3) {
+            throw overviewError;
+          }
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+        
+        // Get URL for batch overview
+        const { data: overviewUrlData } = supabase.storage
+          .from("pdf_files")
+          .getPublicUrl(overviewFilePath);
+          
+        if (!overviewUrlData?.publicUrl) {
+          throw new Error("Failed to get public URL for batch overview");
+        }
+        
+        overviewUrl = overviewUrlData.publicUrl;
+      } catch (err) {
+        overviewUploadAttempts++;
+        if (overviewUploadAttempts >= 3) {
+          throw err;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
     
-    // Get URL for batch overview
-    const { data: overviewUrlData } = supabase.storage
-      .from("pdf_files")
-      .getPublicUrl(overviewFilePath);
-      
-    if (!overviewUrlData?.publicUrl) {
-      throw new Error("Failed to get public URL for batch overview");
+    if (!overviewUrl) {
+      throw new Error("Failed to upload batch overview after multiple attempts");
     }
     
     console.log("Uploading imposition sheet PDF...");
@@ -92,36 +119,62 @@ export async function generateAndUploadBatchPDFs(
         .remove([impositionFilePath]);
     }
     
-    // Upload imposition sheet
-    const { error: impositionError } = await supabase.storage
-      .from("pdf_files")
-      .upload(impositionFilePath, impositionSheetPDF, {
-        contentType: "application/pdf",
-        cacheControl: "no-cache", // Prevent caching issues
-        upsert: true
-      });
-      
-    if (impositionError) {
-      console.error("Imposition upload error:", impositionError);
-      throw new Error(`Failed to upload imposition sheet: ${impositionError.message}`);
+    // Upload imposition sheet with retry logic
+    let impositionUploadAttempts = 0;
+    let impositionUrl: string | null = null;
+    
+    while (impositionUploadAttempts < 3 && !impositionUrl) {
+      try {
+        // Upload imposition sheet
+        const { error: impositionError } = await supabase.storage
+          .from("pdf_files")
+          .upload(impositionFilePath, impositionSheetPDF, {
+            contentType: "application/pdf",
+            cacheControl: "no-cache", // Prevent caching issues
+            upsert: true
+          });
+          
+        if (impositionError) {
+          console.error("Imposition upload error:", impositionError);
+          impositionUploadAttempts++;
+          if (impositionUploadAttempts >= 3) {
+            throw impositionError;
+          }
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+        
+        // Get URL for imposition sheet
+        const { data: impositionUrlData } = supabase.storage
+          .from("pdf_files")
+          .getPublicUrl(impositionFilePath);
+          
+        if (!impositionUrlData?.publicUrl) {
+          throw new Error("Failed to get public URL for imposition sheet");
+        }
+        
+        impositionUrl = impositionUrlData.publicUrl;
+      } catch (err) {
+        impositionUploadAttempts++;
+        if (impositionUploadAttempts >= 3) {
+          throw err;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
     
-    // Get URL for imposition sheet
-    const { data: impositionUrlData } = supabase.storage
-      .from("pdf_files")
-      .getPublicUrl(impositionFilePath);
-      
-    if (!impositionUrlData?.publicUrl) {
-      throw new Error("Failed to get public URL for imposition sheet");
+    if (!impositionUrl) {
+      throw new Error("Failed to upload imposition sheet after multiple attempts");
     }
     
     console.log("Successfully uploaded both PDFs");
-    console.log("Overview URL:", overviewUrlData.publicUrl);
-    console.log("Imposition URL:", impositionUrlData.publicUrl);
+    console.log("Overview URL:", overviewUrl);
+    console.log("Imposition URL:", impositionUrl);
     
     return {
-      overviewUrl: overviewUrlData.publicUrl,
-      impositionUrl: impositionUrlData.publicUrl
+      overviewUrl,
+      impositionUrl
     };
   } catch (error) {
     console.error("Error in generateAndUploadBatchPDFs:", error);

@@ -15,6 +15,7 @@ interface FlyerBatchOverviewProps {
 export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [overviewUrl, setOverviewUrl] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   // Determine if we're working with sleeve jobs
   const isSleeveJobsType = isSleeveJobs(jobs);
@@ -24,7 +25,7 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
     if (jobs.length > 0) {
       generateOverview();
     }
-  }, [jobs]);
+  }, []);  // Only run on mount, not on every jobs change
 
   const generateOverview = async () => {
     if (jobs.length === 0) {
@@ -35,7 +36,10 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
     try {
       setIsGenerating(true);
       setOverviewUrl(null);
-      toast.loading("Generating batch overview...");
+      setGenerationError(null);
+      
+      // Show a toast that we're working on it
+      const toastId = toast.loading("Generating batch overview...");
 
       // Generate the single-page batch overview
       const pdfBytes = await generateBatchOverview(jobs, batchName);
@@ -45,9 +49,12 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
       const url = URL.createObjectURL(blob);
       setOverviewUrl(url);
       
+      // Dismiss the loading toast and show success
+      toast.dismiss(toastId);
       toast.success("Batch overview generated successfully");
     } catch (error) {
       console.error("Error generating batch overview:", error);
+      setGenerationError("Failed to generate overview. Please try again.");
       toast.error("Failed to generate batch overview");
     } finally {
       setIsGenerating(false);
@@ -79,8 +86,8 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
             onClick={generateOverview}
             disabled={isGenerating || jobs.length === 0}
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Regenerate
+            <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+            {isGenerating ? 'Generating...' : 'Regenerate'}
           </Button>
           <Button 
             variant="default" 
@@ -106,6 +113,18 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
             className="w-full h-[500px]" 
             title={`${batchName} Overview`}
           />
+        </div>
+      ) : generationError ? (
+        <div className="border rounded-md p-8 flex flex-col items-center justify-center bg-gray-50 text-destructive">
+          <FileText className="h-10 w-10 mb-2" />
+          <p className="text-sm mb-2">{generationError}</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={generateOverview}
+          >
+            Try Again
+          </Button>
         </div>
       ) : (
         <div className="border rounded-md p-8 flex flex-col items-center justify-center bg-gray-50">

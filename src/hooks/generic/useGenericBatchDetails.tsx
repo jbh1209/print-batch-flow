@@ -121,24 +121,25 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         
         // Make sure jobsData is actually an array before processing
         if (Array.isArray(jobsData)) {
-          // Add stock_type for sleeve jobs if needed
+          // Process jobs based on type
           const processedJobs = jobsData.map(job => {
-            // Type assertion to avoid TypeScript errors
-            const typedJob = job as Record<string, any>;
+            // Use type assertion to create a safe object we can work with
+            const jobObject: Record<string, any> = job;
             
-            // For sleeve jobs, make sure stock_type is defined
-            if (isSleeveBatch) {
+            // For sleeve jobs, add stock_type if needed
+            if (isSleeveBatch && config.productType === "Sleeves") {
               return {
-                ...typedJob,
-                stock_type: typedJob.stock_type || "premium"
+                ...jobObject,
+                stock_type: jobObject.stock_type || "premium"
               };
             }
-            // For other job types, just return the job as is
-            return typedJob;
+            
+            // For other job types, just return as is
+            return jobObject;
           });
           
-          // Explicitly cast jobs to the correct type
-          setRelatedJobs(processedJobs as unknown as BaseJob[]);
+          // Cast to BaseJob[] to satisfy TypeScript
+          setRelatedJobs(processedJobs as BaseJob[]);
         } else {
           // If jobsData is not an array (e.g., null or undefined), set empty array
           setRelatedJobs([]);
