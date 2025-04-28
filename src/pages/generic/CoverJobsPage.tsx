@@ -62,9 +62,12 @@ const CoverJobsPage = () => {
         jobs={jobs}
         isLoading={isLoading}
         error={error}
-        onDelete={deleteJob}
-        onSelectionChange={handleSelectionChange}
-        onCreateBatch={handleCreateBatch}
+        deleteJob={deleteJob}
+        fetchJobs={async () => {}}
+        createBatch={createBatch}
+        isCreatingBatch={isCreatingBatch}
+        fixBatchedJobsWithoutBatch={fixBatchedJobsWithoutBatch}
+        isFixingBatchedJobs={isFixingBatchedJobs}
         config={config}
       />
 
