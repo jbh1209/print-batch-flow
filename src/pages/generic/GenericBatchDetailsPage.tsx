@@ -1,16 +1,16 @@
 
 import React from "react";
 import { useParams } from "react-router-dom";
-import BatchDetails from "@/components/batches/BatchDetails";
+import { ProductConfig } from "@/config/productTypes";
+import GenericBatchDetails from "@/components/generic/GenericBatchDetails";
 
-interface BatchDetailsPageProps {
-  productType: string;
-  backUrl: string;
+interface GenericBatchDetailsPageProps {
+  config: ProductConfig;
 }
 
-const BatchDetailsPage: React.FC<BatchDetailsPageProps> = ({ productType, backUrl }) => {
+const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ config }) => {
   const { batchId } = useParams<{ batchId: string }>();
-
+  
   if (!batchId) {
     return (
       <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -20,7 +20,7 @@ const BatchDetailsPage: React.FC<BatchDetailsPageProps> = ({ productType, backUr
     );
   }
 
-  return <BatchDetails batchId={batchId} productType={productType} backUrl={backUrl} />;
+  return <GenericBatchDetails batchId={batchId} config={config} />;
 };
 
-export default BatchDetailsPage;
+export default GenericBatchDetailsPage;
