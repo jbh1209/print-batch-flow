@@ -111,11 +111,11 @@ export function useBatchCreation(
       // Update all selected jobs to attach them to the batch
       const batchId = batchData.id;
       
-      // Update jobs - using a more type-safe approach
+      // Fix: Use a type assertion to tell TypeScript that we know what we're doing with the dynamic table name
       for (const job of selectedJobs) {
-        // Use the specific table for each job
+        // Use type assertion to handle the dynamic table name
         await supabase
-          .from(tableName as any) // Use type assertion here to fix TS error
+          .from(tableName as any)
           .update({
             batch_id: batchId,
             status: "batched"

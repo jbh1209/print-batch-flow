@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -119,14 +120,14 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         printerType: batchProperties.printerType,
         sheetSize: batchProperties.sheetSize,
         slaTargetDays: batchProperties.slaTargetDays !== undefined ? batchProperties.slaTargetDays : config.slaTargetDays,
-        laminationType: typedLaminationType // Include laminationType in the config object
       };
       
-      // Pass only the selected jobs and combined config to the wrapper function
-      // which now expects only 2 arguments
+      // Fixed: Pass the selectedJobs as BaseJob[] which is compatible with the expected type
       const batch = await createBatchWithSelectedJobs(
-        selectedJobs,
-        batchConfig
+        selectedJobs as BaseJob[], // Cast to BaseJob[] to match the expected type
+        batchConfig,
+        typedLaminationType,
+        batchProperties.slaTargetDays
       );
       
       if (batch) {
