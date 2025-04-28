@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText } from "lucide-react";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
-import { GenericJobsTable } from "./GenericJobsTable";
+import GenericJobsTable from "./GenericJobsTable";
 
 interface GenericJobsPageProps {
   config: ProductConfig;

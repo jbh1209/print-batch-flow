@@ -121,9 +121,14 @@ export const GenericBatchesList = ({
                   <span className="text-sm text-gray-500">Status:</span>
                   <Badge 
                     variant={
-                      batch.status === 'completed' ? 'success' : 
-                      batch.status === 'processing' ? 'warning' : 
-                      batch.status === 'sent_to_print' ? 'info' : 'default'
+                      batch.status === 'completed' ? 'default' : 
+                      batch.status === 'processing' ? 'secondary' : 
+                      batch.status === 'sent_to_print' ? 'outline' : 'default'
+                    }
+                    className={
+                      batch.status === 'completed' ? 'bg-green-500 hover:bg-green-600' : 
+                      batch.status === 'processing' ? 'bg-yellow-500 hover:bg-yellow-600' : 
+                      batch.status === 'sent_to_print' ? 'bg-blue-500 hover:bg-blue-600 text-white' : ''
                     }
                   >
                     {batch.status.replace('_', ' ')}
