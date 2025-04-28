@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -11,7 +12,8 @@ import {
   Image, 
   Users, 
   Settings, 
-  ChevronLeft
+  ChevronLeft,
+  Mail
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -94,6 +96,12 @@ const Sidebar = () => {
             icon={<FileText size={20} />} 
             label={collapsed ? "" : "Flyers"} 
             isActive={location.pathname.includes("/batches/flyers")} 
+          />
+          <NavItem 
+            to="/batches/postcards" 
+            icon={<Mail size={20} />} 
+            label={collapsed ? "" : "Postcards"} 
+            isActive={location.pathname.includes("/batches/postcards")} 
           />
           <NavItem 
             to="/batches/sleeves" 

@@ -43,6 +43,12 @@ import SleeveJobNewPage from './pages/generic/SleeveJobNewPage';
 import SleeveBatchesPage from './pages/generic/SleeveBatchesPage';
 import GenericBatchDetailsPage from './components/generic/GenericBatchDetailsPage';
 
+// Postcards pages
+import Postcards from './pages/Postcards';
+import PostcardJobsPage from './pages/generic/PostcardJobsPage';
+import PostcardJobNewPage from './pages/generic/PostcardJobNewPage';
+import PostcardBatchesPage from './pages/generic/PostcardBatchesPage';
+
 // New generic pages for covers, posters, boxes and stickers
 import CoverJobsPage from './pages/generic/CoverJobsPage';
 import CoverJobNewPage from './pages/generic/CoverJobNewPage';
@@ -117,6 +123,16 @@ function App() {
           <Route 
             path="/batches/sleeves/batches/:batchId" 
             element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Sleeves"]} />} protected={true} />} 
+          />
+
+          {/* Postcards routes */}
+          <Route path="/batches/postcards" element={<ProtectedRoute element={<Postcards />} protected={true} />} />
+          <Route path="/batches/postcards/jobs" element={<ProtectedRoute element={<PostcardJobsPage />} protected={true} />} />
+          <Route path="/batches/postcards/jobs/new" element={<ProtectedRoute element={<PostcardJobNewPage />} protected={true} />} />
+          <Route path="/batches/postcards/batches" element={<ProtectedRoute element={<PostcardBatchesPage />} protected={true} />} />
+          <Route 
+            path="/batches/postcards/batches/:batchId" 
+            element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Postcards"]} />} protected={true} />} 
           />
           
           {/* Covers routes */}
