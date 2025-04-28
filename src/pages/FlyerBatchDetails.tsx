@@ -1,5 +1,5 @@
 
-import { useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useFlyerBatches } from '@/hooks/useFlyerBatches';
 import { FlyerBatchOverview } from '@/components/flyers/FlyerBatchOverview';
 import FlyerBatchLoading from '@/components/flyers/batch-details/FlyerBatchLoading';
@@ -14,8 +14,7 @@ import { useState, useEffect } from 'react';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
 
 const FlyerBatchDetails = () => {
-  const [searchParams] = useSearchParams();
-  const batchId = searchParams.get('batchId');
+  const { batchId } = useParams(); // Use path parameter instead of query parameter
   const [relatedJobs, setRelatedJobs] = useState<FlyerJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   

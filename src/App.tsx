@@ -19,6 +19,7 @@ import FlyerJobDetail from './pages/FlyerJobDetail';
 import FlyerJobEdit from './pages/FlyerJobEdit';
 import FlyerBatches from './pages/FlyerBatches';
 import Flyers from './pages/Flyers';
+import FlyerBatchDetails from './pages/FlyerBatchDetails';  // Import the FlyerBatchDetails component
 
 // Generic implementation of Flyer pages
 import GenericFlyerJobsPage from './pages/generic/FlyerJobsPage';
@@ -82,7 +83,7 @@ function App() {
           <Route path="/batches/flyers/batches" element={<ProtectedRoute element={<FlyerBatches />} protected={true} />} />
           <Route 
             path="/batches/flyers/batches/:batchId" 
-            element={<ProtectedRoute element={<BatchDetailsPage productType="Flyers" backUrl="/batches/flyers/batches" />} protected={true} />} 
+            element={<ProtectedRoute element={<FlyerBatchDetails />} protected={true} />} 
           />
           
           {/* Generic Flyers implementation routes (for testing) */}

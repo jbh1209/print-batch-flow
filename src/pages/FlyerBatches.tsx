@@ -1,9 +1,9 @@
 
-import { useSearchParams } from "react-router-dom";
 import { useFlyerBatches } from "@/hooks/useFlyerBatches";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FileText } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useParams, Navigate } from "react-router-dom";
 import FlyerBatchDetails from "./FlyerBatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
@@ -11,8 +11,12 @@ import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 
 const FlyerBatches = () => {
-  const [searchParams] = useSearchParams();
-  const batchId = searchParams.get('batchId');
+  const { batchId } = useParams();
+  
+  // If batchId is present, redirect to the proper route
+  if (batchId) {
+    return <Navigate to={`/batches/flyers/batches/${batchId}`} replace />;
+  }
   
   const {
     batches,
@@ -25,7 +29,7 @@ const FlyerBatches = () => {
     handleDeleteBatch,
     handleViewBatchDetails,
     setBatchToDelete
-  } = useFlyerBatches(batchId);
+  } = useFlyerBatches();
 
   // Convert FlyerBatch[] to BatchSummary[] for BatchesWrapper
   const batchSummaries: BatchSummary[] = batches.map(batch => ({
@@ -40,11 +44,6 @@ const FlyerBatches = () => {
     back_pdf_url: batch.back_pdf_url,
     created_at: batch.created_at
   }));
-
-  // If we're viewing a specific batch, render the BatchDetails component
-  if (batchId) {
-    return <FlyerBatchDetails />;
-  }
 
   return (
     <div>
