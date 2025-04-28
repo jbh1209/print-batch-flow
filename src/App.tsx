@@ -18,6 +18,7 @@ import StickerJobsPage from './pages/generic/StickerJobsPage';
 import BusinessCardBatches from './pages/BusinessCardBatches';
 import FlyerBatches from './pages/FlyerBatches';
 import AllJobsPage from './pages/AllJobsPage';
+import AllBatches from './pages/AllBatches';
 import { productConfigs } from './config/productTypes';
 import BatchDetailsPage from './pages/BatchDetailsPage';
 
@@ -70,6 +71,9 @@ const App = () => {
             
             {/* All Jobs Page */}
             <Route path="/all-jobs" element={<AllJobsPage />} />
+            
+            {/* All Batches Page */}
+            <Route path="/batches" element={<AllBatches />} />
             
             {/* Business Cards Routes */}
             <Route path="/batches/business-cards" element={<BusinessCards />} />

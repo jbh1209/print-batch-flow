@@ -24,7 +24,7 @@ export const useAllPendingJobs = () => {
     try {
       // Only fetch from tables that actually exist in the database
       if (!isExistingTable(config.tableName)) {
-        console.warn(`Table ${config.tableName} does not exist in the database`);
+        console.info(`Table ${config.tableName} does not exist in the database - skipping`);
         return [];
       }
 
@@ -36,7 +36,11 @@ export const useAllPendingJobs = () => {
         .eq('status', 'queued')
         .order('due_date', { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        // Log the error but don't throw it to prevent breaking the entire data fetch
+        console.error(`Error fetching ${config.productType} jobs:`, error);
+        return [];
+      }
       
       // Attach the product config to each job and set default urgency
       return (data || []).map(job => {
@@ -55,8 +59,8 @@ export const useAllPendingJobs = () => {
         
         // This should never happen if our database is consistent
         console.error(`Invalid job data received for ${config.productType}:`, job);
-        throw new Error(`Invalid job data received for ${config.productType}`);
-      });
+        return null;
+      }).filter(job => job !== null) as ExtendedJob[];
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       return [];
