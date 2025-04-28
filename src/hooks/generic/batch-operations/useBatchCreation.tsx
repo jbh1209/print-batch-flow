@@ -29,7 +29,11 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Generate batch number based on product type
       const batchNumber = await generateBatchNumber(productType);
       
-      // Insert the batch record - remove product_type field as it doesn't exist in the table schema
+      // Calculate a default due date (7 days from now)
+      const defaultDueDate = new Date();
+      defaultDueDate.setDate(defaultDueDate.getDate() + 7);
+      
+      // Insert the batch record - include the required due_date field
       const { data: batch, error: batchError } = await supabase
         .from('batches')
         .insert({
@@ -40,7 +44,8 @@ export function useBatchCreation(productType: string, tableName: string) {
           paper_type: config.availablePaperTypes?.[0] || null,
           paper_weight: config.availablePaperWeights?.[0] || null,
           sheets_required: calculateSheetsRequired(selectedJobs, config),
-          sla_target_days: slaTargetDays // Add SLA target days to the database
+          sla_target_days: slaTargetDays,
+          due_date: defaultDueDate.toISOString() // Add the required due_date field
         })
         .select()
         .single();
