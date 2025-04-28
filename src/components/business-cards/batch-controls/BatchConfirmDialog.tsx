@@ -26,6 +26,7 @@ interface BatchConfirmDialogProps {
   optimization: BatchOptimization | null;
   upcomingDueJobs: Job[];
   onSelectJob: (jobId: string, isSelected: boolean) => void;
+  onSlaChange?: (value: number) => void;
 }
 
 const BatchConfirmDialog = ({
@@ -37,7 +38,8 @@ const BatchConfirmDialog = ({
   isCreatingBatch,
   optimization,
   upcomingDueJobs,
-  onSelectJob
+  onSelectJob,
+  onSlaChange
 }: BatchConfirmDialogProps) => {
   // Get default SLA from product config
   const defaultSla = productConfigs["Business Cards"].slaTargetDays;
@@ -49,6 +51,17 @@ const BatchConfirmDialog = ({
       setSlaTargetDays(defaultSla);
     }
   }, [isOpen, defaultSla]);
+  
+  // Handle SLA change
+  const handleSlaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    if (!isNaN(value) && value > 0) {
+      setSlaTargetDays(value);
+      if (onSlaChange) {
+        onSlaChange(value);
+      }
+    }
+  };
   
   // Determine if selected jobs are compatible for batching
   const areJobsCompatible = () => {
@@ -92,7 +105,7 @@ const BatchConfirmDialog = ({
             type="number"
             min="1"
             value={slaTargetDays}
-            onChange={(e) => setSlaTargetDays(Number(e.target.value))}
+            onChange={handleSlaChange}
             className="w-full"
           />
           <p className="text-sm text-muted-foreground">
