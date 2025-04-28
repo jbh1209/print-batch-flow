@@ -8,6 +8,9 @@ export const isExistingTable = (tableName: TableName): tableName is ExistingTabl
     "business_card_jobs",
     "poster_jobs",
     "sleeve_jobs",
+    "box_jobs",
+    "cover_jobs",
+    "sticker_jobs",
     "batches", 
     "profiles", 
     "user_roles"

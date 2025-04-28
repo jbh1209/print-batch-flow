@@ -36,10 +36,9 @@ const PostcardJobNewPage = () => {
 
       <div className="bg-white shadow rounded-lg p-6">
         <GenericJobForm 
-          onSubmit={handleCreateJob}
-          isSubmitting={isLoading}
           config={config}
-          initialValues={{
+          mode="create"
+          initialData={{
             name: '',
             job_number: '',
             quantity: 100,
@@ -50,7 +49,7 @@ const PostcardJobNewPage = () => {
             lamination_type: 'none',
             pdf_url: '',
             file_name: ''
-          }}
+          } as any}
         />
       </div>
     </div>
