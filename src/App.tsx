@@ -54,6 +54,7 @@ import GenericBatchDetailsPage from './pages/generic/GenericBatchDetailsPage';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Index from './pages/Index';
+import NotFound from './pages/NotFound';
 
 const App = () => {
   return (
@@ -74,6 +75,7 @@ const App = () => {
             
             {/* All Batches Page */}
             <Route path="/batches" element={<AllBatches />} />
+            <Route path="/batches/all" element={<Navigate to="/batches" replace />} />
             
             {/* Business Cards Routes */}
             <Route path="/batches/business-cards" element={<BusinessCards />} />
@@ -133,6 +135,9 @@ const App = () => {
             {/* Administration Routes */}
             <Route path="/users" element={<Users />} />
             <Route path="/settings" element={<Settings />} />
+            
+            {/* Handle 404 Not Found */}
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </Router>
