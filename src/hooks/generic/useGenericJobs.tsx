@@ -105,20 +105,29 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       laminationType?: LaminationType;
       printerType?: string;
       sheetSize?: string;
+      slaTargetDays?: number;
     }
   ) => {
     try {
       // Fixed: Ensure laminationType is properly converted to LaminationType type
       const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
       
-      // Pass the selected jobs and config directly to createBatchWithSelectedJobs
+      // Create a configuration object that combines the product config with the batch properties
+      const batchConfig = {
+        ...config,
+        paperType: batchProperties.paperType,
+        paperWeight: batchProperties.paperWeight,
+        printerType: batchProperties.printerType,
+        sheetSize: batchProperties.sheetSize,
+        slaTargetDays: batchProperties.slaTargetDays !== undefined ? batchProperties.slaTargetDays : config.slaTargetDays
+      };
+      
+      // Pass the selected jobs and combined config to createBatchWithSelectedJobs
+      // Explicitly add laminationType as a separate parameter
       const batch = await createBatchWithSelectedJobs(
         selectedJobs,
-        {
-          ...config,
-          ...batchProperties,
-          laminationType: typedLaminationType
-        }
+        batchConfig,
+        typedLaminationType
       );
       
       if (batch) {

@@ -14,6 +14,22 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   const { handleViewPDF, handleViewBatchDetails } = useBatchNavigation(config.productType);
   const { createBatchWithSelectedJobs, isCreatingBatch } = useBatchCreation(config.productType, config.tableName);
 
+  // Wrapper function with the same signature as before to maintain compatibility
+  const wrappedCreateBatch = async (
+    selectedJobs: T[],
+    configOptions: ProductConfig & { laminationType?: LaminationType }
+  ) => {
+    // Extract laminationType from configOptions
+    const { laminationType, ...restConfig } = configOptions as any;
+    
+    // Call the underlying function with the separate laminationType parameter
+    return createBatchWithSelectedJobs(
+      selectedJobs,
+      { ...config, ...restConfig },
+      laminationType || "none"
+    );
+  };
+
   return {
     batches,
     isLoading,
@@ -26,6 +42,6 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
     handleDeleteBatch,
     handleViewBatchDetails,
     setBatchToDelete,
-    createBatchWithSelectedJobs
+    createBatchWithSelectedJobs: wrappedCreateBatch
   };
 }

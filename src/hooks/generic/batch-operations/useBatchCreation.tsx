@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { BaseJob, ProductConfig } from "@/config/productTypes";
+import { BaseJob, ProductConfig, LaminationType } from "@/config/productTypes";
 import { useAuth } from "@/hooks/useAuth";
 import { Database } from "@/integrations/supabase/types";
 
@@ -12,7 +12,8 @@ export function useBatchCreation(productType: string, tableName: string) {
 
   const createBatchWithSelectedJobs = async (
     selectedJobs: BaseJob[],
-    config: ProductConfig
+    config: ProductConfig,
+    laminationType: LaminationType = "none"
   ) => {
     if (selectedJobs.length === 0 || !user) return;
     
@@ -41,7 +42,7 @@ export function useBatchCreation(productType: string, tableName: string) {
           sla_target_days: config.slaTargetDays,
           created_by: user.id,
           due_date: new Date().toISOString(), // Set current date as default
-          lamination_type: 'none'
+          lamination_type: laminationType
         })
         .select()
         .single();
