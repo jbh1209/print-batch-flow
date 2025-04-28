@@ -1,4 +1,3 @@
-
 import { SupabaseClient } from "@supabase/supabase-js";
 
 // Define table names that actually exist in the database
@@ -8,12 +7,12 @@ export type ExistingTableName =
   "business_card_jobs" |
   "poster_jobs" | 
   "sleeve_jobs" |
+  "box_jobs" |
+  "cover_jobs" |
+  "sticker_jobs" |
   "batches" |
   "profiles" |
-  "user_roles" |
-  "cover_jobs" |
-  "box_jobs" |
-  "sticker_jobs";
+  "user_roles";
 
 // Include both existing and future/placeholder table names
 export type TableName = ExistingTableName;
@@ -30,6 +29,7 @@ export interface ProductConfig {
     title: string;
     jobFormTitle: string;
     batchFormTitle: string;
+    color?: string; // Color for identifying job type in lists
   };
   routes: {
     basePath: string;
@@ -48,6 +48,7 @@ export interface ProductConfig {
   availablePaperWeights?: string[];
   availableLaminationTypes?: LaminationType[];
   availableSidesTypes?: SidesType[];
+  slaTargetDays: number; // Number of working days before due date when job should be batched
 }
 
 export interface BaseJob {
@@ -95,14 +96,14 @@ export const productConfigs: Record<string, ProductConfig> = {
     ui: {
       title: "Business Cards",
       jobFormTitle: "Business Card",
-      batchFormTitle: "Business Card"
+      batchFormTitle: "Business Card",
+      color: "#3B82F6" // Blue
     },
     routes: {
       basePath: "/batches/business-cards",
       jobsPath: "/batches/business-cards/jobs",
       newJobPath: "/batches/business-cards/jobs/new",
       batchesPath: "/batches/business-cards/batches",
-      // Add the missing path functions
       jobDetailPath: (id: string) => `/batches/business-cards/jobs/${id}`,
       jobEditPath: (id: string) => `/batches/business-cards/jobs/${id}/edit`,
     },
@@ -112,6 +113,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     availablePaperTypes: ["gloss", "matte", "linen", "recycled"],
     availablePaperWeights: ["14pt", "16pt"],
     availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
+    slaTargetDays: 2, // Business cards should be batched 2 working days before due date
   },
   "Flyers": {
     productType: "Flyers",
@@ -119,7 +121,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     ui: {
       title: "Flyers",
       jobFormTitle: "Flyer",
-      batchFormTitle: "Flyer"
+      batchFormTitle: "Flyer",
+      color: "#10B981" // Green
     },
     routes: {
       basePath: "/batches/flyers",
@@ -136,6 +139,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     availablePaperTypes: ["gloss", "matte", "silk", "uncoated"],
     availablePaperWeights: ["130gsm", "170gsm", "250gsm", "300gsm", "350gsm"],
     availableLaminationTypes: ["none", "matt", "gloss"],
+    slaTargetDays: 3, // Flyers should be batched 3 working days before due date
   },
   "Postcards": {
     productType: "Postcards",
@@ -143,7 +147,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     ui: {
       title: "Postcards",
       jobFormTitle: "Postcard",
-      batchFormTitle: "Postcard"
+      batchFormTitle: "Postcard",
+      color: "#EC4899" // Pink
     },
     routes: {
       basePath: "/batches/postcards",
@@ -160,6 +165,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     availablePaperTypes: ["gloss", "matte", "silk", "uncoated"],
     availablePaperWeights: ["250gsm", "300gsm", "350gsm", "400gsm"],
     availableLaminationTypes: ["none", "matt", "gloss"],
+    slaTargetDays: 3, // Postcards should be batched 3 working days before due date
   },
   "Posters": {
     productType: "Posters",
@@ -167,7 +173,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     ui: {
       title: "Posters",
       jobFormTitle: "Poster",
-      batchFormTitle: "Poster"
+      batchFormTitle: "Poster",
+      color: "#F59E0B" // Amber
     },
     routes: {
       basePath: "/batches/posters",
@@ -186,6 +193,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     availablePaperWeights: ["130gsm", "170gsm", "200gsm", "250gsm", "300gsm", "350gsm"],
     availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
     availableSidesTypes: ["single", "double"],
+    slaTargetDays: 3, // Posters should be batched 3 working days before due date
   },
   
   "Stickers": {
@@ -194,7 +202,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     ui: {
       title: "Stickers",
       jobFormTitle: "Sticker",
-      batchFormTitle: "Sticker"
+      batchFormTitle: "Sticker",
+      color: "#6366F1" // Indigo
     },
     routes: {
       basePath: "/batches/stickers",
@@ -207,6 +216,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     hasPaperType: true,
     availablePaperTypes: ["paper", "vinyl"],
     availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
+    slaTargetDays: 3, // Stickers should be batched 3 working days before due date
   },
 
   "Sleeves": {
@@ -215,7 +225,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     ui: {
       title: "Sleeves",
       jobFormTitle: "Sleeve",
-      batchFormTitle: "Sleeve"
+      batchFormTitle: "Sleeve",
+      color: "#8B5CF6" // Violet
     },
     routes: {
       basePath: "/batches/sleeves",
@@ -226,6 +237,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       jobEditPath: (id: string) => `/batches/sleeves/jobs/${id}/edit`,
     },
     availableLaminationTypes: ["none"],
+    slaTargetDays: 3, // Sleeves should be batched 3 working days before due date
   },
 
   "Boxes": {
@@ -234,7 +246,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     ui: {
       title: "Boxes",
       jobFormTitle: "Box",
-      batchFormTitle: "Box"
+      batchFormTitle: "Box",
+      color: "#EF4444" // Red
     },
     routes: {
       basePath: "/batches/boxes",
@@ -247,6 +260,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     hasPaperType: true,
     availablePaperTypes: ["kraft", "FBB 230gsm", "FBB 300gsm"],
     availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
+    slaTargetDays: 4, // Boxes should be batched 4 working days before due date
   },
 
   "Covers": {
@@ -255,7 +269,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     ui: {
       title: "Covers",
       jobFormTitle: "Cover",
-      batchFormTitle: "Cover"
+      batchFormTitle: "Cover",
+      color: "#0EA5E9" // Sky
     },
     routes: {
       basePath: "/batches/covers",
@@ -272,5 +287,6 @@ export const productConfigs: Record<string, ProductConfig> = {
     availablePaperWeights: ["200gsm", "230gsm", "250gsm", "300gsm", "350gsm"],
     availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
     availableSidesTypes: ["single", "double"],
+    slaTargetDays: 3, // Covers should be batched 3 working days before due date
   },
 };

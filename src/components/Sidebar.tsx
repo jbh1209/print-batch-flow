@@ -13,7 +13,8 @@ import {
   Users, 
   Settings, 
   ChevronLeft,
-  Mail
+  Mail,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -74,6 +75,12 @@ const Sidebar = () => {
             icon={<LayoutDashboard size={20} />} 
             label={collapsed ? "" : "Dashboard"} 
             isActive={location.pathname === "/"} 
+          />
+          <NavItem 
+            to="/all-jobs" 
+            icon={<ClipboardList size={20} />} 
+            label={collapsed ? "" : "All Jobs"} 
+            isActive={location.pathname === "/all-jobs"} 
           />
           <NavItem 
             to="/batches" 
