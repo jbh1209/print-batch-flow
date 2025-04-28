@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TableName } from "@/config/productTypes";
+import { isExistingTable } from "@/utils/database/tableUtils";
 
 export function useBatchDeletion(tableName: string | undefined, onSuccess: () => void) {
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
@@ -14,15 +16,18 @@ export function useBatchDeletion(tableName: string | undefined, onSuccess: () =>
     try {
       console.log("Deleting batch:", batchToDelete);
       
-      const { error: jobsError } = await supabase
-        .from(tableName)
-        .update({ 
-          status: "queued",
-          batch_id: null
-        })
-        .eq("batch_id", batchToDelete);
-      
-      if (jobsError) throw jobsError;
+      if (isExistingTable(tableName)) {
+        // Use type assertion to bypass TypeScript's type checking for the table name
+        const { error: jobsError } = await supabase
+          .from(tableName as any)
+          .update({ 
+            status: "queued",
+            batch_id: null
+          })
+          .eq("batch_id", batchToDelete);
+        
+        if (jobsError) throw jobsError;
+      }
       
       const { error: deleteError } = await supabase
         .from("batches")

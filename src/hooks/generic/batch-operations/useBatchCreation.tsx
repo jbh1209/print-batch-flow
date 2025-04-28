@@ -2,8 +2,9 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { BaseJob, LaminationType } from "@/config/productTypes";
+import { BaseJob, LaminationType, TableName } from "@/config/productTypes";
 import { toast } from "sonner";
+import { isExistingTable } from "@/utils/database/tableUtils";
 
 interface BatchProperties {
   paperType?: string;
@@ -93,9 +94,13 @@ export function useBatchCreation(productType: string, tableName: string) {
         
       if (batchError) throw batchError;
       
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Table ${tableName} doesn't exist yet, cannot update jobs`);
+      }
+      
       const jobIds = selectedJobs.map(job => job.id);
       const { error: updateError } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .update({ 
           batch_id: batchData.id,
           status: 'batched' 
