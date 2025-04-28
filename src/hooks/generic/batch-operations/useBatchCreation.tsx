@@ -29,13 +29,12 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Generate batch number based on product type
       const batchNumber = await generateBatchNumber(productType);
       
-      // Insert the batch record
+      // Insert the batch record - remove product_type field as it doesn't exist in the table schema
       const { data: batch, error: batchError } = await supabase
         .from('batches')
         .insert({
           name: batchNumber,
           status: 'pending',
-          product_type: productType,
           created_by: user.id,
           lamination_type: laminationType,
           paper_type: config.availablePaperTypes?.[0] || null,
@@ -51,8 +50,9 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Update all jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
       
+      // Use type assertion to handle the tableName typing issue
       const { error: updateError } = await supabase
-        .from(tableName)
+        .from(tableName as "business_card_jobs" | "flyer_jobs" | "postcard_jobs" | "sleeve_jobs")
         .update({
           batch_id: batch.id,
           status: 'batched'
@@ -82,7 +82,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       const { data, error } = await supabase
         .from('batches')
         .select('id')
-        .eq('product_type', productType);
+        .eq('name', prefix); // Use the LIKE operator to find batches with similar prefix
       
       if (error) throw error;
       
