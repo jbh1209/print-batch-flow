@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,7 +50,7 @@ export function useFlyerBatches(batchId: string | null = null) {
           sheets_required: batch.sheets_required,
           front_pdf_url: batch.front_pdf_url,
           back_pdf_url: batch.back_pdf_url,
-          overview_pdf_url: batch.overview_pdf_url || null, // Add proper handling for overview_pdf_url
+          overview_pdf_url: null, // Set to null since it doesn't exist in database yet
           due_date: batch.due_date,
           created_at: batch.created_at,
           lamination_type: batch.lamination_type,
