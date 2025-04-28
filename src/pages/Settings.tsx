@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+
+interface SlaSetting {
+  product_type: string;
+  sla_target_days: number;
+}
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -25,7 +31,7 @@ const Settings = () => {
         // Try to get settings from database first
         const { data: settingsData, error } = await supabase
           .from('app_settings')
-          .select('product_type, sla_target_days')
+          .select('*')
           .eq('setting_type', 'sla');
         
         const settings: Record<string, number> = {};

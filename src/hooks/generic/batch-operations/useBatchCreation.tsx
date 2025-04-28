@@ -111,23 +111,29 @@ export function useBatchCreation(
       // Update all selected jobs to attach them to the batch
       const batchId = batchData.id;
       
-      const updatePromises = selectedJobs.map(job => 
-        supabase
-          .from(tableName)
+      // Update jobs - using a more type-safe approach
+      for (const job of selectedJobs) {
+        // Use the specific table for each job
+        await supabase
+          .from(tableName as any) // Use type assertion here to fix TS error
           .update({
             batch_id: batchId,
             status: "batched"
           })
-          .eq("id", job.id)
-      );
+          .eq("id", job.id);
+      }
       
-      await Promise.all(updatePromises);
+      // Add the virtual property needed by UI
+      const resultBatch: BaseBatch = {
+        ...batchData,
+        overview_pdf_url: overviewUrl // Add this property to match BaseBatch type
+      };
       
       sonnerToast.success(`Batch ${batchName} created successfully`, {
         description: `Created with ${selectedJobs.length} jobs, SLA: ${slaTargetDays} days`
       });
       
-      return batchData;
+      return resultBatch;
       
     } catch (error) {
       console.error("Error creating batch:", error);
