@@ -6,6 +6,8 @@ import { useFlyerJobs } from '@/hooks/useFlyerJobs';
 import { BatchSettingsPanel } from './components/batch-dialog/BatchSettingsPanel';
 import { JobsSelectionPanel } from './components/batch-dialog/JobsSelectionPanel';
 import { BatchDialogFooter } from './components/batch-dialog/BatchDialogFooter';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface FlyerBatchCreateDialogProps {
   isOpen: boolean;
@@ -31,6 +33,7 @@ export function FlyerBatchCreateDialog({
   const [laminationType, setLaminationType] = useState<LaminationType>("none");
   const [printerType, setPrinterType] = useState("HP 12000");
   const [sheetSize, setSheetSize] = useState("530x750mm");
+  const [slaTargetDays, setSlaTargetDays] = useState(3);
   
   // Selected jobs
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
@@ -75,7 +78,8 @@ export function FlyerBatchCreateDialog({
           paperWeight,
           laminationType: laminationType as LaminationType,
           printerType,
-          sheetSize
+          sheetSize,
+          slaTargetDays: slaTargetDays
         }
       );
       
@@ -109,6 +113,20 @@ export function FlyerBatchCreateDialog({
             sheetSize={sheetSize}
             setSheetSize={setSheetSize}
           />
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="slaTargetDays">SLA Target Days</Label>
+              <Input
+                id="slaTargetDays"
+                type="number"
+                min="1"
+                value={slaTargetDays}
+                onChange={(e) => setSlaTargetDays(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+          </div>
           
           {/* Jobs selection panel */}
           <JobsSelectionPanel

@@ -11,6 +11,9 @@ import { BatchOptimization } from "@/utils/batchOptimizationHelpers";
 import BatchDetailsSection from "./dialog/BatchDetailsSection";
 import UpcomingDueJobsSection from "./dialog/UpcomingDueJobsSection";
 import BatchDialogFooter from "./dialog/BatchDialogFooter";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 interface BatchConfirmDialogProps {
   isOpen: boolean;
@@ -35,6 +38,8 @@ const BatchConfirmDialog = ({
   upcomingDueJobs,
   onSelectJob
 }: BatchConfirmDialogProps) => {
+  const [slaTargetDays, setSlaTargetDays] = useState(2); // Default for business cards
+  
   // Determine if selected jobs are compatible for batching
   const areJobsCompatible = () => {
     if (selectedJobs.length <= 1) {
@@ -69,6 +74,18 @@ const BatchConfirmDialog = ({
           optimization={optimization}
           isCompatible={isCompatible}
         />
+
+        <div className="space-y-2 mt-4">
+          <Label htmlFor="slaTargetDays">SLA Target Days</Label>
+          <Input
+            id="slaTargetDays"
+            type="number"
+            min="1"
+            value={slaTargetDays}
+            onChange={(e) => setSlaTargetDays(Number(e.target.value))}
+            className="w-full"
+          />
+        </div>
 
         <UpcomingDueJobsSection 
           upcomingDueJobs={upcomingDueJobs}
