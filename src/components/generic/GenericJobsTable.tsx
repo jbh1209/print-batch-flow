@@ -27,9 +27,12 @@ interface GenericJobsTableProps {
   jobs: BaseJob[];
   isLoading: boolean;
   error: string | null;
-  onDelete: (id: string) => Promise<boolean>;
-  onSelectionChange: (selectedJobs: BaseJob[]) => void;
-  onCreateBatch: (jobs: BaseJob[]) => void;
+  deleteJob: (id: string) => Promise<boolean>;
+  fetchJobs: () => Promise<void>;
+  createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
+  isCreatingBatch: boolean;
+  fixBatchedJobsWithoutBatch: () => Promise<void>;
+  isFixingBatchedJobs?: boolean;
   config: ProductConfig;
 }
 
@@ -37,24 +40,28 @@ const GenericJobsTable = ({
   jobs,
   isLoading,
   error,
-  onDelete,
-  onSelectionChange,
-  onCreateBatch,
+  deleteJob,
+  fetchJobs,
+  createBatch,
+  isCreatingBatch,
+  fixBatchedJobsWithoutBatch,
+  isFixingBatchedJobs,
   config
 }: GenericJobsTableProps) => {
   const navigate = useNavigate();
   const [jobToDelete, setJobToDelete] = useState<string | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedJobs, setSelectedJobs] = useState<BaseJob[]>([]);
   
   // Filter to only show queued jobs that can be selected for batching
   const queuedJobs = jobs.filter(job => job.status === 'queued');
   
-  // Update the parent component when selection changes
+  // Update selected jobs when selection changes
   useEffect(() => {
-    const selectedJobs = jobs.filter(job => selectedJobIds.includes(job.id));
-    onSelectionChange(selectedJobs);
-  }, [selectedJobIds, jobs, onSelectionChange]);
+    const selected = jobs.filter(job => selectedJobIds.includes(job.id));
+    setSelectedJobs(selected);
+  }, [selectedJobIds, jobs]);
   
   const handleViewJob = (id: string) => {
     navigate(config.routes.jobDetailPath(id));
@@ -69,7 +76,7 @@ const GenericJobsTable = ({
     
     try {
       setIsDeleting(true);
-      await onDelete(jobToDelete);
+      await deleteJob(jobToDelete);
     } finally {
       setIsDeleting(false);
       setJobToDelete(null);
@@ -94,7 +101,7 @@ const GenericJobsTable = ({
   
   const handleBatchSelected = () => {
     const selectedJobs = jobs.filter(job => selectedJobIds.includes(job.id));
-    onCreateBatch(selectedJobs);
+    createBatch(selectedJobs, {});
   };
   
   if (isLoading) {
