@@ -100,6 +100,7 @@ export function useFlyerJobs() {
       laminationType: LaminationType;
       printerType: string;
       sheetSize: string;
+      slaTargetDays: number; // Added slaTargetDays property
     }
   ) => {
     try {

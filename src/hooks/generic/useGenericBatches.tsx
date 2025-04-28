@@ -17,16 +17,20 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   // Wrapper function with the same signature as before to maintain compatibility
   const wrappedCreateBatch = async (
     selectedJobs: T[],
-    configOptions: ProductConfig & { laminationType?: LaminationType }
+    configOptions: ProductConfig & { 
+      laminationType?: LaminationType,
+      slaTargetDays?: number  // Add slaTargetDays as an optional property
+    }
   ) => {
-    // Extract laminationType from configOptions
-    const { laminationType, ...restConfig } = configOptions as any;
+    // Extract laminationType and slaTargetDays from configOptions
+    const { laminationType, slaTargetDays, ...restConfig } = configOptions as any;
     
     // Call the underlying function with the separate laminationType parameter
     return createBatchWithSelectedJobs(
       selectedJobs,
       { ...config, ...restConfig },
-      laminationType || "none"
+      laminationType || "none",
+      slaTargetDays || config.slaTargetDays || 3 // Use provided value, or default from config
     );
   };
 

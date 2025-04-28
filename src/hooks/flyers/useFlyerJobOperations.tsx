@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,16 +55,20 @@ export function useFlyerJobOperations() {
     }
   };
 
+  // Updated type definition to include slaTargetDays
+  interface BatchProperties {
+    paperType: string;
+    paperWeight: string;
+    laminationType: LaminationType;
+    printerType: string;
+    sheetSize: string;
+    slaTargetDays: number;
+  }
+
   // New method to create a batch with selected jobs
   const createBatchWithSelectedJobs = async (
     selectedJobs: FlyerJob[], 
-    batchProperties: {
-      paperType: string;
-      paperWeight: string;
-      laminationType: LaminationType;
-      printerType: string;
-      sheetSize: string;
-    }
+    batchProperties: BatchProperties
   ) => {
     if (!user) {
       throw new Error('User not authenticated');
@@ -97,7 +100,8 @@ export function useFlyerJobOperations() {
           sheet_size: batchProperties.sheetSize,
           sheets_required: sheetsRequired,
           created_by: user.id,
-          status: 'pending'
+          status: 'pending',
+          sla_target_days: batchProperties.slaTargetDays // Add the SLA target days to database
         })
         .select()
         .single();
