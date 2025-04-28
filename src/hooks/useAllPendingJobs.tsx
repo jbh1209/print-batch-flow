@@ -40,9 +40,9 @@ export const useAllPendingJobs = () => {
       
       // Attach the product config to each job and set default urgency
       return (data || []).map(job => {
-        // Create a new object instead of using spread operator directly on potentially non-object data
+        // Create a new object with the job data and additional properties
         const extendedJob: ExtendedJob = {
-          ...(job as any),
+          ...(job as BaseJob),
           productConfig: config,
           urgency: "low" // Default urgency, will be calculated in the component
         };
@@ -79,10 +79,7 @@ export const useAllPendingJobs = () => {
     } catch (err) {
       console.error('Error fetching all jobs:', err);
       setError('Failed to load jobs data');
-      toast({
-        description: "There was a problem loading jobs across product types.",
-        variant: "destructive"
-      });
+      toast("There was a problem loading jobs across product types.");
     } finally {
       setIsLoading(false);
     }
