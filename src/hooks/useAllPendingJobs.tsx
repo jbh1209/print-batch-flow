@@ -40,13 +40,22 @@ export const useAllPendingJobs = () => {
       
       // Attach the product config to each job and set default urgency
       return (data || []).map(job => {
-        // Create a new object with the job data and additional properties
-        const extendedJob: ExtendedJob = {
-          ...(job as BaseJob),
-          productConfig: config,
-          urgency: "low" // Default urgency, will be calculated in the component
-        };
-        return extendedJob;
+        // First ensure we have a valid job object by typecasting to unknown first
+        const jobData = job as unknown;
+        
+        // Then properly cast to BaseJob if it appears to be a valid job object
+        if (jobData && typeof jobData === 'object' && 'id' in jobData) {
+          const extendedJob: ExtendedJob = {
+            ...(jobData as BaseJob),
+            productConfig: config,
+            urgency: "low" // Default urgency, will be calculated in the component
+          };
+          return extendedJob;
+        }
+        
+        // This should never happen if our database is consistent
+        console.error(`Invalid job data received for ${config.productType}:`, job);
+        throw new Error(`Invalid job data received for ${config.productType}`);
       });
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
