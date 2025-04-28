@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { TableName } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableUtils";
 
-export function useBatchDeletion(tableName: string | undefined, onSuccess: () => void) {
+export function useBatchDeletion(tableName: TableName | undefined, onSuccess: () => void) {
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 

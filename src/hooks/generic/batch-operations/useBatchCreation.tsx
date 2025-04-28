@@ -14,7 +14,7 @@ interface BatchProperties {
   sheetSize?: string;
 }
 
-export function useBatchCreation(productType: string, tableName: string) {
+export function useBatchCreation(productType: string, tableName: TableName) {
   const { user } = useAuth();
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
 
