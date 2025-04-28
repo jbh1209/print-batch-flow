@@ -25,6 +25,7 @@ export type Database = {
           printer_type: string | null
           sheet_size: string | null
           sheets_required: number
+          sla_target_days: number | null
           status: Database["public"]["Enums"]["batch_status"]
           updated_at: string
         }
@@ -43,6 +44,7 @@ export type Database = {
           printer_type?: string | null
           sheet_size?: string | null
           sheets_required: number
+          sla_target_days?: number | null
           status?: Database["public"]["Enums"]["batch_status"]
           updated_at?: string
         }
@@ -61,6 +63,7 @@ export type Database = {
           printer_type?: string | null
           sheet_size?: string | null
           sheets_required?: number
+          sla_target_days?: number | null
           status?: Database["public"]["Enums"]["batch_status"]
           updated_at?: string
         }
