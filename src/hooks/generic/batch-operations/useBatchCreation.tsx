@@ -4,13 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BaseJob, ProductConfig } from "@/config/productTypes";
 import { useAuth } from "@/hooks/useAuth";
+import { Database } from "@/integrations/supabase/types";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const { user } = useAuth();
 
   const createBatchWithSelectedJobs = async (
-    selectedJobs: string[],
+    selectedJobs: BaseJob[],
     config: ProductConfig
   ) => {
     if (selectedJobs.length === 0 || !user) return;
@@ -47,14 +48,17 @@ export function useBatchCreation(productType: string, tableName: string) {
 
       if (batchError) throw batchError;
 
-      // Update jobs with batch_id
+      // Extract IDs from the selected jobs
+      const selectedJobIds = selectedJobs.map(job => job.id);
+
+      // Use type assertion to handle the dynamic table name
       const { error: updateError } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .update({ 
           batch_id: batch.id,
           status: 'batched'
         })
-        .in('id', selectedJobs);
+        .in('id', selectedJobIds);
 
       if (updateError) throw updateError;
 

@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
-// Fix the import statement to reference useGenericBatches instead of useGenericBatch
 import { useGenericBatches } from './useGenericBatches';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
@@ -15,7 +14,6 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Update the utility function to use useGenericBatches instead
   const { createBatchWithSelectedJobs, isCreatingBatch } = useGenericBatches<T>(config);
   const { deleteJob, createJob, updateJob, getJobById } = useJobOperations(config.tableName, user?.id);
   const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useBatchFixes(config.tableName, user?.id);
@@ -113,18 +111,25 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       // Fixed: Ensure laminationType is properly converted to LaminationType type
       const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
       
-      const batch = await createBatchWithSelectedJobs(selectedJobs, {
-        ...batchProperties,
-        laminationType: typedLaminationType
-      });
-      
-      setJobs(prevJobs => 
-        prevJobs.map(job => 
-          selectedJobs.some(selectedJob => selectedJob.id === job.id)
-            ? { ...job, status: 'batched', batch_id: batch.id } as T
-            : job
-        )
+      // Pass the selected jobs and config directly to createBatchWithSelectedJobs
+      const batch = await createBatchWithSelectedJobs(
+        selectedJobs,
+        {
+          ...config,
+          ...batchProperties,
+          laminationType: typedLaminationType
+        }
       );
+      
+      if (batch) {
+        setJobs(prevJobs => 
+          prevJobs.map(job => 
+            selectedJobs.some(selectedJob => selectedJob.id === job.id)
+              ? { ...job, status: 'batched', batch_id: batch.id } as T
+              : job
+          )
+        );
+      }
       
       return batch;
     } catch (err) {
