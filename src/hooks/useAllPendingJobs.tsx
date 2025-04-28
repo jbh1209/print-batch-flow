@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
+import { toast } from "sonner";
 import { productConfigs, BaseJob, ProductConfig } from '@/config/productTypes';
 import { isExistingTable } from "@/utils/database/tableUtils";
 
@@ -92,6 +92,7 @@ export const useAllPendingJobs = () => {
     } catch (err) {
       console.error('Error fetching all jobs:', err);
       setError('Failed to load jobs data');
+      // Fix here: Use the correct toast API format
       toast("There was a problem loading jobs across product types.");
     } finally {
       setIsLoading(false);
