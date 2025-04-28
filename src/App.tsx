@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
@@ -41,6 +42,20 @@ import SleeveJobsPage from './pages/generic/SleeveJobsPage';
 import SleeveJobNewPage from './pages/generic/SleeveJobNewPage';
 import SleeveBatchesPage from './pages/generic/SleeveBatchesPage';
 import GenericBatchDetailsPage from './components/generic/GenericBatchDetailsPage';
+
+// New generic pages for covers, posters, boxes and stickers
+import CoverJobsPage from './pages/generic/CoverJobsPage';
+import CoverJobNewPage from './pages/generic/CoverJobNewPage';
+import CoverBatchesPage from './pages/generic/CoverBatchesPage';
+import PosterJobsPage from './pages/generic/PosterJobsPage';
+import PosterJobNewPage from './pages/generic/PosterJobNewPage';
+import PosterBatchesPage from './pages/generic/PosterBatchesPage';
+import BoxJobsPage from './pages/generic/BoxJobsPage';
+import BoxJobNewPage from './pages/generic/BoxJobNewPage';
+import BoxBatchesPage from './pages/generic/BoxBatchesPage';
+import StickerJobsPage from './pages/generic/StickerJobsPage';
+import StickerJobNewPage from './pages/generic/StickerJobNewPage';
+import StickerBatchesPage from './pages/generic/StickerBatchesPage';
 
 const ProtectedRoute = ({ element, protected: isProtected }) => {
   const { user } = useAuth();
@@ -94,18 +109,8 @@ function App() {
             element={<ProtectedRoute element={<GenericFlyerBatchDetailsPage />} protected={true} />} 
           />
           
-          {/* Other product routes - Will be implemented with the generic system */}
-          <Route path="/batches/posters" element={<ProtectedRoute element={<Posters />} protected={true} />} />
-          <Route path="/batches/stickers" element={<ProtectedRoute element={<Stickers />} protected={true} />} />
+          {/* Sleeves routes */}
           <Route path="/batches/sleeves" element={<ProtectedRoute element={<Sleeves />} protected={true} />} />
-          <Route path="/batches/boxes" element={<ProtectedRoute element={<Boxes />} protected={true} />} />
-          <Route path="/batches/covers" element={<ProtectedRoute element={<Covers />} protected={true} />} />
-          
-          {/* Admin routes */}
-          <Route path="/users" element={<ProtectedRoute element={<Users />} protected={true} />} />
-          <Route path="/settings" element={<ProtectedRoute element={<Settings />} protected={true} />} />
-          
-          {/* Update Sleeve routes */}
           <Route path="/batches/sleeves/jobs" element={<ProtectedRoute element={<SleeveJobsPage />} protected={true} />} />
           <Route path="/batches/sleeves/jobs/new" element={<ProtectedRoute element={<SleeveJobNewPage />} protected={true} />} />
           <Route path="/batches/sleeves/batches" element={<ProtectedRoute element={<SleeveBatchesPage />} protected={true} />} />
@@ -113,6 +118,50 @@ function App() {
             path="/batches/sleeves/batches/:batchId" 
             element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Sleeves"]} />} protected={true} />} 
           />
+          
+          {/* Covers routes */}
+          <Route path="/batches/covers" element={<ProtectedRoute element={<Covers />} protected={true} />} />
+          <Route path="/batches/covers/jobs" element={<ProtectedRoute element={<CoverJobsPage />} protected={true} />} />
+          <Route path="/batches/covers/jobs/new" element={<ProtectedRoute element={<CoverJobNewPage />} protected={true} />} />
+          <Route path="/batches/covers/batches" element={<ProtectedRoute element={<CoverBatchesPage />} protected={true} />} />
+          <Route 
+            path="/batches/covers/batches/:batchId" 
+            element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Covers"]} />} protected={true} />} 
+          />
+          
+          {/* Posters routes */}
+          <Route path="/batches/posters" element={<ProtectedRoute element={<Posters />} protected={true} />} />
+          <Route path="/batches/posters/jobs" element={<ProtectedRoute element={<PosterJobsPage />} protected={true} />} />
+          <Route path="/batches/posters/jobs/new" element={<ProtectedRoute element={<PosterJobNewPage />} protected={true} />} />
+          <Route path="/batches/posters/batches" element={<ProtectedRoute element={<PosterBatchesPage />} protected={true} />} />
+          <Route 
+            path="/batches/posters/batches/:batchId" 
+            element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Posters"]} />} protected={true} />} 
+          />
+          
+          {/* Boxes routes */}
+          <Route path="/batches/boxes" element={<ProtectedRoute element={<Boxes />} protected={true} />} />
+          <Route path="/batches/boxes/jobs" element={<ProtectedRoute element={<BoxJobsPage />} protected={true} />} />
+          <Route path="/batches/boxes/jobs/new" element={<ProtectedRoute element={<BoxJobNewPage />} protected={true} />} />
+          <Route path="/batches/boxes/batches" element={<ProtectedRoute element={<BoxBatchesPage />} protected={true} />} />
+          <Route 
+            path="/batches/boxes/batches/:batchId" 
+            element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Boxes"]} />} protected={true} />} 
+          />
+          
+          {/* Stickers routes */}
+          <Route path="/batches/stickers" element={<ProtectedRoute element={<Stickers />} protected={true} />} />
+          <Route path="/batches/stickers/jobs" element={<ProtectedRoute element={<StickerJobsPage />} protected={true} />} />
+          <Route path="/batches/stickers/jobs/new" element={<ProtectedRoute element={<StickerJobNewPage />} protected={true} />} />
+          <Route path="/batches/stickers/batches" element={<ProtectedRoute element={<StickerBatchesPage />} protected={true} />} />
+          <Route 
+            path="/batches/stickers/batches/:batchId" 
+            element={<ProtectedRoute element={<GenericBatchDetailsPage config={productConfigs["Stickers"]} />} protected={true} />} 
+          />
+          
+          {/* Admin routes */}
+          <Route path="/users" element={<ProtectedRoute element={<Users />} protected={true} />} />
+          <Route path="/settings" element={<ProtectedRoute element={<Settings />} protected={true} />} />
         </Route>
       </Routes>
     </Router>

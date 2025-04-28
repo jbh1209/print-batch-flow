@@ -10,18 +10,18 @@ export type ExistingTableName =
   "sleeve_jobs" |
   "batches" |
   "profiles" |
-  "user_roles";
+  "user_roles" |
+  "cover_jobs" |
+  "box_jobs" |
+  "sticker_jobs";
 
 // Include both existing and future/placeholder table names
-export type TableName = 
-  | ExistingTableName
-  | "sticker_jobs"
-  | "box_jobs"
-  | "cover_jobs";
+export type TableName = ExistingTableName;
 
 export type JobStatus = "queued" | "processing" | "batched" | "printing" | "completed" | "error" | "cancelled";
 export type BatchStatus = "pending" | "processing" | "completed" | "cancelled" | "sent_to_print";
 export type LaminationType = "none" | "matt" | "gloss" | "soft_touch";
+export type SidesType = "single" | "double";
 
 export interface ProductConfig {
   productType: string;
@@ -42,10 +42,12 @@ export interface ProductConfig {
   hasSize?: boolean;
   hasPaperType?: boolean;
   hasPaperWeight?: boolean;
+  hasSides?: boolean;
   availableSizes?: string[];
   availablePaperTypes?: string[];
   availablePaperWeights?: string[];
   availableLaminationTypes?: LaminationType[];
+  availableSidesTypes?: SidesType[];
 }
 
 export interface BaseJob {
@@ -64,7 +66,8 @@ export interface BaseJob {
   created_at: string;
   batch_id?: string | null;
   lamination_type?: LaminationType;
-  stock_type?: string; // Added stock_type property
+  stock_type?: string;
+  sides?: SidesType;
 }
 
 export interface BaseBatch {
@@ -81,6 +84,7 @@ export interface BaseBatch {
   lamination_type: LaminationType;
   paper_type?: string;
   paper_weight?: string;
+  sides?: SidesType;
   updated_at: string;
 }
 
@@ -159,7 +163,7 @@ export const productConfigs: Record<string, ProductConfig> = {
   },
   "Posters": {
     productType: "Posters",
-    tableName: "poster_jobs", // This is an existing table name now
+    tableName: "poster_jobs",
     ui: {
       title: "Posters",
       jobFormTitle: "Poster",
@@ -174,13 +178,19 @@ export const productConfigs: Record<string, ProductConfig> = {
       jobEditPath: (id: string) => `/batches/posters/jobs/${id}/edit`,
     },
     hasSize: true,
+    hasPaperType: true,
+    hasPaperWeight: true,
+    hasSides: true,
     availableSizes: ["A3", "A2", "A1", "A0"],
-    availableLaminationTypes: ["none", "matt"],
+    availablePaperTypes: ["matt", "gloss"],
+    availablePaperWeights: ["130gsm", "170gsm", "200gsm", "250gsm", "300gsm", "350gsm"],
+    availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
+    availableSidesTypes: ["single", "double"],
   },
   
   "Stickers": {
     productType: "Stickers",
-    tableName: "batches" as TableName, // Use an existing table for now
+    tableName: "sticker_jobs",
     ui: {
       title: "Stickers",
       jobFormTitle: "Sticker",
@@ -194,9 +204,9 @@ export const productConfigs: Record<string, ProductConfig> = {
       jobDetailPath: (id: string) => `/batches/stickers/jobs/${id}`,
       jobEditPath: (id: string) => `/batches/stickers/jobs/${id}/edit`,
     },
-    hasSize: true,
-    availableSizes: ["A3", "A2", "A1", "A0"],
-    availableLaminationTypes: ["none"],
+    hasPaperType: true,
+    availablePaperTypes: ["paper", "vinyl"],
+    availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
   },
 
   "Sleeves": {
@@ -220,7 +230,7 @@ export const productConfigs: Record<string, ProductConfig> = {
 
   "Boxes": {
     productType: "Boxes",
-    tableName: "batches" as TableName, // Use an existing table for now
+    tableName: "box_jobs",
     ui: {
       title: "Boxes",
       jobFormTitle: "Box",
@@ -234,12 +244,14 @@ export const productConfigs: Record<string, ProductConfig> = {
       jobDetailPath: (id: string) => `/batches/boxes/jobs/${id}`,
       jobEditPath: (id: string) => `/batches/boxes/jobs/${id}/edit`,
     },
-    availableLaminationTypes: ["none"],
+    hasPaperType: true,
+    availablePaperTypes: ["kraft", "FBB 230gsm", "FBB 300gsm"],
+    availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
   },
 
   "Covers": {
     productType: "Covers",
-    tableName: "batches" as TableName, // Use an existing table for now
+    tableName: "cover_jobs",
     ui: {
       title: "Covers",
       jobFormTitle: "Cover",
@@ -253,6 +265,12 @@ export const productConfigs: Record<string, ProductConfig> = {
       jobDetailPath: (id: string) => `/batches/covers/jobs/${id}`,
       jobEditPath: (id: string) => `/batches/covers/jobs/${id}/edit`,
     },
-    availableLaminationTypes: ["none"],
+    hasPaperType: true,
+    hasPaperWeight: true,
+    hasSides: true,
+    availablePaperTypes: ["FBB", "matt", "gloss"],
+    availablePaperWeights: ["200gsm", "230gsm", "250gsm", "300gsm", "350gsm"],
+    availableLaminationTypes: ["none", "matt", "gloss", "soft_touch"],
+    availableSidesTypes: ["single", "double"],
   },
 };

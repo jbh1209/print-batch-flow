@@ -170,6 +170,35 @@ export const GenericJobFormFields = ({
         />
       )}
 
+      {/* Sides Field (for products that have sides) */}
+      {config.hasSides && (
+        <FormField
+          control={control}
+          name="sides"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Sides*</FormLabel>
+              <Select 
+                onValueChange={field.onChange} 
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select sides" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {config.availableSidesTypes?.map((side) => (
+                    <SelectItem key={side} value={side}>{side === 'single' ? 'Single Side' : 'Double Side'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
       {/* File Upload Field */}
       <FileUploadField
         selectedFile={selectedFile}

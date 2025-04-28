@@ -1,27 +1,59 @@
 
-import { useNavigate } from "react-router-dom";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Book } from "lucide-react";
+import { FileText, Package } from "lucide-react";
+import { productConfigs } from "@/config/productTypes";
 
 const Covers = () => {
   const navigate = useNavigate();
-
+  const config = productConfigs["Covers"];
+  
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="flex items-center">
-            <Book className="h-6 w-6 mr-2 text-batchflow-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Covers</h1>
-          </div>
-          <p className="text-gray-500 mt-1">Manage cover batches and jobs</p>
-        </div>
-        <Button onClick={() => navigate("/")}>Back to Dashboard</Button>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-8 text-center">
-        <h2 className="text-xl font-semibold mb-2">Covers Management</h2>
-        <p className="text-gray-500 mb-4">This feature will be implemented soon.</p>
+    <div className="container mx-auto py-6">
+      <h1 className="text-3xl font-bold mb-6">{config.ui.title}</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <FileText className="mr-2" />
+              Jobs
+            </CardTitle>
+            <CardDescription>
+              Manage individual cover jobs
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>View, create, edit and manage cover jobs before batching.</p>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={() => navigate(config.routes.jobsPath)} className="w-full">
+              View Jobs
+            </Button>
+          </CardFooter>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Package className="mr-2" />
+              Batches
+            </CardTitle>
+            <CardDescription>
+              Manage cover batches
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>View and manage batches ready for production.</p>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={() => navigate(config.routes.batchesPath)} className="w-full">
+              View Batches
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );
