@@ -37,7 +37,7 @@ import BoxJobNewPage from './pages/generic/BoxJobNewPage';
 import CoverJobNewPage from './pages/generic/CoverJobNewPage';
 import StickerJobNewPage from './pages/generic/StickerJobNewPage';
 
-// Add batch details pages
+// Import individual batch detail pages
 import GenericBatchDetailsPage from './pages/generic/GenericBatchDetailsPage';
 
 import Users from './pages/Users';
