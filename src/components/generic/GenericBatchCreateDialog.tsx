@@ -35,7 +35,9 @@ export function GenericBatchCreateDialog({
   );
   const [printerType, setPrinterType] = useState("HP 12000");
   const [sheetSize, setSheetSize] = useState("530x750mm");
-  const [slaTargetDays, setSlaTargetDays] = useState(config.slaTargetDays || 3);
+  
+  // Use the product config's SLA as default
+  const [slaTargetDays, setSlaTargetDays] = useState(config.slaTargetDays);
   
   // Selected jobs
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
@@ -47,7 +49,8 @@ export function GenericBatchCreateDialog({
       } else {
         setSelectedJobIds([]);
       }
-      setSlaTargetDays(config.slaTargetDays || 3);
+      // Reset SLA to the product config default when the dialog opens
+      setSlaTargetDays(config.slaTargetDays);
     }
   }, [isOpen, preSelectedJobs, config.slaTargetDays]);
   
@@ -125,6 +128,9 @@ export function GenericBatchCreateDialog({
                 onChange={(e) => setSlaTargetDays(Number(e.target.value))}
                 className="w-full"
               />
+              <p className="text-sm text-muted-foreground">
+                Default for {config.productType.toLowerCase()}: {config.slaTargetDays} days
+              </p>
             </div>
           </div>
           

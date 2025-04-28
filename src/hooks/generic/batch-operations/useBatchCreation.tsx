@@ -13,7 +13,7 @@ export function useBatchCreation(productType: string, tableName: string) {
     selectedJobs: BaseJob[],
     config: ProductConfig,
     laminationType: LaminationType = "none",
-    slaTargetDays: number = 3 // Add default slaTargetDays parameter
+    slaTargetDays?: number // Make this optional since we'll use config.slaTargetDays by default
   ) => {
     if (!user) {
       throw new Error('User not authenticated');
@@ -33,6 +33,9 @@ export function useBatchCreation(productType: string, tableName: string) {
       const defaultDueDate = new Date();
       defaultDueDate.setDate(defaultDueDate.getDate() + 7);
       
+      // Use the SLA from the product config if not explicitly provided
+      const finalSlaTargetDays = slaTargetDays !== undefined ? slaTargetDays : config.slaTargetDays;
+      
       // Insert the batch record - include the required due_date field
       const { data: batch, error: batchError } = await supabase
         .from('batches')
@@ -44,7 +47,7 @@ export function useBatchCreation(productType: string, tableName: string) {
           paper_type: config.availablePaperTypes?.[0] || null,
           paper_weight: config.availablePaperWeights?.[0] || null,
           sheets_required: calculateSheetsRequired(selectedJobs, config),
-          sla_target_days: slaTargetDays,
+          sla_target_days: finalSlaTargetDays,
           due_date: defaultDueDate.toISOString() // Add the required due_date field
         })
         .select()

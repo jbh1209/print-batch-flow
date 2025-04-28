@@ -13,7 +13,8 @@ import UpcomingDueJobsSection from "./dialog/UpcomingDueJobsSection";
 import BatchDialogFooter from "./dialog/BatchDialogFooter";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { productConfigs } from "@/config/productTypes";
 
 interface BatchConfirmDialogProps {
   isOpen: boolean;
@@ -38,7 +39,16 @@ const BatchConfirmDialog = ({
   upcomingDueJobs,
   onSelectJob
 }: BatchConfirmDialogProps) => {
-  const [slaTargetDays, setSlaTargetDays] = useState(2); // Default for business cards
+  // Get default SLA from product config
+  const defaultSla = productConfigs["Business Cards"].slaTargetDays;
+  const [slaTargetDays, setSlaTargetDays] = useState(defaultSla); 
+  
+  // Reset to default when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setSlaTargetDays(defaultSla);
+    }
+  }, [isOpen, defaultSla]);
   
   // Determine if selected jobs are compatible for batching
   const areJobsCompatible = () => {
@@ -85,6 +95,9 @@ const BatchConfirmDialog = ({
             onChange={(e) => setSlaTargetDays(Number(e.target.value))}
             className="w-full"
           />
+          <p className="text-sm text-muted-foreground">
+            Default for business cards: {defaultSla} days
+          </p>
         </div>
 
         <UpcomingDueJobsSection 

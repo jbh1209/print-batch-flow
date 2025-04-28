@@ -8,6 +8,7 @@ import { JobsSelectionPanel } from './components/batch-dialog/JobsSelectionPanel
 import { BatchDialogFooter } from './components/batch-dialog/BatchDialogFooter';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { productConfigs } from '@/config/productTypes';
 
 interface FlyerBatchCreateDialogProps {
   isOpen: boolean;
@@ -33,14 +34,18 @@ export function FlyerBatchCreateDialog({
   const [laminationType, setLaminationType] = useState<LaminationType>("none");
   const [printerType, setPrinterType] = useState("HP 12000");
   const [sheetSize, setSheetSize] = useState("530x750mm");
-  const [slaTargetDays, setSlaTargetDays] = useState(3);
+  
+  // Get default SLA from product config
+  const defaultSla = productConfigs["Flyers"].slaTargetDays;
+  const [slaTargetDays, setSlaTargetDays] = useState(defaultSla);
   
   // Selected jobs
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   
-  // Reset selections when dialog opens/closes
+  // Reset to default values when dialog opens
   useEffect(() => {
     if (isOpen) {
+      setSlaTargetDays(defaultSla);
       // Set initial selections from preSelectedJobs if provided
       if (preSelectedJobs && preSelectedJobs.length > 0) {
         setSelectedJobIds(preSelectedJobs.map(job => job.id));
@@ -48,7 +53,7 @@ export function FlyerBatchCreateDialog({
         setSelectedJobIds([]);
       }
     }
-  }, [isOpen, preSelectedJobs]);
+  }, [isOpen, preSelectedJobs, defaultSla]);
   
   const handleSelectJob = (jobId: string, isSelected: boolean) => {
     if (isSelected) {
@@ -125,6 +130,9 @@ export function FlyerBatchCreateDialog({
                 onChange={(e) => setSlaTargetDays(Number(e.target.value))}
                 className="w-full"
               />
+              <p className="text-sm text-muted-foreground">
+                Default for flyers: {defaultSla} days
+              </p>
             </div>
           </div>
           
