@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { productConfigs, BaseJob, ProductConfig } from '@/config/productTypes';
+import { isExistingTable } from "@/utils/database/tableUtils";
 
 // Extended job type that includes product type information
 export interface ExtendedJob extends BaseJob {
@@ -21,9 +22,15 @@ export const useAllPendingJobs = () => {
     if (!user) return [];
     
     try {
-      // Only fetch queued jobs that are pending batching
+      // Only fetch from tables that actually exist in the database
+      if (!isExistingTable(config.tableName)) {
+        console.warn(`Table ${config.tableName} does not exist in the database`);
+        return [];
+      }
+
+      // Using any type to work around TypeScript limitations with dynamic table names
       const { data, error } = await supabase
-        .from(config.tableName)
+        .from(config.tableName as any)
         .select('*')
         .eq('user_id', user.id)
         .eq('status', 'queued')
@@ -31,12 +38,12 @@ export const useAllPendingJobs = () => {
       
       if (error) throw error;
       
-      // Attach the product config to each job
+      // Attach the product config to each job and set default urgency
       return (data || []).map(job => ({
         ...job,
         productConfig: config,
         urgency: "low" // Default urgency, will be calculated in the component
-      }));
+      })) as ExtendedJob[];
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       return [];
@@ -71,7 +78,7 @@ export const useAllPendingJobs = () => {
       toast({
         title: "Error fetching jobs",
         description: "There was a problem loading jobs across product types.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
