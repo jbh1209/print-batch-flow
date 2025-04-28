@@ -23,12 +23,11 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
     }
   ) => {
     // Extract laminationType and slaTargetDays from configOptions
-    const { laminationType, slaTargetDays, ...restConfig } = configOptions as any;
+    const { laminationType, slaTargetDays, ...restConfig } = configOptions;
     
-    // Call the underlying function with the separate laminationType parameter
-    // If slaTargetDays is not provided, the default from product config will be used
+    // Call the underlying function with the extracted parameters
     return createBatchWithSelectedJobs(
-      selectedJobs, // Pass the jobs directly
+      selectedJobs, 
       { ...config, ...restConfig },
       laminationType || "none",
       slaTargetDays
