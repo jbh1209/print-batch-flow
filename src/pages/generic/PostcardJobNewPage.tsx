@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { productConfigs } from '@/config/productTypes';
-import GenericJobForm from '@/components/generic/GenericJobForm';
+import { GenericJobForm } from '@/components/generic/GenericJobForm';
 import { useGenericJobCreation } from '@/hooks/generic/useGenericJobCreation';
 
 const PostcardJobNewPage = () => {
