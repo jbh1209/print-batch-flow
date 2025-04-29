@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -24,6 +23,30 @@ const Users = () => {
   const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
   const [anyAdminExists, setAnyAdminExists] = useState(true);
 
+  // Check if any admin exists in the system
+  useEffect(() => {
+    const checkAdminExists = async () => {
+      try {
+        // First check if the user_roles table has any admin role
+        const { count, error } = await supabase
+          .from('user_roles')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'admin');
+          
+        if (error) {
+          console.error('Error checking admin existence:', error);
+          return;
+        }
+        
+        setAnyAdminExists(count !== null && count > 0);
+      } catch (error) {
+        console.error('Error in checkAdminExists:', error);
+      }
+    };
+    
+    checkAdminExists();
+  }, []);
+
   // Check if current user is admin
   useEffect(() => {
     if (!user) return;
@@ -46,32 +69,10 @@ const Users = () => {
     checkAdminRole();
   }, [user]);
 
-  // Check if any admin exists in the system
-  useEffect(() => {
-    const checkAnyAdminExists = async () => {
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('count')
-        .eq('role', 'admin')
-        .single();
-      
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" which is fine
-        console.error('Error checking for admins:', error);
-        return;
-      }
-      
-      setAnyAdminExists(data?.count > 0);
-    };
-    
-    checkAnyAdminExists();
-  }, [user]);
-
   // Fetch users
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!isAdmin || !user) {
+      if (!isAdmin && anyAdminExists) {
         setIsLoading(false);
         return;
       }
@@ -132,7 +133,7 @@ const Users = () => {
     };
     
     fetchUsers();
-  }, [isAdmin, user]);
+  }, [isAdmin, user, anyAdminExists]);
 
   const handleAddUser = async (userData: any) => {
     try {

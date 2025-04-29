@@ -23,14 +23,14 @@ export function AdminSetupForm() {
     setIsSubmitting(true);
     
     try {
-      // Call the add_admin_role function
+      // Call the add_admin_role database function
       const { data, error } = await supabase.rpc('add_admin_role', {
         admin_user_id: userId
       });
       
       if (error) throw error;
       
-      toast.success("User has been granted admin privileges");
+      toast.success("Admin role successfully assigned");
       setTimeout(() => window.location.reload(), 1500);
     } catch (error: any) {
       console.error("Error setting admin role:", error);
@@ -43,9 +43,9 @@ export function AdminSetupForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Admin Setup</CardTitle>
+        <CardTitle>Initial Admin Setup</CardTitle>
         <CardDescription>
-          No administrators configured. Use this form to set up an initial administrator.
+          No administrators are currently configured. Set up the first administrator account.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSetAsAdmin}>
@@ -64,10 +64,18 @@ export function AdminSetupForm() {
               {user && (
                 <p className="text-sm text-gray-500">
                   Your user ID: <span className="font-mono">{user.id}</span>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    className="text-xs ml-2 h-auto p-1" 
+                    onClick={() => setUserId(user.id)}
+                  >
+                    Use my ID
+                  </Button>
                 </p>
               )}
               <p className="text-sm text-gray-500">
-                Enter the User ID you want to make an administrator. You can use your own ID shown above.
+                You can use your own ID (shown above) to grant yourself administrator privileges.
               </p>
             </div>
           </div>
