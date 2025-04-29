@@ -8,8 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export function InitialAdminSetup() {
-  const [email, setEmail] = useState("james@impressweb.co.za");
-  const [password, setPassword] = useState("Hawkeye@12209");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("Admin User");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,11 +34,9 @@ export function InitialAdminSetup() {
       if (error) throw error;
       
       if (data.user) {
-        // Step 2: Use service role to bypass RLS and add admin role
-        // We'll use a direct SQL query to bypass RLS
+        // Step 2: Use RPC to add admin role
         const adminUserId = data.user.id;
         
-        // Using the add_admin_role function that was created in the database
         const { error: roleError } = await supabase.rpc('add_admin_role', { 
           admin_user_id: adminUserId 
         });
@@ -46,9 +44,9 @@ export function InitialAdminSetup() {
         if (roleError) throw roleError;
         
         toast.success('Admin account created successfully!');
-        toast.info('You can now sign in with your credentials');
+        toast.info('Signing in with your new admin account...');
         
-        // Sign the user in
+        // Sign the user in with the new credentials
         await supabase.auth.signInWithPassword({
           email,
           password
