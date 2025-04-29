@@ -64,6 +64,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Check if user is an admin
   const checkIsAdmin = async (userId: string) => {
     try {
+      // Use the is_admin RPC function instead of directly accessing user_roles table
       const { data, error } = await supabase
         .rpc('is_admin', { _user_id: userId });
       
