@@ -19,7 +19,7 @@ export function InitialAdminSetup() {
     setIsLoading(true);
     
     try {
-      // Register the user
+      // Step 1: Register the user with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -34,12 +34,14 @@ export function InitialAdminSetup() {
       if (error) throw error;
       
       if (data.user) {
-        // Assign admin role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert([
-            { user_id: data.user.id, role: 'admin' }
-          ]);
+        // Step 2: Use service role to bypass RLS and add admin role
+        // We'll use a direct SQL query to bypass RLS
+        const adminUserId = data.user.id;
+        
+        // Using a raw SQL query that bypasses RLS
+        const { error: roleError } = await supabase.rpc('add_admin_role', { 
+          admin_user_id: adminUserId 
+        });
           
         if (roleError) throw roleError;
         
