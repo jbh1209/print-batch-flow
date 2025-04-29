@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { InitialAdminSetup } from '@/components/users/InitialAdminSetup';
+import { Loader2 } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -33,6 +33,7 @@ const Auth = () => {
         setUserCount(count);
       } catch (error) {
         console.error('Error checking users:', error);
+        toast.error('Error checking user accounts');
       } finally {
         setIsCheckingUsers(false);
       }
@@ -69,9 +70,7 @@ const Auth = () => {
   if (isCheckingUsers) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <p>Checking system status...</p>
-        </div>
+        <Loader2 className="animate-spin h-8 w-8 text-primary" />
       </div>
     );
   }
@@ -87,6 +86,7 @@ const Auth = () => {
     );
   }
 
+  // Otherwise, show just the login form
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-50">
       <div className="w-full max-w-md px-4">

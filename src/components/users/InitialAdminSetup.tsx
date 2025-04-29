@@ -16,6 +16,11 @@ export function InitialAdminSetup() {
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!email || !password) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -53,6 +58,7 @@ export function InitialAdminSetup() {
         });
       }
     } catch (error: any) {
+      console.error("Admin creation error:", error);
       toast.error(`Error creating admin account: ${error.message}`);
     } finally {
       setIsLoading(false);
@@ -60,7 +66,7 @@ export function InitialAdminSetup() {
   };
   
   return (
-    <Card className="w-full max-w-md mx-auto mt-12">
+    <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle>Create Admin Account</CardTitle>
         <CardDescription>Set up your admin account to manage the application</CardDescription>
@@ -85,6 +91,7 @@ export function InitialAdminSetup() {
               value={email} 
               onChange={(e) => setEmail(e.target.value)}
               required
+              placeholder="Enter your email address"
             />
           </div>
           <div className="space-y-2">
@@ -95,6 +102,7 @@ export function InitialAdminSetup() {
               value={password} 
               onChange={(e) => setPassword(e.target.value)}
               required
+              placeholder="Create a secure password"
             />
           </div>
         </CardContent>
