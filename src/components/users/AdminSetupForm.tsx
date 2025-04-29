@@ -43,7 +43,7 @@ export function AdminSetupForm() {
   };
   
   return (
-    <Card>
+    <Card className="w-full max-w-lg mx-auto">
       <CardHeader>
         <CardTitle>Initial Admin Setup</CardTitle>
         <CardDescription>
@@ -76,14 +76,14 @@ export function AdminSetupForm() {
                   </Button>
                 </p>
               )}
-              <p className="text-sm text-gray-500">
-                You can use your own ID (shown above) to grant yourself administrator privileges.
+              <p className="text-sm text-gray-500 mt-2">
+                To make yourself an admin, use your own user ID shown above.
               </p>
             </div>
           </div>
         </CardContent>
         <CardFooter>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting ? "Setting up admin..." : "Set as Administrator"}
           </Button>
         </CardFooter>
