@@ -105,7 +105,7 @@ const Users = () => {
         email: userData.email,
         password: userData.password,
         options: {
-          emailRedirect: window.location.origin,
+          emailRedirectTo: window.location.origin,
         }
       });
       

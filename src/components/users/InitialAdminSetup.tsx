@@ -23,7 +23,7 @@ export function InitialAdminSetup() {
         email,
         password,
         options: {
-          emailRedirect: window.location.origin,
+          emailRedirectTo: window.location.origin,
         }
       });
       
