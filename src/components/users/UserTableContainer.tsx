@@ -81,7 +81,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role as AppRole
+              role: userData.role
             });
             
           if (roleError) throw roleError;
@@ -118,7 +118,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: editingUser.id, 
-              role: userData.role as AppRole
+              role: userData.role
             });
             
           if (roleError) throw roleError;

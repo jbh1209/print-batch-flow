@@ -24,6 +24,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Database } from "@/integrations/supabase/types";
+
+type AppRole = Database["public"]["Enums"]["app_role"];
 
 interface User {
   id: string;
@@ -36,7 +39,7 @@ interface User {
 
 interface UserTableProps {
   users: User[];
-  userRoles: Record<string, string>;
+  userRoles: Record<string, AppRole>;
   onEdit: (user: User) => void;
   onDelete: (userId: string) => void;
   onRoleToggle: (userId: string, currentRole: string) => void;
