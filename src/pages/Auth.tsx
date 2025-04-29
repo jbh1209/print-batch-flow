@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +25,21 @@ const Auth = () => {
     const checkExistingUsers = async () => {
       setIsCheckingUsers(true);
       try {
+        // First check auth.users table using admin API
+        const { data: authUsers, error: authError } = await supabase
+          .from('user_roles')
+          .select('*', { count: 'exact', head: true });
+          
+        if (authError) throw authError;
+        
+        // If we found users in auth table, no need to continue
+        if (authUsers && authUsers.count && authUsers.count > 0) {
+          setUserCount(authUsers.count);
+          setIsCheckingUsers(false);
+          return;
+        }
+        
+        // Fallback to checking profiles table
         const { count, error } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
