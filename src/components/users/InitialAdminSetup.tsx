@@ -38,7 +38,7 @@ export function InitialAdminSetup() {
         // We'll use a direct SQL query to bypass RLS
         const adminUserId = data.user.id;
         
-        // Using a raw SQL query that bypasses RLS
+        // Using the add_admin_role function that was created in the database
         const { error: roleError } = await supabase.rpc('add_admin_role', { 
           admin_user_id: adminUserId 
         });
