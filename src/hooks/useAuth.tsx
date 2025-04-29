@@ -64,6 +64,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Check if user is an admin using RPC function to prevent recursion
   const checkIsAdmin = async (userId: string) => {
     try {
+      if (!userId) return false;
+      
       // Use the is_admin RPC function instead of directly accessing user_roles table
       const { data, error } = await supabase
         .rpc('is_admin', { _user_id: userId });
@@ -93,15 +95,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    let isSubscribed = true;
+    
     // Set up auth state listener FIRST to avoid missing events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        if (!isSubscribed) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         // Fetch profile if we have a user - use setTimeout to avoid recursive RLS issues
         if (session?.user) {
           setTimeout(async () => {
+            if (!isSubscribed) return;
+            
             const profile = await fetchProfile(session.user.id);
             setProfile(profile);
             await updateAdminStatus(session.user.id);
@@ -117,6 +125,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isSubscribed) return;
+      
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -129,7 +139,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isSubscribed = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
