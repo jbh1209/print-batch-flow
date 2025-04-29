@@ -38,6 +38,7 @@ export function AdminSetupForm() {
       if (error) throw error;
       
       toast.success("Admin role successfully assigned");
+      // Reload the page after a short delay to show the updated UI
       setTimeout(() => window.location.reload(), 1500);
     } catch (error: any) {
       console.error("Error setting admin role:", error);
