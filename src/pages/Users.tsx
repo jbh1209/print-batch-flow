@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { UserForm } from "@/components/users/UserForm";
 import { UserTable } from "@/components/users/UserTable";
+import { AdminSetupForm } from "@/components/users/AdminSetupForm";
 
 const Users = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ const Users = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
   const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
+  const [anyAdminExists, setAnyAdminExists] = useState(true);
 
   // Check if current user is admin
   useEffect(() => {
@@ -42,6 +44,28 @@ const Users = () => {
     };
     
     checkAdminRole();
+  }, [user]);
+
+  // Check if any admin exists in the system
+  useEffect(() => {
+    const checkAnyAdminExists = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('count')
+        .eq('role', 'admin')
+        .single();
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" which is fine
+        console.error('Error checking for admins:', error);
+        return;
+      }
+      
+      setAnyAdminExists(data?.count > 0);
+    };
+    
+    checkAnyAdminExists();
   }, [user]);
 
   // Fetch users
@@ -328,7 +352,9 @@ const Users = () => {
         </div>
       </div>
 
-      {!isAdmin ? (
+      {!anyAdminExists ? (
+        <AdminSetupForm />
+      ) : !isAdmin ? (
         <Card>
           <CardContent className="p-6 text-center">
             <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
