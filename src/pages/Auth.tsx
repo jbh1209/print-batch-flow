@@ -8,8 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { InitialAdminSetup } from '@/components/users/InitialAdminSetup';
-import { Loader2 } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -17,46 +15,8 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [userCount, setUserCount] = useState<number | null>(null);
-  const [isCheckingUsers, setIsCheckingUsers] = useState(true);
 
   useEffect(() => {
-    // Check if any users exist in the system
-    const checkExistingUsers = async () => {
-      setIsCheckingUsers(true);
-      try {
-        // First check user_roles table to see if any users exist
-        const { data: userRolesData, count: userRolesCount, error: userRolesError } = await supabase
-          .from('user_roles')
-          .select('*', { count: 'exact', head: true });
-          
-        if (userRolesError) throw userRolesError;
-        
-        // If we found users in user_roles table, no need to continue
-        if (userRolesCount && userRolesCount > 0) {
-          setUserCount(userRolesCount);
-          setIsCheckingUsers(false);
-          return;
-        }
-        
-        // Fallback to checking profiles table
-        const { count: profilesCount, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
-          
-        if (profilesError) throw profilesError;
-        
-        setUserCount(profilesCount);
-      } catch (error) {
-        console.error('Error checking users:', error);
-        toast.error('Error checking user accounts');
-      } finally {
-        setIsCheckingUsers(false);
-      }
-    };
-    
-    checkExistingUsers();
-    
     // Redirect if user is already logged in
     if (user) {
       navigate('/');
@@ -83,26 +43,6 @@ const Auth = () => {
     }
   };
 
-  if (isCheckingUsers) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <Loader2 className="animate-spin h-8 w-8 text-primary" />
-      </div>
-    );
-  }
-
-  // If no users exist, show the initial admin setup
-  if (userCount === 0) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="w-full max-w-md px-4">
-          <InitialAdminSetup />
-        </div>
-      </div>
-    );
-  }
-
-  // Otherwise, show just the login form
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-50">
       <div className="w-full max-w-md px-4">
@@ -120,6 +60,7 @@ const Auth = () => {
                   type="email" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
                   required
                 />
               </div>
@@ -130,6 +71,7 @@ const Auth = () => {
                   type="password" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
                   required
                 />
               </div>
