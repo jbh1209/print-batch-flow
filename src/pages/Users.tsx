@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ const Users = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
   const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
-  const [anyAdminExists, setAnyAdminExists] = useState(true);
+  const [anyAdminExists, setAnyAdminExists] = useState(false); // Default to false to show the setup form
 
   // Check if any admin exists in the system
   useEffect(() => {
@@ -32,12 +33,19 @@ const Users = () => {
           
         if (error) {
           console.error('Error checking admin existence:', error);
+          // If there's an error, default to showing the admin setup form
+          setAnyAdminExists(false);
           return;
         }
         
         setAnyAdminExists(data);
       } catch (error) {
         console.error('Error in checkAdminExists:', error);
+        // If there's an error, default to showing the admin setup form
+        setAnyAdminExists(false);
+      } finally {
+        // Ensure we're no longer loading
+        setIsLoading(false);
       }
     };
     
@@ -49,18 +57,22 @@ const Users = () => {
     if (!user) return;
     
     const checkAdminRole = async () => {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('role', 'admin');
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('role', 'admin');
+          
+        if (error) {
+          console.error('Error checking admin role:', error);
+          return;
+        }
         
-      if (error) {
-        console.error('Error checking admin role:', error);
-        return;
+        setIsAdmin(data && data.length > 0);
+      } catch (error) {
+        console.error('Error in checkAdminRole:', error);
       }
-      
-      setIsAdmin(data && data.length > 0);
     };
     
     checkAdminRole();

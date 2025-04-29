@@ -1,18 +1,23 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
 
 export function AdminSetupForm() {
   const { user } = useAuth();
-  const [userId, setUserId] = useState(user?.id || "");
+  const [userId, setUserId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-fill the user ID when the component mounts and user is available
+  useEffect(() => {
+    if (user?.id) {
+      setUserId(user.id);
+    }
+  }, [user]);
 
   const handleSetAsAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
