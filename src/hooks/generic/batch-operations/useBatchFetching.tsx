@@ -12,8 +12,13 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
   const [error, setError] = useState<string | null>(null);
 
   const fetchBatches = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No authenticated user for batch fetching');
+      return;
+    }
 
+    console.log('Fetching batches for user:', user.id);
+    
     setIsLoading(true);
     setError(null);
 
@@ -40,6 +45,8 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
 
       if (fetchError) throw fetchError;
 
+      console.log('Batches data received:', data?.length || 0, 'records');
+      
       const genericBatches: BaseBatch[] = (data || []).map(batch => ({
         ...batch,
         overview_pdf_url: null,
@@ -60,7 +67,11 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
   };
 
   useEffect(() => {
-    fetchBatches();
+    if (user) {
+      fetchBatches();
+    } else {
+      setIsLoading(false);
+    }
   }, [user, batchId]);
 
   return { batches, isLoading, error, fetchBatches };

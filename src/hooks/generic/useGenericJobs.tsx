@@ -21,6 +21,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   // Fetch all jobs for this product type
   const fetchJobs = async () => {
     if (!user) {
+      console.log('No authenticated user for jobs fetching');
       setIsLoading(false);
       return;
     }
@@ -40,6 +41,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
+      console.log('Fetching jobs for user:', user.id, 'from table:', config.tableName);
+      
       // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
@@ -49,6 +52,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       if (fetchError) throw fetchError;
 
+      console.log('Jobs data received:', data?.length || 0, 'records');
+      
       // Use explicit type casting to avoid excessive type instantiation
       setJobs((data || []) as unknown as T[]);
     } catch (err) {
@@ -60,7 +65,11 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   };
 
   useEffect(() => {
-    fetchJobs();
+    if (user) {
+      fetchJobs();
+    } else {
+      setIsLoading(false);
+    }
   }, [user]);
 
   // Handle job deletion with local state update
@@ -142,16 +151,23 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       
       return batch;
     } catch (err) {
+      console.error('Error creating batch:', err);
       throw err;
     }
   };
 
   // Handle batch fixes with state refresh
   const handleFixBatchedJobs = async () => {
+    if (!user) {
+      console.log('No authenticated user for fixing batched jobs');
+      return 0;
+    }
+    
     const fixedCount = await fixBatchedJobsWithoutBatch();
     if (fixedCount) {
       await fetchJobs();
     }
+    return fixedCount;
   };
 
   return {

@@ -35,6 +35,7 @@ const Auth = () => {
       
       if (error) throw error;
       
+      toast.success("Login successful!");
       navigate('/');
     } catch (error: any) {
       toast.error(`Error signing in: ${error.message}`);
