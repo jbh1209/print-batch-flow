@@ -2,6 +2,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 
 interface Profile {
   id: string;
@@ -16,9 +17,10 @@ interface AuthContextType {
   loading: boolean;
   isLoggedIn: boolean;
   isAdmin: boolean;
-  isLoading: boolean;
   signOut: () => Promise<void>;
-  checkIsAdmin: (userId: string) => Promise<boolean>;
+  refreshProfile: () => Promise<void>;
+  updateProfile: (data: Partial<Profile>) => Promise<void>;
+  checkAdminStatus: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -28,9 +30,10 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isLoggedIn: false,
   isAdmin: false,
-  isLoading: true,
   signOut: async () => {},
-  checkIsAdmin: async () => false,
+  refreshProfile: async () => {},
+  updateProfile: async () => {},
+  checkAdminStatus: async () => false,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -47,73 +50,107 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
 
       if (error) {
         console.error('Error fetching profile:', error);
         return null;
       }
       
-      return data;
+      return data as Profile;
     } catch (error) {
       console.error('Error in fetchProfile:', error);
       return null;
     }
   };
-
-  // Check if user is an admin using RPC function to prevent recursion
-  const checkIsAdmin = async (userId: string) => {
+  
+  // Update user profile
+  const updateProfile = async (data: Partial<Profile>) => {
+    if (!user) {
+      toast.error("You must be logged in to update your profile");
+      return;
+    }
+    
     try {
-      if (!userId) return false;
+      const { error } = await supabase
+        .from('profiles')
+        .update(data)
+        .eq('id', user.id);
+        
+      if (error) throw error;
       
-      // Use the is_admin RPC function instead of directly accessing user_roles table
+      // Refresh profile data
+      const updatedProfile = await fetchProfile(user.id);
+      if (updatedProfile) {
+        setProfile(updatedProfile);
+        toast.success("Profile updated successfully");
+      }
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast.error(`Failed to update profile: ${error.message}`);
+    }
+  };
+  
+  // Refresh user profile
+  const refreshProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const profile = await fetchProfile(user.id);
+      setProfile(profile);
+      await checkAdminStatus();
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+    }
+  };
+
+  // Check if user is an admin using the is_admin RPC function
+  const checkAdminStatus = async (): Promise<boolean> => {
+    try {
+      if (!user?.id) return false;
+      
       const { data, error } = await supabase
-        .rpc('is_admin', { _user_id: userId });
+        .rpc('is_admin', { _user_id: user.id });
       
       if (error) {
         console.error('Error checking admin status:', error);
         return false;
       }
 
+      setIsAdmin(!!data);
       return !!data;
     } catch (error) {
-      console.error('Error in checkIsAdmin:', error);
+      console.error('Error checking admin status:', error);
       return false;
     }
   };
 
-  // Update admin status
-  const updateAdminStatus = async (userId: string) => {
-    if (!userId) return;
-    try {
-      const isAdminUser = await checkIsAdmin(userId);
-      setIsAdmin(isAdminUser);
-    } catch (error) {
-      console.error('Error updating admin status:', error);
-      setIsAdmin(false);
-    }
-  };
-
   useEffect(() => {
-    let isSubscribed = true;
+    // Track mounted state to avoid state updates after unmount
+    let isMounted = true;
     
     // Set up auth state listener FIRST to avoid missing events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!isSubscribed) return;
+      (_event, currentSession) => {
+        if (!isMounted) return;
         
-        setSession(session);
-        setUser(session?.user ?? null);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
         
-        // Fetch profile if we have a user - use setTimeout to avoid recursive RLS issues
-        if (session?.user) {
+        if (currentSession?.user) {
+          // Use setTimeout to avoid potential recursive RLS issues
           setTimeout(async () => {
-            if (!isSubscribed) return;
+            if (!isMounted) return;
             
-            const profile = await fetchProfile(session.user.id);
-            setProfile(profile);
-            await updateAdminStatus(session.user.id);
-            setLoading(false);
+            try {
+              const userProfile = await fetchProfile(currentSession.user.id);
+              setProfile(userProfile);
+              await checkAdminStatus();
+              setLoading(false);
+            } catch (error) {
+              console.error("Failed to load user data:", error);
+              setLoading(false);
+            }
           }, 0);
         } else {
           setProfile(null);
@@ -123,24 +160,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!isSubscribed) return;
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      if (!isMounted) return;
       
-      setSession(session);
-      setUser(session?.user ?? null);
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
       
-      // Fetch profile if we have a user
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        setProfile(profile);
-        await updateAdminStatus(session.user.id);
+      if (currentSession?.user) {
+        fetchProfile(currentSession.user.id).then(userProfile => {
+          if (!isMounted) return;
+          
+          setProfile(userProfile);
+          checkAdminStatus().then(() => {
+            if (isMounted) setLoading(false);
+          });
+        });
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
+    // Cleanup function
     return () => {
-      isSubscribed = false;
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -148,8 +191,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
-    } catch (error) {
+      toast.success("Signed out successfully");
+    } catch (error: any) {
       console.error('Error signing out:', error);
+      toast.error(`Error signing out: ${error.message}`);
     }
   };
 
@@ -161,9 +206,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loading,
     isLoggedIn: !!user,
     isAdmin,
-    isLoading: loading,
     signOut,
-    checkIsAdmin
+    refreshProfile,
+    updateProfile,
+    checkAdminStatus
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

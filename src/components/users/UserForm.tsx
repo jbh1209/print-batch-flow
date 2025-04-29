@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogFooter } from "@/components/ui/dialog";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UserFormProps {
   initialData?: {
@@ -18,6 +19,7 @@ interface UserFormProps {
   };
   onSubmit: (data: any) => void;
   isEditing?: boolean;
+  isProcessing?: boolean;
 }
 
 // Define form schema based on whether we're editing or creating
@@ -26,8 +28,7 @@ const createUserSchema = z.object({
   full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   password: z
     .string()
-    .min(8, { message: "Password must be at least 8 characters" })
-    .max(100),
+    .min(8, { message: "Password must be at least 8 characters" }),
   confirmPassword: z.string(),
   role: z.string().default("user")
 }).refine((data) => data.password === data.confirmPassword, {
@@ -40,8 +41,7 @@ const editUserSchema = z.object({
   role: z.string().default("user")
 });
 
-export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function UserForm({ initialData, onSubmit, isEditing = false, isProcessing = false }: UserFormProps) {
   const [serverError, setServerError] = useState("");
   
   const formSchema = isEditing ? editUserSchema : createUserSchema;
@@ -57,15 +57,12 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
   });
 
   const handleSubmit = async (data: any) => {
-    setIsSubmitting(true);
     setServerError("");
     
     try {
       await onSubmit(data);
     } catch (error: any) {
       setServerError(error.message || "An unexpected error occurred");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -73,10 +70,10 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
         {serverError && (
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded p-3 flex items-start">
-            <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-            <p className="text-sm">{serverError}</p>
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
         )}
         
         <FormField
@@ -86,7 +83,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
             <FormItem>
               <FormLabel>Full Name</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} />
+                <Input placeholder="John Doe" {...field} disabled={isProcessing} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -101,7 +98,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="user@example.com" {...field} />
+                  <Input placeholder="user@example.com" {...field} disabled={isProcessing} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -118,6 +115,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
               <Select 
                 onValueChange={field.onChange}
                 defaultValue={field.value}
+                disabled={isProcessing}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -143,7 +141,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
+                    <Input type="password" placeholder="********" {...field} disabled={isProcessing} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -157,7 +155,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
                 <FormItem>
                   <FormLabel>Confirm Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
+                    <Input type="password" placeholder="********" {...field} disabled={isProcessing} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -167,8 +165,15 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
         )}
 
         <DialogFooter>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Processing..." : isEditing ? "Update User" : "Create User"}
+          <Button type="submit" disabled={isProcessing}>
+            {isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isEditing ? "Updating..." : "Creating..."}
+              </>
+            ) : (
+              isEditing ? "Update User" : "Create User"
+            )}
           </Button>
         </DialogFooter>
       </form>

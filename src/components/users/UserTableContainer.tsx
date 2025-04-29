@@ -7,20 +7,46 @@ import { UserPlus } from "lucide-react";
 import { UserForm } from "./UserForm";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+
+interface User {
+  id: string;
+  email?: string;
+  full_name?: string;
+  avatar_url?: string;
+  created_at: string;
+  last_sign_in_at?: string;
+}
 
 interface UserTableContainerProps {
-  users: any[];
+  users: User[];
   userRoles: Record<string, string>;
-  userProfiles: Record<string, any>;
+  isLoading: boolean;
   refreshUsers: () => Promise<void>;
 }
 
-export function UserTableContainer({ users, userRoles, userProfiles, refreshUsers }: UserTableContainerProps) {
+export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }: UserTableContainerProps) {
+  const { user: currentUser } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [processing, setProcessing] = useState(false);
   
   const handleAddUser = async (userData: any) => {
+    setProcessing(true);
     try {
+      // Check if user already exists
+      const { data: existingUsers } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', userData.email)
+        .limit(1);
+        
+      if (existingUsers && existingUsers.length > 0) {
+        toast.error('A user with this email already exists');
+        setProcessing(false);
+        return;
+      }
+      
       // Sign up the user with Supabase auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
@@ -36,7 +62,7 @@ export function UserTableContainer({ users, userRoles, userProfiles, refreshUser
       if (authError) throw authError;
       
       if (authData.user) {
-        // Assign role to the new user
+        // Assign role to the new user if not the default user role
         if (userData.role && userData.role !== 'user') {
           const { error: roleError } = await supabase
             .from('user_roles')
@@ -53,32 +79,38 @@ export function UserTableContainer({ users, userRoles, userProfiles, refreshUser
       }
     } catch (error: any) {
       toast.error(`Error creating user: ${error.message}`);
+      console.error('Error creating user:', error);
+    } finally {
+      setProcessing(false);
     }
   };
 
   const handleEditUser = async (userData: any) => {
+    if (!editingUser) return;
+    
+    setProcessing(true);
     try {
-      if (!editingUser) return;
-      
       // Update role if changed
       if (userData.role && userRoles[editingUser.id] !== userData.role) {
-        // Delete existing role
+        // Delete existing role if present
         await supabase
           .from('user_roles')
           .delete()
           .eq('user_id', editingUser.id);
           
-        // Insert new role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert([
-            { user_id: editingUser.id, role: userData.role }
-          ]);
-          
-        if (roleError) throw roleError;
+        // Only insert new role if not the default user role
+        if (userData.role !== 'user') {
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .insert([
+              { user_id: editingUser.id, role: userData.role }
+            ]);
+            
+          if (roleError) throw roleError;
+        }
       }
       
-      // Update user profile if name changed
+      // Update user profile
       if (userData.full_name && userData.full_name !== editingUser.full_name) {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -94,28 +126,83 @@ export function UserTableContainer({ users, userRoles, userProfiles, refreshUser
       await refreshUsers();
     } catch (error: any) {
       toast.error(`Error updating user: ${error.message}`);
+      console.error('Error updating user:', error);
+    } finally {
+      setProcessing(false);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
+    setProcessing(true);
     try {
-      // We can't delete users directly using the client API
-      // Instead, disable their access by revoking their role
-      const { error } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
+      // Cannot delete yourself
+      if (userId === currentUser?.id) {
+        toast.error("You cannot delete your own account");
+        return;
+      }
+      
+      // Delete user from auth system
+      const { error } = await supabase.functions.invoke('delete-user', {
+        body: { userId }
+      });
         
       if (error) throw error;
       
-      toast.success('User role revoked successfully');
+      toast.success('User deleted successfully');
       await refreshUsers();
     } catch (error: any) {
-      toast.error(`Error removing user role: ${error.message}`);
+      toast.error(`Error deleting user: ${error.message}`);
+      console.error('Error deleting user:', error);
+    } finally {
+      setProcessing(false);
     }
   };
 
-  const openEditDialog = (user: any) => {
+  const handleToggleAdminRole = async (userId: string, currentRole: string) => {
+    // Prevent updating your own role
+    if (userId === currentUser?.id) {
+      toast.error("You cannot change your own role");
+      return;
+    }
+    
+    setProcessing(true);
+    try {
+      if (currentRole === 'admin') {
+        // Remove admin role (delete from user_roles)
+        const { error } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId);
+          
+        if (error) throw error;
+        toast.success('Admin role removed successfully');
+      } else {
+        // Make user an admin
+        // First delete any existing roles
+        await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId);
+          
+        // Then add admin role
+        const { error } = await supabase
+          .from('user_roles')
+          .insert([{ user_id: userId, role: 'admin' }]);
+          
+        if (error) throw error;
+        toast.success('User promoted to admin successfully');
+      }
+      
+      await refreshUsers();
+    } catch (error: any) {
+      toast.error(`Error changing user role: ${error.message}`);
+      console.error('Error changing user role:', error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const openEditDialog = (user: User) => {
     setEditingUser(user);
     setDialogOpen(true);
   };
@@ -144,6 +231,7 @@ export function UserTableContainer({ users, userRoles, userProfiles, refreshUser
               } : undefined}
               onSubmit={editingUser ? handleEditUser : handleAddUser}
               isEditing={!!editingUser}
+              isProcessing={processing}
             />
           </DialogContent>
         </Dialog>
@@ -151,9 +239,11 @@ export function UserTableContainer({ users, userRoles, userProfiles, refreshUser
       <UserTable 
         users={users} 
         userRoles={userRoles}
-        userProfiles={userProfiles}
         onEdit={openEditDialog}
         onDelete={handleDeleteUser}
+        onRoleToggle={handleToggleAdminRole}
+        currentUserId={currentUser?.id}
+        isLoading={isLoading}
       />
     </div>
   );

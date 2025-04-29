@@ -2,26 +2,25 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users as UsersIcon, AlertTriangle } from "lucide-react";
+import { Users as UsersIcon, RefreshCcw, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { UserTableContainer } from "@/components/users/UserTableContainer";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
-import { Skeleton } from "@/components/ui/skeleton";
 import { AuthDebugger } from "@/components/users/AuthDebugger";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Users = () => {
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, checkAdminStatus } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [userRoles, setUserRoles] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
   const [anyAdminExists, setAnyAdminExists] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Check if any admin exists in the system
   useEffect(() => {
@@ -34,25 +33,27 @@ const Users = () => {
           console.error('Error checking admin existence:', error);
           setError(`Error checking if admin exists: ${error.message}`);
           setAnyAdminExists(false);
-          setIsLoading(false);
           return;
         }
         
-        setAnyAdminExists(data);
-        setIsLoading(false);
+        setAnyAdminExists(!!data);
       } catch (error: any) {
         console.error('Error in checkAdminExists:', error);
         setError(`Error checking if admin exists: ${error.message}`);
         setAnyAdminExists(false);
-        setIsLoading(false);
       }
     };
     
     checkAdminExists();
-  }, []);
+  }, [refreshTrigger]);
 
-  // Fetch users and profiles when needed
+  // Fetch users and roles
   const fetchUsers = async () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+
     if (!isAdmin && anyAdminExists) {
       setIsLoading(false);
       return;
@@ -62,24 +63,12 @@ const Users = () => {
     setError(null);
     
     try {
-      // Get all user profiles
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, created_at');
+      // Fetch all users with authentication data
+      let { data: usersData, error: usersError } = await supabase.functions.invoke('get-users');
       
-      if (profileError) throw profileError;
+      if (usersError) throw usersError;
       
-      // Create a map of user profiles
-      const profileMap: Record<string, any> = {};
-      if (profileData) {
-        profileData.forEach((profile) => {
-          profileMap[profile.id] = profile;
-        });
-      }
-      
-      setUserProfiles(profileMap);
-      
-      // Get all user roles using RPC function to avoid recursion
+      // Get all user roles
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
@@ -95,17 +84,7 @@ const Users = () => {
       }
       
       setUserRoles(roleMap);
-      
-      // Format user data to match expected structure
-      const formattedUsers = profileData?.map(profile => ({
-        id: profile.id,
-        full_name: profile.full_name,
-        email: '', // We don't have direct access to emails
-        created_at: profile.created_at,
-        last_sign_in_at: null
-      })) || [];
-      
-      setUsers(formattedUsers);
+      setUsers(usersData || []);
     } catch (error: any) {
       console.error('Error loading users:', error);
       setError(`Error loading users: ${error.message}`);
@@ -115,14 +94,23 @@ const Users = () => {
     }
   };
 
+  // Refresh data manually
+  const handleRefresh = async () => {
+    setRefreshTrigger(prev => prev + 1);
+    await Promise.all([
+      fetchUsers(),
+      checkAdminStatus()
+    ]);
+    toast.success("User data refreshed");
+  };
+
   // Call fetchUsers when isAdmin or anyAdminExists changes
   useEffect(() => {
     fetchUsers();
-  }, [isAdmin, anyAdminExists]);
+  }, [isAdmin, anyAdminExists, user]);
 
-  // Show loading state
-  if (isLoading) {
-    return <LoadingState />;
+  if (!user) {
+    return null;
   }
 
   return (
@@ -130,12 +118,22 @@ const Users = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="flex items-center">
-            <UsersIcon className="h-6 w-6 mr-2 text-batchflow-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Users</h1>
+            <UsersIcon className="h-6 w-6 mr-2 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight">Users & Permissions</h1>
           </div>
-          <p className="text-gray-500 mt-1">Manage user accounts and permissions</p>
+          <p className="text-gray-500 mt-1">Manage user accounts and administrative privileges</p>
         </div>
-        <Button onClick={() => navigate("/")}>Back to Dashboard</Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={handleRefresh} 
+            disabled={isLoading}
+          >
+            <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button onClick={() => navigate("/")} variant="secondary">Back to Dashboard</Button>
+        </div>
       </div>
 
       {/* Show auth debugger for troubleshooting */}
@@ -150,14 +148,14 @@ const Users = () => {
       )}
 
       {!anyAdminExists ? (
-        <AdminSetupForm />
+        <AdminSetupForm refreshUsers={handleRefresh} />
       ) : !isAdmin ? (
         <AccessRestrictedMessage />
       ) : (
         <UserTableContainer 
           users={users} 
           userRoles={userRoles}
-          userProfiles={userProfiles}
+          isLoading={isLoading}
           refreshUsers={fetchUsers}
         />
       )}
@@ -165,37 +163,16 @@ const Users = () => {
   );
 };
 
-// Loading state component
-const LoadingState = () => (
-  <div>
-    <div className="flex justify-between items-center mb-6">
-      <div>
-        <div className="flex items-center">
-          <Skeleton className="h-6 w-6 mr-2" />
-          <Skeleton className="h-8 w-40" />
-        </div>
-        <Skeleton className="h-4 w-60 mt-1" />
-      </div>
-      <Skeleton className="h-10 w-36" />
-    </div>
-    <div className="border rounded-md">
-      <div className="p-4">
-        <div className="space-y-3">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
 // Access restricted message component
 const AccessRestrictedMessage = () => (
   <Card>
     <CardContent className="p-6 text-center">
+      <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
       <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
-      <p className="text-gray-500">You need administrator privileges to manage users.</p>
+      <p className="text-gray-500 mb-4">You need administrator privileges to manage users.</p>
+      <p className="text-sm text-gray-400">
+        Please contact an administrator if you require access to this page.
+      </p>
     </CardContent>
   </Card>
 );
