@@ -25,28 +25,28 @@ const Auth = () => {
     const checkExistingUsers = async () => {
       setIsCheckingUsers(true);
       try {
-        // First check auth.users table using admin API
-        const { data: authUsers, error: authError } = await supabase
+        // First check user_roles table to see if any users exist
+        const { data: userRolesData, count: userRolesCount, error: userRolesError } = await supabase
           .from('user_roles')
           .select('*', { count: 'exact', head: true });
           
-        if (authError) throw authError;
+        if (userRolesError) throw userRolesError;
         
-        // If we found users in auth table, no need to continue
-        if (authUsers && authUsers.count && authUsers.count > 0) {
-          setUserCount(authUsers.count);
+        // If we found users in user_roles table, no need to continue
+        if (userRolesCount && userRolesCount > 0) {
+          setUserCount(userRolesCount);
           setIsCheckingUsers(false);
           return;
         }
         
         // Fallback to checking profiles table
-        const { count, error } = await supabase
+        const { count: profilesCount, error: profilesError } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
           
-        if (error) throw error;
+        if (profilesError) throw profilesError;
         
-        setUserCount(count);
+        setUserCount(profilesCount);
       } catch (error) {
         console.error('Error checking users:', error);
         toast.error('Error checking user accounts');
