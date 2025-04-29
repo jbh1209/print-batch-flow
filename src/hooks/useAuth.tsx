@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching profile:', error);
@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Check if user is an admin
+  // Check if user is an admin using RPC function to prevent recursion
   const checkIsAdmin = async (userId: string) => {
     try {
       // Use the is_admin RPC function instead of directly accessing user_roles table
@@ -83,43 +83,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Update admin status
   const updateAdminStatus = async (userId: string) => {
     if (!userId) return;
-    const isAdminUser = await checkIsAdmin(userId);
-    setIsAdmin(isAdminUser);
+    try {
+      const isAdminUser = await checkIsAdmin(userId);
+      setIsAdmin(isAdminUser);
+    } catch (error) {
+      console.error('Error updating admin status:', error);
+      setIsAdmin(false);
+    }
   };
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      // Fetch profile if we have a user
-      if (session?.user) {
-        fetchProfile(session.user.id).then(profile => {
-          setProfile(profile);
-          updateAdminStatus(session.user.id).finally(() => {
-            setLoading(false);
-          });
-        });
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
+    // Set up auth state listener FIRST to avoid missing events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Fetch profile if we have a user
+        // Fetch profile if we have a user - use setTimeout to avoid recursive RLS issues
         if (session?.user) {
-          fetchProfile(session.user.id).then(profile => {
+          setTimeout(async () => {
+            const profile = await fetchProfile(session.user.id);
             setProfile(profile);
-            updateAdminStatus(session.user.id).finally(() => {
-              setLoading(false);
-            });
-          });
+            await updateAdminStatus(session.user.id);
+            setLoading(false);
+          }, 0);
         } else {
           setProfile(null);
           setIsAdmin(false);
@@ -128,11 +115,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
+    // THEN check for existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      // Fetch profile if we have a user
+      if (session?.user) {
+        const profile = await fetchProfile(session.user.id);
+        setProfile(profile);
+        await updateAdminStatus(session.user.id);
+      }
+      setLoading(false);
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   // Create a single auth value object

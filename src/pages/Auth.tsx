@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -15,6 +17,7 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     // Redirect if user is already logged in
@@ -25,6 +28,12 @@ const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage('');
+    
+    if (!email || !password) {
+      setErrorMessage('Please enter both email and password');
+      return;
+    }
     
     setLoading(true);
     try {
@@ -38,6 +47,8 @@ const Auth = () => {
       toast.success("Login successful!");
       navigate('/');
     } catch (error: any) {
+      console.error("Auth error:", error);
+      setErrorMessage(error.message || 'Error signing in');
       toast.error(`Error signing in: ${error.message}`);
     } finally {
       setLoading(false);
@@ -54,6 +65,13 @@ const Auth = () => {
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
+              {errorMessage && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{errorMessage}</AlertDescription>
+                </Alert>
+              )}
+              
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input 

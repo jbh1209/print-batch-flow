@@ -1,28 +1,32 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function AdminSetupForm() {
   const { user } = useAuth();
   const [userId, setUserId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Auto-fill the user ID when the component mounts and user is available
-  useEffect(() => {
+  useState(() => {
     if (user?.id) {
       setUserId(user.id);
     }
-  }, [user]);
+  });
 
   const handleSetAsAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
+    setSuccessMessage("");
     
     if (!userId.trim()) {
       setErrorMessage("Please enter a valid user ID");
@@ -40,10 +44,11 @@ export function AdminSetupForm() {
       
       if (error) throw error;
       
+      setSuccessMessage("Admin role successfully assigned!");
       toast.success("Admin role successfully assigned");
       
       // Reload the page after a short delay to show the updated UI
-      setTimeout(() => window.location.reload(), 1500);
+      setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
       console.error("Error setting admin role:", error);
       setErrorMessage(error.message || "Failed to set admin role");
@@ -64,6 +69,20 @@ export function AdminSetupForm() {
       <form onSubmit={handleSetAsAdmin}>
         <CardContent>
           <div className="space-y-4">
+            {errorMessage && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
+            
+            {successMessage && (
+              <Alert className="bg-green-50 border-green-200 text-green-800">
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>{successMessage}</AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-2">
               <label htmlFor="userId" className="text-sm font-medium">
                 User ID
@@ -73,11 +92,7 @@ export function AdminSetupForm() {
                 placeholder="Enter user ID"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                className={errorMessage ? "border-red-500" : ""}
               />
-              {errorMessage && (
-                <p className="text-sm text-red-500">{errorMessage}</p>
-              )}
               {user && (
                 <p className="text-sm text-gray-500">
                   Your user ID: <span className="font-mono">{user.id}</span>

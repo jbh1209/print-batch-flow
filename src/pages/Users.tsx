@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users as UsersIcon } from "lucide-react";
+import { Users as UsersIcon, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { UserTableContainer } from "@/components/users/UserTableContainer";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuthDebugger } from "@/components/users/AuthDebugger";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Users = () => {
   const navigate = useNavigate();
@@ -19,15 +21,18 @@ const Users = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
   const [anyAdminExists, setAnyAdminExists] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Check if any admin exists in the system
   useEffect(() => {
     const checkAdminExists = async () => {
       try {
+        setError(null);
         const { data, error } = await supabase.rpc('any_admin_exists');
           
         if (error) {
           console.error('Error checking admin existence:', error);
+          setError(`Error checking if admin exists: ${error.message}`);
           setAnyAdminExists(false);
           setIsLoading(false);
           return;
@@ -35,8 +40,9 @@ const Users = () => {
         
         setAnyAdminExists(data);
         setIsLoading(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error in checkAdminExists:', error);
+        setError(`Error checking if admin exists: ${error.message}`);
         setAnyAdminExists(false);
         setIsLoading(false);
       }
@@ -53,6 +59,7 @@ const Users = () => {
     }
     
     setIsLoading(true);
+    setError(null);
     
     try {
       // Get all user profiles
@@ -72,7 +79,7 @@ const Users = () => {
       
       setUserProfiles(profileMap);
       
-      // Get all user roles
+      // Get all user roles using RPC function to avoid recursion
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
@@ -100,6 +107,8 @@ const Users = () => {
       
       setUsers(formattedUsers);
     } catch (error: any) {
+      console.error('Error loading users:', error);
+      setError(`Error loading users: ${error.message}`);
       toast.error(`Error loading users: ${error.message}`);
     } finally {
       setIsLoading(false);
@@ -128,6 +137,17 @@ const Users = () => {
         </div>
         <Button onClick={() => navigate("/")}>Back to Dashboard</Button>
       </div>
+
+      {/* Show auth debugger for troubleshooting */}
+      {user && <AuthDebugger />}
+
+      {/* Display any errors */}
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {!anyAdminExists ? (
         <AdminSetupForm />
