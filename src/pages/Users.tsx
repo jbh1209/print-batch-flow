@@ -11,12 +11,15 @@ import { UserTableContainer } from "@/components/users/UserTableContainer";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
 import { AuthDebugger } from "@/components/users/AuthDebugger";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Database } from "@/integrations/supabase/types";
+
+type AppRole = Database["public"]["Enums"]["app_role"];
 
 const Users = () => {
   const navigate = useNavigate();
   const { user, isAdmin, checkAdminStatus } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
-  const [userRoles, setUserRoles] = useState<Record<string, string>>({});
+  const [userRoles, setUserRoles] = useState<Record<string, AppRole>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [anyAdminExists, setAnyAdminExists] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,10 +79,10 @@ const Users = () => {
       if (rolesError) throw rolesError;
       
       // Create a map of user_id to role
-      const roleMap: Record<string, string> = {};
+      const roleMap: Record<string, AppRole> = {};
       if (rolesData) {
         rolesData.forEach((roleEntry) => {
-          roleMap[roleEntry.user_id] = roleEntry.role;
+          roleMap[roleEntry.user_id] = roleEntry.role as AppRole;
         });
       }
       

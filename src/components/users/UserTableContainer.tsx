@@ -8,6 +8,7 @@ import { UserForm } from "./UserForm";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Database } from "@/integrations/supabase/types";
 
 // Define User interface explicitly to avoid recursive type issues
 interface User {
@@ -19,17 +20,20 @@ interface User {
   last_sign_in_at?: string;
 }
 
+// Define app_role type from the database schema
+type AppRole = Database["public"]["Enums"]["app_role"];
+
 // Define FormData interface for better type safety
 interface UserFormData {
   email?: string;
   full_name?: string;
   password?: string;
-  role?: string;
+  role?: AppRole;
 }
 
 interface UserTableContainerProps {
   users: User[];
-  userRoles: Record<string, string>;
+  userRoles: Record<string, AppRole>;
   isLoading: boolean;
   refreshUsers: () => Promise<void>;
 }
@@ -75,9 +79,10 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
         if (userData.role && userData.role !== 'user') {
           const { error: roleError } = await supabase
             .from('user_roles')
-            .insert([
-              { user_id: authData.user.id, role: userData.role }
-            ]);
+            .insert({
+              user_id: authData.user.id, 
+              role: userData.role as AppRole
+            });
             
           if (roleError) throw roleError;
         }
@@ -111,9 +116,10 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
         if (userData.role !== 'user') {
           const { error: roleError } = await supabase
             .from('user_roles')
-            .insert([
-              { user_id: editingUser.id, role: userData.role }
-            ]);
+            .insert({
+              user_id: editingUser.id, 
+              role: userData.role as AppRole
+            });
             
           if (roleError) throw roleError;
         }
@@ -196,7 +202,10 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
         // Then add admin role
         const { error } = await supabase
           .from('user_roles')
-          .insert([{ user_id: userId, role: 'admin' }]);
+          .insert({
+            user_id: userId, 
+            role: 'admin' as AppRole
+          });
           
         if (error) throw error;
         toast.success('User promoted to admin successfully');

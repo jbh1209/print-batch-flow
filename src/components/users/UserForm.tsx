@@ -10,12 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DialogFooter } from "@/components/ui/dialog";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Database } from "@/integrations/supabase/types";
+
+type AppRole = Database["public"]["Enums"]["app_role"];
 
 interface UserFormProps {
   initialData?: {
     email?: string;
     full_name?: string;
-    role?: string;
+    role?: AppRole;
   };
   onSubmit: (data: any) => void;
   isEditing?: boolean;
@@ -30,7 +33,7 @@ const createUserSchema = z.object({
     .string()
     .min(8, { message: "Password must be at least 8 characters" }),
   confirmPassword: z.string(),
-  role: z.string().default("user")
+  role: z.enum(["admin", "user"]).default("user")
 }).refine((data) => data.password === data.confirmPassword, {
   path: ["confirmPassword"],
   message: "Passwords do not match",
@@ -38,7 +41,7 @@ const createUserSchema = z.object({
 
 const editUserSchema = z.object({
   full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  role: z.string().default("user")
+  role: z.enum(["admin", "user"]).default("user")
 });
 
 export function UserForm({ initialData, onSubmit, isEditing = false, isProcessing = false }: UserFormProps) {
