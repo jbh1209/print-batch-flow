@@ -16,7 +16,7 @@ interface GenericJobsPageProps {
     fetchJobs: () => Promise<void>;
     createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
     isCreatingBatch: boolean;
-    fixBatchedJobsWithoutBatch: () => Promise<number | void>;
+    fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
     isFixingBatchedJobs?: boolean;
   };
 }

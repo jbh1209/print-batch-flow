@@ -12,8 +12,8 @@ const CoverJobsPage = () => {
     
     // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
     const fixBatchedJobsWrapper = async () => {
-      await hookResult.fixBatchedJobsWithoutBatch();
-      // Return type is void as expected
+      return await hookResult.fixBatchedJobsWithoutBatch();
+      // No need to force void return type - we now accept number | void
     };
     
     return {

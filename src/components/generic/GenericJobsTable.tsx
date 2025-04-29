@@ -31,7 +31,7 @@ interface GenericJobsTableProps {
   fetchJobs: () => Promise<void>;
   createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
   isCreatingBatch: boolean;
-  fixBatchedJobsWithoutBatch: () => Promise<void>;
+  fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
   isFixingBatchedJobs?: boolean;
   config: ProductConfig;
 }
