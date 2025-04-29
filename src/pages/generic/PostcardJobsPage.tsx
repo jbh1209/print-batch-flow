@@ -66,7 +66,10 @@ const PostcardJobsPage = () => {
         fetchJobs={async () => {}}
         createBatch={createBatch}
         isCreatingBatch={isCreatingBatch}
-        fixBatchedJobsWithoutBatch={fixBatchedJobsWithoutBatch}
+        fixBatchedJobsWithoutBatch={async () => { 
+          // Convert the return value to void by wrapping the original function
+          await fixBatchedJobsWithoutBatch();
+        }}
         isFixingBatchedJobs={isFixingBatchedJobs}
         config={config}
       />

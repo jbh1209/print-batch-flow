@@ -12,7 +12,11 @@ interface JobWithId {
 export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
-  const fixBatchedJobsWithoutBatch = async () => {
+  /**
+   * Fixes jobs that are marked as batched but have no batch_id
+   * @returns Promise<number | undefined> - The number of jobs fixed or undefined if no jobs needed fixing
+   */
+  const fixBatchedJobsWithoutBatch = async (): Promise<number | undefined> => {
     if (!userId || !tableName) {
       console.log("No authenticated user or table name found for fix operation");
       return;
@@ -53,7 +57,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         
         if (jobIds.length === 0) {
           console.log("No valid job IDs found to update");
-          return;
+          return 0;
         }
         
         // Use 'as any' to bypass TypeScript's type checking for the table name
@@ -69,9 +73,12 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         
         return jobIds.length;
       }
+      
+      return 0;
     } catch (error) {
       console.error(`Error fixing batched jobs:`, error);
       toast.error(`Failed to reset jobs with missing batch references.`);
+      return 0;
     } finally {
       setIsFixingBatchedJobs(false);
     }
