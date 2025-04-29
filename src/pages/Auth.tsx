@@ -1,106 +1,199 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { InitialAdminSetup } from '@/components/users/InitialAdminSetup';
 
 const Auth = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignup, setIsSignup] = useState(false);
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [userCount, setUserCount] = useState<number | null>(null);
+  const [isCheckingUsers, setIsCheckingUsers] = useState(true);
 
-  const handleAuth = async (e: React.FormEvent) => {
+  useEffect(() => {
+    // Check if any users exist in the system
+    const checkExistingUsers = async () => {
+      setIsCheckingUsers(true);
+      try {
+        const { count, error } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+          
+        if (error) throw error;
+        
+        setUserCount(count);
+      } catch (error) {
+        console.error('Error checking users:', error);
+      } finally {
+        setIsCheckingUsers(false);
+      }
+    };
+    
+    checkExistingUsers();
+    
+    // Redirect if user is already logged in
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    setLoading(true);
     try {
-      if (isSignup) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: '', // You can expand this later
-            }
-          }
-        });
-
-        if (error) throw error;
-        toast.success('Account created successfully! Please check your email.');
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
-        if (error) throw error;
-        toast.success('Logged in successfully!');
-        navigate('/');
-      }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+      navigate('/');
     } catch (error: any) {
-      toast.error(error.message || 'Authentication failed');
+      toast.error(`Error signing in: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {isSignup ? 'Create an account' : 'Sign in to your account'}
-          </h2>
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirect: window.location.origin,
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Sign up successful! Check your email to verify your account.');
+    } catch (error: any) {
+      toast.error(`Error signing up: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (isCheckingUsers) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <p>Checking system status...</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleAuth}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <Input
-                id="email-address"
-                name="email"
-                type="email"
-                required
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-batchflow-primary focus:border-batchflow-primary focus:z-10 sm:text-sm"
-              />
-            </div>
-            <div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-batchflow-primary focus:border-batchflow-primary focus:z-10 sm:text-sm"
-              />
-            </div>
-          </div>
+      </div>
+    );
+  }
 
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <button 
-                type="button"
-                onClick={() => setIsSignup(!isSignup)}
-                className="font-medium text-batchflow-primary hover:text-batchflow-primary/80"
-              >
-                {isSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
-              </button>
-            </div>
-          </div>
+  // If no users exist, show the initial admin setup
+  if (userCount === 0) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="w-full max-w-md px-4">
+          <InitialAdminSetup />
+        </div>
+      </div>
+    );
+  }
 
-          <div>
-            <Button 
-              type="submit" 
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-batchflow-primary hover:bg-batchflow-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-batchflow-primary"
-            >
-              {isSignup ? 'Sign up' : 'Sign in'}
-            </Button>
-          </div>
-        </form>
+  return (
+    <div className="flex justify-center items-center min-h-screen bg-gray-50">
+      <div className="w-full max-w-md px-4">
+        <Tabs defaultValue="login" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="login">Login</TabsTrigger>
+            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+          </TabsList>
+          <TabsContent value="login">
+            <Card>
+              <CardHeader>
+                <CardTitle>Login</CardTitle>
+                <CardDescription>Enter your credentials to access your account</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleLogin}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={email} 
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Signing in..." : "Sign In"}
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+          </TabsContent>
+          <TabsContent value="signup">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create an Account</CardTitle>
+                <CardDescription>Enter your details to create a new account</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleSignUp}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">Email</Label>
+                    <Input 
+                      id="signup-email" 
+                      type="email" 
+                      value={email} 
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Password</Label>
+                    <Input 
+                      id="signup-password" 
+                      type="password" 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Creating account..." : "Sign Up"}
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

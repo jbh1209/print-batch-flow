@@ -2,10 +2,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users as UsersIcon, UserPlus, Edit, Trash2 } from "lucide-react";
+import { Users as UsersIcon, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { UserForm } from "@/components/users/UserForm";
@@ -43,34 +43,30 @@ const Users = () => {
     checkAdminRole();
   }, [user]);
 
-  // Fetch all users and their roles
+  // Fetch users
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!isAdmin) {
+      if (!isAdmin || !user) {
         setIsLoading(false);
         return;
       }
       
       setIsLoading(true);
       
-      // First get all users
-      const { data: userData, error: userError } = await supabase.auth.admin.listUsers();
-      
-      if (userError) {
-        console.error('Error fetching users:', userError);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (userData && userData.users) {
-        // Get all user roles to map them to users
+      try {
+        // Get all users from the auth.users table using a custom function
+        const { data: userData, error: userError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, created_at');
+        
+        if (userError) throw userError;
+        
+        // Get all user roles
         const { data: rolesData, error: rolesError } = await supabase
           .from('user_roles')
           .select('user_id, role');
           
-        if (rolesError) {
-          console.error('Error fetching user roles:', rolesError);
-        }
+        if (rolesError) throw rolesError;
         
         // Create a map of user_id to role
         const roleMap: Record<string, string> = {};
@@ -81,32 +77,46 @@ const Users = () => {
         }
         
         setUserRoles(roleMap);
-        setUsers(userData.users);
+        
+        // Format user data to match expected structure
+        const formattedUsers = userData?.map(profile => ({
+          id: profile.id,
+          email: '', // We don't have direct access to emails
+          created_at: profile.created_at,
+          last_sign_in_at: null
+        })) || [];
+        
+        setUsers(formattedUsers);
+      } catch (error: any) {
+        console.error('Error fetching users:', error);
+        toast.error('Error loading users');
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
     
     fetchUsers();
-  }, [isAdmin]);
+  }, [isAdmin, user]);
 
   const handleAddUser = async (userData: any) => {
     try {
-      // Create the user with Supabase Auth
-      const { data, error } = await supabase.auth.admin.createUser({
+      // Sign up the user with Supabase auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
-        email_confirm: true,
+        options: {
+          emailRedirect: window.location.origin,
+        }
       });
       
-      if (error) throw error;
+      if (authError) throw authError;
       
-      if (data.user) {
+      if (authData.user) {
         // Assign role to the new user
         const { error: roleError } = await supabase
           .from('user_roles')
           .insert([
-            { user_id: data.user.id, role: userData.role || 'user' }
+            { user_id: authData.user.id, role: userData.role || 'user' }
           ]);
           
         if (roleError) throw roleError;
@@ -115,9 +125,32 @@ const Users = () => {
         setDialogOpen(false);
         
         // Refresh the user list
-        const { data: updatedUsers } = await supabase.auth.admin.listUsers();
-        if (updatedUsers) {
-          setUsers(updatedUsers.users);
+        const { data: refreshedProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, created_at');
+        
+        if (refreshedProfiles) {
+          const formattedUsers = refreshedProfiles.map(profile => ({
+            id: profile.id,
+            email: '', // We don't have direct access to emails
+            created_at: profile.created_at,
+            last_sign_in_at: null
+          }));
+          
+          setUsers(formattedUsers);
+        }
+        
+        // Refresh roles
+        const { data: refreshedRoles } = await supabase
+          .from('user_roles')
+          .select('user_id, role');
+          
+        if (refreshedRoles) {
+          const roleMap: Record<string, string> = {};
+          refreshedRoles.forEach((roleEntry) => {
+            roleMap[roleEntry.user_id] = roleEntry.role;
+          });
+          setUserRoles(roleMap);
         }
       }
     } catch (error: any) {
@@ -128,14 +161,6 @@ const Users = () => {
   const handleEditUser = async (userData: any) => {
     try {
       if (!editingUser) return;
-      
-      // Update user details
-      const { error } = await supabase.auth.admin.updateUserById(
-        editingUser.id,
-        { email: userData.email }
-      );
-      
-      if (error) throw error;
       
       // Update role if changed
       if (userData.role && userRoles[editingUser.id] !== userData.role) {
@@ -159,20 +184,14 @@ const Users = () => {
       setDialogOpen(false);
       setEditingUser(null);
       
-      // Refresh the user list
-      const { data: updatedUsers } = await supabase.auth.admin.listUsers();
-      if (updatedUsers) {
-        setUsers(updatedUsers.users);
-      }
-      
       // Refresh roles
-      const { data: rolesData } = await supabase
+      const { data: refreshedRoles } = await supabase
         .from('user_roles')
         .select('user_id, role');
         
-      if (rolesData) {
+      if (refreshedRoles) {
         const roleMap: Record<string, string> = {};
-        rolesData.forEach((roleEntry) => {
+        refreshedRoles.forEach((roleEntry) => {
           roleMap[roleEntry.user_id] = roleEntry.role;
         });
         setUserRoles(roleMap);
@@ -184,17 +203,23 @@ const Users = () => {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      // Delete user from Supabase Auth
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      
+      // We can't delete users directly using the client API
+      // Instead, disable their access by revoking their role
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+        
       if (error) throw error;
       
-      toast.success('User deleted successfully');
+      toast.success('User role revoked successfully');
       
-      // Update local state to remove the deleted user
-      setUsers(users.filter(u => u.id !== userId));
+      // Update local state to reflect changes
+      const updatedRoles = { ...userRoles };
+      delete updatedRoles[userId];
+      setUserRoles(updatedRoles);
     } catch (error: any) {
-      toast.error(`Error deleting user: ${error.message}`);
+      toast.error(`Error removing user role: ${error.message}`);
     }
   };
 
