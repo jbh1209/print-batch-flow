@@ -10,20 +10,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Database } from "@/integrations/supabase/types";
 
+// Define type for app_role from the database schema
+type AppRole = Database["public"]["Enums"]["app_role"];
+
 // Define User interface explicitly to avoid recursive type issues
 interface User {
   id: string;
-  email?: string;
-  full_name?: string;
-  avatar_url?: string;
+  email?: string | null;
+  full_name?: string | null;
+  avatar_url?: string | null;
   created_at: string;
-  last_sign_in_at?: string;
+  last_sign_in_at?: string | null;
 }
 
-// Define app_role type from the database schema
-type AppRole = Database["public"]["Enums"]["app_role"];
-
-// Define FormData interface for better type safety
+// Define FormData interface with specific types
 interface UserFormData {
   email?: string;
   full_name?: string;
@@ -243,8 +243,8 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             </DialogHeader>
             <UserForm 
               initialData={editingUser ? {
-                email: editingUser.email,
-                full_name: editingUser.full_name,
+                email: editingUser.email || undefined,
+                full_name: editingUser.full_name || undefined,
                 role: userRoles[editingUser.id] || 'user'
               } : undefined}
               onSubmit={editingUser ? handleEditUser : handleAddUser}

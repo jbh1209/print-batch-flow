@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -15,10 +14,20 @@ import { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
+// Define User interface to match what we expect from the API
+interface User {
+  id: string;
+  email?: string;
+  full_name?: string;
+  avatar_url?: string;
+  created_at: string;
+  last_sign_in_at?: string;
+}
+
 const Users = () => {
   const navigate = useNavigate();
   const { user, isAdmin, checkAdminStatus } = useAuth();
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [userRoles, setUserRoles] = useState<Record<string, AppRole>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [anyAdminExists, setAnyAdminExists] = useState(false);

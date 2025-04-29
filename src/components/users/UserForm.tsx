@@ -33,7 +33,7 @@ const createUserSchema = z.object({
     .string()
     .min(8, { message: "Password must be at least 8 characters" }),
   confirmPassword: z.string(),
-  role: z.enum(["admin", "user"]).default("user")
+  role: z.enum(["admin", "user"] as const).default("user")
 }).refine((data) => data.password === data.confirmPassword, {
   path: ["confirmPassword"],
   message: "Passwords do not match",
@@ -41,7 +41,7 @@ const createUserSchema = z.object({
 
 const editUserSchema = z.object({
   full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  role: z.enum(["admin", "user"]).default("user")
+  role: z.enum(["admin", "user"] as const).default("user")
 });
 
 export function UserForm({ initialData, onSubmit, isEditing = false, isProcessing = false }: UserFormProps) {
