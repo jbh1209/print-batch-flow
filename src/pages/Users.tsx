@@ -27,18 +27,15 @@ const Users = () => {
   useEffect(() => {
     const checkAdminExists = async () => {
       try {
-        // First check if the user_roles table has any admin role
-        const { count, error } = await supabase
-          .from('user_roles')
-          .select('*', { count: 'exact', head: true })
-          .eq('role', 'admin');
+        // Call the any_admin_exists function
+        const { data, error } = await supabase.rpc('any_admin_exists');
           
         if (error) {
           console.error('Error checking admin existence:', error);
           return;
         }
         
-        setAnyAdminExists(count !== null && count > 0);
+        setAnyAdminExists(data);
       } catch (error) {
         console.error('Error in checkAdminExists:', error);
       }

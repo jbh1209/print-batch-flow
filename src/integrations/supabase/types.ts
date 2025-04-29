@@ -407,6 +407,10 @@ export type Database = {
         Args: { admin_user_id: string }
         Returns: undefined
       }
+      any_admin_exists: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       has_role: {
         Args: { role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
