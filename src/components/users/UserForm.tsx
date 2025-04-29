@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogFooter } from "@/components/ui/dialog";
+import { AlertCircle } from "lucide-react";
 
 interface UserFormProps {
   initialData?: {
@@ -35,13 +36,13 @@ const createUserSchema = z.object({
 });
 
 const editUserSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
   full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   role: z.string().default("user")
 });
 
 export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
   
   const formSchema = isEditing ? editUserSchema : createUserSchema;
   
@@ -57,8 +58,12 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
 
   const handleSubmit = async (data: any) => {
     setIsSubmitting(true);
+    setServerError("");
+    
     try {
       await onSubmit(data);
+    } catch (error: any) {
+      setServerError(error.message || "An unexpected error occurred");
     } finally {
       setIsSubmitting(false);
     }
@@ -67,6 +72,13 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
+        {serverError && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded p-3 flex items-start">
+            <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+            <p className="text-sm">{serverError}</p>
+          </div>
+        )}
+        
         <FormField
           control={form.control}
           name="full_name"
@@ -81,19 +93,21 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="user@example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {!isEditing && (
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input placeholder="user@example.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormField
           control={form.control}

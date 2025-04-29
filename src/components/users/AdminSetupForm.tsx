@@ -11,6 +11,7 @@ export function AdminSetupForm() {
   const { user } = useAuth();
   const [userId, setUserId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Auto-fill the user ID when the component mounts and user is available
   useEffect(() => {
@@ -21,8 +22,10 @@ export function AdminSetupForm() {
 
   const handleSetAsAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
     
     if (!userId.trim()) {
+      setErrorMessage("Please enter a valid user ID");
       toast.error("Please enter a valid user ID");
       return;
     }
@@ -38,10 +41,12 @@ export function AdminSetupForm() {
       if (error) throw error;
       
       toast.success("Admin role successfully assigned");
+      
       // Reload the page after a short delay to show the updated UI
       setTimeout(() => window.location.reload(), 1500);
     } catch (error: any) {
       console.error("Error setting admin role:", error);
+      setErrorMessage(error.message || "Failed to set admin role");
       toast.error(`Failed to set admin role: ${error.message}`);
     } finally {
       setIsSubmitting(false);
@@ -68,7 +73,11 @@ export function AdminSetupForm() {
                 placeholder="Enter user ID"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
+                className={errorMessage ? "border-red-500" : ""}
               />
+              {errorMessage && (
+                <p className="text-sm text-red-500">{errorMessage}</p>
+              )}
               {user && (
                 <p className="text-sm text-gray-500">
                   Your user ID: <span className="font-mono">{user.id}</span>
