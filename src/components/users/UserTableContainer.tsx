@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+// Define User interface explicitly to avoid recursive type issues
 interface User {
   id: string;
   email?: string;
@@ -16,6 +17,14 @@ interface User {
   avatar_url?: string;
   created_at: string;
   last_sign_in_at?: string;
+}
+
+// Define FormData interface for better type safety
+interface UserFormData {
+  email?: string;
+  full_name?: string;
+  password?: string;
+  role?: string;
 }
 
 interface UserTableContainerProps {
@@ -31,7 +40,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [processing, setProcessing] = useState(false);
   
-  const handleAddUser = async (userData: any) => {
+  const handleAddUser = async (userData: UserFormData) => {
     setProcessing(true);
     try {
       // Check if user already exists
@@ -49,8 +58,8 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
       
       // Sign up the user with Supabase auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
+        email: userData.email || '',
+        password: userData.password || '',
         options: {
           emailRedirectTo: window.location.origin,
           data: {
@@ -85,7 +94,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
     }
   };
 
-  const handleEditUser = async (userData: any) => {
+  const handleEditUser = async (userData: UserFormData) => {
     if (!editingUser) return;
     
     setProcessing(true);
