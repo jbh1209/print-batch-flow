@@ -10,6 +10,7 @@ import { toast } from "sonner";
 export function InitialAdminSetup() {
   const [email, setEmail] = useState("james@impressweb.co.za");
   const [password, setPassword] = useState("Hawkeye@12209");
+  const [fullName, setFullName] = useState("Admin User");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateAdmin = async (e: React.FormEvent) => {
@@ -24,6 +25,9 @@ export function InitialAdminSetup() {
         password,
         options: {
           emailRedirectTo: window.location.origin,
+          data: {
+            full_name: fullName
+          }
         }
       });
       
@@ -63,6 +67,16 @@ export function InitialAdminSetup() {
       </CardHeader>
       <form onSubmit={handleCreateAdmin}>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Full Name</Label>
+            <Input 
+              id="fullName" 
+              type="text" 
+              value={fullName} 
+              onChange={(e) => setFullName(e.target.value)}
+              required
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input 

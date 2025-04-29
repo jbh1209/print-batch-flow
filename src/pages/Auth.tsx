@@ -16,6 +16,7 @@ const Auth = () => {
   const { user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [userCount, setUserCount] = useState<number | null>(null);
   const [isCheckingUsers, setIsCheckingUsers] = useState(true);
@@ -70,6 +71,11 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!fullName.trim()) {
+      toast.error('Please enter your full name');
+      return;
+    }
+    
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -77,6 +83,9 @@ const Auth = () => {
         password,
         options: {
           emailRedirectTo: window.location.origin,
+          data: {
+            full_name: fullName,
+          }
         }
       });
       
@@ -164,6 +173,16 @@ const Auth = () => {
               </CardHeader>
               <form onSubmit={handleSignUp}>
                 <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input 
+                      id="fullName" 
+                      type="text" 
+                      value={fullName} 
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
                     <Input 

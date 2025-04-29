@@ -12,6 +12,7 @@ import { DialogFooter } from "@/components/ui/dialog";
 interface UserFormProps {
   initialData?: {
     email?: string;
+    full_name?: string;
     role?: string;
   };
   onSubmit: (data: any) => void;
@@ -21,6 +22,7 @@ interface UserFormProps {
 // Define form schema based on whether we're editing or creating
 const createUserSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
+  full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   password: z
     .string()
     .min(8, { message: "Password must be at least 8 characters" })
@@ -34,6 +36,7 @@ const createUserSchema = z.object({
 
 const editUserSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
+  full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   role: z.string().default("user")
 });
 
@@ -46,6 +49,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: initialData?.email || "",
+      full_name: initialData?.full_name || "",
       role: initialData?.role || "user",
       ...(isEditing ? {} : { password: "", confirmPassword: "" })
     }
@@ -63,6 +67,20 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
+        <FormField
+          control={form.control}
+          name="full_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Full Name</FormLabel>
+              <FormControl>
+                <Input placeholder="John Doe" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="email"

@@ -3,18 +3,26 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 
+interface Profile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  profile: Profile | null;
   loading: boolean;
-  isLoggedIn: boolean; // Add this property
-  isLoading: boolean; // Add this property
+  isLoggedIn: boolean;
+  isLoading: boolean;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
+  profile: null,
   loading: true,
   isLoggedIn: false,
   isLoading: true,
@@ -24,14 +32,45 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Fetch user profile from profiles table
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in fetchProfile:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
+      
+      // Fetch profile if we have a user
+      if (session?.user) {
+        fetchProfile(session.user.id).then(profile => {
+          setProfile(profile);
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
+      }
     });
 
     // Listen for auth changes
@@ -39,7 +78,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
+        
+        // Fetch profile if we have a user
+        if (session?.user) {
+          fetchProfile(session.user.id).then(profile => {
+            setProfile(profile);
+            setLoading(false);
+          });
+        } else {
+          setProfile(null);
+          setLoading(false);
+        }
       }
     );
 
@@ -54,9 +103,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const value = {
     user,
     session,
+    profile,
     loading,
-    isLoggedIn: !!user, // For backward compatibility
-    isLoading: loading, // For backward compatibility
+    isLoggedIn: !!user,
+    isLoading: loading,
     signOut
   };
 

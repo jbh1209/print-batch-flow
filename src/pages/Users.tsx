@@ -20,6 +20,7 @@ const Users = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
 
   // Check if current user is admin
   useEffect(() => {
@@ -54,12 +55,22 @@ const Users = () => {
       setIsLoading(true);
       
       try {
-        // Get all users from the auth.users table using a custom function
-        const { data: userData, error: userError } = await supabase
+        // Get all user profiles
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('id, full_name, avatar_url, created_at');
         
-        if (userError) throw userError;
+        if (profileError) throw profileError;
+        
+        // Create a map of user profiles
+        const profileMap: Record<string, any> = {};
+        if (profileData) {
+          profileData.forEach((profile) => {
+            profileMap[profile.id] = profile;
+          });
+        }
+        
+        setUserProfiles(profileMap);
         
         // Get all user roles
         const { data: rolesData, error: rolesError } = await supabase
@@ -79,8 +90,9 @@ const Users = () => {
         setUserRoles(roleMap);
         
         // Format user data to match expected structure
-        const formattedUsers = userData?.map(profile => ({
+        const formattedUsers = profileData?.map(profile => ({
           id: profile.id,
+          full_name: profile.full_name,
           email: '', // We don't have direct access to emails
           created_at: profile.created_at,
           last_sign_in_at: null
@@ -106,6 +118,9 @@ const Users = () => {
         password: userData.password,
         options: {
           emailRedirectTo: window.location.origin,
+          data: {
+            full_name: userData.full_name
+          }
         }
       });
       
@@ -132,12 +147,21 @@ const Users = () => {
         if (refreshedProfiles) {
           const formattedUsers = refreshedProfiles.map(profile => ({
             id: profile.id,
+            full_name: profile.full_name,
             email: '', // We don't have direct access to emails
             created_at: profile.created_at,
             last_sign_in_at: null
           }));
           
           setUsers(formattedUsers);
+          
+          // Update profiles map
+          const profileMap: Record<string, any> = {};
+          refreshedProfiles.forEach((profile) => {
+            profileMap[profile.id] = profile;
+          });
+          
+          setUserProfiles(profileMap);
         }
         
         // Refresh roles
@@ -180,9 +204,44 @@ const Users = () => {
         if (roleError) throw roleError;
       }
       
+      // Update user profile if name changed
+      if (userData.full_name && userData.full_name !== editingUser.full_name) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ full_name: userData.full_name })
+          .eq('id', editingUser.id);
+          
+        if (profileError) throw profileError;
+      }
+      
       toast.success('User updated successfully');
       setDialogOpen(false);
       setEditingUser(null);
+      
+      // Refresh profiles
+      const { data: refreshedProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, created_at');
+      
+      if (refreshedProfiles) {
+        const formattedUsers = refreshedProfiles.map(profile => ({
+          id: profile.id,
+          full_name: profile.full_name,
+          email: '', // We don't have direct access to emails
+          created_at: profile.created_at,
+          last_sign_in_at: null
+        }));
+        
+        setUsers(formattedUsers);
+        
+        // Update profiles map
+        const profileMap: Record<string, any> = {};
+        refreshedProfiles.forEach((profile) => {
+          profileMap[profile.id] = profile;
+        });
+        
+        setUserProfiles(profileMap);
+      }
       
       // Refresh roles
       const { data: refreshedRoles } = await supabase
@@ -256,6 +315,7 @@ const Users = () => {
                 <UserForm 
                   initialData={editingUser ? {
                     email: editingUser.email,
+                    full_name: editingUser.full_name,
                     role: userRoles[editingUser.id] || 'user'
                   } : undefined}
                   onSubmit={editingUser ? handleEditUser : handleAddUser}
@@ -285,6 +345,7 @@ const Users = () => {
         <UserTable 
           users={users} 
           userRoles={userRoles}
+          userProfiles={userProfiles}
           onEdit={openEditDialog}
           onDelete={handleDeleteUser}
         />

@@ -26,11 +26,12 @@ import { Badge } from "@/components/ui/badge";
 interface UserTableProps {
   users: any[];
   userRoles: Record<string, string>;
+  userProfiles: Record<string, any>;
   onEdit: (user: any) => void;
   onDelete: (userId: string) => void;
 }
 
-export function UserTable({ users, userRoles, onEdit, onDelete }: UserTableProps) {
+export function UserTable({ users, userRoles, userProfiles, onEdit, onDelete }: UserTableProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
@@ -51,6 +52,7 @@ export function UserTable({ users, userRoles, onEdit, onDelete }: UserTableProps
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Name</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Created</TableHead>
@@ -61,7 +63,7 @@ export function UserTable({ users, userRoles, onEdit, onDelete }: UserTableProps
         <TableBody>
           {users.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+              <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                 No users found
               </TableCell>
             </TableRow>
@@ -69,8 +71,9 @@ export function UserTable({ users, userRoles, onEdit, onDelete }: UserTableProps
             users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>
-                  <div className="font-medium">{user.email}</div>
+                  <div className="font-medium">{user.full_name || 'No Name'}</div>
                 </TableCell>
+                <TableCell>{user.email}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className={getRoleBadgeColor(userRoles[user.id] || 'user')}>
                     {userRoles[user.id] || 'user'}
@@ -93,7 +96,7 @@ export function UserTable({ users, userRoles, onEdit, onDelete }: UserTableProps
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete the user {user.email}. This action cannot be undone.
+                            This will permanently revoke access for {user.full_name || user.email}. This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -102,7 +105,7 @@ export function UserTable({ users, userRoles, onEdit, onDelete }: UserTableProps
                             className="bg-red-500 hover:bg-red-600"
                             onClick={() => onDelete(user.id)}
                           >
-                            Delete
+                            Revoke Access
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
