@@ -23,7 +23,7 @@ interface User {
   last_sign_in_at?: string | null;
 }
 
-// Define FormData interface with specific types
+// Define UserFormData interface without circular references
 interface UserFormData {
   email?: string;
   full_name?: string;
