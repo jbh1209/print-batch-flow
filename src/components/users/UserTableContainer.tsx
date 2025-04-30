@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -7,10 +8,9 @@ import { UserForm } from "./UserForm";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Database } from "@/integrations/supabase/types";
 
-// Define type for app_role from the database schema
-type AppRole = Database["public"]["Enums"]["app_role"];
+// Define AppRole as a simple string literal type without referencing Database
+type AppRole = "admin" | "user";
 
 // Define User interface without any circular references
 interface User {
