@@ -8,10 +8,9 @@ import { UserForm } from "./UserForm";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Database } from "@/integrations/supabase/types";
 
-// Use the AppRole type from the Database definition
-type AppRole = Database["public"]["Enums"]["app_role"];
+// Define AppRole directly as a string literal type to avoid circular references
+type AppRole = "admin" | "user";
 
 // Define User interface with primitive types
 interface User {
@@ -23,7 +22,7 @@ interface User {
   last_sign_in_at?: string | null;
 }
 
-// Define form data interface referencing the Database Enum directly
+// Define form data interface using the direct string literal type
 interface UserFormData {
   email?: string;
   full_name?: string;

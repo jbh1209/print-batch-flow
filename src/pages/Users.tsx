@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,9 @@ import { UserTableContainer } from "@/components/users/UserTableContainer";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
 import { AuthDebugger } from "@/components/users/AuthDebugger";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Database } from "@/integrations/supabase/types";
 
-type AppRole = Database["public"]["Enums"]["app_role"];
+// Define AppRole directly as a string literal type to avoid circular references
+type AppRole = "admin" | "user";
 
 // Define User interface to match what we expect from the API
 interface User {
