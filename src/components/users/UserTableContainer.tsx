@@ -206,7 +206,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin' as AppRole
+            role: 'admin' // Removed the "as AppRole" casting that was causing issues
           });
           
         if (error) throw error;
