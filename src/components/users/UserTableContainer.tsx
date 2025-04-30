@@ -9,10 +9,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-// Define AppRole as a simple string literal type without referencing Database
+// Define types without circular references
 type AppRole = "admin" | "user";
 
-// Define User interface without any circular references
 interface User {
   id: string;
   email?: string | null;
@@ -22,7 +21,6 @@ interface User {
   last_sign_in_at?: string | null;
 }
 
-// Define UserFormData interface explicitly and separately
 interface UserFormData {
   email?: string;
   full_name?: string;
@@ -81,7 +79,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role // Using the string literal directly
+              role: userData.role
             });
             
           if (roleError) throw roleError;
@@ -119,7 +117,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: editingUser.id, 
-              role: userData.role // Using the string literal directly
+              role: userData.role
             });
             
           if (roleError) throw roleError;
@@ -207,7 +205,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin' // Using the string literal directly
+            role: 'admin'
           });
           
         if (error) throw error;
