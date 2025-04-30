@@ -23,7 +23,7 @@ interface User {
   last_sign_in_at?: string | null;
 }
 
-// Define UserFormData interface separately to avoid type recursion
+// Define UserFormData interface separately to avoid circular references
 interface UserFormData {
   email?: string;
   full_name?: string;
