@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -8,9 +9,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-// Define types without circular references
+// Define role type as a simple string literal type instead of referencing another type
 type AppRole = "admin" | "user";
 
+// Define User interface with primitive types
 interface User {
   id: string;
   email?: string | null;
@@ -20,12 +22,12 @@ interface User {
   last_sign_in_at?: string | null;
 }
 
-// Separate interface for form data to avoid circular references
+// Define form data interface with primitive types 
 interface UserFormData {
   email?: string;
   full_name?: string;
   password?: string;
-  role?: string; // Changed from AppRole to string to break potential circular reference
+  role?: string; // Using string instead of AppRole to avoid circular references
 }
 
 interface UserTableContainerProps {
@@ -79,7 +81,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role as AppRole // Cast here to ensure type safety
+              role: userData.role as AppRole
             });
             
           if (roleError) throw roleError;
@@ -117,7 +119,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: editingUser.id, 
-              role: userData.role as AppRole // Cast here to ensure type safety
+              role: userData.role as AppRole
             });
             
           if (roleError) throw roleError;
@@ -205,7 +207,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin' as AppRole // Cast here to ensure type safety
+            role: 'admin' as AppRole
           });
           
         if (error) throw error;
