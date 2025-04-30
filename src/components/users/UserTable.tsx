@@ -1,4 +1,3 @@
-
 import React from "react";
 import {
   Table,
@@ -24,9 +23,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Database } from "@/integrations/supabase/types";
 
-type AppRole = Database["public"]["Enums"]["app_role"];
+// Define AppRole directly as a string literal type
+type AppRole = "admin" | "user";
 
 interface User {
   id: string;
