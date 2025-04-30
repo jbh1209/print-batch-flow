@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -21,11 +20,12 @@ interface User {
   last_sign_in_at?: string | null;
 }
 
+// Separate interface for form data to avoid circular references
 interface UserFormData {
   email?: string;
   full_name?: string;
   password?: string;
-  role?: AppRole;
+  role?: string; // Changed from AppRole to string to break potential circular reference
 }
 
 interface UserTableContainerProps {
@@ -79,7 +79,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role
+              role: userData.role as AppRole // Cast here to ensure type safety
             });
             
           if (roleError) throw roleError;
@@ -117,7 +117,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: editingUser.id, 
-              role: userData.role
+              role: userData.role as AppRole // Cast here to ensure type safety
             });
             
           if (roleError) throw roleError;
@@ -205,7 +205,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin'
+            role: 'admin' as AppRole // Cast here to ensure type safety
           });
           
         if (error) throw error;
