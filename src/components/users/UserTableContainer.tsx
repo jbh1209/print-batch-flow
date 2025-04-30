@@ -81,7 +81,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role // Using the string literal directly without type casting
+              role: userData.role // Using the string literal directly
             });
             
           if (roleError) throw roleError;
@@ -119,7 +119,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: editingUser.id, 
-              role: userData.role // Using the string literal directly without type casting
+              role: userData.role // Using the string literal directly
             });
             
           if (roleError) throw roleError;
@@ -207,7 +207,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin' // Using the string literal directly without type casting
+            role: 'admin' // Using the string literal directly
           });
           
         if (error) throw error;
