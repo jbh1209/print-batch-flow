@@ -13,7 +13,7 @@ import { Database } from "@/integrations/supabase/types";
 // Define type for app_role from the database schema
 type AppRole = Database["public"]["Enums"]["app_role"];
 
-// Define User interface explicitly to avoid recursive type issues
+// Define User interface with explicit typing to avoid circular references
 interface User {
   id: string;
   email?: string | null;
