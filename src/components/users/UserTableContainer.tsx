@@ -8,9 +8,10 @@ import { UserForm } from "./UserForm";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Database } from "@/integrations/supabase/types";
 
-// Define role type as a simple string literal type instead of referencing another type
-type AppRole = "admin" | "user";
+// Use the AppRole type from the Database definition
+type AppRole = Database["public"]["Enums"]["app_role"];
 
 // Define User interface with primitive types
 interface User {
@@ -22,12 +23,12 @@ interface User {
   last_sign_in_at?: string | null;
 }
 
-// Define form data interface with primitive types 
+// Define form data interface referencing the Database Enum directly
 interface UserFormData {
   email?: string;
   full_name?: string;
   password?: string;
-  role?: string; // Using string instead of AppRole to avoid circular references
+  role?: AppRole;
 }
 
 interface UserTableContainerProps {
@@ -81,7 +82,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role as AppRole
+              role: userData.role
             });
             
           if (roleError) throw roleError;
@@ -119,7 +120,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: editingUser.id, 
-              role: userData.role as AppRole
+              role: userData.role
             });
             
           if (roleError) throw roleError;
@@ -207,7 +208,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin' as AppRole
+            role: 'admin'
           });
           
         if (error) throw error;
