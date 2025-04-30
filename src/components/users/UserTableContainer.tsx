@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -80,7 +81,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role
+              role: userData.role // Using the string literal directly without type casting
             });
             
           if (roleError) throw roleError;
@@ -118,7 +119,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
             .from('user_roles')
             .insert({
               user_id: editingUser.id, 
-              role: userData.role
+              role: userData.role // Using the string literal directly without type casting
             });
             
           if (roleError) throw roleError;
@@ -206,7 +207,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin' // Removed the "as AppRole" casting that was causing issues
+            role: 'admin' // Using the string literal directly without type casting
           });
           
         if (error) throw error;
