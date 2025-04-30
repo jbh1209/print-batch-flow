@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
