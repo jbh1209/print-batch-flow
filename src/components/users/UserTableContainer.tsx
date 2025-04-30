@@ -44,6 +44,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [processing, setProcessing] = useState(false);
   
+  // Handle adding a new user
   const handleAddUser = async (userData: UserFormData) => {
     setProcessing(true);
     try {
@@ -99,6 +100,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
     }
   };
 
+  // Handle editing an existing user
   const handleEditUser = async (userData: UserFormData) => {
     if (!editingUser) return;
     
@@ -147,6 +149,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
     }
   };
 
+  // Handle deleting a user
   const handleDeleteUser = async (userId: string) => {
     setProcessing(true);
     try {
@@ -173,6 +176,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
     }
   };
 
+  // Handle toggling admin role
   const handleToggleAdminRole = async (userId: string, currentRole: string) => {
     // Prevent updating your own role
     if (userId === currentUser?.id) {
