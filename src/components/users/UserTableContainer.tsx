@@ -13,7 +13,7 @@ import { Database } from "@/integrations/supabase/types";
 // Define type for app_role from the database schema
 type AppRole = Database["public"]["Enums"]["app_role"];
 
-// Define User interface with explicit typing to avoid circular references
+// Define User interface without circular references
 interface User {
   id: string;
   email?: string | null;
@@ -23,7 +23,7 @@ interface User {
   last_sign_in_at?: string | null;
 }
 
-// Define UserFormData interface without circular references
+// Define UserFormData interface separately to avoid type recursion
 interface UserFormData {
   email?: string;
   full_name?: string;
