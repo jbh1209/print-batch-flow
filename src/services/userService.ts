@@ -13,9 +13,9 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     if (profilesError) throw profilesError;
 
     // Get all user email data from auth (requires admin privileges)
-    // We need to use a raw query since the function isn't in the TypeScript types yet
+    // Using REST API approach instead of typed RPC to avoid TypeScript errors
     const { data: users, error: usersError } = await supabase
-      .rpc('get_all_users') as { data: { id: string, email: string }[] | null, error: any };
+      .functions.invoke('get-all-users');
       
     if (usersError) {
       console.error('Error fetching user emails:', usersError);
