@@ -411,11 +411,22 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      get_all_users_secure: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+        }[]
+      }
       has_role: {
         Args: { role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
       is_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      is_admin_secure: {
         Args: { _user_id: string }
         Returns: boolean
       }

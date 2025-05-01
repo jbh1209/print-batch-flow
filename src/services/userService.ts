@@ -2,10 +2,46 @@
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
-// Fetch all users with their roles
+// Fetch all users with their roles - Optimized to reduce complexity
 export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
     console.log('Starting fetchUsers in userService');
+    
+    // First try using the secure direct RPC call to get users
+    try {
+      console.log('Trying to get users with get_all_users_secure RPC');
+      const { data: secureUsers, error: secureError } = await supabase
+        .rpc('get_all_users_secure');
+      
+      if (!secureError && secureUsers && secureUsers.length > 0) {
+        console.log('Successfully retrieved users with secure RPC function');
+        // Map to our expected format
+        const userList = await Promise.all(secureUsers.map(async (user) => {
+          const { data: isAdmin } = await supabase
+            .rpc('is_admin_secure', { _user_id: user.id });
+          
+          // Get profile information
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, created_at')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          return {
+            id: user.id,
+            email: user.email || 'No email',
+            full_name: profile?.full_name || null,
+            avatar_url: profile?.avatar_url || null,
+            role: isAdmin ? 'admin' : 'user',
+            created_at: profile?.created_at || null
+          };
+        }));
+        
+        return userList;
+      }
+    } catch (error) {
+      console.log('Secure RPC failed, falling back to edge function:', error);
+    }
     
     // Get all profiles from the profiles table
     const { data: profiles, error: profilesError } = await supabase
@@ -19,7 +55,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     
     console.log('Profiles fetched:', profiles?.length || 0);
 
-    // Get all user email data from auth (requires admin privileges)
+    // Fall back to edge function
     console.log('Invoking get-all-users edge function');
     const response = await supabase.functions.invoke('get-all-users', {
       method: 'GET',
@@ -53,20 +89,32 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       for (const authUser of authUsers) {
         // Check if the user is an admin
         const { data: isAdmin, error: adminError } = await supabase
-          .rpc('is_admin', { _user_id: authUser.id });
+          .rpc('is_admin_secure', { _user_id: authUser.id });
           
         if (adminError) {
           console.error('Error checking admin status for', authUser.id, ':', adminError);
+          // Fall back to regular is_admin if secure fails
+          const { data: isAdminFallback } = await supabase
+            .rpc('is_admin', { _user_id: authUser.id });
+          
+          userList.push({
+            id: authUser.id,
+            email: authUser.email || 'No email',
+            full_name: null,
+            avatar_url: null,
+            role: isAdminFallback ? 'admin' : 'user',
+            created_at: null
+          });
+        } else {
+          userList.push({
+            id: authUser.id,
+            email: authUser.email || 'No email',
+            full_name: null,
+            avatar_url: null,
+            role: isAdmin ? 'admin' : 'user',
+            created_at: null
+          });
         }
-        
-        userList.push({
-          id: authUser.id,
-          email: authUser.email || 'No email',
-          full_name: null,
-          avatar_url: null,
-          role: isAdmin ? 'admin' : 'user',
-          created_at: null
-        });
       }
       
       console.log('Created minimal user records:', userList.length);
@@ -79,24 +127,38 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       
       // Check if the user is an admin using our security definer function
       const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_admin', { _user_id: profile.id });
+        .rpc('is_admin_secure', { _user_id: profile.id });
         
       if (adminError) {
         console.error('Error checking admin status for', profile.id, ':', adminError);
+        // Fall back to standard is_admin function
+        const { data: isAdminFallback } = await supabase
+          .rpc('is_admin', { _user_id: profile.id });
+        
+        // Get the email from our map or use a placeholder
+        const email = usersMap[profile.id] || 'Email not available';
+        
+        userList.push({
+          id: profile.id,
+          email: email,
+          full_name: profile.full_name || 'No Name',
+          avatar_url: profile.avatar_url,
+          role: isAdminFallback ? 'admin' : 'user',
+          created_at: profile.created_at
+        });
+      } else {
+        // Get the email from our map or use a placeholder
+        const email = usersMap[profile.id] || 'Email not available';
+        
+        userList.push({
+          id: profile.id,
+          email: email,
+          full_name: profile.full_name || 'No Name',
+          avatar_url: profile.avatar_url,
+          role: isAdmin ? 'admin' : 'user',
+          created_at: profile.created_at
+        });
       }
-      
-      // Get the email from our map or use a placeholder
-      const email = usersMap[profile.id] || 'Email not available';
-      console.log(`User ${profile.id} email: ${email}, isAdmin: ${isAdmin}`);
-      
-      userList.push({
-        id: profile.id,
-        email: email,
-        full_name: profile.full_name || 'No Name',
-        avatar_url: profile.avatar_url,
-        role: isAdmin ? 'admin' : 'user',
-        created_at: profile.created_at
-      });
     }
     
     console.log('Final user list built, count:', userList.length);

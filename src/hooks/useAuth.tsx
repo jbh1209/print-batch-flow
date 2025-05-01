@@ -57,11 +57,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Check if user is an admin using RPC function 
+  // Check if user is an admin using the secure RPC function first
   const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
       
+      // Try secure function first
+      try {
+        const { data: isAdminSecure, error: secureError } = await supabase
+          .rpc('is_admin_secure', { _user_id: userId });
+        
+        if (!secureError) {
+          return !!isAdminSecure;
+        }
+        
+        console.log('Secure admin check failed, falling back to standard:', secureError);
+      } catch (error) {
+        console.log('Error in secure admin check:', error);
+      }
+      
+      // Fall back to standard function
       const { data, error } = await supabase
         .rpc('is_admin', { _user_id: userId });
       
