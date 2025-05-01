@@ -3,6 +3,7 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserProfile, UserRole } from '@/types/user-types';
 import { Session } from '@supabase/supabase-js';
+import { AuthUser } from '@supabase/supabase-js'; // Import Supabase's User type as AuthUser
 
 interface AuthContextType {
   user: User | null;
@@ -97,10 +98,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!isSubscribed) return;
         
         setSession(session);
-        setUser(session?.user ?? null);
         
-        // Fetch profile if we have a user - use setTimeout to avoid recursive RLS issues
+        // Convert Supabase user to our User type
         if (session?.user) {
+          const userObj: User = {
+            id: session.user.id,
+            email: session.user.email || undefined
+          };
+          setUser(userObj);
+          
+          // Fetch profile if we have a user - use setTimeout to avoid recursive RLS issues
           setTimeout(async () => {
             if (!isSubscribed) return;
             
@@ -110,6 +117,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setLoading(false);
           }, 0);
         } else {
+          setUser(null);
           setProfile(null);
           setIsAdmin(false);
           setLoading(false);
@@ -122,13 +130,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!isSubscribed) return;
       
       setSession(session);
-      setUser(session?.user ?? null);
       
       // Fetch profile if we have a user
       if (session?.user) {
+        // Convert Supabase user to our User type
+        const userObj: User = {
+          id: session.user.id,
+          email: session.user.email || undefined
+        };
+        setUser(userObj);
+        
         const profile = await fetchProfile(session.user.id);
         setProfile(profile);
         await updateAdminStatus(session.user.id);
+      } else {
+        setUser(null);
       }
       setLoading(false);
     });

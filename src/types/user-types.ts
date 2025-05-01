@@ -9,16 +9,16 @@ export interface UserProfile {
   avatar_url: string | null;
 }
 
-// Simple user interface
+// Simple user interface - making email optional to match Supabase's User type
 export interface User {
   id: string;
-  email: string;
+  email?: string; // Changed from required to optional
 }
 
 // User with role information
 export interface UserWithRole {
   id: string;
-  email: string;
+  email: string | null; // Allow null to be more flexible
   full_name: string | null;
   avatar_url: string | null;
   role: UserRole;

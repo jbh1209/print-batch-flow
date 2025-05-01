@@ -98,7 +98,13 @@ export async function createUser(userData: UserFormData): Promise<User> {
       await assignRole(data.user.id, userData.role);
     }
     
-    return data.user;
+    // Convert Supabase user to our User type
+    const userObj: User = {
+      id: data.user.id,
+      email: data.user.email
+    };
+    
+    return userObj;
   } catch (error) {
     console.error('Error creating user:', error);
     throw error;
