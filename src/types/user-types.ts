@@ -17,8 +17,8 @@ export interface UserFormData {
   email?: string;
   full_name?: string;
   password?: string;
-  role?: AppRole; // Using AppRole directly
-  confirmPassword?: string; // Added for form validation
+  role?: string; // Simplified to string for form handling
+  confirmPassword?: string;
 }
 
 // Type guard for validating AppRole

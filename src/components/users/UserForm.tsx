@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -9,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DialogFooter } from "@/components/ui/dialog";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { UserFormData, AppRole } from "@/types/user-types";
+import { UserFormData } from "@/types/user-types";
 
 interface UserFormProps {
   initialData?: UserFormData;
@@ -47,7 +48,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
     defaultValues: {
       email: initialData?.email || "",
       full_name: initialData?.full_name || "",
-      role: (initialData?.role as AppRole) || "user",
+      role: (initialData?.role === "admin" ? "admin" : "user"),
       ...(isEditing ? {} : { password: "", confirmPassword: "" })
     }
   });

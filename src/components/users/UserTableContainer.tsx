@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -5,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 import { UserForm } from "./UserForm";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserOperations } from "@/hooks/useUserOperations";
-import { User, UserFormData, AppRole } from "@/types/user-types";
+import { User, UserFormData } from "@/types/user-types";
+import { UserOperationsProvider, useUserOperations } from "@/contexts/UserOperationsContext";
 
 interface UserTableContainerProps {
   users: User[];
@@ -15,7 +16,7 @@ interface UserTableContainerProps {
   refreshUsers: () => Promise<void>;
 }
 
-export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }: UserTableContainerProps) {
+function UserTableContainerContent({ users, userRoles, isLoading }: Omit<UserTableContainerProps, 'refreshUsers'>) {
   const { user: currentUser } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -26,7 +27,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
     editUser, 
     deleteUser, 
     toggleAdminRole 
-  } = useUserOperations(refreshUsers);
+  } = useUserOperations();
 
   // Handle form submission - either add or edit user
   const handleFormSubmit = async (userData: UserFormData) => {
@@ -95,5 +96,17 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
         isLoading={isLoading}
       />
     </div>
+  );
+}
+
+export function UserTableContainer(props: UserTableContainerProps) {
+  return (
+    <UserOperationsProvider refreshUsers={props.refreshUsers}>
+      <UserTableContainerContent 
+        users={props.users} 
+        userRoles={props.userRoles} 
+        isLoading={props.isLoading} 
+      />
+    </UserOperationsProvider>
   );
 }
