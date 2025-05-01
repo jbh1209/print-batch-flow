@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
@@ -50,11 +51,19 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       console.log('Fetching users...');
       const fetchedUsers = await userService.fetchUsers();
       console.log('Users fetched:', fetchedUsers);
-      setUsers(fetchedUsers);
+      
+      // Ensure we only set users if we got an array back
+      if (Array.isArray(fetchedUsers) && fetchedUsers.length > 0) {
+        setUsers(fetchedUsers);
+      } else {
+        console.warn('Empty or invalid user array returned:', fetchedUsers);
+        setUsers([]);
+      }
     } catch (error: any) {
       console.error('Error loading users:', error);
       setError(`Error loading users: ${error.message}`);
       toast.error(`Error loading users: ${error.message}`);
+      setUsers([]);
     } finally {
       setIsLoading(false);
     }

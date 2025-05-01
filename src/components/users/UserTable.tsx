@@ -47,6 +47,8 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
     }
   };
 
+  console.log('UserTable rendering with users:', users);
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -60,7 +62,7 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.length === 0 ? (
+          {!users || users.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                 No users found

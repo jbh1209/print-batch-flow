@@ -22,6 +22,7 @@ serve(async (req) => {
     // Get the user's JWT from the request headers
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.log('No authorization header');
       return new Response(JSON.stringify({ error: 'No authorization header' }), { 
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -33,6 +34,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
+      console.log('Unauthorized user', userError);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -42,18 +44,20 @@ serve(async (req) => {
     // Check if the user is an admin
     const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin', { _user_id: user.id });
     if (adminError || !isAdmin) {
+      console.log('Admin check failed', adminError, isAdmin);
       return new Response(JSON.stringify({ error: 'Admin access required' }), { 
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
 
+    console.log('Admin verified, fetching all users');
+    
     // If user is an admin, fetch all users using service role
-    // Important fix: auth.users is a view, not a table
-    // We need to use the correct API to access user data
     const { data, error } = await supabase.auth.admin.listUsers();
     
     if (error) {
+      console.log('Error fetching users:', error);
       return new Response(JSON.stringify({ error: error.message }), { 
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -65,6 +69,8 @@ serve(async (req) => {
       id: user.id,
       email: user.email
     }));
+
+    console.log('Users fetched successfully:', simplifiedUsers.length);
 
     return new Response(JSON.stringify(simplifiedUsers), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 

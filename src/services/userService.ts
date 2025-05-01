@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -16,7 +17,12 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       throw profilesError;
     }
     
-    console.log('Profiles fetched:', profiles);
+    console.log('Profiles fetched:', profiles?.length || 0);
+
+    if (!profiles || profiles.length === 0) {
+      console.warn('No profiles found');
+      return [];
+    }
 
     // Get all user email data from auth (requires admin privileges)
     console.log('Invoking get-all-users edge function');
@@ -25,44 +31,50 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       
     if (usersError) {
       console.error('Error fetching user emails:', usersError);
-      // Continue with profiles only if we can't get emails
+      throw usersError; // Make this a hard failure since we need user emails
     }
     
-    console.log('Users from edge function:', users);
+    console.log('Users from edge function:', users?.length || 0);
     
-    // Make sure users is an array before creating the map
-    const usersMap = Array.isArray(users) ? 
-      Object.fromEntries(users.map((user) => [user.id, user.email])) : 
-      {};
+    // Validate that users is an array with data
+    if (!Array.isArray(users) || users.length === 0) {
+      console.error('Invalid or empty users array returned from edge function');
+      throw new Error('Failed to fetch user data from authentication system');
+    }
     
-    console.log('Users map created:', Object.keys(usersMap).length);
+    // Create a map of user IDs to email addresses
+    const usersMap = Object.fromEntries(users.map((user) => [user.id, user.email]));
+    console.log('Users map created with keys:', Object.keys(usersMap).length);
     
     const userList: UserWithRole[] = [];
     
-    if (profiles) {
-      console.log('Processing profiles to build user list');
-      // Process each profile to build the complete user data
-      for (const profile of profiles) {
-        // Check if the user is an admin using our security definer function
-        const { data: isAdmin, error: adminError } = await supabase
-          .rpc('is_admin', { _user_id: profile.id });
-          
-        if (adminError) {
-          console.error('Error checking admin status for', profile.id, ':', adminError);
-        }
+    // Process each profile to build the complete user data
+    for (const profile of profiles) {
+      console.log(`Processing profile ${profile.id}`);
+      
+      // Check if the user is an admin using our security definer function
+      const { data: isAdmin, error: adminError } = await supabase
+        .rpc('is_admin', { _user_id: profile.id });
         
-        userList.push({
-          id: profile.id,
-          email: usersMap[profile.id] || 'Email not available',
-          full_name: profile.full_name || 'No Name',
-          avatar_url: profile.avatar_url,
-          role: isAdmin ? 'admin' : 'user',
-          created_at: profile.created_at
-        });
+      if (adminError) {
+        console.error('Error checking admin status for', profile.id, ':', adminError);
       }
+      
+      // Get the email from our map or use a placeholder
+      const email = usersMap[profile.id] || 'Email not available';
+      console.log(`User ${profile.id} email: ${email}, isAdmin: ${isAdmin}`);
+      
+      userList.push({
+        id: profile.id,
+        email: email,
+        full_name: profile.full_name || 'No Name',
+        avatar_url: profile.avatar_url,
+        role: isAdmin ? 'admin' : 'user',
+        created_at: profile.created_at
+      });
     }
     
-    console.log('Final user list:', userList);
+    console.log('Final user list built, count:', userList.length);
     return userList;
   } catch (error) {
     console.error('Error fetching users:', error);
