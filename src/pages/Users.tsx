@@ -25,7 +25,7 @@ const UsersContent = () => {
     checkAdminExists 
   } = useUserManagement();
 
-  // Check if any admin exists and load users when component mounts
+  // Check if any admin exists and load users when component mounts or admin status changes
   useEffect(() => {
     checkAdminExists();
     

@@ -88,9 +88,7 @@ export async function createUser(userData: UserFormData): Promise<User> {
         emailRedirectTo: window.location.origin,
         data: {
           full_name: userData.full_name
-        },
-        shouldCreateUser: true,
-        captchaToken: null
+        }
       }
     });
     

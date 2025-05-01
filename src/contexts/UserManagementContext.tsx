@@ -68,6 +68,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     try {
       await userService.createUser(userData);
       toast.success('User created successfully');
+      // Immediately fetch users to update the list
       await fetchUsers();
     } catch (error: any) {
       console.error('Error creating user:', error);
