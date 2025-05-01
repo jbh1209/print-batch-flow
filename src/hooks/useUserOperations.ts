@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { User, UserFormData } from "@/types/user-types";
+import { UserFormData } from "@/types/user-types";
 
 export const useUserOperations = (refreshUsers: () => Promise<void>) => {
   const [processing, setProcessing] = useState(false);

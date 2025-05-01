@@ -1,4 +1,5 @@
 
+
 // Define AppRole directly as a string literal type
 export type AppRole = "admin" | "user";
 
