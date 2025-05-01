@@ -49,7 +49,9 @@ serve(async (req) => {
     }
 
     // If user is an admin, fetch all users using service role
-    const { data, error } = await supabase.from('auth.users').select('id, email');
+    // Important fix: auth.users is a view, not a table
+    // We need to use the correct API to access user data
+    const { data, error } = await supabase.auth.admin.listUsers();
     
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), { 
@@ -58,11 +60,18 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify(data), { 
+    // Transform the response to include only id and email
+    const simplifiedUsers = data.users.map(user => ({
+      id: user.id,
+      email: user.email
+    }));
+
+    return new Response(JSON.stringify(simplifiedUsers), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
     
   } catch (error) {
+    console.error('Edge function error:', error);
     return new Response(JSON.stringify({ error: error.message }), { 
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" } 

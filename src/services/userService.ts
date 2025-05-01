@@ -13,7 +13,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     if (profilesError) throw profilesError;
 
     // Get all user email data from auth (requires admin privileges)
-    // Using REST API approach instead of typed RPC to avoid TypeScript errors
+    // Using REST API approach with edge function to avoid TypeScript errors
     const { data: users, error: usersError } = await supabase
       .functions.invoke('get-all-users');
       
@@ -22,7 +22,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       // Continue with profiles only if we can't get emails
     }
     
-    // Create a map of user ID to email, but check if users is an array first
+    // Make sure users is an array before creating the map
     const usersMap = Array.isArray(users) ? 
       Object.fromEntries(users.map((user) => [user.id, user.email])) : 
       {};
