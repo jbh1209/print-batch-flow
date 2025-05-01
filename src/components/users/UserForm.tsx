@@ -8,15 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogFooter } from "@/components/ui/dialog";
-import { AlertCircle, Loader2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { UserFormData } from "@/types/user-types";
+import { AlertCircle } from "lucide-react";
 
 interface UserFormProps {
-  initialData?: UserFormData;
-  onSubmit: (data: UserFormData) => void;
+  initialData?: {
+    email?: string;
+    full_name?: string;
+    role?: string;
+  };
+  onSubmit: (data: any) => void;
   isEditing?: boolean;
-  isProcessing?: boolean;
 }
 
 // Define form schema based on whether we're editing or creating
@@ -25,9 +26,10 @@ const createUserSchema = z.object({
   full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   password: z
     .string()
-    .min(8, { message: "Password must be at least 8 characters" }),
+    .min(8, { message: "Password must be at least 8 characters" })
+    .max(100),
   confirmPassword: z.string(),
-  role: z.enum(["admin", "user"] as const).default("user")
+  role: z.string().default("user")
 }).refine((data) => data.password === data.confirmPassword, {
   path: ["confirmPassword"],
   message: "Passwords do not match",
@@ -35,10 +37,11 @@ const createUserSchema = z.object({
 
 const editUserSchema = z.object({
   full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  role: z.enum(["admin", "user"] as const).default("user")
+  role: z.string().default("user")
 });
 
-export function UserForm({ initialData, onSubmit, isEditing = false, isProcessing = false }: UserFormProps) {
+export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
   
   const formSchema = isEditing ? editUserSchema : createUserSchema;
@@ -48,18 +51,21 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
     defaultValues: {
       email: initialData?.email || "",
       full_name: initialData?.full_name || "",
-      role: (initialData?.role === "admin" ? "admin" : "user"),
+      role: initialData?.role || "user",
       ...(isEditing ? {} : { password: "", confirmPassword: "" })
     }
   });
 
   const handleSubmit = async (data: any) => {
+    setIsSubmitting(true);
     setServerError("");
     
     try {
       await onSubmit(data);
     } catch (error: any) {
       setServerError(error.message || "An unexpected error occurred");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -67,10 +73,10 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
         {serverError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{serverError}</AlertDescription>
-          </Alert>
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded p-3 flex items-start">
+            <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+            <p className="text-sm">{serverError}</p>
+          </div>
         )}
         
         <FormField
@@ -80,7 +86,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
             <FormItem>
               <FormLabel>Full Name</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} disabled={isProcessing} />
+                <Input placeholder="John Doe" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -95,7 +101,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="user@example.com" {...field} disabled={isProcessing} />
+                  <Input placeholder="user@example.com" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -112,7 +118,6 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
               <Select 
                 onValueChange={field.onChange}
                 defaultValue={field.value}
-                disabled={isProcessing}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -138,7 +143,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="********" {...field} disabled={isProcessing} />
+                    <Input type="password" placeholder="********" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -152,7 +157,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
                 <FormItem>
                   <FormLabel>Confirm Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="********" {...field} disabled={isProcessing} />
+                    <Input type="password" placeholder="********" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -162,15 +167,8 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
         )}
 
         <DialogFooter>
-          <Button type="submit" disabled={isProcessing}>
-            {isProcessing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isEditing ? "Updating..." : "Creating..."}
-              </>
-            ) : (
-              isEditing ? "Update User" : "Create User"
-            )}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Processing..." : isEditing ? "Update User" : "Create User"}
           </Button>
         </DialogFooter>
       </form>

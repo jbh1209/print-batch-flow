@@ -1,19 +1,15 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-interface AdminSetupFormProps {
-  refreshUsers: () => Promise<void>;
-}
-
-export function AdminSetupForm({ refreshUsers }: AdminSetupFormProps) {
+export function AdminSetupForm() {
   const { user } = useAuth();
   const [userId, setUserId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,11 +17,11 @@ export function AdminSetupForm({ refreshUsers }: AdminSetupFormProps) {
   const [successMessage, setSuccessMessage] = useState("");
 
   // Auto-fill the user ID when the component mounts and user is available
-  useEffect(() => {
+  useState(() => {
     if (user?.id) {
       setUserId(user.id);
     }
-  }, [user]);
+  });
 
   const handleSetAsAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +38,7 @@ export function AdminSetupForm({ refreshUsers }: AdminSetupFormProps) {
     
     try {
       // Call the add_admin_role database function
-      const { error } = await supabase.rpc('add_admin_role', {
+      const { data, error } = await supabase.rpc('add_admin_role', {
         admin_user_id: userId
       });
       
@@ -51,10 +47,8 @@ export function AdminSetupForm({ refreshUsers }: AdminSetupFormProps) {
       setSuccessMessage("Admin role successfully assigned!");
       toast.success("Admin role successfully assigned");
       
-      // Reload users data after a short delay
-      setTimeout(async () => {
-        await refreshUsers();
-      }, 1500);
+      // Reload the page after a short delay to show the updated UI
+      setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
       console.error("Error setting admin role:", error);
       setErrorMessage(error.message || "Failed to set admin role");
@@ -67,12 +61,9 @@ export function AdminSetupForm({ refreshUsers }: AdminSetupFormProps) {
   return (
     <Card className="w-full max-w-lg mx-auto">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-amber-600">
-          <AlertCircle className="h-5 w-5" />
-          Initial Admin Setup Required
-        </CardTitle>
+        <CardTitle>Initial Admin Setup</CardTitle>
         <CardDescription>
-          No administrators are currently configured. Set up the first administrator account to manage users.
+          No administrators are currently configured. Set up the first administrator account.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSetAsAdmin}>
@@ -101,7 +92,6 @@ export function AdminSetupForm({ refreshUsers }: AdminSetupFormProps) {
                 placeholder="Enter user ID"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                disabled={isSubmitting}
               />
               {user && (
                 <p className="text-sm text-gray-500">
@@ -111,7 +101,6 @@ export function AdminSetupForm({ refreshUsers }: AdminSetupFormProps) {
                     variant="ghost" 
                     className="text-xs ml-2 h-auto p-1" 
                     onClick={() => setUserId(user.id)}
-                    disabled={isSubmitting}
                   >
                     Use my ID
                   </Button>
@@ -119,21 +108,13 @@ export function AdminSetupForm({ refreshUsers }: AdminSetupFormProps) {
               )}
               <p className="text-sm text-gray-500 mt-2">
                 To make yourself an admin, use your own user ID shown above.
-                This is typically what you want to do if you're setting up the application for the first time.
               </p>
             </div>
           </div>
         </CardContent>
         <CardFooter>
           <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Setting up admin...
-              </>
-            ) : (
-              "Set as Administrator"
-            )}
+            {isSubmitting ? "Setting up admin..." : "Set as Administrator"}
           </Button>
         </CardFooter>
       </form>

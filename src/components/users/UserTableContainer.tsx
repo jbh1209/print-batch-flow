@@ -5,54 +5,117 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 import { UserForm } from "./UserForm";
-import { useAuth } from "@/hooks/useAuth";
-import { User, UserFormData } from "@/types/user-types";
-import { UserOperationsProvider, useUserOperations } from "@/contexts/UserOperationsContext";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UserTableContainerProps {
-  users: User[];
+  users: any[];
   userRoles: Record<string, string>;
-  isLoading: boolean;
+  userProfiles: Record<string, any>;
   refreshUsers: () => Promise<void>;
 }
 
-function UserTableContainerContent({ users, userRoles, isLoading }: Omit<UserTableContainerProps, 'refreshUsers'>) {
-  const { user: currentUser } = useAuth();
+export function UserTableContainer({ users, userRoles, userProfiles, refreshUsers }: UserTableContainerProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<any>(null);
   
-  const { 
-    processing, 
-    addUser, 
-    editUser, 
-    deleteUser, 
-    toggleAdminRole 
-  } = useUserOperations();
-
-  // Handle form submission - either add or edit user
-  const handleFormSubmit = async (userData: UserFormData) => {
-    if (editingUser) {
-      const success = await editUser(
-        editingUser.id, 
-        userData, 
-        userRoles[editingUser.id]
-      );
+  const handleAddUser = async (userData: any) => {
+    try {
+      // Sign up the user with Supabase auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            full_name: userData.full_name
+          }
+        }
+      });
       
-      if (success) {
-        setDialogOpen(false);
-        setEditingUser(null);
-      }
-    } else {
-      const success = await addUser(userData);
+      if (authError) throw authError;
       
-      if (success) {
+      if (authData.user) {
+        // Assign role to the new user
+        if (userData.role && userData.role !== 'user') {
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .insert([
+              { user_id: authData.user.id, role: userData.role }
+            ]);
+            
+          if (roleError) throw roleError;
+        }
+        
+        toast.success('User created successfully');
         setDialogOpen(false);
+        await refreshUsers();
       }
+    } catch (error: any) {
+      toast.error(`Error creating user: ${error.message}`);
     }
   };
 
-  // Open user editing dialog
-  const openEditDialog = (user: User) => {
+  const handleEditUser = async (userData: any) => {
+    try {
+      if (!editingUser) return;
+      
+      // Update role if changed
+      if (userData.role && userRoles[editingUser.id] !== userData.role) {
+        // Delete existing role
+        await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', editingUser.id);
+          
+        // Insert new role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert([
+            { user_id: editingUser.id, role: userData.role }
+          ]);
+          
+        if (roleError) throw roleError;
+      }
+      
+      // Update user profile if name changed
+      if (userData.full_name && userData.full_name !== editingUser.full_name) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ full_name: userData.full_name })
+          .eq('id', editingUser.id);
+          
+        if (profileError) throw profileError;
+      }
+      
+      toast.success('User updated successfully');
+      setDialogOpen(false);
+      setEditingUser(null);
+      await refreshUsers();
+    } catch (error: any) {
+      toast.error(`Error updating user: ${error.message}`);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      // We can't delete users directly using the client API
+      // Instead, disable their access by revoking their role
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      toast.success('User role revoked successfully');
+      await refreshUsers();
+    } catch (error: any) {
+      toast.error(`Error removing user role: ${error.message}`);
+    }
+  };
+
+  const openEditDialog = (user: any) => {
     setEditingUser(user);
     setDialogOpen(true);
   };
@@ -75,13 +138,12 @@ function UserTableContainerContent({ users, userRoles, isLoading }: Omit<UserTab
             </DialogHeader>
             <UserForm 
               initialData={editingUser ? {
-                email: editingUser.email || undefined,
-                full_name: editingUser.full_name || undefined,
-                role: userRoles[editingUser.id] === 'admin' ? 'admin' : 'user'
+                email: editingUser.email,
+                full_name: editingUser.full_name,
+                role: userRoles[editingUser.id] || 'user'
               } : undefined}
-              onSubmit={handleFormSubmit}
+              onSubmit={editingUser ? handleEditUser : handleAddUser}
               isEditing={!!editingUser}
-              isProcessing={processing}
             />
           </DialogContent>
         </Dialog>
@@ -89,24 +151,10 @@ function UserTableContainerContent({ users, userRoles, isLoading }: Omit<UserTab
       <UserTable 
         users={users} 
         userRoles={userRoles}
+        userProfiles={userProfiles}
         onEdit={openEditDialog}
-        onDelete={(userId) => deleteUser(userId, currentUser?.id)}
-        onRoleToggle={(userId, currentRole) => toggleAdminRole(userId, currentRole, currentUser?.id)}
-        currentUserId={currentUser?.id}
-        isLoading={isLoading}
+        onDelete={handleDeleteUser}
       />
     </div>
-  );
-}
-
-export function UserTableContainer(props: UserTableContainerProps) {
-  return (
-    <UserOperationsProvider refreshUsers={props.refreshUsers}>
-      <UserTableContainerContent 
-        users={props.users} 
-        userRoles={props.userRoles} 
-        isLoading={props.isLoading} 
-      />
-    </UserOperationsProvider>
   );
 }
