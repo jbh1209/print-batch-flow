@@ -241,12 +241,12 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
   try {
     // Update user's full name in profiles table
     if (userData.full_name !== undefined) {
-      // Method 1: Direct call to update_user_profile_name with proper type parameters
-      const { error } = await supabase
-        .rpc<void, { _user_id: string, _full_name: string }>('update_user_profile_name', {
+      // Cast the rpc call to any to bypass type checking for custom functions
+      const { error } = await (supabase
+        .rpc('update_user_profile_name', {
           _user_id: userId,
           _full_name: userData.full_name
-        });
+        }) as any);
       
       if (error) {
         console.error('Error updating profile name with RPC:', error);
