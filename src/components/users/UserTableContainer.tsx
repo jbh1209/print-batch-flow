@@ -77,7 +77,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
               initialData={editingUser ? {
                 email: editingUser.email || undefined,
                 full_name: editingUser.full_name || undefined,
-                role: userRoles[editingUser.id] as AppRole || 'user'
+                role: (userRoles[editingUser.id] as AppRole) || 'user'
               } : undefined}
               onSubmit={handleFormSubmit}
               isEditing={!!editingUser}
