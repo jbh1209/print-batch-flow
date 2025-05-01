@@ -1,8 +1,10 @@
 
 /**
- * User role definition with string literals
+ * Simple user type definitions without circular references
  */
-export type AppRole = "admin" | "user";
+
+// Use string literals directly to avoid excessive type nesting
+export type UserRole = "admin" | "user";
 
 /**
  * User interface with primitive types from Supabase Auth
@@ -28,8 +30,8 @@ export interface UserFormData {
 }
 
 /**
- * Runtime type guard for validating roles
+ * Simple runtime validation function
  */
-export function isValidRole(role: string): role is AppRole {
+export function isValidRole(role: string): boolean {
   return role === "admin" || role === "user";
 }
