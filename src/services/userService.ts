@@ -12,32 +12,37 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       
     if (profilesError) throw profilesError;
 
-    // Get all user roles
-    const { data: roles, error: rolesError } = await supabase
-      .from('user_roles')
-      .select('user_id, role');
-      
-    if (rolesError) throw rolesError;
-
-    // Create a map of user_id to role
-    const roleMap: Record<string, UserRole> = {};
-    if (roles) {
-      roles.forEach((roleEntry) => {
-        roleMap[roleEntry.user_id] = roleEntry.role as UserRole;
-      });
+    // Get users with emails from auth.users via admin functions
+    // We'll use RPC function to safely check if each user is an admin
+    const userList: UserWithRole[] = [];
+    
+    if (profiles) {
+      // Process each profile one by one to avoid the RLS recursion
+      for (const profile of profiles) {
+        // Check if the user is an admin using our security definer function
+        const { data: isAdmin, error: adminError } = await supabase
+          .rpc('is_admin', { _user_id: profile.id });
+          
+        if (adminError) {
+          console.error('Error checking admin status:', adminError);
+        }
+        
+        // Get the user email if possible
+        // For demo purposes, we can leave this empty as it's not critical
+        const email = ''; // We could fetch this from auth if needed with admin privileges
+        
+        userList.push({
+          id: profile.id,
+          email: email,
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+          role: isAdmin ? 'admin' : 'user',
+          created_at: profile.created_at
+        });
+      }
     }
 
-    // Format user data
-    const users: UserWithRole[] = profiles?.map(profile => ({
-      id: profile.id,
-      email: '', // Email is not directly accessible from profiles
-      full_name: profile.full_name,
-      avatar_url: profile.avatar_url,
-      created_at: profile.created_at,
-      role: roleMap[profile.id] || 'user'
-    })) || [];
-
-    return users;
+    return userList;
   } catch (error) {
     console.error('Error fetching users:', error);
     throw error;
