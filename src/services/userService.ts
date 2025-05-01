@@ -1,19 +1,25 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
 // Fetch all users with their roles
 export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
+    console.log('Starting fetchUsers in userService');
+    
     // Get all users from auth.users via admin RPC function
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url, created_at');
       
-    if (profilesError) throw profilesError;
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
+      throw profilesError;
+    }
+    
+    console.log('Profiles fetched:', profiles);
 
     // Get all user email data from auth (requires admin privileges)
-    // Using REST API approach with edge function to avoid TypeScript errors
+    console.log('Invoking get-all-users edge function');
     const { data: users, error: usersError } = await supabase
       .functions.invoke('get-all-users');
       
@@ -22,14 +28,19 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       // Continue with profiles only if we can't get emails
     }
     
+    console.log('Users from edge function:', users);
+    
     // Make sure users is an array before creating the map
     const usersMap = Array.isArray(users) ? 
       Object.fromEntries(users.map((user) => [user.id, user.email])) : 
       {};
     
+    console.log('Users map created:', Object.keys(usersMap).length);
+    
     const userList: UserWithRole[] = [];
     
     if (profiles) {
+      console.log('Processing profiles to build user list');
       // Process each profile to build the complete user data
       for (const profile of profiles) {
         // Check if the user is an admin using our security definer function
@@ -37,7 +48,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
           .rpc('is_admin', { _user_id: profile.id });
           
         if (adminError) {
-          console.error('Error checking admin status:', adminError);
+          console.error('Error checking admin status for', profile.id, ':', adminError);
         }
         
         userList.push({
@@ -50,7 +61,8 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
         });
       }
     }
-
+    
+    console.log('Final user list:', userList);
     return userList;
   } catch (error) {
     console.error('Error fetching users:', error);

@@ -38,13 +38,18 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const { isAdmin } = useAuth();
 
   const fetchUsers = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      console.log('Not admin, skipping fetchUsers');
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
     
     try {
+      console.log('Fetching users...');
       const fetchedUsers = await userService.fetchUsers();
+      console.log('Users fetched:', fetchedUsers);
       setUsers(fetchedUsers);
     } catch (error: any) {
       console.error('Error loading users:', error);
@@ -57,6 +62,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
 
   // Auto-refresh users when admin status changes
   useEffect(() => {
+    console.log('UserManagementContext: isAdmin changed to', isAdmin);
     if (isAdmin) {
       fetchUsers();
     }
@@ -66,6 +72,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     try {
       setError(null);
       const exists = await userService.checkAdminExists();
+      console.log('Admin exists:', exists);
       setAnyAdminExists(exists);
     } catch (error: any) {
       console.error('Error checking admin existence:', error);
