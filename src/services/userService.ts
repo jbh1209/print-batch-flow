@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -241,25 +240,15 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
   try {
     // Update user's full name in profiles table
     if (userData.full_name !== undefined) {
-      // Use the generic rpc function with explicit type arguments
+      // Direct update using the profiles table to avoid RPC type issues
       const { error } = await supabase
-        .rpc<void, { _user_id: string, _full_name: string }>(
-          'update_user_profile_name' as any, 
-          {
-            _user_id: userId,
-            _full_name: userData.full_name
-          }
-        );
-      
-      if (error) {
-        console.error('Error updating profile name with RPC:', error);
-        // Fall back to direct update as a last resort
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ full_name: userData.full_name })
-          .eq('id', userId);
+        .from('profiles')
+        .update({ full_name: userData.full_name })
+        .eq('id', userId);
           
-        if (updateError) throw updateError;
+      if (error) {
+        console.error('Error updating profile name:', error);
+        throw error;
       }
     }
     
