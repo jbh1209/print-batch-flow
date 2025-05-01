@@ -23,22 +23,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-// Define AppRole directly as a string literal type
-type AppRole = "admin" | "user";
-
-interface User {
-  id: string;
-  email?: string;
-  full_name?: string;
-  avatar_url?: string;
-  created_at: string;
-  last_sign_in_at?: string;
-}
+import { User } from "@/types/user-types";
 
 interface UserTableProps {
   users: User[];
-  userRoles: Record<string, AppRole>;
+  userRoles: Record<string, string>;
   onEdit: (user: User) => void;
   onDelete: (userId: string) => void;
   onRoleToggle: (userId: string, currentRole: string) => void;

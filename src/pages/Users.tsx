@@ -10,25 +10,13 @@ import { UserTableContainer } from "@/components/users/UserTableContainer";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
 import { AuthDebugger } from "@/components/users/AuthDebugger";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-// Define AppRole directly as a string literal type to avoid circular references
-type AppRole = "admin" | "user";
-
-// Define User interface to match what we expect from the API
-interface User {
-  id: string;
-  email?: string;
-  full_name?: string;
-  avatar_url?: string;
-  created_at: string;
-  last_sign_in_at?: string;
-}
+import { User } from "@/types/user-types";
 
 const Users = () => {
   const navigate = useNavigate();
   const { user, isAdmin, checkAdminStatus } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
-  const [userRoles, setUserRoles] = useState<Record<string, AppRole>>({});
+  const [userRoles, setUserRoles] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [anyAdminExists, setAnyAdminExists] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,10 +76,10 @@ const Users = () => {
       if (rolesError) throw rolesError;
       
       // Create a map of user_id to role
-      const roleMap: Record<string, AppRole> = {};
+      const roleMap: Record<string, string> = {};
       if (rolesData) {
         rolesData.forEach((roleEntry) => {
-          roleMap[roleEntry.user_id] = roleEntry.role as AppRole;
+          roleMap[roleEntry.user_id] = roleEntry.role;
         });
       }
       

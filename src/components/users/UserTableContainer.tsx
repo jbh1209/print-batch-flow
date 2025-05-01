@@ -1,37 +1,17 @@
+
 import React, { useState } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 import { UserForm } from "./UserForm";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-
-// Define AppRole directly as a string literal type to avoid circular references
-type AppRole = "admin" | "user";
-
-// Define User interface with primitive types
-interface User {
-  id: string;
-  email?: string | null;
-  full_name?: string | null;
-  avatar_url?: string | null;
-  created_at: string;
-  last_sign_in_at?: string | null;
-}
-
-// Define form data interface using the direct string literal type
-interface UserFormData {
-  email?: string;
-  full_name?: string;
-  password?: string;
-  role?: AppRole;
-}
+import { useUserOperations } from "@/hooks/useUserOperations";
+import { User, UserFormData } from "@/types/user-types";
 
 interface UserTableContainerProps {
   users: User[];
-  userRoles: Record<string, AppRole>;
+  userRoles: Record<string, string>;
   isLoading: boolean;
   refreshUsers: () => Promise<void>;
 }
@@ -40,188 +20,38 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
   const { user: currentUser } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [processing, setProcessing] = useState(false);
   
-  // Handle adding a new user
-  const handleAddUser = async (userData: UserFormData) => {
-    setProcessing(true);
-    try {
-      // Check if user already exists
-      const { data: existingUsers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', userData.email)
-        .limit(1);
-        
-      if (existingUsers && existingUsers.length > 0) {
-        toast.error('A user with this email already exists');
-        setProcessing(false);
-        return;
-      }
+  const { 
+    processing, 
+    addUser, 
+    editUser, 
+    deleteUser, 
+    toggleAdminRole 
+  } = useUserOperations(refreshUsers);
+
+  // Handle form submission - either add or edit user
+  const handleFormSubmit = async (userData: UserFormData) => {
+    if (editingUser) {
+      const success = await editUser(
+        editingUser.id, 
+        userData, 
+        userRoles[editingUser.id]
+      );
       
-      // Sign up the user with Supabase auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email || '',
-        password: userData.password || '',
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
-            full_name: userData.full_name
-          }
-        }
-      });
-      
-      if (authError) throw authError;
-      
-      if (authData.user) {
-        // Assign role to the new user if not the default user role
-        if (userData.role && userData.role !== 'user') {
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: authData.user.id, 
-              role: userData.role
-            });
-            
-          if (roleError) throw roleError;
-        }
-        
-        toast.success('User created successfully');
+      if (success) {
         setDialogOpen(false);
-        await refreshUsers();
+        setEditingUser(null);
       }
-    } catch (error: any) {
-      toast.error(`Error creating user: ${error.message}`);
-      console.error('Error creating user:', error);
-    } finally {
-      setProcessing(false);
+    } else {
+      const success = await addUser(userData);
+      
+      if (success) {
+        setDialogOpen(false);
+      }
     }
   };
 
-  // Handle editing an existing user
-  const handleEditUser = async (userData: UserFormData) => {
-    if (!editingUser) return;
-    
-    setProcessing(true);
-    try {
-      // Update role if changed
-      if (userData.role && userRoles[editingUser.id] !== userData.role) {
-        // Delete existing role if present
-        await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', editingUser.id);
-          
-        // Only insert new role if not the default user role
-        if (userData.role !== 'user') {
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: editingUser.id, 
-              role: userData.role
-            });
-            
-          if (roleError) throw roleError;
-        }
-      }
-      
-      // Update user profile
-      if (userData.full_name && userData.full_name !== editingUser.full_name) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ full_name: userData.full_name })
-          .eq('id', editingUser.id);
-          
-        if (profileError) throw profileError;
-      }
-      
-      toast.success('User updated successfully');
-      setDialogOpen(false);
-      setEditingUser(null);
-      await refreshUsers();
-    } catch (error: any) {
-      toast.error(`Error updating user: ${error.message}`);
-      console.error('Error updating user:', error);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  // Handle deleting a user
-  const handleDeleteUser = async (userId: string) => {
-    setProcessing(true);
-    try {
-      // Cannot delete yourself
-      if (userId === currentUser?.id) {
-        toast.error("You cannot delete your own account");
-        return;
-      }
-      
-      // Delete user from auth system
-      const { error } = await supabase.functions.invoke('delete-user', {
-        body: { userId }
-      });
-        
-      if (error) throw error;
-      
-      toast.success('User deleted successfully');
-      await refreshUsers();
-    } catch (error: any) {
-      toast.error(`Error deleting user: ${error.message}`);
-      console.error('Error deleting user:', error);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  // Handle toggling admin role
-  const handleToggleAdminRole = async (userId: string, currentRole: string) => {
-    // Prevent updating your own role
-    if (userId === currentUser?.id) {
-      toast.error("You cannot change your own role");
-      return;
-    }
-    
-    setProcessing(true);
-    try {
-      if (currentRole === 'admin') {
-        // Remove admin role (delete from user_roles)
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId);
-          
-        if (error) throw error;
-        toast.success('Admin role removed successfully');
-      } else {
-        // Make user an admin
-        // First delete any existing roles
-        await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId);
-          
-        // Then add admin role
-        const { error } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: userId, 
-            role: 'admin'
-          });
-          
-        if (error) throw error;
-        toast.success('User promoted to admin successfully');
-      }
-      
-      await refreshUsers();
-    } catch (error: any) {
-      toast.error(`Error changing user role: ${error.message}`);
-      console.error('Error changing user role:', error);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
+  // Open user editing dialog
   const openEditDialog = (user: User) => {
     setEditingUser(user);
     setDialogOpen(true);
@@ -249,7 +79,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
                 full_name: editingUser.full_name || undefined,
                 role: userRoles[editingUser.id] || 'user'
               } : undefined}
-              onSubmit={editingUser ? handleEditUser : handleAddUser}
+              onSubmit={handleFormSubmit}
               isEditing={!!editingUser}
               isProcessing={processing}
             />
@@ -260,8 +90,8 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
         users={users} 
         userRoles={userRoles}
         onEdit={openEditDialog}
-        onDelete={handleDeleteUser}
-        onRoleToggle={handleToggleAdminRole}
+        onDelete={(userId) => deleteUser(userId, currentUser?.id)}
+        onRoleToggle={(userId, currentRole) => toggleAdminRole(userId, currentRole, currentUser?.id)}
         currentUserId={currentUser?.id}
         isLoading={isLoading}
       />

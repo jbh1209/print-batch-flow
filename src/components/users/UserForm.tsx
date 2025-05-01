@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -10,17 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DialogFooter } from "@/components/ui/dialog";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-// Define AppRole directly as a string literal type to avoid circular references
-type AppRole = "admin" | "user";
+import { UserFormData, AppRole } from "@/types/user-types";
 
 interface UserFormProps {
-  initialData?: {
-    email?: string;
-    full_name?: string;
-    role?: AppRole;
-  };
-  onSubmit: (data: any) => void;
+  initialData?: UserFormData;
+  onSubmit: (data: UserFormData) => void;
   isEditing?: boolean;
   isProcessing?: boolean;
 }
