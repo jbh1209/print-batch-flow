@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -12,16 +13,18 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     if (profilesError) throw profilesError;
 
     // Get all user email data from auth (requires admin privileges)
+    // We need to use a raw query since the function isn't in the TypeScript types yet
     const { data: users, error: usersError } = await supabase
-      .rpc('get_all_users');
+      .rpc('get_all_users') as { data: { id: string, email: string }[] | null, error: any };
       
     if (usersError) {
       console.error('Error fetching user emails:', usersError);
       // Continue with profiles only if we can't get emails
     }
     
-    const usersMap = users ? 
-      Object.fromEntries(users.map((user: any) => [user.id, user.email])) : 
+    // Create a map of user ID to email, but check if users is an array first
+    const usersMap = Array.isArray(users) ? 
+      Object.fromEntries(users.map((user) => [user.id, user.email])) : 
       {};
     
     const userList: UserWithRole[] = [];
