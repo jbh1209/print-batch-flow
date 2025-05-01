@@ -9,7 +9,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, AlertTriangle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +49,9 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
 
   console.log('UserTable rendering with users:', users);
 
+  // Check if users is valid and has items
+  const hasUsers = Array.isArray(users) && users.length > 0;
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -62,10 +65,14 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {!users || users.length === 0 ? (
+          {!hasUsers ? (
             <TableRow>
               <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                No users found
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <AlertTriangle className="h-8 w-8 text-amber-500" />
+                  <p>No users found</p>
+                  <p className="text-sm text-muted-foreground">This could be due to missing user data or permission issues</p>
+                </div>
               </TableCell>
             </TableRow>
           ) : (
@@ -77,7 +84,7 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
-                    {user.role}
+                    {user.role || 'user'}
                   </Badge>
                 </TableCell>
                 <TableCell>{user.created_at ? formatDate(user.created_at) : 'N/A'}</TableCell>
@@ -96,7 +103,7 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently revoke access for {user.full_name || user.email}. This action cannot be undone.
+                            This will permanently revoke access for {user.full_name || user.email || 'this user'}. This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

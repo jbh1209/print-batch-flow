@@ -54,7 +54,7 @@ serve(async (req) => {
     console.log('Admin verified, fetching all users');
     
     // If user is an admin, fetch all users using service role
-    const { data, error } = await supabase.auth.admin.listUsers();
+    const { data: authUsers, error } = await supabase.auth.admin.listUsers();
     
     if (error) {
       console.log('Error fetching users:', error);
@@ -64,13 +64,23 @@ serve(async (req) => {
       });
     }
 
+    // Log auth users for debugging
+    console.log(`Found ${authUsers.users.length} users in auth`);
+    
+    if (!authUsers.users || authUsers.users.length === 0) {
+      console.log('No users found in auth');
+      return new Response(JSON.stringify([]), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
     // Transform the response to include only id and email
-    const simplifiedUsers = data.users.map(user => ({
+    const simplifiedUsers = authUsers.users.map(user => ({
       id: user.id,
-      email: user.email
+      email: user.email || 'No email'
     }));
 
-    console.log('Users fetched successfully:', simplifiedUsers.length);
+    console.log('Users transformed:', simplifiedUsers);
 
     return new Response(JSON.stringify(simplifiedUsers), { 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 

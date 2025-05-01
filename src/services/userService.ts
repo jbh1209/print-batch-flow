@@ -7,7 +7,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
     console.log('Starting fetchUsers in userService');
     
-    // Get all users from auth.users via admin RPC function
+    // Get all profiles from the profiles table
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url, created_at');
@@ -19,37 +19,60 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     
     console.log('Profiles fetched:', profiles?.length || 0);
 
-    if (!profiles || profiles.length === 0) {
-      console.warn('No profiles found');
-      return [];
-    }
-
     // Get all user email data from auth (requires admin privileges)
     console.log('Invoking get-all-users edge function');
-    const { data: users, error: usersError } = await supabase
+    const { data: authUsers, error: usersError } = await supabase
       .functions.invoke('get-all-users');
       
     if (usersError) {
       console.error('Error fetching user emails:', usersError);
-      throw usersError; // Make this a hard failure since we need user emails
+      throw usersError;
     }
     
-    console.log('Users from edge function:', users?.length || 0);
+    console.log('Users from edge function:', authUsers);
     
-    // Validate that users is an array with data
-    if (!Array.isArray(users) || users.length === 0) {
-      console.error('Invalid or empty users array returned from edge function');
+    // Validate that users is an array
+    if (!Array.isArray(authUsers)) {
+      console.error('Invalid users data returned from edge function:', authUsers);
       throw new Error('Failed to fetch user data from authentication system');
     }
     
     // Create a map of user IDs to email addresses
-    const usersMap = Object.fromEntries(users.map((user) => [user.id, user.email]));
+    const usersMap = Object.fromEntries(
+      (authUsers || []).map((user) => [user.id, user.email])
+    );
     console.log('Users map created with keys:', Object.keys(usersMap).length);
     
     const userList: UserWithRole[] = [];
     
-    // Process each profile to build the complete user data
-    for (const profile of profiles) {
+    // If we have no profiles but we have auth users, create minimal user records
+    if ((!profiles || profiles.length === 0) && authUsers.length > 0) {
+      console.log('No profiles found but auth users exist, creating minimal records');
+      for (const authUser of authUsers) {
+        // Check if the user is an admin
+        const { data: isAdmin, error: adminError } = await supabase
+          .rpc('is_admin', { _user_id: authUser.id });
+          
+        if (adminError) {
+          console.error('Error checking admin status for', authUser.id, ':', adminError);
+        }
+        
+        userList.push({
+          id: authUser.id,
+          email: authUser.email || 'No email',
+          full_name: null,
+          avatar_url: null,
+          role: isAdmin ? 'admin' : 'user',
+          created_at: null
+        });
+      }
+      
+      console.log('Created minimal user records:', userList.length);
+      return userList;
+    }
+    
+    // Process each profile to build the complete user data with emails from auth
+    for (const profile of profiles || []) {
       console.log(`Processing profile ${profile.id}`);
       
       // Check if the user is an admin using our security definer function

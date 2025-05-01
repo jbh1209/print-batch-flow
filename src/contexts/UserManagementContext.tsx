@@ -36,11 +36,12 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [anyAdminExists, setAnyAdminExists] = useState(false);
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
 
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) {
       console.log('Not admin, skipping fetchUsers');
+      setIsLoading(false);
       return;
     }
     
@@ -52,11 +53,24 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       const fetchedUsers = await userService.fetchUsers();
       console.log('Users fetched:', fetchedUsers);
       
-      // Ensure we only set users if we got an array back
-      if (Array.isArray(fetchedUsers) && fetchedUsers.length > 0) {
+      if (Array.isArray(fetchedUsers)) {
         setUsers(fetchedUsers);
+        
+        // If current user isn't in the list, add them with admin role
+        if (user && !fetchedUsers.some(u => u.id === user.id)) {
+          console.log('Current admin user not in list, adding them');
+          const currentAdmin: UserWithRole = {
+            id: user.id,
+            email: user.email || 'Current admin',
+            full_name: null,
+            avatar_url: null,
+            role: 'admin',
+            created_at: null
+          };
+          setUsers(prev => [...prev, currentAdmin]);
+        }
       } else {
-        console.warn('Empty or invalid user array returned:', fetchedUsers);
+        console.warn('Invalid user array returned:', fetchedUsers);
         setUsers([]);
       }
     } catch (error: any) {
@@ -67,7 +81,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, user]);
 
   // Auto-refresh users when admin status changes
   useEffect(() => {
