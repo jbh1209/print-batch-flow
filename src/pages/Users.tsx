@@ -21,18 +21,13 @@ const UsersContent = () => {
     error, 
     isLoading, 
     anyAdminExists, 
-    fetchUsers, 
     checkAdminExists 
   } = useUserManagement();
 
-  // Check if any admin exists and load users when component mounts or admin status changes
+  // Only need to check if admin exists, fetchUsers is handled in UserManagementContext now
   useEffect(() => {
     checkAdminExists();
-    
-    if (isAdmin) {
-      fetchUsers();
-    }
-  }, [isAdmin, checkAdminExists, fetchUsers]);
+  }, [checkAdminExists]);
 
   // Show loading state
   if (isLoading) {

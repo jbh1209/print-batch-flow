@@ -1,8 +1,8 @@
-
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import * as userService from '@/services/userService';
+import { useAuth } from '@/hooks/useAuth';
 
 interface UserManagementContextType {
   users: UserWithRole[];
@@ -35,8 +35,11 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [anyAdminExists, setAnyAdminExists] = useState(false);
+  const { isAdmin } = useAuth();
 
   const fetchUsers = useCallback(async () => {
+    if (!isAdmin) return;
+    
     setIsLoading(true);
     setError(null);
     
@@ -50,7 +53,14 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
+
+  // Auto-refresh users when admin status changes
+  useEffect(() => {
+    if (isAdmin) {
+      fetchUsers();
+    }
+  }, [isAdmin, fetchUsers]);
 
   const checkAdminExists = useCallback(async () => {
     try {

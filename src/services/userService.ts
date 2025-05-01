@@ -1,23 +1,33 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
 // Fetch all users with their roles
 export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
-    // Get all user profiles
+    // Get all users from auth.users via admin RPC function
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url, created_at');
       
     if (profilesError) throw profilesError;
 
-    // Get users with emails from auth.users via admin functions
-    // We'll use RPC function to safely check if each user is an admin
+    // Get all user email data from auth (requires admin privileges)
+    const { data: users, error: usersError } = await supabase
+      .rpc('get_all_users');
+      
+    if (usersError) {
+      console.error('Error fetching user emails:', usersError);
+      // Continue with profiles only if we can't get emails
+    }
+    
+    const usersMap = users ? 
+      Object.fromEntries(users.map((user: any) => [user.id, user.email])) : 
+      {};
+    
     const userList: UserWithRole[] = [];
     
     if (profiles) {
-      // Process each profile one by one to avoid the RLS recursion
+      // Process each profile to build the complete user data
       for (const profile of profiles) {
         // Check if the user is an admin using our security definer function
         const { data: isAdmin, error: adminError } = await supabase
@@ -27,14 +37,10 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
           console.error('Error checking admin status:', adminError);
         }
         
-        // Get the user email if possible
-        // For demo purposes, we can leave this empty as it's not critical
-        const email = ''; // We could fetch this from auth if needed with admin privileges
-        
         userList.push({
           id: profile.id,
-          email: email,
-          full_name: profile.full_name,
+          email: usersMap[profile.id] || 'Email not available',
+          full_name: profile.full_name || 'No Name',
           avatar_url: profile.avatar_url,
           role: isAdmin ? 'admin' : 'user',
           created_at: profile.created_at
