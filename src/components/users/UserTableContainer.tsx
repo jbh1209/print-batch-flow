@@ -7,7 +7,7 @@ import { UserPlus } from "lucide-react";
 import { UserForm } from "./UserForm";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserOperations } from "@/hooks/useUserOperations";
-import { User, UserFormData, AppRole } from "@/types/user-types";
+import { User, UserFormData } from "@/types/user-types";
 
 interface UserTableContainerProps {
   users: User[];
@@ -77,7 +77,7 @@ export function UserTableContainer({ users, userRoles, isLoading, refreshUsers }
               initialData={editingUser ? {
                 email: editingUser.email || undefined,
                 full_name: editingUser.full_name || undefined,
-                role: (userRoles[editingUser.id] as AppRole) || 'user'
+                role: userRoles[editingUser.id] === 'admin' ? 'admin' : 'user'
               } : undefined}
               onSubmit={handleFormSubmit}
               isEditing={!!editingUser}

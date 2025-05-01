@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { User, UserFormData, AppRole } from "@/types/user-types";
+import { User, UserFormData } from "@/types/user-types";
 
 export const useUserOperations = (refreshUsers: () => Promise<void>) => {
   const [processing, setProcessing] = useState(false);
@@ -45,7 +45,7 @@ export const useUserOperations = (refreshUsers: () => Promise<void>) => {
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role
+              role: userData.role // Direct string without type casting
             });
             
           if (roleError) throw roleError;
@@ -83,7 +83,7 @@ export const useUserOperations = (refreshUsers: () => Promise<void>) => {
             .from('user_roles')
             .insert({
               user_id: userId, 
-              role: userData.role
+              role: userData.role // Direct string without type casting
             });
             
           if (roleError) throw roleError;
@@ -173,7 +173,7 @@ export const useUserOperations = (refreshUsers: () => Promise<void>) => {
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin' as AppRole
+            role: 'admin' // Direct string instead of type casting
           });
           
         if (error) throw error;

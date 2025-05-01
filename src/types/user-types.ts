@@ -19,3 +19,8 @@ export interface UserFormData {
   password?: string;
   role?: AppRole;
 }
+
+// Type guard for validating AppRole
+export function isValidAppRole(role: string): role is AppRole {
+  return role === 'admin' || role === 'user';
+}
