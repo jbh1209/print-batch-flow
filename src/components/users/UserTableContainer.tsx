@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -7,7 +6,7 @@ import { UserPlus } from "lucide-react";
 import { UserForm } from "./UserForm";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserOperations } from "@/hooks/useUserOperations";
-import { User, UserFormData } from "@/types/user-types";
+import { User, UserFormData, AppRole } from "@/types/user-types";
 
 interface UserTableContainerProps {
   users: User[];

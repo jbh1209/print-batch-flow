@@ -47,7 +47,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
     defaultValues: {
       email: initialData?.email || "",
       full_name: initialData?.full_name || "",
-      role: initialData?.role || "user",
+      role: (initialData?.role as AppRole) || "user",
       ...(isEditing ? {} : { password: "", confirmPassword: "" })
     }
   });

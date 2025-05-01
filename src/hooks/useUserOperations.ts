@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { User, UserFormData, isValidAppRole } from "@/types/user-types";
+import { User, UserFormData, AppRole, isValidAppRole } from "@/types/user-types";
 
 export const useUserOperations = (refreshUsers: () => Promise<void>) => {
   const [processing, setProcessing] = useState(false);
@@ -50,7 +49,7 @@ export const useUserOperations = (refreshUsers: () => Promise<void>) => {
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role // String value
+              role: userData.role // This is now type-safe
             });
             
           if (roleError) throw roleError;
