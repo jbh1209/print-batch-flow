@@ -1,8 +1,12 @@
 
-// Define AppRole directly as a string literal type
+/**
+ * User role definition with string literals
+ */
 export type AppRole = "admin" | "user";
 
-// Define User interface with primitive types
+/**
+ * User interface with primitive types from Supabase Auth
+ */
 export interface User {
   id: string;
   email?: string | null;
@@ -12,16 +16,20 @@ export interface User {
   last_sign_in_at?: string | null;
 }
 
-// Define form data interface for user creation/editing
+/**
+ * Form data interface for user creation/editing
+ */
 export interface UserFormData {
   email?: string;
   full_name?: string;
   password?: string;
-  role?: string; // Simplified to string for form handling
+  role?: string;
   confirmPassword?: string;
 }
 
-// Type guard for validating AppRole
-export function isValidAppRole(role: string): role is AppRole {
-  return role === 'admin' || role === 'user';
+/**
+ * Runtime type guard for validating roles
+ */
+export function isValidRole(role: string): role is AppRole {
+  return role === "admin" || role === "user";
 }

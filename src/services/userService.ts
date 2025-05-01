@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { User, UserFormData, isValidAppRole, AppRole } from "@/types/user-types";
+import { User, UserFormData } from "@/types/user-types";
 import { toast } from "sonner";
 
 /**
@@ -42,7 +42,7 @@ export const userService = {
         // Only assign non-default roles
         if (userData.role && userData.role !== 'user') {
           // Validate the role string
-          if (!isValidAppRole(userData.role)) {
+          if (userData.role !== 'admin') {
             throw new Error(`Invalid role: ${userData.role}`);
           }
           
@@ -50,7 +50,7 @@ export const userService = {
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role as AppRole
+              role: userData.role
             });
             
           if (roleError) throw roleError;
@@ -75,7 +75,7 @@ export const userService = {
       // Update role if changed
       if (userData.role && currentRole !== userData.role) {
         // Validate the role string
-        if (!isValidAppRole(userData.role)) {
+        if (userData.role !== 'admin' && userData.role !== 'user') {
           throw new Error(`Invalid role: ${userData.role}`);
         }
         
@@ -91,7 +91,7 @@ export const userService = {
             .from('user_roles')
             .insert({
               user_id: userId, 
-              role: userData.role as AppRole
+              role: userData.role
             });
             
           if (roleError) throw roleError;
@@ -157,7 +157,7 @@ export const userService = {
     try {
       // Validate that the new role will be valid
       const newRole = currentRole === 'admin' ? 'user' : 'admin';
-      if (!isValidAppRole(newRole)) {
+      if (newRole !== 'admin' && newRole !== 'user') {
         throw new Error(`Invalid role: ${newRole}`);
       }
       
@@ -183,7 +183,7 @@ export const userService = {
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin' as AppRole
+            role: 'admin'
           });
           
         if (error) throw error;
