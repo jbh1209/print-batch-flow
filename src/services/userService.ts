@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -32,7 +31,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
             email: user.email || 'No email',
             full_name: profile?.full_name || null,
             avatar_url: profile?.avatar_url || null,
-            role: isAdmin ? 'admin' : 'user',
+            role: (isAdmin ? 'admin' : 'user') as UserRole, // Cast to UserRole type
             created_at: profile?.created_at || null
           };
         }));
@@ -102,7 +101,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
             email: authUser.email || 'No email',
             full_name: null,
             avatar_url: null,
-            role: isAdminFallback ? 'admin' : 'user',
+            role: (isAdminFallback ? 'admin' : 'user') as UserRole, // Cast to UserRole
             created_at: null
           });
         } else {
@@ -111,7 +110,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
             email: authUser.email || 'No email',
             full_name: null,
             avatar_url: null,
-            role: isAdmin ? 'admin' : 'user',
+            role: (isAdmin ? 'admin' : 'user') as UserRole, // Cast to UserRole
             created_at: null
           });
         }
@@ -143,7 +142,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
           email: email,
           full_name: profile.full_name || 'No Name',
           avatar_url: profile.avatar_url,
-          role: isAdminFallback ? 'admin' : 'user',
+          role: (isAdminFallback ? 'admin' : 'user') as UserRole, // Cast to UserRole
           created_at: profile.created_at
         });
       } else {
@@ -155,7 +154,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
           email: email,
           full_name: profile.full_name || 'No Name',
           avatar_url: profile.avatar_url,
-          role: isAdmin ? 'admin' : 'user',
+          role: (isAdmin ? 'admin' : 'user') as UserRole, // Cast to UserRole
           created_at: profile.created_at
         });
       }
