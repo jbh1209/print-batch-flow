@@ -8,6 +8,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('Edge function: get-all-users called');
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -18,6 +20,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('Supabase client created');
 
     // Get the user's JWT from the request headers
     const authHeader = req.headers.get('Authorization');
@@ -41,8 +44,8 @@ serve(async (req) => {
       });
     }
 
-    // Check if the user is an admin
-    const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin', { _user_id: user.id });
+    // Check if the user is an admin using our secure function
+    const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin_secure', { _user_id: user.id });
     if (adminError || !isAdmin) {
       console.log('Admin check failed', adminError, isAdmin);
       return new Response(JSON.stringify({ error: 'Admin access required' }), { 

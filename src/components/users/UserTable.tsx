@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { UserWithRole } from "@/types/user-types";
+import { toast } from "sonner";
 
 interface UserTableProps {
   users: UserWithRole[];
@@ -44,6 +45,24 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
         return "bg-amber-100 text-amber-800 hover:bg-amber-100/80";
       default:
         return "bg-blue-100 text-blue-800 hover:bg-blue-100/80";
+    }
+  };
+
+  const handleEdit = (user: UserWithRole) => {
+    try {
+      onEdit(user);
+    } catch (error: any) {
+      console.error("Error editing user:", error);
+      toast.error(`Error editing user: ${error.message}`);
+    }
+  };
+
+  const handleDelete = (userId: string) => {
+    try {
+      onDelete(userId);
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      toast.error(`Error deleting user: ${error.message}`);
     }
   };
 
@@ -90,12 +109,21 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                 <TableCell>{user.created_at ? formatDate(user.created_at) : 'N/A'}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(user)}>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleEdit(user)}
+                      className="transition-opacity hover:opacity-70"
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="transition-opacity hover:opacity-70"
+                        >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </AlertDialogTrigger>
@@ -110,7 +138,7 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction 
                             className="bg-red-500 hover:bg-red-600"
-                            onClick={() => onDelete(user.id)}
+                            onClick={() => handleDelete(user.id)}
                           >
                             Revoke Access
                           </AlertDialogAction>

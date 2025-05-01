@@ -130,6 +130,11 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   }, [fetchUsers]);
 
   const deleteUser = useCallback(async (userId: string) => {
+    if (!userId) {
+      toast.error('Invalid user ID');
+      return;
+    }
+    
     try {
       await userService.revokeUserAccess(userId);
       toast.success('User role revoked successfully');
@@ -142,6 +147,11 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   }, [fetchUsers]);
 
   const addAdminRole = useCallback(async (userId: string) => {
+    if (!userId) {
+      toast.error('Invalid user ID');
+      return;
+    }
+    
     try {
       await userService.addAdminRole(userId);
       toast.success('Admin role successfully assigned');
