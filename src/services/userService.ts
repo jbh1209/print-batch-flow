@@ -21,14 +21,16 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
 
     // Get all user email data from auth (requires admin privileges)
     console.log('Invoking get-all-users edge function');
-    const { data: authUsers, error: usersError } = await supabase
-      .functions.invoke('get-all-users');
-      
-    if (usersError) {
-      console.error('Error fetching user emails:', usersError);
-      throw usersError;
+    const response = await supabase.functions.invoke('get-all-users', {
+      method: 'GET',
+    });
+    
+    if (response.error) {
+      console.error('Error fetching user emails:', response.error);
+      throw new Error(response.error.message || 'Failed to fetch user data');
     }
     
+    const authUsers = response.data;
     console.log('Users from edge function:', authUsers);
     
     // Validate that users is an array

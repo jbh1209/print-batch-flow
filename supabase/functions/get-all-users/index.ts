@@ -44,8 +44,10 @@ serve(async (req) => {
       });
     }
 
-    // Check if the user is an admin using our secure function
-    const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin_secure', { _user_id: user.id });
+    // Check if the user is an admin using the standard is_admin function first
+    // since we can't guarantee is_admin_secure exists yet
+    const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin', { _user_id: user.id });
+    
     if (adminError || !isAdmin) {
       console.log('Admin check failed', adminError, isAdmin);
       return new Response(JSON.stringify({ error: 'Admin access required' }), { 
