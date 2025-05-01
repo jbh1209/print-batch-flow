@@ -3,14 +3,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserManagement } from "@/contexts/UserManagementContext";
 
 export function AdminSetupForm() {
   const { user } = useAuth();
+  const { addAdminRole } = useUserManagement();
   const [userId, setUserId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -30,29 +30,16 @@ export function AdminSetupForm() {
     
     if (!userId.trim()) {
       setErrorMessage("Please enter a valid user ID");
-      toast.error("Please enter a valid user ID");
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      // Call the add_admin_role database function
-      const { data, error } = await supabase.rpc('add_admin_role', {
-        admin_user_id: userId
-      });
-      
-      if (error) throw error;
-      
+      await addAdminRole(userId);
       setSuccessMessage("Admin role successfully assigned!");
-      toast.success("Admin role successfully assigned");
-      
-      // Reload the page after a short delay to show the updated UI
-      setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
-      console.error("Error setting admin role:", error);
       setErrorMessage(error.message || "Failed to set admin role");
-      toast.error(`Failed to set admin role: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }

@@ -9,14 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogFooter } from "@/components/ui/dialog";
 import { AlertCircle } from "lucide-react";
+import { UserFormData } from "@/types/user-types";
 
 interface UserFormProps {
-  initialData?: {
-    email?: string;
-    full_name?: string;
-    role?: string;
-  };
-  onSubmit: (data: any) => void;
+  initialData?: UserFormData;
+  onSubmit: (data: UserFormData) => void;
   isEditing?: boolean;
 }
 

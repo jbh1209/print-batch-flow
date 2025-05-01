@@ -1,18 +1,13 @@
 
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
-
-interface Profile {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-}
+import { User, UserProfile, UserRole } from '@/types/user-types';
+import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: Profile | null;
+  profile: UserProfile | null;
   loading: boolean;
   isLoggedIn: boolean;
   isAdmin: boolean;
@@ -36,12 +31,12 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Fetch user profile from profiles table
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -61,12 +56,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Check if user is an admin using RPC function to prevent recursion
-  const checkIsAdmin = async (userId: string) => {
+  // Check if user is an admin using RPC function 
+  const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
       
-      // Use the is_admin RPC function instead of directly accessing user_roles table
       const { data, error } = await supabase
         .rpc('is_admin', { _user_id: userId });
       

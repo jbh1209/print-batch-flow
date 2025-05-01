@@ -22,17 +22,17 @@ import {
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { UserWithRole } from "@/types/user-types";
 
 interface UserTableProps {
-  users: any[];
-  userRoles: Record<string, string>;
-  userProfiles: Record<string, any>;
-  onEdit: (user: any) => void;
+  users: UserWithRole[];
+  onEdit: (user: UserWithRole) => void;
   onDelete: (userId: string) => void;
 }
 
-export function UserTable({ users, userRoles, userProfiles, onEdit, onDelete }: UserTableProps) {
+export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString();
   };
 
@@ -56,14 +56,13 @@ export function UserTable({ users, userRoles, userProfiles, onEdit, onDelete }: 
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Created</TableHead>
-            <TableHead>Last Sign In</TableHead>
             <TableHead className="w-[100px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {users.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+              <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                 No users found
               </TableCell>
             </TableRow>
@@ -75,12 +74,11 @@ export function UserTable({ users, userRoles, userProfiles, onEdit, onDelete }: 
                 </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={getRoleBadgeColor(userRoles[user.id] || 'user')}>
-                    {userRoles[user.id] || 'user'}
+                  <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
+                    {user.role}
                   </Badge>
                 </TableCell>
-                <TableCell>{formatDate(user.created_at)}</TableCell>
-                <TableCell>{user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Never'}</TableCell>
+                <TableCell>{user.created_at ? formatDate(user.created_at) : 'N/A'}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={() => onEdit(user)}>
