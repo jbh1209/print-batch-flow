@@ -80,7 +80,7 @@ export async function addAdminRole(userId: string): Promise<void> {
 // Create a new user
 export async function createUser(userData: UserFormData): Promise<User> {
   try {
-    // Sign up the user with Supabase auth
+    // Sign up the user with Supabase auth but prevent auto sign-in
     const { data, error } = await supabase.auth.signUp({
       email: userData.email!,
       password: userData.password!,
@@ -88,7 +88,9 @@ export async function createUser(userData: UserFormData): Promise<User> {
         emailRedirectTo: window.location.origin,
         data: {
           full_name: userData.full_name
-        }
+        },
+        shouldCreateUser: true,
+        captchaToken: null
       }
     });
     
