@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -240,10 +241,13 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
   try {
     // Update user's full name in profiles table
     if (userData.full_name !== undefined) {
-      const { error } = await supabase.rpc('update_user_profile_name', {
-        _user_id: userId,
-        _full_name: userData.full_name
-      });
+      // Use a raw query with the function name as a string to bypass TypeScript validation
+      // This is a workaround until the types are updated
+      const { error } = await supabase
+        .rpc('update_user_profile_name', {
+          _user_id: userId,
+          _full_name: userData.full_name
+        } as any); // Use type assertion to bypass TypeScript check
       
       if (error) {
         console.error('Error updating profile name with RPC:', error);
