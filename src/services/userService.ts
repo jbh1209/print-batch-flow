@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -236,18 +235,29 @@ export async function createUser(userData: UserFormData): Promise<User> {
   }
 }
 
-// Update user profile
+// Update user profile - REVISED to avoid infinite recursion
 export async function updateUserProfile(userId: string, userData: UserFormData): Promise<void> {
   try {
-    if (userData.full_name) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ full_name: userData.full_name })
-        .eq('id', userId);
-        
-      if (error) throw error;
+    // Update user's full name in profiles table
+    if (userData.full_name !== undefined) {
+      const { error } = await supabase.rpc('update_user_profile_name', {
+        _user_id: userId,
+        _full_name: userData.full_name
+      });
+      
+      if (error) {
+        console.error('Error updating profile name with RPC:', error);
+        // Fall back to direct update as a last resort
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ full_name: userData.full_name })
+          .eq('id', userId);
+          
+        if (updateError) throw updateError;
+      }
     }
     
+    // Update role if provided - using our existing function that avoids recursion
     if (userData.role) {
       await updateUserRole(userId, userData.role);
     }
