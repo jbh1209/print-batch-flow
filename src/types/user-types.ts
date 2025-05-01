@@ -17,7 +17,7 @@ export interface UserFormData {
   email?: string;
   full_name?: string;
   password?: string;
-  role?: AppRole;
+  role?: string; // Changed from AppRole to string to break circular dependency
 }
 
 // Type guard for validating AppRole

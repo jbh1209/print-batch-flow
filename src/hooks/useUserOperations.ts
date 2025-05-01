@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { UserFormData } from "@/types/user-types";
+import { User, UserFormData, isValidAppRole } from "@/types/user-types";
 
 export const useUserOperations = (refreshUsers: () => Promise<void>) => {
   const [processing, setProcessing] = useState(false);
@@ -41,11 +41,16 @@ export const useUserOperations = (refreshUsers: () => Promise<void>) => {
       if (authData.user) {
         // Assign role to the new user if not the default user role
         if (userData.role && userData.role !== 'user') {
+          // Validate the role string
+          if (!isValidAppRole(userData.role)) {
+            throw new Error(`Invalid role: ${userData.role}`);
+          }
+          
           const { error: roleError } = await supabase
             .from('user_roles')
             .insert({
               user_id: authData.user.id, 
-              role: userData.role // Direct string without type casting
+              role: userData.role // String value
             });
             
           if (roleError) throw roleError;
@@ -71,6 +76,11 @@ export const useUserOperations = (refreshUsers: () => Promise<void>) => {
     try {
       // Update role if changed
       if (userData.role && currentRole !== userData.role) {
+        // Validate the role string
+        if (!isValidAppRole(userData.role)) {
+          throw new Error(`Invalid role: ${userData.role}`);
+        }
+        
         // Delete existing role if present
         await supabase
           .from('user_roles')
@@ -83,7 +93,7 @@ export const useUserOperations = (refreshUsers: () => Promise<void>) => {
             .from('user_roles')
             .insert({
               user_id: userId, 
-              role: userData.role // Direct string without type casting
+              role: userData.role // String value
             });
             
           if (roleError) throw roleError;
@@ -151,6 +161,12 @@ export const useUserOperations = (refreshUsers: () => Promise<void>) => {
     
     setProcessing(true);
     try {
+      // Validate that the new role will be valid
+      const newRole = currentRole === 'admin' ? 'user' : 'admin';
+      if (!isValidAppRole(newRole)) {
+        throw new Error(`Invalid role: ${newRole}`);
+      }
+      
       if (currentRole === 'admin') {
         // Remove admin role (delete from user_roles)
         const { error } = await supabase
@@ -173,7 +189,7 @@ export const useUserOperations = (refreshUsers: () => Promise<void>) => {
           .from('user_roles')
           .insert({
             user_id: userId, 
-            role: 'admin' // Direct string instead of type casting
+            role: 'admin' // Direct string literal
           });
           
         if (error) throw error;
