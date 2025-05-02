@@ -30,16 +30,28 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
         throw new Error(`Table ${config.tableName} does not exist in the database`);
       }
       
-      // Using any as a workaround for the type error
-      // This ensures we can query any table that might not be in the Supabase types yet
-      const { data, error } = await supabase
-        .from(config.tableName as any)
-        .select('*')
-        .eq('id', jobId)
-        .single();
+      try {
+        // Using any as a workaround for the type error
+        // This ensures we can query any table that might not be in the Supabase types yet
+        const { data, error } = await supabase
+          .from(config.tableName as any)
+          .select('*')
+          .eq('id', jobId)
+          .single();
+          
+        if (error) throw error;
         
-      if (error) throw error;
-      return data as BaseJob;
+        // Ensure we have a valid job object before returning it
+        if (!data || typeof data !== 'object') {
+          throw new Error('No job data returned or invalid data format');
+        }
+        
+        // Type assertion after we've verified it's an object with job data
+        return data as BaseJob;
+      } catch (err) {
+        console.error('Error fetching job details:', err);
+        throw err;
+      }
     }
   });
 
