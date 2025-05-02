@@ -50,17 +50,34 @@ export const useBatchesList = () => {
         const nameParts = batch.name.split('-');
         let productType = "Unknown";
         
-        if (nameParts.length >= 3) {  // Changed from >= 2 to >= 3 to correctly parse the prefix
+        if (nameParts.length >= 2) {  // Changed to >= 2 to correctly parse all prefixes
+          const prefix = nameParts[0];
           const code = nameParts[1];
-          switch(code) {
-            case "BC": productType = "Business Cards"; break;
-            case "FL": productType = "Flyers"; break;
-            case "PC": productType = "Postcards"; break;
-            case "PB": productType = "Product Boxes"; break;
-            case "ZUND": productType = "Zund Stickers"; break;
-            case "COV": productType = "Covers"; break;
-            case "POST": productType = "Posters"; break;
-            case "SL": productType = "Sleeves"; break;
+          
+          // Check for both DXB-BC and BC formats
+          if (prefix === "DXB") {
+            switch(code) {
+              case "BC": productType = "Business Cards"; break;
+              case "FL": productType = "Flyers"; break;
+              case "PC": productType = "Postcards"; break;
+              case "PB": productType = "Product Boxes"; break;
+              case "ZUND": productType = "Zund Stickers"; break;
+              case "COV": productType = "Covers"; break;
+              case "POST": productType = "Posters"; break;
+              case "SL": productType = "Sleeves"; break;
+            }
+          } else {
+            // Handle legacy format or other formats
+            switch(prefix) {
+              case "BC": productType = "Business Cards"; break;
+              case "FL": productType = "Flyers"; break;
+              case "PC": productType = "Postcards"; break;
+              case "PB": productType = "Product Boxes"; break;
+              case "ZUND": productType = "Zund Stickers"; break;
+              case "COV": productType = "Covers"; break;
+              case "POST": productType = "Posters"; break;
+              case "SL": productType = "Sleeves"; break;
+            }
           }
         }
         

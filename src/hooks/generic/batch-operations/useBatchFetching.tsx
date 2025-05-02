@@ -18,7 +18,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       return;
     }
 
-    console.log('Fetching batches for user:', user.id);
+    console.log('Fetching batches for user:', user.id, 'product type:', config.productType);
     
     setIsLoading(true);
     setError(null);
@@ -33,7 +33,8 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       const productPrefix = getProductPrefix(config.productType);
       
       if (productPrefix) {
-        query = query.ilike('name', `${productPrefix}%`);
+        // Use ilike with % wildcard for more flexible pattern matching
+        query = query.or(`name.ilike.${productPrefix}-%,name.ilike.DXB-${productPrefix}-%`);
       }
       
       if (batchId) {
@@ -45,7 +46,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
 
       if (fetchError) throw fetchError;
 
-      console.log('Batches data received:', data?.length || 0, 'records');
+      console.log('Batches data received for', config.productType, ':', data?.length || 0, 'records');
       
       const genericBatches: BaseBatch[] = (data || []).map(batch => ({
         ...batch,
@@ -69,14 +70,14 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
   // Helper function to get the correct product prefix pattern for filtering
   function getProductPrefix(productType: string): string {
     switch (productType) {
-      case "Business Cards": return "DXB-BC";
-      case "Flyers": return "DXB-FL";
-      case "Postcards": return "DXB-PC";
-      case "Posters": return "DXB-POST";
-      case "Sleeves": return "DXB-SL";
-      case "Boxes": return "DXB-PB";
-      case "Covers": return "DXB-COV";
-      case "Stickers": return "DXB-ZUND";
+      case "Business Cards": return "BC";
+      case "Flyers": return "FL";
+      case "Postcards": return "PC";
+      case "Posters": return "POST";
+      case "Sleeves": return "SL";
+      case "Boxes": return "PB";
+      case "Covers": return "COV";
+      case "Stickers": return "ZUND";
       default: return "";
     }
   }

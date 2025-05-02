@@ -28,6 +28,8 @@ export const useAllPendingJobs = () => {
         return [];
       }
 
+      console.log(`Fetching ${config.productType} jobs for user ${user.id}`);
+
       // Using any type to work around TypeScript limitations with dynamic table names
       const { data, error } = await supabase
         .from(config.tableName as any)
@@ -41,6 +43,8 @@ export const useAllPendingJobs = () => {
         console.error(`Error fetching ${config.productType} jobs:`, error);
         return [];
       }
+      
+      console.log(`Received ${data?.length || 0} ${config.productType} jobs`);
       
       // Attach the product config to each job and set default urgency
       return (data || []).map(job => {
@@ -77,6 +81,8 @@ export const useAllPendingJobs = () => {
     setError(null);
     
     try {
+      console.log("Fetching all pending jobs for user:", user.id);
+      
       // Create an array of promises to fetch jobs from each product table
       const productFetchPromises = Object.values(productConfigs).map(config => 
         fetchJobsFromTable(config)
@@ -88,12 +94,13 @@ export const useAllPendingJobs = () => {
       // Combine all job arrays into a single array
       const allJobs = jobsByProduct.flat();
       
+      console.log(`Total jobs fetched across all product types: ${allJobs.length}`);
+      
       setJobs(allJobs);
     } catch (err) {
       console.error('Error fetching all jobs:', err);
       setError('Failed to load jobs data');
-      // Fix here: Use the correct toast API format
-      toast("There was a problem loading jobs across product types.");
+      toast.error("There was a problem loading jobs across product types.");
     } finally {
       setIsLoading(false);
     }
