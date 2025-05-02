@@ -40,13 +40,13 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
   const getCardBackgroundColor = () => {
     switch (batch.status) {
       case 'completed':
-        return 'bg-green-50 border-green-200';
+        return 'bg-green-50 border-green-300 border-l-4';
       case 'sent_to_print':
-        return 'bg-blue-50 border-blue-200';
+        return 'bg-blue-50 border-blue-300 border-l-4';
       case 'processing':
-        return 'bg-amber-50 border-amber-200';
+        return 'bg-amber-50 border-amber-300 border-l-4';
       case 'cancelled':
-        return 'bg-red-50 border-red-200';
+        return 'bg-red-50 border-red-300 border-l-4';
       default:
         return 'bg-white';
     }

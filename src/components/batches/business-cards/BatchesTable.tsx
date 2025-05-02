@@ -40,13 +40,13 @@ const BatchesTable = ({
   const getRowBackgroundColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-50';
+        return 'bg-green-50 border-l-4 border-l-green-500';
       case 'sent_to_print':
-        return 'bg-blue-50';
+        return 'bg-blue-50 border-l-4 border-l-blue-500';
       case 'processing':
-        return 'bg-amber-50';
+        return 'bg-amber-50 border-l-4 border-l-amber-500';
       case 'cancelled':
-        return 'bg-red-50';
+        return 'bg-red-50 border-l-4 border-l-red-500';
       default:
         return '';
     }
