@@ -43,7 +43,6 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
         console.log(`Fetching job details for ${config.productType} jobId:`, jobId);
         
         // Using any as a workaround for the type error
-        // This ensures we can query any table that might not be in the Supabase types yet
         const { data, error } = await supabase
           .from(config.tableName as any)
           .select('*')
@@ -64,7 +63,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
         console.log(`Job data received for ${config.productType}:`, data);
         
         // Type assertion after we've verified it's an object with job data
-        return data as BaseJob;
+        return data as unknown as BaseJob;
       } catch (err) {
         console.error('Error fetching job details:', err);
         throw err;
