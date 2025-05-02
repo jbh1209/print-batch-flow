@@ -74,10 +74,8 @@ export const useBatchesList = () => {
     } catch (error) {
       console.error("Error fetching batches:", error);
       setError("Failed to load batch data");
-      toast({
-        title: "Error loading batches",
-        description: "Failed to load batch data. Please try again.",
-        variant: "destructive",
+      toast.error("Error loading batches", {
+        description: "Failed to load batch data. Please try again."
       });
     } finally {
       setIsLoading(false);
