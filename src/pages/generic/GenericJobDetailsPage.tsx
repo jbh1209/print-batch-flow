@@ -127,8 +127,8 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold">{job.name}</h2>
-          <p className="text-gray-500">Job #{job.job_number}</p>
+          <h2 className="text-2xl font-bold">{job?.name}</h2>
+          <p className="text-gray-500">Job #{job?.job_number}</p>
         </div>
         <Button 
           variant="outline"
@@ -153,11 +153,11 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm font-medium text-gray-500">Job Name</p>
-                    <p className="text-lg font-medium">{job.name}</p>
+                    <p className="text-lg font-medium">{job?.name}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Job Number</p>
-                    <p className="text-lg font-medium">{job.job_number}</p>
+                    <p className="text-lg font-medium">{job?.job_number}</p>
                   </div>
                 </div>
 
@@ -168,12 +168,12 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                     <p className="text-sm font-medium text-gray-500">Status</p>
                     <div className="mt-1">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                        ${job.status === 'queued' ? 'bg-blue-100 text-blue-800' : 
-                          job.status === 'batched' ? 'bg-yellow-100 text-yellow-800' :
-                          job.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          job.status === 'error' ? 'bg-red-100 text-red-800' :
+                        ${job?.status === 'queued' ? 'bg-blue-100 text-blue-800' : 
+                          job?.status === 'batched' ? 'bg-yellow-100 text-yellow-800' :
+                          job?.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          job?.status === 'error' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'}`}>
-                        {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                        {job?.status?.charAt(0).toUpperCase() + job?.status?.slice(1)}
                       </span>
                     </div>
                   </div>
@@ -181,7 +181,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                     <p className="text-sm font-medium text-gray-500">Due Date</p>
                     <div className="flex items-center mt-1">
                       <Calendar className="mr-2 h-4 w-4 text-gray-500" />
-                      <p>{formatDate(job.due_date)}</p>
+                      <p>{job?.due_date ? formatDate(job.due_date) : 'No date set'}</p>
                     </div>
                   </div>
                 </div>
@@ -191,15 +191,15 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm font-medium text-gray-500">Quantity</p>
-                    <p className="text-lg font-medium">{job.quantity}</p>
+                    <p className="text-lg font-medium">{job?.quantity}</p>
                   </div>
-                  {job.size && (
+                  {job?.size && (
                     <div>
                       <p className="text-sm font-medium text-gray-500">Size</p>
                       <p className="text-lg font-medium">{job.size}</p>
                     </div>
                   )}
-                  {job.paper_type && (
+                  {job?.paper_type && (
                     <div>
                       <p className="text-sm font-medium text-gray-500">Paper Type</p>
                       <p className="text-lg font-medium">{job.paper_type}</p>
@@ -208,13 +208,13 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-                  {job.paper_weight && (
+                  {job?.paper_weight && (
                     <div>
                       <p className="text-sm font-medium text-gray-500">Paper Weight</p>
                       <p className="text-lg font-medium">{job.paper_weight}</p>
                     </div>
                   )}
-                  {job.lamination_type && (
+                  {job?.lamination_type && (
                     <div>
                       <p className="text-sm font-medium text-gray-500">Lamination</p>
                       <p className="text-lg font-medium">
@@ -223,7 +223,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                       </p>
                     </div>
                   )}
-                  {job.sides && (
+                  {job?.sides && (
                     <div>
                       <p className="text-sm font-medium text-gray-500">Sides</p>
                       <p className="text-lg font-medium">
@@ -236,7 +236,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
             </CardContent>
           </Card>
 
-          {job.pdf_url && (
+          {job?.pdf_url && (
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle>Preview</CardTitle>
@@ -272,7 +272,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {job.batch_id ? (
+              {job?.batch_id ? (
                 <div className="space-y-3">
                   <div>
                     <p className="text-sm font-medium text-gray-500">Batch ID</p>
@@ -291,7 +291,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
               ) : (
                 <div className="text-center py-4">
                   <p className="text-gray-500 mb-3">This job is not part of any batch yet.</p>
-                  {job.status === 'queued' && (
+                  {job?.status === 'queued' && (
                     <Button 
                       variant="outline" 
                       className="w-full"
@@ -314,8 +314,8 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"
-                  onClick={() => job.pdf_url && window.open(job.pdf_url, '_blank')}
-                  disabled={!job.pdf_url}
+                  onClick={() => job?.pdf_url && window.open(job.pdf_url, '_blank')}
+                  disabled={!job?.pdf_url}
                 >
                   <FileText className="mr-2 h-4 w-4" />
                   View PDF
