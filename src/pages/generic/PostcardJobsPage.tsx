@@ -76,7 +76,7 @@ const PostcardJobsPage = () => {
         }}
         isFixingBatchedJobs={isFixingBatchedJobs}
         config={config}
-        onViewJob={handleViewJob}
+        onViewJob={handleViewJob} // This is now properly typed
       />
 
       <GenericBatchCreateDialog

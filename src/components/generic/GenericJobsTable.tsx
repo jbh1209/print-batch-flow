@@ -34,6 +34,7 @@ interface GenericJobsTableProps {
   fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
   isFixingBatchedJobs?: boolean;
   config: ProductConfig;
+  onViewJob?: (jobId: string) => void; // Add this prop
 }
 
 const GenericJobsTable = ({

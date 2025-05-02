@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, FileText, AlertCircle, Calendar, Package } from "lucide-react";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import { format } from "date-fns";
+import { isExistingTable } from "@/utils/database/tableValidation";
 
 interface GenericJobDetailsPageProps {
   config: ProductConfig;
@@ -24,8 +25,15 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
     queryFn: async () => {
       if (!jobId) return null;
       
+      // Check if the table name exists in the database
+      if (!isExistingTable(config.tableName)) {
+        throw new Error(`Table ${config.tableName} does not exist in the database`);
+      }
+      
+      // Using any as a workaround for the type error
+      // This ensures we can query any table that might not be in the Supabase types yet
       const { data, error } = await supabase
-        .from(config.tableName)
+        .from(config.tableName as any)
         .select('*')
         .eq('id', jobId)
         .single();
