@@ -1,128 +1,180 @@
 
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
-import { Eye, Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { TableCell, TableRow, TableBody } from "@/components/ui/table";
+import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Eye, Trash2, FileText } from "lucide-react";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
-import { EmptyJobsMessage } from "@/components/flyers/components/EmptyJobsMessage";
-import { toast } from "sonner";
 
 interface GenericJobsTableBodyProps {
-  config: ProductConfig;
   jobs: BaseJob[];
-  selectedJobs: BaseJob[];
-  handleSelectJob: (id: string, isSelected: boolean) => void;
-  deleteJob: (id: string) => Promise<boolean>;
+  isLoading: boolean;
+  error: string | null;
+  selectedJobs: string[];
+  onSelectJob: (jobId: string, isSelected: boolean) => void;
+  onDeleteJob: (jobId: string) => Promise<void>;
+  onViewJob?: (jobId: string) => void;
+  config: ProductConfig;
 }
 
-export const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({ 
-  config, 
-  jobs, 
-  selectedJobs, 
-  handleSelectJob,
-  deleteJob
+const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
+  jobs,
+  isLoading,
+  error,
+  selectedJobs,
+  onSelectJob,
+  onDeleteJob,
+  onViewJob,
+  config
 }) => {
-  const navigate = useNavigate();
-
-  const handleDeleteJob = async (jobId: string) => {
+  const formatDate = (dateString: string) => {
     try {
-      await deleteJob(jobId);
-      toast.success("Job deleted successfully");
+      return format(new Date(dateString), "MMM dd, yyyy");
     } catch (error) {
-      toast.error("Failed to delete job");
-      console.error("Error deleting job:", error);
+      return dateString;
     }
   };
 
-  const handleViewJob = (jobId: string) => {
-    navigate(config.routes.jobDetailPath(jobId));
+  const isJobSelectable = (job: BaseJob) => {
+    return job.status === "queued";
   };
 
-  const handleEditJob = (jobId: string) => {
-    navigate(config.routes.jobEditPath(jobId));
-  };
+  if (isLoading) {
+    return (
+      <TableRow>
+        <TableCell colSpan={9} className="h-24 text-center">
+          <div className="flex justify-center items-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (error) {
+    return (
+      <TableRow>
+        <TableCell colSpan={9} className="h-24 text-center">
+          <div className="flex flex-col items-center justify-center h-full">
+            <p className="text-red-500">{error}</p>
+            <Button variant="outline" size="sm" className="mt-2">
+              Retry
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (jobs.length === 0) {
+    return (
+      <TableRow>
+        <TableCell colSpan={9} className="h-24 text-center">
+          <div className="flex flex-col items-center justify-center h-full">
+            <p className="text-gray-500">No jobs found</p>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
 
   return (
-    <TableBody>
-      {jobs.length === 0 ? (
-        <EmptyJobsMessage colSpan={9} />
-      ) : (
-        jobs.map((job) => {
-          const isSelected = selectedJobs.some(selectedJob => selectedJob.id === job.id);
-          const canSelect = job.status === "queued";
-          
-          return (
-            <TableRow key={job.id} className={isSelected ? "bg-primary/5" : undefined}>
+    <>
+      {jobs.map((job) => {
+        const isSelected = selectedJobs.includes(job.id);
+        const canSelect = isJobSelectable(job);
+
+        return (
+          <TableRow key={job.id} className={isSelected ? "bg-primary/5" : undefined}>
+            <TableCell>
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => onSelectJob(job.id, checked === true)}
+                disabled={!canSelect}
+              />
+            </TableCell>
+            <TableCell 
+              className="font-medium cursor-pointer hover:text-primary"
+              onClick={() => onViewJob && onViewJob(job.id)}
+            >
+              {job.name}
+            </TableCell>
+            <TableCell>
+              <span
+                className="text-blue-600 hover:underline cursor-pointer"
+                onClick={() => {
+                  if (job.pdf_url) {
+                    window.open(job.pdf_url, "_blank");
+                  }
+                }}
+              >
+                {job.file_name}
+              </span>
+            </TableCell>
+            <TableCell>{job.quantity}</TableCell>
+            {config.hasSize && <TableCell>{job.size || "-"}</TableCell>}
+            {config.hasPaperType && <TableCell>{job.paper_type || "-"}</TableCell>}
+            {(job.lamination_type !== undefined) && (
               <TableCell>
-                <Checkbox 
-                  checked={isSelected} 
-                  onCheckedChange={(checked) => handleSelectJob(job.id, checked === true)}
-                  disabled={!canSelect}
-                />
+                {job.lamination_type === "none"
+                  ? "None"
+                  : job.lamination_type.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
               </TableCell>
-              <TableCell className="font-medium">{job.name}</TableCell>
-              <TableCell>{job.job_number}</TableCell>
-              
-              {/* Size field - conditionally render based on product config */}
-              {config.hasSize && (
-                <TableCell>{(job as any).size}</TableCell>
-              )}
-              
-              {/* Paper field - conditionally render based on product config */}
-              {(config.hasPaperType || config.hasPaperWeight) && (
-                <TableCell>
-                  {(job as any).paper_weight} {(job as any).paper_type}
-                </TableCell>
-              )}
-              
-              <TableCell>{job.quantity}</TableCell>
-              <TableCell>
-                {format(new Date(job.due_date), "dd MMM yyyy")}
-              </TableCell>
-              <TableCell>
-                <JobStatusBadge status={job.status} />
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-2 justify-end">
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    title="View Job"
-                    onClick={() => handleViewJob(job.id)}
+            )}
+            <TableCell>
+              <div className="flex items-center">
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  new Date(job.due_date) < new Date() 
+                    ? "bg-red-500" 
+                    : new Date(job.due_date) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) 
+                      ? "bg-yellow-500" 
+                      : "bg-green-500"
+                }`}></div>
+                {formatDate(job.due_date)}
+              </div>
+            </TableCell>
+            <TableCell>{formatDate(job.created_at)}</TableCell>
+            <TableCell>
+              <JobStatusBadge status={job.status} />
+            </TableCell>
+            <TableCell>
+              <div className="flex space-x-2 justify-end">
+                {onViewJob && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => onViewJob(job.id)}
+                    title="View Job Details"
                   >
-                    <Eye size={16} />
+                    <Eye className="h-4 w-4" />
                   </Button>
-                  {job.status === 'queued' && (
-                    <>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        title="Edit Job"
-                        onClick={() => handleEditJob(job.id)}
-                      >
-                        <Pencil size={16} />
-                      </Button>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        title="Delete Job"
-                        onClick={() => handleDeleteJob(job.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          );
-        })
-      )}
-    </TableBody>
+                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => job.pdf_url && window.open(job.pdf_url, "_blank")}
+                  title="View PDF"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onDeleteJob(job.id)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  title="Delete Job"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        );
+      })}
+    </>
   );
 };
+
+export default GenericJobsTableBody;

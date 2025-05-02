@@ -29,6 +29,10 @@ const PostcardJobsPage = () => {
     navigate(config.routes.newJobPath);
   };
 
+  const handleViewJob = (jobId: string) => {
+    navigate(config.routes.jobDetailPath(jobId));
+  };
+
   const handleSelectionChange = (jobs: any[]) => {
     setSelectedJobs(jobs);
   };
@@ -72,6 +76,7 @@ const PostcardJobsPage = () => {
         }}
         isFixingBatchedJobs={isFixingBatchedJobs}
         config={config}
+        onViewJob={handleViewJob}
       />
 
       <GenericBatchCreateDialog
