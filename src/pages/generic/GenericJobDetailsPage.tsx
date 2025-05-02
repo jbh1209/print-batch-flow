@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import { ArrowLeft, FileText, AlertCircle, Calendar, Package } from "lucide-reac
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import { format } from "date-fns";
 import { isExistingTable } from "@/utils/database/tableValidation";
+import { toast } from "sonner";
 
 interface GenericJobDetailsPageProps {
   config: ProductConfig;
@@ -20,31 +21,47 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
 
+  console.log(`Rendering GenericJobDetailsPage for ${config.productType} with jobId:`, jobId);
+  
   const { data: job, isLoading, error } = useQuery({
     queryKey: [`${config.productType.toLowerCase()}-job-${jobId}`],
     queryFn: async () => {
-      if (!jobId) return null;
+      if (!jobId) {
+        console.error("No jobId provided");
+        toast.error("No job ID provided");
+        return null;
+      }
       
       // Check if the table name exists in the database
       if (!isExistingTable(config.tableName)) {
+        console.error(`Table ${config.tableName} does not exist in the database`);
+        toast.error(`Database table for ${config.productType} does not exist`);
         throw new Error(`Table ${config.tableName} does not exist in the database`);
       }
       
       try {
+        console.log(`Fetching job details for ${config.productType} jobId:`, jobId);
+        
         // Using any as a workaround for the type error
         // This ensures we can query any table that might not be in the Supabase types yet
         const { data, error } = await supabase
           .from(config.tableName as any)
           .select('*')
           .eq('id', jobId)
-          .single();
+          .maybeSingle();
           
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching job details:', error);
+          throw error;
+        }
         
         // Ensure we have a valid job object before returning it
-        if (!data || typeof data !== 'object') {
-          throw new Error('No job data returned or invalid data format');
+        if (!data) {
+          console.error('No job data returned');
+          throw new Error('No job data returned');
         }
+        
+        console.log(`Job data received for ${config.productType}:`, data);
         
         // Type assertion after we've verified it's an object with job data
         return data as BaseJob;

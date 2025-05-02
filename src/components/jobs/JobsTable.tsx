@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { format } from 'date-fns';
+import { format, isPast } from 'date-fns';
 import { ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,14 @@ const JobsTable: React.FC<JobsTableProps> = ({
   const navigate = useNavigate();
 
   const handleNavigateToJob = (job: ExtendedJob) => {
-    navigate(job.productConfig.routes.jobDetailPath(job.id));
+    if (!job.productConfig?.routes?.jobDetailPath) {
+      console.error("Cannot navigate: job detail path not defined for", job.productConfig?.productType);
+      return;
+    }
+    
+    const detailPath = job.productConfig.routes.jobDetailPath(job.id);
+    console.log("Navigating to:", detailPath);
+    navigate(detailPath);
   };
 
   return (

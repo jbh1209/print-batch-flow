@@ -1,5 +1,5 @@
 
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, isPast } from "date-fns";
 import { CircleCheck, CircleAlert, CircleX, Clock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { productConfigs } from "@/config/productTypes";
@@ -13,17 +13,18 @@ const DueDateIndicator = ({ dueDate, productType = "Business Cards" }: DueDateIn
   const today = new Date();
   const dueDateObj = new Date(dueDate);
   const daysUntilDue = differenceInDays(dueDateObj, today);
+  const isPastDueDate = isPast(dueDateObj);
   
   // Get SLA setting for this product type
   const slaTargetDays = productConfigs[productType]?.slaTargetDays || 3;
   
   const getIndicator = () => {
-    if (daysUntilDue < 0) {
+    if (isPastDueDate) {
       return {
         icon: <CircleX className="h-5 w-5 text-red-500" />,
         text: "Overdue",
         color: "text-red-700",
-        urgency: "high"
+        urgency: "critical"
       };
     } else if (daysUntilDue <= 1) {
       // Critical - Due within 1 day

@@ -1,5 +1,5 @@
 
-import { addBusinessDays, differenceInBusinessDays, isWeekend } from "date-fns";
+import { addBusinessDays, differenceInBusinessDays, isWeekend, isPast } from "date-fns";
 import { ProductConfig } from "@/config/productTypes";
 
 // Urgency levels for job batching
@@ -20,6 +20,13 @@ export const getTargetBatchDate = (dueDate: string | Date, slaTargetDays: number
 export const calculateJobUrgency = (dueDate: string, config: ProductConfig): UrgencyLevel => {
   const today = new Date();
   const dueDateObj = new Date(dueDate);
+  
+  // First check if the due date is in the past
+  if (isPast(dueDateObj)) {
+    // If the due date is already past, this is critical urgency
+    return "critical";
+  }
+  
   const targetBatchDate = getTargetBatchDate(dueDateObj, config.slaTargetDays);
   
   // Calculate business days until target batch date

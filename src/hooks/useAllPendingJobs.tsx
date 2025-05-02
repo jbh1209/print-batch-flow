@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from "sonner";
 import { productConfigs, BaseJob, ProductConfig } from '@/config/productTypes';
 import { isExistingTable } from "@/utils/database/tableUtils";
+import { calculateJobUrgency } from "@/utils/dateCalculations";
 
 // Extended job type that includes product type information
 export interface ExtendedJob extends BaseJob {
@@ -46,17 +47,20 @@ export const useAllPendingJobs = () => {
       
       console.log(`Received ${data?.length || 0} ${config.productType} jobs`);
       
-      // Attach the product config to each job and set default urgency
+      // Attach the product config to each job and calculate urgency
       return (data || []).map(job => {
         // First ensure we have a valid job object by typecasting to unknown first
         const jobData = job as unknown;
         
         // Then properly cast to BaseJob if it appears to be a valid job object
         if (jobData && typeof jobData === 'object' && 'id' in jobData) {
+          const baseJob = jobData as BaseJob;
+          const urgency = calculateJobUrgency(baseJob.due_date, config);
+          
           const extendedJob: ExtendedJob = {
-            ...(jobData as BaseJob),
+            ...baseJob,
             productConfig: config,
-            urgency: "low" // Default urgency, will be calculated in the component
+            urgency: urgency
           };
           return extendedJob;
         }
