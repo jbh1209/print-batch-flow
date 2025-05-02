@@ -99,6 +99,65 @@ export type Database = {
         }
         Relationships: []
       }
+      box_jobs: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          due_date: string
+          file_name: string
+          id: string
+          job_number: string
+          lamination_type: string
+          name: string
+          paper_type: string
+          pdf_url: string
+          quantity: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          due_date: string
+          file_name: string
+          id?: string
+          job_number: string
+          lamination_type?: string
+          name: string
+          paper_type: string
+          pdf_url: string
+          quantity: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          due_date?: string
+          file_name?: string
+          id?: string
+          job_number?: string
+          lamination_type?: string
+          name?: string
+          paper_type?: string
+          pdf_url?: string
+          quantity?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_jobs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_card_jobs: {
         Row: {
           batch_id: string | null
@@ -157,6 +216,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "fk_business_card_jobs_batch"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cover_jobs: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          due_date: string
+          file_name: string
+          id: string
+          job_number: string
+          lamination_type: string
+          name: string
+          paper_type: string
+          paper_weight: string
+          pdf_url: string
+          quantity: number
+          sides: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          due_date: string
+          file_name: string
+          id?: string
+          job_number: string
+          lamination_type?: string
+          name: string
+          paper_type: string
+          paper_weight: string
+          pdf_url: string
+          quantity: number
+          sides?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          due_date?: string
+          file_name?: string
+          id?: string
+          job_number?: string
+          lamination_type?: string
+          name?: string
+          paper_type?: string
+          paper_weight?: string
+          pdf_url?: string
+          quantity?: number
+          sides?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cover_jobs_batch_id_fkey"
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"
@@ -291,6 +415,74 @@ export type Database = {
           },
         ]
       }
+      poster_jobs: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          due_date: string
+          file_name: string
+          id: string
+          job_number: string
+          lamination_type: string
+          name: string
+          paper_type: string
+          paper_weight: string
+          pdf_url: string
+          quantity: number
+          sides: string
+          size: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          due_date: string
+          file_name: string
+          id?: string
+          job_number: string
+          lamination_type?: string
+          name: string
+          paper_type: string
+          paper_weight: string
+          pdf_url: string
+          quantity: number
+          sides?: string
+          size: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          due_date?: string
+          file_name?: string
+          id?: string
+          job_number?: string
+          lamination_type?: string
+          name?: string
+          paper_type?: string
+          paper_weight?: string
+          pdf_url?: string
+          quantity?: number
+          sides?: string
+          size?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poster_jobs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -367,6 +559,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "sleeve_jobs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sticker_jobs: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          due_date: string
+          file_name: string
+          id: string
+          job_number: string
+          lamination_type: string
+          name: string
+          paper_type: string
+          pdf_url: string
+          quantity: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          due_date: string
+          file_name: string
+          id?: string
+          job_number: string
+          lamination_type?: string
+          name: string
+          paper_type: string
+          pdf_url: string
+          quantity: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          due_date?: string
+          file_name?: string
+          id?: string
+          job_number?: string
+          lamination_type?: string
+          name?: string
+          paper_type?: string
+          pdf_url?: string
+          quantity?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sticker_jobs_batch_id_fkey"
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"

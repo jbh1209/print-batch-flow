@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 interface BatchSummary {
@@ -15,7 +15,6 @@ interface BatchSummary {
 
 export const useBatchesList = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [batches, setBatches] = useState<BatchSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,16 +50,17 @@ export const useBatchesList = () => {
         const nameParts = batch.name.split('-');
         let productType = "Unknown";
         
-        if (nameParts.length >= 2) {
+        if (nameParts.length >= 3) {  // Changed from >= 2 to >= 3 to correctly parse the prefix
           const code = nameParts[1];
           switch(code) {
             case "BC": productType = "Business Cards"; break;
-            case "FLY": productType = "Flyers"; break;
+            case "FL": productType = "Flyers"; break;
             case "PC": productType = "Postcards"; break;
             case "PB": productType = "Product Boxes"; break;
             case "ZUND": productType = "Zund Stickers"; break;
             case "COV": productType = "Covers"; break;
             case "POST": productType = "Posters"; break;
+            case "SL": productType = "Sleeves"; break;
           }
         }
         
@@ -97,6 +97,7 @@ export const useBatchesList = () => {
       case "Zund Stickers": return "/batches/stickers/batches";
       case "Covers": return "/batches/covers/batches";
       case "Posters": return "/batches/posters/batches";
+      case "Sleeves": return "/batches/sleeves/batches";
       default: return "/batches/all";
     }
   };
@@ -107,8 +108,9 @@ export const useBatchesList = () => {
       return `/batches/business-cards/batches?batchId=${batch.id}`;
     }
     
-    // For all other product types, navigate to the all batches page with the batch ID
-    return `/batches/all?batchId=${batch.id}`;
+    // For all other product types, navigate to the product-specific batch page
+    const productPath = getProductUrl(batch.product_type);
+    return `${productPath}/${batch.id}`;
   };
 
   return {

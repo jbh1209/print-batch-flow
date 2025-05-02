@@ -1,156 +1,144 @@
 
 import { useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
-import { toast as sonnerToast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { BaseJob, ProductConfig, LaminationType } from "@/config/productTypes";
 import { useAuth } from "@/hooks/useAuth";
-import { BaseBatch, BaseJob, LaminationType, ProductConfig } from "@/config/productTypes";
-import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
+import { addDays, format, isAfter } from "date-fns";
 
-export function useBatchCreation(
-  productType: string,
-  tableName: string
-) {
-  const { toast } = useToast();
-  const { user } = useAuth();
+export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
+  const { user } = useAuth();
 
-  // Helper function to generate batch number with product type
-  const generateBatchNumber = async (): Promise<string> => {
-    // Create a code based on product type
-    const typeCode = productType.substring(0, 2).toUpperCase();
+  // Generate a batch name with the correct prefix format based on product type
+  const generateBatchName = (productType: string): string => {
+    const date = new Date();
+    const dateStr = format(date, "yyyyMMddHHmm");
     
-    // Count existing batches with this type prefix
-    const { count, error } = await supabase
-      .from("batches")
-      .select("*", { count: "exact", head: true })
-      .ilike("name", `DXB-${typeCode}-%`);
-      
-    if (error) {
-      console.error("Error counting batches:", error);
+    let prefix = "";
+    switch(productType) {
+      case "Business Cards": prefix = "DXB-BC"; break;
+      case "Flyers": prefix = "DXB-FL"; break;
+      case "Postcards": prefix = "DXB-PC"; break;
+      case "Posters": prefix = "DXB-POST"; break;
+      case "Sleeves": prefix = "DXB-SL"; break;
+      case "Boxes": prefix = "DXB-PB"; break;
+      case "Covers": prefix = "DXB-COV"; break;
+      case "Stickers": prefix = "DXB-ZUND"; break;
+      default: prefix = "DXB";
     }
     
-    // Generate next number with padding
-    const nextNumber = (count ? count + 1 : 1).toString().padStart(5, '0');
-    return `DXB-${typeCode}-${nextNumber}`;
+    return `${prefix}-${dateStr}`;
   };
-  
-  // Create a batch with selected jobs
+
   const createBatchWithSelectedJobs = async (
     selectedJobs: BaseJob[],
     config: ProductConfig,
     laminationType: LaminationType = "none",
-    customSlaTargetDays?: number
-  ): Promise<BaseBatch | null> => {
+    slaTargetDays?: number
+  ) => {
     if (!user) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to create batches",
-        variant: "destructive",
-      });
+      toast.error("User must be logged in to create batches");
       return null;
     }
-    
+
     if (selectedJobs.length === 0) {
-      toast({
-        title: "No jobs selected",
-        description: "Please select at least one job to batch",
-        variant: "destructive",
-      });
+      toast.error("No jobs selected for batch creation");
       return null;
     }
 
     setIsCreatingBatch(true);
     
     try {
-      // Generate batch name
-      const batchName = await generateBatchNumber();
+      console.log(`Creating batch with ${selectedJobs.length} jobs`);
       
-      // Get earliest due date from selected jobs
-      const earliestDueDate = selectedJobs.reduce((earliest, job) => {
-        const jobDate = new Date(job.due_date);
-        return jobDate < earliest ? jobDate : earliest;
-      }, new Date(selectedJobs[0].due_date));
+      // Calculate sheets required
+      const sheetsRequired = selectedJobs.reduce((total, job) => {
+        const jobSheets = Math.ceil(job.quantity / 4); // Assuming 4 per sheet
+        return total + jobSheets;
+      }, 0);
       
-      // Calculate total sheets required
-      const totalCards = selectedJobs.reduce((sum, job) => sum + job.quantity, 0);
-      const sheetsRequired = Math.ceil(totalCards / 24); // 24 cards per sheet (3x8 layout)
+      // Find the earliest due date among selected jobs
+      let earliestDueDate = new Date();
+      let earliestDueDateFound = false;
       
-      // Use custom SLA target days if provided, otherwise use the product config
-      const slaTargetDays = customSlaTargetDays !== undefined 
-        ? customSlaTargetDays 
-        : config.slaTargetDays;
+      selectedJobs.forEach(job => {
+        const dueDate = new Date(job.due_date);
         
-      // Generate and upload batch PDFs
-      const { overviewUrl, impositionUrl } = await generateAndUploadBatchPDFs(
-        selectedJobs,
-        batchName,
-        user.id
-      );
+        if (!earliestDueDateFound || isAfter(earliestDueDate, dueDate)) {
+          earliestDueDate = dueDate;
+          earliestDueDateFound = true;
+        }
+      });
       
-      // Create batch record
-      const { data: batchData, error: batchError } = await supabase
+      // Get the correct SLA days for this product type
+      const slaTarget = slaTargetDays || config.slaTargetDays || 3;
+      
+      // Get common properties from jobs for the batch
+      const firstJob = selectedJobs[0];
+      const paperType = firstJob.paper_type;
+      const paperWeight = firstJob.paper_weight;
+      const sides = firstJob.sides;
+      
+      // Create the batch
+      const batchData = {
+        name: generateBatchName(config.productType),
+        sheets_required: sheetsRequired,
+        due_date: earliestDueDate.toISOString(),
+        lamination_type: laminationType,
+        paper_type: paperType,
+        paper_weight: paperWeight,
+        sides: sides,
+        status: "pending",
+        created_by: user.id,
+        sla_target_days: slaTarget
+      };
+      
+      const { data: batch, error: batchError } = await supabase
         .from("batches")
-        .insert({
-          name: batchName,
-          lamination_type: laminationType,
-          sheets_required: sheetsRequired,
-          due_date: earliestDueDate.toISOString(),
-          created_by: user.id,
-          front_pdf_url: impositionUrl,
-          back_pdf_url: overviewUrl,
-          sla_target_days: slaTargetDays // Store the SLA target days in the batch
-        })
+        .insert(batchData)
         .select()
         .single();
         
       if (batchError) {
-        throw new Error(`Failed to create batch: ${batchError.message}`);
+        console.error("Error creating batch:", batchError);
+        throw batchError;
       }
       
-      // Update all selected jobs to attach them to the batch
-      const batchId = batchData.id;
-      
-      // Fix: Use a type assertion to tell TypeScript that we know what we're doing with the dynamic table name
-      for (const job of selectedJobs) {
-        // Use type assertion to handle the dynamic table name
-        await supabase
-          .from(tableName as any)
-          .update({
-            batch_id: batchId,
-            status: "batched"
-          })
-          .eq("id", job.id);
+      if (!batch) {
+        throw new Error("Failed to create batch, returned data is empty");
       }
       
-      // Add the virtual property needed by UI
-      const resultBatch: BaseBatch = {
-        ...batchData,
-        overview_pdf_url: overviewUrl // Add this property to match BaseBatch type
-      };
+      console.log("Batch created:", batch);
       
-      sonnerToast.success(`Batch ${batchName} created successfully`, {
-        description: `Created with ${selectedJobs.length} jobs, SLA: ${slaTargetDays} days`
-      });
+      // Update all selected jobs to link them to this batch
+      const jobIds = selectedJobs.map(job => job.id);
       
-      return resultBatch;
+      const { error: updateError } = await supabase
+        .from(tableName as any)
+        .update({
+          status: "batched",
+          batch_id: batch.id
+        })
+        .in("id", jobIds);
       
+      if (updateError) {
+        console.error("Error updating jobs with batch ID:", updateError);
+        // Try to delete the batch since jobs update failed
+        await supabase.from("batches").delete().eq("id", batch.id);
+        throw updateError;
+      }
+      
+      toast.success(`Batch created with ${selectedJobs.length} jobs`);
+      return batch;
     } catch (error) {
-      console.error("Error creating batch:", error);
-      toast({
-        title: "Failed to create batch",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
-        variant: "destructive",
-      });
+      console.error("Error in batch creation process:", error);
+      toast.error("Failed to create batch");
       return null;
     } finally {
       setIsCreatingBatch(false);
     }
   };
 
-  return {
-    createBatchWithSelectedJobs,
-    isCreatingBatch,
-    generateBatchNumber
-  };
+  return { createBatchWithSelectedJobs, isCreatingBatch };
 }

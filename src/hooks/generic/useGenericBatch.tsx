@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
-// Import the correct BatchStatus type
 import { BatchStatus } from "@/components/batches/types/BatchTypes";
 
 export function useGenericBatches(config: ProductConfig, batchId: string | null = null) {
@@ -18,7 +18,10 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   const navigate = useNavigate();
 
   const fetchBatches = async () => {
-    if (!user) return;
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -30,11 +33,8 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
         .select('*')
         .eq('created_by', user.id);
       
-      // If we have a batch type, use product type name to filter batches
-      // For example, filter for batches that start with DXB-SL- for Sleeves
-      const productPrefix = config.productType === "Sleeves" ? "DXB-SL-" : 
-                          config.productType === "Flyers" ? "DXB-FL-" : 
-                          config.productType === "Business Cards" ? "DXB-BC-" : "";
+      // Get the correct product prefix for filtering
+      const productPrefix = getProductPrefix(config.productType);
       
       if (productPrefix) {
         query = query.ilike('name', `${productPrefix}%`);
@@ -71,6 +71,21 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
       setIsLoading(false);
     }
   };
+
+  // Helper function to get the correct product prefix for filtering
+  function getProductPrefix(productType: string): string {
+    switch (productType) {
+      case "Business Cards": return "DXB-BC";
+      case "Flyers": return "DXB-FL";
+      case "Postcards": return "DXB-PC";
+      case "Posters": return "DXB-POST";
+      case "Sleeves": return "DXB-SL";
+      case "Boxes": return "DXB-PB";
+      case "Covers": return "DXB-COV";
+      case "Stickers": return "DXB-ZUND";
+      default: return "";
+    }
+  }
   
   const handleViewPDF = (url: string | null) => {
     if (!url) {

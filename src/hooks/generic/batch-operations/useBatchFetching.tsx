@@ -14,6 +14,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
   const fetchBatches = async () => {
     if (!user) {
       console.log('No authenticated user for batch fetching');
+      setIsLoading(false);
       return;
     }
 
@@ -28,9 +29,8 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
         .select('*')
         .eq('created_by', user.id);
       
-      const productPrefix = config.productType === "Sleeves" ? "DXB-SL-" : 
-                          config.productType === "Flyers" ? "DXB-FL-" : 
-                          config.productType === "Business Cards" ? "DXB-BC-" : "";
+      // Define the product prefix patterns for filtering
+      const productPrefix = getProductPrefix(config.productType);
       
       if (productPrefix) {
         query = query.ilike('name', `${productPrefix}%`);
@@ -65,6 +65,21 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       setIsLoading(false);
     }
   };
+
+  // Helper function to get the correct product prefix pattern for filtering
+  function getProductPrefix(productType: string): string {
+    switch (productType) {
+      case "Business Cards": return "DXB-BC";
+      case "Flyers": return "DXB-FL";
+      case "Postcards": return "DXB-PC";
+      case "Posters": return "DXB-POST";
+      case "Sleeves": return "DXB-SL";
+      case "Boxes": return "DXB-PB";
+      case "Covers": return "DXB-COV";
+      case "Stickers": return "DXB-ZUND";
+      default: return "";
+    }
+  }
 
   useEffect(() => {
     if (user) {
