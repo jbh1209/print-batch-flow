@@ -3,6 +3,9 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
+import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
+import { calculateJobUrgency } from "@/utils/dateCalculations";
+import { productConfigs } from "@/config/productTypes";
 
 interface BatchSummary {
   id: string;
@@ -28,13 +31,24 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
       return dateString;
     }
   };
+  
+  // Get urgency level for the batch
+  const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
+  const urgencyLevel = calculateJobUrgency(batch.due_date, config);
 
   return (
     <div className="bg-white rounded-lg shadow border p-6">
       <div className="flex justify-between items-start">
-        <div>
-          <h3 className="font-medium text-lg">{batch.name}</h3>
-          <p className="text-sm text-gray-500">{batch.product_type}</p>
+        <div className="flex items-center space-x-2">
+          <BatchUrgencyIndicator 
+            urgencyLevel={urgencyLevel}
+            earliestDueDate={batch.due_date}
+            productType={batch.product_type}
+          />
+          <div>
+            <h3 className="font-medium text-lg">{batch.name}</h3>
+            <p className="text-sm text-gray-500">{batch.product_type}</p>
+          </div>
         </div>
         <div className={`px-2 py-1 rounded text-xs font-medium 
           ${batch.status === 'completed' ? 'bg-green-100 text-green-800' : 

@@ -5,13 +5,16 @@ import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Eye, Trash2, FileText } from "lucide-react";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
+import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
+import { UrgencyLevel, calculateJobUrgency } from "@/utils/dateCalculations";
+import { productConfigs } from "@/config/productTypes";
 
 interface BatchesTableProps {
   batches: BatchSummary[];
   isLoading: boolean;
   onViewPDF: (url: string | null) => void;
   onDeleteBatch: (batchId: string) => void;
-  onViewDetails?: (batchId: string) => void; // Add this line to support viewing batch details
+  onViewDetails?: (batchId: string) => void;
 }
 
 const BatchesTable = ({
@@ -23,15 +26,30 @@ const BatchesTable = ({
 }: BatchesTableProps) => {
   if (isLoading) {
     return <TableRow>
-      <TableCell colSpan={6} className="text-center py-8">Loading batches...</TableCell>
+      <TableCell colSpan={7} className="text-center py-8">Loading batches...</TableCell>
     </TableRow>;
   }
+
+  // Helper function to determine batch urgency level
+  const getBatchUrgency = (dueDate: string, productType: string): UrgencyLevel => {
+    const config = productConfigs[productType] || productConfigs["Business Cards"];
+    return calculateJobUrgency(dueDate, config);
+  };
 
   return (
     <>
       {batches.map((batch) => (
         <TableRow key={batch.id}>
-          <TableCell>{batch.name}</TableCell>
+          <TableCell>
+            <div className="flex items-center space-x-2">
+              <BatchUrgencyIndicator 
+                urgencyLevel={getBatchUrgency(batch.due_date, batch.product_type)}
+                earliestDueDate={batch.due_date}
+                productType={batch.product_type}
+              />
+              <span>{batch.name}</span>
+            </div>
+          </TableCell>
           <TableCell>
             <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
               batch.status === 'completed'
@@ -45,7 +63,9 @@ const BatchesTable = ({
           </TableCell>
           <TableCell>{batch.sheets_required}</TableCell>
           <TableCell>
-            {format(new Date(batch.due_date), 'MMM d, yyyy')}
+            <div className="flex items-center space-x-2">
+              {format(new Date(batch.due_date), 'MMM d, yyyy')}
+            </div>
           </TableCell>
           <TableCell>
             {batch.created_at && format(new Date(batch.created_at), 'MMM d, yyyy')}

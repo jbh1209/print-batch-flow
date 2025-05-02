@@ -7,6 +7,9 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
+import { calculateJobUrgency } from "@/utils/dateCalculations";
+import { productConfigs } from "@/config/productTypes";
 
 const AllBatches: React.FC = () => {
   const { batches, isLoading, error, getProductUrl, getBatchUrl } = useBatchesList();
@@ -79,26 +82,40 @@ const AllBatches: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {batches.map((batch) => (
-                  <TableRow key={batch.id}>
-                    <TableCell>{batch.name}</TableCell>
-                    <TableCell>{batch.product_type}</TableCell>
-                    <TableCell>{batch.due_date ? format(new Date(batch.due_date), 'MMM dd, yyyy') : 'N/A'}</TableCell>
-                    <TableCell>
-                      <Badge variant={getBadgeVariant(batch.status)}>
-                        {batch.status.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => handleBatchClick(getBatchUrl(batch))}
-                      >
-                        View Details
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {batches.map((batch) => {
+                  const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
+                  const urgencyLevel = calculateJobUrgency(batch.due_date, config);
+                  
+                  return (
+                    <TableRow key={batch.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <BatchUrgencyIndicator 
+                            urgencyLevel={urgencyLevel}
+                            earliestDueDate={batch.due_date}
+                            productType={batch.product_type}
+                          />
+                          <span>{batch.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{batch.product_type}</TableCell>
+                      <TableCell>{batch.due_date ? format(new Date(batch.due_date), 'MMM dd, yyyy') : 'N/A'}</TableCell>
+                      <TableCell>
+                        <Badge variant={getBadgeVariant(batch.status)}>
+                          {batch.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => handleBatchClick(getBatchUrl(batch))}
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

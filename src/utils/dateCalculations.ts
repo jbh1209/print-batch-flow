@@ -22,8 +22,8 @@ export const calculateJobUrgency = (dueDate: string, config: ProductConfig): Urg
   const dueDateObj = new Date(dueDate);
   
   // First check if the due date is in the past
-  if (isPast(dueDateObj)) {
-    // If the due date is already past, this is critical urgency
+  if (isPast(dueDateObj) && dueDateObj.getDate() !== today.getDate()) {
+    // If the due date is already past (and not just today), this is critical urgency
     return "critical";
   }
   
@@ -76,5 +76,53 @@ export const getUrgencyText = (urgency: UrgencyLevel): string => {
       return "On Track";
     default:
       return "";
+  }
+};
+
+// Calculate batch urgency based on most urgent job's due date
+export const calculateBatchUrgency = (dueDates: string[], config: ProductConfig): UrgencyLevel => {
+  if (!dueDates.length) {
+    return "low";
+  }
+  
+  // Calculate urgency for each due date
+  const urgencies = dueDates.map(date => calculateJobUrgency(date, config));
+  
+  // Return the highest urgency level
+  if (urgencies.includes("critical")) return "critical";
+  if (urgencies.includes("high")) return "high";
+  if (urgencies.includes("medium")) return "medium";
+  return "low";
+};
+
+// Get color for the batch urgency indicator
+export const getBatchUrgencyColor = (urgency: UrgencyLevel): string => {
+  switch (urgency) {
+    case "critical":
+      return "text-red-500";
+    case "high":
+      return "text-amber-500";
+    case "medium":
+      return "text-yellow-500";
+    case "low":
+      return "text-emerald-500";
+    default:
+      return "text-gray-500";
+  }
+};
+
+// Get icon for the batch urgency indicator
+export const getBatchUrgencyIcon = (urgency: UrgencyLevel): string => {
+  switch (urgency) {
+    case "critical":
+      return "circle-x";
+    case "high":
+      return "circle-alert";
+    case "medium":
+      return "circle-alert";
+    case "low":
+      return "circle-check";
+    default:
+      return "circle";
   }
 };
