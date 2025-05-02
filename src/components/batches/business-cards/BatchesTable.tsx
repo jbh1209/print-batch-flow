@@ -36,10 +36,46 @@ const BatchesTable = ({
     return calculateJobUrgency(dueDate, config);
   };
 
+  // Get row background color based on batch status
+  const getRowBackgroundColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-50';
+      case 'sent_to_print':
+        return 'bg-blue-50';
+      case 'processing':
+        return 'bg-amber-50';
+      case 'cancelled':
+        return 'bg-red-50';
+      default:
+        return '';
+    }
+  };
+
+  // Sort batches - completed and sent_to_print at the bottom
+  const sortedBatches = [...batches].sort((a, b) => {
+    const completedStatuses = ['completed', 'sent_to_print'];
+    const aIsCompleted = completedStatuses.includes(a.status);
+    const bIsCompleted = completedStatuses.includes(b.status);
+    
+    if (aIsCompleted && !bIsCompleted) return 1;
+    if (!aIsCompleted && bIsCompleted) return -1;
+    
+    // If both have same completion status, sort by due date (most urgent first)
+    const aUrgency = getBatchUrgency(a.due_date, a.product_type);
+    const bUrgency = getBatchUrgency(b.due_date, b.product_type);
+    
+    const urgencyOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3 };
+    return urgencyOrder[aUrgency] - urgencyOrder[bUrgency];
+  });
+
   return (
     <>
-      {batches.map((batch) => (
-        <TableRow key={batch.id}>
+      {sortedBatches.map((batch) => (
+        <TableRow 
+          key={batch.id} 
+          className={getRowBackgroundColor(batch.status)}
+        >
           <TableCell>
             <div className="flex items-center space-x-2">
               <BatchUrgencyIndicator 
@@ -56,9 +92,13 @@ const BatchesTable = ({
                 ? 'bg-green-100 text-green-800'
                 : batch.status === 'processing'
                 ? 'bg-blue-100 text-blue-800'
+                : batch.status === 'sent_to_print'
+                ? 'bg-emerald-100 text-emerald-800'
+                : batch.status === 'cancelled'
+                ? 'bg-red-100 text-red-800'
                 : 'bg-gray-100 text-gray-800'
             }`}>
-              {batch.status.charAt(0).toUpperCase() + batch.status.slice(1)}
+              {batch.status.charAt(0).toUpperCase() + batch.status.slice(1).replace('_', ' ')}
             </span>
           </TableCell>
           <TableCell>{batch.sheets_required}</TableCell>

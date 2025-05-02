@@ -36,8 +36,26 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
   const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
   const urgencyLevel = calculateJobUrgency(batch.due_date, config);
 
+  // Get card background color based on status
+  const getCardBackgroundColor = () => {
+    switch (batch.status) {
+      case 'completed':
+        return 'bg-green-50 border-green-200';
+      case 'sent_to_print':
+        return 'bg-blue-50 border-blue-200';
+      case 'processing':
+        return 'bg-amber-50 border-amber-200';
+      case 'cancelled':
+        return 'bg-red-50 border-red-200';
+      default:
+        return 'bg-white';
+    }
+  };
+
+  const isCompletedOrSent = batch.status === 'completed' || batch.status === 'sent_to_print';
+
   return (
-    <div className="bg-white rounded-lg shadow border p-6">
+    <div className={`rounded-lg shadow border p-6 ${getCardBackgroundColor()}`}>
       <div className="flex justify-between items-start">
         <div className="flex items-center space-x-2">
           <BatchUrgencyIndicator 
@@ -53,10 +71,11 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
         <div className={`px-2 py-1 rounded text-xs font-medium 
           ${batch.status === 'completed' ? 'bg-green-100 text-green-800' : 
           batch.status === 'processing' ? 'bg-blue-100 text-blue-800' : 
+          batch.status === 'sent_to_print' ? 'bg-emerald-100 text-emerald-800' :
           batch.status === 'cancelled' ? 'bg-red-100 text-red-800' : 
           'bg-amber-100 text-amber-800'}`}
         >
-          {batch.status.charAt(0).toUpperCase() + batch.status.slice(1)}
+          {batch.status.charAt(0).toUpperCase() + batch.status.slice(1).replace('_', ' ')}
         </div>
       </div>
       
@@ -68,7 +87,7 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
       </div>
       
       <Button 
-        className="w-full mt-4" 
+        className={`w-full mt-4 ${isCompletedOrSent ? 'bg-gray-300 hover:bg-gray-400' : ''}`}
         onClick={() => navigate(getBatchUrl(batch))}
       >
         View Batch Details

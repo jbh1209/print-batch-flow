@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useBatchesList } from "@/hooks/useBatchesList";
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -10,10 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
 import { calculateJobUrgency } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const AllBatches: React.FC = () => {
   const { batches, isLoading, error, getProductUrl, getBatchUrl } = useBatchesList();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<string>("current");
 
   if (isLoading) {
     return (
@@ -46,11 +48,37 @@ const AllBatches: React.FC = () => {
     switch (status) {
       case 'queued': return 'outline';
       case 'in_progress': return 'secondary';
+      case 'sent_to_print': return 'secondary';
       case 'completed': return 'default';
       case 'cancelled': return 'destructive';
       default: return 'outline';
     }
   };
+
+  // Get row background color based on batch status
+  const getRowBackgroundColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-50';
+      case 'sent_to_print':
+        return 'bg-blue-50';
+      case 'processing':
+        return 'bg-amber-50';
+      case 'cancelled':
+        return 'bg-red-50';
+      default:
+        return '';
+    }
+  };
+
+  // Separate batches into current and completed
+  const currentBatches = batches.filter(
+    batch => !['completed', 'sent_to_print'].includes(batch.status)
+  );
+  
+  const completedBatches = batches.filter(
+    batch => ['completed', 'sent_to_print'].includes(batch.status)
+  );
 
   return (
     <div className="container mx-auto py-6">
@@ -63,64 +91,140 @@ const AllBatches: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg">
-        {batches.length === 0 ? (
-          <div className="p-8 text-center">
-            <h3 className="text-lg font-medium">No batches found</h3>
-            <p className="text-muted-foreground mt-1">No batches have been created yet.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Product Type</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {batches.map((batch) => {
-                  const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
-                  const urgencyLevel = calculateJobUrgency(batch.due_date, config);
-                  
-                  return (
-                    <TableRow key={batch.id}>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <BatchUrgencyIndicator 
-                            urgencyLevel={urgencyLevel}
-                            earliestDueDate={batch.due_date}
-                            productType={batch.product_type}
-                          />
-                          <span>{batch.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{batch.product_type}</TableCell>
-                      <TableCell>{batch.due_date ? format(new Date(batch.due_date), 'MMM dd, yyyy') : 'N/A'}</TableCell>
-                      <TableCell>
-                        <Badge variant={getBadgeVariant(batch.status)}>
-                          {batch.status.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => handleBatchClick(getBatchUrl(batch))}
-                        >
-                          View Details
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
+      <Tabs defaultValue="current" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="current">
+            Current Batches ({currentBatches.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed">
+            Completed Batches ({completedBatches.length})
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="current" className="bg-white shadow rounded-lg">
+          {currentBatches.length === 0 ? (
+            <div className="p-8 text-center">
+              <h3 className="text-lg font-medium">No current batches</h3>
+              <p className="text-muted-foreground mt-1">There are no batches in progress.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Product Type</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentBatches.map((batch) => {
+                    const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
+                    const urgencyLevel = calculateJobUrgency(batch.due_date, config);
+                    
+                    return (
+                      <TableRow 
+                        key={batch.id} 
+                        className={getRowBackgroundColor(batch.status)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <BatchUrgencyIndicator 
+                              urgencyLevel={urgencyLevel}
+                              earliestDueDate={batch.due_date}
+                              productType={batch.product_type}
+                            />
+                            <span>{batch.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{batch.product_type}</TableCell>
+                        <TableCell>{batch.due_date ? format(new Date(batch.due_date), 'MMM dd, yyyy') : 'N/A'}</TableCell>
+                        <TableCell>
+                          <Badge variant={getBadgeVariant(batch.status)}>
+                            {batch.status.replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => handleBatchClick(getBatchUrl(batch))}
+                          >
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="completed" className="bg-white shadow rounded-lg">
+          {completedBatches.length === 0 ? (
+            <div className="p-8 text-center">
+              <h3 className="text-lg font-medium">No completed batches</h3>
+              <p className="text-muted-foreground mt-1">No batches have been completed or sent to print yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Product Type</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {completedBatches.map((batch) => {
+                    const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
+                    const urgencyLevel = calculateJobUrgency(batch.due_date, config);
+                    
+                    return (
+                      <TableRow 
+                        key={batch.id}
+                        className={getRowBackgroundColor(batch.status)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <BatchUrgencyIndicator 
+                              urgencyLevel={urgencyLevel}
+                              earliestDueDate={batch.due_date}
+                              productType={batch.product_type}
+                            />
+                            <span>{batch.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{batch.product_type}</TableCell>
+                        <TableCell>{batch.due_date ? format(new Date(batch.due_date), 'MMM dd, yyyy') : 'N/A'}</TableCell>
+                        <TableCell>
+                          <Badge variant={getBadgeVariant(batch.status)}>
+                            {batch.status.replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => handleBatchClick(getBatchUrl(batch))}
+                          >
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
