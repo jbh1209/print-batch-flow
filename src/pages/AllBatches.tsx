@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { useBatchesList } from "@/hooks/useBatchesList";
 import { useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import AllBatchesHeader from '@/components/batches/AllBatchesHeader';
 import AllBatchesTabs from '@/components/batches/AllBatchesTabs';
 
@@ -39,7 +38,7 @@ const AllBatches: React.FC = () => {
     navigate(batchUrl);
   };
   
-  const getBadgeVariant = (status: string) => {
+  const getBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | "success" => {
     switch (status) {
       case 'queued': return 'outline';
       case 'in_progress': return 'secondary';

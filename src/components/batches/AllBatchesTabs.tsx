@@ -9,7 +9,7 @@ interface AllBatchesTabsProps {
   completedBatches: BatchSummary[];
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  getBadgeVariant: (status: string) => string;
+  getBadgeVariant: (status: string) => "default" | "secondary" | "destructive" | "outline" | "success";
   getBatchUrl: (batch: BatchSummary) => string;
   handleBatchClick: (url: string) => void;
 }
