@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,20 +7,7 @@ import { toast } from "sonner";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BatchStatus } from "@/config/productTypes";
-
-// Define valid table names as a type
-type ValidTableName = 
-  | "flyer_jobs" 
-  | "postcard_jobs" 
-  | "business_card_jobs" 
-  | "poster_jobs" 
-  | "sleeve_jobs" 
-  | "box_jobs" 
-  | "cover_jobs" 
-  | "sticker_jobs" 
-  | "batches" 
-  | "profiles" 
-  | "user_roles";
+import { ValidTableName, isExistingTable, validTableNames } from "@/utils/database/tableValidation";
 
 export function useGenericBatches(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
@@ -118,47 +106,30 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     navigate(path);
   };
   
-  // Define the valid table names as an array for runtime checking
-  const validTableNames: ValidTableName[] = [
-    "flyer_jobs",
-    "postcard_jobs", 
-    "business_card_jobs",
-    "poster_jobs",
-    "sleeve_jobs",
-    "box_jobs",
-    "cover_jobs",
-    "sticker_jobs",
-    "batches", 
-    "profiles", 
-    "user_roles"
-  ];
-  
-  // Function to check if a string is a valid table name
-  function isValidTableName(tableName: string | undefined): tableName is ValidTableName {
-    if (!tableName) return false;
-    return validTableNames.includes(tableName as ValidTableName);
-  }
-  
   // Separate function for batch deletion with proper typing
-  const deleteBatch = async (batchId: string, tableName: ValidTableName) => {
+  const deleteBatch = async (batchId: string, tableName: string) => {
     if (!batchId) return;
     
     setIsDeleting(true);
     try {
       console.log("Deleting batch:", batchId);
       
-      // Reset all jobs in this batch back to queued
-      const { error: jobsError } = await supabase
-        .from(tableName)
-        .update({ 
-          status: "queued",  // Reset status to queued
-          batch_id: null     // Clear batch_id reference
-        })
-        .eq("batch_id", batchId);
-      
-      if (jobsError) {
-        console.error("Error resetting jobs in batch:", jobsError);
-        throw jobsError;
+      // For strongly-typed table access, cast the tableName to a valid table name
+      // Only if it passes our validation check
+      if (validTableNames.includes(tableName as ValidTableName)) {
+        // Reset all jobs in this batch back to queued
+        const { error: jobsError } = await supabase
+          .from(tableName as ValidTableName)
+          .update({ 
+            status: "queued",  // Reset status to queued
+            batch_id: null     // Clear batch_id reference
+          })
+          .eq("batch_id", batchId);
+        
+        if (jobsError) {
+          console.error("Error resetting jobs in batch:", jobsError);
+          throw jobsError;
+        }
       }
       
       // Then delete the batch
@@ -190,13 +161,9 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   const handleDeleteBatch = async () => {
     if (!batchToDelete || !config.tableName) return;
     
-    // Validate the table name at runtime
-    if (isValidTableName(config.tableName)) {
-      await deleteBatch(batchToDelete, config.tableName);
-    } else {
-      console.error(`Invalid table name: ${config.tableName}`);
-      toast.error("Cannot delete batch: Invalid table configuration");
-    }
+    // Simply pass the table name as a string to deleteBatch
+    // The validation happens inside deleteBatch function
+    await deleteBatch(batchToDelete, config.tableName);
   };
   
   useEffect(() => {
