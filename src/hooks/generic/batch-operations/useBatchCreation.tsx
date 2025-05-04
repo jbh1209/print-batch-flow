@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { BaseJob, ProductConfig, LaminationType } from "@/config/productTypes";
 import { useAuth } from "@/hooks/useAuth";
 import { addDays, format, isAfter } from "date-fns";
+import { isExistingTable } from "@/utils/database/tableValidation";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -116,8 +117,14 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Update all selected jobs to link them to this batch
       const jobIds = selectedJobs.map(job => job.id);
       
+      // TypeScript validation: Check if tableName is a valid table before making the query
+      // We need to cast the validated table name to the expected type
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Invalid table name: ${tableName}`);
+      }
+      
       const { error: updateError } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .update({
           status: "batched",
           batch_id: batch.id
