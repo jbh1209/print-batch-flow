@@ -7,7 +7,7 @@ import AllBatchesHeader from '@/components/batches/AllBatchesHeader';
 import AllBatchesTabs from '@/components/batches/AllBatchesTabs';
 
 const AllBatches: React.FC = () => {
-  const { batches, isLoading, error, getBatchUrl } = useBatchesList();
+  const { batches, isLoading, error, fetchBatches, getBatchUrl } = useBatchesList();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("current");
 
