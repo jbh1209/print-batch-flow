@@ -1,47 +1,74 @@
 
-import { useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { ProductConfig } from "@/config/productTypes";
-import { useBatchDataFetching } from "@/hooks/batches/useBatchDataFetching";
-import { useBatchDeletion } from "@/hooks/batches/useBatchDeletion";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { ProductConfig, BaseBatch, BaseJob } from "@/config/productTypes";
+import { toast } from "sonner";
+import { ValidTableName, isExistingTable } from "@/utils/database/tableValidation";
+import { useBatchDeletion } from "./batch-operations/useBatchDeletion";
 
 interface UseGenericBatchDetailsProps {
-  batchId: string;
+  batchId: string | undefined;
   config: ProductConfig;
 }
 
 export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetailsProps) {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [batch, setBatch] = useState<BaseBatch | null>(null);
+  const [relatedJobs, setRelatedJobs] = useState<BaseJob[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  const {
-    batch,
-    relatedJobs,
-    isLoading,
-    error,
-    fetchBatchDetails
-  } = useBatchDataFetching({ 
-    batchId, 
-    config, 
-    userId: user?.id 
-  });
-
-  const {
-    batchToDelete,
-    isDeleting,
-    setBatchToDelete,
-    handleDeleteBatch
-  } = useBatchDeletion({ config });
+  // Use our dedicated deletion hook
+  const { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch } = 
+    useBatchDeletion(config.tableName, () => navigate(config.routes.batchesPath));
 
   useEffect(() => {
-    if (batchId && user) {
-      console.log("Initiating batch details fetch for:", batchId);
-      fetchBatchDetails();
-    } else if (!user) {
-      console.log("No authenticated user for batch details");
-    } else if (!batchId) {
-      console.log("No batchId provided for batch details");
-    }
-  }, [batchId, user]);
+    const fetchBatchDetails = async () => {
+      if (!batchId) return;
+      
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        // Fetch batch details
+        const { data: batchData, error: batchError } = await supabase
+          .from("batches")
+          .select("*")
+          .eq("id", batchId)
+          .single();
+        
+        if (batchError) throw batchError;
+        
+        if (!batchData) {
+          setError("Batch not found");
+          return;
+        }
+        
+        setBatch(batchData as BaseBatch);
+        
+        // Fetch associated jobs if there's a valid table name
+        if (isExistingTable(config.tableName)) {
+          const { data: jobsData, error: jobsError } = await supabase
+            .from(config.tableName as ValidTableName)
+            .select("*")
+            .eq("batch_id", batchId);
+          
+          if (jobsError) throw jobsError;
+          
+          setRelatedJobs(jobsData as BaseJob[]);
+        }
+      } catch (err) {
+        console.error("Error fetching batch details:", err);
+        setError("Failed to load batch details");
+        toast.error("Error loading batch details");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchBatchDetails();
+  }, [batchId, config.tableName]);
 
   return {
     batch,
@@ -51,7 +78,6 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
     batchToDelete,
     isDeleting,
     setBatchToDelete,
-    handleDeleteBatch,
-    fetchBatchDetails
+    handleDeleteBatch
   };
 }
