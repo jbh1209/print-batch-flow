@@ -48,6 +48,8 @@ export const useBusinessCardJobsList = () => {
         return;
       }
       
+      console.log("Fetching business card jobs for user:", user.id);
+      
       let query = supabase
         .from('business_card_jobs')
         .select('*')
@@ -62,12 +64,15 @@ export const useBusinessCardJobsList = () => {
         query = query.eq('lamination_type', laminationFilter);
       }
       
-      const { data, error } = await query;
+      const { data, error: fetchError } = await query;
       
-      if (error) throw error;
+      if (fetchError) throw fetchError;
+      
+      console.log("Business card jobs data received:", data?.length || 0, "records");
       
       setJobs(data || []);
       
+      // Second query to get all job counts for filters
       const { data: allJobs, error: countError } = await supabase
         .from('business_card_jobs')
         .select('status')
@@ -96,6 +101,38 @@ export const useBusinessCardJobsList = () => {
     }
   };
 
+  const deleteJob = async (jobId: string): Promise<boolean> => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('business_card_jobs')
+        .delete()
+        .eq('id', jobId);
+      
+      if (deleteError) throw deleteError;
+      
+      // Remove the job from state
+      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+      
+      // If job was selected, remove it from selection
+      setSelectedJobs(prevSelected => prevSelected.filter(id => id !== jobId));
+      
+      toast({
+        title: "Job deleted",
+        description: "The job was successfully deleted.",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      toast({
+        title: "Error deleting job",
+        description: "There was a problem deleting the job.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   useEffect(() => {
     fetchJobs();
   }, [user, filterView, laminationFilter]);
@@ -118,6 +155,7 @@ export const useBusinessCardJobsList = () => {
     setFilterView,
     setLaminationFilter,
     fetchJobs,
+    deleteJob,
     fixBatchedJobsWithoutBatch,
     handleSelectJob,
     handleSelectAllJobs,

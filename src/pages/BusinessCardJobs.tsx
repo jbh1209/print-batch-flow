@@ -21,7 +21,8 @@ const BusinessCardJobs = () => {
     isFixingBatchedJobs,
     setFilterView, 
     setLaminationFilter, 
-    fetchJobs, 
+    fetchJobs,
+    deleteJob,
     fixBatchedJobsWithoutBatch,
     handleSelectJob, 
     handleSelectAllJobs,
@@ -89,7 +90,7 @@ const BusinessCardJobs = () => {
               variant="outline" 
               size="sm"
               className="bg-white"
-              onClick={fixBatchedJobsWithoutBatch}
+              onClick={() => fixBatchedJobsWithoutBatch()}
               disabled={isFixingBatchedJobs}
             >
               {isFixingBatchedJobs ? (

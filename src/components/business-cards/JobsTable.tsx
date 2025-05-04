@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -48,7 +49,7 @@ const JobsTable = ({
     try {
       return format(new Date(dateString), 'MMM dd, yyyy');
     } catch (error) {
-      return dateString;
+      return dateString || 'N/A';
     }
   };
 
@@ -136,7 +137,7 @@ const JobsTable = ({
                 disabled={!canSelect}
               />
             </TableCell>
-            <TableCell>{job.name}</TableCell>
+            <TableCell>{job.name || 'Unnamed Job'}</TableCell>
             <TableCell>
               <span 
                 className="text-blue-600 hover:underline cursor-pointer" 
@@ -146,7 +147,7 @@ const JobsTable = ({
                   }
                 }}
               >
-                {job.file_name}
+                {job.file_name || 'No file'}
               </span>
             </TableCell>
             <TableCell>{job.quantity}</TableCell>
@@ -155,14 +156,14 @@ const JobsTable = ({
                 job.lamination_type.charAt(0).toUpperCase() + job.lamination_type.slice(1)}
             </TableCell>
             <TableCell>
-              <DueDateIndicator dueDate={job.due_date} />
+              {job.due_date ? <DueDateIndicator dueDate={job.due_date} /> : 'No date set'}
             </TableCell>
-            <TableCell>{formatDate(job.uploaded_at)}</TableCell>
+            <TableCell>{job.uploaded_at ? formatDate(job.uploaded_at) : 'N/A'}</TableCell>
             <TableCell><JobStatusBadge status={job.status} /></TableCell>
             <TableCell className="text-right">
               <JobActions 
                 jobId={job.id} 
-                pdfUrl={job.pdf_url} 
+                pdfUrl={job.pdf_url || ''} 
                 onJobDeleted={onRefresh}
               />
             </TableCell>
