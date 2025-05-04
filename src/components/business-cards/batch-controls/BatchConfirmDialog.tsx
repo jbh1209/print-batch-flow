@@ -41,8 +41,9 @@ const BatchConfirmDialog = ({
   onSelectJob,
   onSlaChange
 }: BatchConfirmDialogProps) => {
-  // Get default SLA from product config
-  const defaultSla = productConfigs["Business Cards"].slaTargetDays;
+  // Get default SLA from product config - use "BusinessCards" key instead of "Business Cards"
+  // and add a fallback value of 3 days
+  const defaultSla = productConfigs["BusinessCards"]?.slaTargetDays || 3;
   const [slaTargetDays, setSlaTargetDays] = useState(defaultSla); 
   
   // Reset to default when dialog opens
