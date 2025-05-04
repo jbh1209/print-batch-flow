@@ -41,7 +41,7 @@ const Index = () => {
         
         <div className="flex justify-center gap-4">
           <Button asChild size="lg">
-            <Link to="/batches">View All Batches</Link>
+            <Link to="/batches/all">View All Batches</Link>
           </Button>
           <Button asChild variant="outline" size="lg">
             <Link to="/batches/business-cards/jobs/new">Create New Job</Link>
@@ -74,7 +74,7 @@ const Index = () => {
           </CardHeader>
           <CardContent className="pb-6">
             <Button asChild>
-              <Link to="/batches" className="flex items-center gap-2">
+              <Link to="/batches/all" className="flex items-center gap-2">
                 <Layers className="h-5 w-5" />
                 View All Batches
               </Link>
