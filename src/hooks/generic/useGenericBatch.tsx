@@ -37,6 +37,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
       const productPrefix = getProductPrefix(config.productType);
       
       if (productPrefix) {
+        console.log(`Filtering batches with prefix: ${productPrefix}`);
         query = query.ilike('name', `${productPrefix}%`);
       }
       
@@ -59,6 +60,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
       }));
       
       setBatches(genericBatches);
+      console.log(`Fetched ${genericBatches.length} batches for ${config.productType}`);
       
       // If we're looking for a specific batch and didn't find it
       if (batchId && (!data || data.length === 0)) {
@@ -82,7 +84,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
       case "Sleeves": return "DXB-SL";
       case "Boxes": return "DXB-PB";
       case "Covers": return "DXB-COV";
-      case "Stickers": return "DXB-STK";  // Fixed to match the batch creation prefix
+      case "Stickers": return "DXB-STK";  // Ensure this matches the batch creation prefix
       default: return "";
     }
   }
@@ -112,7 +114,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
       
       // First reset all jobs in this batch back to queued
       const { error: jobsError } = await supabase
-        .from(config.tableName as any)
+        .from(config.tableName)
         .update({ 
           status: "queued",  // Reset status to queued
           batch_id: null     // Clear batch_id reference

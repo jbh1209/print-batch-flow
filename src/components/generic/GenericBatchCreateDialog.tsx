@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ProductConfig, BaseJob, LaminationType } from '@/config/productTypes';
@@ -48,6 +49,19 @@ export function GenericBatchCreateDialog({
       // Set selected jobs from preselected if available
       if (preSelectedJobs && preSelectedJobs.length > 0) {
         setSelectedJobIds(preSelectedJobs.map(job => job.id));
+        
+        // For stickers, pre-check values from the first job
+        if (config.productType === "Stickers" && preSelectedJobs[0]) {
+          const firstJob = preSelectedJobs[0];
+          if (firstJob.paper_type) {
+            console.log("Setting paper type from job:", firstJob.paper_type);
+            setPaperType(firstJob.paper_type);
+          }
+          if (firstJob.lamination_type) {
+            console.log("Setting lamination type from job:", firstJob.lamination_type);
+            setLaminationType(firstJob.lamination_type as LaminationType);
+          }
+        }
       } else {
         setSelectedJobIds([]);
       }
@@ -111,7 +125,8 @@ export function GenericBatchCreateDialog({
         laminationType,
         printerType,
         sheetSize,
-        slaTargetDays
+        slaTargetDays,
+        productType: config.productType
       });
       
       // Ensure we have valid values before creating the batch

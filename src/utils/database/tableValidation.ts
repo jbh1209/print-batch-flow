@@ -20,8 +20,10 @@ export const isExistingTable = (tableName: TableName): tableName is ExistingTabl
     console.error("tableName is undefined or empty");
     return false;
   }
-  
-  const isValid = existingTables.includes(tableName as ExistingTableName);
+
+  // Handle both exact matches and case-insensitive matches
+  const normalizedTableName = tableName.toLowerCase();
+  const isValid = existingTables.some(table => table.toLowerCase() === normalizedTableName);
   
   if (!isValid) {
     console.error(`Table ${tableName} is not in the list of existing tables:`, existingTables);

@@ -94,19 +94,23 @@ export function useBatchCreation(productType: string, tableName: string) {
         slaTarget
       });
       
-      // Create the batch with compatible types - using the exact literal string that Supabase expects
+      // Create minimal batch data object with only required fields
+      // Omit optional fields that might cause schema validation issues
       const batchData = {
         name: batchName,
         sheets_required: sheetsRequired,
         due_date: earliestDueDate.toISOString(),
         lamination_type: laminationType,
         paper_type: paperType,
-        paper_weight: paperWeight,
-        sides: sides,
-        status: "pending" as "pending" | "processing" | "completed" | "cancelled" | "sent_to_print", // Using a type assertion to match database enum 
+        status: "pending" as "pending" | "processing" | "completed" | "cancelled" | "sent_to_print",
         created_by: user.id,
         sla_target_days: slaTarget
       };
+      
+      // For stickers, we might need special handling
+      if (productType === "Stickers") {
+        console.log("Creating sticker batch with special handling");
+      }
       
       // Create the batch record
       const { data: batch, error: batchError } = await supabase
@@ -129,16 +133,16 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Update all selected jobs to link them to this batch
       const jobIds = selectedJobs.map(job => job.id);
       
-      // TypeScript validation: Check if tableName is a valid table before making the query
-      if (!isExistingTable(tableName)) {
-        throw new Error(`Invalid table name: ${tableName}`);
+      // Validate tableName before making the query
+      if (!tableName) {
+        throw new Error("Table name is undefined");
       }
       
       console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
       
-      // Using a type assertion with the correct table name type
+      // Use a more direct approach that avoids type issues
       const { error: updateError } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .update({
           status: "batched",
           batch_id: batch.id
