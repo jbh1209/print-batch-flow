@@ -105,7 +105,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     navigate(path);
   };
   
-  // Use a more direct approach for batch deletion to avoid type recursion
+  // Completely rewrite the batch deletion function to avoid TypeScript recursion
   const deleteBatch = async (batchId: string, tableName: string) => {
     if (!batchId) return;
     
@@ -113,17 +113,15 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     try {
       console.log("Deleting batch:", batchId);
       
-      // Convert string to ValidTableName and check validity separately
-      // This avoids the deep instantiation error
-      const isValid = isExistingTable(tableName);
-      
-      if (isValid) {
-        // Now we know tableName is a ValidTableName
+      // First check if the tableName is valid without using types that could cause recursion
+      if (isExistingTable(tableName)) {
+        // Use a type assertion with 'any' to bypass TypeScript's type checking
+        // This avoids the deep instantiation error
         const { error: jobsError } = await supabase
-          .from(tableName as ValidTableName)
+          .from(tableName as any)
           .update({ 
-            status: "queued",  // Reset status to queued
-            batch_id: null     // Clear batch_id reference
+            status: "queued",
+            batch_id: null
           })
           .eq("batch_id", batchId);
         
