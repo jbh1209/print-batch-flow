@@ -1,13 +1,25 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { BaseBatch, ProductConfig, ExistingTableName } from "@/config/productTypes";
+import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BatchStatus } from "@/config/productTypes";
-import { isExistingTable } from "@/utils/database/tableValidation";
+
+// Define valid table names as a type
+type ValidTableName = 
+  | "flyer_jobs" 
+  | "postcard_jobs" 
+  | "business_card_jobs" 
+  | "poster_jobs" 
+  | "sleeve_jobs" 
+  | "box_jobs" 
+  | "cover_jobs" 
+  | "sticker_jobs" 
+  | "batches" 
+  | "profiles" 
+  | "user_roles";
 
 export function useGenericBatches(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
@@ -106,8 +118,8 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     navigate(path);
   };
   
-  // Define the valid table names directly to avoid type recursion
-  const validTableNames = [
+  // Define the valid table names as an array for runtime checking
+  const validTableNames: ValidTableName[] = [
     "flyer_jobs",
     "postcard_jobs", 
     "business_card_jobs",
@@ -121,9 +133,15 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     "user_roles"
   ];
   
-  // Separate function for batch deletion with simple string parameter
-  const deleteBatch = async (batchId: string, tableName: string) => {
-    if (!batchId || !tableName) return;
+  // Function to check if a string is a valid table name
+  function isValidTableName(tableName: string | undefined): tableName is ValidTableName {
+    if (!tableName) return false;
+    return validTableNames.includes(tableName as ValidTableName);
+  }
+  
+  // Separate function for batch deletion with proper typing
+  const deleteBatch = async (batchId: string, tableName: ValidTableName) => {
+    if (!batchId) return;
     
     setIsDeleting(true);
     try {
@@ -172,8 +190,8 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   const handleDeleteBatch = async () => {
     if (!batchToDelete || !config.tableName) return;
     
-    // Simple string comparison instead of type checking
-    if (validTableNames.includes(config.tableName)) {
+    // Validate the table name at runtime
+    if (isValidTableName(config.tableName)) {
       await deleteBatch(batchToDelete, config.tableName);
     } else {
       console.error(`Invalid table name: ${config.tableName}`);
