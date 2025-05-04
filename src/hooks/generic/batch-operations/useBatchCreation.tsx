@@ -48,6 +48,13 @@ export function useBatchCreation(productType: string, tableName: string) {
       return null;
     }
 
+    // Validate tableName before proceeding
+    if (!tableName || !isExistingTable(tableName)) {
+      console.error(`Invalid table name: ${tableName}`);
+      toast.error(`Cannot create batch: Invalid table configuration for ${productType}`);
+      return null;
+    }
+
     setIsCreatingBatch(true);
     
     try {
@@ -95,7 +102,6 @@ export function useBatchCreation(productType: string, tableName: string) {
       });
       
       // Create minimal batch data object with only required fields
-      // Omit optional fields that might cause schema validation issues
       const batchData = {
         name: batchName,
         sheets_required: sheetsRequired,
@@ -106,11 +112,6 @@ export function useBatchCreation(productType: string, tableName: string) {
         created_by: user.id,
         sla_target_days: slaTarget
       };
-      
-      // For stickers, we might need special handling
-      if (productType === "Stickers") {
-        console.log("Creating sticker batch with special handling");
-      }
       
       // Create the batch record
       const { data: batch, error: batchError } = await supabase
@@ -133,21 +134,14 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Update all selected jobs to link them to this batch
       const jobIds = selectedJobs.map(job => job.id);
       
-      // Validate tableName before making the query
-      if (!tableName) {
-        throw new Error("Table name is undefined");
-      }
-      
-      // Check if the table is a valid existing table name
-      if (!isExistingTable(tableName)) {
-        throw new Error(`Invalid table name: ${tableName}`);
-      }
-      
       console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
       
-      // Use type assertion after validation to tell TypeScript this is safe
+      // Use a validated table name that we confirmed is an existing table
+      const validatedTableName = tableName as ExistingTableName;
+      
+      // Update the jobs with the batch ID
       const { error: updateError } = await supabase
-        .from(tableName as ExistingTableName)
+        .from(validatedTableName)
         .update({
           status: "batched",
           batch_id: batch.id

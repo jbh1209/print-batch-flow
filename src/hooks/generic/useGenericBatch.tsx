@@ -4,9 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { BaseBatch, ProductConfig } from "@/config/productTypes";
+import { BaseBatch, ProductConfig, ExistingTableName } from "@/config/productTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BatchStatus } from "@/config/productTypes";
+import { isExistingTable } from "@/utils/database/tableValidation";
 
 export function useGenericBatches(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
@@ -112,9 +113,14 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     try {
       console.log("Deleting batch:", batchToDelete);
       
+      // First validate that the table name is valid
+      if (!isExistingTable(config.tableName)) {
+        throw new Error(`Invalid table name: ${config.tableName}`);
+      }
+      
       // First reset all jobs in this batch back to queued
       const { error: jobsError } = await supabase
-        .from(config.tableName)
+        .from(config.tableName as ExistingTableName)
         .update({ 
           status: "queued",  // Reset status to queued
           batch_id: null     // Clear batch_id reference
