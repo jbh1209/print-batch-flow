@@ -1,6 +1,4 @@
 
-import { TableName } from "@/config/productTypes";
-
 // Define the valid table names type
 export type ValidTableName = 
   | "flyer_jobs" 
@@ -31,7 +29,7 @@ export const validTableNames: ValidTableName[] = [
 ];
 
 // Function to check if a table name is valid
-export const isExistingTable = (tableName: TableName): tableName is ValidTableName => {
+export const isExistingTable = (tableName: string | undefined): tableName is ValidTableName => {
   if (!tableName) {
     console.error("tableName is undefined or empty");
     return false;

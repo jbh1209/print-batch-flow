@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,12 +113,11 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     try {
       console.log("Deleting batch:", batchId);
       
-      // For strongly-typed table access, cast the tableName to a valid table name
-      // Only if it passes our validation check
-      if (validTableNames.includes(tableName as ValidTableName)) {
+      // Only perform table operations if the table name is valid
+      if (isExistingTable(tableName)) {
         // Reset all jobs in this batch back to queued
         const { error: jobsError } = await supabase
-          .from(tableName as ValidTableName)
+          .from(tableName)
           .update({ 
             status: "queued",  // Reset status to queued
             batch_id: null     // Clear batch_id reference
@@ -162,7 +160,6 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     if (!batchToDelete || !config.tableName) return;
     
     // Simply pass the table name as a string to deleteBatch
-    // The validation happens inside deleteBatch function
     await deleteBatch(batchToDelete, config.tableName);
   };
   
