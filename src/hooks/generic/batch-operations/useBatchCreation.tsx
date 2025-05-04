@@ -4,70 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BaseJob, ProductConfig, LaminationType, ExistingTableName } from "@/config/productTypes";
 import { useAuth } from "@/hooks/useAuth";
-import { addDays, format, isAfter } from "date-fns";
-import { isExistingTable } from "@/utils/database/tableValidation";
-
-// Define standard product type codes for batch naming
-const PRODUCT_TYPE_CODES = {
-  "Business Cards": "BC",
-  "BusinessCards": "BC",
-  "Flyers": "FL",
-  "Postcards": "PC",
-  "Posters": "POS",
-  "Sleeves": "SL",
-  "Boxes": "PB",
-  "Covers": "COV",
-  "Stickers": "STK"
-};
+import { generateBatchName } from "@/utils/batch/batchNameGenerator";
+import { validateTableConfig } from "@/utils/batch/tableValidator";
+import { 
+  calculateSheetsRequired, 
+  findEarliestDueDate, 
+  extractCommonJobProperties,
+  createBatchDataObject
+} from "@/utils/batch/batchDataProcessor";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const { user } = useAuth();
-
-  // Generate a batch name with the correct prefix format based on product type
-  const generateBatchName = async (productType: string): Promise<string> => {
-    // Get the correct code for the product type
-    const typeCode = PRODUCT_TYPE_CODES[productType] || "UNK";
-    
-    try {
-      // Check for existing batches with this prefix to determine next number
-      const { data, error } = await supabase
-        .from("batches")
-        .select("name")
-        .ilike("name", `DXB-${typeCode}-%`);
-      
-      if (error) {
-        console.error("Error counting batches:", error);
-        throw error;
-      }
-      
-      // Default to 1 if no batches found
-      let nextNumber = 1;
-      
-      if (data && data.length > 0) {
-        // Extract numbers from existing batch names
-        const numbers = data.map(batch => {
-          const match = batch.name.match(/DXB-[A-Z]+-(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
-        });
-        
-        // Find the highest number and increment
-        nextNumber = Math.max(0, ...numbers) + 1;
-      }
-      
-      // Format with 5 digits padding
-      const formattedNumber = nextNumber.toString().padStart(5, '0');
-      const batchName = `DXB-${typeCode}-${formattedNumber}`;
-      
-      console.log(`Generated batch name: ${batchName} for product type: ${productType}`);
-      return batchName;
-    } catch (err) {
-      console.error("Error generating batch name:", err);
-      // Fallback to timestamp-based name if error occurs
-      const timestamp = format(new Date(), "yyyyMMddHHmm");
-      return `DXB-${typeCode}-${timestamp}`;
-    }
-  };
 
   const createBatchWithSelectedJobs = async (
     selectedJobs: BaseJob[],
@@ -86,9 +34,7 @@ export function useBatchCreation(productType: string, tableName: string) {
     }
 
     // Validate tableName before proceeding
-    if (!tableName || !isExistingTable(tableName)) {
-      console.error(`Invalid table name: ${tableName}`);
-      toast.error(`Cannot create batch: Invalid table configuration for ${productType}`);
+    if (!validateTableConfig(tableName, productType)) {
       return null;
     }
 
@@ -99,32 +45,17 @@ export function useBatchCreation(productType: string, tableName: string) {
       console.log("First job:", selectedJobs[0]);
       
       // Calculate sheets required
-      const sheetsRequired = selectedJobs.reduce((total, job) => {
-        const jobSheets = Math.ceil(job.quantity / 4); // Assuming 4 per sheet
-        return total + jobSheets;
-      }, 0);
+      const sheetsRequired = calculateSheetsRequired(selectedJobs);
       
       // Find the earliest due date among selected jobs
-      let earliestDueDate = new Date();
-      let earliestDueDateFound = false;
-      
-      selectedJobs.forEach(job => {
-        const dueDate = new Date(job.due_date);
-        
-        if (!earliestDueDateFound || isAfter(earliestDueDate, dueDate)) {
-          earliestDueDate = dueDate;
-          earliestDueDateFound = true;
-        }
-      });
+      const earliestDueDate = findEarliestDueDate(selectedJobs);
       
       // Get the correct SLA days for this product type
       const slaTarget = slaTargetDays || config.slaTargetDays || 3;
       
       // Get common properties from jobs for the batch
       const firstJob = selectedJobs[0];
-      const paperType = firstJob.paper_type || config.availablePaperTypes?.[0] || "Paper";
-      const paperWeight = firstJob.paper_weight || "standard";
-      const sides = firstJob.sides || "single"; // Default to single if not specified
+      const { paperType } = extractCommonJobProperties(firstJob, config);
       
       // Generate batch name with standardized format
       const batchName = await generateBatchName(config.productType);
@@ -138,17 +69,16 @@ export function useBatchCreation(productType: string, tableName: string) {
         slaTarget
       });
       
-      // Create minimal batch data object with only required fields
-      const batchData = {
-        name: batchName,
-        sheets_required: sheetsRequired,
-        due_date: earliestDueDate.toISOString(),
-        lamination_type: laminationType,
-        paper_type: paperType,
-        status: "pending" as "pending" | "processing" | "completed" | "cancelled" | "sent_to_print",
-        created_by: user.id,
-        sla_target_days: slaTarget
-      };
+      // Create batch data object
+      const batchData = createBatchDataObject(
+        batchName,
+        sheetsRequired,
+        earliestDueDate,
+        laminationType,
+        paperType,
+        user.id,
+        slaTarget
+      );
       
       // Create the batch record
       const { data: batch, error: batchError } = await supabase
