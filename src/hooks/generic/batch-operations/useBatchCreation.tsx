@@ -25,7 +25,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       case "Sleeves": prefix = "DXB-SL"; break;
       case "Boxes": prefix = "DXB-PB"; break;
       case "Covers": prefix = "DXB-COV"; break;
-      case "Stickers": prefix = "DXB-STK"; break;  // Changed from "DXB-ZUND" to "DXB-STK" for consistency
+      case "Stickers": prefix = "DXB-STK"; break;
       default: prefix = "DXB";
     }
     
@@ -118,11 +118,11 @@ export function useBatchCreation(productType: string, tableName: string) {
       const jobIds = selectedJobs.map(job => job.id);
       
       // TypeScript validation: Check if tableName is a valid table before making the query
-      // We need to cast the validated table name to the expected type
       if (!isExistingTable(tableName)) {
         throw new Error(`Invalid table name: ${tableName}`);
       }
       
+      // Using a type assertion with the correct table name type
       const { error: updateError } = await supabase
         .from(tableName as any)
         .update({
