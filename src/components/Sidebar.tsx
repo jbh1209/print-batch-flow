@@ -85,7 +85,7 @@ const Sidebar = () => {
             to="/batches" 
             icon={<Layers size={20} />} 
             label={collapsed ? "" : "All Batches"} 
-            isActive={location.pathname === "/batches"} 
+            isActive={location.pathname === "/batches" || location.pathname.startsWith("/batches/all")} 
           />
           
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Batch Types</div>}

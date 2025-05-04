@@ -15,7 +15,9 @@ export function useBatchNavigation(productType: string) {
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    const path = `/batches/${productType.toLowerCase().replace(' ', '-')}/batches/${batchId}`;
+    // Make sure we're formatting the URL correctly for the router pattern
+    const formattedProductType = productType.toLowerCase().replace(/ /g, '-');
+    const path = `/batches/${formattedProductType}/batches/${batchId}`;
     console.log("Navigating to batch details:", path);
     navigate(path);
   };

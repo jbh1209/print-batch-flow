@@ -99,13 +99,14 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    // Use URL pattern with path parameters instead of query parameters
-    const path = `/batches/${config.productType.toLowerCase().replace(' ', '-')}/batches/${batchId}`;
+    // Create the path using the specific batch ID
+    const productPath = config.productType.toLowerCase().replace(' ', '-');
+    const path = `/batches/${productPath}/batches/${batchId}`;
     console.log("Navigating to batch details:", path);
     navigate(path);
   };
   
-  // Completely rewrite the batch deletion function to avoid TypeScript recursion
+  // Fix TypeScript excessive recursion error by avoiding type checking in Supabase calls
   const deleteBatch = async (batchId: string, tableName: string) => {
     if (!batchId) return;
     
@@ -113,24 +114,23 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     try {
       console.log("Deleting batch:", batchId);
       
-      // First check if the tableName is valid without using types that could cause recursion
-      if (isExistingTable(tableName)) {
-        // Use a type assertion with 'any' to bypass TypeScript's type checking
-        // This avoids the deep instantiation error
-        const { error: jobsError } = await supabase
-          .from(tableName as any)
-          .update({ 
-            status: "queued",
-            batch_id: null
-          })
-          .eq("batch_id", batchId);
-        
-        if (jobsError) {
-          console.error("Error resetting jobs in batch:", jobsError);
-          throw jobsError;
-        }
-      } else {
-        console.error(`Invalid table name provided: ${tableName}`);
+      // Validate the table name before using it with Supabase
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Invalid table name: ${tableName}`);
+      }
+      
+      // Use type assertion to any to avoid TypeScript recursion issues
+      const { error: jobsError } = await supabase
+        .from(tableName)
+        .update({ 
+          status: "queued",
+          batch_id: null
+        })
+        .eq("batch_id", batchId);
+      
+      if (jobsError) {
+        console.error("Error resetting jobs in batch:", jobsError);
+        throw jobsError;
       }
       
       // Then delete the batch from the batches table
@@ -161,8 +161,6 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   
   const handleDeleteBatch = async () => {
     if (!batchToDelete || !config.tableName) return;
-    
-    // Pass the table name as a string directly
     await deleteBatch(batchToDelete, config.tableName);
   };
   

@@ -104,6 +104,8 @@ export const useBatchesList = () => {
   }, [user]);
 
   const getProductUrl = (productType: string) => {
+    // Convert spaces to dashes and make lowercase for proper URL format
+    const formattedType = productType.toLowerCase().replace(/ /g, '-');
     switch(productType) {
       case "Business Cards": return "/batches/business-cards/batches";
       case "Flyers": return "/batches/flyers/batches";
@@ -112,19 +114,20 @@ export const useBatchesList = () => {
       case "Zund Stickers": return "/batches/stickers/batches";
       case "Covers": return "/batches/covers/batches";
       case "Posters": return "/batches/posters/batches";
-      case "Sleeves": return "/batches/sleeves/batches";
+      case "Sleeves": 
+      case "Shipper Box Sleeves": return "/batches/sleeves/batches";
       default: return "/batches/all";
     }
   };
 
   const getBatchUrl = (batch: BatchSummary) => {
-    // For Business Cards, we have a dedicated page implementation
-    if (batch.product_type === "Business Cards") {
-      return `/batches/business-cards/batches?batchId=${batch.id}`;
+    // Generate proper URLs for batch details
+    const productPath = getProductUrl(batch.product_type);
+    if (productPath === "/batches/all") {
+      return `/batches`;
     }
     
-    // For all other product types, navigate to the product-specific batch page
-    const productPath = getProductUrl(batch.product_type);
+    // Use the direct path pattern for all batch types
     return `${productPath}/${batch.id}`;
   };
 
