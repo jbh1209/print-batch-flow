@@ -1,6 +1,9 @@
 
 import { BatchStatus, LaminationType } from "@/config/productTypes";
 
+// Export these types so they can be imported from other files
+export { BatchStatus, LaminationType };
+
 export interface BatchDetailsType {
   id: string;
   name: string;

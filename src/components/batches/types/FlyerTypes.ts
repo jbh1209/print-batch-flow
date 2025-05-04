@@ -1,11 +1,11 @@
 
-import { BatchStatus, LaminationType } from "./BatchTypes";
+import { BatchStatus, LaminationType } from "@/config/productTypes";
+
+// Import directly from the config file instead of from ./BatchTypes
+export type { BatchStatus, LaminationType };
 
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";
-
-// Re-export these types with proper 'export type' syntax
-export type { BatchStatus, LaminationType };
 
 export interface FlyerBatch {
   id: string;

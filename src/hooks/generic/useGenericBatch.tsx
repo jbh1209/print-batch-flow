@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
-import { BatchStatus } from "@/components/batches/types/BatchTypes";
+import { BatchStatus } from "@/config/productTypes";
 
 export function useGenericBatches(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();

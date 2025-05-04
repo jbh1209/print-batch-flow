@@ -80,7 +80,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       const paperWeight = firstJob.paper_weight;
       const sides = firstJob.sides || "single"; // Default to single if not specified
       
-      // Create the batch with compatible types
+      // Create the batch with compatible types - using literal string for status
       const batchData = {
         name: generateBatchName(config.productType),
         sheets_required: sheetsRequired,
@@ -89,7 +89,7 @@ export function useBatchCreation(productType: string, tableName: string) {
         paper_type: paperType,
         paper_weight: paperWeight,
         sides: sides,
-        status: "pending", // Use string literal to match the DB enum type
+        status: "pending", // Using the string literal that matches the database's expected enum
         created_by: user.id,
         sla_target_days: slaTarget
       };

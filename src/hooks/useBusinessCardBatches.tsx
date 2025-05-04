@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LaminationType } from "@/components/business-cards/JobsTable";
-import { BatchStatus } from "@/components/batches/types/BatchTypes";
+import { BatchStatus } from "@/config/productTypes"; // Import from config instead
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface Batch {
