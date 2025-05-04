@@ -25,6 +25,8 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
   const navigate = useNavigate();
   const { batchId } = useParams<{ batchId: string }>();
   
+  console.log(`GenericBatchesPage initializing for ${config.productType}`);
+  
   // Use the provided hook or default to useGenericBatches
   const batchesHookFn = useBatchesHook || (() => useGenericBatches(config));
   
@@ -37,6 +39,8 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
     handleViewBatchDetails
   } = batchesHookFn();
 
+  console.log(`${config.productType} batches loaded:`, batches.length);
+
   // Convert BaseBatch[] to BatchSummary[] by adding the product_type property
   const batchSummaries: BatchSummary[] = batches.map(batch => ({
     ...batch,
@@ -47,8 +51,8 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{config.ui.title} Batches</h1>
-          <p className="text-gray-500">View and manage all {config.productType.toLowerCase()} batches</p>
+          <h1 className="text-2xl font-bold tracking-tight">{config.ui.title || config.productType} Batches</h1>
+          <p className="text-gray-500">View and manage all {(config.ui.title || config.productType).toLowerCase()} batches</p>
         </div>
       </div>
 

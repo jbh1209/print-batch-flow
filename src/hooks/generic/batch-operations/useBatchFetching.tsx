@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
+import { getProductTypeCode } from "@/utils/batch/productTypeCodes";
 
 export function useBatchFetching(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
@@ -29,12 +30,13 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
         .select('*')
         .eq('created_by', user.id);
       
-      // Define the product prefix patterns for filtering
-      const productPrefix = getProductPrefix(config.productType);
+      // Get product code from the standardized utility function
+      const productCode = getProductTypeCode(config.productType);
       
-      if (productPrefix) {
-        // Use ilike with % wildcard for more flexible pattern matching
-        query = query.or(`name.ilike.${productPrefix}-%,name.ilike.DXB-${productPrefix}-%`);
+      if (productCode) {
+        // Using the standardized code prefix for batch naming patterns
+        console.log(`Using product code ${productCode} for ${config.productType} batches`);
+        query = query.or(`name.ilike.%-${productCode}-%,name.ilike.DXB-${productCode}-%`);
       }
       
       if (batchId) {
@@ -66,21 +68,6 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       setIsLoading(false);
     }
   };
-
-  // Helper function to get the correct product prefix pattern for filtering
-  function getProductPrefix(productType: string): string {
-    switch (productType) {
-      case "Business Cards": return "BC";
-      case "Flyers": return "FL";
-      case "Postcards": return "PC";
-      case "Posters": return "POST";
-      case "Sleeves": return "SL";
-      case "Boxes": return "PB";
-      case "Covers": return "COV";
-      case "Stickers": return "ZUND";
-      default: return "";
-    }
-  }
 
   useEffect(() => {
     if (user) {

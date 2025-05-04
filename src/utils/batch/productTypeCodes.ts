@@ -8,8 +8,10 @@ export const PRODUCT_TYPE_CODES = {
   "Posters": "POS",
   "Sleeves": "SL",
   "Boxes": "PB",
+  "Product Boxes": "PB",
   "Covers": "COV",
-  "Stickers": "STK"
+  "Stickers": "STK",
+  "Zund Stickers": "STK"
 };
 
 // Function to get the code for a product type
