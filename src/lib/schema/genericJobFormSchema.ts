@@ -1,89 +1,73 @@
 
-import { z } from "zod";
+import * as z from "zod";
 import { ProductConfig } from "@/config/productTypes";
 
 export const createJobFormSchema = (config: ProductConfig) => {
-  // Start with the base fields that every job form needs
+  // Base schema for all job types
   const baseSchema = {
-    name: z.string().min(1, "Job name is required"),
+    name: z.string().min(1, "Client name is required"),
     job_number: z.string().min(1, "Job number is required"),
-    quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+    quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
     due_date: z.date({
       required_error: "Due date is required",
     }),
-    file: z.any().optional(),
   };
 
-  // Add optional fields based on the product config
-  if (config.hasSize && config.availableSizes) {
-    baseSchema['size'] = z.string().min(1, "Size is required");
-  }
-  
-  if (config.hasPaperType && config.availablePaperTypes) {
-    baseSchema['paper_type'] = z.string().min(1, "Paper type is required");
-  }
-  
-  if (config.hasPaperWeight && config.availablePaperWeights) {
-    baseSchema['paper_weight'] = z.string().min(1, "Paper weight is required");
+  // Additional schema properties based on product type
+  const additionalSchema: Record<string, any> = {};
+
+  // Add paper_type if available for this product
+  if (config.availablePaperTypes && config.availablePaperTypes.length > 0) {
+    additionalSchema.paper_type = z.string().min(1, "Paper type is required");
   }
 
-  if (config.hasSides && config.availableSidesTypes) {
-    baseSchema['sides'] = z.string().min(1, "Sides is required");
+  // Add lamination_type if available for this product
+  if (config.availableLaminationTypes && config.availableLaminationTypes.length > 0) {
+    additionalSchema.lamination_type = z.enum(['none', 'matt', 'gloss', 'soft_touch'], {
+      required_error: "Lamination type is required",
+    }).default('none');
   }
-  
-  // Add product-specific fields
-  if (config.productType === "Sleeves") {
-    baseSchema['stock_type'] = z.string().min(1, "Stock type is required");
-    baseSchema['single_sided'] = z.boolean().default(true);
-  }
-  
-  return z.object(baseSchema);
+
+  // Add file validation (required for new jobs, optional for edits)
+  additionalSchema.file = z.instanceof(File, { message: "PDF file is required" }).optional();
+
+  // Return the combined schema
+  return z.object({
+    ...baseSchema,
+    ...additionalSchema
+  });
 };
 
-// The general type for all job form values
-export interface GenericJobFormValues {
+export const getDefaultFormValues = (config: ProductConfig) => {
+  // Base default values for all job types
+  const baseDefaults: Record<string, any> = {
+    name: "",
+    job_number: `${config.jobNumberPrefix || 'JOB'}-${Date.now().toString().slice(-8)}`,
+    quantity: 100,
+    due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default to 1 week from now
+  };
+
+  // Add default paper_type if available
+  if (config.availablePaperTypes && config.availablePaperTypes.length > 0) {
+    baseDefaults.paper_type = config.availablePaperTypes[0];
+  }
+
+  // Add default lamination_type if available
+  if (config.availableLaminationTypes && config.availableLaminationTypes.length > 0) {
+    baseDefaults.lamination_type = 'none';
+  }
+
+  return baseDefaults;
+};
+
+export type GenericJobFormValues = {
   name: string;
   job_number: string;
   quantity: number;
   due_date: Date;
-  file?: File; // Note this is optional for edit mode
-  size?: string;
   paper_type?: string;
+  lamination_type?: 'none' | 'matt' | 'gloss' | 'soft_touch';
+  file?: File;
+  size?: string;
   paper_weight?: string;
-  sides?: string;
-  [key: string]: any; // For other product-specific fields
-}
-
-// Function to get default form values based on product config
-export const getDefaultFormValues = (config: ProductConfig): GenericJobFormValues => {
-  const defaultValues: GenericJobFormValues = {
-    name: "",
-    job_number: "",
-    quantity: 0,
-    due_date: new Date(),
-  };
-  
-  if (config.hasSize && config.availableSizes && config.availableSizes.length > 0) {
-    defaultValues.size = config.availableSizes[0];
-  }
-  
-  if (config.hasPaperType && config.availablePaperTypes && config.availablePaperTypes.length > 0) {
-    defaultValues.paper_type = config.availablePaperTypes[0];
-  }
-  
-  if (config.hasPaperWeight && config.availablePaperWeights && config.availablePaperWeights.length > 0) {
-    defaultValues.paper_weight = config.availablePaperWeights[0];
-  }
-
-  if (config.hasSides && config.availableSidesTypes && config.availableSidesTypes.length > 0) {
-    defaultValues.sides = config.availableSidesTypes[0];
-  }
-  
-  // Add product-specific default values
-  if (config.productType === "Sleeves") {
-    defaultValues['stock_type'] = "White";
-    defaultValues['single_sided'] = true;
-  }
-  
-  return defaultValues;
 };
