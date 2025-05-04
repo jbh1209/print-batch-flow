@@ -1,7 +1,5 @@
 
-// Define the status type to match what's in the database
-export type BatchStatus = "pending" | "processing" | "completed" | "cancelled" | "sent_to_print";
-export type LaminationType = "none" | "matt" | "gloss" | "soft_touch";
+import { BatchStatus, LaminationType } from "@/config/productTypes";
 
 export interface BatchDetailsType {
   id: string;

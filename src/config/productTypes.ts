@@ -1,14 +1,14 @@
 
 export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch';
 export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
-export type BatchStatus = 'pending' | 'in_progress' | 'completed' | 'error' | 'cancelled';
+export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
 export type TableName = string;
 export type ExistingTableName = 'flyer_jobs' | 'postcard_jobs' | 'business_card_jobs' | 'poster_jobs' | 'sleeve_jobs' | 'box_jobs' | 'cover_jobs' | 'sticker_jobs' | 'batches' | 'profiles' | 'user_roles';
 
 export interface BaseBatch {
   id: string;
   name: string;
-  status: BatchStatus | string;
+  status: BatchStatus;
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;

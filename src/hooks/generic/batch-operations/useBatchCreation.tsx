@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { BaseJob, ProductConfig, LaminationType, BatchStatus } from "@/config/productTypes";
+import { BaseJob, ProductConfig, LaminationType } from "@/config/productTypes";
 import { useAuth } from "@/hooks/useAuth";
 import { addDays, format, isAfter } from "date-fns";
 
@@ -80,7 +80,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       const paperWeight = firstJob.paper_weight;
       const sides = firstJob.sides || "single"; // Default to single if not specified
       
-      // Create the batch with explicitly typed status to match BatchStatus type
+      // Create the batch with compatible types
       const batchData = {
         name: generateBatchName(config.productType),
         sheets_required: sheetsRequired,
@@ -89,7 +89,7 @@ export function useBatchCreation(productType: string, tableName: string) {
         paper_type: paperType,
         paper_weight: paperWeight,
         sides: sides,
-        status: "pending" as BatchStatus, // Explicitly type status to match expected enum
+        status: "pending", // Use string literal to match the DB enum type
         created_by: user.id,
         sla_target_days: slaTarget
       };

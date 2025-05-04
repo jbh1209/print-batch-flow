@@ -2,13 +2,14 @@
 import React, { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
-import { ProductConfig } from "@/config/productTypes";
+import { ProductConfig, BatchStatus } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BatchDetailsType } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -68,15 +69,29 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
 
   console.log("Rendering batch details for:", batch.name, "with related jobs:", relatedJobs.length);
 
+  // Convert batch to BatchDetailsType to satisfy the component props
+  const batchDetailsData: BatchDetailsType = {
+    id: batch.id,
+    name: batch.name,
+    lamination_type: batch.lamination_type,
+    sheets_required: batch.sheets_required,
+    front_pdf_url: batch.front_pdf_url,
+    back_pdf_url: batch.back_pdf_url,
+    overview_pdf_url: batch.overview_pdf_url || null,
+    due_date: batch.due_date,
+    created_at: batch.created_at,
+    status: batch.status as BatchStatus
+  };
+
   return (
     <div>
       <JobsHeader 
-        title={`${batch.name} - ${config.ui.batchFormTitle} Details`}
-        subtitle={`View details and manage ${config.ui.title.toLowerCase()} batch`}
+        title={`${batch.name} - ${config.ui.batchFormTitle || 'Batch'} Details`}
+        subtitle={`View details and manage ${config.ui.title ? config.ui.title.toLowerCase() : 'batch'}`}
       />
       
       <BatchDetailsContent
-        batch={batch}
+        batch={batchDetailsData}
         relatedJobs={relatedJobs}
         productType={config.productType}
         onDeleteClick={() => setBatchToDelete(batch.id)}
