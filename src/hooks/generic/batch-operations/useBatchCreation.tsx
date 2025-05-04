@@ -51,7 +51,8 @@ export function useBatchCreation(productType: string, tableName: string) {
     setIsCreatingBatch(true);
     
     try {
-      console.log(`Creating batch with ${selectedJobs.length} jobs`);
+      console.log(`Creating batch with ${selectedJobs.length} jobs for product type: ${productType} using table: ${tableName}`);
+      console.log("First job:", selectedJobs[0]);
       
       // Calculate sheets required
       const sheetsRequired = selectedJobs.reduce((total, job) => {
@@ -77,13 +78,25 @@ export function useBatchCreation(productType: string, tableName: string) {
       
       // Get common properties from jobs for the batch
       const firstJob = selectedJobs[0];
-      const paperType = firstJob.paper_type;
-      const paperWeight = firstJob.paper_weight;
+      const paperType = firstJob.paper_type || config.availablePaperTypes?.[0] || "Paper";
+      const paperWeight = firstJob.paper_weight || "standard";
       const sides = firstJob.sides || "single"; // Default to single if not specified
+      
+      // Generate batch name
+      const batchName = generateBatchName(config.productType);
+      
+      console.log("Creating batch with name:", batchName);
+      console.log("Batch data:", {
+        paperType,
+        laminationType,
+        sheetsRequired,
+        dueDate: earliestDueDate.toISOString(),
+        slaTarget
+      });
       
       // Create the batch with compatible types - using the exact literal string that Supabase expects
       const batchData = {
-        name: generateBatchName(config.productType),
+        name: batchName,
         sheets_required: sheetsRequired,
         due_date: earliestDueDate.toISOString(),
         lamination_type: laminationType,
@@ -95,8 +108,7 @@ export function useBatchCreation(productType: string, tableName: string) {
         sla_target_days: slaTarget
       };
       
-      console.log("Creating batch with data:", batchData);
-      
+      // Create the batch record
       const { data: batch, error: batchError } = await supabase
         .from("batches")
         .insert(batchData)
@@ -112,7 +124,7 @@ export function useBatchCreation(productType: string, tableName: string) {
         throw new Error("Failed to create batch, returned data is empty");
       }
       
-      console.log("Batch created:", batch);
+      console.log("Batch created successfully:", batch);
       
       // Update all selected jobs to link them to this batch
       const jobIds = selectedJobs.map(job => job.id);
@@ -121,6 +133,8 @@ export function useBatchCreation(productType: string, tableName: string) {
       if (!isExistingTable(tableName)) {
         throw new Error(`Invalid table name: ${tableName}`);
       }
+      
+      console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
       
       // Using a type assertion with the correct table name type
       const { error: updateError } = await supabase

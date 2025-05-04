@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ProductConfig, BaseJob, LaminationType } from '@/config/productTypes';
@@ -29,11 +28,9 @@ export function GenericBatchCreateDialog({
   isCreatingBatch
 }: GenericBatchCreateDialogProps) {
   // Batch properties
-  const [paperType, setPaperType] = useState(config.availablePaperTypes?.[0] || "");
-  const [paperWeight, setPaperWeight] = useState(config.availablePaperWeights?.[0] || "");
-  const [laminationType, setLaminationType] = useState<LaminationType>(
-    config.availableLaminationTypes?.[0] || "none"
-  );
+  const [paperType, setPaperType] = useState<string>("");
+  const [paperWeight, setPaperWeight] = useState<string>("");
+  const [laminationType, setLaminationType] = useState<LaminationType>("none");
   const [printerType, setPrinterType] = useState("HP 12000");
   const [sheetSize, setSheetSize] = useState("530x750mm");
   
@@ -43,27 +40,45 @@ export function GenericBatchCreateDialog({
   // Selected jobs
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   
+  // Initialize defaults when dialog opens or config changes
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || config) {
+      console.log("Dialog opened with config:", config);
+      
+      // Set selected jobs from preselected if available
       if (preSelectedJobs && preSelectedJobs.length > 0) {
         setSelectedJobIds(preSelectedJobs.map(job => job.id));
       } else {
         setSelectedJobIds([]);
       }
-      // Reset SLA to the product config default when the dialog opens
-      setSlaTargetDays(config.slaTargetDays);
       
-      // Reset paper type selection to the first available option from config
+      // Reset SLA to the product config default when the dialog opens
+      setSlaTargetDays(config.slaTargetDays || 3);
+      
+      // Reset paper type to first available or default
       if (config.availablePaperTypes && config.availablePaperTypes.length > 0) {
+        console.log("Setting paper type to:", config.availablePaperTypes[0]);
         setPaperType(config.availablePaperTypes[0]);
+      } else {
+        setPaperType("Paper"); // Default paper type
       }
       
-      // Reset lamination type to the first available option
+      // Reset paper weight
+      if (config.availablePaperWeights && config.availablePaperWeights.length > 0) {
+        setPaperWeight(config.availablePaperWeights[0]);
+      } else {
+        setPaperWeight("standard");
+      }
+      
+      // Reset lamination type
       if (config.availableLaminationTypes && config.availableLaminationTypes.length > 0) {
-        setLaminationType(config.availableLaminationTypes[0]);
+        console.log("Setting lamination type to:", config.availableLaminationTypes[0]);
+        setLaminationType(config.availableLaminationTypes[0] as LaminationType);
+      } else {
+        setLaminationType("none");
       }
     }
-  }, [isOpen, preSelectedJobs, config]);
+  }, [isOpen, config, preSelectedJobs]);
   
   const handleSelectJob = (jobId: string, isSelected: boolean) => {
     if (isSelected) {
@@ -92,19 +107,31 @@ export function GenericBatchCreateDialog({
       
       console.log("Creating batch with properties:", {
         paperType,
+        paperWeight,
         laminationType,
+        printerType,
+        sheetSize,
         slaTargetDays
       });
+      
+      // Ensure we have valid values before creating the batch
+      if (!paperType) {
+        console.warn("Paper type is empty, using default");
+      }
+      
+      if (!laminationType) {
+        console.warn("Lamination type is empty, using default");
+      }
       
       const batchResult = await createBatch(
         selectedJobs,
         {
-          paperType,
-          paperWeight,
-          laminationType: laminationType as LaminationType,
+          paperType: paperType || "Paper",
+          paperWeight: paperWeight || "standard",
+          laminationType: laminationType || "none",
           printerType,
           sheetSize,
-          slaTargetDays: Number(slaTargetDays)
+          slaTargetDays: Number(slaTargetDays) || config.slaTargetDays
         }
       );
       
@@ -141,9 +168,9 @@ export function GenericBatchCreateDialog({
               setPrinterType={setPrinterType}
               sheetSize={sheetSize}
               setSheetSize={setSheetSize}
-              availablePaperTypes={config.availablePaperTypes}
-              availableLaminationTypes={config.availableLaminationTypes}
-              availablePaperWeights={config.availablePaperWeights}
+              availablePaperTypes={config.availablePaperTypes || ["Paper"]}
+              availableLaminationTypes={config.availableLaminationTypes || ["none"]}
+              availablePaperWeights={config.availablePaperWeights || ["standard"]}
             />
             
             <div className="space-y-2">

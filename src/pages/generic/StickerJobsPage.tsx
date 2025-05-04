@@ -22,6 +22,7 @@ const StickerJobsPage = () => {
       console.log("Stickers config loaded:", config);
       console.log("Available paper types for stickers:", config.availablePaperTypes);
       console.log("Available lamination types for stickers:", config.availableLaminationTypes);
+      console.log("Table name for stickers:", config.tableName);
     }, []);
     
     return {

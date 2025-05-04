@@ -82,7 +82,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
       case "Sleeves": return "DXB-SL";
       case "Boxes": return "DXB-PB";
       case "Covers": return "DXB-COV";
-      case "Stickers": return "DXB-ZUND";
+      case "Stickers": return "DXB-STK";  // Fixed to match the batch creation prefix
       default: return "";
     }
   }
