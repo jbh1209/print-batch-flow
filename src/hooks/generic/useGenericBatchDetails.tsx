@@ -62,7 +62,9 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
           
           if (jobsError) throw jobsError;
           
-          setRelatedJobs(jobsData as BaseJob[]);
+          // We need to use a type assertion here to fix the TypeScript error
+          // First cast to unknown, then to BaseJob[] to avoid TypeScript's excessive depth error
+          setRelatedJobs(jobsData ? (jobsData as unknown as BaseJob[]) : []);
         }
       } catch (err) {
         console.error("Error fetching batch details:", err);
