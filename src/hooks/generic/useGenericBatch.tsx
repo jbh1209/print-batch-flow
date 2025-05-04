@@ -106,9 +106,24 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     navigate(path);
   };
   
-  // Use a separate function to avoid TypeScript infinite recursion
-  const deleteBatch = async (batchId: string, tableName: ExistingTableName | null) => {
-    if (!batchId || !tableName) return;
+  // Define the possible table names list - avoids recursive type inference
+  const validTableNames: ExistingTableName[] = [
+    "flyer_jobs",
+    "postcard_jobs", 
+    "business_card_jobs",
+    "poster_jobs",
+    "sleeve_jobs",
+    "box_jobs",
+    "cover_jobs",
+    "sticker_jobs",
+    "batches", 
+    "profiles", 
+    "user_roles"
+  ];
+  
+  // Separate function for batch deletion with explicit typing
+  const deleteBatch = async (batchId: string, tableName: ExistingTableName) => {
+    if (!batchId) return;
     
     setIsDeleting(true);
     try {
@@ -157,11 +172,16 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   const handleDeleteBatch = async () => {
     if (!batchToDelete || !config.tableName) return;
     
-    // First validate that the table name is valid
-    const validTableName = isExistingTable(config.tableName) ? config.tableName as ExistingTableName : null;
+    // Check if the table name is in our valid list
+    const isValidTable = validTableNames.includes(config.tableName as ExistingTableName);
     
-    // Call the actual delete function with the validated table name
-    await deleteBatch(batchToDelete, validTableName);
+    if (isValidTable) {
+      // We've validated it's one of our ExistingTableName types
+      await deleteBatch(batchToDelete, config.tableName as ExistingTableName);
+    } else {
+      console.error(`Invalid table name: ${config.tableName}`);
+      toast.error("Cannot delete batch: Invalid table configuration");
+    }
   };
   
   useEffect(() => {
