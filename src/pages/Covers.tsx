@@ -132,18 +132,23 @@ const Covers = () => {
               </div>
               
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Paper Weight Options</h4>
-                <p>{config.availablePaperWeights?.join(", ")}</p>
+                <h4 className="text-sm font-medium text-gray-500">Size Options</h4>
+                <p>{config.availableSizes?.join(", ")}</p>
               </div>
               
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Lamination Options</h4>
-                <p>{config.availableLaminationTypes?.map(l => l.replace("_", " ")).join(", ")}</p>
+                <p>{config.availableLaminationTypes?.map(l => l === "none" ? "None" : l.charAt(0).toUpperCase() + l.slice(1)).join(", ")}</p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">UV Varnish Options</h4>
+                <p>{config.availableUVVarnishTypes?.map(l => l === "none" ? "None" : l.charAt(0).toUpperCase() + l.slice(1)).join(", ")}</p>
               </div>
               
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Sides Options</h4>
-                <p>{config.availableSidesTypes?.join(", ")}</p>
+                <p>{config.availableSidesTypes?.map(s => s === "single" ? "Single Sided" : "Double Sided").join(", ")}</p>
               </div>
             </div>
           </div>

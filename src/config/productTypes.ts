@@ -1,8 +1,8 @@
-
 export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch';
 export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
 export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
 export type TableName = string;
+export type UVVarnishType = 'none' | 'gloss';
 export type ExistingTableName = 'flyer_jobs' | 'postcard_jobs' | 'business_card_jobs' | 'poster_jobs' | 'sleeve_jobs' | 'box_jobs' | 'cover_jobs' | 'sticker_jobs' | 'batches' | 'profiles' | 'user_roles';
 
 export interface BaseBatch {
@@ -21,6 +21,7 @@ export interface BaseBatch {
   paper_weight?: string;
   updated_at?: string;
   sides?: string;
+  uv_varnish?: UVVarnishType;
 }
 
 export interface BaseJob {
@@ -43,6 +44,7 @@ export interface BaseJob {
   sides?: string;
   stock_type?: string;
   single_sided?: boolean;
+  uv_varnish?: UVVarnishType;
 }
 
 export interface ProductConfig {
@@ -54,11 +56,13 @@ export interface ProductConfig {
   availablePaperWeights?: string[];
   availableSizes?: string[];
   availableSidesTypes?: string[];
+  availableUVVarnishTypes?: UVVarnishType[];
   hasSize?: boolean;
   hasPaperType?: boolean;
   hasPaperWeight?: boolean;
   hasLamination?: boolean;
   hasSides?: boolean;
+  hasUVVarnish?: boolean;
   slaTargetDays: number;
   routes: {
     indexPath: string;
@@ -243,11 +247,22 @@ export const productConfigs: Record<string, ProductConfig> = {
     productType: "Covers",
     tableName: "cover_jobs",
     jobNumberPrefix: "COV",
-    availablePaperTypes: ["Premium", "Standard"],
-    availablePaperWeights: ["300gsm", "350gsm"],
+    availableSizes: ["A4", "A5"],
+    availablePaperTypes: [
+      "250gsm Gloss", 
+      "250gsm Matt", 
+      "300gsm Gloss", 
+      "300gsm Matt"
+    ],
+    availablePaperWeights: ["250gsm", "300gsm"],
+    availableLaminationTypes: ["none", "gloss", "matt"],
+    availableUVVarnishTypes: ["none", "gloss"],
     availableSidesTypes: ["single", "double"],
+    hasSize: true,
     hasPaperType: true,
-    hasPaperWeight: true,
+    hasPaperWeight: false,
+    hasLamination: true,
+    hasUVVarnish: true,
     hasSides: true,
     slaTargetDays: 3,
     routes: {

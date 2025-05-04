@@ -94,6 +94,8 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           if ('paper_type' in data) updateData.paper_type = data.paper_type;
           if ('paper_weight' in data) updateData.paper_weight = data.paper_weight;
           if ('lamination_type' in data) updateData.lamination_type = data.lamination_type;
+          if ('sides' in data) updateData.sides = data.sides;
+          if ('uv_varnish' in data) updateData.uv_varnish = data.uv_varnish;
         }
         
         // Only include file data if a new file was uploaded
@@ -136,6 +138,8 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           if ('paper_type' in data) newJobData.paper_type = data.paper_type;
           if ('paper_weight' in data) newJobData.paper_weight = data.paper_weight;
           if ('lamination_type' in data) newJobData.lamination_type = data.lamination_type;
+          if ('sides' in data) newJobData.sides = data.sides;
+          if ('uv_varnish' in data) newJobData.uv_varnish = data.uv_varnish;
         }
         
         // Use 'as any' to bypass TypeScript's type checking for the table name

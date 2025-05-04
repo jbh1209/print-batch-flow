@@ -141,6 +141,33 @@ export const GenericJobFormFields = ({
 
       {/* Product Specific Options */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Size Selection - for products with sizes */}
+        {config.availableSizes && (
+          <FormField
+            control={control}
+            name="size"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Size*</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {config.availableSizes.map((size) => (
+                      <SelectItem key={size} value={size}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* Paper Type Selection */}
         {config.availablePaperTypes && (
           <FormField
             control={control}
@@ -187,6 +214,63 @@ export const GenericJobFormFields = ({
                          type === "matt" ? "Matt" : 
                          type === "gloss" ? "Gloss" : 
                          type === "soft_touch" ? "Soft Touch" : type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* UV Varnish Selection - for covers */}
+        {config.availableUVVarnishTypes && (
+          <FormField
+            control={control}
+            name="uv_varnish"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>UV Varnish</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || "none"}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select UV varnish type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {config.availableUVVarnishTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type === "none" ? "None" : 
+                         type === "gloss" ? "Gloss" : type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* Sides Selection - for products with sides */}
+        {config.availableSidesTypes && (
+          <FormField
+            control={control}
+            name="sides"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Sides*</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sides" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {config.availableSidesTypes.map((side) => (
+                      <SelectItem key={side} value={side}>
+                        {side === "single" ? "Single Sided" : "Double Sided"}
                       </SelectItem>
                     ))}
                   </SelectContent>
