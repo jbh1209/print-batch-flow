@@ -45,12 +45,18 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
           return;
         }
         
-        setBatch(batchData as BaseBatch);
+        // Convert the batchData to BaseBatch, adding the overview_pdf_url property
+        const batchWithOverview: BaseBatch = {
+          ...batchData,
+          overview_pdf_url: null // Adding the missing property with null value
+        };
+        
+        setBatch(batchWithOverview);
         
         // Fetch associated jobs if there's a valid table name
         if (isExistingTable(config.tableName)) {
           const { data: jobsData, error: jobsError } = await supabase
-            .from(config.tableName as ValidTableName)
+            .from(config.tableName as any)
             .select("*")
             .eq("batch_id", batchId);
           

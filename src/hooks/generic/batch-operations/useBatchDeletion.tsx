@@ -20,9 +20,10 @@ export function useBatchDeletion(tableName: string | undefined, onSuccess: () =>
         throw new Error(`Invalid table name: ${tableName}`);
       }
       
-      // Use a type assertion to any to bypass TypeScript's recursive type checking
+      // Reset jobs in the batch (update their status and batch_id)
+      // Use a type assertion with 'any' to bypass TypeScript's type checking
       const { error: jobsError } = await supabase
-        .from(tableName as ValidTableName)
+        .from(tableName as any)
         .update({ 
           status: "queued",
           batch_id: null
