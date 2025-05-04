@@ -7,6 +7,7 @@ import { JobsSelectionPanel } from '@/components/flyers/components/batch-dialog/
 import { BatchDialogFooter } from '@/components/flyers/components/batch-dialog/BatchDialogFooter';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 interface GenericBatchCreateDialogProps {
   config: ProductConfig;
@@ -51,8 +52,18 @@ export function GenericBatchCreateDialog({
       }
       // Reset SLA to the product config default when the dialog opens
       setSlaTargetDays(config.slaTargetDays);
+      
+      // Reset paper type selection to the first available option from config
+      if (config.availablePaperTypes && config.availablePaperTypes.length > 0) {
+        setPaperType(config.availablePaperTypes[0]);
+      }
+      
+      // Reset lamination type to the first available option
+      if (config.availableLaminationTypes && config.availableLaminationTypes.length > 0) {
+        setLaminationType(config.availableLaminationTypes[0]);
+      }
     }
-  }, [isOpen, preSelectedJobs, config.slaTargetDays]);
+  }, [isOpen, preSelectedJobs, config]);
   
   const handleSelectJob = (jobId: string, isSelected: boolean) => {
     if (isSelected) {
@@ -74,7 +85,18 @@ export function GenericBatchCreateDialog({
     try {
       const selectedJobs = preSelectedJobs?.filter(job => selectedJobIds.includes(job.id)) || [];
       
-      await createBatch(
+      if (selectedJobs.length === 0) {
+        toast.error("Please select at least one job for the batch");
+        return;
+      }
+      
+      console.log("Creating batch with properties:", {
+        paperType,
+        laminationType,
+        slaTargetDays
+      });
+      
+      const batchResult = await createBatch(
         selectedJobs,
         {
           paperType,
@@ -86,9 +108,12 @@ export function GenericBatchCreateDialog({
         }
       );
       
-      onSuccess();
+      if (batchResult) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Error creating batch:', error);
+      toast.error("Failed to create batch: " + (error instanceof Error ? error.message : "Unknown error"));
     }
   };
   
@@ -116,6 +141,9 @@ export function GenericBatchCreateDialog({
               setPrinterType={setPrinterType}
               sheetSize={sheetSize}
               setSheetSize={setSheetSize}
+              availablePaperTypes={config.availablePaperTypes}
+              availableLaminationTypes={config.availableLaminationTypes}
+              availablePaperWeights={config.availablePaperWeights}
             />
             
             <div className="space-y-2">

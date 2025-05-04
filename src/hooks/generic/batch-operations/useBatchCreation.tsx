@@ -24,7 +24,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       case "Sleeves": prefix = "DXB-SL"; break;
       case "Boxes": prefix = "DXB-PB"; break;
       case "Covers": prefix = "DXB-COV"; break;
-      case "Stickers": prefix = "DXB-ZUND"; break;
+      case "Stickers": prefix = "DXB-STK"; break;  // Changed from "DXB-ZUND" to "DXB-STK" for consistency
       default: prefix = "DXB";
     }
     
@@ -94,6 +94,8 @@ export function useBatchCreation(productType: string, tableName: string) {
         sla_target_days: slaTarget
       };
       
+      console.log("Creating batch with data:", batchData);
+      
       const { data: batch, error: batchError } = await supabase
         .from("batches")
         .insert(batchData)
@@ -115,7 +117,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       const jobIds = selectedJobs.map(job => job.id);
       
       const { error: updateError } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .update({
           status: "batched",
           batch_id: batch.id

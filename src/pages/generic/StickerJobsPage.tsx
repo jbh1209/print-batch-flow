@@ -16,6 +16,9 @@ const StickerJobsPage = () => {
       // Return type is void as expected
     };
     
+    console.log("Stickers config:", config);
+    console.log("Available paper types:", config.availablePaperTypes);
+    
     return {
       ...hookResult,
       fixBatchedJobsWithoutBatch: fixBatchedJobsWrapper

@@ -1,7 +1,7 @@
 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LaminationType } from "@/components/batches/types/FlyerTypes";
+import { LaminationType } from "@/config/productTypes";
 
 interface BatchSettingsPanelProps {
   paperType: string;
@@ -14,9 +14,12 @@ interface BatchSettingsPanelProps {
   setPrinterType: (value: string) => void;
   sheetSize: string;
   setSheetSize: (value: string) => void;
+  availablePaperTypes?: string[];
+  availablePaperWeights?: string[];
+  availableLaminationTypes?: LaminationType[];
 }
 
-export const BatchSettingsPanel = ({
+export function BatchSettingsPanel({
   paperType,
   setPaperType,
   paperWeight,
@@ -27,82 +30,116 @@ export const BatchSettingsPanel = ({
   setPrinterType,
   sheetSize,
   setSheetSize,
-}: BatchSettingsPanelProps) => {
+  availablePaperTypes = ["Gloss", "Silk", "Uncoated"],
+  availableLaminationTypes = ["none", "matt", "gloss"],
+  availablePaperWeights = ["170gsm", "250gsm", "350gsm"]
+}: BatchSettingsPanelProps) {
+  // Function to format lamination type for display
+  const formatLaminationType = (type: string): string => {
+    switch(type) {
+      case "none": return "None";
+      case "matt": return "Matt";
+      case "gloss": return "Gloss";
+      case "soft_touch": return "Soft Touch";
+      default: return type.charAt(0).toUpperCase() + type.slice(1);
+    }
+  };
+  
   return (
-    <div className="space-y-4 lg:col-span-1">
+    <div className="space-y-6">
       <div>
+        <h3 className="text-lg font-medium mb-4">Batch Settings</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Set the properties for this batch
+        </p>
+      </div>
+      
+      {/* Paper Type Selection */}
+      <div className="space-y-2">
         <Label htmlFor="paperType">Paper Type</Label>
         <Select value={paperType} onValueChange={setPaperType}>
-          <SelectTrigger className="mt-1">
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Select paper type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Matt">Matt</SelectItem>
-            <SelectItem value="Gloss">Gloss</SelectItem>
+            {availablePaperTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
       
-      <div>
-        <Label htmlFor="paperWeight">Paper Weight</Label>
-        <Select value={paperWeight} onValueChange={setPaperWeight}>
-          <SelectTrigger className="mt-1">
-            <SelectValue placeholder="Select paper weight" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="115gsm">115gsm</SelectItem>
-            <SelectItem value="130gsm">130gsm</SelectItem>
-            <SelectItem value="170gsm">170gsm</SelectItem>
-            <SelectItem value="200gsm">200gsm</SelectItem>
-            <SelectItem value="250gsm">250gsm</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Paper Weight Selection - only show if there are available options */}
+      {availablePaperWeights && availablePaperWeights.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="paperWeight">Paper Weight</Label>
+          <Select value={paperWeight} onValueChange={setPaperWeight}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select paper weight" />
+            </SelectTrigger>
+            <SelectContent>
+              {availablePaperWeights.map((weight) => (
+                <SelectItem key={weight} value={weight}>
+                  {weight}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       
-      <div>
-        <Label htmlFor="lamination">Lamination</Label>
+      {/* Lamination Type Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="laminationType">Lamination</Label>
         <Select 
           value={laminationType} 
           onValueChange={(value) => setLaminationType(value as LaminationType)}
         >
-          <SelectTrigger className="mt-1">
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Select lamination type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="matt">Matt</SelectItem>
-            <SelectItem value="gloss">Gloss</SelectItem>
-            <SelectItem value="soft_touch">Soft Touch</SelectItem>
+            {availableLaminationTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {formatLaminationType(type)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
       
-      <div>
-        <Label htmlFor="printerType">Printer Type</Label>
+      {/* Printer Type Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="printerType">Printer</Label>
         <Select value={printerType} onValueChange={setPrinterType}>
-          <SelectTrigger className="mt-1">
-            <SelectValue placeholder="Select printer type" />
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select printer" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="HP 12000">HP 12000</SelectItem>
-            <SelectItem value="HP 7900">HP 7900</SelectItem>
+            <SelectItem value="Zund">Zund</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
           </SelectContent>
         </Select>
       </div>
       
-      <div>
+      {/* Sheet Size Selection */}
+      <div className="space-y-2">
         <Label htmlFor="sheetSize">Sheet Size</Label>
         <Select value={sheetSize} onValueChange={setSheetSize}>
-          <SelectTrigger className="mt-1">
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Select sheet size" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="455x640mm">455x640mm</SelectItem>
             <SelectItem value="530x750mm">530x750mm</SelectItem>
-            <SelectItem value="320x455mm">320x455mm</SelectItem>
+            <SelectItem value="297x420mm">297x420mm (A3)</SelectItem>
+            <SelectItem value="320x450mm">320x450mm</SelectItem>
+            <SelectItem value="Custom">Custom</SelectItem>
           </SelectContent>
         </Select>
       </div>
     </div>
   );
-};
+}

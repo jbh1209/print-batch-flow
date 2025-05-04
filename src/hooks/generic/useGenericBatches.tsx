@@ -4,6 +4,7 @@ import { useBatchFetching } from "./batch-operations/useBatchFetching";
 import { useBatchDeletion } from "./batch-operations/useBatchDeletion";
 import { useBatchNavigation } from "./batch-operations/useBatchNavigation";
 import { useBatchCreation } from "./batch-operations/useBatchCreation";
+import { toast } from "sonner";
 
 export function useGenericBatches<T extends BaseJob = BaseJob>(
   config: ProductConfig, 
@@ -16,19 +17,37 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
 
   // Wrapper function with the same signature as before to maintain compatibility
   const wrappedCreateBatch = async (
-    selectedJobs: BaseJob[], // Accept BaseJob[] directly to match the expected type in useBatchCreation
+    selectedJobs: BaseJob[], 
     configOptions: ProductConfig & { 
       laminationType?: LaminationType,
-      slaTargetDays?: number
+      slaTargetDays?: number,
+      paperType?: string,
+      paperWeight?: string
     }
   ) => {
-    // Extract laminationType and slaTargetDays from configOptions
-    const { laminationType, slaTargetDays, ...restConfig } = configOptions;
+    if (selectedJobs.length === 0) {
+      toast.error("No jobs selected for batch creation");
+      return null;
+    }
+    
+    console.log("Creating batch with jobs:", selectedJobs);
+    console.log("Using config options:", configOptions);
+    
+    // Extract parameters from configOptions
+    const { laminationType, slaTargetDays, paperType, paperWeight } = configOptions;
+    
+    // Make sure first job has a valid paper type for validation
+    if (selectedJobs.length > 0 && paperType && !selectedJobs[0].paper_type) {
+      selectedJobs[0] = {
+        ...selectedJobs[0],
+        paper_type: paperType
+      };
+    }
     
     // Call the underlying function with the extracted parameters
     return createBatchWithSelectedJobs(
       selectedJobs, 
-      { ...config, ...restConfig },
+      { ...config, ...configOptions },
       laminationType || "none",
       slaTargetDays
     );
