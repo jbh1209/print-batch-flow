@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BatchStatus } from "@/config/productTypes";
-import { ValidTableName, isExistingTable, validTableNames } from "@/utils/database/tableValidation";
+import { ValidTableName, isExistingTable } from "@/utils/database/tableValidation";
 
 export function useGenericBatches(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
@@ -105,7 +105,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     navigate(path);
   };
   
-  // Separate function for batch deletion with proper typing
+  // Use a more direct approach for batch deletion to avoid type recursion
   const deleteBatch = async (batchId: string, tableName: string) => {
     if (!batchId) return;
     
@@ -113,11 +113,14 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     try {
       console.log("Deleting batch:", batchId);
       
-      // Only perform table operations if the table name is valid
-      if (isExistingTable(tableName)) {
-        // Reset all jobs in this batch back to queued
+      // Convert string to ValidTableName and check validity separately
+      // This avoids the deep instantiation error
+      const isValid = isExistingTable(tableName);
+      
+      if (isValid) {
+        // Now we know tableName is a ValidTableName
         const { error: jobsError } = await supabase
-          .from(tableName)
+          .from(tableName as ValidTableName)
           .update({ 
             status: "queued",  // Reset status to queued
             batch_id: null     // Clear batch_id reference
@@ -128,9 +131,11 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
           console.error("Error resetting jobs in batch:", jobsError);
           throw jobsError;
         }
+      } else {
+        console.error(`Invalid table name provided: ${tableName}`);
       }
       
-      // Then delete the batch
+      // Then delete the batch from the batches table
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
@@ -159,7 +164,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
   const handleDeleteBatch = async () => {
     if (!batchToDelete || !config.tableName) return;
     
-    // Simply pass the table name as a string to deleteBatch
+    // Pass the table name as a string directly
     await deleteBatch(batchToDelete, config.tableName);
   };
   
