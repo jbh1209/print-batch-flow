@@ -17,7 +17,7 @@ export const getTargetBatchDate = (dueDate: string | Date, slaTargetDays: number
 };
 
 // Calculate the urgency level based on due date and SLA
-export const calculateJobUrgency = (dueDate: string, config: ProductConfig): UrgencyLevel => {
+export const calculateJobUrgency = (dueDate: string, config: ProductConfig | undefined): UrgencyLevel => {
   const today = new Date();
   const dueDateObj = new Date(dueDate);
   
@@ -27,7 +27,10 @@ export const calculateJobUrgency = (dueDate: string, config: ProductConfig): Urg
     return "critical";
   }
   
-  const targetBatchDate = getTargetBatchDate(dueDateObj, config.slaTargetDays);
+  // Default to a standard SLA of 3 days if config is undefined or slaTargetDays is not set
+  const slaTargetDays = config?.slaTargetDays || 3;
+  
+  const targetBatchDate = getTargetBatchDate(dueDateObj, slaTargetDays);
   
   // Calculate business days until target batch date
   const daysUntilTarget = differenceInBusinessDays(targetBatchDate, today);

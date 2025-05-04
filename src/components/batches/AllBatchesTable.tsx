@@ -65,7 +65,11 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
         </TableHeader>
         <TableBody>
           {batches.map((batch) => {
-            const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
+            // Safely get product config, using default if not found
+            const productType = batch.product_type || "Business Cards";
+            // Normalize the product type key to match the keys in productConfigs
+            const normalizedProductType = productType.replace(/\s+/g, '') as keyof typeof productConfigs;
+            const config = productConfigs[normalizedProductType] || productConfigs["BusinessCards"];
             const urgencyLevel = calculateJobUrgency(batch.due_date, config);
             
             return (
@@ -78,12 +82,12 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
                     <BatchUrgencyIndicator 
                       urgencyLevel={urgencyLevel}
                       earliestDueDate={batch.due_date}
-                      productType={batch.product_type}
+                      productType={productType}
                     />
                     <span>{batch.name}</span>
                   </div>
                 </TableCell>
-                <TableCell>{batch.product_type}</TableCell>
+                <TableCell>{productType}</TableCell>
                 <TableCell>{batch.due_date ? format(new Date(batch.due_date), 'MMM dd, yyyy') : 'N/A'}</TableCell>
                 <TableCell>
                   <Badge variant={getBadgeVariant(batch.status)}>
