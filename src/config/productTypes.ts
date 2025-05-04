@@ -189,7 +189,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     productType: "Stickers",
     tableName: "sticker_jobs",
     jobNumberPrefix: "STK",
-    availablePaperTypes: ["Matt White Vinyl", "Gloss White Vinyl", "Clear Vinyl", "Matt Polyester", "Gloss Polyester"],
+    availablePaperTypes: ["Paper", "Vinyl"],
     availableLaminationTypes: ["none", "matt", "gloss"],
     hasPaperType: true,
     hasLamination: true,
