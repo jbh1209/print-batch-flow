@@ -30,7 +30,9 @@ const PostcardJobsPage = () => {
   };
 
   const handleViewJob = (jobId: string) => {
-    navigate(config.routes.jobDetailPath(jobId));
+    if (config.routes.jobDetailPath) {
+      navigate(config.routes.jobDetailPath(jobId));
+    }
   };
 
   const handleSelectionChange = (jobs: any[]) => {
@@ -49,7 +51,7 @@ const PostcardJobsPage = () => {
   return (
     <div className="container mx-auto py-4">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">{config.ui.title} Jobs</h1>
+        <h1 className="text-2xl font-bold">{config.ui.title || "Postcard"} Jobs</h1>
         <div className="flex space-x-2">
           <Button onClick={() => handleCreateBatch(jobs.filter(job => job.status === 'queued'))}>
             <FileUp className="mr-2 h-4 w-4" />

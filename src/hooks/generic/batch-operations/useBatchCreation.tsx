@@ -78,7 +78,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       const firstJob = selectedJobs[0];
       const paperType = firstJob.paper_type;
       const paperWeight = firstJob.paper_weight;
-      const sides = firstJob.sides;
+      const sides = firstJob.sides || "single"; // Default to single if not specified
       
       // Create the batch with explicitly typed status to match BatchStatus type
       const batchData = {
@@ -132,13 +132,17 @@ export function useBatchCreation(productType: string, tableName: string) {
       toast.success(`Batch created with ${selectedJobs.length} jobs`);
       return batch;
     } catch (error) {
-      console.error("Error in batch creation process:", error);
-      toast.error("Failed to create batch");
+      console.error("Error in batch creation:", error);
+      toast.error("Failed to create batch: " + (error instanceof Error ? error.message : "Unknown error"));
       return null;
     } finally {
       setIsCreatingBatch(false);
     }
   };
 
-  return { createBatchWithSelectedJobs, isCreatingBatch };
+  return {
+    createBatchWithSelectedJobs,
+    isCreatingBatch,
+    generateBatchName
+  };
 }
