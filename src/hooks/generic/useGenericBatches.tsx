@@ -1,19 +1,31 @@
 
-import { BaseBatch, ProductConfig, BaseJob, LaminationType } from "@/config/productTypes";
+import { BaseBatch, ProductConfig, BaseJob, LaminationType, ExistingTableName } from "@/config/productTypes";
 import { useBatchFetching } from "./batch-operations/useBatchFetching";
 import { useBatchDeletion } from "./batch-operations/useBatchDeletion";
 import { useBatchNavigation } from "./batch-operations/useBatchNavigation";
 import { useBatchCreation } from "./batch-operations/useBatchCreation";
 import { toast } from "sonner";
+import { isExistingTable } from "@/utils/database/tableValidation";
 
 export function useGenericBatches<T extends BaseJob = BaseJob>(
   config: ProductConfig, 
   batchId: string | null = null
 ) {
+  // Validate table name before proceeding
+  if (!isExistingTable(config.tableName)) {
+    console.error(`Invalid table name in config: ${config.tableName}`);
+    // Still continue so we don't break the app, but log the error
+  }
+
+  // Use the table name only after validation
+  const validTableName = isExistingTable(config.tableName) ? config.tableName : null;
+  
   const { batches, isLoading, error, fetchBatches } = useBatchFetching(config, batchId);
-  const { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch } = useBatchDeletion(config.tableName, fetchBatches);
+  const { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch } = 
+    useBatchDeletion(validTableName as ExistingTableName, fetchBatches);
   const { handleViewPDF, handleViewBatchDetails } = useBatchNavigation(config.productType);
-  const { createBatchWithSelectedJobs, isCreatingBatch } = useBatchCreation(config.productType, config.tableName);
+  const { createBatchWithSelectedJobs, isCreatingBatch } = 
+    useBatchCreation(config.productType, validTableName || "");
 
   // Wrapper function with the same signature as before to maintain compatibility
   const wrappedCreateBatch = async (
@@ -27,6 +39,11 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   ) => {
     if (selectedJobs.length === 0) {
       toast.error("No jobs selected for batch creation");
+      return null;
+    }
+    
+    if (!validTableName) {
+      toast.error(`Invalid table configuration for ${config.productType}`);
       return null;
     }
     

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { BaseJob, ProductConfig, LaminationType } from "@/config/productTypes";
+import { BaseJob, ProductConfig, LaminationType, ExistingTableName } from "@/config/productTypes";
 import { useAuth } from "@/hooks/useAuth";
 import { addDays, format, isAfter } from "date-fns";
 import { isExistingTable } from "@/utils/database/tableValidation";
@@ -138,11 +138,16 @@ export function useBatchCreation(productType: string, tableName: string) {
         throw new Error("Table name is undefined");
       }
       
+      // Check if the table is a valid existing table name
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Invalid table name: ${tableName}`);
+      }
+      
       console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
       
-      // Use a more direct approach that avoids type issues
+      // Use type assertion after validation to tell TypeScript this is safe
       const { error: updateError } = await supabase
-        .from(tableName)
+        .from(tableName as ExistingTableName)
         .update({
           status: "batched",
           batch_id: batch.id

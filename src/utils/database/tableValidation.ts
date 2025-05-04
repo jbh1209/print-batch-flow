@@ -10,7 +10,7 @@ export const isExistingTable = (tableName: TableName): tableName is ExistingTabl
     "sleeve_jobs",
     "box_jobs",
     "cover_jobs",
-    "sticker_jobs",  // Ensure this is included
+    "sticker_jobs",
     "batches", 
     "profiles", 
     "user_roles"
@@ -21,13 +21,6 @@ export const isExistingTable = (tableName: TableName): tableName is ExistingTabl
     return false;
   }
 
-  // Handle both exact matches and case-insensitive matches
-  const normalizedTableName = tableName.toLowerCase();
-  const isValid = existingTables.some(table => table.toLowerCase() === normalizedTableName);
-  
-  if (!isValid) {
-    console.error(`Table ${tableName} is not in the list of existing tables:`, existingTables);
-  }
-  
-  return isValid;
+  // Check if the tableName is in our list of existing tables
+  return existingTables.includes(tableName as ExistingTableName);
 };
