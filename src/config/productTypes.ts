@@ -1,3 +1,4 @@
+
 export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch';
 export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
 export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
@@ -219,8 +220,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     productType: "Posters",
     tableName: "poster_jobs",
     jobNumberPrefix: "POST",
-    availableSizes: ["A2", "A1", "A0"],
-    availablePaperTypes: ["Poster Paper", "Photo Paper", "Canvas"],
+    availableSizes: ["A4", "A3"],
+    availablePaperTypes: ["Matt", "Gloss"],
     availableSidesTypes: ["single", "double"],
     hasSize: true,
     hasPaperType: true,

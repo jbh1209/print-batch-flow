@@ -137,18 +137,9 @@ const Posters = () => {
               </div>
               
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Paper Weights</h4>
-                <p>{config.availablePaperWeights?.join(", ")}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Lamination Options</h4>
-                <p>{config.availableLaminationTypes?.map(l => l.replace("_", " ")).join(", ")}</p>
-              </div>
-              
-              <div>
                 <h4 className="text-sm font-medium text-gray-500">Sides Options</h4>
-                <p>{config.availableSidesTypes?.join(", ")}</p>
+                <p>{config.availableSidesTypes?.map(side => 
+                  side === "single" ? "Single Sided" : "Double Sided").join(", ")}</p>
               </div>
             </div>
           </div>
