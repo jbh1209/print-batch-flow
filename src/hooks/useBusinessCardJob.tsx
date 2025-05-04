@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { toast as sonnerToast } from "sonner";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -17,7 +16,6 @@ type JobData = {
 };
 
 export function useBusinessCardJob(jobId: string | undefined) {
-  const { toast } = useToast();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -58,19 +56,15 @@ export function useBusinessCardJob(jobId: string | undefined) {
 
   const updateJob = async (formData: any, selectedFile: File | null) => {
     if (!user) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to update jobs",
-        variant: "destructive",
+      toast.error("Authentication error", {
+        description: "You must be logged in to update jobs"
       });
       return false;
     }
 
     if (!jobId) {
-      toast({
-        title: "Error",
-        description: "Job ID is missing",
-        variant: "destructive",
+      toast.error("Error", {
+        description: "Job ID is missing"
       });
       return false;
     }
@@ -132,14 +126,12 @@ export function useBusinessCardJob(jobId: string | undefined) {
         throw new Error(updateError.message);
       }
 
-      sonnerToast.success("Job updated successfully");
+      toast.success("Job updated successfully");
       return true;
     } catch (error) {
       console.error("Error updating job:", error);
-      toast({
-        title: "Error updating job",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
+      toast.error("Error updating job", {
+        description: error instanceof Error ? error.message : "An unknown error occurred"
       });
       return false;
     } finally {

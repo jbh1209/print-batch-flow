@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
 import { SleeveJobFormValues } from "@/lib/schema/sleeveJobFormSchema";
-import { ProductConfig, TableName } from "@/config/productTypes";
+import { ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableUtils";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {

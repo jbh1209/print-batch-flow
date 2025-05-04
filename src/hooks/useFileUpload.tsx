@@ -1,7 +1,6 @@
 
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { toast as sonnerToast } from "sonner";
+import { toast } from "sonner";
 
 type FileUploadOptions = {
   acceptedTypes?: string[];
@@ -17,7 +16,6 @@ export function useFileUpload(options: FileUploadOptions = {}) {
   } = options;
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const { toast } = useToast();
   const maxSizeInBytes = maxSizeInMB * 1024 * 1024; // Convert MB to bytes
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,20 +25,16 @@ export function useFileUpload(options: FileUploadOptions = {}) {
 
     // Validate file type
     if (!acceptedTypes.includes(file.type)) {
-      toast({
-        title: "Invalid file type",
-        description: `Please upload ${acceptedTypes.map(type => type.split('/')[1]).join(' or ')} file`,
-        variant: "destructive",
+      toast.error("Invalid file type", {
+        description: `Please upload ${acceptedTypes.map(type => type.split('/')[1]).join(' or ')} file`
       });
       return;
     }
 
     // Validate file size
     if (file.size > maxSizeInBytes) {
-      toast({
-        title: "File too large",
-        description: `File size should not exceed ${maxSizeInMB}MB`,
-        variant: "destructive",
+      toast.error("File too large", {
+        description: `File size should not exceed ${maxSizeInMB}MB`
       });
       return;
     }
@@ -53,7 +47,7 @@ export function useFileUpload(options: FileUploadOptions = {}) {
     }
     
     // Show notification that file was selected
-    sonnerToast.success("File selected", {
+    toast.success("File selected", {
       description: file.name
     });
   };

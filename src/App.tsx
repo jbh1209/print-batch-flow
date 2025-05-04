@@ -56,6 +56,7 @@ import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Index from './pages/Index';
 import NotFound from './pages/NotFound';
+import BusinessCardJobNew from './pages/BusinessCardJobNew';
 
 const App = () => {
   return (
@@ -81,6 +82,7 @@ const App = () => {
             {/* Business Cards Routes */}
             <Route path="/batches/business-cards" element={<BusinessCards />} />
             <Route path="/batches/business-cards/jobs" element={<BusinessCardJobs />} />
+            <Route path="/batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
             <Route path="/batches/business-cards/batches" element={<BusinessCardBatches />} />
             <Route path="/batches/business-cards/batches/:batchId" element={<BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards/batches" />} />
             

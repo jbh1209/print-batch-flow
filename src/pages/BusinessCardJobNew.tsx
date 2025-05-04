@@ -1,11 +1,11 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { toast as sonnerToast } from "sonner";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
 import { Form } from "@/components/ui/form";
@@ -32,7 +32,6 @@ type FormValues = z.infer<typeof formSchema>;
 
 const BusinessCardJobNew = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -61,19 +60,15 @@ const BusinessCardJobNew = () => {
 
   const onSubmit = async (data: FormValues) => {
     if (!user) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to upload jobs",
-        variant: "destructive",
+      toast.error("Authentication error", {
+        description: "You must be logged in to upload jobs"
       });
       return;
     }
 
     if (!selectedFile) {
-      toast({
-        title: "Missing file",
-        description: "Please select a PDF file to upload",
-        variant: "destructive",
+      toast.error("Missing file", {
+        description: "Please select a PDF file to upload"
       });
       return;
     }
@@ -120,14 +115,12 @@ const BusinessCardJobNew = () => {
         throw new Error(insertError.message);
       }
 
-      sonnerToast.success("Job created successfully");
+      toast.success("Job created successfully");
       navigate("/batches/business-cards/jobs");
     } catch (error) {
       console.error("Error submitting job:", error);
-      toast({
-        title: "Error creating job",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
+      toast.error("Error creating job", {
+        description: error instanceof Error ? error.message : "An unknown error occurred"
       });
     } finally {
       setIsUploading(false);
