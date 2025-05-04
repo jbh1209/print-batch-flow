@@ -106,26 +106,22 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
     navigate(path);
   };
   
-  const handleDeleteBatch = async () => {
-    if (!batchToDelete || !config.tableName) return;
+  // Use a separate function to avoid TypeScript infinite recursion
+  const deleteBatch = async (batchId: string, tableName: ExistingTableName | null) => {
+    if (!batchId || !tableName) return;
     
     setIsDeleting(true);
     try {
-      console.log("Deleting batch:", batchToDelete);
+      console.log("Deleting batch:", batchId);
       
-      // First validate that the table name is valid
-      if (!isExistingTable(config.tableName)) {
-        throw new Error(`Invalid table name: ${config.tableName}`);
-      }
-      
-      // First reset all jobs in this batch back to queued
+      // Reset all jobs in this batch back to queued
       const { error: jobsError } = await supabase
-        .from(config.tableName as ExistingTableName)
+        .from(tableName)
         .update({ 
           status: "queued",  // Reset status to queued
           batch_id: null     // Clear batch_id reference
         })
-        .eq("batch_id", batchToDelete);
+        .eq("batch_id", batchId);
       
       if (jobsError) {
         console.error("Error resetting jobs in batch:", jobsError);
@@ -136,7 +132,7 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
-        .eq("id", batchToDelete);
+        .eq("id", batchId);
       
       if (deleteError) {
         console.error("Error deleting batch:", deleteError);
@@ -156,6 +152,16 @@ export function useGenericBatches(config: ProductConfig, batchId: string | null 
       setIsDeleting(false);
       setBatchToDelete(null);
     }
+  };
+  
+  const handleDeleteBatch = async () => {
+    if (!batchToDelete || !config.tableName) return;
+    
+    // First validate that the table name is valid
+    const validTableName = isExistingTable(config.tableName) ? config.tableName as ExistingTableName : null;
+    
+    // Call the actual delete function with the validated table name
+    await deleteBatch(batchToDelete, validTableName);
   };
   
   useEffect(() => {
