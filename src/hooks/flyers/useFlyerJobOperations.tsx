@@ -65,6 +65,39 @@ export function useFlyerJobOperations() {
     slaTargetDays: number;
   }
 
+  // Generate a batch number specifically for flyer batches, starting with 00001
+  const generateFlyerBatchNumber = async (): Promise<string> => {
+    try {
+      // Get the count of existing flyer batches only (with DXB-FL prefix)
+      const { data, error } = await supabase
+        .from('batches')
+        .select('name')
+        .ilike('DXB-FL-%', 'DXB-FL-%');
+      
+      if (error) throw error;
+      
+      // Extract numbers from existing batch names
+      let nextNumber = 1;
+      if (data && data.length > 0) {
+        const numbers = data.map(batch => {
+          const match = batch.name.match(/DXB-FL-(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        });
+        
+        // Find the highest number and increment
+        nextNumber = Math.max(0, ...numbers) + 1;
+      }
+      
+      // Format with 5 digits padding
+      const batchNumber = `DXB-FL-${nextNumber.toString().padStart(5, '0')}`;
+      
+      return batchNumber;
+    } catch (err) {
+      console.error('Error generating batch number:', err);
+      return `DXB-FL-${new Date().getTime().toString().substr(-5).padStart(5, '0')}`; // Fallback using timestamp
+    }
+  };
+
   // New method to create a batch with selected jobs
   const createBatchWithSelectedJobs = async (
     selectedJobs: FlyerJob[], 
@@ -84,7 +117,7 @@ export function useFlyerJobOperations() {
       // Calculate sheets required based on job quantities and sizes
       const sheetsRequired = calculateSheetsRequired(selectedJobs);
       
-      // Generate a batch number in the format DXB-FL-00001 specifically for flyer batches
+      // Generate batch name with standardized format
       const batchNumber = await generateFlyerBatchNumber();
       
       // Create the batch
@@ -169,28 +202,6 @@ export function useFlyerJobOperations() {
     totalSheets = Math.ceil(totalSheets * 1.1); // 10% extra
     
     return totalSheets;
-  };
-
-  // Generate a batch number specifically for flyer batches, starting with 00001
-  const generateFlyerBatchNumber = async (): Promise<string> => {
-    try {
-      // Get the count of existing flyer batches only (with DXB-FL prefix)
-      const { data, error } = await supabase
-        .from('batches')
-        .select('name')
-        .filter('name', 'ilike', 'DXB-FL-%');
-      
-      if (error) throw error;
-      
-      // Generate the batch number starting from 00001
-      const batchCount = (data?.length || 0) + 1;
-      const batchNumber = `DXB-FL-${batchCount.toString().padStart(5, '0')}`;
-      
-      return batchNumber;
-    } catch (err) {
-      console.error('Error generating batch number:', err);
-      return `DXB-FL-${new Date().getTime()}`; // Fallback using timestamp
-    }
   };
 
   return {

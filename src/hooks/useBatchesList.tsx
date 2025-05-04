@@ -13,6 +13,18 @@ interface BatchSummary {
   sheets_required: number;
 }
 
+// Standardized mapping between batch prefix codes and product types
+const BATCH_PREFIX_TO_PRODUCT_TYPE = {
+  'BC': "Business Cards",
+  'FL': "Flyers",
+  'PC': "Postcards",
+  'PB': "Boxes",
+  'STK': "Stickers",
+  'COV': "Covers",
+  'POS': "Posters",
+  'SL': "Sleeves"
+};
+
 export const useBatchesList = () => {
   const { user } = useAuth();
   const [batches, setBatches] = useState<BatchSummary[]>([]);
@@ -45,39 +57,16 @@ export const useBatchesList = () => {
       
       console.log("Batches data received:", data?.length || 0, "records");
       
-      // Determine product type from batch name
+      // Process batch data to determine product type from standardized batch name
       const processedBatches = data?.map(batch => {
-        const nameParts = batch.name.split('-');
+        // Extract product type from standardized batch name format: DXB-BC-00001
         let productType = "Unknown";
-        
-        if (nameParts.length >= 2) {  // Changed to >= 2 to correctly parse all prefixes
-          const prefix = nameParts[0];
-          const code = nameParts[1];
-          
-          // Check for both DXB-BC and BC formats
-          if (prefix === "DXB") {
-            switch(code) {
-              case "BC": productType = "Business Cards"; break;
-              case "FL": productType = "Flyers"; break;
-              case "PC": productType = "Postcards"; break;
-              case "PB": productType = "Product Boxes"; break;
-              case "ZUND": productType = "Zund Stickers"; break;
-              case "COV": productType = "Covers"; break;
-              case "POST": productType = "Posters"; break;
-              case "SL": productType = "Sleeves"; break;
-            }
-          } else {
-            // Handle legacy format or other formats
-            switch(prefix) {
-              case "BC": productType = "Business Cards"; break;
-              case "FL": productType = "Flyers"; break;
-              case "PC": productType = "Postcards"; break;
-              case "PB": productType = "Product Boxes"; break;
-              case "ZUND": productType = "Zund Stickers"; break;
-              case "COV": productType = "Covers"; break;
-              case "POST": productType = "Posters"; break;
-              case "SL": productType = "Sleeves"; break;
-            }
+        if (batch.name) {
+          // Regex to match DXB-XX-##### format
+          const match = batch.name.match(/DXB-([A-Z]+)-\d+/);
+          if (match && match[1]) {
+            const code = match[1];
+            productType = BATCH_PREFIX_TO_PRODUCT_TYPE[code] || "Unknown";
           }
         }
         
@@ -110,8 +99,9 @@ export const useBatchesList = () => {
       case "Business Cards": return "/batches/business-cards/batches";
       case "Flyers": return "/batches/flyers/batches";
       case "Postcards": return "/batches/postcards/batches";
-      case "Product Boxes": return "/batches/boxes/batches";
-      case "Zund Stickers": return "/batches/stickers/batches";
+      case "Product Boxes": 
+      case "Boxes": return "/batches/boxes/batches";
+      case "Stickers": return "/batches/stickers/batches";
       case "Covers": return "/batches/covers/batches";
       case "Posters": return "/batches/posters/batches";
       case "Sleeves": 

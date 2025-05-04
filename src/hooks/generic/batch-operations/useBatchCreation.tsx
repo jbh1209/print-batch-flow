@@ -7,29 +7,66 @@ import { useAuth } from "@/hooks/useAuth";
 import { addDays, format, isAfter } from "date-fns";
 import { isExistingTable } from "@/utils/database/tableValidation";
 
+// Define standard product type codes for batch naming
+const PRODUCT_TYPE_CODES = {
+  "Business Cards": "BC",
+  "BusinessCards": "BC",
+  "Flyers": "FL",
+  "Postcards": "PC",
+  "Posters": "POS",
+  "Sleeves": "SL",
+  "Boxes": "PB",
+  "Covers": "COV",
+  "Stickers": "STK"
+};
+
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const { user } = useAuth();
 
   // Generate a batch name with the correct prefix format based on product type
-  const generateBatchName = (productType: string): string => {
-    const date = new Date();
-    const dateStr = format(date, "yyyyMMddHHmm");
+  const generateBatchName = async (productType: string): Promise<string> => {
+    // Get the correct code for the product type
+    const typeCode = PRODUCT_TYPE_CODES[productType] || "UNK";
     
-    let prefix = "";
-    switch(productType) {
-      case "Business Cards": prefix = "DXB-BC"; break;
-      case "Flyers": prefix = "DXB-FL"; break;
-      case "Postcards": prefix = "DXB-PC"; break;
-      case "Posters": prefix = "DXB-POST"; break;
-      case "Sleeves": prefix = "DXB-SL"; break;
-      case "Boxes": prefix = "DXB-PB"; break;
-      case "Covers": prefix = "DXB-COV"; break;
-      case "Stickers": prefix = "DXB-STK"; break;
-      default: prefix = "DXB";
+    try {
+      // Check for existing batches with this prefix to determine next number
+      const { data, error } = await supabase
+        .from("batches")
+        .select("name")
+        .ilike("name", `DXB-${typeCode}-%`);
+      
+      if (error) {
+        console.error("Error counting batches:", error);
+        throw error;
+      }
+      
+      // Default to 1 if no batches found
+      let nextNumber = 1;
+      
+      if (data && data.length > 0) {
+        // Extract numbers from existing batch names
+        const numbers = data.map(batch => {
+          const match = batch.name.match(/DXB-[A-Z]+-(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        });
+        
+        // Find the highest number and increment
+        nextNumber = Math.max(0, ...numbers) + 1;
+      }
+      
+      // Format with 5 digits padding
+      const formattedNumber = nextNumber.toString().padStart(5, '0');
+      const batchName = `DXB-${typeCode}-${formattedNumber}`;
+      
+      console.log(`Generated batch name: ${batchName} for product type: ${productType}`);
+      return batchName;
+    } catch (err) {
+      console.error("Error generating batch name:", err);
+      // Fallback to timestamp-based name if error occurs
+      const timestamp = format(new Date(), "yyyyMMddHHmm");
+      return `DXB-${typeCode}-${timestamp}`;
     }
-    
-    return `${prefix}-${dateStr}`;
   };
 
   const createBatchWithSelectedJobs = async (
@@ -89,8 +126,8 @@ export function useBatchCreation(productType: string, tableName: string) {
       const paperWeight = firstJob.paper_weight || "standard";
       const sides = firstJob.sides || "single"; // Default to single if not specified
       
-      // Generate batch name
-      const batchName = generateBatchName(config.productType);
+      // Generate batch name with standardized format
+      const batchName = await generateBatchName(config.productType);
       
       console.log("Creating batch with name:", batchName);
       console.log("Batch data:", {

@@ -7,14 +7,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { Job, LaminationType } from "@/components/business-cards/JobsTable";
 import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
 
+// Standardized product type codes for batch naming
 const PRODUCT_TYPE_CODES = {
-  business_cards: "BC",
-  flyers: "FLY",
-  postcards: "PC",
-  boxes: "PB",
-  stickers: "ZUND",
-  covers: "COV",
-  posters: "POST"
+  "business_cards": "BC",
+  "flyers": "FL",
+  "postcards": "PC",
+  "boxes": "PB", 
+  "stickers": "STK",
+  "covers": "COV",
+  "posters": "POS",
+  "sleeves": "SL"
 };
 
 export function useBatchCreation() {
@@ -26,19 +28,40 @@ export function useBatchCreation() {
     // Get the code for the product type
     const typeCode = PRODUCT_TYPE_CODES[productType] || "BC";
     
-    // Count existing batches to generate the next number
-    const { count, error } = await supabase
-      .from("batches")
-      .select("*", { count: "exact", head: true })
-      .ilike("name", `DXB-${typeCode}-%`);
-    
-    if (error) {
-      console.error("Error counting batches:", error);
+    try {
+      // Count existing batches with this prefix to determine next number
+      const { data, error } = await supabase
+        .from("batches")
+        .select("name")
+        .ilike(`name`, `DXB-${typeCode}-%`);
+      
+      if (error) {
+        console.error("Error getting batch names:", error);
+        throw error;
+      }
+      
+      // Default to 1 if no batches found
+      let nextNumber = 1;
+      
+      if (data && data.length > 0) {
+        // Extract numbers from existing batch names
+        const numbers = data.map(batch => {
+          const match = batch.name.match(/DXB-[A-Z]+-(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        });
+        
+        // Find the highest number and increment
+        nextNumber = Math.max(0, ...numbers) + 1;
+      }
+      
+      // Format with 5 digits padding
+      const formattedNumber = nextNumber.toString().padStart(5, '0');
+      return `DXB-${typeCode}-${formattedNumber}`;
+    } catch (err) {
+      console.error("Error generating batch number:", err);
+      // Fallback to timestamp-based name
+      return `DXB-${typeCode}-${Date.now().toString().substr(-5)}`;
     }
-    
-    // Generate batch number with padding
-    const nextNumber = (count ? count + 1 : 1).toString().padStart(5, '0');
-    return `DXB-${typeCode}-${nextNumber}`;
   };
 
   const createBatch = async (selectedJobs: Job[], customBatchName?: string) => {
@@ -70,8 +93,8 @@ export function useBatchCreation() {
       const totalCards = selectedJobs.reduce((sum, job) => sum + job.quantity, 0);
       const sheetsRequired = Math.ceil(totalCards / 24);
       
-      // Always generate batch name with standardized format
-      const name = await generateBatchNumber("business_cards");
+      // Generate batch name with standardized format
+      const name = customBatchName || await generateBatchNumber("business_cards");
       
       // Get earliest due date from jobs for the batch due date
       const earliestDueDate = selectedJobs.reduce((earliest, job) => {
