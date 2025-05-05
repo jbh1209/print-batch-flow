@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ProductConfig } from '@/config/productTypes';
 import { toast } from 'sonner';
-import { isExistingTable } from '@/utils/database/tableUtils';
+import { isExistingTable } from '@/utils/database/tableValidation';
 
 export const useGenericJobCreation = (config: ProductConfig) => {
   const [isLoading, setIsLoading] = useState(false);

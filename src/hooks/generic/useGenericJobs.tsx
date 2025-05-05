@@ -6,7 +6,7 @@ import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
 import { useGenericBatches } from './useGenericBatches';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
-import { isExistingTable } from '@/utils/database/tableUtils';
+import { isExistingTable } from '@/utils/database/tableValidation';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();

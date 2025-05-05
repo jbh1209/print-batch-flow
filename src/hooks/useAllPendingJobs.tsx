@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from "sonner";
 import { productConfigs, BaseJob, ProductConfig } from '@/config/productTypes';
-import { isExistingTable } from "@/utils/database/tableUtils";
+import { isExistingTable } from "@/utils/database/tableValidation";
 import { calculateJobUrgency } from "@/utils/dateCalculations";
 
 // Extended job type that includes product type information
