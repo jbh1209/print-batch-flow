@@ -6,7 +6,7 @@
 // Type for existing database tables
 export type ExistingTableName = 
   | 'flyer_jobs'
-  | 'postcard_jobs'
+  | 'postcard_jobs' 
   | 'business_card_jobs'
   | 'poster_jobs'
   | 'sleeve_jobs'
@@ -19,6 +19,7 @@ export type ExistingTableName =
 
 // Status types for jobs and batches
 export type BatchStatus = 
+  | 'pending'
   | 'queued' 
   | 'processing' 
   | 'completed' 
@@ -48,7 +49,7 @@ export interface BaseBatch {
 
 export interface BaseJob {
   id: string;
-  name?: string;
+  name: string;
   status: string;
   quantity: number;
   due_date: string;
@@ -63,3 +64,4 @@ export interface BaseJob {
   job_number?: string;
   size?: string;
 }
+

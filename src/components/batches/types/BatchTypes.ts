@@ -17,3 +17,4 @@ export interface Job {
   status: string;
   pdf_url: string | null;
 }
+

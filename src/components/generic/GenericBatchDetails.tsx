@@ -9,7 +9,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
-import { BatchDetailsType } from "@/components/batches/types/BatchTypes";
+import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsProps {
   batchId: string;
@@ -72,6 +72,15 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     status: batch.status as BatchStatus
   };
 
+  // Convert related jobs to match the Job interface
+  const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
+    id: job.id,
+    name: job.name || '',  // Ensure name is not undefined
+    quantity: job.quantity,
+    status: job.status,
+    pdf_url: job.pdf_url || null
+  }));
+
   return (
     <div>
       <JobsHeader 
@@ -81,7 +90,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
       
       <BatchDetailsContent
         batch={batchDetailsData}
-        relatedJobs={relatedJobs}
+        relatedJobs={typedRelatedJobs}
         productType={config.productType}
         onDeleteClick={() => setBatchToDelete(batch.id)}
       />

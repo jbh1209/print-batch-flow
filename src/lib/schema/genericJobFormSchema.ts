@@ -2,126 +2,112 @@
 import { z } from "zod";
 import { ProductConfig } from "@/config/productTypes";
 
-// Common fields for all job types
-const baseFields = {
-  name: z.string().min(1, "Name is required"),
-  quantity: z.coerce.number().int().positive("Quantity must be a positive number"),
-  due_date: z.coerce.date({
-    required_error: "Due date is required",
-    invalid_type_error: "Invalid date format",
-  }).min(new Date(), "Due date must be in the future"),
-  file: z
-    .instanceof(File, { message: "PDF file is required" })
-    .refine((file) => file.type === "application/pdf", "Only PDF files are accepted")
-    .optional(),
-};
+// Basic validation
+const MAX_FILE_SIZE = 10000000; // 10MB
+const ACCEPTED_FILE_TYPES = ["application/pdf"];
 
-// Create schema based on product configuration
-export function createJobFormSchema(config: ProductConfig) {
-  let schemaFields = { ...baseFields };
-
-  // Add paper type field if required
-  if (config.hasPaperType) {
-    schemaFields = {
-      ...schemaFields,
-      paper_type: z.string({ required_error: "Paper type is required" }),
-    };
-  }
-
-  // Add paper weight field if required
-  if (config.hasPaperWeight) {
-    schemaFields = {
-      ...schemaFields,
-      paper_weight: z.string({ required_error: "Paper weight is required" }),
-    };
-  }
-
-  // Add size field if required
-  if (config.hasSize) {
-    schemaFields = {
-      ...schemaFields,
-      size: z.string({ required_error: "Size is required" }),
-    };
-  }
-
-  // Add sides field if required
-  if (config.hasSides) {
-    schemaFields = {
-      ...schemaFields,
-      sides: z.string({ required_error: "Sides option is required" }),
-    };
-  }
-
-  // Add UV varnish field if required
-  if (config.hasUVVarnish) {
-    schemaFields = {
-      ...schemaFields,
-      uv_varnish: z.string({ required_error: "UV varnish option is required" }),
-    };
-  }
-
-  // Add lamination field if required
-  if (config.hasLamination) {
-    schemaFields = {
-      ...schemaFields,
-      lamination_type: z.string({ required_error: "Lamination type is required" }),
-    };
-  }
-
-  return z.object(schemaFields);
-}
-
-// Default values based on product configuration
-export function getDefaultFormValues(config: ProductConfig): GenericJobFormValues {
-  const defaults: Partial<GenericJobFormValues> = {
-    name: "",
-    quantity: 100,
-    due_date: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // Default: 7 days from now
+// Create the form schema based on product configuration
+export const createJobFormSchema = (config: ProductConfig) => {
+  // Start with the base schema
+  let baseSchema = {
+    name: z.string().min(1, "Job name is required"),
+    quantity: z.number().min(1, "Quantity must be at least 1"),
+    due_date: z.date(),
+    file: z.instanceof(File)
+      .refine((file) => file.size <= MAX_FILE_SIZE, `Max file size is 10MB.`)
+      .refine(
+        (file) => ACCEPTED_FILE_TYPES.includes(file.type),
+        "Only PDF files are accepted."
+      ).optional()
   };
 
-  // Add paper type default if required
+  // Add conditional fields based on product config
+  let schemaObj: any = { ...baseSchema };
+
+  // Add paper type if applicable
+  if (config.hasPaperType) {
+    schemaObj.paper_type = z.string().min(1, "Paper type is required");
+  }
+
+  // Add paper weight if applicable
+  if (config.hasPaperWeight) {
+    schemaObj.paper_weight = z.string().min(1, "Paper weight is required");
+  }
+
+  // Add size if applicable
+  if (config.hasSize) {
+    schemaObj.size = z.string().min(1, "Size is required");
+  }
+
+  // Add lamination type
+  if (config.hasLamination) {
+    schemaObj.lamination_type = z.string();
+  }
+
+  // Add sides if applicable
+  if (config.hasSides) {
+    schemaObj.sides = z.string();
+  }
+
+  // Add UV varnish if applicable
+  if (config.hasUVVarnish) {
+    schemaObj.uv_varnish = z.string();
+  }
+
+  return z.object(schemaObj);
+};
+
+// Get default form values based on product configuration
+export const getDefaultFormValues = (config: ProductConfig) => {
+  const today = new Date();
+  const defaultDueDate = new Date();
+  defaultDueDate.setDate(today.getDate() + (config.slaTargetDays || 3));
+
+  // Start with base default values
+  const defaults: any = {
+    name: "",
+    quantity: 100,
+    due_date: defaultDueDate
+  };
+
+  // Add conditional defaults based on product config
   if (config.hasPaperType && config.availablePaperTypes && config.availablePaperTypes.length > 0) {
     defaults.paper_type = config.availablePaperTypes[0];
   }
 
-  // Add paper weight default if required
   if (config.hasPaperWeight && config.availablePaperWeights && config.availablePaperWeights.length > 0) {
     defaults.paper_weight = config.availablePaperWeights[0];
   }
 
-  // Add size default if required
   if (config.hasSize && config.availableSizes && config.availableSizes.length > 0) {
     defaults.size = config.availableSizes[0];
   }
 
-  // Add sides default if required
-  if (config.hasSides) {
-    defaults.sides = "single";
+  if (config.hasLamination) {
+    defaults.lamination_type = "none";
   }
 
-  // Add UV varnish default if required
-  if (config.hasUVVarnish) {
-    defaults.uv_varnish = "none";
+  if (config.hasSides && config.availableSidesTypes && config.availableSidesTypes.length > 0) {
+    defaults.sides = config.availableSidesTypes[0];
   }
 
-  // Add lamination default if required
-  if (config.hasLamination && config.availableLaminationTypes && config.availableLaminationTypes.length > 0) {
-    defaults.lamination_type = config.availableLaminationTypes[0];
+  if (config.hasUVVarnish && config.availableUVVarnishTypes && config.availableUVVarnishTypes.length > 0) {
+    defaults.uv_varnish = config.availableUVVarnishTypes[0];
   }
 
-  return defaults as GenericJobFormValues;
-}
+  return defaults;
+};
 
-export interface GenericJobFormValues {
+// Define the generic form values type
+export type GenericJobFormValues = {
   name: string;
   quantity: number;
   due_date: Date;
+  file?: File;
   paper_type?: string;
   paper_weight?: string;
   size?: string;
+  lamination_type?: string;
   sides?: string;
   uv_varnish?: string;
-  lamination_type?: string;
-  file?: File;
-  job_number?: string;
-}
+};

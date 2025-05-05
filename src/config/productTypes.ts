@@ -15,6 +15,7 @@ import { postersConfig } from './products/posters';
 import { coversConfig } from './products/covers';
 import { boxesConfig } from './products/boxes';
 import { ProductConfig } from './types/productConfigTypes';
+import { ExistingTableName } from './types/baseTypes';
 
 // Export product configs dictionary
 export const productConfigs: Record<string, ProductConfig> = {
