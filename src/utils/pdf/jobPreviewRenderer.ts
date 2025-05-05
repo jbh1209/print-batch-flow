@@ -67,11 +67,16 @@ export async function addJobPreviews(
         height: scaledHeight
       });
       
-      // Add job info below preview - smaller text for sleeve jobs
+      // Add file name below preview - smaller text for sleeve jobs
       const textSize = isSleeveJobType ? 6 : 7;
-      const jobName = job.name.substring(0, 20) + (job.name.length > 20 ? '...' : '');
-      page.drawText(jobName, {
-        x: x + (gridConfig.cellWidth / 2) - (jobName.length * 1.8),
+      
+      // Use file_name if available, fall back to job name if file_name doesn't exist
+      const displayText = job.file_name 
+        ? job.file_name.substring(0, 20) + (job.file_name.length > 20 ? '...' : '')
+        : job.name.substring(0, 20) + (job.name.length > 20 ? '...' : '');
+      
+      page.drawText(displayText, {
+        x: x + (gridConfig.cellWidth / 2) - (displayText.length * 1.8),
         y: y - gridConfig.cellHeight - 15,
         size: textSize,
         font: helveticaFont
