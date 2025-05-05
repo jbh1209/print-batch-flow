@@ -20,9 +20,16 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
   // Determine if we're working with sleeve jobs
   const isSleeveJobsType = isSleeveJobs(jobs);
   
-  // Generate the batch overview PDF when jobs change
+  // Log job information to help debug the issue
   useEffect(() => {
     if (jobs.length > 0) {
+      console.log('Jobs being passed to batch overview:', 
+        jobs.map(job => ({ 
+          id: job.id, 
+          job_number: job.job_number || 'No job number', 
+          name: job.name 
+        }))
+      );
       generateOverview();
     }
   }, []);  // Only run on mount, not on every jobs change

@@ -70,23 +70,27 @@ export async function addJobPreviews(
       // Add job number below preview - smaller text for sleeve jobs
       const textSize = isSleeveJobType ? 6 : 7;
       
-      // MODIFIED: Changed logic to prioritize job_number over name
-      let displayText = "";
+      // Set displayText to job_number with highest priority
+      let displayText = '';
       
-      // First priority: Use job_number if available
-      if ('job_number' in job && job.job_number && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
+      // STRICT PRIORITY: Use job_number if available (must be first)
+      if (job.job_number && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
         displayText = job.job_number;
       }
-      // Second priority: If there's no job_number, check if name looks like a job number
-      else if ('name' in job && typeof job.name === 'string') {
+      // If no job_number, then check if name looks like a job number
+      else if (job.name && typeof job.name === 'string') {
         const nameStr = job.name.toString();
         if (/^[A-Z0-9]+-[A-Z0-9]+/i.test(nameStr) || /^[A-Z0-9]{5,}/i.test(nameStr)) {
+          displayText = nameStr;
+        } 
+        // If name doesn't look like a job number, use it anyway as last resort before ID
+        else {
           displayText = nameStr;
         }
       }
       
-      // Third priority: If nothing else works, use part of the ID
-      if (!displayText && 'id' in job) {
+      // Fallback to ID if nothing else is available
+      if (!displayText && job.id) {
         displayText = job.id.substring(0, 8);
       }
       
