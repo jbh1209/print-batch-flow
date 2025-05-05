@@ -70,13 +70,19 @@ export async function addJobPreviews(
       // Add job number below preview - smaller text for sleeve jobs
       const textSize = isSleeveJobType ? 6 : 7;
       
-      // Get the display text for the label under the PDF
-      // Type-safe access to job_number property
+      // Extract the job number consistently across all job types
+      // Always prioritize job_number property if it exists
       let displayText = "";
-      if ('job_number' in job && typeof job.job_number === 'string') {
+      
+      // Check if job_number property exists and is a string
+      if ('job_number' in job && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
+        // Use the job_number directly
         displayText = job.job_number;
-      } else {
-        displayText = job.id.substring(0, 8); // Use first 8 chars of UUID if no job number
+      } 
+      // For business card jobs which might have a different structure
+      else if ('id' in job) {
+        // Fall back to using part of the job ID
+        displayText = job.id.substring(0, 8);
       }
       
       page.drawText(displayText, {
