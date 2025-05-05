@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { ProductConfig, BaseBatch, BaseJob } from "@/config/productTypes";
 import { toast } from "sonner";
-import { ValidTableName, isExistingTable } from "@/utils/database/tableValidation";
+import { isExistingTable } from "@/utils/database/tableValidation";
 import { useBatchDeletion } from "./batch-operations/useBatchDeletion";
 
 interface UseGenericBatchDetailsProps {
@@ -56,7 +56,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         // Fetch associated jobs if there's a valid table name
         if (isExistingTable(config.tableName)) {
           const { data: jobsData, error: jobsError } = await supabase
-            .from(config.tableName as ValidTableName)
+            .from(config.tableName)
             .select("*")
             .eq("batch_id", batchId);
           
