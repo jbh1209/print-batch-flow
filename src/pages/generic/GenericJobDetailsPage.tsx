@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, FileText, AlertCircle, Calendar, Package } from "lucide-react";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import { format } from "date-fns";
-import { isExistingTable } from "@/utils/database/tableUtils";
+import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 
 interface GenericJobDetailsPageProps {
@@ -67,7 +67,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
         // Ensure we have a valid job object before returning it
         if (!data) {
           console.error('No job data returned');
-          throw new Error('No job data returned');
+          throw new Error('Job not found');
         }
         
         console.log(`Job data received for ${config.productType}:`, data);
@@ -78,7 +78,9 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
         console.error('Error fetching job details:', err);
         throw err;
       }
-    }
+    },
+    retry: 1,
+    staleTime: 30000
   });
 
   if (isLoading) {
