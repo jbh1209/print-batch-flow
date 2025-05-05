@@ -64,5 +64,6 @@ export interface BaseJob {
   job_number?: string;
   size?: string;
   sides?: string;
-  stock_type?: string; // Added for sleeve jobs
+  stock_type?: string; 
+  single_sided?: boolean;
 }

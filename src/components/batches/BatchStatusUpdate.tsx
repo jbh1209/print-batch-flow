@@ -18,7 +18,7 @@ interface BatchStatusUpdateProps {
 }
 
 const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStatusUpdateProps) => {
-  const updateBatchStatus = async (newStatus: BatchStatus) => {
+  const updateBatchStatus = async (newStatus: "completed" | "sent_to_print") => {
     try {
       const { error } = await supabase
         .from('batches')

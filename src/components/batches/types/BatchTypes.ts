@@ -19,4 +19,17 @@ export interface Job {
   quantity: number;
   status: string;
   pdf_url: string | null;
+  job_number?: string;
+  size?: string;
+  sides?: string;
+  stock_type?: string;
+  single_sided?: boolean;
+  paper_type?: string;
+  paper_weight?: string;
+  lamination_type?: string;
+  file_name?: string;
+  created_at?: string;
+  updated_at?: string;
+  batch_id?: string | null;
+  due_date?: string;
 }

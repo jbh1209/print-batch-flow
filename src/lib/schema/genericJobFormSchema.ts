@@ -19,6 +19,7 @@ const baseSchema = z.object({
     .optional(),
 });
 
+// New function to create the generic job form schema
 export const createGenericJobFormSchema = (config: ProductConfig) => {
   let schema = baseSchema;
 
@@ -47,7 +48,16 @@ export const createGenericJobFormSchema = (config: ProductConfig) => {
     });
   }
 
-  if (config.hasSides) {
+  if (config.hasSize && config.availableSizes) {
+    schema = schema.extend({
+      size: z.enum(config.availableSizes as [string, ...string[]], {
+        required_error: "Size is required.",
+      }),
+    });
+  }
+
+  // Handle sides if the product has sides
+  if ('hasSides' in config && config.hasSides) {
     schema = schema.extend({
       sides: z.string({
         required_error: "Sides is required.",
@@ -55,7 +65,8 @@ export const createGenericJobFormSchema = (config: ProductConfig) => {
     });
   }
 
-  if (config.hasUVVarnish) {
+  // Handle UV varnish if the product has it
+  if ('hasUVVarnish' in config && config.hasUVVarnish) {
     schema = schema.extend({
       uv_varnish: z.string({
         required_error: "UV varnish is required.",
@@ -72,6 +83,46 @@ export const createGenericJobFormSchema = (config: ProductConfig) => {
   }
 
   return schema;
+};
+
+// Default values function
+export const getDefaultFormValues = (config: ProductConfig) => {
+  const defaultValues: any = {
+    name: "",
+    job_number: "",
+    quantity: 0,
+    due_date: new Date(),
+  };
+
+  if (config.hasPaperType && config.availablePaperTypes && config.availablePaperTypes.length > 0) {
+    defaultValues.paper_type = config.availablePaperTypes[0];
+  }
+
+  if (config.hasPaperWeight && config.availablePaperWeights && config.availablePaperWeights.length > 0) {
+    defaultValues.paper_weight = config.availablePaperWeights[0];
+  }
+
+  if (config.hasSize && config.availableSizes && config.availableSizes.length > 0) {
+    defaultValues.size = config.availableSizes[0];
+  }
+
+  // Handle sides if the product has sides
+  if ('hasSides' in config && config.hasSides && 
+      'availableSidesTypes' in config && config.availableSidesTypes?.length > 0) {
+    defaultValues.sides = config.availableSidesTypes[0];
+  }
+
+  // Handle UV varnish if the product has it
+  if ('hasUVVarnish' in config && config.hasUVVarnish && 
+      'availableUVVarnishTypes' in config && config.availableUVVarnishTypes?.length > 0) {
+    defaultValues.uv_varnish = config.availableUVVarnishTypes[0];
+  }
+
+  if (config.hasLamination && config.availableLaminationTypes && config.availableLaminationTypes.length > 0) {
+    defaultValues.lamination_type = config.availableLaminationTypes[0];
+  }
+
+  return defaultValues;
 };
 
 export type GenericJobFormValues = z.infer<ReturnType<typeof createGenericJobFormSchema>> & {
