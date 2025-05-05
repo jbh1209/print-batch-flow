@@ -11,7 +11,8 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     name: baseJob.name || '',  // Ensure name is not undefined
     quantity: baseJob.quantity,
     status: baseJob.status,
-    pdf_url: baseJob.pdf_url || null
+    pdf_url: baseJob.pdf_url || null,
+    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}` // Ensure job_number is always provided
   };
 };
 

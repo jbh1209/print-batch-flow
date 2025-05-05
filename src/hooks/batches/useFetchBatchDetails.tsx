@@ -79,21 +79,39 @@ export function useFetchBatchDetails({
       if (productType === "Business Cards") {
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
-          .select("id, name, quantity, status, pdf_url")
+          .select("id, name, quantity, status, pdf_url, job_number")
           .eq("batch_id", batchId)
           .order("name");
         
         if (jobsError) throw jobsError;
-        jobsData = jobs || [];
+        
+        // Map jobs to include job_number
+        jobsData = (jobs || []).map(job => ({
+          id: job.id,
+          name: job.name,
+          quantity: job.quantity,
+          status: job.status,
+          pdf_url: job.pdf_url,
+          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+        }));
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url")
+          .select("id, name, quantity, status, pdf_url, job_number")
           .eq("batch_id", batchId)
           .order("name");
         
         if (jobsError) throw jobsError;
-        jobsData = jobs || [];
+        
+        // Map jobs to include job_number
+        jobsData = (jobs || []).map(job => ({
+          id: job.id,
+          name: job.name,
+          quantity: job.quantity,
+          status: job.status,
+          pdf_url: job.pdf_url,
+          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+        }));
       }
       
       setRelatedJobs(jobsData);

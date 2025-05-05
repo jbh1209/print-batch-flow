@@ -83,13 +83,14 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs to match the Job interface
+  // Convert related jobs to match the Job interface, ensuring job_number is included
   const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
     id: job.id,
-    name: job.name || '',  // Ensure name is not undefined
+    name: job.name || '',
     quantity: job.quantity,
     status: job.status,
-    pdf_url: job.pdf_url || null
+    pdf_url: job.pdf_url || null,
+    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
   }));
 
   return (
