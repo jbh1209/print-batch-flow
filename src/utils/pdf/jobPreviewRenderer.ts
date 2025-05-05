@@ -67,13 +67,13 @@ export async function addJobPreviews(
         height: scaledHeight
       });
       
-      // Add file name below preview - smaller text for sleeve jobs
+      // Add job number below preview - smaller text for sleeve jobs
       const textSize = isSleeveJobType ? 6 : 7;
       
-      // Use file_name if available, fall back to job name if file_name doesn't exist
-      const displayText = job.file_name 
-        ? job.file_name.substring(0, 20) + (job.file_name.length > 20 ? '...' : '')
-        : job.name.substring(0, 20) + (job.name.length > 20 ? '...' : '');
+      // Use job_number if available, fall back to job ID if job_number doesn't exist
+      const displayText = job.job_number 
+        ? job.job_number
+        : job.id.substring(0, 8); // Use first 8 chars of UUID if no job number
       
       page.drawText(displayText, {
         x: x + (gridConfig.cellWidth / 2) - (displayText.length * 1.8),
