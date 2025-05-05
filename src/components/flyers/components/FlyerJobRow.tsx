@@ -30,9 +30,9 @@ export const FlyerJobRow = ({
   const handleDelete = async () => {
     try {
       await deleteJob(job.id);
-      toast.success("Job deleted successfully");
+      toast.success("Job deleted successfully", { duration: 3000 });
     } catch (error) {
-      toast.error("Failed to delete job");
+      toast.error("Failed to delete job", { duration: 3000 });
     }
   };
 

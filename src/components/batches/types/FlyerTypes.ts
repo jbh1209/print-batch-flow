@@ -38,8 +38,8 @@ export interface FlyerJob {
   quantity: number;
   due_date: string;
   batch_id: string | null;
-  // Add "cancelled" to the status type to match what's coming from the database
-  status: "queued" | "batched" | "completed" | "cancelled";
+  // Update the status type to include "sent_to_print"
+  status: "queued" | "batched" | "completed" | "cancelled" | "sent_to_print";
   pdf_url: string;
   file_name: string;
   user_id: string;
