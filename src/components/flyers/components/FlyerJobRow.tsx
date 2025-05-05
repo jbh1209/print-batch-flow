@@ -9,6 +9,8 @@ import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
+import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
+import { productConfigs } from "@/config/productTypes";
 
 interface FlyerJobRowProps {
   job: FlyerJob;
@@ -38,8 +40,22 @@ export const FlyerJobRow = ({
     navigate(`/batches/flyers/jobs/${job.id}/edit`);
   };
   
+  // Get row color based on status and urgency
+  const getRowBackgroundClass = () => {
+    // Status-based coloring
+    switch (job.status) {
+      case 'completed': return 'bg-green-50';
+      case 'sent_to_print': return 'bg-blue-50';
+      case 'cancelled': return 'bg-red-50';
+    }
+    
+    // If status doesn't determine color, use urgency
+    const urgency = calculateJobUrgency(job.due_date, productConfigs["Flyers"]);
+    return getUrgencyBackgroundClass(urgency);
+  };
+  
   return (
-    <TableRow key={job.id} className={isSelected ? "bg-primary/5" : undefined}>
+    <TableRow key={job.id} className={isSelected ? "bg-primary/5" : getRowBackgroundClass()}>
       <TableCell>
         <Checkbox 
           checked={isSelected} 
