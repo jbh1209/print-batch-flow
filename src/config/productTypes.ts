@@ -248,7 +248,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     productType: "Covers",
     tableName: "cover_jobs",
     jobNumberPrefix: "COV",
-    availableSizes: ["A4", "A5"],
+    availableSizes: ["A5", "A4"],
     availablePaperTypes: [
       "250gsm Gloss", 
       "250gsm Matt", 
@@ -256,7 +256,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       "300gsm Matt"
     ],
     availablePaperWeights: ["250gsm", "300gsm"],
-    availableLaminationTypes: ["none", "gloss", "matt"],
+    availableLaminationTypes: ["none", "matt", "gloss"],
     availableUVVarnishTypes: ["none", "gloss"],
     availableSidesTypes: ["single", "double"],
     hasSize: true,
