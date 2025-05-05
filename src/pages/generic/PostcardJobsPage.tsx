@@ -30,8 +30,13 @@ const PostcardJobsPage = () => {
   };
 
   const handleViewJob = (jobId: string) => {
+    console.log("Navigating to job details:", jobId);
     if (config.routes.jobDetailPath) {
-      navigate(config.routes.jobDetailPath(jobId));
+      const path = config.routes.jobDetailPath(jobId);
+      console.log("Navigation path:", path);
+      navigate(path);
+    } else {
+      console.error("No jobDetailPath route defined in config");
     }
   };
 
@@ -78,7 +83,7 @@ const PostcardJobsPage = () => {
         }}
         isFixingBatchedJobs={isFixingBatchedJobs}
         config={config}
-        onViewJob={handleViewJob} // This is now properly typed
+        onViewJob={handleViewJob} // This function is now properly implemented
       />
 
       <GenericBatchCreateDialog

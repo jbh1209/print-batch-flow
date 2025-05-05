@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, FileText, AlertCircle, Calendar, Package } from "lucide-react";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import { format } from "date-fns";
-import { isExistingTable } from "@/utils/database/tableValidation";
+import { isExistingTable } from "@/utils/database/tableUtils";
 import { toast } from "sonner";
 
 interface GenericJobDetailsPageProps {
@@ -22,6 +22,15 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
   const navigate = useNavigate();
 
   console.log(`Rendering GenericJobDetailsPage for ${config.productType} with jobId:`, jobId);
+  console.log(`Table name being used: ${config.tableName}`);
+  
+  useEffect(() => {
+    if (!jobId) {
+      console.error("No job ID provided in URL params");
+      toast.error("No job ID provided");
+      navigate(config.routes.jobsPath);
+    }
+  }, [jobId, navigate, config.routes.jobsPath]);
   
   const { data: job, isLoading, error } = useQuery({
     queryKey: [`${config.productType.toLowerCase()}-job-${jobId}`],
@@ -41,6 +50,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
       
       try {
         console.log(`Fetching job details for ${config.productType} jobId:`, jobId);
+        console.log(`Using table: ${config.tableName}`);
         
         // Using any as a workaround for the type error
         const { data, error } = await supabase
