@@ -19,7 +19,7 @@ export interface Job {
   quantity: number;
   status: string;
   pdf_url: string | null;
-  job_number?: string;
+  job_number: string;  // Explicitly required, not optional
   size?: string;
   sides?: string;
   stock_type?: string;

@@ -67,19 +67,20 @@ export async function addJobPreviews(
         height: scaledHeight
       });
       
-      // Use ONLY job_number field directly, no fallbacks
-      const textSize = isSleeveJobType ? 6 : 7;
+      // Get job number directly from job object - must exist in all job types
+      let jobNumber = '';
       
-      // Access job_number - with type safety but NO fallbacks
-      let displayText = "";
-      if ('job_number' in job) {
-        displayText = job.job_number || ""; // Only use job_number or empty string
+      // Type-safe access to job_number
+      if ('job_number' in job && job.job_number) {
+        jobNumber = job.job_number;
       }
       
-      // Only draw text if we have something to display
-      if (displayText) {
-        page.drawText(displayText, {
-          x: x + (gridConfig.cellWidth / 2) - (displayText.length * 1.8),
+      // Only draw text if job number exists
+      if (jobNumber) {
+        const textSize = isSleeveJobType ? 6 : 7;
+        
+        page.drawText(jobNumber, {
+          x: x + (gridConfig.cellWidth / 2) - (jobNumber.length * 1.8),
           y: y - gridConfig.cellHeight - 15,
           size: textSize,
           font: helveticaFont
