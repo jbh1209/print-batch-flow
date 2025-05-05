@@ -27,3 +27,7 @@ export const productConfigs: Record<string, ProductConfig> = {
   "Covers": coversConfig,
   "Boxes": boxesConfig,
 };
+
+// Additional type exports for compatibility
+export type TableName = ExistingTableName;
+export type JobStatus = 'queued' | 'batched' | 'processing' | 'completed' | 'cancelled';

@@ -10,11 +10,15 @@ export interface ProductConfig {
   availablePaperTypes?: string[];
   availablePaperWeights?: string[];
   availableSizes?: string[];
-  availableLaminationTypes?: string[];
+  availableLaminationTypes?: LaminationType[];
+  availableSidesTypes?: string[];
+  availableUVVarnishTypes?: string[];
   hasLamination?: boolean;
   hasPaperType?: boolean;
   hasPaperWeight?: boolean;
   hasSize?: boolean;
+  hasSides?: boolean;
+  hasUVVarnish?: boolean;
   slaTargetDays: number;
   routes: {
     indexPath: string;

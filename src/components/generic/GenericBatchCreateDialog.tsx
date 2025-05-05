@@ -87,7 +87,7 @@ export function GenericBatchCreateDialog({
       // Reset lamination type
       if (config.availableLaminationTypes && config.availableLaminationTypes.length > 0) {
         console.log("Setting lamination type to:", config.availableLaminationTypes[0]);
-        setLaminationType(config.availableLaminationTypes[0] as LaminationType);
+        setLaminationType(config.availableLaminationTypes[0]);
       } else {
         setLaminationType("none");
       }
@@ -184,7 +184,7 @@ export function GenericBatchCreateDialog({
               sheetSize={sheetSize}
               setSheetSize={setSheetSize}
               availablePaperTypes={config.availablePaperTypes || ["Paper"]}
-              availableLaminationTypes={config.availableLaminationTypes || ["none"]}
+              availableLaminationTypes={(config.availableLaminationTypes || ["none"]) as LaminationType[]}
               availablePaperWeights={config.availablePaperWeights || ["standard"]}
             />
             

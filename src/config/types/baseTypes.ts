@@ -60,4 +60,6 @@ export interface BaseJob {
   pdf_url?: string;
   file_name?: string;
   batch_id?: string | null;
+  job_number?: string;
+  size?: string;
 }

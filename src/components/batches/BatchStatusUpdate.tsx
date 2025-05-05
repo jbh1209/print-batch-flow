@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { BatchStatus } from "@/config/productTypes";
+import { BatchStatus } from "@/config/types/baseTypes";
 
 interface BatchStatusUpdateProps {
   batchId: string;
