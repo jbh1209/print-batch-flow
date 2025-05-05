@@ -63,5 +63,6 @@ export interface BaseJob {
   batch_id?: string | null;
   job_number?: string;
   size?: string;
+  sides?: string;
+  stock_type?: string; // Added for sleeve jobs
 }
-

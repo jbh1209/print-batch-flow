@@ -2,112 +2,116 @@
 import { z } from "zod";
 import { ProductConfig } from "@/config/productTypes";
 
-// Basic validation
-const MAX_FILE_SIZE = 10000000; // 10MB
-const ACCEPTED_FILE_TYPES = ["application/pdf"];
+// Base schema without optional fields
+const baseSchema = z.object({
+  name: z.string().min(3, {
+    message: "Name must be at least 3 characters.",
+  }),
+  job_number: z.string().optional(),
+  quantity: z.number().min(1, {
+    message: "Quantity must be at least 1.",
+  }),
+  due_date: z.date({
+    required_error: "Due date is required.",
+  }),
+  file: z
+    .instanceof(File, { message: "PDF file is required" })
+    .optional(),
+});
 
-// Create the form schema based on product configuration
-export const createJobFormSchema = (config: ProductConfig) => {
-  // Start with the base schema
-  let baseSchema = {
-    name: z.string().min(1, "Job name is required"),
-    quantity: z.number().min(1, "Quantity must be at least 1"),
-    due_date: z.date(),
-    file: z.instanceof(File)
-      .refine((file) => file.size <= MAX_FILE_SIZE, `Max file size is 10MB.`)
-      .refine(
-        (file) => ACCEPTED_FILE_TYPES.includes(file.type),
-        "Only PDF files are accepted."
-      ).optional()
-  };
+export const createGenericJobFormSchema = (config: ProductConfig) => {
+  let schema = baseSchema;
 
-  // Add conditional fields based on product config
-  let schemaObj: any = { ...baseSchema };
-
-  // Add paper type if applicable
+  // Add optional fields based on product config
   if (config.hasPaperType) {
-    schemaObj.paper_type = z.string().min(1, "Paper type is required");
+    schema = schema.extend({
+      paper_type: z.string({
+        required_error: "Paper type is required.",
+      }),
+    });
   }
 
-  // Add paper weight if applicable
   if (config.hasPaperWeight) {
-    schemaObj.paper_weight = z.string().min(1, "Paper weight is required");
+    schema = schema.extend({
+      paper_weight: z.string({
+        required_error: "Paper weight is required.",
+      }),
+    });
   }
 
-  // Add size if applicable
   if (config.hasSize) {
-    schemaObj.size = z.string().min(1, "Size is required");
+    schema = schema.extend({
+      size: z.string({
+        required_error: "Size is required.",
+      }),
+    });
   }
 
-  // Add lamination type
-  if (config.hasLamination) {
-    schemaObj.lamination_type = z.string();
-  }
-
-  // Add sides if applicable
   if (config.hasSides) {
-    schemaObj.sides = z.string();
+    schema = schema.extend({
+      sides: z.string({
+        required_error: "Sides is required.",
+      }),
+    });
   }
 
-  // Add UV varnish if applicable
   if (config.hasUVVarnish) {
-    schemaObj.uv_varnish = z.string();
-  }
-
-  return z.object(schemaObj);
-};
-
-// Get default form values based on product configuration
-export const getDefaultFormValues = (config: ProductConfig) => {
-  const today = new Date();
-  const defaultDueDate = new Date();
-  defaultDueDate.setDate(today.getDate() + (config.slaTargetDays || 3));
-
-  // Start with base default values
-  const defaults: any = {
-    name: "",
-    quantity: 100,
-    due_date: defaultDueDate
-  };
-
-  // Add conditional defaults based on product config
-  if (config.hasPaperType && config.availablePaperTypes && config.availablePaperTypes.length > 0) {
-    defaults.paper_type = config.availablePaperTypes[0];
-  }
-
-  if (config.hasPaperWeight && config.availablePaperWeights && config.availablePaperWeights.length > 0) {
-    defaults.paper_weight = config.availablePaperWeights[0];
-  }
-
-  if (config.hasSize && config.availableSizes && config.availableSizes.length > 0) {
-    defaults.size = config.availableSizes[0];
+    schema = schema.extend({
+      uv_varnish: z.string({
+        required_error: "UV varnish is required.",
+      }),
+    });
   }
 
   if (config.hasLamination) {
-    defaults.lamination_type = "none";
+    schema = schema.extend({
+      lamination_type: z.string({
+        required_error: "Lamination is required.",
+      }),
+    });
   }
 
-  if (config.hasSides && config.availableSidesTypes && config.availableSidesTypes.length > 0) {
-    defaults.sides = config.availableSidesTypes[0];
-  }
-
-  if (config.hasUVVarnish && config.availableUVVarnishTypes && config.availableUVVarnishTypes.length > 0) {
-    defaults.uv_varnish = config.availableUVVarnishTypes[0];
-  }
-
-  return defaults;
+  return schema;
 };
 
-// Define the generic form values type
-export type GenericJobFormValues = {
-  name: string;
-  quantity: number;
-  due_date: Date;
-  file?: File;
-  paper_type?: string;
-  paper_weight?: string;
-  size?: string;
-  lamination_type?: string;
-  sides?: string;
-  uv_varnish?: string;
+export type GenericJobFormValues = z.infer<ReturnType<typeof createGenericJobFormSchema>> & {
+  job_number?: string;
+};
+
+// For validation function
+export const validateGenericJobForm = (config: ProductConfig, data: any) => {
+  const schema = createGenericJobFormSchema(config);
+
+  try {
+    // For file uploads, only validate if creating a new job
+    const fileValidation = !data.id;
+    const result = schema.safeParse(data);
+    
+    if (!result.success) {
+      const formattedErrors: Record<string, string> = {};
+      
+      result.error.issues.forEach((issue) => {
+        formattedErrors[issue.path[0]] = issue.message;
+      });
+      
+      return { success: false, errors: formattedErrors };
+    }
+    
+    // Additional validation for new jobs
+    if (fileValidation && !data.file) {
+      return { success: false, errors: { file: "PDF file is required" } };
+    }
+
+    // Special validation for sleeves
+    if (config.productType === "Sleeves") {
+      if (!data.stock_type) {
+        return { success: false, errors: { stock_type: "Stock type is required" } };
+      }
+    }
+    
+    return { success: true, errors: {} };
+  } catch (error) {
+    console.error("Form validation error:", error);
+    return { success: false, errors: { _form: "Form validation failed" } };
+  }
 };

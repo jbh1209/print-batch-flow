@@ -10,7 +10,9 @@ export function drawSleeveInfo(
   helveticaFont: any,
   sheetsRequired: number
 ): void {
-  const stockType = jobs[0]?.stock_type || 'Standard';
+  // Safely access stock_type or provide a default
+  const firstJob = jobs[0] || {};
+  const stockType = firstJob.stock_type || 'Standard';
   
   page.drawRectangle({
     x: margin - 5,

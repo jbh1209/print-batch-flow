@@ -38,6 +38,7 @@ const BusinessCardBatches = () => {
     lamination_type: batch.lamination_type,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
+    overview_pdf_url: null,
     created_at: batch.created_at
   }));
 
