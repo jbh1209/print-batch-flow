@@ -221,9 +221,11 @@ export const productConfigs: Record<string, ProductConfig> = {
     jobNumberPrefix: "POST",
     availableSizes: ["A4", "A3"],
     availablePaperTypes: ["Matt", "Gloss"],
+    availablePaperWeights: ["130gsm", "150gsm", "170gsm", "200gsm", "250gsm", "300gsm"],
     availableSidesTypes: ["single", "double"],
     hasSize: true,
     hasPaperType: true,
+    hasPaperWeight: true,
     hasSides: true,
     slaTargetDays: 3,
     routes: {
