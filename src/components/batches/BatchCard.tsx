@@ -33,7 +33,7 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
   };
   
   // Get urgency level for the batch
-  const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
+  const config = productConfigs[batch.product_type] || productConfigs["BusinessCards"];
   const urgencyLevel = calculateJobUrgency(batch.due_date, config);
 
   // Get card background color based on status

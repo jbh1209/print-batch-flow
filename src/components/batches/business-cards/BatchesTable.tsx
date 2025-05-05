@@ -32,7 +32,7 @@ const BatchesTable = ({
 
   // Helper function to determine batch urgency level
   const getBatchUrgency = (dueDate: string, productType: string): UrgencyLevel => {
-    const config = productConfigs[productType] || productConfigs["Business Cards"];
+    const config = productConfigs[productType] || productConfigs["BusinessCards"];
     return calculateJobUrgency(dueDate, config);
   };
 

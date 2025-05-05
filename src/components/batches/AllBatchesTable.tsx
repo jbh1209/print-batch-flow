@@ -68,8 +68,7 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
             // Safely get product config, using default if not found
             const productType = batch.product_type || "Business Cards";
             // Normalize the product type key to match the keys in productConfigs
-            const normalizedProductType = productType.replace(/\s+/g, '') as keyof typeof productConfigs;
-            const config = productConfigs[normalizedProductType] || productConfigs["BusinessCards"];
+            const config = productConfigs[productType] || productConfigs["BusinessCards"];
             const urgencyLevel = calculateJobUrgency(batch.due_date, config);
             
             return (

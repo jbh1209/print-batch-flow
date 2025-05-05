@@ -18,9 +18,9 @@ const BatchUrgencyIndicator = ({ urgencyLevel, earliestDueDate, productType }: B
   const today = new Date();
   const daysUntilDue = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   
-  // Normalize product type by removing spaces and safely get SLA setting with a fallback
-  const normalizedProductType = productType.replace(/\s+/g, '') as keyof typeof productConfigs;
-  const slaTargetDays = productConfigs[normalizedProductType]?.slaTargetDays || 3;
+  // Safely get SLA setting with a fallback
+  const config = productConfigs[productType] || productConfigs["BusinessCards"];
+  const slaTargetDays = config?.slaTargetDays || 3;
   
   const getTooltipText = () => {
     switch (urgencyLevel) {

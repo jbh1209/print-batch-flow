@@ -1,38 +1,35 @@
 
-import { LaminationType, TableName, UVVarnishType } from './baseTypes';
+import { ExistingTableName } from './baseTypes';
 
-// Product configuration interface
+export type LaminationType = 'none' | 'gloss' | 'matt' | 'soft_touch';
+
 export interface ProductConfig {
   productType: string;
-  tableName: TableName;
-  jobNumberPrefix?: string;
+  tableName: ExistingTableName;
+  jobNumberPrefix: string;
   availablePaperTypes?: string[];
-  availableLaminationTypes?: LaminationType[];
   availablePaperWeights?: string[];
   availableSizes?: string[];
-  availableSidesTypes?: string[];
-  availableUVVarnishTypes?: UVVarnishType[];
-  hasSize?: boolean;
+  availableLaminationTypes?: string[];
+  hasLamination?: boolean;
   hasPaperType?: boolean;
   hasPaperWeight?: boolean;
-  hasLamination?: boolean;
-  hasSides?: boolean;
-  hasUVVarnish?: boolean;
+  hasSize?: boolean;
   slaTargetDays: number;
   routes: {
     indexPath: string;
     jobsPath: string;
     newJobPath: string;
     batchesPath: string;
-    basePath?: string;
-    jobDetailPath?: (id: string) => string;
-    jobEditPath?: (id: string) => string;
+    basePath: string;
+    jobDetailPath: (id: string) => string;
+    jobEditPath: (id: string) => string;
   };
   ui: {
     icon: string;
     color: string;
     jobFormTitle: string;
-    title?: string;
-    batchFormTitle?: string;
+    title: string;
+    batchFormTitle: string;
   };
 }

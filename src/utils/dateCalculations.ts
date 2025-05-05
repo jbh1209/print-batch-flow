@@ -1,6 +1,6 @@
 
 import { addBusinessDays, differenceInBusinessDays, isWeekend, isPast } from "date-fns";
-import { ProductConfig } from "@/config/productTypes";
+import { ProductConfig } from "@/config/types/productConfigTypes";
 
 // Urgency levels for job batching
 export type UrgencyLevel = "critical" | "high" | "medium" | "low";
