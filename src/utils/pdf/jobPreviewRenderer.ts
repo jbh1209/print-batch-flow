@@ -67,28 +67,24 @@ export async function addJobPreviews(
         height: scaledHeight
       });
       
-      // Add job number below preview - smaller text for sleeve jobs
+      // Use ONLY job_number field directly, no fallbacks
       const textSize = isSleeveJobType ? 6 : 7;
       
-      // Safely access job_number with type checking to handle different job types
-      let displayText: string;
-      if ('job_number' in job && job.job_number) {
-        displayText = job.job_number;
-      } else {
-        displayText = `Job #${job.id.substring(0, 8)}`;
+      // Access job_number - with type safety but NO fallbacks
+      let displayText = "";
+      if ('job_number' in job) {
+        displayText = job.job_number || ""; // Only use job_number or empty string
       }
       
-      // Truncate if too long
-      if (displayText.length > 15) {
-        displayText = displayText.substring(0, 12) + '...';
+      // Only draw text if we have something to display
+      if (displayText) {
+        page.drawText(displayText, {
+          x: x + (gridConfig.cellWidth / 2) - (displayText.length * 1.8),
+          y: y - gridConfig.cellHeight - 15,
+          size: textSize,
+          font: helveticaFont
+        });
       }
-      
-      page.drawText(displayText, {
-        x: x + (gridConfig.cellWidth / 2) - (displayText.length * 1.8),
-        y: y - gridConfig.cellHeight - 15,
-        size: textSize,
-        font: helveticaFont
-      });
       
       // Update grid position
       currentCol++;
