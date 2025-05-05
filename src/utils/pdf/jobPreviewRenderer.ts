@@ -74,11 +74,12 @@ export async function addJobPreviews(
       let displayText = '';
       
       // STRICT PRIORITY: Use job_number if available (must be first)
-      if (job.job_number && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
+      // Safely check if job_number property exists and is not empty
+      if ('job_number' in job && job.job_number && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
         displayText = job.job_number;
       }
       // If no job_number, then check if name looks like a job number
-      else if (job.name && typeof job.name === 'string') {
+      else if ('name' in job && job.name && typeof job.name === 'string') {
         const nameStr = job.name.toString();
         if (/^[A-Z0-9]+-[A-Z0-9]+/i.test(nameStr) || /^[A-Z0-9]{5,}/i.test(nameStr)) {
           displayText = nameStr;
