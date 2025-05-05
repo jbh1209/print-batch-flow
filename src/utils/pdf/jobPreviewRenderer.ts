@@ -70,21 +70,19 @@ export async function addJobPreviews(
       // Add job number below preview - smaller text for sleeve jobs
       const textSize = isSleeveJobType ? 6 : 7;
       
-      // Extract job number - revised logic to ensure we get job number consistently
+      // MODIFIED: Changed logic to prioritize job_number over name
       let displayText = "";
       
-      // First priority: Check if job has name property that looks like a job number
-      if ('name' in job && typeof job.name === 'string') {
-        // Many job numbers follow patterns like XX-12345 or similar codes
+      // First priority: Use job_number if available
+      if ('job_number' in job && job.job_number && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
+        displayText = job.job_number;
+      }
+      // Second priority: If there's no job_number, check if name looks like a job number
+      else if ('name' in job && typeof job.name === 'string') {
         const nameStr = job.name.toString();
         if (/^[A-Z0-9]+-[A-Z0-9]+/i.test(nameStr) || /^[A-Z0-9]{5,}/i.test(nameStr)) {
           displayText = nameStr;
         }
-      }
-      
-      // Second priority: If there's an explicit job_number property, use that
-      if (!displayText && 'job_number' in job && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
-        displayText = job.job_number;
       }
       
       // Third priority: If nothing else works, use part of the ID
