@@ -253,9 +253,10 @@ export const productConfigs: Record<string, ProductConfig> = {
       "250gsm Gloss", 
       "250gsm Matt", 
       "300gsm Gloss", 
-      "300gsm Matt"
+      "300gsm Matt",
+      "FBB"
     ],
-    availablePaperWeights: ["250gsm", "300gsm"],
+    availablePaperWeights: ["230gsm", "250gsm", "300gsm"],
     availableLaminationTypes: ["none", "matt", "gloss"],
     availableUVVarnishTypes: ["none", "gloss"],
     availableSidesTypes: ["single", "double"],
