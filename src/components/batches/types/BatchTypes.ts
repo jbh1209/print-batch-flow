@@ -32,4 +32,5 @@ export interface Job {
   updated_at?: string;
   batch_id?: string | null;
   due_date?: string;
+  user_id?: string;  // Added user_id property to fix the first error
 }

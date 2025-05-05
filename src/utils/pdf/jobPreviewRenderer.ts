@@ -70,8 +70,13 @@ export async function addJobPreviews(
       // Add job number below preview - smaller text for sleeve jobs
       const textSize = isSleeveJobType ? 6 : 7;
       
-      // Simply use the job_number field directly without complex logic
-      let displayText = job.job_number || `Job #${job.id.substring(0, 8)}`;
+      // Safely access job_number with type checking to handle different job types
+      let displayText: string;
+      if ('job_number' in job && job.job_number) {
+        displayText = job.job_number;
+      } else {
+        displayText = `Job #${job.id.substring(0, 8)}`;
+      }
       
       // Truncate if too long
       if (displayText.length > 15) {

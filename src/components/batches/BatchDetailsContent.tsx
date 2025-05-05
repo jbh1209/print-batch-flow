@@ -67,7 +67,7 @@ const BatchDetailsContent = ({
       job_number: job.job_number || job.name, // Fallback to name only if job_number is missing
       due_date: job.due_date || new Date().toISOString(),
       file_name: job.file_name || job.name,
-      user_id: job.user_id || "",
+      user_id: job.user_id || "", // Now properly handled with the updated Job type
       created_at: job.created_at || new Date().toISOString(),
     })) as BaseJob[];
   };
