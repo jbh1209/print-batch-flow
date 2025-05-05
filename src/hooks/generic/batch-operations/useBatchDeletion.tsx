@@ -22,9 +22,9 @@ export function useBatchDeletion(tableName: string | undefined, onSuccess: () =>
       }
       
       // Reset jobs in the batch (update their status and batch_id)
-      // Use a simpler type casting approach to avoid excessive type instantiation
+      // Use a type assertion to any to bypass TypeScript's type checking
       const { error: jobsError } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .update({ 
           status: "queued",
           batch_id: null
