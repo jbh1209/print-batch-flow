@@ -14,6 +14,7 @@ import { stickersConfig } from './products/stickers';
 import { postersConfig } from './products/posters';
 import { coversConfig } from './products/covers';
 import { boxesConfig } from './products/boxes';
+import { ProductConfig } from './types/productConfigTypes';
 
 // Export product configs dictionary
 export const productConfigs: Record<string, ProductConfig> = {

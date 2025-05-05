@@ -1,5 +1,5 @@
 
-import { ExistingTableName } from '../types/baseTypes';
+import { ExistingTableName } from '@/config/types/baseTypes';
 
 /**
  * Type for table names that exist in our database schema
