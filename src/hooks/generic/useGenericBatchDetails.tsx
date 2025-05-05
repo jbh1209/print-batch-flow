@@ -56,7 +56,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         // Fetch associated jobs if there's a valid table name
         if (isExistingTable(config.tableName)) {
           const { data: jobsData, error: jobsError } = await supabase
-            .from(config.tableName as any)
+            .from(config.tableName as ValidTableName)
             .select("*")
             .eq("batch_id", batchId);
           

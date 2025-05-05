@@ -1,4 +1,5 @@
 
+import { ValidTableName } from '@/utils/database/tableValidation';
 import { ExistingTableName } from '@/config/productTypes';
 
 /**
