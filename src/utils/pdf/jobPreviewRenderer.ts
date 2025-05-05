@@ -70,35 +70,8 @@ export async function addJobPreviews(
       // Add job number below preview - smaller text for sleeve jobs
       const textSize = isSleeveJobType ? 6 : 7;
       
-      // Determine what text to display under the preview (STRICT PRIORITY ORDER)
-      let displayText = '';
-      
-      // 1. Job Number - HIGHEST PRIORITY
-      if ('job_number' in job && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
-        displayText = job.job_number;
-      }
-      // 2. Job ID if it looks like a job number
-      else if (job.id && /^[A-Z0-9]+-[A-Z0-9]+/i.test(job.id)) {
-        displayText = job.id;
-      }
-      // 3. Name ONLY if it looks like a job number (not client name)
-      else if ('name' in job && typeof job.name === 'string') {
-        if (/^[A-Z0-9]+-[A-Z0-9]+/i.test(job.name) || /^[A-Z0-9]{5,}/i.test(job.name)) {
-          displayText = job.name;
-        } else {
-          // If name doesn't look like a job number format, use ID instead
-          displayText = `Job #${job.id.substring(0, 8)}`;
-        }
-      }
-      // 4. Last resort - use part of the ID
-      else if (job.id) {
-        displayText = `Job #${job.id.substring(0, 8)}`;
-      }
-      
-      // Fallback: If somehow we still don't have text, use a placeholder
-      if (!displayText) {
-        displayText = `Job #${i+1}`;
-      }
+      // Simply use the job_number field directly without complex logic
+      let displayText = job.job_number || `Job #${job.id.substring(0, 8)}`;
       
       // Truncate if too long
       if (displayText.length > 15) {

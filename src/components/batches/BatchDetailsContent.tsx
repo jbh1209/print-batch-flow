@@ -1,3 +1,4 @@
+
 import React from "react";
 import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
@@ -62,11 +63,12 @@ const BatchDetailsContent = ({
   const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
     return jobs.map(job => ({
       ...job,
-      job_number: job.name, // Use name as job_number
-      due_date: new Date().toISOString(), // Default due_date
-      file_name: job.name, // Use name as file_name
-      user_id: "", // Default user_id
-      created_at: new Date().toISOString(), // Default created_at
+      // Ensure job_number is directly used from the job object
+      job_number: job.job_number || job.name, // Fallback to name only if job_number is missing
+      due_date: job.due_date || new Date().toISOString(),
+      file_name: job.file_name || job.name,
+      user_id: job.user_id || "",
+      created_at: job.created_at || new Date().toISOString(),
     })) as BaseJob[];
   };
   
