@@ -70,19 +70,36 @@ export async function addJobPreviews(
       // Add job number below preview - smaller text for sleeve jobs
       const textSize = isSleeveJobType ? 6 : 7;
       
-      // Extract the job number consistently across all job types
-      // Always prioritize job_number property if it exists
+      // Extract job number - revised logic to ensure we get job number consistently
       let displayText = "";
       
-      // Check if job_number property exists and is a string
-      if ('job_number' in job && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
-        // Use the job_number directly
+      // First priority: Check if job has name property that looks like a job number
+      if ('name' in job && typeof job.name === 'string') {
+        // Many job numbers follow patterns like XX-12345 or similar codes
+        const nameStr = job.name.toString();
+        if (/^[A-Z0-9]+-[A-Z0-9]+/i.test(nameStr) || /^[A-Z0-9]{5,}/i.test(nameStr)) {
+          displayText = nameStr;
+        }
+      }
+      
+      // Second priority: If there's an explicit job_number property, use that
+      if (!displayText && 'job_number' in job && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
         displayText = job.job_number;
-      } 
-      // For business card jobs which might have a different structure
-      else if ('id' in job) {
-        // Fall back to using part of the job ID
+      }
+      
+      // Third priority: If nothing else works, use part of the ID
+      if (!displayText && 'id' in job) {
         displayText = job.id.substring(0, 8);
+      }
+      
+      // Fallback: If somehow we still don't have text, use a placeholder
+      if (!displayText) {
+        displayText = `Job #${i+1}`;
+      }
+      
+      // Truncate if too long
+      if (displayText.length > 15) {
+        displayText = displayText.substring(0, 12) + '...';
       }
       
       page.drawText(displayText, {
