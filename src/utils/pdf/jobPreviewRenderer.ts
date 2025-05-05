@@ -70,29 +70,29 @@ export async function addJobPreviews(
       // Add job number below preview - smaller text for sleeve jobs
       const textSize = isSleeveJobType ? 6 : 7;
       
-      // Set displayText to job_number with highest priority
+      // Determine what text to display under the preview (STRICT PRIORITY ORDER)
       let displayText = '';
       
-      // STRICT PRIORITY: Use job_number if available (must be first)
-      // Safely check if job_number property exists and is not empty
-      if ('job_number' in job && job.job_number && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
+      // 1. Job Number - HIGHEST PRIORITY
+      if ('job_number' in job && typeof job.job_number === 'string' && job.job_number.trim() !== '') {
         displayText = job.job_number;
       }
-      // If no job_number, then check if name looks like a job number
-      else if ('name' in job && job.name && typeof job.name === 'string') {
-        const nameStr = job.name.toString();
-        if (/^[A-Z0-9]+-[A-Z0-9]+/i.test(nameStr) || /^[A-Z0-9]{5,}/i.test(nameStr)) {
-          displayText = nameStr;
-        } 
-        // If name doesn't look like a job number, use it anyway as last resort before ID
-        else {
-          displayText = nameStr;
+      // 2. Job ID if it looks like a job number
+      else if (job.id && /^[A-Z0-9]+-[A-Z0-9]+/i.test(job.id)) {
+        displayText = job.id;
+      }
+      // 3. Name ONLY if it looks like a job number (not client name)
+      else if ('name' in job && typeof job.name === 'string') {
+        if (/^[A-Z0-9]+-[A-Z0-9]+/i.test(job.name) || /^[A-Z0-9]{5,}/i.test(job.name)) {
+          displayText = job.name;
+        } else {
+          // If name doesn't look like a job number format, use ID instead
+          displayText = `Job #${job.id.substring(0, 8)}`;
         }
       }
-      
-      // Fallback to ID if nothing else is available
-      if (!displayText && job.id) {
-        displayText = job.id.substring(0, 8);
+      // 4. Last resort - use part of the ID
+      else if (job.id) {
+        displayText = `Job #${job.id.substring(0, 8)}`;
       }
       
       // Fallback: If somehow we still don't have text, use a placeholder
