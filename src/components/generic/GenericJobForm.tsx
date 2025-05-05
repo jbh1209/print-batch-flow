@@ -8,7 +8,7 @@ import { Form } from "@/components/ui/form";
 import { ArrowLeft } from "lucide-react";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import FormActions from "@/components/business-cards/FormActions";
-import { createJobFormSchema, getDefaultFormValues, GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
+import { createGenericJobFormSchema, getDefaultFormValues, GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import { useGenericJobSubmit } from "@/hooks/generic/useGenericJobSubmit";
 import { GenericJobFormFields } from "./forms/GenericJobFormFields";
@@ -37,7 +37,7 @@ export const GenericJobForm = ({
   });
 
   // Create form schema based on product configuration
-  const formSchema = createJobFormSchema(config);
+  const formSchema = createGenericJobFormSchema(config);
   
   // Get default values based on product configuration or initial data
   const defaultValues = initialData ? {
