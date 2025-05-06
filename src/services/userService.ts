@@ -2,48 +2,12 @@
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
-// Fetch all users with their roles - Optimized to reduce complexity
+// Fetch all users with their roles - Completely refactored for reliability
 export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
     console.log('Starting fetchUsers in userService');
     
-    // First try using the secure direct RPC call to get users
-    try {
-      console.log('Trying to get users with get_all_users_secure RPC');
-      const { data: secureUsers, error: secureError } = await supabase
-        .rpc('get_all_users_secure');
-      
-      if (!secureError && secureUsers && secureUsers.length > 0) {
-        console.log('Successfully retrieved users with secure RPC function');
-        // Map to our expected format
-        const userList = await Promise.all(secureUsers.map(async (user) => {
-          const { data: isAdmin } = await supabase
-            .rpc('is_admin_secure', { _user_id: user.id });
-          
-          // Get profile information
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url, created_at')
-            .eq('id', user.id)
-            .maybeSingle();
-          
-          return {
-            id: user.id,
-            email: user.email || 'No email',
-            full_name: profile?.full_name || null,
-            avatar_url: profile?.avatar_url || null,
-            role: (isAdmin ? 'admin' : 'user') as UserRole,
-            created_at: profile?.created_at || null
-          };
-        }));
-        
-        return userList;
-      }
-    } catch (error) {
-      console.log('Secure RPC failed, falling back to edge function:', error);
-    }
-    
-    // Get all profiles from the profiles table
+    // Get all profiles first for user metadata
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url, created_at');
@@ -54,117 +18,70 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     }
     
     console.log('Profiles fetched:', profiles?.length || 0);
-
-    // Fall back to edge function
-    console.log('Invoking get-all-users edge function');
-    const response = await supabase.functions.invoke('get-all-users', {
+    
+    // Create a map of profiles by user ID for easy lookup
+    const profilesMap = new Map();
+    profiles?.forEach(profile => {
+      profilesMap.set(profile.id, profile);
+    });
+    
+    // Get auth users from edge function
+    const { data: authUsers, error: authError } = await supabase.functions.invoke('get-all-users', {
       method: 'GET',
     });
     
-    if (response.error) {
-      console.error('Error fetching user emails:', response.error);
-      throw new Error(response.error.message || 'Failed to fetch user data');
+    if (authError) {
+      console.error('Error fetching auth users:', authError);
+      throw new Error(authError.message || 'Failed to fetch user data');
     }
     
-    const authUsers = response.data;
-    console.log('Users from edge function:', authUsers);
+    console.log('Auth users fetched:', authUsers?.length || 0);
     
-    // Validate that users is an array
-    if (!Array.isArray(authUsers)) {
-      console.error('Invalid users data returned from edge function:', authUsers);
-      throw new Error('Failed to fetch user data from authentication system');
-    }
+    // Create a map of auth users by ID
+    const authUsersMap = new Map();
+    authUsers?.forEach(user => {
+      authUsersMap.set(user.id, user);
+    });
     
-    // Create a map of user IDs to email addresses
-    const usersMap = Object.fromEntries(
-      (authUsers || []).map((user) => [user.id, user.email])
-    );
-    console.log('Users map created with keys:', Object.keys(usersMap).length);
-    
+    // Now build the complete user list
     const userList: UserWithRole[] = [];
     
-    // If we have no profiles but we have auth users, create minimal user records
-    if ((!profiles || profiles.length === 0) && authUsers.length > 0) {
-      console.log('No profiles found but auth users exist, creating minimal records');
-      for (const authUser of authUsers) {
-        // Check if the user is an admin
-        const { data: isAdmin, error: adminError } = await supabase
-          .rpc('is_admin_secure', { _user_id: authUser.id });
-          
-        if (adminError) {
-          console.error('Error checking admin status for', authUser.id, ':', adminError);
-          // Fall back to regular is_admin if secure fails
-          const { data: isAdminFallback } = await supabase
-            .rpc('is_admin', { _user_id: authUser.id });
-          
-          userList.push({
-            id: authUser.id,
-            email: authUser.email || 'No email',
-            full_name: null,
-            avatar_url: null,
-            role: (isAdminFallback ? 'admin' : 'user') as UserRole,
-            created_at: null
-          });
-        } else {
-          userList.push({
-            id: authUser.id,
-            email: authUser.email || 'No email',
-            full_name: null,
-            avatar_url: null,
-            role: (isAdmin ? 'admin' : 'user') as UserRole,
-            created_at: null
-          });
-        }
-      }
-      
-      console.log('Created minimal user records:', userList.length);
-      return userList;
-    }
+    // Determine the set of all user IDs from both profiles and auth users
+    const allUserIds = new Set([
+      ...(profiles?.map(p => p.id) || []),
+      ...(authUsers?.map(u => u.id) || [])
+    ]);
     
-    // Process each profile to build the complete user data with emails from auth
-    for (const profile of profiles || []) {
-      console.log(`Processing profile ${profile.id}`);
+    // Process each user ID
+    for (const userId of allUserIds) {
+      console.log(`Processing user ${userId}`);
       
-      // Check if the user is an admin using our security definer function
+      const profile = profilesMap.get(userId);
+      const authUser = authUsersMap.get(userId);
+      
+      // Check if user is admin
       const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_admin_secure', { _user_id: profile.id });
-        
+        .rpc('is_admin_secure', { _user_id: userId });
+      
       if (adminError) {
-        console.error('Error checking admin status for', profile.id, ':', adminError);
-        // Fall back to standard is_admin function
-        const { data: isAdminFallback } = await supabase
-          .rpc('is_admin', { _user_id: profile.id });
-        
-        // Get the email from our map or use a placeholder
-        const email = usersMap[profile.id] || 'Email not available';
-        
-        userList.push({
-          id: profile.id,
-          email: email,
-          full_name: profile.full_name || 'No Name',
-          avatar_url: profile.avatar_url,
-          role: (isAdminFallback ? 'admin' : 'user') as UserRole,
-          created_at: profile.created_at
-        });
-      } else {
-        // Get the email from our map or use a placeholder
-        const email = usersMap[profile.id] || 'Email not available';
-        
-        userList.push({
-          id: profile.id,
-          email: email,
-          full_name: profile.full_name || 'No Name',
-          avatar_url: profile.avatar_url,
-          role: (isAdmin ? 'admin' : 'user') as UserRole,
-          created_at: profile.created_at
-        });
+        console.error('Error checking admin status:', adminError);
       }
+      
+      // Build user data combining all available information
+      userList.push({
+        id: userId,
+        email: authUser?.email || 'No email',
+        full_name: profile?.full_name || null,
+        avatar_url: profile?.avatar_url || null,
+        role: (isAdmin ? 'admin' : 'user') as UserRole,
+        created_at: profile?.created_at || null
+      });
     }
     
     console.log('Final user list built, count:', userList.length);
     return userList;
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('Error in fetchUsers:', error);
     throw error;
   }
 }
@@ -183,10 +100,9 @@ export async function checkAdminExists(): Promise<boolean> {
   }
 }
 
-// Add admin role to a user - Updated to use secure function
+// Add admin role to a user
 export async function addAdminRole(userId: string): Promise<void> {
   try {
-    // Use our new set_user_role function instead of direct table operations
     const { error } = await supabase.rpc('set_user_role', {
       target_user_id: userId, 
       new_role: 'admin'
@@ -199,9 +115,14 @@ export async function addAdminRole(userId: string): Promise<void> {
   }
 }
 
-// Create a new user
+// Create a new user with improved profile creation
 export async function createUser(userData: UserFormData): Promise<User> {
   try {
+    console.log('Creating user with data:', { 
+      email: userData.email, 
+      full_name: userData.full_name 
+    });
+    
     // Sign up the user with Supabase auth but prevent auto sign-in
     const { data, error } = await supabase.auth.signUp({
       email: userData.email!,
@@ -214,13 +135,30 @@ export async function createUser(userData: UserFormData): Promise<User> {
       }
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Auth signup error:', error);
+      throw error;
+    }
     
     if (!data.user) {
       throw new Error('User creation failed');
     }
     
-    // Assign role if needed using our new secure function
+    console.log('User created with ID:', data.user.id);
+    
+    // Explicitly create profile record to ensure name is saved
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert({ 
+        id: data.user.id, 
+        full_name: userData.full_name 
+      });
+    
+    if (profileError) {
+      console.error('Error creating profile:', profileError);
+    }
+    
+    // Assign role if needed
     if (userData.role && userData.role !== 'user') {
       await supabase.rpc('set_user_role', {
         target_user_id: data.user.id,
@@ -241,16 +179,21 @@ export async function createUser(userData: UserFormData): Promise<User> {
   }
 }
 
-// Update user profile - REVISED to use secure functions
+// Update user profile - Enhanced for reliability
 export async function updateUserProfile(userId: string, userData: UserFormData): Promise<void> {
   try {
+    console.log('Updating user profile:', userId, userData);
+    
     // Update user's full name in profiles table
     if (userData.full_name !== undefined) {
-      // Direct update using the profiles table to avoid RPC type issues
+      console.log(`Updating user ${userId} name to "${userData.full_name}"`);
+      
       const { error } = await supabase
         .from('profiles')
-        .update({ full_name: userData.full_name })
-        .eq('id', userId);
+        .upsert({ 
+          id: userId,
+          full_name: userData.full_name 
+        });
           
       if (error) {
         console.error('Error updating profile name:', error);
@@ -258,8 +201,10 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
       }
     }
     
-    // Update role if provided using our secure function
+    // Update role if provided
     if (userData.role) {
+      console.log(`Updating user ${userId} role to "${userData.role}"`);
+      
       const { error } = await supabase.rpc('set_user_role', {
         target_user_id: userId,
         new_role: userData.role
@@ -270,13 +215,15 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
         throw error;
       }
     }
+    
+    console.log('User profile updated successfully');
   } catch (error) {
     console.error('Error updating user profile:', error);
     throw error;
   }
 }
 
-// Update user role - REVISED to use set_user_role secure function
+// Update user role
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   try {
     const { error } = await supabase.rpc('set_user_role', {
@@ -291,7 +238,7 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<vo
   }
 }
 
-// Assign a role to a user - REVISED to use set_user_role
+// Assign a role to a user
 export async function assignRole(userId: string, role: UserRole): Promise<void> {
   try {
     const { error } = await supabase.rpc('set_user_role', {
@@ -306,7 +253,7 @@ export async function assignRole(userId: string, role: UserRole): Promise<void> 
   }
 }
 
-// Revoke user role/access - REVISED to use revoke_user_role
+// Revoke user role/access
 export async function revokeUserAccess(userId: string): Promise<void> {
   try {
     const { error } = await supabase.rpc('revoke_user_role', {

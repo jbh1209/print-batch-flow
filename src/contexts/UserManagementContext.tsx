@@ -54,10 +54,18 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       console.log('Users fetched:', fetchedUsers);
       
       if (Array.isArray(fetchedUsers)) {
-        setUsers(fetchedUsers);
+        // Sort users by name for better UI experience
+        const sortedUsers = [...fetchedUsers].sort((a, b) => {
+          // Sort by name if available, otherwise email
+          const nameA = a.full_name || a.email || '';
+          const nameB = b.full_name || b.email || '';
+          return nameA.localeCompare(nameB);
+        });
+        
+        setUsers(sortedUsers);
         
         // If current user isn't in the list, add them with admin role
-        if (user && !fetchedUsers.some(u => u.id === user.id)) {
+        if (user && !sortedUsers.some(u => u.id === user.id)) {
           console.log('Current admin user not in list, adding them');
           const currentAdmin: UserWithRole = {
             id: user.id,
@@ -121,6 +129,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     try {
       await userService.updateUserProfile(userId, userData);
       toast.success('User updated successfully');
+      // Critical: Re-fetch users to refresh the UI with updated data
       await fetchUsers();
     } catch (error: any) {
       console.error('Error updating user:', error);
