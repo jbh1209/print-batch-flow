@@ -5,6 +5,7 @@ CREATE OR REPLACE FUNCTION public.get_all_users()
 RETURNS TABLE (id uuid, email text) 
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 BEGIN
   -- Check if the current user is an admin

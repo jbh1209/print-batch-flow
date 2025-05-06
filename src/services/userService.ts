@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -31,7 +32,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
             email: user.email || 'No email',
             full_name: profile?.full_name || null,
             avatar_url: profile?.avatar_url || null,
-            role: (isAdmin ? 'admin' : 'user') as UserRole, // Cast to UserRole type
+            role: (isAdmin ? 'admin' : 'user') as UserRole,
             created_at: profile?.created_at || null
           };
         }));
@@ -101,7 +102,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
             email: authUser.email || 'No email',
             full_name: null,
             avatar_url: null,
-            role: (isAdminFallback ? 'admin' : 'user') as UserRole, // Cast to UserRole
+            role: (isAdminFallback ? 'admin' : 'user') as UserRole,
             created_at: null
           });
         } else {
@@ -110,7 +111,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
             email: authUser.email || 'No email',
             full_name: null,
             avatar_url: null,
-            role: (isAdmin ? 'admin' : 'user') as UserRole, // Cast to UserRole
+            role: (isAdmin ? 'admin' : 'user') as UserRole,
             created_at: null
           });
         }
@@ -142,7 +143,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
           email: email,
           full_name: profile.full_name || 'No Name',
           avatar_url: profile.avatar_url,
-          role: (isAdminFallback ? 'admin' : 'user') as UserRole, // Cast to UserRole
+          role: (isAdminFallback ? 'admin' : 'user') as UserRole,
           created_at: profile.created_at
         });
       } else {
@@ -154,7 +155,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
           email: email,
           full_name: profile.full_name || 'No Name',
           avatar_url: profile.avatar_url,
-          role: (isAdmin ? 'admin' : 'user') as UserRole, // Cast to UserRole
+          role: (isAdmin ? 'admin' : 'user') as UserRole,
           created_at: profile.created_at
         });
       }
@@ -182,11 +183,13 @@ export async function checkAdminExists(): Promise<boolean> {
   }
 }
 
-// Add admin role to a user
+// Add admin role to a user - Updated to use secure function
 export async function addAdminRole(userId: string): Promise<void> {
   try {
-    const { error } = await supabase.rpc('add_admin_role', {
-      admin_user_id: userId
+    // Use our new set_user_role function instead of direct table operations
+    const { error } = await supabase.rpc('set_user_role', {
+      target_user_id: userId, 
+      new_role: 'admin'
     });
     
     if (error) throw error;
@@ -217,9 +220,12 @@ export async function createUser(userData: UserFormData): Promise<User> {
       throw new Error('User creation failed');
     }
     
-    // Assign role if needed
+    // Assign role if needed using our new secure function
     if (userData.role && userData.role !== 'user') {
-      await assignRole(data.user.id, userData.role);
+      await supabase.rpc('set_user_role', {
+        target_user_id: data.user.id,
+        new_role: userData.role
+      });
     }
     
     // Convert Supabase user to our User type
@@ -235,7 +241,7 @@ export async function createUser(userData: UserFormData): Promise<User> {
   }
 }
 
-// Update user profile - REVISED to avoid infinite recursion
+// Update user profile - REVISED to use secure functions
 export async function updateUserProfile(userId: string, userData: UserFormData): Promise<void> {
   try {
     // Update user's full name in profiles table
@@ -252,9 +258,17 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
       }
     }
     
-    // Update role if provided - using our existing function that avoids recursion
+    // Update role if provided using our secure function
     if (userData.role) {
-      await updateUserRole(userId, userData.role);
+      const { error } = await supabase.rpc('set_user_role', {
+        target_user_id: userId,
+        new_role: userData.role
+      });
+      
+      if (error) {
+        console.error('Error updating user role:', error);
+        throw error;
+      }
     }
   } catch (error) {
     console.error('Error updating user profile:', error);
@@ -262,54 +276,29 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
   }
 }
 
-// Update user role - REVISED to use RPC function instead of direct table access
+// Update user role - REVISED to use set_user_role secure function
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   try {
-    if (role === 'admin') {
-      // Use the secure function to add admin role
-      const { error } = await supabase.rpc('add_admin_role', {
-        admin_user_id: userId
-      });
-      
-      if (error) throw error;
-    } else {
-      // For non-admin roles, we need a separate function
-      // Ideally, we should create another RPC function for this, but for now we'll use a direct query
-      // with security context bypassing the RLS issue
-      
-      // First remove any existing admin role
-      await revokeUserAccess(userId);
-      
-      // Then add the user role
-      const { error } = await supabase
-        .from('user_roles')
-        .insert([
-          { user_id: userId, role }
-        ]);
-        
-      if (error) throw error;
-    }
+    const { error } = await supabase.rpc('set_user_role', {
+      target_user_id: userId,
+      new_role: role
+    });
+    
+    if (error) throw error;
   } catch (error) {
     console.error('Error updating user role:', error);
     throw error;
   }
 }
 
-// Assign a role to a user
+// Assign a role to a user - REVISED to use set_user_role
 export async function assignRole(userId: string, role: UserRole): Promise<void> {
   try {
-    // Use the add_admin_role function for admin role
-    if (role === 'admin') {
-      return addAdminRole(userId);
-    }
+    const { error } = await supabase.rpc('set_user_role', {
+      target_user_id: userId,
+      new_role: role
+    });
     
-    // For other roles, use direct insert
-    const { error } = await supabase
-      .from('user_roles')
-      .insert([
-        { user_id: userId, role }
-      ]);
-      
     if (error) throw error;
   } catch (error) {
     console.error('Error assigning role:', error);
@@ -317,14 +306,13 @@ export async function assignRole(userId: string, role: UserRole): Promise<void> 
   }
 }
 
-// Revoke user role/access
+// Revoke user role/access - REVISED to use revoke_user_role
 export async function revokeUserAccess(userId: string): Promise<void> {
   try {
-    const { error } = await supabase
-      .from('user_roles')
-      .delete()
-      .eq('user_id', userId);
-      
+    const { error } = await supabase.rpc('revoke_user_role', {
+      target_user_id: userId
+    });
+    
     if (error) throw error;
   } catch (error) {
     console.error('Error revoking user access:', error);
