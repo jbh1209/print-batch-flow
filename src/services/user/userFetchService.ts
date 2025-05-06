@@ -6,10 +6,10 @@ import { UserWithRole, UserRole } from '@/types/user-types';
  * User fetching functions
  */
 
-// Fetch all users with their roles - Completely refactored for reliability
+// Fetch all users with their roles - Enhanced with better error handling and fallbacks
 export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
-    console.log('Starting fetchUsers in userService');
+    console.log('Starting fetchUsers in userFetchService');
     
     // Get all profiles first for user metadata
     const { data: profiles, error: profilesError } = await supabase
@@ -29,17 +29,28 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       profilesMap.set(profile.id, profile);
     });
     
-    // Get auth users from edge function
-    const { data: authUsers, error: authError } = await supabase.functions.invoke('get-all-users', {
-      method: 'GET',
-    });
+    // Get auth users from edge function with better error handling
+    let authUsers = [];
+    let authError = null;
     
-    if (authError) {
-      console.error('Error fetching auth users:', authError);
-      throw new Error(authError.message || 'Failed to fetch user data');
+    try {
+      console.log('Fetching auth users from edge function');
+      const response = await supabase.functions.invoke('get-all-users', {
+        method: 'GET',
+      });
+      
+      authUsers = response.data || [];
+      authError = response.error;
+      
+      if (authError) {
+        console.error('Error from edge function:', authError);
+      } else {
+        console.log('Auth users fetched successfully:', authUsers.length);
+      }
+    } catch (error) {
+      console.error('Failed to invoke edge function:', error);
+      authError = error;
     }
-    
-    console.log('Auth users fetched:', authUsers?.length || 0);
     
     // Create a map of auth users by ID
     const authUsersMap = new Map();
@@ -56,19 +67,27 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       ...(authUsers?.map(u => u.id) || [])
     ]);
     
-    // Process each user ID
+    // Process each user ID with improved error handling for role checks
     for (const userId of allUserIds) {
       console.log(`Processing user ${userId}`);
       
       const profile = profilesMap.get(userId);
       const authUser = authUsersMap.get(userId);
       
-      // Check if user is admin
-      const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_admin_secure', { _user_id: userId });
-      
-      if (adminError) {
-        console.error('Error checking admin status:', adminError);
+      let isAdmin = false;
+      try {
+        // Check if user is admin
+        const { data, error } = await supabase
+          .rpc('is_admin_secure', { _user_id: userId });
+        
+        if (error) {
+          console.error('Error checking admin status:', error);
+        } else {
+          isAdmin = !!data;
+        }
+      } catch (error) {
+        console.error('Exception checking admin status:', error);
+        // Continue processing - don't let one role check failure break the whole list
       }
       
       // Build user data combining all available information
@@ -86,6 +105,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     return userList;
   } catch (error) {
     console.error('Error in fetchUsers:', error);
-    throw error;
+    // Return empty array instead of throwing - let the UI handle display
+    return [];
   }
 }

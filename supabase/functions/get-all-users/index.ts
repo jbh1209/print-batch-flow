@@ -8,22 +8,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Create a Supabase client with the Deno runtime
+// Improved Supabase client creation with proper service role usage
 function createSupabaseClient(req: Request) {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    throw new Error('Missing Authorization header');
-  }
-
   const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
+  
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
 
   return createClient(supabaseUrl, supabaseServiceKey, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
     auth: {
       persistSession: false,
     },
@@ -39,34 +33,57 @@ serve(async (req) => {
   }
 
   try {
+    // Get auth header from request for user verification
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Create admin client with service role
     const supabase = createSupabaseClient(req);
-    console.log("Supabase client created");
+    console.log("Supabase client created with service role");
     
-    // Check if user is admin first
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Verify the requesting user exists and is authorized
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') as string,
+      Deno.env.get('SUPABASE_ANON_KEY') as string,
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+        auth: { persistSession: false }
+      }
+    );
     
-    if (!user) {
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    
+    if (userError || !user) {
+      console.log("User verification failed:", userError);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    // Check if requester is admin using secure function
-    console.log("Checking if user is admin using is_admin_secure");
-    const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin_secure', { _user_id: user.id });
+    // Check if requester is admin
+    console.log("Checking if user is admin");
+    const { data: isAdmin, error: adminError } = await userClient.rpc('is_admin_secure', { 
+      _user_id: user.id 
+    });
     
     if (adminError || !isAdmin) {
-      console.log("User is not admin according to is_admin_secure");
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      console.log("User is not admin:", adminError || "Permission denied");
+      return new Response(JSON.stringify({ error: 'Unauthorized - Admin access required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    // Fetch all users
+    // Use the admin client with service role to fetch all users
+    console.log("Fetching users with service role client");
     const { data: allUsers, error: userError } = await supabase.auth.admin.listUsers();
     
     if (userError) {
@@ -83,6 +100,7 @@ serve(async (req) => {
       email: user.email,
     }));
     
+    console.log(`Successfully fetched ${usersData.length} users`);
     return new Response(JSON.stringify(usersData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

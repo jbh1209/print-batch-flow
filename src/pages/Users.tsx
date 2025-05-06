@@ -2,16 +2,17 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users as UsersIcon, AlertTriangle } from "lucide-react";
+import { Users as UsersIcon, AlertTriangle, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AuthDebugger } from "@/components/users/AuthDebugger";
 import { UserManagementProvider, useUserManagement } from "@/contexts/UserManagementContext";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
 import { UserTableContainer } from "@/components/users/UserTableContainer";
 import { LoadingState } from "@/components/users/LoadingState";
 import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMessage";
+import { toast } from "sonner";
 
 // Main content component separated from provider setup
 const UsersContent = () => {
@@ -21,13 +22,24 @@ const UsersContent = () => {
     error, 
     isLoading, 
     anyAdminExists, 
-    checkAdminExists 
+    checkAdminExists,
+    fetchUsers
   } = useUserManagement();
 
   // Only need to check if admin exists, fetchUsers is handled in UserManagementContext now
   useEffect(() => {
     checkAdminExists();
   }, [checkAdminExists]);
+
+  const handleRefresh = async () => {
+    try {
+      toast.info('Refreshing user data...');
+      await fetchUsers();
+      toast.success('User data refreshed');
+    } catch (err) {
+      toast.error('Failed to refresh user data');
+    }
+  };
 
   // Show loading state
   if (isLoading) {
@@ -44,7 +56,18 @@ const UsersContent = () => {
           </div>
           <p className="text-gray-500 mt-1">Manage user accounts and permissions</p>
         </div>
-        <Button onClick={() => navigate("/")}>Back to Dashboard</Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh}
+            className="flex items-center gap-1"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+          <Button onClick={() => navigate("/")}>Back to Dashboard</Button>
+        </div>
       </div>
 
       {/* Show auth debugger for troubleshooting */}
@@ -54,7 +77,15 @@ const UsersContent = () => {
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error}
+            <div className="mt-2">
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                Try Again
+              </Button>
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 
