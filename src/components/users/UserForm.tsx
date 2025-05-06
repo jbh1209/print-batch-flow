@@ -15,6 +15,7 @@ interface UserFormProps {
   initialData?: UserFormData;
   onSubmit: (data: UserFormData) => void;
   isEditing?: boolean;
+  isProcessing?: boolean;
 }
 
 // Define form schema based on whether we're editing or creating
@@ -37,8 +38,7 @@ const editUserSchema = z.object({
   role: z.string().default("user")
 });
 
-export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function UserForm({ initialData, onSubmit, isEditing = false, isProcessing = false }: UserFormProps) {
   const [serverError, setServerError] = useState("");
   
   const formSchema = isEditing ? editUserSchema : createUserSchema;
@@ -54,15 +54,12 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
   });
 
   const handleSubmit = async (data: any) => {
-    setIsSubmitting(true);
     setServerError("");
     
     try {
       await onSubmit(data);
     } catch (error: any) {
       setServerError(error.message || "An unexpected error occurred");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -164,8 +161,8 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
         )}
 
         <DialogFooter>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Processing..." : isEditing ? "Update User" : "Create User"}
+          <Button type="submit" disabled={isProcessing}>
+            {isProcessing ? "Processing..." : isEditing ? "Update User" : "Create User"}
           </Button>
         </DialogFooter>
       </form>

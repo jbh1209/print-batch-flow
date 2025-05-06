@@ -7,34 +7,47 @@ import { UserPlus } from "lucide-react";
 import { UserForm } from "./UserForm";
 import { useUserManagement } from "@/contexts/UserManagementContext";
 import { UserFormData, UserWithRole } from "@/types/user-types";
+import { toast } from "sonner";
 
 export function UserTableContainer() {
   const { users, createUser, updateUser, deleteUser } = useUserManagement();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const handleAddUser = async (userData: UserFormData) => {
     try {
+      setIsProcessing(true);
       await createUser(userData);
       setDialogOpen(false);
     } catch (error) {
+      console.error("Error adding user:", error);
       // Error handling is done in the context
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleEditUser = async (userData: UserFormData) => {
     try {
       if (!editingUser) return;
+      setIsProcessing(true);
+      
       await updateUser(editingUser.id, userData);
+      toast.success(`User ${userData.full_name || editingUser.email} updated successfully`);
       setDialogOpen(false);
       setEditingUser(null);
-    } catch (error) {
-      // Error handling is done in the context
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      toast.error(`Failed to update user: ${error.message || "Unknown error"}`);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     try {
+      toast.loading("Revoking user access...");
       await deleteUser(userId);
     } catch (error) {
       // Error handling is done in the context
@@ -75,6 +88,7 @@ export function UserTableContainer() {
               } : undefined}
               onSubmit={editingUser ? handleEditUser : handleAddUser}
               isEditing={!!editingUser}
+              isProcessing={isProcessing}
             />
           </DialogContent>
         </Dialog>

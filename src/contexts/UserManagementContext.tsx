@@ -38,7 +38,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const [anyAdminExists, setAnyAdminExists] = useState(false);
   const { isAdmin, user } = useAuth();
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const CACHE_DURATION = 20000; // Reduced to 20 seconds for more frequent updates during development
+  const CACHE_DURATION = 20000; // 20 seconds cache duration
 
   const fetchUsers = useCallback(async (forceFetch = false) => {
     if (!isAdmin && !forceFetch) {
@@ -144,6 +144,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
 
   const updateUser = useCallback(async (userId: string, userData: UserFormData) => {
     try {
+      toast.loading('Updating user...');
       await userService.updateUserProfile(userId, userData);
       toast.success('User updated successfully');
       // Critical: Re-fetch users to refresh the UI with updated data
@@ -179,6 +180,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     }
     
     try {
+      toast.loading('Assigning admin role...');
       await userService.addAdminRole(userId);
       toast.success('Admin role successfully assigned');
       setAnyAdminExists(true);

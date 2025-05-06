@@ -19,33 +19,34 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
     if (userData.full_name !== undefined) {
       console.log(`Updating user ${userId} name to "${userData.full_name}"`);
       
-      // First check if profile exists
-      const { data: existingProfile, error: checkError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle();
-        
-      if (checkError) {
-        console.error('Error checking if profile exists:', checkError);
-      }
-      
-      if (!existingProfile) {
-        console.log(`Profile for user ${userId} doesn't exist, creating it`);
-      }
-      
-      // Use upsert to handle both create and update cases
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({ 
-          id: userId,
-          full_name: userData.full_name,
-          updated_at: new Date().toISOString()
+      try {
+        // Use the secure RPC function for admin updates
+        const { error } = await supabase.rpc('update_user_profile_admin', {
+          _user_id: userId,
+          _full_name: userData.full_name
         });
+        
+        if (error) {
+          console.error('Error updating profile via RPC:', error);
           
-      if (error) {
-        console.error('Error updating profile name:', error);
-        throw error;
+          // Fall back to direct update if RPC fails (this will work for users updating their own profiles)
+          console.log('Falling back to direct profile update');
+          const { error: directError } = await supabase
+            .from('profiles')
+            .upsert({ 
+              id: userId,
+              full_name: userData.full_name,
+              updated_at: new Date().toISOString()
+            });
+            
+          if (directError) {
+            console.error('Error in fallback profile update:', directError);
+            throw directError;
+          }
+        }
+      } catch (profileError) {
+        console.error('Exception in profile update:', profileError);
+        throw profileError;
       }
     }
     
@@ -53,14 +54,31 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
     if (userData.role) {
       console.log(`Updating user ${userId} role to "${userData.role}"`);
       
-      const { error } = await supabase.rpc('set_user_role', {
-        target_user_id: userId,
-        new_role: userData.role
-      });
-      
-      if (error) {
-        console.error('Error updating user role:', error);
-        throw error;
+      try {
+        // Use the secure RPC function for admin role assignments
+        const { error } = await supabase.rpc('set_user_role_admin', {
+          _target_user_id: userId,
+          _new_role: userData.role
+        });
+        
+        if (error) {
+          console.error('Error updating user role via RPC:', error);
+          
+          // Fall back to the regular role assignment (works if caller has permission)
+          console.log('Falling back to regular role update');
+          const { error: roleError } = await supabase.rpc('set_user_role', {
+            target_user_id: userId,
+            new_role: userData.role
+          });
+          
+          if (roleError) {
+            console.error('Error in fallback role update:', roleError);
+            throw roleError;
+          }
+        }
+      } catch (roleError) {
+        console.error('Exception in role update:', roleError);
+        throw roleError;
       }
     }
     

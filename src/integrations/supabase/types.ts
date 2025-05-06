@@ -692,6 +692,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_user_role_admin: {
+        Args: { _target_user_id: string; _new_role: string }
+        Returns: undefined
+      }
+      update_user_profile_admin: {
+        Args: { _user_id: string; _full_name: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"

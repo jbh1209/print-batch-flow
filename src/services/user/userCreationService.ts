@@ -41,62 +41,77 @@ export async function createUser(userData: UserFormData): Promise<User> {
     
     console.log('User created with ID:', data.user.id);
     
-    // Explicitly create profile record immediately (don't wait for trigger)
-    try {
-      console.log('Creating profile for new user');
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({ 
-          id: data.user.id, 
-          full_name: userData.full_name,
-          updated_at: new Date().toISOString()
-        });
-      
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
-      }
-    } catch (e) {
-      console.error('Exception creating profile:', e);
-    }
+    // Explicitly create profile record with retry mechanism
+    let profileCreated = false;
+    let retries = 0;
+    const maxRetries = 3;
     
-    // Double-check with a delay to ensure the profile exists
-    setTimeout(async () => {
+    while (!profileCreated && retries < maxRetries) {
       try {
-        // Verify profile record exists
+        console.log(`Creating profile for new user (attempt ${retries + 1})`);
+        
+        // First check if profile already exists
         const { data: existingProfile } = await supabase
           .from('profiles')
           .select('id')
           .eq('id', data.user.id)
           .maybeSingle();
           
-        if (!existingProfile) {
-          console.log('Profile still not found after delay, creating manually');
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({ 
-              id: data.user.id, 
-              full_name: userData.full_name,
-              updated_at: new Date().toISOString()
-            });
-          
-          if (profileError) {
-            console.error('Error creating profile in retry:', profileError);
-          }
+        if (existingProfile) {
+          console.log('Profile already exists, skipping creation');
+          profileCreated = true;
+          break;
+        }
+        
+        // Create the profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({ 
+            id: data.user.id, 
+            full_name: userData.full_name,
+            updated_at: new Date().toISOString()
+          });
+        
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+          retries++;
+          await new Promise(resolve => setTimeout(resolve, 500 * retries)); // Exponential backoff
         } else {
-          console.log('Profile verified to exist');
+          profileCreated = true;
         }
       } catch (e) {
-        console.error('Error in profile verification:', e);
+        console.error('Exception creating profile:', e);
+        retries++;
+        await new Promise(resolve => setTimeout(resolve, 500 * retries));
       }
-    }, 1500); // Increased timeout to 1.5 seconds for better reliability
+    }
+    
+    if (!profileCreated) {
+      console.warn('Failed to create profile after multiple attempts');
+    }
     
     // Assign role if needed
     if (userData.role && userData.role !== 'user') {
       console.log(`Setting user ${data.user.id} role to ${userData.role}`);
-      await supabase.rpc('set_user_role', {
-        target_user_id: data.user.id,
-        new_role: userData.role
-      });
+      try {
+        // Try secured function first
+        const { error: roleError } = await supabase.rpc('set_user_role_admin', {
+          _target_user_id: data.user.id,
+          _new_role: userData.role
+        });
+        
+        if (roleError) {
+          console.error('Error setting role with secure function:', roleError);
+          
+          // Fall back to regular function
+          await supabase.rpc('set_user_role', {
+            target_user_id: data.user.id,
+            new_role: userData.role
+          });
+        }
+      } catch (roleError) {
+        console.error('Error setting user role:', roleError);
+      }
     }
     
     // Convert Supabase user to our User type
