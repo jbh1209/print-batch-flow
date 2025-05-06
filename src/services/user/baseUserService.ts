@@ -15,7 +15,7 @@ export async function checkAdminExists(): Promise<boolean> {
       throw error;
     }
     
-    return !!data;
+    return !!data; // Ensure we consistently return a boolean
   } catch (error) {
     console.error('Error checking admin existence:', error);
     throw error;
@@ -36,7 +36,7 @@ export async function checkIsAdmin(userId: string): Promise<boolean> {
       throw error;
     }
     
-    return !!data;
+    return !!data; // Ensure we consistently return a boolean
   } catch (error) {
     console.error('Error checking admin status:', error);
     throw error;

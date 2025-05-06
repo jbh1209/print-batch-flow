@@ -30,7 +30,7 @@ const UsersContent = () => {
     const checkAdmin = async () => {
       try {
         console.log("Checking if any admin exists...");
-        await checkAdminExists();
+        await checkAdminExists(); // No need to use the returned value directly
       } catch (err) {
         console.error("Failed to check admin existence:", err);
         toast.error("Failed to check if admin exists. Please try again.");

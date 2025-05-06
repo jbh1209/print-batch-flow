@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
@@ -14,7 +13,7 @@ interface UserManagementContextType {
   createUser: (userData: UserFormData) => Promise<void>;
   updateUser: (userId: string, userData: UserFormData) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  checkAdminExists: () => Promise<void>;
+  checkAdminExists: () => Promise<boolean>; // Fixed: Changed return type to match implementation
   addAdminRole: (userId: string) => Promise<void>;
 }
 
@@ -27,7 +26,7 @@ const UserManagementContext = createContext<UserManagementContextType>({
   createUser: async () => {},
   updateUser: async () => {},
   deleteUser: async () => {},
-  checkAdminExists: async () => {},
+  checkAdminExists: async () => false, // Updated default value to match new return type
   addAdminRole: async () => {},
 });
 
@@ -97,7 +96,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       const exists = await userService.checkAdminExists();
       console.log('Admin exists:', exists);
       setAnyAdminExists(exists);
-      return exists;
+      return exists; // This returns boolean, which now matches our interface
     } catch (error: any) {
       console.error('Error checking admin existence:', error);
       setError(`Error checking if admin exists: ${error.message}`);
@@ -190,7 +189,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     createUser,
     updateUser,
     deleteUser,
-    checkAdminExists,
+    checkAdminExists, // The function returning Promise<boolean>
     addAdminRole,
   };
 
