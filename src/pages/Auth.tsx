@@ -56,12 +56,18 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Login</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
+    <div 
+      className="flex justify-center items-center min-h-screen bg-gray-50 bg-cover bg-center bg-no-repeat"
+      style={{ 
+        backgroundImage: "url('/lovable-uploads/b78c999c-7c60-48e9-be2b-97acdea8bb8e.png')",
+        backgroundSize: 'cover',
+      }}
+    >
+      <div className="w-full max-w-md px-4 z-10">
+        <Card className="backdrop-blur-sm bg-white/90 shadow-xl">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">BatchFlow</CardTitle>
+            <CardDescription className="text-center">Enter your credentials to access your account</CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
@@ -81,6 +87,7 @@ const Auth = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
                   required
+                  className="bg-white/50 backdrop-blur-sm"
                 />
               </div>
               <div className="space-y-2">
@@ -92,6 +99,7 @@ const Auth = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   required
+                  className="bg-white/50 backdrop-blur-sm"
                 />
               </div>
             </CardContent>
