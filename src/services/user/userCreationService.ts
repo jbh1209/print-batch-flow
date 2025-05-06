@@ -41,10 +41,28 @@ export async function createUser(userData: UserFormData): Promise<User> {
     
     console.log('User created with ID:', data.user.id);
     
-    // Double-check with a delay to ensure the trigger has run
+    // Explicitly create profile record immediately (don't wait for trigger)
+    try {
+      console.log('Creating profile for new user');
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({ 
+          id: data.user.id, 
+          full_name: userData.full_name,
+          updated_at: new Date().toISOString()
+        });
+      
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
+      }
+    } catch (e) {
+      console.error('Exception creating profile:', e);
+    }
+    
+    // Double-check with a delay to ensure the profile exists
     setTimeout(async () => {
       try {
-        // Explicitly create profile record if needed
+        // Verify profile record exists
         const { data: existingProfile } = await supabase
           .from('profiles')
           .select('id')
@@ -52,25 +70,29 @@ export async function createUser(userData: UserFormData): Promise<User> {
           .maybeSingle();
           
         if (!existingProfile) {
-          console.log('Profile not found, creating manually');
+          console.log('Profile still not found after delay, creating manually');
           const { error: profileError } = await supabase
             .from('profiles')
             .upsert({ 
               id: data.user.id, 
-              full_name: userData.full_name 
+              full_name: userData.full_name,
+              updated_at: new Date().toISOString()
             });
           
           if (profileError) {
-            console.error('Error creating profile:', profileError);
+            console.error('Error creating profile in retry:', profileError);
           }
+        } else {
+          console.log('Profile verified to exist');
         }
       } catch (e) {
-        console.error('Error checking profile existence:', e);
+        console.error('Error in profile verification:', e);
       }
-    }, 1000);
+    }, 1500); // Increased timeout to 1.5 seconds for better reliability
     
     // Assign role if needed
     if (userData.role && userData.role !== 'user') {
+      console.log(`Setting user ${data.user.id} role to ${userData.role}`);
       await supabase.rpc('set_user_role', {
         target_user_id: data.user.id,
         new_role: userData.role

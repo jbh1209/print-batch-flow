@@ -26,12 +26,14 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     // Create a map of profiles by user ID for easy lookup
     const profilesMap = new Map();
     profiles?.forEach(profile => {
-      profilesMap.set(profile.id, profile);
+      if (profile && profile.id) {
+        profilesMap.set(profile.id, profile);
+      }
     });
     
     // Get auth users from edge function with better error handling
     let authUsers = [];
-    let authError = null;
+    let edgeFunctionError = null;
     
     try {
       console.log('Fetching auth users from edge function');
@@ -39,23 +41,54 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
         method: 'GET',
       });
       
-      authUsers = response.data || [];
-      authError = response.error;
-      
-      if (authError) {
-        console.error('Error from edge function:', authError);
+      if (response.error) {
+        console.error('Edge function error:', response.error);
+        edgeFunctionError = response.error;
       } else {
-        console.log('Auth users fetched successfully:', authUsers.length);
+        authUsers = response.data || [];
+        console.log('Auth users fetched successfully:', authUsers?.length || 0);
       }
     } catch (error) {
       console.error('Failed to invoke edge function:', error);
-      authError = error;
+      edgeFunctionError = error;
+    }
+    
+    // If we couldn't get auth users but have profiles, use profiles as fallback
+    if ((!authUsers || authUsers.length === 0) && edgeFunctionError && profiles && profiles.length > 0) {
+      console.log('Using profiles as fallback since auth users could not be fetched');
+      // Just use the profiles we have with limited data
+      const userList = profiles.map(profile => {
+        return {
+          id: profile.id,
+          email: 'Email not available', // We don't have access to emails without the auth data
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+          role: 'user' as UserRole, // Default role, will check admin status separately
+          created_at: profile.created_at
+        };
+      });
+      
+      // Try to determine admin status for each user
+      for (const user of userList) {
+        try {
+          const { data, error } = await supabase.rpc('is_admin_secure', { _user_id: user.id });
+          if (!error && data) {
+            user.role = 'admin';
+          }
+        } catch (error) {
+          console.error(`Error checking admin status for ${user.id}:`, error);
+        }
+      }
+      
+      return userList;
     }
     
     // Create a map of auth users by ID
     const authUsersMap = new Map();
     authUsers?.forEach(user => {
-      authUsersMap.set(user.id, user);
+      if (user && user.id) {
+        authUsersMap.set(user.id, user);
+      }
     });
     
     // Now build the complete user list
@@ -63,12 +96,14 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     
     // Determine the set of all user IDs from both profiles and auth users
     const allUserIds = new Set([
-      ...(profiles?.map(p => p.id) || []),
-      ...(authUsers?.map(u => u.id) || [])
+      ...(profiles?.map(p => p?.id).filter(Boolean) || []),
+      ...(authUsers?.map(u => u?.id).filter(Boolean) || [])
     ]);
     
     // Process each user ID with improved error handling for role checks
     for (const userId of allUserIds) {
+      if (!userId) continue;
+      
       console.log(`Processing user ${userId}`);
       
       const profile = profilesMap.get(userId);
@@ -87,7 +122,6 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
         }
       } catch (error) {
         console.error('Exception checking admin status:', error);
-        // Continue processing - don't let one role check failure break the whole list
       }
       
       // Build user data combining all available information

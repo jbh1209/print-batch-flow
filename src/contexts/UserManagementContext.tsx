@@ -38,11 +38,11 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const [anyAdminExists, setAnyAdminExists] = useState(false);
   const { isAdmin, user } = useAuth();
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const CACHE_DURATION = 30000; // 30 seconds cache
+  const CACHE_DURATION = 20000; // Reduced to 20 seconds for more frequent updates during development
 
   const fetchUsers = useCallback(async (forceFetch = false) => {
-    if (!isAdmin) {
-      console.log('Not admin, skipping fetchUsers');
+    if (!isAdmin && !forceFetch) {
+      console.log('Not admin and not forced fetch, skipping fetchUsers');
       setIsLoading(false);
       return;
     }
@@ -50,7 +50,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     // Use cache unless force refresh is requested
     const now = Date.now();
     if (!forceFetch && now - lastFetchTime < CACHE_DURATION && users.length > 0) {
-      console.log('Using cached user data');
+      console.log('Using cached user data from', new Date(lastFetchTime).toLocaleTimeString());
       setIsLoading(false);
       return;
     }
@@ -59,14 +59,14 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     setError(null);
     
     try {
-      console.log('Fetching users...');
+      console.log('Fetching users at', new Date().toLocaleTimeString());
       const fetchedUsers = await userService.fetchUsers();
-      console.log('Users fetched:', fetchedUsers);
+      console.log('Users fetched:', fetchedUsers.length);
       
       if (Array.isArray(fetchedUsers)) {
         if (fetchedUsers.length === 0) {
           // Show a warning if we got an empty array, might indicate a permission issue
-          setError('Warning: No users found. This might indicate a permission issue.');
+          console.warn('User list is empty - this might indicate an issue');
           toast.warning('No users found. Please check user permissions.');
         }
         
@@ -82,7 +82,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
         setLastFetchTime(now);
         
         // If current user isn't in the list, add them with admin role
-        if (user && !sortedUsers.some(u => u.id === user.id) && isAdmin) {
+        if (user && isAdmin && !sortedUsers.some(u => u.id === user.id)) {
           console.log('Current admin user not in list, adding them');
           const currentAdmin: UserWithRole = {
             id: user.id,
@@ -100,14 +100,15 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       }
     } catch (error: any) {
       console.error('Error loading users:', error);
-      setError(`Error loading users: ${error.message || 'Unknown error'}`);
-      toast.error(`Error loading users: ${error.message || 'Unknown error'}. Please try again later.`);
+      const errorMsg = error.message || 'Unknown error'; 
+      setError(`Error loading users: ${errorMsg}`);
+      toast.error(`Error loading users: ${errorMsg}. Please try again later.`);
     } finally {
       setIsLoading(false);
     }
   }, [isAdmin, user, users.length, lastFetchTime]);
 
-  // Auto-refresh users when admin status changes
+  // Auto-refresh users when admin status changes or component mounts
   useEffect(() => {
     console.log('UserManagementContext: isAdmin changed to', isAdmin);
     if (isAdmin) {
@@ -136,7 +137,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       await fetchUsers(true); // Force refresh after creation
     } catch (error: any) {
       console.error('Error creating user:', error);
-      toast.error(`Error creating user: ${error.message}`);
+      toast.error(`Error creating user: ${error.message || 'Unknown error'}`);
       throw error;
     }
   }, [fetchUsers]);
@@ -149,7 +150,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       await fetchUsers(true); // Force refresh after update
     } catch (error: any) {
       console.error('Error updating user:', error);
-      toast.error(`Error updating user: ${error.message}`);
+      toast.error(`Error updating user: ${error.message || 'Unknown error'}`);
       throw error;
     }
   }, [fetchUsers]);
@@ -166,7 +167,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       await fetchUsers(true); // Force refresh after deletion
     } catch (error: any) {
       console.error('Error removing user role:', error);
-      toast.error(`Error removing user role: ${error.message}`);
+      toast.error(`Error removing user role: ${error.message || 'Unknown error'}`);
       throw error;
     }
   }, [fetchUsers]);
@@ -185,7 +186,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
       console.error('Error setting admin role:', error);
-      toast.error(`Failed to set admin role: ${error.message}`);
+      toast.error(`Failed to set admin role: ${error.message || 'Unknown error'}`);
       throw error;
     }
   }, []);

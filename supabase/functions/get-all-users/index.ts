@@ -58,10 +58,10 @@ serve(async (req) => {
       }
     );
     
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
     
-    if (userError || !user) {
-      console.log("User verification failed:", userError);
+    if (authError || !user) {
+      console.log("User verification failed:", authError);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -84,11 +84,11 @@ serve(async (req) => {
     
     // Use the admin client with service role to fetch all users
     console.log("Fetching users with service role client");
-    const { data: allUsers, error: userError } = await supabase.auth.admin.listUsers();
+    const { data: allUsers, error: fetchError } = await supabase.auth.admin.listUsers();
     
-    if (userError) {
-      console.error("Error fetching users:", userError);
-      return new Response(JSON.stringify({ error: userError.message }), {
+    if (fetchError) {
+      console.error("Error fetching users:", fetchError);
+      return new Response(JSON.stringify({ error: fetchError.message }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
