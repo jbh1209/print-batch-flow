@@ -3,8 +3,8 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserProfile, UserRole } from '@/types/user-types';
 import { Session } from '@supabase/supabase-js';
-import { User as AuthUser } from '@supabase/supabase-js'; // Import Supabase's User type as AuthUser
 import { toast } from 'sonner';
+import { cleanupAuthState } from '@/services/auth/authService';
 
 interface AuthContextType {
   user: User | null;
@@ -29,34 +29,6 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   checkIsAdmin: async () => false,
 });
-
-// Helper function to clean up all auth state in localStorage
-const cleanupAuthState = () => {
-  try {
-    // Remove standard auth tokens
-    localStorage.removeItem('supabase.auth.token');
-    
-    // Remove all Supabase auth keys from localStorage
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-        localStorage.removeItem(key);
-      }
-    });
-    
-    // Clean sessionStorage if used
-    if (typeof sessionStorage !== 'undefined') {
-      Object.keys(sessionStorage).forEach((key) => {
-        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-          sessionStorage.removeItem(key);
-        }
-      });
-    }
-    
-    console.log('Auth state cleanup completed');
-  } catch (error) {
-    console.error('Error cleaning up auth state:', error);
-  }
-};
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -110,13 +82,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Check if user is an admin - only use the secure function
+  // Check if user is an admin - using the fixed secure function
   const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
       
       const { data: isAdminSecure, error: secureError } = await supabase
-        .rpc('is_admin_secure', { _user_id: userId });
+        .rpc('is_admin_secure_fixed', { _user_id: userId });
       
       if (secureError) {
         console.error('Error checking admin status:', secureError);

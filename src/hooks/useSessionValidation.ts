@@ -35,7 +35,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
         // If we have a session and require admin status
         if (session && requireAdmin) {
           const { data: isAdminUser, error: adminError } = await supabase.rpc(
-            'is_admin_secure', { _user_id: session.user.id }
+            'is_admin_secure_fixed', { _user_id: session.user.id }
           );
           
           if (adminError || !isAdminUser) {

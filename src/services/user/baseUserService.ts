@@ -22,12 +22,12 @@ export async function checkAdminExists(): Promise<boolean> {
   }
 }
 
-// Check if a user has admin role - using secure function
+// Check if a user has admin role - using fixed secure function
 export async function checkIsAdmin(userId: string): Promise<boolean> {
   try {
     if (!userId) return false;
     
-    const { data, error } = await supabase.rpc('is_admin_secure', { 
+    const { data, error } = await supabase.rpc('is_admin_secure_fixed', { 
       _user_id: userId 
     });
     

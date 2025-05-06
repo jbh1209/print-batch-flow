@@ -681,6 +681,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      is_admin_secure_fixed: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       revoke_user_role: {
         Args: { target_user_id: string }
         Returns: undefined
