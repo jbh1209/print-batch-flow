@@ -12,6 +12,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
   const [isValidating, setIsValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   
   useEffect(() => {
     let isMounted = true;
@@ -27,6 +28,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
             toast.error("Authentication required. Please sign in.");
             navigate('/auth');
           }
+          setIsValid(false);
           return;
         }
         
@@ -36,7 +38,13 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
             toast.error("Authentication required. Please sign in.");
             navigate('/auth');
           }
+          setIsValid(false);
           return;
+        }
+        
+        // If we have a session, store the userId
+        if (session) {
+          setUserId(session.user.id);
         }
         
         // If we have a session and require admin status
@@ -52,6 +60,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
               toast.error("Admin access required for this page");
               navigate('/');
             }
+            setIsValid(false);
             return;
           }
           
@@ -60,6 +69,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
               toast.error("You don't have admin privileges required for this page");
               navigate('/');
             }
+            setIsValid(false);
             return;
           }
           
@@ -79,6 +89,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
           toast.error("Authentication error. Please sign in again.");
           navigate('/auth');
         }
+        setIsValid(false);
       } finally {
         if (isMounted) {
           setIsValidating(false);
@@ -93,5 +104,5 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
     };
   }, [navigate, requireAuth, requireAdmin]);
   
-  return { isValidating, isValid, isAdmin };
+  return { isValidating, isValid, isAdmin, userId };
 }

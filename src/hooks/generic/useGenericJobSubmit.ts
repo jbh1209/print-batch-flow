@@ -29,6 +29,16 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
     setIsSubmitting(true);
     
     try {
+      // Check if user is authenticated
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast.error("Authentication required. Please sign in.");
+        navigate('/auth');
+        return false;
+      }
+      
+      const userId = session.session.user.id;
+      
       // If we're editing and there's no new file, we don't need to upload again
       let pdfUrl = undefined;
       let fileName = undefined;
@@ -36,9 +46,22 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
       // Only upload a new file if one is selected
       if (selectedFile) {
         const uniqueFileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
-        const filePath = `${user?.id}/${uniqueFileName}`;
+        const filePath = `${userId}/${uniqueFileName}`;
         
         toast.loading("Uploading PDF file...");
+        
+        // Create storage bucket if it doesn't exist
+        const { data: buckets } = await supabase.storage.listBuckets();
+        if (!buckets?.find(bucket => bucket.name === 'pdf_files')) {
+          const { error: bucketError } = await supabase.storage.createBucket('pdf_files', {
+            public: true
+          });
+          
+          if (bucketError) {
+            console.error("Error creating bucket:", bucketError);
+            throw new Error(`Error creating storage bucket: ${bucketError.message}`);
+          }
+        }
         
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('pdf_files')
@@ -94,12 +117,12 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           updateData.single_sided = sleeveData.single_sided;
         } else {
           // Add optional fields if they exist in the form data
-          if ('size' in data) updateData.size = data.size;
-          if ('paper_type' in data) updateData.paper_type = data.paper_type;
-          if ('paper_weight' in data) updateData.paper_weight = data.paper_weight;
-          if ('lamination_type' in data) updateData.lamination_type = data.lamination_type;
-          if ('sides' in data) updateData.sides = data.sides;
-          if ('uv_varnish' in data) updateData.uv_varnish = data.uv_varnish;
+          if ('size' in data && data.size) updateData.size = data.size;
+          if ('paper_type' in data && data.paper_type) updateData.paper_type = data.paper_type;
+          if ('paper_weight' in data && data.paper_weight) updateData.paper_weight = data.paper_weight;
+          if ('lamination_type' in data && data.lamination_type) updateData.lamination_type = data.lamination_type;
+          if ('sides' in data && data.sides) updateData.sides = data.sides;
+          if ('uv_varnish' in data && data.uv_varnish) updateData.uv_varnish = data.uv_varnish;
         }
         
         // Only include file data if a new file was uploaded
@@ -125,7 +148,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           due_date: data.due_date.toISOString(),
           pdf_url: pdfUrl!,
           file_name: fileName!,
-          user_id: user?.id,
+          user_id: userId,
           status: 'queued'
         };
 
@@ -149,6 +172,9 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           if ('sides' in data) newJobData.sides = data.sides;
           if ('uv_varnish' in data) newJobData.uv_varnish = data.uv_varnish;
         }
+        
+        console.log("Creating new job with data:", newJobData);
+        console.log("Table name:", tableName);
         
         // Use 'as any' to bypass TypeScript's type checking for the table name
         const { error } = await supabase
