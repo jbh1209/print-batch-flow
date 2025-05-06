@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Home, ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 
 const NotFound = () => {
   const location = useLocation();
@@ -14,7 +15,23 @@ const NotFound = () => {
       "404 Error: User attempted to access non-existent route:",
       location.pathname
     );
-  }, [location.pathname]);
+    
+    // Show a toast with helpful navigation suggestion
+    toast.error("Page not found. You might need to use the correct path format: /batches/[product]/jobs/new", {
+      duration: 5000,
+    });
+    
+    // Try to suggest a correct path based on common patterns
+    if (location.pathname.includes('/covers/jobs/new')) {
+      toast("Try navigating to /batches/covers/jobs/new instead", {
+        action: {
+          label: "Go There",
+          onClick: () => navigate('/batches/covers/jobs/new')
+        },
+        duration: 8000
+      });
+    }
+  }, [location.pathname, navigate]);
 
   const goBack = () => {
     navigate(-1);

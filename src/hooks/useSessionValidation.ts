@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 /**
  * Hook to validate user session and manage auth state consistently
@@ -22,13 +23,19 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
         
         if (error) {
           console.error('Session validation error:', error);
-          if (requireAuth) navigate('/auth');
+          if (requireAuth && isMounted) {
+            toast.error("Authentication required. Please sign in.");
+            navigate('/auth');
+          }
           return;
         }
         
         // If no session and auth required, redirect
         if (!session && requireAuth) {
-          navigate('/auth');
+          if (isMounted) {
+            toast.error("Authentication required. Please sign in.");
+            navigate('/auth');
+          }
           return;
         }
         
@@ -38,14 +45,27 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
             'is_admin_secure_fixed', { _user_id: session.user.id }
           );
           
-          if (adminError || !isAdminUser) {
+          if (adminError) {
             console.error('Admin validation error:', adminError);
             setIsAdmin(false);
-            if (requireAdmin) navigate('/');
+            if (requireAdmin && isMounted) {
+              toast.error("Admin access required for this page");
+              navigate('/');
+            }
             return;
           }
           
-          setIsAdmin(true);
+          if (!isAdminUser && requireAdmin) {
+            if (isMounted) {
+              toast.error("You don't have admin privileges required for this page");
+              navigate('/');
+            }
+            return;
+          }
+          
+          if (isMounted) {
+            setIsAdmin(!!isAdminUser);
+          }
         }
         
         // Mark session as valid if we get here
@@ -56,6 +76,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
       } catch (error) {
         console.error('Session validation exception:', error);
         if (requireAuth && isMounted) {
+          toast.error("Authentication error. Please sign in again.");
           navigate('/auth');
         }
       } finally {
