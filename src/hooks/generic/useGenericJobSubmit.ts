@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -50,24 +49,46 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         
         toast.loading("Uploading PDF file...");
         
-        // Create storage bucket if it doesn't exist
-        const { data: buckets } = await supabase.storage.listBuckets();
-        if (!buckets?.find(bucket => bucket.name === 'pdf_files')) {
-          const { error: bucketError } = await supabase.storage.createBucket('pdf_files', {
-            public: true
-          });
+        // Try to check for existing buckets without creating a new one first
+        try {
+          const { data: buckets, error: getBucketsError } = await supabase.storage.listBuckets();
           
-          if (bucketError) {
-            console.error("Error creating bucket:", bucketError);
-            throw new Error(`Error creating storage bucket: ${bucketError.message}`);
+          if (getBucketsError) {
+            console.error("Error listing buckets:", getBucketsError);
+            throw new Error(`Error checking storage buckets: ${getBucketsError.message}`);
           }
+          
+          const pdfBucketExists = buckets?.some(bucket => bucket.name === 'pdf_files');
+          
+          if (!pdfBucketExists) {
+            console.log("Bucket 'pdf_files' doesn't exist, requesting creation through RPC");
+            
+            // Use an RPC function approach instead of direct bucket creation
+            // This relies on a server-side function with proper permissions
+            const { error: rpcError } = await supabase
+              .rpc('create_storage_bucket_if_not_exists', { bucket_name: 'pdf_files' })
+              .single();
+            
+            if (rpcError) {
+              console.error("Error creating bucket through RPC:", rpcError);
+              // Fall back to using existing bucket or continue without creating
+            } else {
+              console.log("Bucket created successfully through RPC");
+            }
+          } else {
+            console.log("Bucket 'pdf_files' already exists");
+          }
+        } catch (bucketError) {
+          console.error("Error in bucket setup:", bucketError);
+          // Continue with upload attempt even if bucket check fails
         }
         
+        // Attempt the upload to the bucket (which should exist or be publicly accessible)
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('pdf_files')
           .upload(filePath, selectedFile, {
             cacheControl: '3600',
-            upsert: false
+            upsert: true // Changed to true to overwrite if exists
           });
 
         if (uploadError) {

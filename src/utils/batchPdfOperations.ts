@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Job } from "@/components/business-cards/JobsTable";
 import { BaseJob } from "@/config/productTypes";
@@ -186,7 +185,12 @@ export async function generateAndUploadBatchPDFs(
 async function ensurePublicBucket(bucketName: string) {
   try {
     // First check if bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      console.error("Error listing buckets:", listError);
+      return false;
+    }
     
     let bucketExists = false;
     if (buckets) {
@@ -196,14 +200,28 @@ async function ensurePublicBucket(bucketName: string) {
     if (!bucketExists) {
       console.log(`Bucket '${bucketName}' doesn't exist yet, creating it...`);
       
-      // Create the bucket with public access
-      const { error: createError } = await supabase.storage.createBucket(bucketName, { 
-        public: true,
-        fileSizeLimit: 52428800 // 50MB
-      });
-      
-      if (createError) {
-        console.error(`Failed to create bucket '${bucketName}':`, createError);
+      try {
+        // Try to use the edge function for bucket creation
+        const { error: functionError } = await supabase.functions.invoke('create_bucket', {
+          body: { bucket_name: bucketName }
+        });
+        
+        if (functionError) {
+          console.error(`Failed to create bucket '${bucketName}' via function:`, functionError);
+          
+          // Fall back to direct creation which might work if user has permissions
+          const { error: createError } = await supabase.storage.createBucket(bucketName, { 
+            public: true,
+            fileSizeLimit: 52428800 // 50MB
+          });
+          
+          if (createError) {
+            console.error(`Failed to create bucket '${bucketName}':`, createError);
+            return false;
+          }
+        }
+      } catch (error) {
+        console.error(`Error creating bucket '${bucketName}':`, error);
         return false;
       }
       
