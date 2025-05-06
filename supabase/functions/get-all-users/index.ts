@@ -30,22 +30,19 @@ serve(async (req) => {
     }
 
     // Create Supabase client with service role for admin operations
-    // This uses environment variables set in the Supabase dashboard
     const supabaseAdmin = createClient(
-      // Supabase API URL - env var injected by Supabase CLI
       Deno.env.get('SUPABASE_URL') ?? '',
-      // Supabase service role key - env var injected by Supabase CLI
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get user from auth header
+    // Create client with user's auth token to verify permissions
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     )
 
-    // Verify the user is authenticated and get their ID
+    // Verify the user is authenticated
     const {
       data: { user },
       error: userError
@@ -62,13 +59,13 @@ serve(async (req) => {
       )
     }
 
-    // Check if user is admin
-    const { data: roleData, error: roleError } = await supabaseClient.rpc(
+    // Check if user is admin using the secure function
+    const { data: isAdmin, error: roleError } = await supabaseClient.rpc(
       'is_admin_secure',
       { _user_id: user.id }
     )
 
-    if (roleError || !roleData) {
+    if (roleError || !isAdmin) {
       console.error('Error checking admin status or not admin:', roleError)
       return new Response(
         JSON.stringify({ error: 'Forbidden: Admin rights required' }),
@@ -79,23 +76,7 @@ serve(async (req) => {
       )
     }
 
-    // Fetch all users using admin client - with service role
-    const { data: users, error: usersError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, avatar_url, created_at')
-    
-    if (usersError) {
-      console.error('Error fetching profiles:', usersError)
-      return new Response(
-        JSON.stringify({ error: 'Error fetching users', details: usersError }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // Get all auth users separately (email address isn't in profiles)
+    // Step 1: Fetch all users from auth schema - using service role client
     const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
     
     if (authError) {
@@ -109,7 +90,23 @@ serve(async (req) => {
       )
     }
 
-    // Get all roles
+    // Step 2: Fetch all profiles using the service role client
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, avatar_url, created_at')
+    
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError)
+      return new Response(
+        JSON.stringify({ error: 'Error fetching profiles', details: profilesError }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Step 3: Fetch all roles using the service role client
     const { data: roles, error: rolesError } = await supabaseAdmin
       .from('user_roles')
       .select('user_id, role')
@@ -125,29 +122,26 @@ serve(async (req) => {
       )
     }
 
-    // Create a map of auth users by ID
-    const authUsersMap = new Map()
-    authUsers.users.forEach(authUser => {
-      authUsersMap.set(authUser.id, authUser)
-    })
+    // Create maps for faster lookups
+    const profilesMap = new Map(
+      profiles.map(profile => [profile.id, profile])
+    )
+    
+    const rolesMap = new Map(
+      roles.map(role => [role.user_id, role.role])
+    )
 
-    // Create a map of roles by user ID
-    const rolesMap = new Map()
-    roles.forEach(role => {
-      rolesMap.set(role.user_id, role.role)
-    })
-
-    // Combine the data
-    const combinedUsers = users.map(profile => {
-      const authUser = authUsersMap.get(profile.id)
-      const role = rolesMap.get(profile.id) || 'user'
+    // Combine all data
+    const combinedUsers = authUsers.users.map(authUser => {
+      const profile = profilesMap.get(authUser.id) || {}
+      const role = rolesMap.get(authUser.id) || 'user'
       
       return {
-        id: profile.id,
-        email: authUser ? authUser.email : 'Email not available',
-        full_name: profile.full_name,
+        id: authUser.id,
+        email: authUser.email,
+        full_name: profile.full_name || '',
         avatar_url: profile.avatar_url,
-        created_at: profile.created_at,
+        created_at: profile.created_at || authUser.created_at,
         role: role
       }
     })

@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { UserPlus, AlertTriangle } from "lucide-react";
+import { UserPlus, AlertTriangle, RefreshCw } from "lucide-react";
 import { UserForm } from "./UserForm";
 import { useUserManagement } from "@/contexts/UserManagementContext";
 import { UserFormData, UserWithRole } from "@/types/user-types";
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export function UserTableContainer() {
-  const { users, createUser, updateUser, deleteUser, error: contextError } = useUserManagement();
+  const { users, createUser, updateUser, deleteUser, error: contextError, fetchUsers } = useUserManagement();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -67,6 +67,19 @@ export function UserTableContainer() {
     }
   };
 
+  const handleRefresh = async () => {
+    try {
+      setError(null);
+      toast.loading("Refreshing user data...");
+      await fetchUsers();
+      toast.success("User data refreshed successfully");
+    } catch (error: any) {
+      console.error("Error refreshing users:", error);
+      setError(error.message || "Failed to refresh user data");
+      toast.error(`Failed to refresh user data: ${error.message || "Unknown error"}`);
+    }
+  };
+
   const openEditDialog = (user: UserWithRole) => {
     setEditingUser(user);
     setDialogOpen(true);
@@ -87,7 +100,17 @@ export function UserTableContainer() {
         </Alert>
       )}
 
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-between mb-4">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          className="flex items-center gap-1"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh Users
+        </Button>
+        
         <Dialog open={dialogOpen} onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) setError(null);

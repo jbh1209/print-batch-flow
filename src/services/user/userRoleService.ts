@@ -26,7 +26,7 @@ export async function addAdminRole(userId: string): Promise<void> {
   }
 }
 
-// Update user role - simplified to use only secure function
+// Update user role - using secure function
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   try {
     console.log(`Updating user ${userId} role to ${role}`);

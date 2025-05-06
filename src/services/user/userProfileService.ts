@@ -6,7 +6,7 @@ import { UserFormData } from '@/types/user-types';
  * User profile management functions
  */
 
-// Update user profile - Simplified to use only secure functions
+// Update user profile - Using secure functions
 export async function updateUserProfile(userId: string, userData: UserFormData): Promise<void> {
   try {
     if (!userId) {
@@ -52,7 +52,7 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
   }
 }
 
-// Get user profile by ID
+// Get user profile by ID - Simplified with better error handling
 export async function getUserProfile(userId: string) {
   try {
     if (!userId) return null;

@@ -10,7 +10,10 @@ export async function checkAdminExists(): Promise<boolean> {
   try {
     const { data, error } = await supabase.rpc('any_admin_exists');
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error checking admin existence:', error);
+      throw error;
+    }
     
     return !!data;
   } catch (error) {
@@ -19,7 +22,7 @@ export async function checkAdminExists(): Promise<boolean> {
   }
 }
 
-// Check if a user has admin role
+// Check if a user has admin role - using secure function
 export async function checkIsAdmin(userId: string): Promise<boolean> {
   try {
     if (!userId) return false;
@@ -28,7 +31,10 @@ export async function checkIsAdmin(userId: string): Promise<boolean> {
       _user_id: userId 
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error checking admin status:', error);
+      throw error;
+    }
     
     return !!data;
   } catch (error) {

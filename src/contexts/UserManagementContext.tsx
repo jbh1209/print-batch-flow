@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
@@ -37,9 +38,10 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const [anyAdminExists, setAnyAdminExists] = useState(false);
   const { isAdmin, user } = useAuth();
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const CACHE_DURATION = 20000; // 20 seconds cache duration
+  const CACHE_DURATION = 30000; // 30 seconds cache duration
   
   const fetchUsers = useCallback(async (forceFetch = false) => {
+    // Skip fetch if not admin and not forced
     if (!isAdmin && !forceFetch) {
       console.log('Not admin and not forced fetch, skipping fetchUsers');
       setIsLoading(false);
@@ -49,7 +51,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     // Use cache unless force refresh is requested
     const now = Date.now();
     if (!forceFetch && now - lastFetchTime < CACHE_DURATION && users.length > 0) {
-      console.log('Using cached user data from', new Date(lastFetchTime).toLocaleTimeString());
+      console.log(`Using cached user data from ${new Date(lastFetchTime).toLocaleTimeString()}`);
       setIsLoading(false);
       return;
     }
@@ -58,14 +60,14 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     setError(null);
     
     try {
-      console.log('Fetching users at', new Date().toLocaleTimeString());
+      console.log(`Fetching users at ${new Date().toLocaleTimeString()}`);
       const fetchedUsers = await userService.fetchUsers();
-      console.log('Users fetched:', fetchedUsers.length);
       
       if (Array.isArray(fetchedUsers)) {
-        // Sort users by name for better UI experience
+        console.log(`Successfully fetched ${fetchedUsers.length} users`);
+        
+        // Sort users for better UI experience
         const sortedUsers = [...fetchedUsers].sort((a, b) => {
-          // Sort by name if available, otherwise email
           const nameA = a.full_name || a.email || '';
           const nameB = b.full_name || b.email || '';
           return nameA.localeCompare(nameB);
@@ -76,6 +78,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       } else {
         console.warn('Invalid user array returned:', fetchedUsers);
         setUsers([]);
+        setError('Received invalid user data from server');
       }
     } catch (error: any) {
       console.error('Error loading users:', error);
@@ -87,49 +90,47 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     }
   }, [isAdmin, users.length, lastFetchTime]);
 
-  // Auto-refresh users when admin status changes or component mounts
-  useEffect(() => {
-    console.log('UserManagementContext: isAdmin changed to', isAdmin);
-    if (isAdmin) {
-      fetchUsers();
-    }
-  }, [isAdmin, fetchUsers]);
-
+  // Check if any admin exists in the system
   const checkAdminExists = useCallback(async () => {
     try {
       setError(null);
       const exists = await userService.checkAdminExists();
       console.log('Admin exists:', exists);
       setAnyAdminExists(exists);
+      return exists;
     } catch (error: any) {
       console.error('Error checking admin existence:', error);
       setError(`Error checking if admin exists: ${error.message}`);
       setAnyAdminExists(false);
+      return false;
     }
   }, []);
   
+  // Create a new user
   const createUser = useCallback(async (userData: UserFormData) => {
     try {
       await userService.createUser(userData);
       // Immediately fetch users to update the list
-      await fetchUsers(true); // Force refresh after creation
+      await fetchUsers(true); // Force refresh
     } catch (error: any) {
       console.error('Error creating user:', error);
       throw error;
     }
   }, [fetchUsers]);
 
+  // Update an existing user
   const updateUser = useCallback(async (userId: string, userData: UserFormData) => {
     try {
       await userService.updateUserProfile(userId, userData);
-      // Critical: Re-fetch users to refresh the UI with updated data
-      await fetchUsers(true); // Force refresh after update
+      // Re-fetch users to refresh the UI
+      await fetchUsers(true); // Force refresh
     } catch (error: any) {
       console.error('Error updating user:', error);
       throw error;
     }
   }, [fetchUsers]);
 
+  // Delete/revoke access for a user
   const deleteUser = useCallback(async (userId: string) => {
     if (!userId) {
       throw new Error('Invalid user ID');
@@ -137,13 +138,14 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     
     try {
       await userService.revokeUserAccess(userId);
-      await fetchUsers(true); // Force refresh after deletion
+      await fetchUsers(true); // Force refresh
     } catch (error: any) {
       console.error('Error removing user role:', error);
       throw error;
     }
   }, [fetchUsers]);
 
+  // Add admin role to a user
   const addAdminRole = useCallback(async (userId: string) => {
     if (!userId) {
       throw new Error('Invalid user ID');
@@ -152,7 +154,6 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     try {
       await userService.addAdminRole(userId);
       setAnyAdminExists(true);
-      // Reload the page after a short delay to show the updated UI
       toast.success('Admin role successfully assigned');
       setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
@@ -161,12 +162,31 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     }
   }, []);
 
+  // Auto-refresh users when admin status changes or component mounts
+  useEffect(() => {
+    if (isAdmin) {
+      console.log('Admin status detected, fetching users');
+      fetchUsers().catch(error => {
+        console.error('Failed to fetch users in effect:', error);
+      });
+    } else {
+      console.log('Not admin, skipping auto-fetch');
+    }
+  }, [isAdmin, fetchUsers]);
+  
+  // Check admin exists on mount
+  useEffect(() => {
+    checkAdminExists().catch(error => {
+      console.error('Failed to check admin existence on mount:', error);
+    });
+  }, [checkAdminExists]);
+
   const value = {
     users,
     isLoading,
     error,
     anyAdminExists,
-    fetchUsers: () => fetchUsers(true), // Expose the fetch with force refresh
+    fetchUsers: () => fetchUsers(true), // Expose with force refresh
     createUser,
     updateUser,
     deleteUser,
