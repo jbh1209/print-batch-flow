@@ -9,77 +9,39 @@ import { UserRole } from '@/types/user-types';
 // Add admin role to a user
 export async function addAdminRole(userId: string): Promise<void> {
   try {
-    // Use the secured admin function to set role
+    console.log('Setting admin role for user:', userId);
+    
     const { error } = await supabase.rpc('set_user_role_admin', {
       _target_user_id: userId, 
       _new_role: 'admin'
     });
     
     if (error) {
-      console.error('Error setting admin role with secure function:', error);
-      
-      // Fall back to regular function if admin secure function fails
-      const { error: fallbackError } = await supabase.rpc('set_user_role', {
-        target_user_id: userId, 
-        new_role: 'admin'
-      });
-      
-      if (fallbackError) throw fallbackError;
+      console.error('Error setting admin role:', error);
+      throw error;
     }
   } catch (error) {
-    console.error('Error setting admin role:', error);
+    console.error('Exception in addAdminRole:', error);
     throw error;
   }
 }
 
-// Update user role
+// Update user role - simplified to use only secure function
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   try {
-    // First try with secure admin function
+    console.log(`Updating user ${userId} role to ${role}`);
+    
     const { error } = await supabase.rpc('set_user_role_admin', {
       _target_user_id: userId,
       _new_role: role
     });
     
     if (error) {
-      console.error('Error updating role with secure function:', error);
-      
-      // Fall back to regular function
-      const { error: fallbackError } = await supabase.rpc('set_user_role', {
-        target_user_id: userId,
-        new_role: role
-      });
-      
-      if (fallbackError) throw fallbackError;
+      console.error('Error updating role:', error);
+      throw error;
     }
   } catch (error) {
-    console.error('Error updating user role:', error);
-    throw error;
-  }
-}
-
-// Assign a role to a user
-export async function assignRole(userId: string, role: UserRole): Promise<void> {
-  try {
-    // First try with secure admin function
-    const { error } = await supabase.rpc('set_user_role_admin', {
-      _target_user_id: userId,
-      _new_role: role
-    });
-    
-    if (error) {
-      console.error('Error assigning role with secure function:', error);
-      
-      // Fall back to regular function
-      const { error: fallbackError } = await supabase.rpc('set_user_role', {
-        target_user_id: userId,
-        new_role: role
-      });
-      
-      if (fallbackError) throw fallbackError;
-    }
-  } catch (error) {
-    console.error('Error assigning role:', error);
+    console.error('Exception in updateUserRole:', error);
     throw error;
   }
 }
@@ -87,13 +49,18 @@ export async function assignRole(userId: string, role: UserRole): Promise<void> 
 // Revoke user role/access
 export async function revokeUserAccess(userId: string): Promise<void> {
   try {
+    console.log(`Revoking access for user ${userId}`);
+    
     const { error } = await supabase.rpc('revoke_user_role', {
       target_user_id: userId
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error revoking user access:', error);
+      throw error;
+    }
   } catch (error) {
-    console.error('Error revoking user access:', error);
+    console.error('Exception in revokeUserAccess:', error);
     throw error;
   }
 }

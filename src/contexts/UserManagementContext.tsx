@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
@@ -39,7 +38,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const { isAdmin, user } = useAuth();
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const CACHE_DURATION = 20000; // 20 seconds cache duration
-
+  
   const fetchUsers = useCallback(async (forceFetch = false) => {
     if (!isAdmin && !forceFetch) {
       console.log('Not admin and not forced fetch, skipping fetchUsers');
@@ -64,12 +63,6 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       console.log('Users fetched:', fetchedUsers.length);
       
       if (Array.isArray(fetchedUsers)) {
-        if (fetchedUsers.length === 0) {
-          // Show a warning if we got an empty array, might indicate a permission issue
-          console.warn('User list is empty - this might indicate an issue');
-          toast.warning('No users found. Please check user permissions.');
-        }
-        
         // Sort users by name for better UI experience
         const sortedUsers = [...fetchedUsers].sort((a, b) => {
           // Sort by name if available, otherwise email
@@ -80,20 +73,6 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
         
         setUsers(sortedUsers);
         setLastFetchTime(now);
-        
-        // If current user isn't in the list, add them with admin role
-        if (user && isAdmin && !sortedUsers.some(u => u.id === user.id)) {
-          console.log('Current admin user not in list, adding them');
-          const currentAdmin: UserWithRole = {
-            id: user.id,
-            email: user.email || 'Current admin',
-            full_name: null,
-            avatar_url: null,
-            role: 'admin',
-            created_at: null
-          };
-          setUsers(prev => [...prev, currentAdmin]);
-        }
       } else {
         console.warn('Invalid user array returned:', fetchedUsers);
         setUsers([]);
@@ -106,7 +85,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin, user, users.length, lastFetchTime]);
+  }, [isAdmin, users.length, lastFetchTime]);
 
   // Auto-refresh users when admin status changes or component mounts
   useEffect(() => {
@@ -128,67 +107,56 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       setAnyAdminExists(false);
     }
   }, []);
-
+  
   const createUser = useCallback(async (userData: UserFormData) => {
     try {
       await userService.createUser(userData);
-      toast.success('User created successfully');
       // Immediately fetch users to update the list
       await fetchUsers(true); // Force refresh after creation
     } catch (error: any) {
       console.error('Error creating user:', error);
-      toast.error(`Error creating user: ${error.message || 'Unknown error'}`);
       throw error;
     }
   }, [fetchUsers]);
 
   const updateUser = useCallback(async (userId: string, userData: UserFormData) => {
     try {
-      toast.loading('Updating user...');
       await userService.updateUserProfile(userId, userData);
-      toast.success('User updated successfully');
       // Critical: Re-fetch users to refresh the UI with updated data
       await fetchUsers(true); // Force refresh after update
     } catch (error: any) {
       console.error('Error updating user:', error);
-      toast.error(`Error updating user: ${error.message || 'Unknown error'}`);
       throw error;
     }
   }, [fetchUsers]);
 
   const deleteUser = useCallback(async (userId: string) => {
     if (!userId) {
-      toast.error('Invalid user ID');
-      return;
+      throw new Error('Invalid user ID');
     }
     
     try {
       await userService.revokeUserAccess(userId);
-      toast.success('User role revoked successfully');
       await fetchUsers(true); // Force refresh after deletion
     } catch (error: any) {
       console.error('Error removing user role:', error);
-      toast.error(`Error removing user role: ${error.message || 'Unknown error'}`);
       throw error;
     }
   }, [fetchUsers]);
 
   const addAdminRole = useCallback(async (userId: string) => {
     if (!userId) {
-      toast.error('Invalid user ID');
-      return;
+      throw new Error('Invalid user ID');
     }
     
     try {
-      toast.loading('Assigning admin role...');
       await userService.addAdminRole(userId);
-      toast.success('Admin role successfully assigned');
       setAnyAdminExists(true);
       // Reload the page after a short delay to show the updated UI
+      toast.success('Admin role successfully assigned');
       setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
       console.error('Error setting admin role:', error);
-      toast.error(`Failed to set admin role: ${error.message || 'Unknown error'}`);
       throw error;
     }
   }, []);
