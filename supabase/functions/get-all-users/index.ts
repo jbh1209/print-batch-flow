@@ -5,6 +5,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
 }
 
 serve(async (req) => {
@@ -120,62 +121,77 @@ serve(async (req) => {
       )
     }
 
-    // Step 2: Fetch all profiles using the service role client
-    const { data: profiles, error: profilesError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, avatar_url, created_at')
-    
-    if (profilesError) {
-      console.error('Error fetching profiles:', profilesError)
-      // Continue without profiles rather than failing completely
-      console.log('Will continue without profile data')
-    }
-
-    // Step 3: Fetch all roles using the service role client
-    const { data: roles, error: rolesError } = await supabaseAdmin
-      .from('user_roles')
-      .select('user_id, role')
-
-    if (rolesError) {
-      console.error('Error fetching roles:', rolesError)
-      // Continue without roles rather than failing completely
-      console.log('Will continue without role data')
-    }
-
-    // Create maps for faster lookups
-    const profilesMap = new Map(
-      (profiles || []).map(profile => [profile.id, profile])
-    )
-    
-    const rolesMap = new Map(
-      (roles || []).map(role => [role.user_id, role.role])
-    )
-
-    // Combine all data
-    const combinedUsers = authUsers.users.map(authUser => {
-      const profile = profilesMap.get(authUser.id) || {}
-      const role = rolesMap.get(authUser.id) || 'user'
+    try {
+      // Step 2: Fetch all profiles using the service role client
+      const { data: profiles, error: profilesError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, avatar_url, created_at')
       
-      return {
-        id: authUser.id,
-        email: authUser.email,
-        full_name: profile.full_name || '',
-        avatar_url: profile.avatar_url,
-        created_at: profile.created_at || authUser.created_at,
-        role: role
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError)
+        // Continue without profiles rather than failing completely
+        console.log('Will continue without profile data')
       }
-    })
 
-    console.log(`Successfully retrieved ${combinedUsers.length} users`)
+      // Step 3: Fetch all roles using the service role client
+      const { data: roles, error: rolesError } = await supabaseAdmin
+        .from('user_roles')
+        .select('user_id, role')
 
-    // Return the combined data
-    return new Response(
-      JSON.stringify(combinedUsers),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      if (rolesError) {
+        console.error('Error fetching roles:', rolesError)
+        // Continue without roles rather than failing completely
+        console.log('Will continue without role data')
       }
-    )
+
+      // Create maps for faster lookups
+      const profilesMap = new Map(
+        (profiles || []).map(profile => [profile.id, profile])
+      )
+      
+      const rolesMap = new Map(
+        (roles || []).map(role => [role.user_id, role.role])
+      )
+
+      // Combine all data
+      const combinedUsers = authUsers.users.map(authUser => {
+        const profile = profilesMap.get(authUser.id) || {}
+        const role = rolesMap.get(authUser.id) || 'user'
+        
+        return {
+          id: authUser.id,
+          email: authUser.email,
+          full_name: profile.full_name || '',
+          avatar_url: profile.avatar_url,
+          created_at: profile.created_at || authUser.created_at,
+          role: role
+        }
+      })
+
+      console.log(`Successfully retrieved ${combinedUsers.length} users`)
+
+      // Return the combined data
+      return new Response(
+        JSON.stringify(combinedUsers),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    } catch (queryError) {
+      console.error('Error querying database:', queryError)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Database query error', 
+          message: 'Failed to retrieve user data',
+          details: queryError.message 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
   } catch (error) {
     console.error('Unexpected error:', error)
     return new Response(

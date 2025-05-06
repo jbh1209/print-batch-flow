@@ -5,3 +5,4 @@ export * from './userRoleService';
 export * from './userProfileService';
 export * from './userCreationService';
 export * from './userFetchService';
+export * from '../auth/authService';

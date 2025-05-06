@@ -6,18 +6,20 @@ import { Users as UsersIcon, AlertTriangle, RefreshCw, LogOut } from "lucide-rea
 import { useAuth } from "@/hooks/useAuth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AuthDebugger } from "@/components/users/AuthDebugger";
-import { UserManagementProvider, useUserManagement } from "@/contexts/UserManagementContext";
+import { UserManagementProvider, useUserManagement } from "@/contexts/user/UserManagementContext";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
 import { UserTableContainer } from "@/components/users/UserTableContainer";
 import { LoadingState } from "@/components/users/LoadingState";
 import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMessage";
 import { toast } from "sonner";
+import { useSessionValidation } from "@/hooks/useSessionValidation";
 
 // Main content component separated from provider setup
 const UsersContent = () => {
   const navigate = useNavigate();
   const { user, isAdmin, signOut } = useAuth();
   const [authIssue, setAuthIssue] = useState<boolean>(false);
+  const { isValidating } = useSessionValidation(true);
   
   const { 
     error, 
@@ -37,15 +39,17 @@ const UsersContent = () => {
       
       try {
         console.log("Checking if any admin exists...");
-        await checkAdminExists(); // No need to use the returned value directly
+        await checkAdminExists();
       } catch (err) {
         console.error("Failed to check admin existence:", err);
         toast.error("Failed to check if admin exists. Please try again.");
       }
     };
     
-    checkAdmin();
-  }, [checkAdminExists, user?.id]);
+    if (!isValidating) {
+      checkAdmin();
+    }
+  }, [checkAdminExists, user?.id, isValidating]);
 
   // Monitor auth status changes
   useEffect(() => {
@@ -62,9 +66,10 @@ const UsersContent = () => {
   // Monitor errors for authentication issues
   useEffect(() => {
     if (error && (
+      error.includes('session') || 
       error.includes('Authentication') || 
-      error.includes('log in again') || 
-      error.includes('session expired'))) {
+      error.includes('expired') ||
+      error.includes('log in again'))) {
       setAuthIssue(true);
     } else {
       setAuthIssue(false);
@@ -95,8 +100,8 @@ const UsersContent = () => {
     }
   };
 
-  // Show loading state
-  if (isLoading) {
+  // Show loading state when validating session or loading data
+  if (isValidating || isLoading) {
     return <LoadingState />;
   }
 

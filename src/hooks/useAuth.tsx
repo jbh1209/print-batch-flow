@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, UserProfile, UserRole } from '@/types/user-types';
 import { Session } from '@supabase/supabase-js';
 import { User as AuthUser } from '@supabase/supabase-js'; // Import Supabase's User type as AuthUser
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
@@ -29,16 +30,50 @@ const AuthContext = createContext<AuthContextType>({
   checkIsAdmin: async () => false,
 });
 
+// Helper function to clean up all auth state in localStorage
+const cleanupAuthState = () => {
+  try {
+    // Remove standard auth tokens
+    localStorage.removeItem('supabase.auth.token');
+    
+    // Remove all Supabase auth keys from localStorage
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // Clean sessionStorage if used
+    if (typeof sessionStorage !== 'undefined') {
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    }
+    
+    console.log('Auth state cleanup completed');
+  } catch (error) {
+    console.error('Error cleaning up auth state:', error);
+  }
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [profileFetchAttempts, setProfileFetchAttempts] = useState(0);
+  const MAX_PROFILE_FETCH_ATTEMPTS = 3;
 
-  // Fetch user profile from profiles table
+  // Fetch user profile from profiles table with retry logic
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
+    if (!userId) return null;
+    
     try {
+      console.log('Attempting to fetch profile for user:', userId);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -47,9 +82,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Error fetching profile:', error);
+        
+        // Track failed attempts
+        setProfileFetchAttempts(prev => prev + 1);
+        
+        // If we haven't reached max attempts, retry with exponential backoff
+        if (profileFetchAttempts < MAX_PROFILE_FETCH_ATTEMPTS) {
+          const backoffTime = Math.pow(2, profileFetchAttempts) * 500; // Exponential backoff
+          console.log(`Will retry profile fetch in ${backoffTime}ms`);
+          
+          // Retry after delay
+          await new Promise(resolve => setTimeout(resolve, backoffTime));
+          return fetchProfile(userId);
+        }
+        
+        // Return null if we've exceeded max retry attempts
         return null;
       }
       
+      // Reset attempts counter on success
+      setProfileFetchAttempts(0);
+      console.log('Profile fetched successfully:', data);
       return data;
     } catch (error) {
       console.error('Error in fetchProfile:', error);
@@ -57,35 +110,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Check if user is an admin using the secure RPC function first
+  // Check if user is an admin - only use the secure function
   const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
       
-      // Try secure function first
-      try {
-        const { data: isAdminSecure, error: secureError } = await supabase
-          .rpc('is_admin_secure', { _user_id: userId });
-        
-        if (!secureError) {
-          return !!isAdminSecure;
-        }
-        
-        console.log('Secure admin check failed, falling back to standard:', secureError);
-      } catch (error) {
-        console.log('Error in secure admin check:', error);
-      }
+      const { data: isAdminSecure, error: secureError } = await supabase
+        .rpc('is_admin_secure', { _user_id: userId });
       
-      // Fall back to standard function
-      const { data, error } = await supabase
-        .rpc('is_admin', { _user_id: userId });
-      
-      if (error) {
-        console.error('Error checking admin status:', error);
+      if (secureError) {
+        console.error('Error checking admin status:', secureError);
         return false;
       }
 
-      return !!data;
+      return !!isAdminSecure;
     } catch (error) {
       console.error('Error in checkIsAdmin:', error);
       return false;
@@ -122,15 +160,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
           setUser(userObj);
           
-          // Fetch profile if we have a user - use setTimeout to avoid recursive RLS issues
+          // Defer profile fetching to avoid recursive RLS issues
           setTimeout(async () => {
             if (!isSubscribed) return;
             
-            const profile = await fetchProfile(session.user.id);
-            setProfile(profile);
-            await updateAdminStatus(session.user.id);
-            setLoading(false);
-          }, 0);
+            try {
+              const profile = await fetchProfile(session.user.id);
+              if (isSubscribed) {
+                setProfile(profile);
+                await updateAdminStatus(session.user.id);
+              }
+            } finally {
+              if (isSubscribed) {
+                setLoading(false);
+              }
+            }
+          }, 100);
         } else {
           setUser(null);
           setProfile(null);
@@ -155,13 +200,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         setUser(userObj);
         
-        const profile = await fetchProfile(session.user.id);
-        setProfile(profile);
-        await updateAdminStatus(session.user.id);
+        // Defer profile fetching
+        setTimeout(async () => {
+          if (!isSubscribed) return;
+          
+          try {
+            const profile = await fetchProfile(session.user.id);
+            if (isSubscribed) {
+              setProfile(profile);
+              await updateAdminStatus(session.user.id);
+            }
+          } finally {
+            if (isSubscribed) {
+              setLoading(false);
+            }
+          }
+        }, 100);
       } else {
         setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -172,9 +230,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // First clean up all auth state to prevent issues
+      cleanupAuthState();
+      
+      // Then attempt sign out
+      await supabase.auth.signOut({ scope: 'global' });
+      
+      // Clear state
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setIsAdmin(false);
+      
+      // Force page reload to ensure a clean state
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 500);
     } catch (error) {
       console.error('Error signing out:', error);
+      toast.error('Sign out failed. Please try again.');
+      
+      // Force reload as last resort
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     }
   };
 
