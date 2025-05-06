@@ -21,7 +21,10 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Missing Authorization header' }),
+        JSON.stringify({ 
+          error: 'Missing Authorization header',
+          message: 'Authentication required' 
+        }),
         {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -49,9 +52,12 @@ serve(async (req) => {
     } = await supabaseClient.auth.getUser()
 
     if (userError || !user) {
-      console.error('Error getting user:', userError)
+      console.error('Error getting authenticated user:', userError?.message || 'No user found')
       return new Response(
-        JSON.stringify({ error: 'Unauthorized', details: userError }),
+        JSON.stringify({ 
+          error: 'Authentication failed',
+          message: userError?.message || 'Please log in again' 
+        }),
         {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -59,16 +65,35 @@ serve(async (req) => {
       )
     }
 
-    // Check if user is admin using the secure function
+    console.log(`User ${user.id} authenticated successfully`)
+
+    // Check if user is admin using secure function
     const { data: isAdmin, error: roleError } = await supabaseClient.rpc(
       'is_admin_secure',
       { _user_id: user.id }
     )
 
-    if (roleError || !isAdmin) {
-      console.error('Error checking admin status or not admin:', roleError)
+    if (roleError) {
+      console.error('Error checking admin status:', roleError)
       return new Response(
-        JSON.stringify({ error: 'Forbidden: Admin rights required' }),
+        JSON.stringify({ 
+          error: 'Permission check failed',
+          message: 'Could not verify admin privileges' 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    if (!isAdmin) {
+      console.log(`User ${user.id} is not an admin`)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Forbidden',
+          message: 'Admin rights required' 
+        }),
         {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -76,13 +101,18 @@ serve(async (req) => {
       )
     }
 
+    console.log(`Admin user ${user.id} authorized successfully`)
+
     // Step 1: Fetch all users from auth schema - using service role client
     const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
     
     if (authError) {
       console.error('Error fetching auth users:', authError)
       return new Response(
-        JSON.stringify({ error: 'Error fetching auth users', details: authError }),
+        JSON.stringify({ 
+          error: 'Error fetching users',
+          message: 'Could not retrieve user list' 
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -97,13 +127,8 @@ serve(async (req) => {
     
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError)
-      return new Response(
-        JSON.stringify({ error: 'Error fetching profiles', details: profilesError }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      // Continue without profiles rather than failing completely
+      console.log('Will continue without profile data')
     }
 
     // Step 3: Fetch all roles using the service role client
@@ -113,22 +138,17 @@ serve(async (req) => {
 
     if (rolesError) {
       console.error('Error fetching roles:', rolesError)
-      return new Response(
-        JSON.stringify({ error: 'Error fetching roles', details: rolesError }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      // Continue without roles rather than failing completely
+      console.log('Will continue without role data')
     }
 
     // Create maps for faster lookups
     const profilesMap = new Map(
-      profiles.map(profile => [profile.id, profile])
+      (profiles || []).map(profile => [profile.id, profile])
     )
     
     const rolesMap = new Map(
-      roles.map(role => [role.user_id, role.role])
+      (roles || []).map(role => [role.user_id, role.role])
     )
 
     // Combine all data
@@ -146,6 +166,8 @@ serve(async (req) => {
       }
     })
 
+    console.log(`Successfully retrieved ${combinedUsers.length} users`)
+
     // Return the combined data
     return new Response(
       JSON.stringify(combinedUsers),
@@ -157,7 +179,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error', 
+        message: 'An unexpected error occurred while processing your request',
+        details: error.message 
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

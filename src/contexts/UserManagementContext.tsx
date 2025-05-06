@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
@@ -13,7 +14,7 @@ interface UserManagementContextType {
   createUser: (userData: UserFormData) => Promise<void>;
   updateUser: (userId: string, userData: UserFormData) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  checkAdminExists: () => Promise<boolean>; // Fixed: Changed return type to match implementation
+  checkAdminExists: () => Promise<boolean>; // Return type is Promise<boolean>
   addAdminRole: (userId: string) => Promise<void>;
 }
 
@@ -26,7 +27,7 @@ const UserManagementContext = createContext<UserManagementContextType>({
   createUser: async () => {},
   updateUser: async () => {},
   deleteUser: async () => {},
-  checkAdminExists: async () => false, // Updated default value to match new return type
+  checkAdminExists: async () => false, // Default return is false
   addAdminRole: async () => {},
 });
 
@@ -43,6 +44,14 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     // Skip fetch if not admin and not forced
     if (!isAdmin && !forceFetch) {
       console.log('Not admin and not forced fetch, skipping fetchUsers');
+      setIsLoading(false);
+      return;
+    }
+    
+    // Check auth status before proceeding
+    if (!user?.id) {
+      console.log('No authenticated user, skipping fetchUsers');
+      setError('Authentication required');
       setIsLoading(false);
       return;
     }
@@ -82,12 +91,21 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     } catch (error: any) {
       console.error('Error loading users:', error);
       const errorMsg = error.message || 'Unknown error'; 
-      setError(`Error loading users: ${errorMsg}`);
+      
+      // Set more user-friendly error messages
+      if (errorMsg.includes('Authentication')) {
+        setError('Session expired. Please log out and log in again.');
+      } else if (errorMsg.includes('Access denied')) {
+        setError('You do not have admin privileges to view this page.');
+      } else {
+        setError(`Error loading users: ${errorMsg}`);
+      }
+      
       toast.error(`Error loading users: ${errorMsg}. Please try again later.`);
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin, users.length, lastFetchTime]);
+  }, [isAdmin, users.length, lastFetchTime, user?.id]);
 
   // Check if any admin exists in the system
   const checkAdminExists = useCallback(async () => {
@@ -96,7 +114,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       const exists = await userService.checkAdminExists();
       console.log('Admin exists:', exists);
       setAnyAdminExists(exists);
-      return exists; // This returns boolean, which now matches our interface
+      return exists; // This returns boolean, which matches our interface
     } catch (error: any) {
       console.error('Error checking admin existence:', error);
       setError(`Error checking if admin exists: ${error.message}`);
@@ -163,7 +181,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
 
   // Auto-refresh users when admin status changes or component mounts
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && user?.id) {
       console.log('Admin status detected, fetching users');
       fetchUsers().catch(error => {
         console.error('Failed to fetch users in effect:', error);
@@ -171,14 +189,16 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     } else {
       console.log('Not admin, skipping auto-fetch');
     }
-  }, [isAdmin, fetchUsers]);
+  }, [isAdmin, fetchUsers, user?.id]);
   
   // Check admin exists on mount
   useEffect(() => {
-    checkAdminExists().catch(error => {
-      console.error('Failed to check admin existence on mount:', error);
-    });
-  }, [checkAdminExists]);
+    if (user?.id) {
+      checkAdminExists().catch(error => {
+        console.error('Failed to check admin existence on mount:', error);
+      });
+    }
+  }, [checkAdminExists, user?.id]);
 
   const value = {
     users,
