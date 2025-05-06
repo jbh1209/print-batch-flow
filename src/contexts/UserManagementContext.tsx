@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
-import * as userService from '@/services/userService';
+import * as userService from '@/services/user';
 import { useAuth } from '@/hooks/useAuth';
 
 interface UserManagementContextType {
