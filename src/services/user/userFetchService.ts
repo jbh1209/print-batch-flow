@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { UserWithRole } from '@/types/user-types';
+import { UserWithRole, UserRole } from '@/types/user-types';
 
 /**
  * User fetching functions
