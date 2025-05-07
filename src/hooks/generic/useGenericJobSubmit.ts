@@ -8,7 +8,7 @@ import { SleeveJobFormValues } from "@/lib/schema/sleeveJobFormSchema";
 import { ProductConfig } from "@/config/productTypes";
 import { useFileUploadHandler } from "./useFileUploadHandler";
 import { useJobDatabase } from "./useJobDatabase";
-import { useSessionCheck } from "./useSessionCheck";
+import { useSessionCheck } from "@/hooks/useSessionCheck";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -196,3 +196,4 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
     isSubmitting
   };
 };
+
