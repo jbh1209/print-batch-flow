@@ -1,5 +1,5 @@
 
-import React, { createContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +31,9 @@ export const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   updateProfile: async () => {},
 });
+
+// Export the useAuth hook here so it can be imported directly
+export const useAuth = () => useContext(AuthContext);
 
 interface AuthProviderProps {
   children: React.ReactNode;

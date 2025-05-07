@@ -51,6 +51,28 @@ export const prepareUpdateParams = <T extends Record<string, any>>(params: T): a
 };
 
 /**
+ * Check if a table exists in the database schema
+ */
+export const isExistingTable = (tableName: string): boolean => {
+  const validTables = [
+    'batches',
+    'business_card_jobs',
+    'flyer_jobs',
+    'box_jobs',
+    'postcard_jobs',
+    'cover_jobs',
+    'poster_jobs',
+    'sleeve_jobs',
+    'sticker_jobs',
+    'profiles',
+    'user_roles',
+    'app_settings'
+  ];
+  
+  return validTables.includes(tableName);
+};
+
+/**
  * Format a filter condition for Supabase queries
  */
 export const formatFilterCondition = (column: string, value: any): { [key: string]: any } => {
