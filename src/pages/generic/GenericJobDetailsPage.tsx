@@ -12,6 +12,7 @@ import { ProductConfig, BaseJob } from "@/config/productTypes";
 import { format } from "date-fns";
 import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
+import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface GenericJobDetailsPageProps {
   config: ProductConfig;
@@ -134,6 +135,14 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
       return dateString;
     }
   };
+  
+  const handleViewPdf = async () => {
+    if (job?.pdf_url) {
+      await handlePdfAction(job.pdf_url, 'view', job.file_name);
+    } else {
+      toast.error("No PDF available for this job");
+    }
+  };
 
   return (
     <div className="container mx-auto py-6">
@@ -244,6 +253,21 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                     </div>
                   )}
                 </div>
+                
+                {/* Add UV Varnish field for Cover jobs */}
+                {config.productType === "Covers" && job?.uv_varnish && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">UV Varnish</p>
+                      <p className="text-lg font-medium">
+                        {job.uv_varnish === 'none' ? 'None' : 
+                         job.uv_varnish === 'spot' ? 'Spot UV' : 
+                         job.uv_varnish === 'full' ? 'Full UV' : 
+                         job.uv_varnish}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -257,13 +281,13 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                 <div className="bg-gray-100 p-4 rounded-md mb-4">
                   <div className="flex items-center">
                     <FileText className="h-6 w-6 mr-2 text-blue-600" />
-                    <span className="text-sm font-medium">{job.file_name}</span>
+                    <span className="text-sm font-medium">{job.file_name || "Document"}</span>
                   </div>
                 </div>
                 
                 <div className="text-center">
                   <Button
-                    onClick={() => window.open(job.pdf_url, '_blank')}
+                    onClick={handleViewPdf}
                     className="flex items-center justify-center mx-auto"
                   >
                     <FileText className="mr-2 h-4 w-4" />
@@ -326,7 +350,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"
-                  onClick={() => job?.pdf_url && window.open(job.pdf_url, '_blank')}
+                  onClick={handleViewPdf}
                   disabled={!job?.pdf_url}
                 >
                   <FileText className="mr-2 h-4 w-4" />
@@ -336,6 +360,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                 <Button 
                   variant="destructive" 
                   className="w-full justify-start"
+                  disabled={job?.status === 'completed' || job?.status === 'batched'}
                 >
                   <AlertCircle className="mr-2 h-4 w-4" />
                   Cancel Job

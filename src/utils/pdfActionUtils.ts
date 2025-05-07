@@ -21,7 +21,7 @@ export const handlePdfAction = async (
     console.log(`Attempting to access PDF at: ${url}`);
     
     // Get signed URL if needed
-    const isAlreadySigned = url.includes('/sign/');
+    const isAlreadySigned = url.includes('token=');
     const accessUrl = isAlreadySigned ? url : await getSignedUrl(url);
     
     if (!accessUrl) {
@@ -32,11 +32,17 @@ export const handlePdfAction = async (
     
     if (action === 'view') {
       openInNewTab(accessUrl);
+      toast.success("PDF opened in a new tab");
     } else {
       const displayFilename = filename || url.split('/').pop() || 'document.pdf';
       downloadFile(accessUrl, displayFilename);
+      toast.success(`Downloading ${displayFilename}`);
     }
   } catch (error) {
-    handlePdfError(error);
+    console.error("Error handling PDF action:", error);
+    toast.error(`Failed to ${action} PDF: ${error instanceof Error ? error.message : "Unknown error"}`);
+    if (typeof handlePdfError === 'function') {
+      handlePdfError(error);
+    }
   }
 };
