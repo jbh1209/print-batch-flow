@@ -14,17 +14,30 @@ export const useFileUploadHandler = () => {
     selectedFile: File
   ): Promise<{ publicUrl: string; fileName: string } | null> => {
     try {
+      if (!userId) {
+        throw new Error("User ID is required for file upload");
+      }
+
+      if (!selectedFile) {
+        throw new Error("No file selected for upload");
+      }
+
       // Create a unique filename
       const uniqueFileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
       const filePath = `${userId}/${uniqueFileName}`;
       
-      toast.loading("Uploading PDF file...");
+      console.log("Preparing to upload file:", selectedFile.name);
+      console.log("File size:", selectedFile.size, "bytes");
+      console.log("File type:", selectedFile.type);
+      console.log("Target path:", filePath);
+      
+      toast.loading("Uploading file...");
       
       // Check if bucket exists
       await ensureBucketExists();
       
       // Attempt to upload to the bucket
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('pdf_files')
         .upload(filePath, selectedFile, {
           cacheControl: '3600',
@@ -32,8 +45,11 @@ export const useFileUploadHandler = () => {
         });
 
       if (uploadError) {
+        console.error("File upload error details:", uploadError);
         throw new Error(`Error uploading file: ${uploadError.message}`);
       }
+
+      console.log("File uploaded successfully:", uploadData);
 
       // Get public URL for the uploaded file
       const { data: urlData } = supabase.storage
@@ -44,6 +60,7 @@ export const useFileUploadHandler = () => {
         throw new Error("Failed to get public URL for uploaded file");
       }
 
+      console.log("Generated public URL:", urlData.publicUrl);
       toast.success("File uploaded successfully");
       
       return {
@@ -62,6 +79,8 @@ export const useFileUploadHandler = () => {
    */
   const ensureBucketExists = async (): Promise<void> => {
     try {
+      console.log("Checking for storage bucket existence...");
+      
       // Try to check for existing buckets without creating a new one first
       const { data: buckets, error: getBucketsError } = await supabase.storage.listBuckets();
       
@@ -82,7 +101,7 @@ export const useFileUploadHandler = () => {
         
         if (functionError) {
           console.error("Error creating bucket through edge function:", functionError);
-          // Continue anyway - we'll attempt the upload and see if it works
+          toast.error("Error setting up storage. Please try again or contact support.");
         } else {
           console.log("Bucket created successfully through edge function");
         }
@@ -92,6 +111,7 @@ export const useFileUploadHandler = () => {
     } catch (bucketError) {
       console.error("Error in bucket setup:", bucketError);
       // Continue with upload attempt even if bucket check fails
+      toast.error("Storage preparation error. Upload may fail.");
     }
   };
 

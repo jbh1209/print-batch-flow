@@ -36,8 +36,13 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
       // Check if user is authenticated
       const userId = await validateSession();
       if (!userId) {
+        setIsSubmitting(false);
         return false;
       }
+      
+      console.log("Job submission started:", config.productType);
+      console.log("Form data:", JSON.stringify(data, null, 2));
+      console.log("Selected file:", selectedFile ? selectedFile.name : "No new file");
       
       // If we're editing and there's no new file, we don't need to upload again
       let pdfUrl = undefined;
@@ -45,21 +50,25 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
       
       // Only upload a new file if one is selected
       if (selectedFile) {
+        console.log("Uploading file for", config.productType, "job");
         const uploadResult = await uploadFile(userId, selectedFile);
         
         if (!uploadResult) {
+          setIsSubmitting(false);
           return false;
         }
         
         pdfUrl = uploadResult.publicUrl;
         fileName = uploadResult.fileName;
+        console.log("File uploaded successfully:", fileName);
       }
 
       const tableName = config.tableName;
+      console.log("Using table name:", tableName);
       
       if (jobId) {
         // We're updating an existing job
-        const updateData: any = {
+        const updateData: Record<string, any> = {
           name: data.name,
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
@@ -92,14 +101,18 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           updateData.file_name = fileName;
         }
         
+        console.log("Updating existing job with ID:", jobId);
         // Update the existing job
         const success = await updateJob(tableName, jobId, updateData);
-        if (!success) return false;
+        if (!success) {
+          setIsSubmitting(false);
+          return false;
+        }
         
         toast.success(`${config.ui.jobFormTitle} updated successfully`);
       } else {
         // We're creating a new job
-        const newJobData: any = {
+        const newJobData: Record<string, any> = {
           name: data.name,
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
@@ -121,7 +134,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           newJobData.stock_type = sleeveData.stock_type;
           newJobData.single_sided = sleeveData.single_sided;
         } else {
-          // Add optional fields if they exist in the form data
+          // Add product-specific fields based on the config
           if ('size' in data) newJobData.size = data.size;
           if ('paper_type' in data) newJobData.paper_type = data.paper_type;
           if ('paper_weight' in data) newJobData.paper_weight = data.paper_weight;
@@ -130,13 +143,18 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           if ('uv_varnish' in data) newJobData.uv_varnish = data.uv_varnish;
         }
         
+        console.log("Creating new job with data:", newJobData);
         // Create the new job
         const success = await createJob(tableName, newJobData);
-        if (!success) return false;
+        if (!success) {
+          setIsSubmitting(false);
+          return false;
+        }
         
         toast.success(`${config.ui.jobFormTitle} created successfully`);
       }
       
+      // Navigate back to the jobs list
       navigate(config.routes.jobsPath);
       return true;
     } catch (error) {

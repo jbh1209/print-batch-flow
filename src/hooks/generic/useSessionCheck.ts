@@ -15,15 +15,25 @@ export const useSessionCheck = () => {
    */
   const validateSession = async (): Promise<string | null> => {
     try {
+      console.log("Validating user session...");
+      
       // Check if user is authenticated
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        throw sessionError;
+      }
+      
+      if (!sessionData.session) {
+        console.log("No active session found");
         toast.error("Authentication required. Please sign in.");
         navigate('/auth');
         return null;
       }
       
-      return session.session.user.id;
+      console.log("Valid session found for user:", sessionData.session.user.id);
+      return sessionData.session.user.id;
     } catch (error) {
       console.error("Session validation error:", error);
       toast.error("Authentication error. Please sign in again.");
