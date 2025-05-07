@@ -2,17 +2,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
 import { SleeveJobFormValues } from "@/lib/schema/sleeveJobFormSchema";
 import { ProductConfig } from "@/config/productTypes";
-import { isExistingTable } from "@/utils/database/tableValidation";
+import { useFileUploadHandler } from "./useFileUploadHandler";
+import { useJobDatabase } from "./useJobDatabase";
+import { useSessionCheck } from "./useSessionCheck";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { uploadFile } = useFileUploadHandler();
+  const { createJob, updateJob } = useJobDatabase();
+  const { validateSession } = useSessionCheck();
 
   const handleSubmit = async (
     data: GenericJobFormValues | SleeveJobFormValues,
@@ -30,14 +34,10 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
     
     try {
       // Check if user is authenticated
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) {
-        toast.error("Authentication required. Please sign in.");
-        navigate('/auth');
+      const userId = await validateSession();
+      if (!userId) {
         return false;
       }
-      
-      const userId = session.session.user.id;
       
       // If we're editing and there's no new file, we don't need to upload again
       let pdfUrl = undefined;
@@ -45,78 +45,18 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
       
       // Only upload a new file if one is selected
       if (selectedFile) {
-        const uniqueFileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
-        const filePath = `${userId}/${uniqueFileName}`;
+        const uploadResult = await uploadFile(userId, selectedFile);
         
-        toast.loading("Uploading PDF file...");
-        
-        // Try to check for existing buckets without creating a new one first
-        try {
-          const { data: buckets, error: getBucketsError } = await supabase.storage.listBuckets();
-          
-          if (getBucketsError) {
-            console.error("Error listing buckets:", getBucketsError);
-            throw new Error(`Error checking storage buckets: ${getBucketsError.message}`);
-          }
-          
-          const pdfBucketExists = buckets?.some(bucket => bucket.name === 'pdf_files');
-          
-          if (!pdfBucketExists) {
-            console.log("Bucket 'pdf_files' doesn't exist, requesting creation through edge function");
-            
-            // Use our edge function to create the bucket instead of RPC
-            const { error: functionError } = await supabase.functions.invoke('create_bucket', {
-              body: { bucket_name: 'pdf_files' }
-            });
-            
-            if (functionError) {
-              console.error("Error creating bucket through edge function:", functionError);
-              // Continue anyway - we'll attempt the upload and see if it works
-            } else {
-              console.log("Bucket created successfully through edge function");
-            }
-          } else {
-            console.log("Bucket 'pdf_files' already exists");
-          }
-        } catch (bucketError) {
-          console.error("Error in bucket setup:", bucketError);
-          // Continue with upload attempt even if bucket check fails
+        if (!uploadResult) {
+          return false;
         }
         
-        // Attempt the upload to the bucket (which should exist or be publicly accessible)
-        const { error: uploadError, data: uploadData } = await supabase.storage
-          .from('pdf_files')
-          .upload(filePath, selectedFile, {
-            cacheControl: '3600',
-            upsert: true // Changed to true to overwrite if exists
-          });
-
-        if (uploadError) {
-          throw new Error(`Error uploading file: ${uploadError.message}`);
-        }
-
-        const { data: urlData } = supabase.storage
-          .from('pdf_files')
-          .getPublicUrl(filePath);
-
-        if (!urlData?.publicUrl) {
-          throw new Error("Failed to get public URL for uploaded file");
-        }
-
-        toast.success("File uploaded successfully");
-        
-        pdfUrl = urlData.publicUrl;
-        fileName = selectedFile.name;
+        pdfUrl = uploadResult.publicUrl;
+        fileName = uploadResult.fileName;
       }
 
       const tableName = config.tableName;
       
-      // Check if the table exists in the database before operations
-      if (!isExistingTable(tableName)) {
-        toast.error(`Table ${tableName} is not yet implemented in the database`);
-        return false;
-      }
-
       if (jobId) {
         // We're updating an existing job
         const updateData: any = {
@@ -152,13 +92,9 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           updateData.file_name = fileName;
         }
         
-        // Use 'as any' to bypass TypeScript's type checking for the table name
-        const { error } = await supabase
-          .from(tableName as any)
-          .update(updateData)
-          .eq('id', jobId);
-          
-        if (error) throw error;
+        // Update the existing job
+        const success = await updateJob(tableName, jobId, updateData);
+        if (!success) return false;
         
         toast.success(`${config.ui.jobFormTitle} updated successfully`);
       } else {
@@ -194,15 +130,9 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           if ('uv_varnish' in data) newJobData.uv_varnish = data.uv_varnish;
         }
         
-        console.log("Creating new job with data:", newJobData);
-        console.log("Table name:", tableName);
-        
-        // Use 'as any' to bypass TypeScript's type checking for the table name
-        const { error } = await supabase
-          .from(tableName as any)
-          .insert(newJobData);
-
-        if (error) throw error;
+        // Create the new job
+        const success = await createJob(tableName, newJobData);
+        if (!success) return false;
         
         toast.success(`${config.ui.jobFormTitle} created successfully`);
       }
