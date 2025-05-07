@@ -8,6 +8,63 @@ import { isExistingTable } from "@/utils/database/tableValidation";
  */
 export const useJobDatabase = () => {
   /**
+   * Validates that all required fields match the schema
+   */
+  const validateJobFields = async (
+    tableName: string, 
+    jobData: Record<string, any>
+  ): Promise<{ valid: boolean; missingFields?: string[]; invalidFields?: string[] }> => {
+    try {
+      // Basic required field validation
+      const requiredFields = ['name', 'quantity', 'due_date', 'pdf_url'];
+      const missingFields = requiredFields.filter(field => !jobData[field]);
+      
+      if (missingFields.length > 0) {
+        console.error("Missing required job data fields:", missingFields);
+        return { valid: false, missingFields };
+      }
+
+      // Validate schema by checking if all fields exist in the table
+      const { data: columns, error: schemaError } = await supabase
+        .from(tableName as any)
+        .select()
+        .limit(1);
+
+      if (schemaError) {
+        console.error("Error checking schema:", schemaError);
+        return { valid: false };
+      }
+      
+      // Get column names from the returned data or metadata
+      const tableInfo = await supabase.rpc('get_table_info', { table_name: tableName });
+      if (tableInfo.error) {
+        console.error("Error fetching table info:", tableInfo.error);
+        return { valid: false };
+      }
+      
+      const allowedColumns = tableInfo.data?.map((col: any) => col.column_name) || [];
+      
+      // Check if any field doesn't exist in the table schema
+      const jobDataKeys = Object.keys(jobData);
+      const invalidFields = jobDataKeys.filter(key => 
+        key !== 'id' && // Skip id field as it might be auto-generated
+        !allowedColumns.includes(key)
+      );
+      
+      if (invalidFields.length > 0) {
+        console.error("Invalid fields detected:", invalidFields);
+        console.error("Allowed columns are:", allowedColumns);
+        return { valid: false, invalidFields };
+      }
+      
+      return { valid: true };
+    } catch (error) {
+      console.error("Error validating job fields:", error);
+      return { valid: false };
+    }
+  };
+
+  /**
    * Creates a new job in the database
    */
   const createJob = async (
@@ -44,7 +101,24 @@ export const useJobDatabase = () => {
 
       if (error) {
         console.error(`Database error creating job:`, error);
-        toast.error(`Failed to create job: ${error.message}`);
+        
+        // Provide more specific error messages based on error codes
+        if (error.code === '42703') { // undefined_column
+          toast.error(`Database schema error: One or more fields don't exist in the database`);
+          
+          // Try to identify which column is causing the issue
+          const match = error.message.match(/column "([^"]+)" of relation/);
+          if (match && match[1]) {
+            const problematicColumn = match[1];
+            console.error(`Problem with column: ${problematicColumn}`);
+            toast.error(`Field "${problematicColumn}" is not defined in the database schema`);
+          }
+        } else if (error.code === '23502') { // not_null_violation
+          toast.error(`Required field missing: ${error.message}`);
+        } else {
+          toast.error(`Failed to create job: ${error.message}`);
+        }
+        
         throw error;
       }
       
@@ -85,7 +159,22 @@ export const useJobDatabase = () => {
         
       if (error) {
         console.error(`Database error updating job:`, error);
-        toast.error(`Failed to update job: ${error.message}`);
+        
+        // Provide more specific error messages based on error codes
+        if (error.code === '42703') { // undefined_column
+          toast.error(`Database schema error: One or more fields don't exist in the database`);
+          
+          // Try to identify which column is causing the issue
+          const match = error.message.match(/column "([^"]+)" of relation/);
+          if (match && match[1]) {
+            const problematicColumn = match[1];
+            console.error(`Problem with column: ${problematicColumn}`);
+            toast.error(`Field "${problematicColumn}" is not defined in the database schema`);
+          }
+        } else {
+          toast.error(`Failed to update job: ${error.message}`);
+        }
+        
         throw error;
       }
       
@@ -100,6 +189,7 @@ export const useJobDatabase = () => {
 
   return {
     createJob,
-    updateJob
+    updateJob,
+    validateJobFields
   };
 };
