@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Users as UsersIcon, AlertTriangle, RefreshCw, LogOut } from "lucide-react";
@@ -19,7 +19,7 @@ const UsersContent = () => {
   const navigate = useNavigate();
   const { user, isAdmin, signOut } = useAuth();
   const [authIssue, setAuthIssue] = useState<boolean>(false);
-  const { isValidating } = useSessionValidation(true);
+  const { isValidating, isValid } = useSessionValidation(true);
   
   const { 
     error, 
@@ -29,41 +29,58 @@ const UsersContent = () => {
     fetchUsers
   } = useUserManagement();
 
-  // Check if admin exists when the component mounts
-  useEffect(() => {
-    const checkAdmin = async () => {
-      if (!user?.id) {
-        console.log("No authenticated user, cannot check admin exists");
-        return;
-      }
-      
-      try {
-        console.log("Checking if any admin exists...");
-        await checkAdminExists();
-      } catch (err) {
-        console.error("Failed to check admin existence:", err);
-        toast.error("Failed to check if admin exists. Please try again.");
-      }
-    };
-    
-    if (!isValidating) {
-      checkAdmin();
+  // Check if admin exists when the component mounts - using useCallback to prevent recreation
+  const initializeAdminCheck = useCallback(async () => {
+    if (!user?.id) {
+      console.log("No authenticated user, cannot check admin exists");
+      return;
     }
-  }, [checkAdminExists, user?.id, isValidating]);
-
-  // Monitor auth status changes
-  useEffect(() => {
-    console.log("User auth status in UsersContent:", { isAdmin, userId: user?.id });
     
-    // If user is admin, refresh the user list
-    if (isAdmin && user?.id) {
+    try {
+      console.log("Checking if any admin exists...");
+      await checkAdminExists();
+    } catch (err) {
+      console.error("Failed to check admin existence:", err);
+      toast.error("Failed to check if admin exists. Please try again.");
+    }
+  }, [checkAdminExists, user?.id]);
+  
+  // Using useEffect with proper dependencies
+  useEffect(() => {
+    let mounted = true;
+    
+    if (!isValidating && mounted) {
+      initializeAdminCheck();
+    }
+    
+    return () => {
+      mounted = false;
+    };
+  }, [isValidating, initializeAdminCheck]);
+
+  // Monitor auth status changes with proper dependencies
+  useEffect(() => {
+    let mounted = true;
+    
+    if (mounted) {
+      console.log("User auth status in UsersContent:", { isAdmin, userId: user?.id });
+    }
+    
+    // If user is admin, refresh the user list - but only once on mount
+    if (isAdmin && user?.id && mounted && isValid) {
       fetchUsers().catch(err => {
-        console.error("Failed to fetch users:", err);
+        if (mounted) {
+          console.error("Failed to fetch users:", err);
+        }
       });
     }
-  }, [isAdmin, user?.id, fetchUsers]);
+    
+    return () => {
+      mounted = false;
+    };
+  }, [isAdmin, user?.id, isValid]);
 
-  // Monitor errors for authentication issues
+  // Monitor errors for authentication issues - using useCallback to prevent recreation
   useEffect(() => {
     if (error && (
       error.includes('session') || 
@@ -76,7 +93,7 @@ const UsersContent = () => {
     }
   }, [error]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     try {
       toast.info('Refreshing user data...');
       await fetchUsers();
@@ -85,9 +102,9 @@ const UsersContent = () => {
       console.error("Error refreshing user data:", err);
       toast.error('Failed to refresh user data. Please try again.');
     }
-  };
+  }, [fetchUsers]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await signOut();
       toast.success('Logged out successfully');
@@ -98,7 +115,7 @@ const UsersContent = () => {
       // Force reload as last resort
       window.location.reload();
     }
-  };
+  }, [navigate, signOut]);
 
   // Show loading state when validating session or loading data
   if (isValidating || isLoading) {
@@ -107,6 +124,7 @@ const UsersContent = () => {
 
   return (
     <div>
+      {/* Header content */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="flex items-center">

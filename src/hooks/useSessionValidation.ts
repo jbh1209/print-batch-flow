@@ -1,5 +1,5 @@
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -16,38 +16,59 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
   const [userId, setUserId] = useState<string | null>(null);
   const [lastValidated, setLastValidated] = useState<number>(0);
   
+  // Use refs to prevent duplicate API calls and infinite loops
+  const isMounted = useRef(true);
+  const validationInProgress = useRef(false);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+  
   // Function to validate session with improved error handling
   const validateSession = useCallback(async (): Promise<void> => {
+    // Skip if already validating or component unmounted
+    if (validationInProgress.current || !isMounted.current) {
+      return;
+    }
+    
     try {
       console.log("Running session validation...");
       setIsValidating(true);
+      validationInProgress.current = true;
       
       // Get session directly without trying to get a fresh token first
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
         console.error('Session validation error:', error);
-        if (requireAuth) {
+        if (requireAuth && isMounted.current) {
           toast.error("Authentication required. Please sign in.");
           navigate('/auth', { replace: true });
         }
-        setIsValid(false);
+        if (isMounted.current) {
+          setIsValid(false);
+        }
         return;
       }
       
       // If no session and auth required, redirect
       if (!session) {
         console.log("No active session found");
-        if (requireAuth) {
+        if (requireAuth && isMounted.current) {
           toast.error("Authentication required. Please sign in.");
           navigate('/auth', { replace: true });
         }
-        setIsValid(false);
+        if (isMounted.current) {
+          setIsValid(false);
+        }
         return;
       }
       
       // If we have a session, store the userId
-      if (session) {
+      if (session && isMounted.current) {
         setUserId(session.user.id);
       }
       
@@ -60,60 +81,69 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
         
         if (adminError) {
           console.error('Admin validation error:', adminError);
-          setIsAdmin(false);
-          if (requireAdmin) {
+          if (isMounted.current) {
+            setIsAdmin(false);
+          }
+          if (requireAdmin && isMounted.current) {
             toast.error("Admin access required for this page");
             navigate('/', { replace: true });
           }
-          setIsValid(false);
+          if (isMounted.current) {
+            setIsValid(false);
+          }
           return;
         }
         
         if (!isAdminUser && requireAdmin) {
           console.log("User lacks admin privileges");
-          toast.error("You don't have admin privileges required for this page");
-          navigate('/', { replace: true });
-          setIsValid(false);
+          if (isMounted.current) {
+            toast.error("You don't have admin privileges required for this page");
+            navigate('/', { replace: true });
+          }
+          if (isMounted.current) {
+            setIsValid(false);
+          }
           return;
         }
         
-        setIsAdmin(!!isAdminUser);
+        if (isMounted.current) {
+          setIsAdmin(!!isAdminUser);
+        }
       }
       
       // Mark session as valid if we get here
-      setIsValid(true);
-      setLastValidated(Date.now());
+      if (isMounted.current) {
+        setIsValid(true);
+        setLastValidated(Date.now());
+      }
     } catch (error) {
       console.error('Session validation exception:', error);
       await handleAuthError(error);
-      setIsValid(false);
+      if (isMounted.current) {
+        setIsValid(false);
+      }
     } finally {
-      setIsValidating(false);
+      if (isMounted.current) {
+        setIsValidating(false);
+      }
+      validationInProgress.current = false;
     }
   }, [navigate, requireAuth, requireAdmin]);
   
   // Effect to validate session on mount and periodically
   useEffect(() => {
-    let isMounted = true;
-    
-    const doValidation = async () => {
-      if (!isMounted) return;
-      await validateSession();
-    };
-    
     // Initial validation
-    doValidation();
+    validateSession();
     
     // Set up periodic re-validation (every 5 minutes)
     const interval = setInterval(() => {
-      if (isMounted && (Date.now() - lastValidated) > 5 * 60 * 1000) {
+      if (isMounted.current && (Date.now() - lastValidated) > 5 * 60 * 1000) {
         console.log("Periodic session re-validation");
-        doValidation();
+        validateSession();
       }
     }, 60 * 1000); // Check every minute, but only revalidate after 5 minutes
     
     return () => {
-      isMounted = false;
       clearInterval(interval);
     };
   }, [validateSession, lastValidated]);

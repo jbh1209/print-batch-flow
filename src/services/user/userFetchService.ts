@@ -3,26 +3,57 @@ import { supabase } from '@/integrations/supabase/client';
 import { UserWithRole } from '@/types/user-types';
 import { handleAuthError } from '../auth/authService';
 
-/**
- * User fetching functions - Enhanced with retry logic and proper error handling
- */
+// Cache for users data to prevent excessive API calls
+let usersCache: {
+  data: UserWithRole[] | null;
+  timestamp: number;
+} = {
+  data: null,
+  timestamp: 0
+};
 
-// Fetch all users with their roles
+// Cache expiration time (5 minutes)
+const CACHE_EXPIRATION = 5 * 60 * 1000;
+
+// Flag to prevent concurrent API calls
+let fetchInProgress = false;
+
+/**
+ * User fetching functions - Enhanced with retry logic, caching and proper error handling
+ */
 export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWithRole[]> {
   try {
+    // Check if we're already fetching users
+    if (fetchInProgress) {
+      console.log('Fetch already in progress, using pending request');
+      // Wait for the current fetch to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return fetchUsers(retryCount, maxRetries);
+    }
+    
+    // Check if we have valid cached data
+    const now = Date.now();
+    if (usersCache.data && (now - usersCache.timestamp) < CACHE_EXPIRATION) {
+      console.log('Using cached user data');
+      return usersCache.data;
+    }
+    
     console.log(`Fetching users using Edge Function (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    fetchInProgress = true;
     
     // Get current session and extract token
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError || !session) {
       console.error('No auth session available:', sessionError?.message || 'Session is null');
+      fetchInProgress = false;
       throw new Error('Authentication required: You must be logged in to access user data.');
     }
     
     const token = session.access_token;
     if (!token) {
       console.error('No auth token available');
+      fetchInProgress = false;
       throw new Error('Authentication required: Invalid session token.');
     }
     
@@ -36,6 +67,7 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
     
     if (error) {
       console.error('Edge function error:', error);
+      fetchInProgress = false;
       
       // Handle authentication errors specifically
       if (error.status === 401 || (error.message && error.message.includes('JWT'))) {
@@ -61,13 +93,22 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
     
     if (!data || !Array.isArray(data)) {
       console.error('Invalid response from edge function:', data);
+      fetchInProgress = false;
       throw new Error('Invalid server response: Expected a list of users. Please try refreshing the page.');
     }
     
+    // Update cache
+    usersCache = {
+      data: data as UserWithRole[],
+      timestamp: now
+    };
+    
     console.log(`Successfully fetched ${data.length} users`);
+    fetchInProgress = false;
     return data as UserWithRole[];
   } catch (error: any) {
     console.error('Error in fetchUsers:', error);
+    fetchInProgress = false;
     
     // Check if the error is auth-related
     if (error.message?.includes('JWT') || 

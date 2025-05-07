@@ -2,22 +2,29 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { useCallback } from "react";
-import { handleAuthError, getFreshAuthToken } from "@/services/auth/authService";
+import { useCallback, useRef } from "react";
+import { handleAuthError } from "@/services/auth/authService";
 
 /**
  * Hook for checking session validity with improved error handling
  */
 export const useSessionCheck = () => {
   const navigate = useNavigate();
+  const validationInProgress = useRef(false);
   
   /**
    * Validates that the user has an active session
    * @returns User ID if session is valid, null otherwise
    */
   const validateSession = useCallback(async (): Promise<string | null> => {
+    // Prevent multiple concurrent validation calls
+    if (validationInProgress.current) {
+      return null;
+    }
+    
     try {
       console.log("Validating user session...");
+      validationInProgress.current = true;
       
       // Check if user is authenticated directly from the session
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -51,6 +58,8 @@ export const useSessionCheck = () => {
       console.error("Session validation error:", error);
       await handleAuthError(error);
       return null;
+    } finally {
+      validationInProgress.current = false;
     }
   }, [navigate]);
   
