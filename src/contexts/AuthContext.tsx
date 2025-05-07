@@ -1,305 +1,235 @@
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase, castToUUID } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import React, { createContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Session, User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-// Create a type for our Auth Context
-export type AuthContextType = {
+interface AuthContextType {
   session: Session | null;
   user: User | null;
+  profile: { full_name?: string; avatar_url?: string } | null;
   isLoading: boolean;
-  isAdmin: boolean;
-  profile?: { full_name?: string | null; avatar_url?: string | null } | null;
+  error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
-  refreshSession: () => Promise<boolean>;
-};
+  updateProfile: (fullName: string, avatarUrl?: string) => Promise<void>;
+}
 
-// Create the Auth Context with default values
 export const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
-  isLoading: true,
-  isAdmin: false,
   profile: null,
+  isLoading: true,
+  error: null,
   signIn: async () => {},
+  signUp: async () => {},
   signOut: async () => {},
-  refreshSession: async () => false,
+  updateProfile: async () => {},
 });
 
-// Clean up auth state in storage
-const cleanupAuthState = () => {
-  Object.keys(localStorage).forEach((key) => {
-    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-      localStorage.removeItem(key);
-    }
-  });
-  
-  if (typeof sessionStorage !== 'undefined') {
-    Object.keys(sessionStorage).forEach((key) => {
-      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-        sessionStorage.removeItem(key);
-      }
-    });
-  }
-};
+interface AuthProviderProps {
+  children: React.ReactNode;
+}
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<{ full_name?: string; avatar_url?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [profile, setProfile] = useState<{ full_name?: string | null; avatar_url?: string | null } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Check if a user is an admin
-  const checkIsAdmin = async (userId: string): Promise<boolean> => {
-    if (!userId) return false;
-    
-    try {
-      const { data, error } = await supabase
-        .rpc('is_admin_secure_fixed', { _user_id: userId });
-      
-      if (error) {
-        console.error('Error checking admin status:', error);
-        return false;
-      }
-      
-      return !!data;
-    } catch (error) {
-      console.error('Error in checkIsAdmin:', error);
-      return false;
-    }
-  };
-
-  // Fetch user profile data
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      // Try to get the profile
-      let { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, avatar_url')
-        .eq('id', castToUUID(userId))
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        return null;
-      }
-      
-      // If profile doesn't exist, create it
-      if (!data) {
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert({ 
-            id: castToUUID(userId),
-            full_name: null,
-            avatar_url: null
-          } as any);
-        
-        if (insertError) {
-          console.error('Error creating profile:', insertError);
-          return null;
-        }
-        
-        // After creating, fetch again
-        const { data: newData, error: fetchError } = await supabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', castToUUID(userId))
-          .maybeSingle();
-          
-        if (fetchError) {
-          console.error('Error fetching new profile:', fetchError);
-          return null;
-        }
-        
-        data = newData;
-      }
-      
-      if (data) {
-        setProfile({
-          full_name: data.full_name,
-          avatar_url: data.avatar_url
-        });
-        return data;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
-      return null;
-    }
-  };
-
-  // Update admin status whenever user changes
   useEffect(() => {
-    const updateAdminStatus = async () => {
-      if (user?.id) {
-        const isUserAdmin = await checkIsAdmin(user.id);
-        setIsAdmin(isUserAdmin);
+    const fetchSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
         
-        // Also fetch profile data
-        await fetchUserProfile(user.id);
-      } else {
-        setIsAdmin(false);
-        setProfile(null);
+        setSession(data.session);
+        setUser(data.session?.user || null);
+
+        if (data.session?.user) {
+          await fetchUserProfile(data.session.user.id);
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error("Error getting session:", error);
+        setError("Failed to get session");
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    updateAdminStatus();
-  }, [user]);
+    fetchSession();
 
-  // Initialize auth state and listen for changes
-  useEffect(() => {
-    let mounted = true;
-    
-    const setupAuth = async () => {
-      try {
-        // Set up auth change listener FIRST to avoid missing events
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (event, currentSession) => {
-            if (!mounted) return;
-            
-            console.log('Auth state changed:', event);
-            
-            // Only update state with synchronous operations
-            setSession(currentSession);
-            setUser(currentSession?.user || null);
-            
-            // Use setTimeout to avoid recursive state updates
-            if (currentSession?.user) {
-              setTimeout(() => {
-                if (mounted) {
-                  checkIsAdmin(currentSession.user!.id)
-                    .then(isAdmin => setIsAdmin(isAdmin))
-                    .catch(err => console.error("Admin check error:", err));
-                    
-                  fetchUserProfile(currentSession.user!.id)
-                    .catch(err => console.error("Profile fetch error:", err));
-                }
-              }, 0);
-            }
-          }
-        );
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user || null);
         
-        // Then check for existing session
-        const { data } = await supabase.auth.getSession();
-        if (mounted) {
-          setSession(data.session);
-          setUser(data.session?.user || null);
-          
-          if (data.session?.user) {
-            const isUserAdmin = await checkIsAdmin(data.session.user.id);
-            setIsAdmin(isUserAdmin);
-            await fetchUserProfile(data.session.user.id);
-          }
+        if (newSession?.user) {
+          await fetchUserProfile(newSession.user.id);
+        } else {
+          setProfile(null);
         }
         
         setIsLoading(false);
-        
-        return () => {
-          subscription.unsubscribe();
-        };
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
       }
-    };
-    
-    setupAuth();
-    
+    );
+
     return () => {
-      mounted = false;
+      authListener?.subscription.unsubscribe();
     };
   }, []);
 
-  // Sign in function with proper error handling
-  const signIn = async (email: string, password: string) => {
+  const fetchUserProfile = async (userId: string) => {
     try {
-      // Clean up any existing auth state to prevent conflicts
-      cleanupAuthState();
-      
-      // Attempt to sign out first to clear any existing sessions
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        // Continue despite error
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("id", userId as any)
+        .single();
+
+      if (error) {
+        // If profile doesn't exist, create one
+        if (error.code === "PGRST116") {
+          await supabase.from("profiles").insert({
+            id: userId as any,
+          } as any);
+          
+          setProfile({ full_name: "", avatar_url: "" });
+        } else {
+          console.error("Error fetching profile:", error);
+        }
+        return;
       }
-      
+
+      // Check if data is available before setting profile
+      if (data) {
+        setProfile({
+          full_name: data.full_name || "",
+          avatar_url: data.avatar_url || "",
+        });
+      } else {
+        setProfile({ full_name: "", avatar_url: "" });
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
+
       if (error) throw error;
       
-      toast.success('Signed in successfully');
-      navigate('/');
+      toast.success("Signed in successfully");
+      navigate("/");
     } catch (error: any) {
-      console.error('Sign in error:', error);
-      toast.error(error.message || 'Failed to sign in');
-      throw error;
+      console.error("Error signing in:", error);
+      setError(error.message || "Failed to sign in");
+      toast.error(error.message || "Failed to sign in");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Sign out function with thorough cleanup
-  const signOut = async () => {
+  const signUp = async (email: string, password: string, fullName: string) => {
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      // Clean up auth state first
-      cleanupAuthState();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
+      });
+
+      if (error) throw error;
       
-      // Attempt global sign out
-      await supabase.auth.signOut({ scope: 'global' });
-      
-      // Clear state
-      setSession(null);
-      setUser(null);
-      setIsAdmin(false);
-      setProfile(null);
-      
-      toast.success('Signed out successfully');
-      navigate('/auth');
+      toast.success(
+        "Registration successful! Please check your email to confirm your account."
+      );
+      navigate("/auth/login");
     } catch (error: any) {
-      console.error('Sign out error:', error);
-      toast.error(error.message || 'Failed to sign out');
-      
-      // Force clean up on error
-      cleanupAuthState();
-      window.location.href = '/auth';
+      console.error("Error signing up:", error);
+      setError(error.message || "Failed to sign up");
+      toast.error(error.message || "Failed to sign up");
+    } finally {
+      setIsLoading(false);
     }
   };
-  
-  // Refresh session manually - useful for recovering from errors
-  const refreshSession = async (): Promise<boolean> => {
+
+  const signOut = async () => {
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      const { data, error } = await supabase.auth.refreshSession();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       
-      if (error) {
-        console.error('Session refresh error:', error);
-        return false;
-      }
+      setSession(null);
+      setUser(null);
+      setProfile(null);
       
-      if (data.session) {
-        setSession(data.session);
-        setUser(data.session.user);
-        
-        // Update admin status in background
-        const isUserAdmin = await checkIsAdmin(data.session.user.id);
-        setIsAdmin(isUserAdmin);
-        await fetchUserProfile(data.session.user.id);
-        
-        return true;
-      }
+      toast.success("Signed out successfully");
+      navigate("/auth/login");
+    } catch (error: any) {
+      console.error("Error signing out:", error);
+      setError(error.message || "Failed to sign out");
+      toast.error(error.message || "Failed to sign out");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateProfile = async (fullName: string, avatarUrl?: string) => {
+    if (!user) return;
+
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const updates = {
+        full_name: fullName,
+        ...(avatarUrl && { avatar_url: avatarUrl }),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from("profiles")
+        .update(updates as any)
+        .eq("id", user.id as any);
+
+      if (error) throw error;
       
-      return false;
-    } catch (error) {
-      console.error('Session refresh exception:', error);
-      return false;
+      setProfile(prev => ({
+        ...prev,
+        full_name: fullName,
+        ...(avatarUrl && { avatar_url: avatarUrl }),
+      }));
+      
+      toast.success("Profile updated successfully");
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      setError(error.message || "Failed to update profile");
+      toast.error(error.message || "Failed to update profile");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -308,18 +238,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         session,
         user,
-        isLoading,
-        isAdmin,
         profile,
+        isLoading,
+        error,
         signIn,
+        signUp,
         signOut,
-        refreshSession,
+        updateProfile,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
-
-// Custom hook to use the Auth Context
-export const useAuth = () => useContext(AuthContext);

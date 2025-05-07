@@ -1,10 +1,11 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase, castToUUID } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BaseBatch, BaseJob, ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
+import { safeGet } from "@/utils/database/dbHelpers";
 
 interface UseBatchDataFetchingProps {
   batchId: string;
@@ -37,8 +38,8 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       const { data, error } = await supabase
         .from("batches")
         .select("*")
-        .eq("id", castToUUID(batchId))
-        .eq("created_by", castToUUID(userId))
+        .eq("id", batchId as any)
+        .eq("created_by", userId as any)
         .single();
       
       if (error) {
@@ -60,7 +61,7 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       console.log("Batch details received:", data);
       
       // Properly check for a sleeve batch
-      const isSleeveBatch = typeof data.name === 'string' && data.name.startsWith('DXB-SL-');
+      const isSleeveBatch = typeof safeGet(data, 'name') === 'string' && safeGet(data, 'name')?.startsWith('DXB-SL-');
       
       const batchData: BaseBatch = {
         id: data.id,
@@ -89,7 +90,7 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
         const { data: jobsData, error: jobsError } = await supabase
           .from(tableName as any)
           .select("*")
-          .eq("batch_id", castToUUID(batchId))
+          .eq("batch_id", batchId as any)
           .order("name");
       
         if (jobsError) {
@@ -132,6 +133,10 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchBatchDetails();
+  }, [batchId, userId]);
 
   return {
     batch,

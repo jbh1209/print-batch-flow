@@ -28,7 +28,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       let query = supabase
         .from('batches')
         .select('*')
-        .eq('created_by', user.id);
+        .eq('created_by', user.id as any);
       
       // Get product code from the standardized utility function
       const productCode = getProductTypeCode(config.productType);
@@ -40,7 +40,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       }
       
       if (batchId) {
-        query = query.eq("id", batchId);
+        query = query.eq("id", batchId as any);
       }
       
       const { data, error: fetchError } = await query
@@ -51,9 +51,9 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       console.log('Batches data received for', config.productType, ':', data?.length || 0, 'records');
       
       const genericBatches: BaseBatch[] = (data || []).map(batch => ({
-        ...batch,
+        ...batch as any,
         overview_pdf_url: null,
-        lamination_type: batch.lamination_type || "none"
+        lamination_type: batch?.lamination_type || "none"
       }));
       
       setBatches(genericBatches);

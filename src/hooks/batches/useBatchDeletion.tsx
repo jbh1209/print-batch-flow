@@ -30,8 +30,8 @@ export function useBatchDeletion({ config }: UseBatchDeletionProps) {
           .update({ 
             status: "queued",
             batch_id: null
-          })
-          .eq("batch_id", batchToDelete);
+          } as any)
+          .eq("batch_id", batchToDelete as any);
         
         if (jobsError) throw jobsError;
       }
@@ -39,7 +39,7 @@ export function useBatchDeletion({ config }: UseBatchDeletionProps) {
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
-        .eq("id", batchToDelete);
+        .eq("id", batchToDelete as any);
       
       if (deleteError) throw deleteError;
       

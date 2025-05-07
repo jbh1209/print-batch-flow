@@ -26,8 +26,8 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
           .update({ 
             status: "queued",
             batch_id: null
-          })
-          .eq("batch_id", batchToDelete);
+          } as any)
+          .eq("batch_id", batchToDelete as any);
         
         if (jobsError) throw jobsError;
       } else if (productType === "Flyers") {
@@ -36,8 +36,8 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
           .update({ 
             status: "queued",
             batch_id: null
-          })
-          .eq("batch_id", batchToDelete);
+          } as any)
+          .eq("batch_id", batchToDelete as any);
         
         if (jobsError) throw jobsError;
       }
@@ -45,7 +45,7 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
-        .eq("id", batchToDelete);
+        .eq("id", batchToDelete as any);
       
       if (deleteError) throw deleteError;
       
