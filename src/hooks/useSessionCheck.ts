@@ -3,10 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useCallback, useRef } from "react";
-import { handleAuthError } from "@/services/auth/authService";
 
 /**
- * Hook for checking session validity with improved error handling
+ * Consolidated hook for checking session validity
+ * This replaces the duplicate session validation logic across multiple hooks
  */
 export const useSessionCheck = () => {
   const navigate = useNavigate();
@@ -23,21 +23,20 @@ export const useSessionCheck = () => {
     }
     
     try {
-      console.log("Validating user session...");
       validationInProgress.current = true;
       
       // Check if user is authenticated directly from the session
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.error("Session validation error:", sessionError);
-        await handleAuthError(sessionError);
+        console.error("Session error:", sessionError);
+        toast.error("Authentication error. Please sign in again.");
+        navigate('/auth', { replace: true });
         return null;
       }
       
       // If no session and auth required, redirect
       if (!sessionData.session) {
-        console.log("No active session found");
         toast.error("Authentication required. Please sign in.");
         navigate('/auth', { replace: true });
         return null;
@@ -46,17 +45,16 @@ export const useSessionCheck = () => {
       // Get fresh token as a verification step
       const token = sessionData.session.access_token;
       if (!token) {
-        console.log("No valid token in session");
         toast.error("Authentication required. Please sign in.");
         navigate('/auth', { replace: true });
         return null;
       }
       
-      console.log("Valid session found for user:", sessionData.session.user.id);
       return sessionData.session.user.id;
     } catch (error) {
       console.error("Session validation error:", error);
-      await handleAuthError(error);
+      toast.error("Authentication error. Please sign in again.");
+      navigate('/auth', { replace: true });
       return null;
     } finally {
       validationInProgress.current = false;

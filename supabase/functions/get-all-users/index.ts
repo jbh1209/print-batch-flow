@@ -38,11 +38,7 @@ serve(async (req) => {
     if (!authHeader) {
       console.error("No authorization header provided");
       return new Response(
-        JSON.stringify({ 
-          error: 'Authentication required', 
-          details: 'No authorization header found',
-          status: 'auth_missing' 
-        }),
+        JSON.stringify({ error: 'Authentication required', details: 'No authorization header found' }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -54,18 +50,14 @@ serve(async (req) => {
     if (userError || !user) {
       console.error("Invalid user token:", userError?.message || "User not found");
       return new Response(
-        JSON.stringify({ 
-          error: 'Authentication failed', 
-          details: userError?.message || 'Invalid user token',
-          status: 'auth_invalid' 
-        }),
+        JSON.stringify({ error: 'Authentication failed', details: userError?.message || 'Invalid user token' }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
     console.log(`User authenticated: ${user.id}`);
     
-    // Check if the user is an admin using database function
+    // Check if the user is an admin
     const { data: isAdmin, error: adminCheckError } = await supabaseAdmin.rpc(
       'is_admin_secure_fixed',
       { _user_id: user.id }
@@ -74,11 +66,7 @@ serve(async (req) => {
     if (adminCheckError) {
       console.error("Admin check error:", adminCheckError.message);
       return new Response(
-        JSON.stringify({ 
-          error: 'Error checking permissions', 
-          details: adminCheckError.message,
-          status: 'admin_check_error' 
-        }),
+        JSON.stringify({ error: 'Error checking permissions', details: adminCheckError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -88,11 +76,7 @@ serve(async (req) => {
     if (!isAdmin) {
       console.error(`User ${user.id} is not an admin`);
       return new Response(
-        JSON.stringify({ 
-          error: 'Access denied', 
-          details: 'Admin privileges required to access user data',
-          status: 'not_admin' 
-        }),
+        JSON.stringify({ error: 'Access denied', details: 'Admin privileges required to access user data' }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -103,11 +87,7 @@ serve(async (req) => {
     if (authUsersError) {
       console.error("Error fetching users:", authUsersError.message);
       return new Response(
-        JSON.stringify({ 
-          error: 'Failed to fetch users', 
-          details: authUsersError.message,
-          status: 'fetch_error' 
-        }),
+        JSON.stringify({ error: 'Failed to fetch users', details: authUsersError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -124,11 +104,7 @@ serve(async (req) => {
     if (profilesError || userRolesError) {
       console.error("Error fetching profiles or roles:", profilesError?.message || userRolesError?.message);
       return new Response(
-        JSON.stringify({ 
-          error: 'Failed to fetch user data', 
-          details: profilesError?.message || userRolesError?.message,
-          status: 'data_error' 
-        }),
+        JSON.stringify({ error: 'Failed to fetch user data', details: profilesError?.message || userRolesError?.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -142,7 +118,6 @@ serve(async (req) => {
         id: authUser.id,
         email: authUser.email,
         created_at: authUser.created_at,
-        last_sign_in_at: authUser.last_sign_in_at,
         role: userRole,
         full_name: profile?.full_name || null,
         avatar_url: profile?.avatar_url || null
@@ -156,13 +131,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error('Error in get-all-users function:', error.message, error.stack);
+    console.error('Error in get-all-users function:', error.message);
     return new Response(
-      JSON.stringify({ 
-        error: 'Server error', 
-        details: error.message,
-        status: 'server_error' 
-      }),
+      JSON.stringify({ error: 'Server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import * as userService from '@/services/user';
 import { useAuth } from '@/hooks/useAuth';
-import { handleAuthError } from '@/services/auth/authService';
 
 /**
  * Hook that manages the state and operations for user management
@@ -16,11 +15,9 @@ export function useUserManagementState() {
   const [anyAdminExists, setAnyAdminExists] = useState(false);
   const { isAdmin, user } = useAuth();
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const CACHE_DURATION = 30000; // 30 seconds cache duration
   
   // Use refs to track mounting state and prevent unnecessary API calls
   const isMounted = useRef(true);
-  const fetchInProgress = useRef(false);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -29,43 +26,40 @@ export function useUserManagementState() {
     };
   }, []);
   
-  // Fetch users function with force refresh option
+  // Fetch users function with proper caching
   const fetchUsers = useCallback(async (forceFetch = false) => {
-    // Skip if already fetching or component unmounted
-    if (fetchInProgress.current || !isMounted.current) {
+    // Skip if component unmounted
+    if (!isMounted.current) {
       return;
     }
     
-    // Skip fetch if not admin and not forced
-    if (!isAdmin && !forceFetch) {
-      console.log('Not admin and not forced fetch, skipping fetchUsers');
-      setIsLoading(false);
+    // Skip fetch if not admin
+    if (!isAdmin) {
+      console.log('Not admin, skipping fetchUsers');
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
       return;
     }
     
     // Check auth status before proceeding
     if (!user?.id) {
       console.log('No authenticated user, skipping fetchUsers');
-      setError('Authentication required');
-      setIsLoading(false);
+      if (isMounted.current) {
+        setError('Authentication required');
+        setIsLoading(false);
+      }
       return;
     }
     
-    // Use cache unless force refresh is requested
-    const now = Date.now();
-    if (!forceFetch && now - lastFetchTime < CACHE_DURATION && users.length > 0) {
-      console.log(`Using cached user data from ${new Date(lastFetchTime).toLocaleTimeString()}`);
-      setIsLoading(false);
-      return;
+    if (isMounted.current) {
+      setIsLoading(true);
+      setError(null);
     }
-    
-    setIsLoading(true);
-    setError(null);
-    fetchInProgress.current = true;
     
     try {
       console.log(`Fetching users at ${new Date().toLocaleTimeString()}`);
-      const fetchedUsers = await userService.fetchUsers();
+      const fetchedUsers = await userService.fetchUsers(forceFetch);
       
       // Guard against component unmount during fetch
       if (!isMounted.current) return;
@@ -81,7 +75,7 @@ export function useUserManagementState() {
         });
         
         setUsers(sortedUsers);
-        setLastFetchTime(now);
+        setLastFetchTime(Date.now());
       } else {
         console.warn('Invalid user array returned:', fetchedUsers);
         setUsers([]);
@@ -93,13 +87,6 @@ export function useUserManagementState() {
       console.error('Error loading users:', error);
       const errorMsg = error.message || 'Unknown error'; 
       
-      // Check if it's an auth error that requires sign out
-      if (errorMsg.includes('session') || 
-          errorMsg.includes('Authentication') || 
-          errorMsg.includes('expired')) {
-        await handleAuthError(error);
-      }
-      
       // Set more user-friendly error messages
       if (errorMsg.includes('Authentication') || errorMsg.includes('session')) {
         setError('Your session has expired. Please sign out and sign in again.');
@@ -108,24 +95,18 @@ export function useUserManagementState() {
       } else {
         setError(`Error loading users: ${errorMsg}`);
       }
-      
-      toast.error(`Error loading users: ${errorMsg}. Please try again later.`);
     } finally {
       if (isMounted.current) {
         setIsLoading(false);
       }
-      fetchInProgress.current = false;
     }
-  }, [isAdmin, users.length, lastFetchTime, user?.id]);
+  }, [isAdmin, user?.id]);
 
-  // Check if any admin exists in the system - with debouncing
-  const adminCheckInProgress = useRef(false);
-  
+  // Check if any admin exists in the system
   const checkAdminExists = useCallback(async () => {
-    if (adminCheckInProgress.current || !isMounted.current) return false;
+    if (!isMounted.current) return false;
     
     try {
-      adminCheckInProgress.current = true;
       setError(null);
       const exists = await userService.checkAdminExists();
       
@@ -142,8 +123,6 @@ export function useUserManagementState() {
         setAnyAdminExists(false);
       }
       return false;
-    } finally {
-      adminCheckInProgress.current = false;
     }
   }, []);
   
@@ -203,46 +182,24 @@ export function useUserManagementState() {
     }
   }, []);
 
-  // Auto-refresh users when admin status changes or component mounts - with clean dependency array
+  // Initial fetch when admin status changes
   useEffect(() => {
     let mounted = true;
     
-    const initializeUsers = async () => {
-      if (isAdmin && user?.id && mounted) {
-        console.log('Admin status detected, fetching users');
-        try {
-          await fetchUsers();
-        } catch (error) {
-          console.error('Failed to fetch users in effect:', error);
-        }
-      } else {
-        console.log('Not admin, skipping auto-fetch');
-      }
-    };
-    
-    initializeUsers();
-    
-    return () => {
-      mounted = false;
-    };
-  }, [isAdmin, user?.id]); // Removed fetchUsers from dependency array to prevent loops
-  
-  // Check admin exists on mount - only once
-  useEffect(() => {
-    let mounted = true;
-    
-    if (user?.id) {
-      checkAdminExists().catch(error => {
-        if (mounted) {
-          console.error('Failed to check admin existence on mount:', error);
-        }
-      });
+    if (isAdmin && user?.id && mounted) {
+      console.log('Admin status detected, fetching users');
+      fetchUsers()
+        .catch(error => {
+          if (mounted) {
+            console.error('Failed to fetch users in effect:', error);
+          }
+        });
     }
     
     return () => {
       mounted = false;
     };
-  }, [user?.id]); // Removed checkAdminExists from dependency array to prevent loops
+  }, [isAdmin, user?.id, fetchUsers]);
 
   return {
     users,

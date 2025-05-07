@@ -9,12 +9,9 @@ import { toast } from 'sonner';
 // Clean up all auth state in localStorage and sessionStorage
 export const cleanupAuthState = () => {
   try {
-    console.log('Cleaning up auth state...');
-    
     // Remove all Supabase auth keys from localStorage
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-        console.log(`Removing localStorage key: ${key}`);
         localStorage.removeItem(key);
       }
     });
@@ -23,38 +20,29 @@ export const cleanupAuthState = () => {
     if (typeof sessionStorage !== 'undefined') {
       Object.keys(sessionStorage).forEach((key) => {
         if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-          console.log(`Removing sessionStorage key: ${key}`);
           sessionStorage.removeItem(key);
         }
       });
     }
-    
-    console.log('Auth state cleanup complete');
   } catch (error) {
     console.error('Error cleaning up auth state:', error);
   }
 };
 
-// Robust sign out function that handles edge cases
+// Robust sign out function
 export const signOutSecurely = async (): Promise<void> => {
   try {
-    console.log('Starting secure sign out process...');
-    
     // Attempt to sign out with global scope to invalidate all sessions
     try {
-      console.log('Calling supabase.auth.signOut with global scope...');
       await supabase.auth.signOut({ scope: 'global' });
-      console.log('Global sign out successful');
     } catch (error) {
-      console.error('Failed to sign out globally:', error);
       // Continue despite error
     }
     
     // Clean up auth state after sign out
     cleanupAuthState();
     
-    // Use navigation instead of force reload
-    console.log('Redirecting to auth page...');
+    // Use navigation to auth page
     window.location.href = '/auth';
   } catch (error) {
     console.error('Failed to sign out:', error);
@@ -65,7 +53,7 @@ export const signOutSecurely = async (): Promise<void> => {
     // Still try to redirect user even if sign out failed
     window.location.href = '/auth';
     
-    throw error; // Re-throw for callers to handle
+    throw error;
   }
 };
 
@@ -77,39 +65,23 @@ export const isAuthError = (error: any): boolean => {
     ? error 
     : error.message || error.error_description || '';
   
-  const authErrorPatterns = [
-    'jwt', 'JWT', 'token',
-    'session expired', 'not authenticated',
-    'not logged in', 'Authentication', 'authentication',
-    '401', 'unauthorized', 'Unauthorized'
-  ];
-  
-  const isAuthIssue = authErrorPatterns.some(pattern => 
-    errorMessage.toLowerCase().includes(pattern.toLowerCase())
-  );
-  
-  if (isAuthIssue) {
-    console.log(`Auth error detected: "${errorMessage}"`);
-  }
-  
-  return isAuthIssue;
+  return errorMessage.toLowerCase().includes('jwt') || 
+    errorMessage.toLowerCase().includes('token') ||
+    errorMessage.toLowerCase().includes('session') ||
+    errorMessage.toLowerCase().includes('auth') ||
+    errorMessage.toLowerCase().includes('401');
 };
 
 // Handle auth error with appropriate action
 export const handleAuthError = async (error: any): Promise<void> => {
   if (isAuthError(error)) {
-    console.log('Authentication error detected, signing out...');
     await signOutSecurely();
-  } else {
-    console.log('Non-auth error, no sign out needed');
   }
 };
 
 // Get a fresh JWT token before making an API request
 export const getFreshAuthToken = async (): Promise<string | null> => {
   try {
-    console.log('Getting fresh auth token...');
-    
     // Get current session
     const { data: { session }, error } = await supabase.auth.getSession();
     
@@ -148,7 +120,6 @@ export const getFreshAuthToken = async (): Promise<string | null> => {
       }
     }
     
-    console.log('Using existing valid token');
     return token;
   } catch (error) {
     console.error('Error in getFreshAuthToken:', error);

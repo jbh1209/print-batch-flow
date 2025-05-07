@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Users as UsersIcon, AlertTriangle, RefreshCw, LogOut } from "lucide-react";
@@ -12,14 +12,12 @@ import { UserTableContainer } from "@/components/users/UserTableContainer";
 import { LoadingState } from "@/components/users/LoadingState";
 import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMessage";
 import { toast } from "sonner";
-import { useSessionValidation } from "@/hooks/useSessionValidation";
 
 // Main content component separated from provider setup
 const UsersContent = () => {
   const navigate = useNavigate();
   const { user, isAdmin, signOut } = useAuth();
   const [authIssue, setAuthIssue] = useState<boolean>(false);
-  const { isValidating, isValid } = useSessionValidation(true);
   
   const { 
     error, 
@@ -29,45 +27,37 @@ const UsersContent = () => {
     fetchUsers
   } = useUserManagement();
 
-  // Check if admin exists when the component mounts - using useCallback to prevent recreation
-  const initializeAdminCheck = useCallback(async () => {
-    if (!user?.id) {
-      console.log("No authenticated user, cannot check admin exists");
-      return;
-    }
-    
-    try {
-      console.log("Checking if any admin exists...");
-      await checkAdminExists();
-    } catch (err) {
-      console.error("Failed to check admin existence:", err);
-      toast.error("Failed to check if admin exists. Please try again.");
-    }
-  }, [checkAdminExists, user?.id]);
-  
-  // Using useEffect with proper dependencies
+  // Check if any admin exists when component mounts
   useEffect(() => {
     let mounted = true;
     
-    if (!isValidating && mounted) {
-      initializeAdminCheck();
-    }
+    const initializeCheck = async () => {
+      if (!user?.id) return;
+      
+      try {
+        if (mounted) {
+          await checkAdminExists();
+        }
+      } catch (err) {
+        console.error("Failed to check admin existence:", err);
+        if (mounted) {
+          toast.error("Failed to check if admin exists. Please try again.");
+        }
+      }
+    };
+    
+    initializeCheck();
     
     return () => {
       mounted = false;
     };
-  }, [isValidating, initializeAdminCheck]);
+  }, [user?.id, checkAdminExists]);
 
-  // Monitor auth status changes with proper dependencies
+  // Load users when admin status changes
   useEffect(() => {
     let mounted = true;
     
-    if (mounted) {
-      console.log("User auth status in UsersContent:", { isAdmin, userId: user?.id });
-    }
-    
-    // If user is admin, refresh the user list - but only once on mount
-    if (isAdmin && user?.id && mounted && isValid) {
+    if (isAdmin && user?.id && mounted) {
       fetchUsers().catch(err => {
         if (mounted) {
           console.error("Failed to fetch users:", err);
@@ -78,22 +68,21 @@ const UsersContent = () => {
     return () => {
       mounted = false;
     };
-  }, [isAdmin, user?.id, isValid]);
+  }, [isAdmin, user?.id, fetchUsers]);
 
-  // Monitor errors for authentication issues - using useCallback to prevent recreation
+  // Monitor errors for authentication issues
   useEffect(() => {
     if (error && (
       error.includes('session') || 
       error.includes('Authentication') || 
-      error.includes('expired') ||
-      error.includes('log in again'))) {
+      error.includes('expired'))) {
       setAuthIssue(true);
     } else {
       setAuthIssue(false);
     }
   }, [error]);
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = async () => {
     try {
       toast.info('Refreshing user data...');
       await fetchUsers();
@@ -102,9 +91,9 @@ const UsersContent = () => {
       console.error("Error refreshing user data:", err);
       toast.error('Failed to refresh user data. Please try again.');
     }
-  }, [fetchUsers]);
+  };
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = async () => {
     try {
       await signOut();
       toast.success('Logged out successfully');
@@ -112,13 +101,12 @@ const UsersContent = () => {
     } catch (err) {
       console.error("Error signing out:", err);
       toast.error('Failed to sign out. Please try again.');
-      // Force reload as last resort
       window.location.reload();
     }
-  }, [navigate, signOut]);
+  };
 
-  // Show loading state when validating session or loading data
-  if (isValidating || isLoading) {
+  // Show loading state
+  if (isLoading) {
     return <LoadingState />;
   }
 
