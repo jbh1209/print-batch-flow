@@ -2,8 +2,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
-import * as userService from '@/services/user';
-import { useAuth } from '@/hooks/useAuth';
+import * as userService from '@/services/UserService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface UserManagementContextType {
   users: UserWithRole[];
@@ -14,7 +14,7 @@ interface UserManagementContextType {
   createUser: (userData: UserFormData) => Promise<void>;
   updateUser: (userId: string, userData: UserFormData) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  checkAdminExists: () => Promise<boolean>; // Return type is Promise<boolean>
+  checkAdminExists: () => Promise<boolean>; 
   addAdminRole: (userId: string) => Promise<void>;
 }
 
@@ -27,7 +27,7 @@ const UserManagementContext = createContext<UserManagementContextType>({
   createUser: async () => {},
   updateUser: async () => {},
   deleteUser: async () => {},
-  checkAdminExists: async () => false, // Default return is false
+  checkAdminExists: async () => false,
   addAdminRole: async () => {},
 });
 
@@ -114,7 +114,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       const exists = await userService.checkAdminExists();
       console.log('Admin exists:', exists);
       setAnyAdminExists(exists);
-      return exists; // This returns boolean, which matches our interface
+      return exists;
     } catch (error: any) {
       console.error('Error checking admin existence:', error);
       setError(`Error checking if admin exists: ${error.message}`);
@@ -138,7 +138,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   // Update an existing user
   const updateUser = useCallback(async (userId: string, userData: UserFormData) => {
     try {
-      await userService.updateUserProfile(userId, userData);
+      await userService.updateUser(userId, userData);
       // Re-fetch users to refresh the UI
       await fetchUsers(true); // Force refresh
     } catch (error: any) {
@@ -209,7 +209,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     createUser,
     updateUser,
     deleteUser,
-    checkAdminExists, // The function returning Promise<boolean>
+    checkAdminExists,
     addAdminRole,
   };
 

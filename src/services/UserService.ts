@@ -184,6 +184,16 @@ export async function updateUser(userId: string, userData: {
 }
 
 /**
+ * Update a user's profile specifically
+ */
+export async function updateUserProfile(userId: string, userData: {
+  full_name?: string;
+  role?: string;
+}): Promise<void> {
+  return updateUser(userId, userData);
+}
+
+/**
  * Remove a user's role (revoke access)
  */
 export async function revokeUserAccess(userId: string): Promise<void> {

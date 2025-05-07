@@ -6,22 +6,24 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 // Create a type for our Auth Context
-type AuthContextType = {
+export type AuthContextType = {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
   isAdmin: boolean;
+  profile?: { full_name?: string | null; avatar_url?: string | null } | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
 };
 
 // Create the Auth Context with default values
-const AuthContext = createContext<AuthContextType>({
+export const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
   isLoading: true,
   isAdmin: false,
+  profile: null,
   signIn: async () => {},
   signOut: async () => {},
   refreshSession: async () => false,
@@ -226,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isLoading,
         isAdmin,
+        profile,
         signIn,
         signOut,
         refreshSession,
