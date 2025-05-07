@@ -6,15 +6,11 @@ import { useToast } from "@/hooks/use-toast";
 import { BaseBatch, BaseJob, ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
 import { 
-  safeGet, 
   castToUUID, 
-  safeString, 
+  toSafeString, 
   safeNumber,
-  safeDbResult,
-  safeExtract,
-  asBatchData,
-  safeDbMap,
-  toSafeString
+  processDbFields,
+  safeDbMap
 } from "@/utils/database/dbHelpers";
 
 interface UseBatchDataFetchingProps {
@@ -70,29 +66,29 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       
       console.log("Batch details received:", data);
       
-      // Convert raw data to a safe format
-      const batchData = asBatchData(data);
+      // Process data safely
+      const processedData = processDbFields(data);
       
       // Safely check for a sleeve batch using safeString
-      const batchName = toSafeString(batchData.name);
+      const batchName = toSafeString(processedData.name);
       const isSleeveBatch = batchName.startsWith('DXB-SL-');
       
       // Create batch data object with safe type conversions
       const typedBatchData: BaseBatch = {
-        id: toSafeString(batchData.id),
-        name: toSafeString(batchData.name),
-        status: toSafeString(batchData.status) as any,
-        sheets_required: safeNumber(batchData.sheets_required, 0),
-        front_pdf_url: batchData.front_pdf_url ? toSafeString(batchData.front_pdf_url) : null,
-        back_pdf_url: batchData.back_pdf_url ? toSafeString(batchData.back_pdf_url) : null,
+        id: toSafeString(processedData.id),
+        name: toSafeString(processedData.name),
+        status: toSafeString(processedData.status) as any,
+        sheets_required: safeNumber(processedData.sheets_required, 0),
+        front_pdf_url: processedData.front_pdf_url ? toSafeString(processedData.front_pdf_url) : null,
+        back_pdf_url: processedData.back_pdf_url ? toSafeString(processedData.back_pdf_url) : null,
         overview_pdf_url: null,
-        due_date: toSafeString(batchData.due_date),
-        created_at: toSafeString(batchData.created_at),
-        created_by: toSafeString(batchData.created_by),
-        lamination_type: toSafeString(batchData.lamination_type || 'none') as any,
-        paper_type: batchData.paper_type ? toSafeString(batchData.paper_type) : (isSleeveBatch ? 'premium' : undefined),
-        paper_weight: batchData.paper_weight ? toSafeString(batchData.paper_weight) : undefined,
-        updated_at: toSafeString(batchData.updated_at)
+        due_date: toSafeString(processedData.due_date),
+        created_at: toSafeString(processedData.created_at),
+        created_by: toSafeString(processedData.created_by),
+        lamination_type: toSafeString(processedData.lamination_type || 'none') as any,
+        paper_type: processedData.paper_type ? toSafeString(processedData.paper_type) : (isSleeveBatch ? 'premium' : undefined),
+        paper_weight: processedData.paper_weight ? toSafeString(processedData.paper_weight) : undefined,
+        updated_at: toSafeString(processedData.updated_at)
       };
       
       setBatch(typedBatchData);
@@ -116,24 +112,26 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
         if (Array.isArray(jobsData) && jobsData.length > 0) {
           // Use our safe mapping function to process job data
           const processedJobs = safeDbMap(jobsData, job => {
+            const processedJob = processDbFields(job);
+            
             // Basic processing for all job types
             const baseJob: BaseJob = {
-              id: toSafeString(job.id),
-              name: toSafeString(job.name),
-              status: toSafeString(job.status),
-              quantity: safeNumber(job.quantity),
-              due_date: toSafeString(job.due_date),
-              pdf_url: job.pdf_url ? toSafeString(job.pdf_url) : null,
-              file_name: job.file_name ? toSafeString(job.file_name) : undefined,
-              job_number: toSafeString(job.job_number),
-              batch_id: job.batch_id ? toSafeString(job.batch_id) : null
+              id: toSafeString(processedJob.id),
+              name: toSafeString(processedJob.name),
+              status: toSafeString(processedJob.status),
+              quantity: safeNumber(processedJob.quantity),
+              due_date: toSafeString(processedJob.due_date),
+              pdf_url: processedJob.pdf_url ? toSafeString(processedJob.pdf_url) : null,
+              file_name: processedJob.file_name ? toSafeString(processedJob.file_name) : undefined,
+              job_number: toSafeString(processedJob.job_number),
+              batch_id: processedJob.batch_id ? toSafeString(processedJob.batch_id) : null
             };
             
             // Special handling for sleeve jobs
             if (isSleeveBatch && config.productType === "Sleeves") {
               return {
                 ...baseJob,
-                stock_type: job.stock_type ? toSafeString(job.stock_type) : "premium"
+                stock_type: processedJob.stock_type ? toSafeString(processedJob.stock_type) : "premium"
               };
             }
             

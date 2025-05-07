@@ -254,3 +254,31 @@ export const asBatchData = (data: any): Record<string, string | number | null | 
   
   return result;
 };
+
+/**
+ * Type guard to check if an object is a SelectQueryError
+ */
+export const isSelectQueryError = (obj: any): boolean => {
+  return obj && typeof obj === 'object' && 'error' in obj;
+};
+
+/**
+ * Process database result with safety checks for each field
+ * @param data Raw data from database
+ * @returns Object with processed values
+ */
+export const processDbFields = <T extends Record<string, any>>(data: any): T => {
+  if (!data || typeof data !== 'object' || isSelectQueryError(data)) {
+    return {} as T;
+  }
+  
+  const result: Record<string, any> = {};
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      const value = data[key];
+      result[key] = isSelectQueryError(value) ? null : value;
+    }
+  }
+  
+  return result as T;
+};

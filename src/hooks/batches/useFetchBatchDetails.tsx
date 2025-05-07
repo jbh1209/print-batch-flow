@@ -5,6 +5,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { 
+  castToUUID, 
+  processDbFields,
+  toSafeString,
+  safeNumber,
+  safeDbMap
+} from "@/utils/database/dbHelpers";
 
 interface UseFetchBatchDetailsProps {
   batchId: string;
@@ -37,8 +44,8 @@ export function useFetchBatchDetails({
       const { data, error } = await supabase
         .from("batches")
         .select("*")
-        .eq("id", batchId)
-        .eq("created_by", user.id)
+        .eq("id", castToUUID(batchId))
+        .eq("created_by", castToUUID(user.id))
         .single();
       
       if (error) {
@@ -59,17 +66,20 @@ export function useFetchBatchDetails({
       
       console.log("Batch details received:", data?.id);
       
+      // Process the data using our safe helper
+      const processedData = processDbFields(data);
+      
       const batchData: BatchDetailsType = {
-        id: data.id,
-        name: data.name,
-        lamination_type: data.lamination_type,
-        sheets_required: data.sheets_required,
-        front_pdf_url: data.front_pdf_url,
-        back_pdf_url: data.back_pdf_url,
-        overview_pdf_url: data.back_pdf_url,
-        due_date: data.due_date,
-        created_at: data.created_at,
-        status: data.status,
+        id: toSafeString(processedData.id),
+        name: toSafeString(processedData.name),
+        lamination_type: toSafeString(processedData.lamination_type),
+        sheets_required: safeNumber(processedData.sheets_required),
+        front_pdf_url: processedData.front_pdf_url ? toSafeString(processedData.front_pdf_url) : null,
+        back_pdf_url: processedData.back_pdf_url ? toSafeString(processedData.back_pdf_url) : null,
+        overview_pdf_url: processedData.back_pdf_url ? toSafeString(processedData.back_pdf_url) : null,
+        due_date: toSafeString(processedData.due_date),
+        created_at: toSafeString(processedData.created_at),
+        status: toSafeString(processedData.status),
       };
       
       setBatch(batchData);
@@ -80,37 +90,37 @@ export function useFetchBatchDetails({
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
           .select("id, name, quantity, status, pdf_url, job_number")
-          .eq("batch_id", batchId)
+          .eq("batch_id", castToUUID(batchId))
           .order("name");
         
         if (jobsError) throw jobsError;
         
-        // Map jobs to include job_number
-        jobsData = (jobs || []).map(job => ({
-          id: job.id,
-          name: job.name,
-          quantity: job.quantity,
-          status: job.status,
-          pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+        // Map jobs using our safe mapping function
+        jobsData = safeDbMap(jobs, job => ({
+          id: toSafeString(job.id),
+          name: toSafeString(job.name),
+          quantity: safeNumber(job.quantity),
+          status: toSafeString(job.status),
+          pdf_url: job.pdf_url ? toSafeString(job.pdf_url) : null,
+          job_number: toSafeString(job.job_number) || `JOB-${toSafeString(job.id).substring(0, 6)}`
         }));
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
           .select("id, name, quantity, status, pdf_url, job_number")
-          .eq("batch_id", batchId)
+          .eq("batch_id", castToUUID(batchId))
           .order("name");
         
         if (jobsError) throw jobsError;
         
-        // Map jobs to include job_number
-        jobsData = (jobs || []).map(job => ({
-          id: job.id,
-          name: job.name,
-          quantity: job.quantity,
-          status: job.status,
-          pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+        // Map jobs using our safe mapping function 
+        jobsData = safeDbMap(jobs, job => ({
+          id: toSafeString(job.id),
+          name: toSafeString(job.name),
+          quantity: safeNumber(job.quantity),
+          status: toSafeString(job.status),
+          pdf_url: job.pdf_url ? toSafeString(job.pdf_url) : null,
+          job_number: toSafeString(job.job_number) || `JOB-${toSafeString(job.id).substring(0, 6)}`
         }));
       }
       

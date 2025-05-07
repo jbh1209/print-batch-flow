@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
@@ -6,7 +7,9 @@ import { toast } from "sonner";
 import { 
   castToUUID, 
   prepareUpdateParams, 
-  toSafeString
+  toSafeString,
+  safeExtract,
+  processDbFields
 } from "@/utils/database/dbHelpers";
 
 interface AuthContextType {
@@ -141,11 +144,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      // Safely extract profile data with proper type handling
+      // Process the data using our helper function to safely extract values
       if (data) {
+        const processedData = processDbFields(data);
         setProfile({
-          full_name: toSafeString(data.full_name),
-          avatar_url: toSafeString(data.avatar_url),
+          full_name: toSafeString(processedData.full_name),
+          avatar_url: toSafeString(processedData.avatar_url),
         });
       } else {
         setProfile({ full_name: "", avatar_url: "" });
