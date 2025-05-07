@@ -5,7 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
 import { getProductTypeCode } from "@/utils/batch/productTypeCodes";
-import { castToUUID, safeGet } from "@/utils/database/dbHelpers";
+import { 
+  castToUUID, 
+  safeDbMap, 
+  toSafeString, 
+  safeNumber
+} from "@/utils/database/dbHelpers";
 
 export function useBatchFetching(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
@@ -51,24 +56,24 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
 
       console.log('Batches data received for', config.productType, ':', data?.length || 0, 'records');
       
-      const genericBatches: BaseBatch[] = (data || []).map(batch => {
-        // Use safe getters to avoid type errors
+      // Use our safe mapping function to convert database results to strongly typed objects
+      const genericBatches = safeDbMap(data, batch => {
         return {
-          id: safeGet(batch, 'id') || '',
-          name: safeGet(batch, 'name') || '',
-          status: safeGet(batch, 'status') || 'pending',
-          sheets_required: safeGet(batch, 'sheets_required') || 0,
-          front_pdf_url: safeGet(batch, 'front_pdf_url'),
-          back_pdf_url: safeGet(batch, 'back_pdf_url'),
+          id: toSafeString(batch.id),
+          name: toSafeString(batch.name),
+          status: toSafeString(batch.status),
+          sheets_required: safeNumber(batch.sheets_required, 0),
+          front_pdf_url: batch.front_pdf_url ? toSafeString(batch.front_pdf_url) : null,
+          back_pdf_url: batch.back_pdf_url ? toSafeString(batch.back_pdf_url) : null,
           overview_pdf_url: null,
-          due_date: safeGet(batch, 'due_date'),
-          created_at: safeGet(batch, 'created_at'),
-          created_by: safeGet(batch, 'created_by') || '',
-          lamination_type: safeGet(batch, 'lamination_type') || "none",
-          paper_type: safeGet(batch, 'paper_type'),
-          paper_weight: safeGet(batch, 'paper_weight'),
-          updated_at: safeGet(batch, 'updated_at')
-        };
+          due_date: toSafeString(batch.due_date),
+          created_at: toSafeString(batch.created_at),
+          created_by: toSafeString(batch.created_by),
+          lamination_type: toSafeString(batch.lamination_type || "none"),
+          paper_type: batch.paper_type ? toSafeString(batch.paper_type) : undefined,
+          paper_weight: batch.paper_weight ? toSafeString(batch.paper_weight) : undefined,
+          updated_at: toSafeString(batch.updated_at)
+        } as BaseBatch;
       });
       
       setBatches(genericBatches);

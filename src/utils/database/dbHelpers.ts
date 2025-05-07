@@ -173,3 +173,84 @@ export const safeDbResult = <T, R = T>(
 export const isValidDbObject = (obj: any): boolean => {
   return obj && typeof obj === 'object' && !('error' in obj);
 };
+
+/**
+ * Safely map database results to typed objects
+ * Especially useful for batch query results with potential error handling
+ */
+export const safeDbMap = <T>(data: any[] | null, mapper: (item: any) => T): T[] => {
+  if (!data || !Array.isArray(data)) {
+    return [];
+  }
+  
+  return data
+    .filter(item => item && typeof item === 'object' && !('error' in item))
+    .map((item) => mapper(item));
+};
+
+/**
+ * Convert any value from a database query to a string safely
+ */
+export const toSafeString = (value: unknown): string => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'object') {
+    if ('error' in value) {
+      return '';
+    }
+    try {
+      return JSON.stringify(value);
+    } catch (e) {
+      return '';
+    }
+  }
+  return String(value);
+};
+
+/**
+ * Extract data from a Supabase response with proper error handling
+ */
+export const extractData = <T>(response: { data: T | null; error: any }): T | null => {
+  if (response.error) {
+    console.error("Database error:", response.error);
+    return null;
+  }
+  return response.data;
+};
+
+/**
+ * Convert a database result to a strongly typed object
+ */
+export const asBatchData = (data: any): Record<string, string | number | null | boolean> => {
+  if (!data || typeof data !== 'object') {
+    return {};
+  }
+  
+  const result: Record<string, string | number | null | boolean> = {};
+  
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      const value = data[key];
+      
+      // Skip error objects
+      if (value && typeof value === 'object' && 'error' in value) {
+        result[key] = null;
+        continue;
+      }
+      
+      // Convert values to appropriate types
+      if (typeof value === 'number') {
+        result[key] = value;
+      } else if (typeof value === 'boolean') {
+        result[key] = value;
+      } else if (value === null) {
+        result[key] = null;
+      } else {
+        result[key] = String(value);
+      }
+    }
+  }
+  
+  return result;
+};

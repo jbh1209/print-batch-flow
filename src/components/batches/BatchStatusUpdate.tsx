@@ -26,7 +26,7 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
         status: newStatus
       });
 
-      // Use type casting to meet Supabase's type requirements
+      // Use castToUUID to safely handle the UUID type for database operations
       const { error } = await supabase
         .from('batches')
         .update(updateData)

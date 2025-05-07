@@ -11,7 +11,10 @@ import {
   safeString, 
   safeNumber,
   safeDbResult,
-  safeExtract
+  safeExtract,
+  asBatchData,
+  safeDbMap,
+  toSafeString
 } from "@/utils/database/dbHelpers";
 
 interface UseBatchDataFetchingProps {
@@ -67,29 +70,32 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       
       console.log("Batch details received:", data);
       
+      // Convert raw data to a safe format
+      const batchData = asBatchData(data);
+      
       // Safely check for a sleeve batch using safeString
-      const batchName = safeString(data.name);
+      const batchName = toSafeString(batchData.name);
       const isSleeveBatch = batchName.startsWith('DXB-SL-');
       
-      // Use safeExtract to safely get properties from the data object
-      const batchData: BaseBatch = {
-        id: safeExtract(data, 'id', ''),
-        name: safeExtract(data, 'name', ''),
-        status: safeExtract(data, 'status', 'pending') as any,
-        sheets_required: safeExtract(data, 'sheets_required', 0),
-        front_pdf_url: safeExtract(data, 'front_pdf_url', null),
-        back_pdf_url: safeExtract(data, 'back_pdf_url', null),
+      // Create batch data object with safe type conversions
+      const typedBatchData: BaseBatch = {
+        id: toSafeString(batchData.id),
+        name: toSafeString(batchData.name),
+        status: toSafeString(batchData.status) as any,
+        sheets_required: safeNumber(batchData.sheets_required, 0),
+        front_pdf_url: batchData.front_pdf_url ? toSafeString(batchData.front_pdf_url) : null,
+        back_pdf_url: batchData.back_pdf_url ? toSafeString(batchData.back_pdf_url) : null,
         overview_pdf_url: null,
-        due_date: safeExtract(data, 'due_date', ''),
-        created_at: safeExtract(data, 'created_at', ''),
-        created_by: safeExtract(data, 'created_by', ''),
-        lamination_type: safeExtract(data, 'lamination_type', 'none') as any,
-        paper_type: safeExtract(data, 'paper_type', isSleeveBatch ? 'premium' : undefined),
-        paper_weight: safeExtract(data, 'paper_weight', undefined),
-        updated_at: safeExtract(data, 'updated_at', '')
+        due_date: toSafeString(batchData.due_date),
+        created_at: toSafeString(batchData.created_at),
+        created_by: toSafeString(batchData.created_by),
+        lamination_type: toSafeString(batchData.lamination_type || 'none') as any,
+        paper_type: batchData.paper_type ? toSafeString(batchData.paper_type) : (isSleeveBatch ? 'premium' : undefined),
+        paper_weight: batchData.paper_weight ? toSafeString(batchData.paper_weight) : undefined,
+        updated_at: toSafeString(batchData.updated_at)
       };
       
-      setBatch(batchData);
+      setBatch(typedBatchData);
       
       const tableName = config.tableName;
       if (isExistingTable(tableName)) {
@@ -107,22 +113,34 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
           throw jobsError;
         }
         
-        if (Array.isArray(jobsData)) {
-          const processedJobs = jobsData.map(job => {
+        if (Array.isArray(jobsData) && jobsData.length > 0) {
+          // Use our safe mapping function to process job data
+          const processedJobs = safeDbMap(jobsData, job => {
+            // Basic processing for all job types
+            const baseJob: BaseJob = {
+              id: toSafeString(job.id),
+              name: toSafeString(job.name),
+              status: toSafeString(job.status),
+              quantity: safeNumber(job.quantity),
+              due_date: toSafeString(job.due_date),
+              pdf_url: job.pdf_url ? toSafeString(job.pdf_url) : null,
+              file_name: job.file_name ? toSafeString(job.file_name) : undefined,
+              job_number: toSafeString(job.job_number),
+              batch_id: job.batch_id ? toSafeString(job.batch_id) : null
+            };
+            
             // Special handling for sleeve jobs
             if (isSleeveBatch && config.productType === "Sleeves") {
-              // Use type assertion for accessing stock_type and for spreading
-              const typedJob = job as Record<string, any>;
               return {
-                ...typedJob,
-                stock_type: typedJob.stock_type || "premium"
+                ...baseJob,
+                stock_type: job.stock_type ? toSafeString(job.stock_type) : "premium"
               };
             }
-            // Also need to use type assertion for any job object when spreading
-            return job as Record<string, any>;
+            
+            return baseJob;
           });
           
-          setRelatedJobs(processedJobs as BaseJob[]);
+          setRelatedJobs(processedJobs);
         } else {
           setRelatedJobs([]);
         }
