@@ -1,10 +1,10 @@
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { safeGet } from "@/utils/database/dbHelpers";
+import { safeGet, castToUUID, prepareUpdateParams } from "@/utils/database/dbHelpers";
 
 interface AuthContextType {
   session: Session | null;
@@ -31,9 +31,6 @@ export const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   updateProfile: async () => {},
 });
-
-// Export the useAuth hook here so it can be imported directly
-export const useAuth = () => useContext(AuthContext);
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -119,15 +116,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { data, error } = await supabase
         .from("profiles")
         .select("full_name, avatar_url")
-        .eq("id", userId)
+        .eq("id", castToUUID(userId))
         .single();
 
       if (error) {
         // If profile doesn't exist, create one
         if (error.code === "PGRST116") {
-          await supabase.from("profiles").insert({
-            id: userId,
+          const insertData = prepareUpdateParams({
+            id: castToUUID(userId)
           });
+          
+          await supabase.from("profiles").insert(insertData);
           
           setProfile({ full_name: "", avatar_url: "" });
         } else {
@@ -234,16 +233,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      const updates = {
+      const updates = prepareUpdateParams({
         full_name: fullName,
         ...(avatarUrl && { avatar_url: avatarUrl }),
         updated_at: new Date().toISOString(),
-      };
+      });
 
       const { error } = await supabase
         .from("profiles")
         .update(updates)
-        .eq("id", user.id);
+        .eq("id", castToUUID(user.id));
 
       if (error) throw error;
       

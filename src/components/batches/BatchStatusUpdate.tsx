@@ -8,9 +8,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Printer } from "lucide-react";
 import { toast } from "sonner";
-import { supabase, castToUUID } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { BatchStatus } from "@/config/types/baseTypes";
-import { prepareUpdateParams } from "@/utils/database/dbHelpers";
+import { prepareUpdateParams, castToUUID } from "@/utils/database/dbHelpers";
 
 interface BatchStatusUpdateProps {
   batchId: string;

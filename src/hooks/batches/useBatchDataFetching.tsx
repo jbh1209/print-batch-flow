@@ -62,7 +62,7 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       
       // Safely check for a sleeve batch
       const nameValue = safeGet(data, 'name');
-      const isSleeveBatch = typeof nameValue === 'string' && nameValue?.startsWith('DXB-SL-');
+      const isSleeveBatch = typeof nameValue === 'string' && nameValue.startsWith('DXB-SL-');
       
       const batchData: BaseBatch = {
         id: safeGet(data, 'id') || '',
