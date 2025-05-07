@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -71,7 +71,7 @@ export function AdminSetupForm({ onAdminCreated }: AdminSetupFormProps) {
             )}
             
             {success && (
-              <Alert variant="success" className="bg-green-50 border-green-200 text-green-800">
+              <Alert variant="default" className="bg-green-50 border-green-200 text-green-800">
                 <AlertDescription>
                   Admin role successfully assigned! Refreshing the page...
                 </AlertDescription>
