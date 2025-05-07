@@ -1,9 +1,10 @@
 
-import React, { createContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { safeGet } from "@/utils/database/dbHelpers";
 
 interface AuthContextType {
   session: Session | null;
@@ -11,6 +12,7 @@ interface AuthContextType {
   profile: { full_name?: string; avatar_url?: string } | null;
   isLoading: boolean;
   error: string | null;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -23,11 +25,15 @@ export const AuthContext = createContext<AuthContextType>({
   profile: null,
   isLoading: true,
   error: null,
+  isAdmin: false,
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
   updateProfile: async () => {},
 });
+
+// Export the useAuth hook here so it can be imported directly
+export const useAuth = () => useContext(AuthContext);
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -39,6 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [profile, setProfile] = useState<{ full_name?: string; avatar_url?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,8 +59,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (data.session?.user) {
           await fetchUserProfile(data.session.user.id);
+          await checkIfAdmin(data.session.user.id);
         } else {
           setProfile(null);
+          setIsAdmin(false);
         }
       } catch (error) {
         console.error("Error getting session:", error);
@@ -72,8 +81,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (newSession?.user) {
           await fetchUserProfile(newSession.user.id);
+          await checkIfAdmin(newSession.user.id);
         } else {
           setProfile(null);
+          setIsAdmin(false);
         }
         
         setIsLoading(false);
@@ -85,20 +96,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
+  const checkIfAdmin = async (userId: string) => {
+    try {
+      // Use the public function to check admin status
+      const { data, error } = await supabase.rpc('is_admin', {
+        _user_id: userId
+      });
+
+      if (error) {
+        console.error("Error checking admin status:", error);
+        return;
+      }
+
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+    }
+  };
+
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("full_name, avatar_url")
-        .eq("id", userId as any)
+        .eq("id", userId)
         .single();
 
       if (error) {
         // If profile doesn't exist, create one
         if (error.code === "PGRST116") {
           await supabase.from("profiles").insert({
-            id: userId as any,
-          } as any);
+            id: userId,
+          });
           
           setProfile({ full_name: "", avatar_url: "" });
         } else {
@@ -110,8 +139,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Check if data is available before setting profile
       if (data) {
         setProfile({
-          full_name: data.full_name || "",
-          avatar_url: data.avatar_url || "",
+          full_name: safeGet(data, 'full_name') || "",
+          avatar_url: safeGet(data, 'avatar_url') || "",
         });
       } else {
         setProfile({ full_name: "", avatar_url: "" });
@@ -185,6 +214,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setSession(null);
       setUser(null);
       setProfile(null);
+      setIsAdmin(false);
       
       toast.success("Signed out successfully");
       navigate("/auth/login");
@@ -212,8 +242,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const { error } = await supabase
         .from("profiles")
-        .update(updates as any)
-        .eq("id", user.id as any);
+        .update(updates)
+        .eq("id", user.id);
 
       if (error) throw error;
       
@@ -241,6 +271,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         profile,
         isLoading,
         error,
+        isAdmin,
         signIn,
         signUp,
         signOut,

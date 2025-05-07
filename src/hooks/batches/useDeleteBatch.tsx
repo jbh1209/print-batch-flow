@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { prepareUpdateParams, castToUUID } from "@/utils/database/dbHelpers";
 
 interface UseDeleteBatchProps {
   productType: string;
@@ -20,24 +21,24 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
     
     setIsDeleting(true);
     try {
+      // Prepare update parameters with proper type safety
+      const updateParams = prepareUpdateParams({
+        status: "queued",
+        batch_id: null
+      });
+      
       if (productType === "Business Cards") {
         const { error: jobsError } = await supabase
           .from("business_card_jobs")
-          .update({ 
-            status: "queued",
-            batch_id: null
-          } as any)
-          .eq("batch_id", batchToDelete as any);
+          .update(updateParams)
+          .eq("batch_id", castToUUID(batchToDelete));
         
         if (jobsError) throw jobsError;
       } else if (productType === "Flyers") {
         const { error: jobsError } = await supabase
           .from("flyer_jobs")
-          .update({ 
-            status: "queued",
-            batch_id: null
-          } as any)
-          .eq("batch_id", batchToDelete as any);
+          .update(updateParams)
+          .eq("batch_id", castToUUID(batchToDelete));
         
         if (jobsError) throw jobsError;
       }
@@ -45,7 +46,7 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
-        .eq("id", batchToDelete as any);
+        .eq("id", castToUUID(batchToDelete));
       
       if (deleteError) throw deleteError;
       

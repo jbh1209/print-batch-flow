@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
 import { getProductTypeCode } from "@/utils/batch/productTypeCodes";
+import { castToUUID, safeGet } from "@/utils/database/dbHelpers";
 
 export function useBatchFetching(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
@@ -28,7 +29,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       let query = supabase
         .from('batches')
         .select('*')
-        .eq('created_by', user.id as any);
+        .eq('created_by', castToUUID(user.id));
       
       // Get product code from the standardized utility function
       const productCode = getProductTypeCode(config.productType);
@@ -40,7 +41,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       }
       
       if (batchId) {
-        query = query.eq("id", batchId as any);
+        query = query.eq("id", castToUUID(batchId));
       }
       
       const { data, error: fetchError } = await query
@@ -50,11 +51,25 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
 
       console.log('Batches data received for', config.productType, ':', data?.length || 0, 'records');
       
-      const genericBatches: BaseBatch[] = (data || []).map(batch => ({
-        ...batch as any,
-        overview_pdf_url: null,
-        lamination_type: batch?.lamination_type || "none"
-      }));
+      const genericBatches: BaseBatch[] = (data || []).map(batch => {
+        // Use safe getters to avoid type errors
+        return {
+          id: safeGet(batch, 'id') || '',
+          name: safeGet(batch, 'name') || '',
+          status: safeGet(batch, 'status') || 'pending',
+          sheets_required: safeGet(batch, 'sheets_required') || 0,
+          front_pdf_url: safeGet(batch, 'front_pdf_url'),
+          back_pdf_url: safeGet(batch, 'back_pdf_url'),
+          overview_pdf_url: null,
+          due_date: safeGet(batch, 'due_date'),
+          created_at: safeGet(batch, 'created_at'),
+          created_by: safeGet(batch, 'created_by') || '',
+          lamination_type: safeGet(batch, 'lamination_type') || "none",
+          paper_type: safeGet(batch, 'paper_type'),
+          paper_weight: safeGet(batch, 'paper_weight'),
+          updated_at: safeGet(batch, 'updated_at')
+        };
+      });
       
       setBatches(genericBatches);
       

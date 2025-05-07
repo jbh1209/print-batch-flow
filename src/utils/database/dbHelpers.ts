@@ -7,7 +7,11 @@
  * Helper to cast string values to UUID type for Supabase operations
  * This helps with TypeScript's strict type checking for UUID values
  */
-export const castToUUID = (id: string) => id as unknown as never;
+export const castToUUID = (id: string | undefined) => {
+  // Allow undefined for optional parameters
+  if (id === undefined) return undefined;
+  return id as unknown as never;
+};
 
 /**
  * Helper to safely access properties from potentially undefined or error objects
@@ -40,6 +44,7 @@ export const isDatabaseError = (obj: any): boolean => {
 
 /**
  * Prepare database update parameters with type safety
+ * This function helps with TypeScript's strict type checking for database operations
  */
 export const prepareUpdateParams = <T extends Record<string, any>>(params: T): any => {
   return params as any;
@@ -50,4 +55,11 @@ export const prepareUpdateParams = <T extends Record<string, any>>(params: T): a
  */
 export const formatFilterCondition = (column: string, value: any): { [key: string]: any } => {
   return { [column]: value };
+};
+
+/**
+ * Helper to check if a response contains data
+ */
+export const hasData = <T>(response: { data: T | null }): response is { data: T } => {
+  return response.data !== null;
 };

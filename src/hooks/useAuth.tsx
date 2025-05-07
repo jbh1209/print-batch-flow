@@ -2,5 +2,6 @@
 /**
  * Hook to use the AuthContext
  */
-export { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+export { useAuth };
 export default useAuth;
