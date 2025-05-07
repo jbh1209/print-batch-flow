@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Printer } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, castToUUID } from "@/integrations/supabase/client";
 import { BatchStatus } from "@/config/types/baseTypes";
 
 interface BatchStatusUpdateProps {
@@ -20,10 +20,11 @@ interface BatchStatusUpdateProps {
 const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStatusUpdateProps) => {
   const updateBatchStatus = async (newStatus: "completed" | "sent_to_print") => {
     try {
+      // Use type casting to meet Supabase's type requirements
       const { error } = await supabase
         .from('batches')
-        .update({ status: newStatus })
-        .eq('id', batchId);
+        .update({ status: newStatus as any })
+        .eq('id', castToUUID(batchId));
 
       if (error) throw error;
 

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, castToUUID } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BaseBatch, BaseJob, ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
@@ -37,8 +37,8 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       const { data, error } = await supabase
         .from("batches")
         .select("*")
-        .eq("id", batchId)
-        .eq("created_by", userId)
+        .eq("id", castToUUID(batchId))
+        .eq("created_by", castToUUID(userId))
         .single();
       
       if (error) {
@@ -59,7 +59,8 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       
       console.log("Batch details received:", data);
       
-      const isSleeveBatch = data.name && data.name.startsWith('DXB-SL-');
+      // Properly check for a sleeve batch
+      const isSleeveBatch = typeof data.name === 'string' && data.name.startsWith('DXB-SL-');
       
       const batchData: BaseBatch = {
         id: data.id,
@@ -88,7 +89,7 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
         const { data: jobsData, error: jobsError } = await supabase
           .from(tableName as any)
           .select("*")
-          .eq("batch_id", batchId)
+          .eq("batch_id", castToUUID(batchId))
           .order("name");
       
         if (jobsError) {

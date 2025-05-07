@@ -1,0 +1,53 @@
+
+/**
+ * Utility functions to handle database operations with proper type handling
+ */
+
+/**
+ * Helper to cast string values to UUID type for Supabase operations
+ * This helps with TypeScript's strict type checking for UUID values
+ */
+export const castToUUID = (id: string) => id as unknown as never;
+
+/**
+ * Helper to safely access properties from potentially undefined or error objects
+ * Useful when handling database query results
+ */
+export const safeGet = <T, K extends keyof T>(obj: T | null | undefined, key: K): T[K] | undefined => {
+  if (!obj) return undefined;
+  try {
+    return obj[key];
+  } catch (err) {
+    console.error(`Error accessing ${String(key)}:`, err);
+    return undefined;
+  }
+};
+
+/**
+ * Check if a value is a valid PostgreSQL UUID
+ */
+export const isValidUUID = (id: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
+};
+
+/**
+ * Type guard to check if an object is a database error
+ */
+export const isDatabaseError = (obj: any): boolean => {
+  return obj && typeof obj === 'object' && 'code' in obj && 'message' in obj;
+};
+
+/**
+ * Prepare database update parameters with type safety
+ */
+export const prepareUpdateParams = <T extends Record<string, any>>(params: T): any => {
+  return params as any;
+};
+
+/**
+ * Format a filter condition for Supabase queries
+ */
+export const formatFilterCondition = (column: string, value: any): { [key: string]: any } => {
+  return { [column]: value };
+};

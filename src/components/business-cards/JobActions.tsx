@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, castToUUID } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { MoreHorizontal, Pencil, Trash2, Eye, Download } from "lucide-react";
@@ -54,7 +54,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
       const { error } = await supabase
         .from("business_card_jobs")
         .delete()
-        .eq("id", jobId);
+        .eq("id", castToUUID(jobId));
 
       if (error) {
         throw error;

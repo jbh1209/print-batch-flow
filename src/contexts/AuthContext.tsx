@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, castToUUID } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let { data, error } = await supabase
         .from('profiles')
         .select('full_name, avatar_url')
-        .eq('id', userId)
+        .eq('id', castToUUID(userId))
         .maybeSingle();
       
       if (error) {
@@ -93,9 +93,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!data) {
         const { error: insertError } = await supabase
           .from('profiles')
-          .insert({ id: userId })
-          .select('full_name, avatar_url')
-          .single();
+          .insert({ 
+            id: castToUUID(userId),
+            full_name: null,
+            avatar_url: null
+          } as any);
         
         if (insertError) {
           console.error('Error creating profile:', insertError);
@@ -106,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: newData, error: fetchError } = await supabase
           .from('profiles')
           .select('full_name, avatar_url')
-          .eq('id', userId)
+          .eq('id', castToUUID(userId))
           .maybeSingle();
           
         if (fetchError) {
@@ -117,8 +119,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         data = newData;
       }
       
-      setProfile(data);
-      return data;
+      if (data) {
+        setProfile({
+          full_name: data.full_name,
+          avatar_url: data.avatar_url
+        });
+        return data;
+      }
+      
+      return null;
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
       return null;

@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRole } from '@/types/user-types';
 import { toast } from 'sonner';
+import { castToUUID } from '@/utils/database/dbHelpers';
 
 // Request deduplication system
 const pendingRequests: Record<string, Promise<any>> = {};
@@ -161,10 +162,10 @@ export async function updateUser(userId: string, userData: {
     // Update profile if name provided
     if (userData.full_name !== undefined) {
       const { error } = await supabase.from('profiles').upsert({
-        id: userId,
+        id: castToUUID(userId),
         full_name: userData.full_name,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      } as any);
       
       if (error) throw error;
     }

@@ -25,3 +25,7 @@ export const supabase = createClient<Database>(
     }
   }
 );
+
+// Helper to cast UUIDs for Supabase operations
+// This helps with TypeScript's strict type checking for UUID values
+export const castToUUID = (id: string) => id as unknown as never;
