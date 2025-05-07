@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -61,19 +62,18 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           const pdfBucketExists = buckets?.some(bucket => bucket.name === 'pdf_files');
           
           if (!pdfBucketExists) {
-            console.log("Bucket 'pdf_files' doesn't exist, requesting creation through RPC");
+            console.log("Bucket 'pdf_files' doesn't exist, requesting creation through edge function");
             
-            // Use an RPC function approach instead of direct bucket creation
-            // This relies on a server-side function with proper permissions
-            const { error: rpcError } = await supabase
-              .rpc('create_storage_bucket_if_not_exists', { bucket_name: 'pdf_files' })
-              .single();
+            // Use our edge function to create the bucket instead of RPC
+            const { error: functionError } = await supabase.functions.invoke('create_bucket', {
+              body: { bucket_name: 'pdf_files' }
+            });
             
-            if (rpcError) {
-              console.error("Error creating bucket through RPC:", rpcError);
-              // Fall back to using existing bucket or continue without creating
+            if (functionError) {
+              console.error("Error creating bucket through edge function:", functionError);
+              // Continue anyway - we'll attempt the upload and see if it works
             } else {
-              console.log("Bucket created successfully through RPC");
+              console.log("Bucket created successfully through edge function");
             }
           } else {
             console.log("Bucket 'pdf_files' already exists");
