@@ -10,7 +10,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { cleanupAuthState } from '@/services/auth/authService';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -21,11 +20,7 @@ const Auth = () => {
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    // Clean up any existing auth state on mount
-    // This prevents conflicting auth state issues
-    cleanupAuthState();
-    
-    // Redirect if user is already logged in
+    // Only redirect if user is already logged in
     if (user) {
       navigate('/');
     }
@@ -42,18 +37,9 @@ const Auth = () => {
     
     setLoading(true);
     try {
-      // Clean up auth state before attempting login
-      cleanupAuthState();
-      
-      // Try to sign out any existing session first to avoid conflicts
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (err) {
-        // Ignore errors here, just being cautious
-        console.log('Pre-login sign out error (safe to ignore):', err);
-      }
-      
       console.log('Attempting login for:', email);
+      
+      // Try to sign in with provided credentials
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -65,10 +51,8 @@ const Auth = () => {
         console.log('Login successful for user:', data.user.id);
         toast.success("Login successful!");
         
-        // Force page reload to ensure clean state with session
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 500);
+        // Use React Router for navigation instead of page reload
+        navigate('/', { replace: true });
       } else {
         throw new Error('Login succeeded but no user returned');
       }

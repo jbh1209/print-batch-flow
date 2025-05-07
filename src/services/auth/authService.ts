@@ -11,9 +11,6 @@ export const cleanupAuthState = () => {
   try {
     console.log('Cleaning up auth state...');
     
-    // Remove standard auth tokens
-    localStorage.removeItem('supabase.auth.token');
-    
     // Remove all Supabase auth keys from localStorage
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
@@ -43,9 +40,6 @@ export const signOutSecurely = async (): Promise<void> => {
   try {
     console.log('Starting secure sign out process...');
     
-    // Clean up auth state first
-    cleanupAuthState();
-    
     // Attempt to sign out with global scope to invalidate all sessions
     try {
       console.log('Calling supabase.auth.signOut with global scope...');
@@ -53,15 +47,15 @@ export const signOutSecurely = async (): Promise<void> => {
       console.log('Global sign out successful');
     } catch (error) {
       console.error('Failed to sign out globally:', error);
-      // Continue despite error - we'll force clean up anyway
+      // Continue despite error
     }
     
-    // Force page reload for a clean state with short delay to ensure signout completes
-    console.log('Scheduling page reload...');
-    setTimeout(() => {
-      console.log('Redirecting to auth page...');
-      window.location.href = '/auth';
-    }, 500);
+    // Clean up auth state after sign out
+    cleanupAuthState();
+    
+    // Use navigation instead of force reload
+    console.log('Redirecting to auth page...');
+    window.location.href = '/auth';
   } catch (error) {
     console.error('Failed to sign out:', error);
     
@@ -69,8 +63,7 @@ export const signOutSecurely = async (): Promise<void> => {
     cleanupAuthState();
     
     // Still try to redirect user even if sign out failed
-    console.log('Forcing page reload after sign out error');
-    window.location.reload();
+    window.location.href = '/auth';
     
     throw error; // Re-throw for callers to handle
   }

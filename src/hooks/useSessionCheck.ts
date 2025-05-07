@@ -19,17 +19,7 @@ export const useSessionCheck = () => {
     try {
       console.log("Validating user session...");
       
-      // Get fresh token to ensure we're working with a valid session
-      const token = await getFreshAuthToken();
-      
-      if (!token) {
-        console.log("No valid token found");
-        toast.error("Authentication required. Please sign in.");
-        navigate('/auth');
-        return null;
-      }
-      
-      // Check if user is authenticated
+      // Check if user is authenticated directly from the session
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
@@ -42,7 +32,16 @@ export const useSessionCheck = () => {
       if (!sessionData.session) {
         console.log("No active session found");
         toast.error("Authentication required. Please sign in.");
-        navigate('/auth');
+        navigate('/auth', { replace: true });
+        return null;
+      }
+      
+      // Get fresh token as a verification step
+      const token = sessionData.session.access_token;
+      if (!token) {
+        console.log("No valid token in session");
+        toast.error("Authentication required. Please sign in.");
+        navigate('/auth', { replace: true });
         return null;
       }
       

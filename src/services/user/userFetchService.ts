@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRole } from '@/types/user-types';
-import { getFreshAuthToken, handleAuthError } from '../auth/authService';
+import { handleAuthError } from '../auth/authService';
 
 /**
  * User fetching functions - Enhanced with retry logic and proper error handling
@@ -12,12 +12,18 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
   try {
     console.log(`Fetching users using Edge Function (attempt ${retryCount + 1}/${maxRetries + 1})`);
     
-    // Get a fresh token before making the request
-    const token = await getFreshAuthToken();
+    // Get current session and extract token
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
+    if (sessionError || !session) {
+      console.error('No auth session available:', sessionError?.message || 'Session is null');
+      throw new Error('Authentication required: You must be logged in to access user data.');
+    }
+    
+    const token = session.access_token;
     if (!token) {
       console.error('No auth token available');
-      throw new Error('Authentication required: You must be logged in to access user data.');
+      throw new Error('Authentication required: Invalid session token.');
     }
     
     // Call the edge function to get all users
@@ -63,7 +69,7 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
   } catch (error: any) {
     console.error('Error in fetchUsers:', error);
     
-    // Check if the error is about the JWT
+    // Check if the error is auth-related
     if (error.message?.includes('JWT') || 
         error.message?.includes('expired') || 
         error.message?.includes('Authentication') ||

@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { handleAuthError, getFreshAuthToken } from '@/services/auth/authService';
+import { handleAuthError } from '@/services/auth/authService';
 
 /**
  * Hook to validate user session and manage auth state consistently
@@ -22,17 +22,14 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
       console.log("Running session validation...");
       setIsValidating(true);
       
-      // Get fresh token to ensure we're working with valid session
-      const token = await getFreshAuthToken();
-      
-      // Check if user session exists
+      // Get session directly without trying to get a fresh token first
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
         console.error('Session validation error:', error);
         if (requireAuth) {
           toast.error("Authentication required. Please sign in.");
-          navigate('/auth');
+          navigate('/auth', { replace: true });
         }
         setIsValid(false);
         return;
@@ -43,7 +40,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
         console.log("No active session found");
         if (requireAuth) {
           toast.error("Authentication required. Please sign in.");
-          navigate('/auth');
+          navigate('/auth', { replace: true });
         }
         setIsValid(false);
         return;
@@ -66,7 +63,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
           setIsAdmin(false);
           if (requireAdmin) {
             toast.error("Admin access required for this page");
-            navigate('/');
+            navigate('/', { replace: true });
           }
           setIsValid(false);
           return;
@@ -75,7 +72,7 @@ export function useSessionValidation(requireAuth = true, requireAdmin = false) {
         if (!isAdminUser && requireAdmin) {
           console.log("User lacks admin privileges");
           toast.error("You don't have admin privileges required for this page");
-          navigate('/');
+          navigate('/', { replace: true });
           setIsValid(false);
           return;
         }
