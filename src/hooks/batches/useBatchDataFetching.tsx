@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BaseBatch, BaseJob, ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
-import { safeGet, castToUUID } from "@/utils/database/dbHelpers";
+import { safeGet, castToUUID, safeString, safeNumber } from "@/utils/database/dbHelpers";
 
 interface UseBatchDataFetchingProps {
   batchId: string;
@@ -60,25 +60,25 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       
       console.log("Batch details received:", data);
       
-      // Safely check for a sleeve batch
-      const nameValue = safeGet(data, 'name');
-      const isSleeveBatch = typeof nameValue === 'string' && nameValue.startsWith('DXB-SL-');
+      // Safely check for a sleeve batch using safeString
+      const batchName = safeString(data.name);
+      const isSleeveBatch = batchName.startsWith('DXB-SL-');
       
       const batchData: BaseBatch = {
-        id: safeGet(data, 'id') || '',
-        name: safeGet(data, 'name') || '',
-        status: safeGet(data, 'status') || 'pending',
-        sheets_required: safeGet(data, 'sheets_required') || 0,
-        front_pdf_url: safeGet(data, 'front_pdf_url') || null,
-        back_pdf_url: safeGet(data, 'back_pdf_url') || null,
+        id: safeString(data.id),
+        name: safeString(data.name),
+        status: safeString(data.status) as any || 'pending',
+        sheets_required: safeNumber(data.sheets_required),
+        front_pdf_url: data.front_pdf_url ? safeString(data.front_pdf_url) : null,
+        back_pdf_url: data.back_pdf_url ? safeString(data.back_pdf_url) : null,
         overview_pdf_url: null,
-        due_date: safeGet(data, 'due_date'),
-        created_at: safeGet(data, 'created_at'),
-        created_by: safeGet(data, 'created_by') || '',
-        lamination_type: safeGet(data, 'lamination_type') || "none",
-        paper_type: safeGet(data, 'paper_type') || (isSleeveBatch ? "premium" : undefined),
-        paper_weight: safeGet(data, 'paper_weight'),
-        updated_at: safeGet(data, 'updated_at')
+        due_date: data.due_date,
+        created_at: data.created_at,
+        created_by: safeString(data.created_by),
+        lamination_type: safeString(data.lamination_type) as any || "none",
+        paper_type: data.paper_type ? safeString(data.paper_type) : (isSleeveBatch ? "premium" : undefined),
+        paper_weight: data.paper_weight,
+        updated_at: data.updated_at
       };
       
       setBatch(batchData);

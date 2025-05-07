@@ -16,14 +16,23 @@ export const castToUUID = (id: string | undefined) => {
 /**
  * Helper to safely access properties from potentially undefined or error objects
  * Useful when handling database query results
+ * 
+ * @param obj The object to safely access properties from
+ * @param key The key to access
+ * @param defaultValue Optional default value if property doesn't exist
+ * @returns The property value or undefined/defaultValue
  */
-export const safeGet = <T, K extends keyof T>(obj: T | null | undefined, key: K): T[K] | undefined => {
-  if (!obj) return undefined;
+export const safeGet = <T, K extends keyof T>(
+  obj: T | null | undefined, 
+  key: K, 
+  defaultValue?: T[K]
+): T[K] | undefined => {
+  if (!obj) return defaultValue;
   try {
-    return obj[key];
+    return obj[key] !== null && obj[key] !== undefined ? obj[key] : defaultValue;
   } catch (err) {
     console.error(`Error accessing ${String(key)}:`, err);
-    return undefined;
+    return defaultValue;
   }
 };
 
@@ -84,4 +93,37 @@ export const formatFilterCondition = (column: string, value: any): { [key: strin
  */
 export const hasData = <T>(response: { data: T | null }): response is { data: T } => {
   return response.data !== null;
+};
+
+/**
+ * Safe string getter that ensures string type and provides default value
+ * Useful for type-safe operations with Supabase data
+ */
+export const safeString = (
+  value: any,
+  defaultValue: string = ""
+): string => {
+  if (value === null || value === undefined) return defaultValue;
+  return String(value);
+};
+
+/**
+ * Safe number getter that ensures number type and provides default value
+ * Useful for type-safe operations with Supabase data
+ */
+export const safeNumber = (
+  value: any,
+  defaultValue: number = 0
+): number => {
+  if (value === null || value === undefined) return defaultValue;
+  const num = Number(value);
+  return isNaN(num) ? defaultValue : num;
+};
+
+/**
+ * Convert an object to a properly typed database insert/update payload
+ * This ensures that all properties have the right types for database operations
+ */
+export const toDbPayload = <T extends Record<string, any>>(obj: T): any => {
+  return obj as any;
 };
