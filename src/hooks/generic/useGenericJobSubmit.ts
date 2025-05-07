@@ -2,13 +2,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
 import { SleeveJobFormValues } from "@/lib/schema/sleeveJobFormSchema";
 import { ProductConfig } from "@/config/productTypes";
 import { useFileUploadHandler } from "./useFileUploadHandler";
 import { useJobDatabase } from "./useJobDatabase";
-import { useSessionCheck } from "@/hooks/useSessionCheck";
+import { supabase } from "@/integrations/supabase/client";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,7 +16,33 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
   const { user } = useAuth();
   const { uploadFile } = useFileUploadHandler();
   const { createJob, updateJob, validateJobFields } = useJobDatabase();
-  const { validateSession } = useSessionCheck();
+
+  // Helper function to validate session
+  const validateSession = async (): Promise<string | null> => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error("Session error:", error);
+        toast.error("Authentication error. Please sign in again.");
+        navigate('/auth', { replace: true });
+        return null;
+      }
+      
+      if (!session) {
+        toast.error("Authentication required. Please sign in.");
+        navigate('/auth', { replace: true });
+        return null;
+      }
+      
+      return session.user.id;
+    } catch (error) {
+      console.error("Session validation error:", error);
+      toast.error("Authentication error. Please sign in again.");
+      navigate('/auth', { replace: true });
+      return null;
+    }
+  };
 
   const handleSubmit = async (
     data: GenericJobFormValues | SleeveJobFormValues,
@@ -196,4 +222,3 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
     isSubmitting
   };
 };
-

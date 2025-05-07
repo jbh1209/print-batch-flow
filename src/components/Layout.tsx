@@ -4,10 +4,14 @@ import Sidebar from "./Sidebar";
 import SearchBar from "./SearchBar";
 import { Bell, HelpCircle, LogOut } from "lucide-react";
 import { Button } from "./ui/button";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Layout = () => {
   const { user, signOut } = useAuth();
+
+  const handleSignOut = () => {
+    signOut();
+  };
 
   return (
     <div className="flex h-screen bg-batchflow-background">
@@ -22,7 +26,7 @@ const Layout = () => {
             <Button variant="ghost" size="icon">
               <HelpCircle size={20} />
             </Button>
-            <Button variant="ghost" size="icon" onClick={signOut}>
+            <Button variant="ghost" size="icon" onClick={handleSignOut}>
               <LogOut size={20} />
             </Button>
             <div className="h-8 w-8 rounded-full bg-sky-400 flex items-center justify-center text-white font-medium">

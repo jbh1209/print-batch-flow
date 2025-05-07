@@ -1,35 +1,38 @@
 
-// Basic user role type using string literals instead of complex enums
-export type UserRole = 'admin' | 'user';
+// Types for the user system
 
-// User profile type
-export interface UserProfile {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-}
-
-// Simple user interface - making email optional to match Supabase's User type
+// Basic user type
 export interface User {
   id: string;
-  email?: string; // Changed from required to optional
+  email?: string;
 }
 
-// User with role information
+// User profile information
+export interface UserProfile {
+  id: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Available user roles
+export type UserRole = 'admin' | 'user';
+
+// Combined user with role information
 export interface UserWithRole {
   id: string;
-  email: string | null; // Allow null to be more flexible
-  full_name: string | null;
-  avatar_url: string | null;
+  email: string;
+  full_name?: string | null;
   role: UserRole;
-  created_at?: string;
+  avatar_url?: string | null;
+  created_at: string;
 }
 
-// Form data for creating or updating users
+// Form data for user creation/editing
 export interface UserFormData {
   email?: string;
-  full_name?: string;
   password?: string;
-  confirmPassword?: string;
+  full_name?: string;
   role?: UserRole;
 }

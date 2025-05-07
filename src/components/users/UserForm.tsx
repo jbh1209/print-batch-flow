@@ -1,76 +1,158 @@
 
-import { useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DialogFooter } from "@/components/ui/dialog";
-import { AlertCircle } from "lucide-react";
-import { UserFormData } from "@/types/user-types";
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage
+} from '@/components/ui/form';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue
+} from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { useUsers } from '@/contexts/UserContext';
 
-interface UserFormProps {
-  initialData?: UserFormData;
-  onSubmit: (data: UserFormData) => void;
-  isEditing?: boolean;
-  isProcessing?: boolean;
-}
-
-// Define form schema based on whether we're editing or creating
+// Define schema based on whether we're editing or creating
 const createUserSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
-  full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  password: z
-    .string()
-    .min(8, { message: "Password must be at least 8 characters" })
-    .max(100),
+  email: z.string().email({ message: 'Please enter a valid email address' }),
+  password: z.string().min(8, { message: 'Password must be at least 8 characters' }),
   confirmPassword: z.string(),
-  role: z.string().default("user")
+  full_name: z.string().optional(),
+  role: z.string().default('user')
 }).refine((data) => data.password === data.confirmPassword, {
-  path: ["confirmPassword"],
-  message: "Passwords do not match",
+  message: 'Passwords do not match',
+  path: ['confirmPassword']
 });
 
 const editUserSchema = z.object({
-  full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  role: z.string().default("user")
+  full_name: z.string().optional(),
+  role: z.string()
 });
 
-export function UserForm({ initialData, onSubmit, isEditing = false, isProcessing = false }: UserFormProps) {
-  const [serverError, setServerError] = useState("");
+interface UserFormProps {
+  initialData?: {
+    full_name?: string;
+    role?: string;
+  };
+  isEdit?: boolean;
+  onSuccess: (data: any) => void;
+}
+
+export function UserForm({ initialData, isEdit = false, onSuccess }: UserFormProps) {
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { createUser } = useUsers();
   
-  const formSchema = isEditing ? editUserSchema : createUserSchema;
+  const schema = isEdit ? editUserSchema : createUserSchema;
   
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
     defaultValues: {
-      email: initialData?.email || "",
-      full_name: initialData?.full_name || "",
-      role: initialData?.role || "user",
-      ...(isEditing ? {} : { password: "", confirmPassword: "" })
+      email: '',
+      password: '',
+      confirmPassword: '',
+      full_name: initialData?.full_name || '',
+      role: initialData?.role || 'user'
     }
   });
-
-  const handleSubmit = async (data: any) => {
-    setServerError("");
+  
+  const handleSubmit = async (data: z.infer<typeof schema>) => {
+    setError(null);
+    setIsSubmitting(true);
     
     try {
-      await onSubmit(data);
-    } catch (error: any) {
-      setServerError(error.message || "An unexpected error occurred");
+      if (isEdit) {
+        // Just pass the data to parent
+        onSuccess(data);
+      } else {
+        // Create new user
+        await createUser(data as any);
+        onSuccess(data);
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
+  
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
-        {serverError && (
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded p-3 flex items-start">
-            <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-            <p className="text-sm">{serverError}</p>
-          </div>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {!isEdit && (
+          <>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="user@example.com" 
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="password" 
+                      placeholder="********" 
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Password</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="password" 
+                      placeholder="********" 
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
         )}
         
         <FormField
@@ -80,29 +162,17 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
             <FormItem>
               <FormLabel>Full Name</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} />
+                <Input 
+                  placeholder="Jane Doe" 
+                  {...field} 
+                  value={field.value || ''}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        {!isEditing && (
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input placeholder="user@example.com" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
+        
         <FormField
           control={form.control}
           name="role"
@@ -110,7 +180,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
             <FormItem>
               <FormLabel>Role</FormLabel>
               <Select 
-                onValueChange={field.onChange}
+                onValueChange={field.onChange} 
                 defaultValue={field.value}
               >
                 <FormControl>
@@ -119,52 +189,27 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin">Administrator</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        {!isEditing && (
-          <>
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        )}
-
-        <DialogFooter>
-          <Button type="submit" disabled={isProcessing}>
-            {isProcessing ? "Processing..." : isEditing ? "Update User" : "Create User"}
+        
+        <div className="flex justify-end space-x-2">
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isEdit ? 'Saving...' : 'Creating...'}
+              </>
+            ) : (
+              isEdit ? 'Save Changes' : 'Create User'
+            )}
           </Button>
-        </DialogFooter>
+        </div>
       </form>
     </Form>
   );

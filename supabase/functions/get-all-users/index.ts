@@ -1,7 +1,5 @@
 
-// This function fetches all users with their roles
-// Using improved auth and error handling
-
+// Improved edge function for fetching users with proper error handling
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
@@ -12,10 +10,18 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
+// Set cache control headers for responses
+const getCacheHeaders = (maxAge = 30) => ({
+  "Cache-Control": `max-age=${maxAge}, s-maxage=${maxAge * 2}`
+});
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: corsHeaders,
+      status: 204
+    });
   }
   
   console.log("get-all-users function invoked");
@@ -36,9 +42,8 @@ serve(async (req) => {
     // Get auth token from request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error("No authorization header provided");
       return new Response(
-        JSON.stringify({ error: 'Authentication required', details: 'No authorization header found' }),
+        JSON.stringify({ error: 'Authentication required', details: 'No authorization header provided' }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -48,14 +53,11 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
     
     if (userError || !user) {
-      console.error("Invalid user token:", userError?.message || "User not found");
       return new Response(
         JSON.stringify({ error: 'Authentication failed', details: userError?.message || 'Invalid user token' }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
-    console.log(`User authenticated: ${user.id}`);
     
     // Check if the user is an admin
     const { data: isAdmin, error: adminCheckError } = await supabaseAdmin.rpc(
@@ -64,28 +66,26 @@ serve(async (req) => {
     );
     
     if (adminCheckError) {
-      console.error("Admin check error:", adminCheckError.message);
       return new Response(
         JSON.stringify({ error: 'Error checking permissions', details: adminCheckError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
-    console.log(`Admin check result: ${isAdmin}`);
-    
     if (!isAdmin) {
-      console.error(`User ${user.id} is not an admin`);
       return new Response(
         JSON.stringify({ error: 'Access denied', details: 'Admin privileges required to access user data' }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
-    // Get all users and their data as admin
-    const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+    // Get all users and their data as admin with reasonable batch size to prevent timeouts
+    const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers({
+      perPage: 100,
+      page: 1
+    });
     
     if (authUsersError) {
-      console.error("Error fetching users:", authUsersError.message);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch users', details: authUsersError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -102,7 +102,6 @@ serve(async (req) => {
       .select('*');
     
     if (profilesError || userRolesError) {
-      console.error("Error fetching profiles or roles:", profilesError?.message || userRolesError?.message);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch user data', details: profilesError?.message || userRolesError?.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -128,10 +127,17 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify(combinedUsers),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          ...getCacheHeaders(60), // Cache for 60 seconds
+          "Content-Type": "application/json" 
+        } 
+      }
     );
   } catch (error) {
     console.error('Error in get-all-users function:', error.message);
+    
     return new Response(
       JSON.stringify({ error: 'Server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
