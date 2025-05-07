@@ -60,28 +60,6 @@ export const prepareUpdateParams = <T extends Record<string, any>>(params: T): a
 };
 
 /**
- * Check if a table exists in the database schema
- */
-export const isExistingTable = (tableName: string): boolean => {
-  const validTables = [
-    'batches',
-    'business_card_jobs',
-    'flyer_jobs',
-    'box_jobs',
-    'postcard_jobs',
-    'cover_jobs',
-    'poster_jobs',
-    'sleeve_jobs',
-    'sticker_jobs',
-    'profiles',
-    'user_roles',
-    'app_settings'
-  ];
-  
-  return validTables.includes(tableName);
-};
-
-/**
  * Format a filter condition for Supabase queries
  */
 export const formatFilterCondition = (column: string, value: any): { [key: string]: any } => {
@@ -98,24 +76,36 @@ export const hasData = <T>(response: { data: T | null }): response is { data: T 
 /**
  * Safe string getter that ensures string type and provides default value
  * Useful for type-safe operations with Supabase data
+ * 
+ * This function will safely handle any SelectQueryError types
  */
 export const safeString = (
   value: any,
   defaultValue: string = ""
 ): string => {
-  if (value === null || value === undefined) return defaultValue;
+  // Handle special case for SelectQueryError
+  if (value === null || value === undefined || 
+      (typeof value === 'object' && 'error' in value)) {
+    return defaultValue;
+  }
   return String(value);
 };
 
 /**
  * Safe number getter that ensures number type and provides default value
  * Useful for type-safe operations with Supabase data
+ * 
+ * This function will safely handle any SelectQueryError types
  */
 export const safeNumber = (
   value: any,
   defaultValue: number = 0
 ): number => {
-  if (value === null || value === undefined) return defaultValue;
+  // Handle special case for SelectQueryError
+  if (value === null || value === undefined || 
+      (typeof value === 'object' && 'error' in value)) {
+    return defaultValue;
+  }
   const num = Number(value);
   return isNaN(num) ? defaultValue : num;
 };
@@ -126,4 +116,60 @@ export const safeNumber = (
  */
 export const toDbPayload = <T extends Record<string, any>>(obj: T): any => {
   return obj as any;
+};
+
+/**
+ * Safely extract a property from a potentially error object
+ * Useful when dealing with Supabase query results that might be error objects
+ */
+export const safeExtract = <T>(obj: any, key: string, defaultValue: T): T => {
+  // Check if the object is an error object (like SelectQueryError)
+  if (!obj || (typeof obj === 'object' && 'error' in obj)) {
+    return defaultValue;
+  }
+  
+  try {
+    const value = obj[key];
+    return value !== null && value !== undefined ? value : defaultValue;
+  } catch (err) {
+    console.error(`Error extracting ${key}:`, err);
+    return defaultValue;
+  }
+};
+
+/**
+ * Safely handle a potentially error-containing database result
+ * @param data The data to process
+ * @param defaultValue The default value to return if data is an error or falsy
+ * @param processor Optional function to process valid data
+ * @returns Processed data or default value
+ */
+export const safeDbResult = <T, R = T>(
+  data: any, 
+  defaultValue: R,
+  processor?: (validData: any) => R
+): R => {
+  // Handle null, undefined or error cases
+  if (!data || (typeof data === 'object' && 'error' in data)) {
+    return defaultValue;
+  }
+  
+  try {
+    if (processor) {
+      return processor(data);
+    }
+    return data as unknown as R;
+  } catch (err) {
+    console.error('Error processing database result:', err);
+    return defaultValue;
+  }
+};
+
+/**
+ * Safe check for objects that might be error types
+ * @param obj Object to check
+ * @returns true if the object is valid (not an error)
+ */
+export const isValidDbObject = (obj: any): boolean => {
+  return obj && typeof obj === 'object' && !('error' in obj);
 };

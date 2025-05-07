@@ -4,7 +4,14 @@ import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { safeGet, castToUUID, prepareUpdateParams, safeString } from "@/utils/database/dbHelpers";
+import { 
+  safeGet, 
+  castToUUID, 
+  prepareUpdateParams, 
+  safeString, 
+  safeExtract,
+  safeDbResult
+} from "@/utils/database/dbHelpers";
 
 interface AuthContextType {
   session: Session | null;
@@ -138,11 +145,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      // Check if data is available before setting profile
+      // Safely extract profile data with error handling
       if (data) {
         setProfile({
-          full_name: safeString(data.full_name),
-          avatar_url: safeString(data.avatar_url),
+          full_name: safeExtract(data, 'full_name', ''),
+          avatar_url: safeExtract(data, 'avatar_url', ''),
         });
       } else {
         setProfile({ full_name: "", avatar_url: "" });

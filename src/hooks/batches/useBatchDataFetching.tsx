@@ -5,7 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BaseBatch, BaseJob, ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
-import { safeGet, castToUUID, safeString, safeNumber } from "@/utils/database/dbHelpers";
+import { 
+  safeGet, 
+  castToUUID, 
+  safeString, 
+  safeNumber,
+  safeDbResult,
+  safeExtract
+} from "@/utils/database/dbHelpers";
 
 interface UseBatchDataFetchingProps {
   batchId: string;
@@ -64,21 +71,22 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       const batchName = safeString(data.name);
       const isSleeveBatch = batchName.startsWith('DXB-SL-');
       
+      // Use safeExtract to safely get properties from the data object
       const batchData: BaseBatch = {
-        id: safeString(data.id),
-        name: safeString(data.name),
-        status: safeString(data.status) as any || 'pending',
-        sheets_required: safeNumber(data.sheets_required),
-        front_pdf_url: data.front_pdf_url ? safeString(data.front_pdf_url) : null,
-        back_pdf_url: data.back_pdf_url ? safeString(data.back_pdf_url) : null,
+        id: safeExtract(data, 'id', ''),
+        name: safeExtract(data, 'name', ''),
+        status: safeExtract(data, 'status', 'pending') as any,
+        sheets_required: safeExtract(data, 'sheets_required', 0),
+        front_pdf_url: safeExtract(data, 'front_pdf_url', null),
+        back_pdf_url: safeExtract(data, 'back_pdf_url', null),
         overview_pdf_url: null,
-        due_date: data.due_date,
-        created_at: data.created_at,
-        created_by: safeString(data.created_by),
-        lamination_type: safeString(data.lamination_type) as any || "none",
-        paper_type: data.paper_type ? safeString(data.paper_type) : (isSleeveBatch ? "premium" : undefined),
-        paper_weight: data.paper_weight,
-        updated_at: data.updated_at
+        due_date: safeExtract(data, 'due_date', ''),
+        created_at: safeExtract(data, 'created_at', ''),
+        created_by: safeExtract(data, 'created_by', ''),
+        lamination_type: safeExtract(data, 'lamination_type', 'none') as any,
+        paper_type: safeExtract(data, 'paper_type', isSleeveBatch ? 'premium' : undefined),
+        paper_weight: safeExtract(data, 'paper_weight', undefined),
+        updated_at: safeExtract(data, 'updated_at', '')
       };
       
       setBatch(batchData);
