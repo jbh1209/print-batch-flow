@@ -35,14 +35,22 @@ export const useJobDatabase = () => {
         return { valid: false };
       }
       
-      // Get column names from the returned data or metadata
-      const tableInfo = await supabase.rpc('get_table_info', { table_name: tableName });
-      if (tableInfo.error) {
-        console.error("Error fetching table info:", tableInfo.error);
+      // Get column names using the Edge Function instead of RPC
+      const { data: tableInfoData, error: tableInfoError } = await supabase.functions.invoke('get_table_info', {
+        body: { table_name: tableName },
+      });
+      
+      if (tableInfoError) {
+        console.error("Error fetching table info:", tableInfoError);
         return { valid: false };
       }
       
-      const allowedColumns = tableInfo.data?.map((col: any) => col.column_name) || [];
+      // Access the data from the Edge Function response properly
+      const allowedColumns = tableInfoData?.data?.map((col: any) => col.column_name) || [];
+      if (!allowedColumns.length) {
+        console.error("No columns returned from table info");
+        return { valid: false };
+      }
       
       // Check if any field doesn't exist in the table schema
       const jobDataKeys = Object.keys(jobData);

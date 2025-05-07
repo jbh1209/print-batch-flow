@@ -70,3 +70,4 @@ enabled = true
 serve_port = 54325
 [functions.get_table_info]
 verify_jwt = true
+
