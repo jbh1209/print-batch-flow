@@ -80,7 +80,7 @@ export const useFlyerJobSubmit = () => {
         const { error } = await supabase
           .from('flyer_jobs')
           .update(updateData)
-          .eq('id', jobId);
+          .eq('id', jobId as any);
           
         if (error) throw error;
         
