@@ -2,9 +2,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useCallback } from "react";
+import { handleAuthError, getFreshAuthToken } from "@/services/auth/authService";
 
 /**
- * Hook for checking session validity
+ * Hook for checking session validity with improved error handling
  */
 export const useSessionCheck = () => {
   const navigate = useNavigate();
@@ -13,18 +15,30 @@ export const useSessionCheck = () => {
    * Validates that the user has an active session
    * @returns User ID if session is valid, null otherwise
    */
-  const validateSession = async (): Promise<string | null> => {
+  const validateSession = useCallback(async (): Promise<string | null> => {
     try {
       console.log("Validating user session...");
+      
+      // Get fresh token to ensure we're working with a valid session
+      const token = await getFreshAuthToken();
+      
+      if (!token) {
+        console.log("No valid token found");
+        toast.error("Authentication required. Please sign in.");
+        navigate('/auth');
+        return null;
+      }
       
       // Check if user is authenticated
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.error("Session error:", sessionError);
-        throw sessionError;
+        console.error("Session validation error:", sessionError);
+        await handleAuthError(sessionError);
+        return null;
       }
       
+      // If no session and auth required, redirect
       if (!sessionData.session) {
         console.log("No active session found");
         toast.error("Authentication required. Please sign in.");
@@ -36,11 +50,10 @@ export const useSessionCheck = () => {
       return sessionData.session.user.id;
     } catch (error) {
       console.error("Session validation error:", error);
-      toast.error("Authentication error. Please sign in again.");
-      navigate('/auth');
+      await handleAuthError(error);
       return null;
     }
-  };
+  }, [navigate]);
   
   return { validateSession };
 };

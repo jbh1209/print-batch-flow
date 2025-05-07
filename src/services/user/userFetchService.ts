@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRole, UserRole } from '@/types/user-types';
+import { getFreshAuthToken, handleAuthError } from '../auth/authService';
 
 /**
  * User fetching functions - Enhanced with retry logic and proper error handling
@@ -11,9 +12,20 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
   try {
     console.log(`Fetching users using Edge Function (attempt ${retryCount + 1}/${maxRetries + 1})`);
     
+    // Get a fresh token before making the request
+    const token = await getFreshAuthToken();
+    
+    if (!token) {
+      console.error('No auth token available');
+      throw new Error('Authentication required: You must be logged in to access user data.');
+    }
+    
     // Call the edge function to get all users
     const { data, error } = await supabase.functions.invoke('get-all-users', {
       method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
     
     if (error) {
@@ -50,10 +62,18 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
     return data as UserWithRole[];
   } catch (error: any) {
     console.error('Error in fetchUsers:', error);
+    
     // Check if the error is about the JWT
-    if (error.message?.includes('JWT') || error.message?.includes('expired') || error.message?.includes('Authentication')) {
+    if (error.message?.includes('JWT') || 
+        error.message?.includes('expired') || 
+        error.message?.includes('Authentication') ||
+        error.message?.includes('401') ||
+        error.message?.includes('Unauthorized')) {
+      
+      await handleAuthError(error);
       throw new Error('Your session has expired. Please sign out and sign in again.');
     }
+    
     throw error;
   }
 }

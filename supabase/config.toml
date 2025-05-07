@@ -71,3 +71,6 @@ serve_port = 54325
 
 [functions.get_table_info]
 verify_jwt = true
+
+[functions.get-all-users]
+verify_jwt = true

@@ -8,18 +8,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cleanupAuthState } from '@/services/auth/authService';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
+    // Clean up any existing auth state on mount
+    // This prevents conflicting auth state issues
+    cleanupAuthState();
+    
     // Redirect if user is already logged in
     if (user) {
       navigate('/');
@@ -37,6 +42,18 @@ const Auth = () => {
     
     setLoading(true);
     try {
+      // Clean up auth state before attempting login
+      cleanupAuthState();
+      
+      // Try to sign out any existing session first to avoid conflicts
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Ignore errors here, just being cautious
+        console.log('Pre-login sign out error (safe to ignore):', err);
+      }
+      
+      console.log('Attempting login for:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -44,12 +61,36 @@ const Auth = () => {
       
       if (error) throw error;
       
-      toast.success("Login successful!");
-      navigate('/');
+      if (data.user) {
+        console.log('Login successful for user:', data.user.id);
+        toast.success("Login successful!");
+        
+        // Force page reload to ensure clean state with session
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 500);
+      } else {
+        throw new Error('Login succeeded but no user returned');
+      }
     } catch (error: any) {
       console.error("Auth error:", error);
-      setErrorMessage(error.message || 'Error signing in');
-      toast.error(`Error signing in: ${error.message}`);
+      
+      // Try to provide more user-friendly error messages
+      let friendlyMessage = error.message || 'Error signing in';
+      
+      if (error.message?.includes('credentials')) {
+        friendlyMessage = 'Invalid email or password. Please try again.';
+      } else if (error.message?.includes('rate limit')) {
+        friendlyMessage = 'Too many login attempts. Please try again later.';
+      } else if (error.message?.toLowerCase().includes('network')) {
+        friendlyMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      setErrorMessage(friendlyMessage);
+      toast.error(`Error signing in: ${friendlyMessage}`);
+      
+      // Try to recover session state
+      await refreshSession();
     } finally {
       setLoading(false);
     }
@@ -105,7 +146,12 @@ const Auth = () => {
             </CardContent>
             <CardFooter>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : "Sign In"}
               </Button>
             </CardFooter>
           </form>
