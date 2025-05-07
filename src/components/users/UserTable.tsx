@@ -59,10 +59,17 @@ export function UserTable({ users }: UserTableProps) {
     if (!selectedUser) return;
     
     try {
-      await updateUser(selectedUser.id, userData);
+      // For the role, ensure it's a string type
+      const userDataToUpdate = {
+        full_name: userData.full_name,
+        role: userData.role as string // This ensures it's treated as a string
+      };
+      
+      await updateUser(selectedUser.id, userDataToUpdate);
       handleCloseDialog();
     } catch (error) {
       console.error('Error updating user:', error);
+      throw error;
     }
   };
   
@@ -74,6 +81,7 @@ export function UserTable({ users }: UserTableProps) {
       handleCloseDialog();
     } catch (error) {
       console.error('Error revoking access:', error);
+      throw error;
     }
   };
   

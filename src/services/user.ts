@@ -1,3 +1,3 @@
 
-// This is a compatibility alias, please use UserService.ts directly
+// This is a compatibility alias for existing code
 export * from './UserService';

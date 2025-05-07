@@ -77,15 +77,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch user profile data
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Try to get the profile
+      let { data, error } = await supabase
         .from('profiles')
         .select('full_name, avatar_url')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching user profile:', error);
         return null;
+      }
+      
+      // If profile doesn't exist, create it
+      if (!data) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({ id: userId })
+          .select('full_name, avatar_url')
+          .single();
+        
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+          return null;
+        }
+        
+        // After creating, fetch again
+        const { data: newData, error: fetchError } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', userId)
+          .maybeSingle();
+          
+        if (fetchError) {
+          console.error('Error fetching new profile:', fetchError);
+          return null;
+        }
+        
+        data = newData;
       }
       
       setProfile(data);
@@ -130,6 +159,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Only update state with synchronous operations
             setSession(currentSession);
             setUser(currentSession?.user || null);
+            
+            // Use setTimeout to avoid recursive state updates
+            if (currentSession?.user) {
+              setTimeout(() => {
+                if (mounted) {
+                  checkIsAdmin(currentSession.user!.id)
+                    .then(isAdmin => setIsAdmin(isAdmin))
+                    .catch(err => console.error("Admin check error:", err));
+                    
+                  fetchUserProfile(currentSession.user!.id)
+                    .catch(err => console.error("Profile fetch error:", err));
+                }
+              }, 0);
+            }
           }
         );
         

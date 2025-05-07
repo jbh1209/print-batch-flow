@@ -160,15 +160,16 @@ export async function updateUser(userId: string, userData: {
   try {
     // Update profile if name provided
     if (userData.full_name !== undefined) {
-      const { error } = await supabase.rpc('update_user_profile_admin', {
-        _user_id: userId,
-        _full_name: userData.full_name
-      });
+      const { error } = await supabase.from('profiles').upsert({
+        id: userId,
+        full_name: userData.full_name,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
       
       if (error) throw error;
     }
     
-    // Update role if provided
+    // Update role if provided - use string roles to avoid app_role type errors
     if (userData.role) {
       const { error } = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,

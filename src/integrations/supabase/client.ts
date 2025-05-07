@@ -18,6 +18,10 @@ export const supabase = createClient<Database>(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true
+    },
+    // Disable WebSocket connections to prevent excessive connection attempts
+    realtime: {
+      enabled: false
     }
   }
 );

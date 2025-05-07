@@ -59,7 +59,7 @@ serve(async (req) => {
       );
     }
     
-    // Check if the user is an admin
+    // Check if the user is an admin - Use rpc call with safer string role handling
     const { data: isAdmin, error: adminCheckError } = await supabaseAdmin.rpc(
       'is_admin_secure_fixed',
       { _user_id: user.id }
@@ -92,14 +92,15 @@ serve(async (req) => {
       );
     }
     
-    // Get all profiles and user roles
+    // Get all profiles and user roles - with safer string role handling
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
       .select('*');
     
+    // Query user_roles without assuming app_role exists
     const { data: userRoles, error: userRolesError } = await supabaseAdmin
       .from('user_roles')
-      .select('*');
+      .select('user_id, role');
     
     if (profilesError || userRolesError) {
       return new Response(
