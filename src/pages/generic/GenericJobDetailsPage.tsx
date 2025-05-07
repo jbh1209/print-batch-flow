@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -144,6 +143,11 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
     }
   };
 
+  // Add a helper function to check if the job has UV varnish field
+  const hasUvVarnish = () => {
+    return config.productType === "Covers" && job && 'uv_varnish' in job && job.uv_varnish !== undefined;
+  };
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
@@ -255,7 +259,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                 </div>
                 
                 {/* Add UV Varnish field for Cover jobs */}
-                {config.productType === "Covers" && job?.uv_varnish && (
+                {hasUvVarnish() && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
                     <div>
                       <p className="text-sm font-medium text-gray-500">UV Varnish</p>

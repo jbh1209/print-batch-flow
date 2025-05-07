@@ -66,4 +66,6 @@ export interface BaseJob {
   sides?: string;
   stock_type?: string; 
   single_sided?: boolean;
+  uv_varnish?: string; // Add the uv_varnish property for cover jobs
 }
+
