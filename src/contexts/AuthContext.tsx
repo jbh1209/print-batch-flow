@@ -51,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [profile, setProfile] = useState<{ full_name?: string | null; avatar_url?: string | null } | null>(null);
   const navigate = useNavigate();
 
   // Check if a user is an admin
@@ -73,14 +74,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Fetch user profile data
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+      
+      setProfile(data);
+      return data;
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+      return null;
+    }
+  };
+
   // Update admin status whenever user changes
   useEffect(() => {
     const updateAdminStatus = async () => {
       if (user?.id) {
         const isUserAdmin = await checkIsAdmin(user.id);
         setIsAdmin(isUserAdmin);
+        
+        // Also fetch profile data
+        await fetchUserProfile(user.id);
       } else {
         setIsAdmin(false);
+        setProfile(null);
       }
     };
 
@@ -115,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (data.session?.user) {
             const isUserAdmin = await checkIsAdmin(data.session.user.id);
             setIsAdmin(isUserAdmin);
+            await fetchUserProfile(data.session.user.id);
           }
         }
         
@@ -180,6 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(null);
       setUser(null);
       setIsAdmin(false);
+      setProfile(null);
       
       toast.success('Signed out successfully');
       navigate('/auth');
@@ -210,6 +239,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Update admin status in background
         const isUserAdmin = await checkIsAdmin(data.session.user.id);
         setIsAdmin(isUserAdmin);
+        await fetchUserProfile(data.session.user.id);
         
         return true;
       }

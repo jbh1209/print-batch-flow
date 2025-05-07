@@ -36,3 +36,11 @@ export interface UserFormData {
   full_name?: string;
   role?: UserRole;
 }
+
+// Form data specifically for user creation where email and password are required
+export interface NewUserFormData {
+  email: string;
+  password: string;
+  full_name?: string;
+  role?: UserRole;
+}

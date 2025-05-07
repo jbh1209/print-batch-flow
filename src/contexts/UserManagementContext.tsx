@@ -126,7 +126,17 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   // Create a new user
   const createUser = useCallback(async (userData: UserFormData) => {
     try {
-      await userService.createUser(userData);
+      if (!userData.email || !userData.password) {
+        throw new Error("Email and password are required");
+      }
+      
+      await userService.createUser({
+        email: userData.email,
+        password: userData.password,
+        full_name: userData.full_name,
+        role: userData.role
+      });
+      
       // Immediately fetch users to update the list
       await fetchUsers(true); // Force refresh
     } catch (error: any) {
