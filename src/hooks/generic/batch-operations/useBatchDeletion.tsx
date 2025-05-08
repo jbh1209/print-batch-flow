@@ -19,8 +19,9 @@ export function useBatchDeletion(tableName: ExistingTableName, onSuccessCallback
       // Only attempt to reset jobs if the table exists
       if (isExistingTable(tableName)) {
         // First reset all jobs in this batch back to queued
+        // Use a type assertion here to help TypeScript resolve the types correctly
         const { error: jobsError } = await supabase
-          .from(tableName)
+          .from(tableName as ExistingTableName)
           .update({ 
             status: "queued",  // Reset status to queued
             batch_id: null     // Clear batch_id reference
