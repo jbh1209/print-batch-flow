@@ -1,9 +1,10 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, adminClient } from '@/integrations/supabase/client';
 import { UserWithRole } from '@/types/user-types';
+import { toast } from 'sonner';
 
 /**
- * User fetching functions - Enhanced with retry logic and proper error handling
+ * User fetching functions - Enhanced with retry logic, proper error handling, and connection robustness
  */
 
 // Fetch all users with their roles
@@ -19,16 +20,27 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
       throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
     }
     
-    // Call the edge function to get all users with explicit auth header
-    const { data, error } = await supabase.functions.invoke('get-all-users', {
+    // Call the edge function using the HTTP-only client with explicit auth header
+    console.log('Making HTTP request to edge function with valid token');
+    const { data, error } = await adminClient.functions.invoke('get-all-users', {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${sessionData.session.access_token}`,
+        'Content-Type': 'application/json',
+        // Explicitly request JSON response
+        'Accept': 'application/json'
       }
     });
     
     if (error) {
       console.error('Edge function error:', error);
+      console.error('Error details:', JSON.stringify(error));
+      
+      // Handle network connection errors specifically
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        toast.error('Network connection error. Please check your internet connection and try again.');
+        throw new Error('Network connection error: Unable to reach the server. Please check your connection.');
+      }
       
       // Handle authentication errors specifically
       if (error.status === 401) {
@@ -45,7 +57,7 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
         // Wait for backoff time
         await new Promise(resolve => setTimeout(resolve, backoffTime));
         
-        // Try refreshing the session first
+        // Try refreshing the session before retry
         try {
           const { data: refreshData } = await supabase.auth.refreshSession();
           if (refreshData?.session) {
@@ -73,6 +85,13 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
     return data as UserWithRole[];
   } catch (error: any) {
     console.error('Error in fetchUsers:', error);
+    
+    // Handle specific connection errors
+    if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+      toast.error('Connection error: Please check your network and try again');
+      throw new Error('Connection error: Unable to communicate with the server.');
+    }
+    
     // Check if the error is about authorization
     if (error.message?.includes('Authentication') || 
         error.message?.includes('expired') || 

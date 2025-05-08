@@ -1,7 +1,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, adminClient } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 
@@ -52,15 +52,24 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     console.log("Starting user fetch with session token available:", !!session?.access_token);
     
     try {
-      const { data, error: fetchError } = await supabase.functions.invoke('get-all-users', {
+      // Use adminClient for edge function calls to ensure HTTP/REST is used
+      const { data, error: fetchError } = await adminClient.functions.invoke('get-all-users', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${session.access_token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         }
       });
       
       if (fetchError) {
         console.error("Function error:", fetchError);
+        console.error("Error details:", JSON.stringify(fetchError));
+        
+        // Handle connection errors
+        if (fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('NetworkError')) {
+          throw new Error('Network connection error. Please check your internet connection and try again.');
+        }
         
         // Handle specific error cases
         if (fetchError.message?.includes('JWT') || fetchError.status === 401) {
@@ -85,6 +94,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
           error.message?.includes('expired') || 
           error.message?.includes('token')) {
         toast.error("Authentication error. Please sign out and sign in again.");
+      } else if (error.message?.includes('Network') || error.message?.includes('connect')) {
+        toast.error("Network error. Please check your internet connection and try again.");
       } else {
         toast.error(error.message || "Failed to fetch users");
       }

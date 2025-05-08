@@ -16,5 +16,34 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'pkce'
+  },
+  global: {
+    // Disable WebSockets globally to ensure HTTP is used for all operations
+    fetch: (...args) => fetch(...args)
+  },
+  realtime: {
+    // Disable realtime features to prevent WebSocket connection issues
+    params: {
+      eventsPerSecond: 0
+    }
+  }
+});
+
+// Create a dedicated client for admin operations and edge function calls
+// This client ensures HTTP/REST is used and no WebSocket connections are attempted
+export const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    flowType: 'pkce'
+  },
+  realtime: {
+    // Completely disable realtime/WebSocket features
+    enabled: false
+  },
+  global: {
+    // Force HTTP/HTTPS fetch for all operations
+    fetch: (...args) => fetch(...args)
   }
 });
