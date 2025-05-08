@@ -13,3 +13,12 @@ export interface UserWithRole {
   role: 'admin' | 'user';
   created_at: string;
 }
+
+// Add missing types
+export type UserRole = 'admin' | 'user';
+
+export interface User {
+  id: string;
+  email: string;
+  full_name?: string | null;
+}
