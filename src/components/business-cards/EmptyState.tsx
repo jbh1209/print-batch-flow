@@ -1,6 +1,7 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, AlertCircle, Loader2 } from "lucide-react";
+import { FileText, AlertCircle, Loader2, Search } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 interface EmptyStateProps {
@@ -25,6 +26,25 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   const getCreatePath = () => {
     if (createPath) return createPath;
     
+    // Use standard pattern for entity creation paths
+    const currentPath = location.pathname;
+    
+    // Extract product type from path: /batches/[product]/...
+    const pathParts = currentPath.split('/');
+    let productType = '';
+    
+    if (pathParts.length >= 3 && pathParts[1] === 'batches') {
+      productType = pathParts[2];
+      
+      // Handle various entity types
+      if (entityName.toLowerCase() === 'jobs') {
+        return `/batches/${productType}/jobs/new`;
+      } else if (entityName.toLowerCase() === 'batches') {
+        return `/batches/${productType}/jobs`;
+      }
+    }
+    
+    // Standard mappings for common paths
     if (location.pathname.includes('/postcards')) {
       // If we're on the postcard batches page, direct to jobs selection for batching
       if (location.pathname.endsWith('/batches')) {
@@ -35,6 +55,16 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       return "/batches/business-cards/jobs/new";
     } else if (location.pathname.includes('/flyers')) {
       return "/batches/flyers/jobs/new";
+    } else if (location.pathname.includes('/covers')) {
+      return "/batches/covers/jobs/new";
+    } else if (location.pathname.includes('/posters')) {
+      return "/batches/posters/jobs/new";
+    } else if (location.pathname.includes('/sleeves')) {
+      return "/batches/sleeves/jobs/new";
+    } else if (location.pathname.includes('/stickers')) {
+      return "/batches/stickers/jobs/new";
+    } else if (location.pathname.includes('/boxes')) {
+      return "/batches/boxes/jobs/new";
     }
     
     return "/";
@@ -68,6 +98,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   }
   
   // Default empty state
+  const createButtonPath = getCreatePath();
+  
   return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-500">
       <div className="bg-gray-100 p-4 rounded-full mb-4">
@@ -77,12 +109,18 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <p className="text-sm text-gray-400 mb-4">Get started by creating your first {entityName.toLowerCase()}</p>
       
       <Button asChild>
-        <Link to={getCreatePath()}>
+        <Link to={createButtonPath}>
           {entityName === "batches" && location.pathname.includes('/postcards') 
             ? "Select Jobs to Batch" 
             : `Create ${entityName}`}
         </Link>
       </Button>
+      
+      {/* Display path for clarity */}
+      <div className="mt-4 flex items-center text-xs text-gray-400">
+        <Search className="h-3 w-3 mr-1" />
+        <span>Path: {createButtonPath}</span>
+      </div>
     </div>
   );
 };

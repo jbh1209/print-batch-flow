@@ -1,14 +1,16 @@
 
 import { useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Home, ArrowLeft } from "lucide-react";
+import { AlertCircle, Home, ArrowLeft, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { productConfigs } from "@/config/productTypes";
 
 const NotFound = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [suggestedPath, setSuggestedPath] = useState<string | null>(null);
 
   useEffect(() => {
     console.error(
@@ -16,19 +18,76 @@ const NotFound = () => {
       location.pathname
     );
     
-    // Show a toast with helpful navigation suggestion
-    toast.error("Page not found. You might need to use the correct path format: /batches/[product]/jobs/new", {
-      duration: 5000,
-    });
+    // Parse the current path to find potentially wrong patterns
+    const path = location.pathname;
+    let suggestion: string | null = null;
     
-    // Try to suggest a correct path based on common patterns
-    if (location.pathname.includes('/covers/jobs/new')) {
-      toast("Try navigating to /batches/covers/jobs/new instead", {
+    // Check for common pattern mistakes
+    if (path.includes('/jobs/new') && !path.includes('/batches/')) {
+      // Missing /batches/ prefix in product path
+      const productType = path.split('/')[1];
+      suggestion = `/batches/${productType}/jobs/new`;
+    } 
+    else if (path.includes('/covers/jobs/new')) {
+      suggestion = '/batches/covers/jobs/new';
+    }
+    else if (path.includes('/flyers/jobs/new')) {
+      suggestion = '/batches/flyers/jobs/new';
+    }
+    else if (path.includes('/postcards/jobs/new')) {
+      suggestion = '/batches/postcards/jobs/new';
+    }
+    else if (path.includes('/posters/jobs/new')) {
+      suggestion = '/batches/posters/jobs/new';
+    }
+    else if (path.includes('/business-cards/jobs/new')) {
+      suggestion = '/batches/business-cards/jobs/new';
+    }
+    else if (path.includes('/stickers/jobs/new')) {
+      suggestion = '/batches/stickers/jobs/new';
+    }
+    else if (path.includes('/sleeves/jobs/new')) {
+      suggestion = '/batches/sleeves/jobs/new';
+    }
+    else if (path.includes('/boxes/jobs/new')) {
+      suggestion = '/batches/boxes/jobs/new';
+    }
+    
+    // Check for batch path errors
+    if (path.includes('/batches/') && !path.includes('/jobs/') && !path.includes('/batches/')) {
+      // Possible missing 'batches' in the path - common error when trying to view batch details
+      const segments = path.split('/');
+      if (segments.length >= 3) {
+        const productType = segments[2];
+        const batchId = segments[3];
+        if (batchId && batchId.length > 10) { // Looks like an ID
+          suggestion = `/batches/${productType}/batches/${batchId}`;
+        }
+      }
+    }
+    
+    // Find all available product routes for suggestions
+    const availableRoutes = Object.values(productConfigs).map(config => ({
+      name: config.productType,
+      jobsPath: config.routes.jobsPath,
+      newJobPath: config.routes.newJobPath,
+      batchesPath: config.routes.batchesPath
+    }));
+    
+    // If we've determined a suggestion, offer it to the user
+    if (suggestion) {
+      setSuggestedPath(suggestion);
+      toast("We found a possible correct path", {
         action: {
           label: "Go There",
-          onClick: () => navigate('/batches/covers/jobs/new')
+          onClick: () => navigate(suggestion)
         },
-        duration: 8000
+        duration: 10000
+      });
+    } else {
+      // Show a generic error toast
+      toast.error("Page not found. You might need to use the correct path format: /batches/[product]/jobs/new", {
+        duration: 5000,
       });
     }
   }, [location.pathname, navigate]);
@@ -41,6 +100,12 @@ const NotFound = () => {
     navigate("/");
   };
 
+  const goToSuggested = () => {
+    if (suggestedPath) {
+      navigate(suggestedPath);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md shadow-lg">
@@ -50,15 +115,34 @@ const NotFound = () => {
               <AlertCircle className="h-8 w-8 text-red-600" />
             </div>
             <h1 className="text-3xl font-bold mb-2">Page Not Found</h1>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 mb-4">
               The page you're looking for doesn't exist or has been moved.
             </p>
-            <p className="text-sm text-gray-500 mb-6 px-4 py-2 bg-gray-100 rounded-md w-full overflow-x-auto">
+            
+            <div className="text-sm text-gray-500 mb-6 px-4 py-2 bg-gray-100 rounded-md w-full overflow-x-auto">
               <code>{location.pathname}</code>
-            </p>
-            <div className="flex gap-4 flex-col sm:flex-row w-full">
+            </div>
+            
+            {suggestedPath && (
+              <div className="mb-6 w-full">
+                <p className="text-sm font-medium text-green-600 mb-2">Did you mean to go here instead?</p>
+                <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                  <Search className="h-4 w-4 text-green-500 flex-shrink-0" />
+                  <code className="text-xs text-green-700 overflow-x-auto">{suggestedPath}</code>
+                </div>
+                <Button 
+                  className="w-full mt-2"
+                  variant="outline"
+                  onClick={goToSuggested}
+                >
+                  Go to Suggested Path
+                </Button>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-2 gap-3 w-full">
               <Button 
-                className="flex items-center gap-2"
+                className="flex items-center justify-center gap-2"
                 onClick={goBack}
                 variant="outline"
               >
@@ -66,11 +150,11 @@ const NotFound = () => {
                 Go Back
               </Button>
               <Button 
-                className="flex items-center gap-2"
+                className="flex items-center justify-center gap-2"
                 onClick={goHome}
               >
                 <Home className="h-4 w-4" />
-                Return Home
+                Home
               </Button>
             </div>
           </div>
