@@ -11,7 +11,9 @@ import {
   safeDbMap, 
   toSafeString,
   castToUUID,
-  safeGetId
+  safeGetId,
+  createInsertData,
+  createUpdateData
 } from "@/utils/database/dbHelpers";
 
 // Standardized product type codes for batch naming
@@ -120,7 +122,7 @@ export function useBatchCreation() {
       );
       
       // Create batch data object for insertion
-      const batchInsertData = prepareUpdateParams({
+      const insertBatchData = createInsertData({
         name,
         lamination_type: laminationType,
         sheets_required: sheetsRequired,
@@ -131,9 +133,9 @@ export function useBatchCreation() {
       });
       
       // Insert batch record into database
-      const { data: createdBatch, error: batchError } = await supabase
+      const { data: createdBatchData, error: batchError } = await supabase
         .from("batches")
-        .insert(batchInsertData)
+        .insert(insertBatchData)
         .select()
         .single();
         
@@ -142,7 +144,7 @@ export function useBatchCreation() {
       }
       
       // Safely extract batch ID
-      const batchId = safeGetId(createdBatch);
+      const batchId = safeGetId(createdBatchData);
       
       if (!batchId) {
         throw new Error("Failed to get batch ID from created batch");
@@ -152,7 +154,7 @@ export function useBatchCreation() {
       const updatePromises = selectedJobs.map(job => 
         supabase
           .from("business_card_jobs")
-          .update(prepareUpdateParams({ 
+          .update(createUpdateData({ 
             batch_id: batchId,
             status: "batched"
           }))

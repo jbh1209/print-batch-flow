@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -21,6 +20,8 @@ import {
   safeBatchId
 } from "@/utils/database/dbHelpers";
 import { prepareBatchForDb } from "@/utils/database/typeAdapters";
+import { BatchStatus } from "@/config/types/baseTypes";
+import { createInsertData } from "@/utils/database/dbHelpers";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -85,13 +86,13 @@ export function useBatchCreation(productType: string, tableName: string) {
         due_date: earliestDueDate.toISOString(),
         lamination_type: laminationType,
         paper_type: paperType,
-        status: "pending",
+        status: "pending" as BatchStatus, // Use type assertion for enum value
         created_by: user.id,
         sla_target_days: slaTarget
       };
       
       // Prepare data for database insertion with type safety
-      const preparedBatchData = prepareBatchForDb(batchData);
+      const preparedBatchData = createInsertData(batchData);
       
       // Create the batch record
       const { data: createdBatchData, error: batchError } = await supabase

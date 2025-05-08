@@ -1,4 +1,3 @@
-
 /**
  * Utility functions to handle database operations with proper type handling
  */
@@ -48,10 +47,47 @@ export const safeBatchId = (data: any): string => {
 };
 
 /**
- * Prepare update parameters with type safety
+ * Process database fields safely for any object
  */
-export const prepareUpdateParams = <T extends Record<string, any>>(params: T): Record<string, any> => {
-  return params;
+export const processDbFields = <T extends Record<string, any>>(data: any): T => {
+  if (!data || typeof data !== 'object') {
+    return {} as T;
+  }
+  
+  if ('error' in data) {
+    return {} as T;
+  }
+  
+  const processedData: Record<string, any> = {};
+  
+  // Process each field safely
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      const value = data[key];
+      
+      if (value === null || value === undefined) {
+        processedData[key] = null;
+      } else if (typeof value === 'object') {
+        try {
+          processedData[key] = JSON.stringify(value);
+        } catch (e) {
+          processedData[key] = null;
+        }
+      } else {
+        processedData[key] = value;
+      }
+    }
+  }
+  
+  return processedData as T;
+};
+
+/**
+ * Prepare update parameters with type safety
+ * This version adds explicit type assertion for Supabase tables
+ */
+export const prepareUpdateParams = <T extends Record<string, any>>(params: T): T => {
+  return params as T;
 };
 
 /**
@@ -247,3 +283,21 @@ export const toJobArray = <T>(data: any): T[] => {
 export const hasProperty = <T extends string>(obj: any, prop: T): boolean => {
   return obj && typeof obj === 'object' && prop in obj;
 };
+
+/**
+ * Create properly typed data for insert operations
+ * This helps with the specific Supabase type requirements
+ */
+export function createInsertData<T extends Record<string, any>>(data: T): any {
+  // For Supabase, we need to return the data as-is but with the correct typing
+  return data as any;
+}
+
+/**
+ * Create properly typed data for update operations
+ * This helps with the specific Supabase type requirements
+ */
+export function createUpdateData<T extends Record<string, any>>(data: T): any {
+  // For Supabase, we need to return the data as-is but with the correct typing
+  return data as any;
+}

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BaseBatch, ExistingTableName } from "@/config/productTypes";
-import { prepareUpdateParams, castToUUID } from "@/utils/database/dbHelpers";
+import { createUpdateData, castToUUID } from "@/utils/database/dbHelpers";
 
 /**
  * Hook for handling batch deletion
@@ -30,7 +30,7 @@ export function useBatchDeletion(tableName: ExistingTableName | null, onSuccessC
         console.log(`Unlinking jobs from table: ${tableName}`);
         
         // Prepare the update data with proper type safety
-        const updateData = prepareUpdateParams({
+        const updateData = createUpdateData({
           status: "queued",
           batch_id: null
         });

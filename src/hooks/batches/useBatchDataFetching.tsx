@@ -1,174 +1,100 @@
-
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { BaseBatch, BaseJob, ProductConfig } from "@/config/productTypes";
-import { isExistingTable } from "@/utils/database/tableValidation";
+import { BaseBatch } from "@/config/productTypes";
+import { toast } from "sonner";
 import { 
   castToUUID, 
+  processBatchData, 
   toSafeString, 
-  safeNumber,
-  processDbFields,
-  safeDbMap,
-  ensureEnumValue
+  ensureEnumValue 
 } from "@/utils/database/dbHelpers";
+import { adaptBatchFromDb } from "@/utils/database/typeAdapters";
 
-interface UseBatchDataFetchingProps {
-  batchId: string;
-  config: ProductConfig;
-  userId: string | undefined;
-}
-
-export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFetchingProps) {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [batch, setBatch] = useState<BaseBatch | null>(null);
-  const [relatedJobs, setRelatedJobs] = useState<BaseJob[]>([]);
+export function useBatchDataFetching(config: any, batchId: string | null = null) {
+  const { user } = useAuth();
+  const [batches, setBatches] = useState<BaseBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBatchDetails = async () => {
-    if (!userId || !batchId) {
-      console.error("Missing user or batchId:", { user: !!userId, batchId });
+  const fetchBatches = async () => {
+    if (!user) {
+      console.log('No authenticated user for batch fetching');
       setIsLoading(false);
-      setError("Missing required information to fetch batch details");
       return;
     }
+
+    console.log('Fetching batches for user:', user.id, 'product type:', config.productType);
     
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      console.log(`Fetching batch details for batch ID: ${batchId} and product type: ${config.productType}`);
+      let query = supabase
+        .from('batches')
+        .select('*')
+        .eq('created_by', castToUUID(user.id));
       
-      const { data, error } = await supabase
-        .from("batches")
-        .select("*")
-        .eq("id", castToUUID(batchId))
-        .eq("created_by", castToUUID(userId))
-        .single();
+      // Get product code from the standardized utility function
+      const productCode = config.productTypeCode;
       
-      if (error) {
-        console.error("Error fetching batch:", error);
-        throw error;
+      if (productCode) {
+        // Using the standardized code prefix for batch naming patterns
+        console.log(`Using product code ${productCode} for ${config.productType} batches`);
+        query = query.or(`name.ilike.%-${productCode}-%,name.ilike.DXB-${productCode}-%`);
       }
       
-      if (!data) {
-        console.log("Batch not found");
-        toast({
-          title: "Batch not found",
-          description: "The requested batch could not be found or you don't have permission to view it.",
-          variant: "destructive",
-        });
-        navigate(config.routes.batchesPath);
-        return;
+      if (batchId) {
+        query = query.eq("id", castToUUID(batchId));
       }
       
-      console.log("Batch details received:", data);
+      const { data, error: fetchError } = await query
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      console.log('Batches data received for', config.productType, ':', data?.length || 0, 'records');
       
-      // Process data safely
-      const processedData = processDbFields(data);
+      // Process the data to ensure type safety
+      const processedBatches: BaseBatch[] = [];
       
-      // Safely check for a sleeve batch using safeString
-      const batchName = toSafeString(processedData.name);
-      const isSleeveBatch = batchName.startsWith('DXB-SL-');
-      
-      // Create batch data object with safe type conversions
-      const typedBatchData: BaseBatch = {
-        id: toSafeString(processedData.id),
-        name: toSafeString(processedData.name),
-        status: ensureEnumValue(processedData.status, 'pending'),
-        sheets_required: safeNumber(processedData.sheets_required, 0),
-        front_pdf_url: processedData.front_pdf_url ? toSafeString(processedData.front_pdf_url) : null,
-        back_pdf_url: processedData.back_pdf_url ? toSafeString(processedData.back_pdf_url) : null,
-        overview_pdf_url: null,
-        due_date: toSafeString(processedData.due_date),
-        created_at: toSafeString(processedData.created_at),
-        created_by: toSafeString(processedData.created_by),
-        lamination_type: ensureEnumValue(processedData.lamination_type, 'none'),
-        paper_type: processedData.paper_type ? toSafeString(processedData.paper_type) : (isSleeveBatch ? 'premium' : undefined),
-        paper_weight: processedData.paper_weight ? toSafeString(processedData.paper_weight) : undefined,
-        updated_at: toSafeString(processedData.updated_at)
-      };
-      
-      setBatch(typedBatchData);
-      
-      const tableName = config.tableName;
-      if (isExistingTable(tableName)) {
-        console.log("Fetching related jobs from table:", tableName);
-        
-        // Use type assertion to bypass TypeScript's static checking
-        const { data: jobsData, error: jobsError } = await supabase
-          .from(tableName as any)
-          .select("*")
-          .eq("batch_id", castToUUID(batchId))
-          .order("name");
-      
-        if (jobsError) {
-          console.error("Error fetching related jobs:", jobsError);
-          throw jobsError;
-        }
-        
-        if (Array.isArray(jobsData) && jobsData.length > 0) {
-          // Use our safe mapping function to process job data
-          const processedJobs = safeDbMap(jobsData, job => {
-            const processedJob = processDbFields(job);
-            
-            // Basic processing for all job types
-            const baseJob: BaseJob = {
-              id: toSafeString(processedJob.id),
-              name: toSafeString(processedJob.name),
-              status: toSafeString(processedJob.status),
-              quantity: safeNumber(processedJob.quantity),
-              due_date: toSafeString(processedJob.due_date),
-              pdf_url: processedJob.pdf_url ? toSafeString(processedJob.pdf_url) : null,
-              file_name: processedJob.file_name ? toSafeString(processedJob.file_name) : undefined,
-              job_number: toSafeString(processedJob.job_number),
-              batch_id: processedJob.batch_id ? toSafeString(processedJob.batch_id) : null
-            };
-            
-            // Special handling for sleeve jobs
-            if (isSleeveBatch && config.productType === "Sleeves") {
-              return {
-                ...baseJob,
-                stock_type: processedJob.stock_type ? toSafeString(processedJob.stock_type) : "premium"
-              };
-            }
-            
-            return baseJob;
-          });
+      if (data && Array.isArray(data)) {
+        for (const batch of data) {
+          const processedBatch = processBatchData(batch);
           
-          setRelatedJobs(processedJobs);
-        } else {
-          setRelatedJobs([]);
+          if (processedBatch) {
+            // Set the overview_pdf_url which might be missing in the database
+            const genericBatch: BaseBatch = {
+              ...processedBatch,
+              overview_pdf_url: processedBatch.overview_pdf_url || null,
+              // Ensure lamination_type is never undefined
+              lamination_type: ensureEnumValue(processedBatch.lamination_type, 'none')
+            };
+            processedBatches.push(genericBatch);
+          }
         }
-      } else {
-        console.log("Table does not exist yet:", tableName);
-        setRelatedJobs([]);
       }
-    } catch (error) {
-      console.error("Error fetching batch details:", error);
-      setError("Failed to load batch details");
-      toast({
-        title: "Error loading batch",
-        description: "Failed to load batch details. Please try again.",
-        variant: "destructive",
-      });
+      
+      setBatches(processedBatches);
+      
+      if (batchId && (!data || data.length === 0)) {
+        toast.error("Batch not found or you don't have permission to view it.");
+      }
+    } catch (err) {
+      console.error(`Error fetching ${config.productType} batches:`, err);
+      setError(`Failed to load ${config.productType.toLowerCase()} batches`);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchBatchDetails();
-  }, [batchId, userId]);
+    if (user) {
+      fetchBatches();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user, batchId]);
 
-  return {
-    batch,
-    relatedJobs,
-    isLoading,
-    error,
-    fetchBatchDetails
-  };
+  return { batches, isLoading, error, fetchBatches };
 }

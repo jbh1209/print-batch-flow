@@ -6,7 +6,7 @@ import { TableName } from '@/config/productTypes';
 import { isExistingTable } from '@/utils/database/tableValidation';
 import { 
   castToUUID, 
-  prepareUpdateParams,
+  createUpdateData,
   safeDbMap,
   toSafeString,
   safeGetId
@@ -55,7 +55,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Create properly typed update parameters
-        const updateParams = prepareUpdateParams({ status: 'queued' as any });
+        const updateParams = createUpdateData({ status: 'queued' as any });
         
         // Extract all job IDs from the orphaned jobs and ensure they are valid
         const jobIds = safeDbMap(orphanedJobs, job => safeGetId(job));

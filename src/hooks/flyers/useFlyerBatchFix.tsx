@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { castToUUID, prepareUpdateParams, safeDbMap, toSafeString } from '@/utils/database/dbHelpers';
+import { castToUUID, createUpdateData, safeDbMap, toSafeString } from '@/utils/database/dbHelpers';
 
 export function useFlyerBatchFix(onJobsUpdated: () => Promise<void>) {
   const { user } = useAuth();
@@ -37,7 +36,7 @@ export function useFlyerBatchFix(onJobsUpdated: () => Promise<void>) {
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Create a properly typed update payload
-        const updateData = prepareUpdateParams({
+        const updateData = createUpdateData({
           status: "queued"
         });
         

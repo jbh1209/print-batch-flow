@@ -9,6 +9,7 @@ import {
   toSafeString,
   processDbFields 
 } from "@/utils/database/dbHelpers";
+import { createInsertData, createUpdateData } from "@/utils/database/dbHelpers";
 
 interface AuthContextType {
   session: Session | null;
@@ -129,7 +130,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (error) {
         // If profile doesn't exist, create one
         if (error.code === "PGRST116") {
-          const insertData = prepareUpdateParams({
+          const insertData = createInsertData({
             id: castToUUID(userId)
           });
           
@@ -144,7 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Process the data using our helper function to safely extract values
       if (data) {
-        const processedData = processDbFields(data);
+        const processedData = processDbFields<{full_name?: string; avatar_url?: string}>(data);
         setProfile({
           full_name: toSafeString(processedData.full_name),
           avatar_url: toSafeString(processedData.avatar_url),
@@ -241,7 +242,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      const updates = prepareUpdateParams({
+      const updates = createUpdateData({
         full_name: fullName,
         ...(avatarUrl && { avatar_url: avatarUrl }),
         updated_at: new Date().toISOString(),

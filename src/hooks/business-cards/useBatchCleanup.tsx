@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { castToUUID, prepareUpdateParams, safeDbMap, toSafeString } from "@/utils/database/dbHelpers";
+import { createUpdateData, castToUUID, safeDbMap, toSafeString } from "@/utils/database/dbHelpers";
 
 export const useBatchCleanup = () => {
   const { toast } = useToast();
@@ -21,7 +20,7 @@ export const useBatchCleanup = () => {
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Create a properly typed update payload
-        const updateData = prepareUpdateParams({
+        const updateData = createUpdateData({
           status: "queued"
         });
         

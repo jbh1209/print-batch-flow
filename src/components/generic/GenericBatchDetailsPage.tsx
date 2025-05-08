@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -12,6 +11,7 @@ import DeleteBatchDialog from '@/components/batches/DeleteBatchDialog';
 import { castToUUID, safeBatchId } from '@/utils/database/dbHelpers';
 import { adaptBatchFromDb, adaptJobArrayFromDb } from '@/utils/database/typeAdapters';
 import { useAuth } from '@/hooks/useAuth';
+import { createUpdateData } from '@/utils/database/dbHelpers';
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -112,10 +112,10 @@ const GenericBatchDetailsPage = ({ config, backUrl }: GenericBatchDetailsPagePro
       if (config.tableName) {
         const { error: updateError } = await supabase
           .from(config.tableName as any)
-          .update({ 
+          .update(createUpdateData({ 
             status: 'queued',
             batch_id: null
-          })
+          }))
           .eq('batch_id', castToUUID(batchToDelete.id));
           
         if (updateError) {
