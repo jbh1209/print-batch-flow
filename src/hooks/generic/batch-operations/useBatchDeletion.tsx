@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ExistingTableName } from "@/config/types/baseTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
 
-export function useBatchDeletion(tableName: ExistingTableName, onSuccessCallback?: () => void) {
+export function useBatchDeletion(tableName: ExistingTableName | null, onSuccessCallback?: () => void) {
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -16,12 +16,12 @@ export function useBatchDeletion(tableName: ExistingTableName, onSuccessCallback
     try {
       console.log(`Deleting batch ${batchToDelete} and updating jobs in ${tableName}`);
       
-      // Only attempt to reset jobs if the table exists
-      if (isExistingTable(tableName)) {
+      // Only attempt to reset jobs if the table exists and is not null
+      if (tableName && isExistingTable(tableName)) {
         // First reset all jobs in this batch back to queued
-        // Use a type assertion here to help TypeScript resolve the types correctly
+        // Using a fixed type to avoid deep instantiation issues
         const { error: jobsError } = await supabase
-          .from(tableName as ExistingTableName)
+          .from(tableName)
           .update({ 
             status: "queued",  // Reset status to queued
             batch_id: null     // Clear batch_id reference
@@ -33,7 +33,7 @@ export function useBatchDeletion(tableName: ExistingTableName, onSuccessCallback
           throw jobsError;
         }
       } else {
-        console.warn(`Table ${tableName} does not exist, skipping job updates`);
+        console.warn(`Table ${tableName} does not exist or is null, skipping job updates`);
       }
       
       // Then delete the batch
