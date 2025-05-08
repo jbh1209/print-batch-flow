@@ -35,14 +35,20 @@ export const useJobDatabase = () => {
         return { valid: false };
       }
       
-      // Get column names from the returned data or metadata
-      const tableInfo = await supabase.rpc('get_table_info', { table_name: tableName });
-      if (tableInfo.error) {
-        console.error("Error fetching table info:", tableInfo.error);
+      // Get column names from a direct database query instead of using RPC
+      const { data: tableColumns, error: tableInfoError } = await supabase
+        .from('information_schema.columns')
+        .select('column_name')
+        .eq('table_name', tableName)
+        .eq('table_schema', 'public');
+      
+      if (tableInfoError) {
+        console.error("Error fetching table info:", tableInfoError);
         return { valid: false };
       }
       
-      const allowedColumns = tableInfo.data?.map((col: any) => col.column_name) || [];
+      // Extract column names from the result
+      const allowedColumns = tableColumns?.map((col: any) => col.column_name) || [];
       
       // Check if any field doesn't exist in the table schema
       const jobDataKeys = Object.keys(jobData);
