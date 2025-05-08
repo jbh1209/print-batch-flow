@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { castToUUID, safeDbMap, toSafeString } from "@/utils/database/dbHelpers";
 
 interface BatchStats {
   activeBatches: number;
@@ -32,12 +31,12 @@ export const useBatchStats = (userId: string | undefined) => {
     try {
       setStats(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Fetch active batches with cast IDs
+      // Fetch active batches
       const { data: activeBatches, error: batchesError } = await supabase
         .from("batches")
         .select("id")
-        .eq("created_by", castToUUID(userId))
-        .in("status", ["pending", "processing"] as any);
+        .eq("created_by", userId)
+        .in("status", ["pending", "processing"]);
       
       if (batchesError) throw batchesError;
       
@@ -45,14 +44,14 @@ export const useBatchStats = (userId: string | undefined) => {
       const { data: pendingBusinessCardJobs } = await supabase
         .from("business_card_jobs")
         .select("id")
-        .eq("user_id", castToUUID(userId))
-        .eq("status", castToUUID("queued") as any);
+        .eq("user_id", userId)
+        .eq("status", "queued");
         
       const { data: pendingFlyerJobs } = await supabase
         .from("flyer_jobs")
         .select("id, size")
-        .eq("user_id", castToUUID(userId))
-        .eq("status", castToUUID("queued") as any);
+        .eq("user_id", userId)
+        .eq("status", "queued");
       
       const batchTypeStats = [
         { name: "Business Cards", progress: 0, total: 50 },
@@ -67,14 +66,8 @@ export const useBatchStats = (userId: string | undefined) => {
       }
       
       if (pendingFlyerJobs) {
-        // Use safeDbMap for type-safe filtering
-        const flyerJobsSafe = safeDbMap(pendingFlyerJobs, job => ({
-          id: toSafeString(job.id),
-          size: toSafeString(job.size)
-        }));
-        
-        const flyerA5Jobs = flyerJobsSafe.filter(job => job.size === "A5");
-        const flyerA4Jobs = flyerJobsSafe.filter(job => job.size === "A4");
+        const flyerA5Jobs = pendingFlyerJobs.filter(job => job.size === "A5");
+        const flyerA4Jobs = pendingFlyerJobs.filter(job => job.size === "A4");
         batchTypeStats[1].progress = flyerA5Jobs?.length || 0;
         batchTypeStats[2].progress = flyerA4Jobs?.length || 0;
       }
@@ -84,11 +77,8 @@ export const useBatchStats = (userId: string | undefined) => {
         type => (type.progress / type.total) >= 0.8
       ).length;
       
-      // Get active batches count safely
-      const batchCount = activeBatches?.length || 0;
-      
       setStats({
-        activeBatches: batchCount,
+        activeBatches: activeBatches?.length || 0,
         bucketsFilled,
         batchTypeStats,
         isLoading: false,

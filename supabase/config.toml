@@ -30,7 +30,7 @@ default_pool_size = 20
 max_client_conn = 100
 
 [realtime]
-enabled = false
+enabled = true
 
 [studio]
 enabled = true
@@ -68,9 +68,5 @@ file_size_limit = "50MiB"
 [functions]
 enabled = true
 serve_port = 54325
-
 [functions.get_table_info]
-verify_jwt = true
-
-[functions.get-all-users]
 verify_jwt = true

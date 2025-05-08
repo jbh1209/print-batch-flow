@@ -1,5 +1,5 @@
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,7 +13,7 @@ export function AuthDebugger() {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           Authentication Status
-          <Badge variant={isAdmin ? "default" : "secondary"}>
+          <Badge variant={isAdmin ? "success" : "secondary"}>
             {isAdmin ? "Admin" : "User"}
           </Badge>
         </CardTitle>

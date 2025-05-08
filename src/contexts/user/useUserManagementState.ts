@@ -1,37 +1,15 @@
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import * as userService from '@/services/user';
 import { useAuth } from '@/hooks/useAuth';
+import { handleAuthError } from '@/services/auth/authService';
 
-interface UserManagementContextType {
-  users: UserWithRole[];
-  isLoading: boolean;
-  error: string | null;
-  anyAdminExists: boolean;
-  fetchUsers: () => Promise<void>;
-  createUser: (userData: UserFormData) => Promise<void>;
-  updateUser: (userId: string, userData: UserFormData) => Promise<void>;
-  deleteUser: (userId: string) => Promise<void>;
-  checkAdminExists: () => Promise<boolean>; // Return type is Promise<boolean>
-  addAdminRole: (userId: string) => Promise<void>;
-}
-
-const UserManagementContext = createContext<UserManagementContextType>({
-  users: [],
-  isLoading: false,
-  error: null,
-  anyAdminExists: false,
-  fetchUsers: async () => {},
-  createUser: async () => {},
-  updateUser: async () => {},
-  deleteUser: async () => {},
-  checkAdminExists: async () => false, // Default return is false
-  addAdminRole: async () => {},
-});
-
-export const UserManagementProvider = ({ children }: { children: React.ReactNode }) => {
+/**
+ * Hook that manages the state and operations for user management
+ */
+export function useUserManagementState() {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +18,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const CACHE_DURATION = 30000; // 30 seconds cache duration
   
+  // Fetch users function with force refresh option
   const fetchUsers = useCallback(async (forceFetch = false) => {
     // Skip fetch if not admin and not forced
     if (!isAdmin && !forceFetch) {
@@ -92,9 +71,16 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       console.error('Error loading users:', error);
       const errorMsg = error.message || 'Unknown error'; 
       
+      // Check if it's an auth error that requires sign out
+      if (errorMsg.includes('session') || 
+          errorMsg.includes('Authentication') || 
+          errorMsg.includes('expired')) {
+        await handleAuthError(error);
+      }
+      
       // Set more user-friendly error messages
-      if (errorMsg.includes('Authentication')) {
-        setError('Session expired. Please log out and log in again.');
+      if (errorMsg.includes('Authentication') || errorMsg.includes('session')) {
+        setError('Your session has expired. Please sign out and sign in again.');
       } else if (errorMsg.includes('Access denied')) {
         setError('You do not have admin privileges to view this page.');
       } else {
@@ -114,7 +100,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       const exists = await userService.checkAdminExists();
       console.log('Admin exists:', exists);
       setAnyAdminExists(exists);
-      return exists; // This returns boolean, which matches our interface
+      return exists;
     } catch (error: any) {
       console.error('Error checking admin existence:', error);
       setError(`Error checking if admin exists: ${error.message}`);
@@ -200,7 +186,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     }
   }, [checkAdminExists, user?.id]);
 
-  const value = {
+  return {
     users,
     isLoading,
     error,
@@ -209,15 +195,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     createUser,
     updateUser,
     deleteUser,
-    checkAdminExists, // The function returning Promise<boolean>
+    checkAdminExists,
     addAdminRole,
   };
-
-  return (
-    <UserManagementContext.Provider value={value}>
-      {children}
-    </UserManagementContext.Provider>
-  );
-};
-
-export const useUserManagement = () => useContext(UserManagementContext);
+}

@@ -6,12 +6,6 @@ import { ProductConfig, BaseBatch, BaseJob } from "@/config/productTypes";
 import { toast } from "sonner";
 import { isExistingTable } from "@/utils/database/tableValidation";
 import { useBatchDeletion } from "./batch-operations/useBatchDeletion";
-import { 
-  castToUUID, 
-  processBatchData, 
-  processDbFields,
-  safeGetId
-} from "@/utils/database/dbHelpers";
 
 interface UseGenericBatchDetailsProps {
   batchId: string | undefined;
@@ -43,7 +37,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         const { data: batchData, error: batchError } = await supabase
           .from("batches")
           .select("*")
-          .eq("id", castToUUID(batchId))
+          .eq("id", batchId)
           .single();
         
         if (batchError) {
@@ -58,16 +52,13 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         
         console.log("Batch data received:", batchData);
         
-        // Process the batch data safely
-        const processedBatchData = processBatchData(batchData);
+        // Convert the batchData to BaseBatch, adding the overview_pdf_url property
+        const batchWithOverview: BaseBatch = {
+          ...batchData,
+          overview_pdf_url: null // Adding the missing property with null value
+        };
         
-        if (!processedBatchData) {
-          setError("Failed to process batch data");
-          return;
-        }
-        
-        // Set the processed batch data
-        setBatch(processedBatchData);
+        setBatch(batchWithOverview);
         
         // Fetch associated jobs if there's a valid table name
         if (config.tableName && isExistingTable(config.tableName)) {
@@ -76,7 +67,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
           const { data: jobsData, error: jobsError } = await supabase
             .from(config.tableName as any)
             .select("*")
-            .eq("batch_id", castToUUID(batchId));
+            .eq("batch_id", batchId);
           
           if (jobsError) {
             console.error("Error fetching related jobs:", jobsError);
@@ -85,19 +76,8 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
           
           console.log(`Found ${jobsData?.length || 0} related jobs`);
           
-          // Process each job safely
-          const processedJobs: BaseJob[] = [];
-          
-          if (jobsData && Array.isArray(jobsData)) {
-            for (const job of jobsData) {
-              const processedJob = processDbFields(job);
-              if (processedJob && safeGetId(processedJob)) {
-                processedJobs.push(processedJob as BaseJob);
-              }
-            }
-          }
-          
-          setRelatedJobs(processedJobs);
+          // Type assertion as BaseJob[] to fix TypeScript's excessive depth error
+          setRelatedJobs(jobsData ? (jobsData as unknown as BaseJob[]) : []);
         } else {
           console.warn(`Invalid table name: ${config.tableName}`);
         }

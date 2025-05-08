@@ -2,85 +2,61 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { BaseBatch, ExistingTableName } from "@/config/productTypes";
-import { createUpdateData, castToUUID } from "@/utils/database/dbHelpers";
+import { isExistingTable } from "@/utils/database/tableValidation";
 
-/**
- * Hook for handling batch deletion
- */
-export function useBatchDeletion(tableName: ExistingTableName | null, onSuccessCallback?: () => void) {
-  const [batchToDelete, setBatchToDelete] = useState<BaseBatch | null>(null);
+export function useBatchDeletion(tableName: string | undefined, onSuccess: () => void) {
+  const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteBatch = async () => {
-    if (!batchToDelete) return;
+    if (!batchToDelete || !tableName) return;
     
+    setIsDeleting(true);
     try {
-      setIsDeleting(true);
-      console.log(`Deleting batch ${batchToDelete.id}`);
+      console.log("Deleting batch:", batchToDelete);
       
-      // Validate table name is provided
-      if (!tableName) {
-        toast.error("Missing table configuration");
-        return;
+      // Validate the table name before using it with Supabase
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Invalid table name: ${tableName}`);
       }
       
-      // If we have a valid table name, update jobs to remove batch_id
-      if (tableName) {
-        console.log(`Unlinking jobs from table: ${tableName}`);
-        
-        // Prepare the update data with proper type safety
-        const updateData = createUpdateData({
+      // Reset jobs in the batch (update their status and batch_id)
+      const { error: jobsError } = await supabase
+        .from(tableName as any)
+        .update({ 
           status: "queued",
           batch_id: null
-        });
-        
-        // Update all jobs linked to this batch to remove batch_id
-        const { error: updateError } = await supabase
-          .from(tableName)
-          .update(updateData)
-          .eq("batch_id", castToUUID(batchToDelete.id));
-        
-        if (updateError) {
-          console.error("Error unlinking jobs from batch:", updateError);
-          toast.error("Failed to unlink jobs from batch");
-          return;
-        }
+        })
+        .eq("batch_id", batchToDelete);
+      
+      if (jobsError) {
+        console.error("Error resetting jobs in batch:", jobsError);
+        throw jobsError;
       }
       
-      // Delete the batch itself
+      // Then delete the batch from the batches table
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
-        .eq("id", castToUUID(batchToDelete.id));
+        .eq("id", batchToDelete);
       
       if (deleteError) {
         console.error("Error deleting batch:", deleteError);
-        toast.error("Failed to delete batch");
-        return;
+        throw deleteError;
       }
       
-      toast.success("Batch deleted successfully");
+      console.log("Batch deleted successfully");
       
-      // Clear the batch to delete
-      setBatchToDelete(null);
-      
-      // Call the success callback if provided
-      if (onSuccessCallback) {
-        onSuccessCallback();
-      }
+      toast.success("Batch deleted and its jobs returned to queue");
+      onSuccess();
     } catch (error) {
-      console.error("Error in batch deletion:", error);
-      toast.error("An error occurred while deleting the batch");
+      console.error("Error deleting batch:", error);
+      toast.error("Failed to delete batch. Please try again.");
     } finally {
       setIsDeleting(false);
+      setBatchToDelete(null);
     }
   };
 
-  return {
-    batchToDelete,
-    setBatchToDelete,
-    isDeleting,
-    handleDeleteBatch
-  };
+  return { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch };
 }

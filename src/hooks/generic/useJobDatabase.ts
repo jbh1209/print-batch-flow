@@ -2,11 +2,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isExistingTable } from "@/utils/database/tableValidation";
-import { 
-  createUpdateData, 
-  createInsertData, 
-  castToUUID 
-} from "@/utils/database/dbHelpers";
 
 /**
  * Hook for handling job database operations
@@ -40,22 +35,14 @@ export const useJobDatabase = () => {
         return { valid: false };
       }
       
-      // Get column names using the Edge Function instead of RPC
-      const { data: tableInfoData, error: tableInfoError } = await supabase.functions.invoke('get_table_info', {
-        body: { table_name: tableName },
-      });
-      
-      if (tableInfoError) {
-        console.error("Error fetching table info:", tableInfoError);
+      // Get column names from the returned data or metadata
+      const tableInfo = await supabase.rpc('get_table_info', { table_name: tableName });
+      if (tableInfo.error) {
+        console.error("Error fetching table info:", tableInfo.error);
         return { valid: false };
       }
       
-      // Access the data from the Edge Function response properly
-      const allowedColumns = tableInfoData?.data?.map((col: any) => col.column_name) || [];
-      if (!allowedColumns.length) {
-        console.error("No columns returned from table info");
-        return { valid: false };
-      }
+      const allowedColumns = tableInfo.data?.map((col: any) => col.column_name) || [];
       
       // Check if any field doesn't exist in the table schema
       const jobDataKeys = Object.keys(jobData);
@@ -106,13 +93,10 @@ export const useJobDatabase = () => {
       console.log("Creating new job in table:", tableName);
       console.log("With job data:", JSON.stringify(jobData, null, 2));
       
-      // Use our enhanced helper for insertion
-      const insertData = createInsertData(jobData);
-      
-      // Use properly typed insert
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
-        .insert(insertData)
+        .insert(jobData)
         .select();
 
       if (error) {
@@ -166,14 +150,11 @@ export const useJobDatabase = () => {
       console.log("Job ID:", jobId);
       console.log("With update data:", JSON.stringify(updateData, null, 2));
       
-      // Use our enhanced helper for update
-      const preparedData = createUpdateData(updateData);
-      
-      // Use castToUUID for safe parameter passing
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
-        .update(preparedData)
-        .eq('id', castToUUID(jobId))
+        .update(updateData)
+        .eq('id', jobId)
         .select();
         
       if (error) {

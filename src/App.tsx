@@ -4,6 +4,8 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import Auth from './pages/Auth';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
+import { AuthProvider } from './hooks/useAuth';
+import ProtectedRoute from './components/ProtectedRoute';
 import BusinessCards from './pages/BusinessCards';
 import BusinessCardJobs from './pages/BusinessCardJobs';
 import FlyerJobsPage from './pages/generic/FlyerJobsPage';
@@ -56,14 +58,10 @@ import Index from './pages/Index';
 import NotFound from './pages/NotFound';
 import BusinessCardJobNew from './pages/BusinessCardJobNew';
 
-// Import our new auth provider
-import { AuthProvider } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-
 const App = () => {
   return (
-    <Router>
-      <AuthProvider>
+    <AuthProvider>
+      <Router>
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={
@@ -152,8 +150,8 @@ const App = () => {
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
-      </AuthProvider>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 };
 

@@ -54,7 +54,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
       const { error } = await supabase
         .from("business_card_jobs")
         .delete()
-        .eq("id", jobId as any);
+        .eq("id", jobId);
 
       if (error) {
         throw error;

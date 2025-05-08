@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { castToUUID, safeDbMap, toSafeString } from "@/utils/database/dbHelpers";
 
 interface RecentActivity {
   id: string;
@@ -36,7 +35,7 @@ export const useRecentActivity = (userId: string | undefined) => {
       const { data: recentBusinessCardJobs, error: recentBusinessCardError } = await supabase
         .from("business_card_jobs")
         .select("id, name, status, updated_at")
-        .eq("user_id", castToUUID(userId))
+        .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .limit(3);
       
@@ -46,37 +45,32 @@ export const useRecentActivity = (userId: string | undefined) => {
       const { data: recentFlyerJobs, error: recentFlyerError } = await supabase
         .from("flyer_jobs")
         .select("id, name, status, updated_at")
-        .eq("user_id", castToUUID(userId))
+        .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .limit(3);
       
       if (recentFlyerError) throw recentFlyerError;
       
-      // Transform and combine activity data using our safe mapping function
-      const businessCardActivities = safeDbMap(recentBusinessCardJobs, job => ({
-        id: toSafeString(job.id),
-        type: 'job' as const,
-        name: toSafeString(job.name) || "Business Card Job",
-        action: toSafeString(job.status) === "batched" ? "Batched" :
-               toSafeString(job.status) === "completed" ? "Completed" :
-               toSafeString(job.status) === "cancelled" ? "Cancelled" : "Created",
-        timestamp: toSafeString(job.updated_at)
-      }));
-      
-      const flyerActivities = safeDbMap(recentFlyerJobs, job => ({
-        id: toSafeString(job.id),
-        type: 'job' as const,
-        name: toSafeString(job.name) || "Flyer Job",
-        action: toSafeString(job.status) === "batched" ? "Batched" :
-               toSafeString(job.status) === "completed" ? "Completed" :
-               toSafeString(job.status) === "cancelled" ? "Cancelled" : "Created",
-        timestamp: toSafeString(job.updated_at)
-      }));
-      
-      // Combine all activities
+      // Transform and combine activity data
       let recentActivity = [
-        ...businessCardActivities,
-        ...flyerActivities
+        ...(recentBusinessCardJobs?.map(job => ({
+          id: job.id,
+          type: 'job' as const,
+          name: job.name || "Business Card Job",
+          action: job.status === "batched" ? "Batched" :
+                 job.status === "completed" ? "Completed" :
+                 job.status === "cancelled" ? "Cancelled" : "Created",
+          timestamp: job.updated_at
+        })) || []),
+        ...(recentFlyerJobs?.map(job => ({
+          id: job.id,
+          type: 'job' as const,
+          name: job.name || "Flyer Job",
+          action: job.status === "batched" ? "Batched" :
+                 job.status === "completed" ? "Completed" :
+                 job.status === "cancelled" ? "Cancelled" : "Created",
+          timestamp: job.updated_at
+        })) || [])
       ];
       
       // Sort by timestamp and limit to 5 items

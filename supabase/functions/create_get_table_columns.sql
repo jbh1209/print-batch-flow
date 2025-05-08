@@ -26,4 +26,3 @@ $$;
 -- Grant execute permission to the anon and authenticated roles
 GRANT EXECUTE ON FUNCTION public.get_table_columns TO anon;
 GRANT EXECUTE ON FUNCTION public.get_table_columns TO authenticated;
-

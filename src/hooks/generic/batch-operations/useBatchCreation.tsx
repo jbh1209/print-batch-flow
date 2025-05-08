@@ -12,16 +12,6 @@ import {
   extractCommonJobProperties,
   createBatchDataObject
 } from "@/utils/batch/batchDataProcessor";
-import { 
-  createUpdateData,
-  createInsertData,
-  castToUUID, 
-  safeDbMap, 
-  toSafeString, 
-  safeGetId,
-  safeBatchId
-} from "@/utils/database/dbHelpers";
-import { BatchStatus } from "@/config/types/baseTypes";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -79,25 +69,21 @@ export function useBatchCreation(productType: string, tableName: string) {
         slaTarget
       });
       
-      // Create batch data object with proper typing
-      const batchData = {
-        name: batchName,
-        sheets_required: sheetsRequired,
-        due_date: earliestDueDate.toISOString(),
-        lamination_type: laminationType,
-        paper_type: paperType,
-        status: "pending" as BatchStatus, // Use type assertion for enum value
-        created_by: user.id,
-        sla_target_days: slaTarget
-      };
-      
-      // Prepare data for database insertion with type safety
-      const preparedBatchData = createInsertData(batchData);
+      // Create batch data object
+      const batchData = createBatchDataObject(
+        batchName,
+        sheetsRequired,
+        earliestDueDate,
+        laminationType,
+        paperType,
+        user.id,
+        slaTarget
+      );
       
       // Create the batch record
-      const { data: createdBatchData, error: batchError } = await supabase
+      const { data: batch, error: batchError } = await supabase
         .from("batches")
-        .insert(preparedBatchData)
+        .insert(batchData)
         .select()
         .single();
         
@@ -106,46 +92,38 @@ export function useBatchCreation(productType: string, tableName: string) {
         throw batchError;
       }
       
-      // Extract batch ID safely using the utility function
-      const batchId = safeBatchId(createdBatchData);
-      
-      if (!batchId) {
-        throw new Error("Failed to get batch ID from created batch");
+      if (!batch) {
+        throw new Error("Failed to create batch, returned data is empty");
       }
       
-      console.log("Batch created successfully with ID:", batchId);
+      console.log("Batch created successfully:", batch);
       
       // Update all selected jobs to link them to this batch
-      const jobIds = safeDbMap(selectedJobs, job => toSafeString(job.id));
+      const jobIds = selectedJobs.map(job => job.id);
       
-      console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batchId}`);
+      console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
       
       // Use a validated table name that we confirmed is an existing table
       const validatedTableName = tableName as ExistingTableName;
       
-      // Create properly typed update data
-      const updateData = createUpdateData({
-        status: "batched",
-        batch_id: batchId
-      });
-      
       // Update the jobs with the batch ID
       const { error: updateError } = await supabase
         .from(validatedTableName)
-        .update(updateData)
-        .in("id", jobIds as any);
+        .update({
+          status: "batched",
+          batch_id: batch.id
+        })
+        .in("id", jobIds);
       
       if (updateError) {
         console.error("Error updating jobs with batch ID:", updateError);
         // Try to delete the batch since jobs update failed
-        await supabase.from("batches").delete().eq("id", castToUUID(batchId));
+        await supabase.from("batches").delete().eq("id", batch.id);
         throw updateError;
       }
       
       toast.success(`Batch created with ${selectedJobs.length} jobs`);
-      
-      // Return the created batch with proper ID
-      return createdBatchData ? { ...createdBatchData, id: batchId } : null;
+      return batch;
     } catch (error) {
       console.error("Error in batch creation:", error);
       toast.error("Failed to create batch: " + (error instanceof Error ? error.message : "Unknown error"));

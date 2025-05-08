@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { castToUUID } from "@/utils/database/dbHelpers";
 
 interface JobStats {
   pendingJobs: number;
@@ -30,8 +29,8 @@ export const useJobStats = (userId: string | undefined) => {
       const { data: pendingBusinessCardJobs, error: businessCardJobsError } = await supabase
         .from("business_card_jobs")
         .select("id")
-        .eq("user_id", castToUUID(userId))
-        .eq("status", castToUUID("queued") as any);
+        .eq("user_id", userId)
+        .eq("status", "queued");
       
       if (businessCardJobsError) throw businessCardJobsError;
       
@@ -39,8 +38,8 @@ export const useJobStats = (userId: string | undefined) => {
       const { data: pendingFlyerJobs, error: flyerJobsError } = await supabase
         .from("flyer_jobs")
         .select("id")
-        .eq("user_id", castToUUID(userId))
-        .eq("status", castToUUID("queued") as any);
+        .eq("user_id", userId)
+        .eq("status", "queued");
       
       if (flyerJobsError) throw flyerJobsError;
       
@@ -54,8 +53,8 @@ export const useJobStats = (userId: string | undefined) => {
       const { data: completedTodayBusinessCards, error: completedBusinessCardsError } = await supabase
         .from("business_card_jobs")
         .select("id")
-        .eq("user_id", castToUUID(userId))
-        .eq("status", castToUUID("completed") as any)
+        .eq("user_id", userId)
+        .eq("status", "completed")
         .gte("updated_at", today.toISOString());
       
       if (completedBusinessCardsError) throw completedBusinessCardsError;
@@ -63,8 +62,8 @@ export const useJobStats = (userId: string | undefined) => {
       const { data: completedTodayFlyers, error: completedFlyersError } = await supabase
         .from("flyer_jobs")
         .select("id")
-        .eq("user_id", castToUUID(userId))
-        .eq("status", castToUUID("completed") as any)
+        .eq("user_id", userId)
+        .eq("status", "completed")
         .gte("updated_at", today.toISOString());
       
       if (completedFlyersError) throw completedFlyersError;

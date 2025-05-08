@@ -43,7 +43,6 @@ serve(async (req) => {
     const { data, error } = await supabaseClient.rpc('get_table_columns', { table_name })
 
     if (error) {
-      console.error('Error getting table columns:', error);
       return new Response(
         JSON.stringify({ error: error.message }),
         {
@@ -62,7 +61,6 @@ serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Unexpected error in get_table_info:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

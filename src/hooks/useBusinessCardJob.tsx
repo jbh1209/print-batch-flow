@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { processJobData, castToUUID, prepareUpdateParams } from "@/utils/database/dbHelpers";
 
 type JobData = {
   name: string;
@@ -32,8 +31,8 @@ export function useBusinessCardJob(jobId: string | undefined) {
         const { data, error } = await supabase
           .from("business_card_jobs")
           .select("*")
-          .eq("id", castToUUID(jobId))
-          .eq("user_id", castToUUID(user.id))
+          .eq("id", jobId)
+          .eq("user_id", user.id)
           .single();
           
         if (error) throw error;
@@ -43,13 +42,7 @@ export function useBusinessCardJob(jobId: string | undefined) {
           return;
         }
         
-        // Use processJobData to ensure type safety
-        const processedData = processJobData<JobData>(data);
-        if (processedData) {
-          setJobData(processedData);
-        } else {
-          setError("Failed to process job data");
-        }
+        setJobData(data);
       } catch (error) {
         console.error("Error fetching job:", error);
         setError("Failed to load job details.");
@@ -122,15 +115,12 @@ export function useBusinessCardJob(jobId: string | undefined) {
         updateData.pdf_url = pdfUrl;
         updateData.file_name = fileName;
       }
-      
-      // Use prepareUpdateParams for type safety
-      const preparedData = prepareUpdateParams(updateData);
 
       const { error: updateError } = await supabase
         .from("business_card_jobs")
-        .update(preparedData)
-        .eq("id", castToUUID(jobId))
-        .eq("user_id", castToUUID(user.id));
+        .update(updateData)
+        .eq("id", jobId)
+        .eq("user_id", user.id);
 
       if (updateError) {
         throw new Error(updateError.message);

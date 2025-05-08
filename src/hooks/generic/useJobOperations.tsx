@@ -4,11 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, JobStatus, TableName } from '@/config/productTypes';
 import { isExistingTable } from '@/utils/database/tableValidation';
-import { 
-  castToUUID, 
-  createUpdateData, 
-  createInsertData 
-} from '@/utils/database/dbHelpers';
 
 export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,12 +19,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Use castToUUID to safely cast parameters
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { error } = await supabase
         .from(tableName as any)
         .delete()
-        .eq('id', castToUUID(jobId))
-        .eq('user_id', castToUUID(userId));
+        .eq('id', jobId)
+        .eq('user_id', userId);
 
       if (error) throw error;
       
@@ -55,17 +50,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot create job`);
       }
       
-      // Create the base job object
-      const newJobBase = {
+      const newJob = {
         ...jobData,
         user_id: userId,
         status: 'queued' as JobStatus
       };
-      
-      // Use our enhanced helper for insertion
-      const newJob = createInsertData(newJobBase);
 
-      // Use proper typing with table name
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
         .insert(newJob)
@@ -96,15 +87,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Use our enhanced helper for update
-      const updateData = createUpdateData(jobData);
-      
-      // Use castToUUID to safely cast parameters
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
-        .update(updateData)
-        .eq('id', castToUUID(jobId))
-        .eq('user_id', castToUUID(userId))
+        .update(jobData)
+        .eq('id', jobId)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -128,12 +116,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Use castToUUID to safely cast parameters
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
         .select('*')
-        .eq('id', castToUUID(jobId))
-        .eq('user_id', castToUUID(userId))
+        .eq('id', jobId)
+        .eq('user_id', userId)
         .single();
 
       if (error) throw error;

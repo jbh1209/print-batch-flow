@@ -4,13 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TableName } from '@/config/productTypes';
 import { isExistingTable } from '@/utils/database/tableValidation';
-import { 
-  castToUUID, 
-  createUpdateData,
-  safeDbMap,
-  toSafeString,
-  safeGetId
-} from '@/utils/database/dbHelpers';
 
 interface JobWithId {
   id: string;
@@ -38,15 +31,12 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         return;
       }
       
-      // Use proper type casting for table name and status
-      const batchedStatus = 'batched' as any;
-      
       // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data: orphanedJobs, error: findError } = await supabase
         .from(tableName as any)
         .select('id')
-        .eq('user_id', castToUUID(userId))
-        .eq('status', batchedStatus)
+        .eq('user_id', userId)
+        .eq('status', 'batched')
         .is('batch_id', null);
       
       if (findError) throw findError;
@@ -54,14 +44,18 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Create properly typed update parameters
-        const updateParams = createUpdateData({ status: 'queued' as any });
+        // Fixed: Use a safer approach for extracting job IDs
+        const jobIds = (orphanedJobs as unknown[])
+          .filter((job): job is JobWithId => 
+            job !== null && 
+            typeof job === 'object' && 
+            job !== undefined && 
+            'id' in job && 
+            typeof job.id === 'string'
+          )
+          .map(job => job.id);
         
-        // Extract all job IDs from the orphaned jobs and ensure they are valid
-        const jobIds = safeDbMap(orphanedJobs, job => safeGetId(job));
-        const validJobIds = jobIds.filter(id => id !== '');
-        
-        if (validJobIds.length === 0) {
+        if (jobIds.length === 0) {
           console.log("No valid job IDs found to update");
           return 0;
         }
@@ -69,15 +63,15 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Use 'as any' to bypass TypeScript's type checking for the table name
         const { error: updateError } = await supabase
           .from(tableName as any)
-          .update(updateParams)
-          .in('id', validJobIds as any);
+          .update({ status: 'queued' })
+          .in('id', jobIds);
         
         if (updateError) throw updateError;
         
-        console.log(`Reset ${validJobIds.length} jobs to queued status`);
-        toast.success(`Reset ${validJobIds.length} orphaned jobs back to queued status`);
+        console.log(`Reset ${jobIds.length} jobs to queued status`);
+        toast.success(`Reset ${jobIds.length} orphaned jobs back to queued status`);
         
-        return validJobIds.length;
+        return jobIds.length;
       }
       
       return 0;

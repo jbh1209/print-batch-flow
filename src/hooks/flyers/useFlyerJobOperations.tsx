@@ -1,63 +1,86 @@
+import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
+import { toast } from 'sonner';
 
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { toast as sonnerToast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { Job, LaminationType } from "@/components/business-cards/JobsTable";
-import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
-import { 
-  createUpdateData,
-  createInsertData,
-  safeDbMap, 
-  toSafeString,
-  castToUUID,
-  safeGetId
-} from "@/utils/database/dbHelpers";
-
-// Standardized product type codes for batch naming
-const PRODUCT_TYPE_CODES = {
-  "business_cards": "BC",
-  "flyers": "FL",
-  "postcards": "PC",
-  "boxes": "PB", 
-  "stickers": "STK",
-  "covers": "COV",
-  "posters": "POS",
-  "sleeves": "SL"
-};
-
-export function useBatchCreation() {
-  const { toast } = useToast();
+export function useFlyerJobOperations() {
   const { user } = useAuth();
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
 
-  const generateBatchNumber = async (productType: keyof typeof PRODUCT_TYPE_CODES): Promise<string> => {
-    // Get the code for the product type
-    const typeCode = PRODUCT_TYPE_CODES[productType] || "BC";
-    
+  const deleteJob = async (jobId: string) => {
     try {
-      // Count existing batches with this prefix to determine next number
+      const { error } = await supabase
+        .from('flyer_jobs')
+        .delete()
+        .eq('id', jobId)
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      return true;
+    } catch (err) {
+      console.error('Error deleting flyer job:', err);
+      throw err;
+    }
+  };
+
+  // Add the createJob method
+  const createJob = async (jobData: Omit<FlyerJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      // Fixed: Create a proper new job object with all required fields
+      const newJob = {
+        ...jobData,
+        user_id: user.id,
+        status: 'queued' as const,
+        batch_id: null
+      };
+
       const { data, error } = await supabase
-        .from("batches")
-        .select("name")
-        .ilike(`name`, `DXB-${typeCode}-%`);
+        .from('flyer_jobs')
+        .insert(newJob)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (err) {
+      console.error('Error creating flyer job:', err);
+      throw err;
+    }
+  };
+
+  // Updated type definition to include slaTargetDays
+  interface BatchProperties {
+    paperType: string;
+    paperWeight: string;
+    laminationType: LaminationType;
+    printerType: string;
+    sheetSize: string;
+    slaTargetDays: number;
+  }
+
+  // Generate a batch number specifically for flyer batches, starting with 00001
+  const generateFlyerBatchNumber = async (): Promise<string> => {
+    try {
+      // Get the count of existing flyer batches only (with DXB-FL prefix)
+      const { data, error } = await supabase
+        .from('batches')
+        .select('name')
+        .ilike('DXB-FL-%', 'DXB-FL-%');
       
-      if (error) {
-        console.error("Error getting batch names:", error);
-        throw error;
-      }
+      if (error) throw error;
       
-      // Default to 1 if no batches found
+      // Extract numbers from existing batch names
       let nextNumber = 1;
-      
       if (data && data.length > 0) {
-        // Extract numbers from existing batch names safely
-        const batchNames = safeDbMap(data, batch => toSafeString(batch.name));
-        
-        // Extract numeric portions of batch names
-        const numbers = batchNames.map(name => {
-          const match = name.match(/DXB-[A-Z]+-(\d+)/);
+        const numbers = data.map(batch => {
+          const match = batch.name.match(/DXB-FL-(\d+)/);
           return match ? parseInt(match[1], 10) : 0;
         });
         
@@ -66,123 +89,125 @@ export function useBatchCreation() {
       }
       
       // Format with 5 digits padding
-      const formattedNumber = nextNumber.toString().padStart(5, '0');
-      return `DXB-${typeCode}-${formattedNumber}`;
+      const batchNumber = `DXB-FL-${nextNumber.toString().padStart(5, '0')}`;
+      
+      return batchNumber;
     } catch (err) {
-      console.error("Error generating batch number:", err);
-      // Fallback to timestamp-based name
-      return `DXB-${typeCode}-${Date.now().toString().substr(-5)}`;
+      console.error('Error generating batch number:', err);
+      return `DXB-FL-${new Date().getTime().toString().substr(-5).padStart(5, '0')}`; // Fallback using timestamp
     }
   };
 
-  const createBatch = async (selectedJobs: Job[], customBatchName?: string) => {
+  // New method to create a batch with selected jobs
+  const createBatchWithSelectedJobs = async (
+    selectedJobs: FlyerJob[], 
+    batchProperties: BatchProperties
+  ) => {
     if (!user) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to create batches",
-        variant: "destructive",
-      });
-      return false;
+      throw new Error('User not authenticated');
     }
 
     if (selectedJobs.length === 0) {
-      toast({
-        title: "No jobs selected",
-        description: "Please select at least one job to batch",
-        variant: "destructive",
-      });
-      return false;
+      throw new Error('No jobs selected');
     }
 
-    setIsCreatingBatch(true);
     try {
-      // Group jobs by lamination type for consistency
-      const laminationType = selectedJobs[0].lamination_type;
+      setIsCreatingBatch(true);
       
-      // Calculate total sheets required based on job quantities
-      // 24 cards per sheet (3x8 layout)
-      const totalCards = selectedJobs.reduce((sum, job) => sum + job.quantity, 0);
-      const sheetsRequired = Math.ceil(totalCards / 24);
+      // Calculate sheets required based on job quantities and sizes
+      const sheetsRequired = calculateSheetsRequired(selectedJobs);
       
       // Generate batch name with standardized format
-      const name = customBatchName || await generateBatchNumber("business_cards");
+      const batchNumber = await generateFlyerBatchNumber();
       
-      // Get earliest due date from jobs for the batch due date
-      const earliestDueDate = selectedJobs.reduce((earliest, job) => {
-        const jobDate = new Date(job.due_date);
-        return jobDate < earliest ? jobDate : earliest;
-      }, new Date(selectedJobs[0].due_date));
-      
-      // Generate and upload PDFs - now using the separated utility function
-      const { overviewUrl, impositionUrl } = await generateAndUploadBatchPDFs(
-        selectedJobs,
-        name,
-        user.id
-      );
-      
-      // Create batch data object for insertion using our enhanced helper
-      const batchInsertData = createInsertData({
-        name,
-        lamination_type: laminationType,
-        sheets_required: sheetsRequired,
-        due_date: earliestDueDate.toISOString(),
-        created_by: user.id,
-        front_pdf_url: impositionUrl,
-        back_pdf_url: overviewUrl
-      });
-      
-      // Insert batch record into database
-      const { data: createdBatch, error: batchError } = await supabase
-        .from("batches")
-        .insert(batchInsertData)
+      // Create the batch
+      const { data: batchData, error: batchError } = await supabase
+        .from('batches')
+        .insert({
+          name: batchNumber,
+          paper_type: batchProperties.paperType,
+          paper_weight: batchProperties.paperWeight,
+          lamination_type: batchProperties.laminationType,
+          due_date: new Date().toISOString(), // Default to current date
+          printer_type: batchProperties.printerType,
+          sheet_size: batchProperties.sheetSize,
+          sheets_required: sheetsRequired,
+          created_by: user.id,
+          status: 'pending',
+          sla_target_days: batchProperties.slaTargetDays // Add the SLA target days to database
+        })
         .select()
         .single();
         
-      if (batchError) {
-        throw new Error(`Failed to create batch record: ${batchError.message}`);
-      }
+      if (batchError) throw batchError;
       
-      // Safely extract batch ID
-      const batchId = safeGetId(createdBatch);
+      // Update all selected jobs to be part of this batch
+      const jobIds = selectedJobs.map(job => job.id);
+      const { error: updateError } = await supabase
+        .from('flyer_jobs')
+        .update({ 
+          batch_id: batchData.id,
+          status: 'batched' 
+        })
+        .in('id', jobIds);
       
-      if (!batchId) {
-        throw new Error("Failed to get batch ID from created batch");
-      }
+      if (updateError) throw updateError;
       
-      // Update all selected jobs to link them to the batch and change status
-      const updatePromises = selectedJobs.map(job => 
-        supabase
-          .from("business_card_jobs")
-          .update(createUpdateData({ 
-            batch_id: batchId,
-            status: "batched"
-          }))
-          .eq("id", castToUUID(job.id))
-      );
+      toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
+      return batchData;
       
-      await Promise.all(updatePromises);
-      
-      sonnerToast.success("Batch created successfully", {
-        description: `Created batch ${name} with ${selectedJobs.length} jobs`
-      });
-      
-      return true;
-    } catch (error) {
-      console.error("Error creating batch:", error);
-      toast({
-        title: "Error creating batch",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-      return false;
+    } catch (err) {
+      console.error('Error creating batch:', err);
+      toast.error('Failed to create batch');
+      throw err;
     } finally {
       setIsCreatingBatch(false);
     }
   };
+  
+  // Helper function to calculate sheets required
+  const calculateSheetsRequired = (jobs: FlyerJob[]): number => {
+    
+    let totalSheets = 0;
+    
+    for (const job of jobs) {
+      // Calculate sheets based on size and quantity
+      let sheetsPerJob = 0;
+      
+      switch (job.size) {
+        case 'A5':
+          // Assuming 2 A5s per sheet
+          sheetsPerJob = Math.ceil(job.quantity / 2);
+          break;
+        case 'A4':
+          // Assuming 1 A4 per sheet
+          sheetsPerJob = job.quantity;
+          break;
+        case 'DL':
+          // Assuming 3 DLs per sheet
+          sheetsPerJob = Math.ceil(job.quantity / 3);
+          break;
+        case 'A3':
+          // Assuming 1 A3 per sheet (special case)
+          sheetsPerJob = job.quantity * 1.5; // A3 might require more paper
+          break;
+        default:
+          sheetsPerJob = job.quantity;
+      }
+      
+      totalSheets += sheetsPerJob;
+    }
+    
+    // Add some extra sheets for setup and testing
+    totalSheets = Math.ceil(totalSheets * 1.1); // 10% extra
+    
+    return totalSheets;
+  };
 
   return {
-    createBatch,
-    isCreatingBatch,
-    generateBatchNumber
+    deleteJob,
+    createJob,
+    createBatchWithSelectedJobs,
+    isCreatingBatch
   };
 }

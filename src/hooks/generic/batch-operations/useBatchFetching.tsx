@@ -5,12 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
 import { getProductTypeCode } from "@/utils/batch/productTypeCodes";
-import { 
-  castToUUID, 
-  processBatchData, 
-  toSafeString, 
-  ensureEnumValue 
-} from "@/utils/database/dbHelpers";
 
 export function useBatchFetching(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
@@ -34,7 +28,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       let query = supabase
         .from('batches')
         .select('*')
-        .eq('created_by', castToUUID(user.id));
+        .eq('created_by', user.id);
       
       // Get product code from the standardized utility function
       const productCode = getProductTypeCode(config.productType);
@@ -46,7 +40,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       }
       
       if (batchId) {
-        query = query.eq("id", castToUUID(batchId));
+        query = query.eq("id", batchId);
       }
       
       const { data, error: fetchError } = await query
@@ -56,27 +50,13 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
 
       console.log('Batches data received for', config.productType, ':', data?.length || 0, 'records');
       
-      // Process the data to ensure type safety
-      const processedBatches: BaseBatch[] = [];
+      const genericBatches: BaseBatch[] = (data || []).map(batch => ({
+        ...batch,
+        overview_pdf_url: null,
+        lamination_type: batch.lamination_type || "none"
+      }));
       
-      if (data && Array.isArray(data)) {
-        for (const batch of data) {
-          const processedBatch = processBatchData(batch);
-          
-          if (processedBatch) {
-            // Set the overview_pdf_url which might be missing in the database
-            const genericBatch: BaseBatch = {
-              ...processedBatch,
-              overview_pdf_url: processedBatch.overview_pdf_url || null,
-              // Ensure lamination_type is never undefined
-              lamination_type: ensureEnumValue(processedBatch.lamination_type, 'none')
-            };
-            processedBatches.push(genericBatch);
-          }
-        }
-      }
-      
-      setBatches(processedBatches);
+      setBatches(genericBatches);
       
       if (batchId && (!data || data.length === 0)) {
         toast.error("Batch not found or you don't have permission to view it.");

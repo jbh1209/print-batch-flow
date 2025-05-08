@@ -10,7 +10,6 @@ import { CheckCircle, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { BatchStatus } from "@/config/types/baseTypes";
-import { createUpdateData, castToUUID } from "@/utils/database/dbHelpers";
 
 interface BatchStatusUpdateProps {
   batchId: string;
@@ -19,18 +18,12 @@ interface BatchStatusUpdateProps {
 }
 
 const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStatusUpdateProps) => {
-  const updateBatchStatus = async (newStatus: BatchStatus) => {
+  const updateBatchStatus = async (newStatus: "completed" | "sent_to_print") => {
     try {
-      // Use createUpdateData to create properly typed update parameters
-      const updateData = createUpdateData({
-        status: newStatus
-      });
-
-      // Use castToUUID to safely handle the UUID type for database operations
       const { error } = await supabase
         .from('batches')
-        .update(updateData)
-        .eq('id', castToUUID(batchId));
+        .update({ status: newStatus })
+        .eq('id', batchId);
 
       if (error) throw error;
 

@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
-import { castToUUID, createUpdateData } from "@/utils/database/dbHelpers";
 
 interface UseBatchDeletionProps {
   config: ProductConfig;
@@ -25,17 +24,14 @@ export function useBatchDeletion({ config }: UseBatchDeletionProps) {
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Create update data using our enhanced helper
-        const updateData = createUpdateData({
-          status: "queued",
-          batch_id: null
-        });
-        
         // Use type assertion to bypass TypeScript's static checking
         const { error: jobsError } = await supabase
           .from(tableName as any)
-          .update(updateData)
-          .eq("batch_id", castToUUID(batchToDelete));
+          .update({ 
+            status: "queued",
+            batch_id: null
+          })
+          .eq("batch_id", batchToDelete);
         
         if (jobsError) throw jobsError;
       }
@@ -43,7 +39,7 @@ export function useBatchDeletion({ config }: UseBatchDeletionProps) {
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
-        .eq("id", castToUUID(batchToDelete));
+        .eq("id", batchToDelete);
       
       if (deleteError) throw deleteError;
       

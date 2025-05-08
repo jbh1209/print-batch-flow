@@ -1,194 +1,170 @@
 
-import React, { useState } from 'react';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
+import React from "react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { 
-  MoreHorizontal, 
-  Pencil, 
-  Trash, 
-  ShieldAlert,
-  User,
-  AlertCircle
-} from 'lucide-react';
-import { UserWithRole } from '@/types/user-types';
-import { UserForm } from './UserForm';
-import { UserDeleteConfirm } from './UserDeleteConfirm';
-import { format } from 'date-fns';
-import { useUsers } from '@/contexts/UserContext';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Edit, Trash2, AlertTriangle, RefreshCw } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { UserWithRole } from "@/types/user-types";
+import { toast } from "sonner";
 
 interface UserTableProps {
   users: UserWithRole[];
+  onEdit: (user: UserWithRole) => void;
+  onDelete: (userId: string) => void;
 }
 
-export function UserTable({ users }: UserTableProps) {
-  const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
-  const [dialogMode, setDialogMode] = useState<'edit' | 'delete' | null>(null);
-  const { updateUser, revokeAccess } = useUsers();
-  
-  const handleCloseDialog = () => {
-    setSelectedUser(null);
-    setDialogMode(null);
-  };
-  
-  const handleEditClick = (user: UserWithRole) => {
-    setSelectedUser(user);
-    setDialogMode('edit');
-  };
-  
-  const handleDeleteClick = (user: UserWithRole) => {
-    setSelectedUser(user);
-    setDialogMode('delete');
-  };
-  
-  const handleUpdateUser = async (userData: { full_name?: string; role?: string }) => {
-    if (!selectedUser) return;
-    
+export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
     try {
-      // For the role, ensure it's a string type
-      const userDataToUpdate = {
-        full_name: userData.full_name,
-        role: userData.role as string // This ensures it's treated as a string
-      };
-      
-      await updateUser(selectedUser.id, userDataToUpdate);
-      handleCloseDialog();
-    } catch (error) {
-      console.error('Error updating user:', error);
-      throw error;
+      return new Date(dateString).toLocaleDateString();
+    } catch (e) {
+      console.error('Invalid date format:', dateString);
+      return 'Invalid date';
     }
   };
-  
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-    
-    try {
-      await revokeAccess(selectedUser.id);
-      handleCloseDialog();
-    } catch (error) {
-      console.error('Error revoking access:', error);
-      throw error;
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role?.toLowerCase()) {
+      case 'admin':
+        return "bg-red-100 text-red-800 hover:bg-red-100/80";
+      case 'moderator':
+        return "bg-amber-100 text-amber-800 hover:bg-amber-100/80";
+      default:
+        return "bg-blue-100 text-blue-800 hover:bg-blue-100/80";
     }
   };
-  
-  if (users.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <User className="h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium">No users found</h3>
-        <p className="text-muted-foreground">There are no users to display.</p>
-      </div>
-    );
-  }
+
+  const handleEdit = (user: UserWithRole) => {
+    try {
+      onEdit(user);
+    } catch (error: any) {
+      console.error("Error editing user:", error);
+      toast.error(`Error editing user: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleDelete = (userId: string) => {
+    try {
+      onDelete(userId);
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      toast.error(`Error deleting user: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  console.log('UserTable rendering with users:', users);
+
+  // Check if users is valid array and has items
+  const hasUsers = Array.isArray(users) && users.length > 0;
 
   return (
-    <>
-      <div className="rounded-md border overflow-hidden">
-        <Table>
-          <TableHeader>
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Role</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead className="w-[100px]">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {!hasUsers ? (
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <AlertTriangle className="h-8 w-8 text-amber-500" />
+                  <p>No users found</p>
+                  <p className="text-sm text-muted-foreground">This could be due to missing user data or permission issues</p>
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => window.location.reload()}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" /> Refresh Page
+                  </Button>
+                </div>
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
+          ) : (
+            users.map((user) => (
               <TableRow key={user.id}>
-                <TableCell className="font-medium">
-                  {user.full_name || <span className="text-muted-foreground italic">Not set</span>}
-                </TableCell>
-                <TableCell>{user.email}</TableCell>
                 <TableCell>
-                  <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                    {user.role === 'admin' ? (
-                      <div className="flex items-center">
-                        <ShieldAlert className="mr-1 h-3 w-3" />
-                        Admin
-                      </div>
-                    ) : 'User'}
+                  <div className="font-medium">{user.full_name || 'No Name'}</div>
+                </TableCell>
+                <TableCell>{user.email || 'No Email'}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={getRoleBadgeColor(user.role || 'user')}>
+                    {user.role || 'user'}
                   </Badge>
                 </TableCell>
-                <TableCell>{format(new Date(user.created_at), 'MMM d, yyyy')}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditClick(user)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDeleteClick(user)}>
-                        <Trash className="mr-2 h-4 w-4" />
-                        Revoke Access
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                <TableCell>{user.created_at ? formatDate(user.created_at) : 'N/A'}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleEdit(user)}
+                      className="transition-opacity hover:opacity-70"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="transition-opacity hover:opacity-70"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently revoke access for {user.full_name || user.email || 'this user'}. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            className="bg-red-500 hover:bg-red-600"
+                            onClick={() => handleDelete(user.id)}
+                          >
+                            Revoke Access
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      
-      {/* Edit User Dialog */}
-      <Dialog open={dialogMode === 'edit'} onOpenChange={(open) => !open && handleCloseDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-          </DialogHeader>
-          {selectedUser && (
-            <UserForm 
-              initialData={{
-                full_name: selectedUser.full_name || '',
-                role: selectedUser.role
-              }}
-              isEdit={true}
-              onSuccess={handleUpdateUser}
-            />
+            ))
           )}
-        </DialogContent>
-      </Dialog>
-      
-      {/* Delete User Dialog */}
-      <Dialog open={dialogMode === 'delete'} onOpenChange={(open) => !open && handleCloseDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center text-destructive">
-              <AlertCircle className="mr-2 h-5 w-5" />
-              Revoke User Access
-            </DialogTitle>
-          </DialogHeader>
-          {selectedUser && (
-            <UserDeleteConfirm 
-              user={selectedUser} 
-              onConfirm={handleDeleteUser} 
-              onCancel={handleCloseDialog}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+        </TableBody>
+      </Table>
+    </div>
   );
 }

@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { createUpdateData, castToUUID } from "@/utils/database/dbHelpers";
 
 interface UseDeleteBatchProps {
   productType: string;
@@ -21,24 +20,24 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
     
     setIsDeleting(true);
     try {
-      // Create update data using our enhanced helper
-      const updateData = createUpdateData({
-        status: "queued",
-        batch_id: null
-      });
-      
       if (productType === "Business Cards") {
         const { error: jobsError } = await supabase
           .from("business_card_jobs")
-          .update(updateData)
-          .eq("batch_id", castToUUID(batchToDelete));
+          .update({ 
+            status: "queued",
+            batch_id: null
+          })
+          .eq("batch_id", batchToDelete);
         
         if (jobsError) throw jobsError;
       } else if (productType === "Flyers") {
         const { error: jobsError } = await supabase
           .from("flyer_jobs")
-          .update(updateData)
-          .eq("batch_id", castToUUID(batchToDelete));
+          .update({ 
+            status: "queued",
+            batch_id: null
+          })
+          .eq("batch_id", batchToDelete);
         
         if (jobsError) throw jobsError;
       }
@@ -46,7 +45,7 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
-        .eq("id", castToUUID(batchToDelete));
+        .eq("id", batchToDelete);
       
       if (deleteError) throw deleteError;
       

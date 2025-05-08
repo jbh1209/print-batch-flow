@@ -1,80 +1,72 @@
 
-import React, { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useUsers } from '@/contexts/UserContext';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserManagement } from "@/contexts/UserManagementContext";
 
-interface AdminSetupFormProps {
-  onAdminCreated?: () => void;
-}
-
-export function AdminSetupForm({ onAdminCreated }: AdminSetupFormProps) {
+export function AdminSetupForm() {
   const { user } = useAuth();
-  const { addAdminRole } = useUsers();
-  const [userId, setUserId] = useState(user?.id || '');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
+  const { addAdminRole } = useUserManagement();
+  const [userId, setUserId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Auto-fill the user ID when the component mounts and user is available
+  useState(() => {
+    if (user?.id) {
+      setUserId(user.id);
+    }
+  });
+
+  const handleSetAsAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(false);
+    setErrorMessage("");
+    setSuccessMessage("");
     
     if (!userId.trim()) {
-      setError('Please enter a valid user ID');
+      setErrorMessage("Please enter a valid user ID");
       return;
     }
     
-    setIsLoading(true);
+    setIsSubmitting(true);
     
     try {
       await addAdminRole(userId);
-      setSuccess(true);
-      
-      // Reload after a short delay
-      setTimeout(() => {
-        if (onAdminCreated) {
-          onAdminCreated();
-        } else {
-          window.location.reload();
-        }
-      }, 2000);
-      
-    } catch (err: any) {
-      setError(err.message || 'Failed to set admin role');
+      setSuccessMessage("Admin role successfully assigned!");
+    } catch (error: any) {
+      setErrorMessage(error.message || "Failed to set admin role");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
   
   return (
-    <div className="flex items-center justify-center min-h-[80vh]">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Initial Admin Setup</CardTitle>
-          <CardDescription>
-            No administrators are configured. Set up the first administrator account.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
+    <Card className="w-full max-w-lg mx-auto">
+      <CardHeader>
+        <CardTitle>Initial Admin Setup</CardTitle>
+        <CardDescription>
+          No administrators are currently configured. Set up the first administrator account.
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSetAsAdmin}>
+        <CardContent>
+          <div className="space-y-4">
+            {errorMessage && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{errorMessage}</AlertDescription>
               </Alert>
             )}
             
-            {success && (
-              <Alert variant="default" className="bg-green-50 border-green-200 text-green-800">
-                <AlertDescription>
-                  Admin role successfully assigned! Refreshing the page...
-                </AlertDescription>
+            {successMessage && (
+              <Alert className="bg-green-50 border-green-200 text-green-800">
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>{successMessage}</AlertDescription>
               </Alert>
             )}
             
@@ -87,46 +79,32 @@ export function AdminSetupForm({ onAdminCreated }: AdminSetupFormProps) {
                 placeholder="Enter user ID"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                className="w-full"
               />
-              
               {user && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  Your user ID: <span className="font-mono font-semibold">{user.id}</span>
+                <p className="text-sm text-gray-500">
+                  Your user ID: <span className="font-mono">{user.id}</span>
                   <Button 
-                    type="button"
-                    variant="link"
-                    className="px-2 py-0 h-auto text-xs"
+                    type="button" 
+                    variant="ghost" 
+                    className="text-xs ml-2 h-auto p-1" 
                     onClick={() => setUserId(user.id)}
                   >
                     Use my ID
                   </Button>
                 </p>
               )}
-              
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-gray-500 mt-2">
                 To make yourself an admin, use your own user ID shown above.
               </p>
             </div>
-          </CardContent>
-          <CardFooter>
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Setting up admin...
-                </>
-              ) : (
-                'Set as Administrator'
-              )}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button type="submit" disabled={isSubmitting} className="w-full">
+            {isSubmitting ? "Setting up admin..." : "Set as Administrator"}
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
   );
 }
