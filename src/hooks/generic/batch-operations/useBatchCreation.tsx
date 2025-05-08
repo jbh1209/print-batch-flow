@@ -12,6 +12,7 @@ import {
   extractCommonJobProperties,
   createBatchDataObject
 } from "@/utils/batch/batchDataProcessor";
+import { prepareUpdateParams, castToUUID, safeDbMap, toSafeString } from "@/utils/database/dbHelpers";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -69,15 +70,17 @@ export function useBatchCreation(productType: string, tableName: string) {
         slaTarget
       });
       
-      // Create batch data object
-      const batchData = createBatchDataObject(
-        batchName,
-        sheetsRequired,
-        earliestDueDate,
-        laminationType,
-        paperType,
-        user.id,
-        slaTarget
+      // Create batch data object with proper typing
+      const batchData = prepareUpdateParams(
+        createBatchDataObject(
+          batchName,
+          sheetsRequired,
+          earliestDueDate,
+          laminationType,
+          paperType,
+          user.id,
+          slaTarget
+        )
       );
       
       // Create the batch record
@@ -99,21 +102,24 @@ export function useBatchCreation(productType: string, tableName: string) {
       console.log("Batch created successfully:", batch);
       
       // Update all selected jobs to link them to this batch
-      const jobIds = selectedJobs.map(job => job.id);
+      const jobIds = safeDbMap(selectedJobs, job => toSafeString(job.id));
       
       console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
       
       // Use a validated table name that we confirmed is an existing table
       const validatedTableName = tableName as ExistingTableName;
       
+      // Create properly typed update data
+      const updateData = prepareUpdateParams({
+        status: "batched",
+        batch_id: batch.id
+      });
+      
       // Update the jobs with the batch ID
       const { error: updateError } = await supabase
         .from(validatedTableName)
-        .update({
-          status: "batched",
-          batch_id: batch.id
-        })
-        .in("id", jobIds);
+        .update(updateData)
+        .in("id", jobIds as any);
       
       if (updateError) {
         console.error("Error updating jobs with batch ID:", updateError);

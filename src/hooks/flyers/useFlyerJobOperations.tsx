@@ -1,8 +1,10 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
+import { castToUUID, prepareUpdateParams, safeDbMap, toSafeString } from '@/utils/database/dbHelpers';
 
 export function useFlyerJobOperations() {
   const { user } = useAuth();
@@ -13,8 +15,8 @@ export function useFlyerJobOperations() {
       const { error } = await supabase
         .from('flyer_jobs')
         .delete()
-        .eq('id', jobId)
-        .eq('user_id', user?.id);
+        .eq('id', castToUUID(jobId))
+        .eq('user_id', castToUUID(user?.id));
 
       if (error) throw error;
 
@@ -33,12 +35,12 @@ export function useFlyerJobOperations() {
 
     try {
       // Fixed: Create a proper new job object with all required fields
-      const newJob = {
+      const newJob = prepareUpdateParams({
         ...jobData,
         user_id: user.id,
-        status: 'queued' as const,
+        status: 'queued',
         batch_id: null
-      };
+      });
 
       const { data, error } = await supabase
         .from('flyer_jobs')
@@ -72,15 +74,16 @@ export function useFlyerJobOperations() {
       const { data, error } = await supabase
         .from('batches')
         .select('name')
-        .ilike('DXB-FL-%', 'DXB-FL-%');
+        .ilike('name', 'DXB-FL-%');
       
       if (error) throw error;
       
       // Extract numbers from existing batch names
       let nextNumber = 1;
       if (data && data.length > 0) {
-        const numbers = data.map(batch => {
-          const match = batch.name.match(/DXB-FL-(\d+)/);
+        const batchNames = safeDbMap(data, batch => toSafeString(batch.name));
+        const numbers = batchNames.map(name => {
+          const match = name.match(/DXB-FL-(\d+)/);
           return match ? parseInt(match[1], 10) : 0;
         });
         
@@ -120,36 +123,47 @@ export function useFlyerJobOperations() {
       // Generate batch name with standardized format
       const batchNumber = await generateFlyerBatchNumber();
       
+      // Create the batch with properly typed payload
+      const batchData = prepareUpdateParams({
+        name: batchNumber,
+        paper_type: batchProperties.paperType,
+        paper_weight: batchProperties.paperWeight,
+        lamination_type: batchProperties.laminationType,
+        due_date: new Date().toISOString(),
+        printer_type: batchProperties.printerType,
+        sheet_size: batchProperties.sheetSize,
+        sheets_required: sheetsRequired,
+        created_by: user.id,
+        status: 'pending',
+        sla_target_days: batchProperties.slaTargetDays
+      });
+      
       // Create the batch
       const { data: batchData, error: batchError } = await supabase
         .from('batches')
-        .insert({
-          name: batchNumber,
-          paper_type: batchProperties.paperType,
-          paper_weight: batchProperties.paperWeight,
-          lamination_type: batchProperties.laminationType,
-          due_date: new Date().toISOString(), // Default to current date
-          printer_type: batchProperties.printerType,
-          sheet_size: batchProperties.sheetSize,
-          sheets_required: sheetsRequired,
-          created_by: user.id,
-          status: 'pending',
-          sla_target_days: batchProperties.slaTargetDays // Add the SLA target days to database
-        })
+        .insert(batchData)
         .select()
         .single();
         
       if (batchError) throw batchError;
       
+      if (!batchData) {
+        throw new Error("Failed to create batch, returned data is empty");
+      }
+      
       // Update all selected jobs to be part of this batch
-      const jobIds = selectedJobs.map(job => job.id);
+      const jobIds = safeDbMap(selectedJobs, job => toSafeString(job.id));
+      
+      // Create properly typed update data
+      const updateData = prepareUpdateParams({ 
+        batch_id: batchData.id,
+        status: 'batched' 
+      });
+      
       const { error: updateError } = await supabase
         .from('flyer_jobs')
-        .update({ 
-          batch_id: batchData.id,
-          status: 'batched' 
-        })
-        .in('id', jobIds);
+        .update(updateData)
+        .in('id', jobIds as any);
       
       if (updateError) throw updateError;
       
