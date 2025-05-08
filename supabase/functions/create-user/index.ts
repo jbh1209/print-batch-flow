@@ -34,7 +34,7 @@ serve(async (req) => {
       }
     );
     
-    // Verify the user is authenticated
+    // Verify the user is authenticated and admin
     const {
       data: { user },
       error: userError,
@@ -47,7 +47,7 @@ serve(async (req) => {
       );
     }
     
-    // Check if the user is an admin using our fixed function
+    // Check if the user is an admin
     const { data: isAdmin, error: adminCheckError } = await supabaseClient.rpc(
       'is_admin_secure_fixed',
       { _user_id: user.id }
@@ -67,62 +67,62 @@ serve(async (req) => {
       );
     }
     
-    // Get all users from auth.users
-    const { data: authUsers, error: authUsersError } = await supabaseClient.auth.admin.listUsers();
-    
-    if (authUsersError) {
+    // Parse request body
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch users', details: authUsersError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: 'Invalid request body' }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
-    // Get all profiles
-    const { data: profiles, error: profilesError } = await supabaseClient
-      .from('profiles')
-      .select('*');
+    const { email, password, full_name, role } = body;
     
-    if (profilesError) {
+    if (!email || !password) {
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch profiles', details: profilesError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: 'Email and password are required' }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
-    // Get all user roles
-    const { data: userRoles, error: userRolesError } = await supabaseClient
-      .from('user_roles')
-      .select('*');
-    
-    if (userRolesError) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch user roles', details: userRolesError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    // Combine the data
-    const combinedUsers = authUsers.users.map(authUser => {
-      const profile = profiles?.find(p => p.id === authUser.id) || null;
-      const userRole = userRoles?.find(r => r.user_id === authUser.id)?.role || 'user';
-      
-      return {
-        id: authUser.id,
-        email: authUser.email,
-        created_at: authUser.created_at,
-        last_sign_in_at: authUser.last_sign_in_at,
-        role: userRole,
-        full_name: profile?.full_name || null,
-        avatar_url: profile?.avatar_url || null
-      };
+    // Create the user with admin privileges
+    const { data: adminAuthResponse, error: createUserError } = await supabaseClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name },
     });
     
+    if (createUserError) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to create user', details: createUserError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const newUserId = adminAuthResponse.user.id;
+    
+    // Set custom role if provided
+    if (role && (role === 'admin' || role === 'user')) {
+      const { error: roleError } = await supabaseClient.rpc('set_user_role_admin', {
+        _target_user_id: newUserId,
+        _new_role: role
+      });
+      
+      if (roleError) {
+        console.error('Error setting user role:', roleError);
+        // We continue even if this fails since the user is created
+      }
+    }
+    
     return new Response(
-      JSON.stringify(combinedUsers),
+      JSON.stringify({ success: true, user: adminAuthResponse.user }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error('Error in get-all-users function:', error);
+    console.error('Error in create-user function:', error);
     return new Response(
       JSON.stringify({ error: 'Server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

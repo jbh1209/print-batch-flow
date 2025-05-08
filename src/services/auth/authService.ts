@@ -1,11 +1,11 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 /**
- * Helper service for authentication-related functions
+ * Clean up all auth state in localStorage and sessionStorage
+ * This helps prevent auth limbo states
  */
-
-// Clean up all auth state in localStorage and sessionStorage
 export const cleanupAuthState = () => {
   try {
     // Remove standard auth tokens
@@ -31,53 +31,111 @@ export const cleanupAuthState = () => {
   }
 };
 
-// Robust sign out function that handles edge cases
-export const signOutSecurely = async (): Promise<void> => {
+/**
+ * Sign out with proper cleanup
+ */
+export const signOut = async (): Promise<void> => {
   try {
     // Clean up auth state first
     cleanupAuthState();
     
-    // Attempt to sign out
+    // Attempt global sign out
     await supabase.auth.signOut({ scope: 'global' });
     
     // Force page reload for a clean state
-    setTimeout(() => {
-      window.location.href = '/auth';
-    }, 500);
+    window.location.href = '/auth';
   } catch (error) {
     console.error('Failed to sign out:', error);
+    toast.error('Sign out failed. Please try again.');
     
-    // Force clean up as last resort
-    cleanupAuthState();
-    window.location.reload();
+    // Force reload as last resort
+    setTimeout(() => window.location.reload(), 1000);
     
-    throw error; // Re-throw for callers to handle
+    throw error;
   }
 };
 
-// Check if auth error requires sign out
-export const isAuthError = (error: any): boolean => {
-  if (!error) return false;
-  
-  const errorMessage = typeof error === 'string' 
-    ? error 
-    : error.message || error.error_description || '';
-  
-  const authErrorPatterns = [
-    'jwt', 'JWT', 'token',
-    'session expired', 'not authenticated',
-    'not logged in', 'Authentication', 'authentication'
-  ];
-  
-  return authErrorPatterns.some(pattern => 
-    errorMessage.toLowerCase().includes(pattern.toLowerCase())
-  );
+/**
+ * Sign in with proper error handling
+ */
+export const signIn = async (email: string, password: string): Promise<void> => {
+  try {
+    // Clean up existing state first
+    cleanupAuthState();
+    
+    // Attempt to sign in
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (error) throw error;
+    
+    // Success - the auth listener will handle the redirect
+  } catch (error: any) {
+    console.error('Sign in error:', error);
+    throw error;
+  }
 };
 
-// Handle auth error with appropriate action
-export const handleAuthError = async (error: any): Promise<void> => {
-  if (isAuthError(error)) {
-    console.log('Authentication error detected, signing out...');
-    await signOutSecurely();
+/**
+ * Sign up with proper error handling
+ */
+export const signUp = async (email: string, password: string, userData?: { full_name?: string }): Promise<void> => {
+  try {
+    // Clean up existing state first
+    cleanupAuthState();
+    
+    // Attempt to sign up
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: userData,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      }
+    });
+    
+    if (error) throw error;
+    
+    // Success - the auth listener will handle the rest
+  } catch (error: any) {
+    console.error('Sign up error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get current session
+ */
+export const getSession = async () => {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data.session;
+  } catch (error) {
+    console.error('Error getting session:', error);
+    return null;
+  }
+};
+
+/**
+ * Check if current user has admin role
+ */
+export const checkIsAdmin = async (userId: string): Promise<boolean> => {
+  if (!userId) return false;
+  
+  try {
+    const { data, error } = await supabase.rpc('is_admin_secure_fixed', { _user_id: userId });
+    
+    if (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return false;
   }
 };

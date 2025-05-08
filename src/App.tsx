@@ -1,11 +1,11 @@
 
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
 import Auth from './pages/Auth';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
-import { AuthProvider } from './hooks/useAuth';
-import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import BusinessCards from './pages/BusinessCards';
 import BusinessCardJobs from './pages/BusinessCardJobs';
 import FlyerJobsPage from './pages/generic/FlyerJobsPage';
@@ -142,8 +142,12 @@ const App = () => {
             <Route path="/batches/stickers/batches" element={<StickerBatchesPage />} />
             <Route path="/batches/stickers/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs["Stickers"]} />} />
 
-            {/* Administration Routes */}
-            <Route path="/users" element={<Users />} />
+            {/* Administration Routes - add requireAdmin prop */}
+            <Route path="/users" element={
+              <ProtectedRoute requireAdmin={true}>
+                <Users />
+              </ProtectedRoute>
+            } />
             <Route path="/settings" element={<Settings />} />
             
             {/* Handle 404 Not Found */}
