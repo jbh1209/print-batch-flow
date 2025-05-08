@@ -11,7 +11,7 @@ interface UseBatchDetailsProps {
 export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetailsProps) {
   const {
     batch,
-    relatedJobs,
+    jobs: relatedJobs,
     isLoading,
     error,
     fetchBatchDetails
