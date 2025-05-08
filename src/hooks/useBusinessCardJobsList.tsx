@@ -7,6 +7,7 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { useJobFilters } from "./business-cards/useJobFilters";
 import { useJobSelection } from "./business-cards/useJobSelection";
 import { useBatchCleanup } from "./business-cards/useBatchCleanup";
+import { toast as sonnerToast } from "sonner";
 
 export const useBusinessCardJobsList = () => {
   const { toast } = useToast();
@@ -50,6 +51,7 @@ export const useBusinessCardJobsList = () => {
       
       console.log("Fetching all business card jobs");
       
+      // Remove user_id filter to allow seeing all jobs (assuming that's what we want)
       let query = supabase
         .from('business_card_jobs')
         .select('*');
@@ -70,6 +72,12 @@ export const useBusinessCardJobsList = () => {
       if (fetchError) throw fetchError;
       
       console.log("Business card jobs data received:", data?.length || 0, "records");
+      
+      if (data && data.length > 0) {
+        sonnerToast.success(`Found ${data.length} jobs`);
+      } else {
+        sonnerToast.info("No jobs found. You can create a new job.");
+      }
       
       setJobs(data || []);
       

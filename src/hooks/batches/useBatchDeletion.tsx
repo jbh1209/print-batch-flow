@@ -23,9 +23,9 @@ export function useBatchDeletion({ config }: UseBatchDeletionProps) {
     try {
       // Validate table name before using it
       if (isExistingTable(config.tableName)) {
-        // Reset jobs in this batch using a type assertion to avoid deep instantiation
+        // Reset jobs in this batch using type assertion to avoid deep type checking
         const { error: jobsError } = await supabase
-          .from(config.tableName as any) // Use 'any' to bypass TypeScript's deep type checking
+          .from(config.tableName as any) // Use type assertion to bypass TypeScript's deep checking
           .update({ 
             status: "queued",
             batch_id: null

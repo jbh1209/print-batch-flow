@@ -1,4 +1,3 @@
-
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,8 +21,20 @@ const NotFound = () => {
     const path = location.pathname;
     let suggestion: string | null = null;
     
+    // Check for users accessing jobs directly without the proper batches prefix
+    if (path.includes('/jobs') && !path.includes('/batches/')) {
+      // Missing /batches/ prefix in product path
+      const productType = path.split('/')[1];
+      suggestion = `/batches/${productType}/jobs`;
+      
+      // If it's a specific job ID, keep that in the suggested path
+      const pathParts = path.split('/');
+      if (pathParts.length >= 3 && pathParts[2] === 'jobs' && pathParts[3]) {
+        suggestion = `/batches/${productType}/jobs/${pathParts[3]}`;
+      }
+    } 
     // Check for common pattern mistakes
-    if (path.includes('/jobs/new') && !path.includes('/batches/')) {
+    else if (path.includes('/jobs/new') && !path.includes('/batches/')) {
       // Missing /batches/ prefix in product path
       const productType = path.split('/')[1];
       suggestion = `/batches/${productType}/jobs/new`;
@@ -52,6 +63,11 @@ const NotFound = () => {
     else if (path.includes('/boxes/jobs/new')) {
       suggestion = '/batches/boxes/jobs/new';
     }
+    // Check for direct access to jobs page without batches prefix
+    else if (path.endsWith('/jobs')) {
+      const productType = path.split('/')[1];
+      suggestion = `/batches/${productType}/jobs`;
+    }
     
     // Check for batch path errors
     if (path.includes('/batches/') && !path.includes('/jobs/') && !path.includes('/batches/')) {
@@ -74,6 +90,24 @@ const NotFound = () => {
       batchesPath: config.routes.batchesPath
     }));
     
+    // Check for misspelled product types
+    if (path.startsWith('/batches/') && segments.length >= 3) {
+      const enteredProduct = segments[2];
+      // Check if it's a slight misspelling of a valid product
+      const products = Object.values(productConfigs).map(c => c.productType.toLowerCase());
+      const closestMatch = products.find(p => 
+        p.includes(enteredProduct.toLowerCase()) || 
+        enteredProduct.toLowerCase().includes(p)
+      );
+      
+      if (closestMatch) {
+        const formattedProduct = closestMatch.replace(/\s+/g, '-').toLowerCase();
+        // Reconstruct the path with the correct product name
+        const remainingPath = segments.slice(3).join('/');
+        suggestion = `/batches/${formattedProduct}/${remainingPath}`;
+      }
+    }
+    
     // If we've determined a suggestion, offer it to the user
     if (suggestion) {
       setSuggestedPath(suggestion);
@@ -86,7 +120,7 @@ const NotFound = () => {
       });
     } else {
       // Show a generic error toast
-      toast.error("Page not found. You might need to use the correct path format: /batches/[product]/jobs/new", {
+      toast.error("Page not found. You might need to use the correct path format: /batches/[product]/jobs", {
         duration: 5000,
       });
     }
@@ -105,6 +139,8 @@ const NotFound = () => {
       navigate(suggestedPath);
     }
   };
+
+  const segments = location.pathname.split('/');
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

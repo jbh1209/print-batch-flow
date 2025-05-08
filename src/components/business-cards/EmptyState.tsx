@@ -28,6 +28,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     
     // Use standard pattern for entity creation paths
     const currentPath = location.pathname;
+    console.log("EmptyState currentPath:", currentPath);
     
     // Extract product type from path: /batches/[product]/...
     const pathParts = currentPath.split('/');
@@ -44,6 +45,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       }
     }
     
+    // Check if we're on a jobs page but not seeing any jobs
+    if (currentPath.includes('/jobs') && !currentPath.includes('/new')) {
+      // We're on a jobs page but no jobs are found, direct to create new job
+      const productTypePath = currentPath.split('/jobs')[0];
+      return `${productTypePath}/jobs/new`;
+    }
+    
     // Standard mappings for common paths
     if (location.pathname.includes('/postcards')) {
       // If we're on the postcard batches page, direct to jobs selection for batching
@@ -52,8 +60,16 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       }
       return "/batches/postcards/jobs/new";
     } else if (location.pathname.includes('/business-cards')) {
+      // If we're on the business cards jobs page, direct to new job creation
+      if (location.pathname.endsWith('/jobs')) {
+        return "/batches/business-cards/jobs/new";
+      }
       return "/batches/business-cards/jobs/new";
     } else if (location.pathname.includes('/flyers')) {
+      // If we're on the flyers jobs page, direct to new job creation
+      if (location.pathname.endsWith('/jobs')) {
+        return "/batches/flyers/jobs/new";
+      }
       return "/batches/flyers/jobs/new";
     } else if (location.pathname.includes('/covers')) {
       return "/batches/covers/jobs/new";
@@ -100,19 +116,41 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   // Default empty state
   const createButtonPath = getCreatePath();
   
+  const getEntityText = () => {
+    if (entityName.toLowerCase() === 'jobs') {
+      return {
+        title: `No ${entityName} found`,
+        description: `Get started by creating your first ${entityName.toLowerCase()}`,
+        buttonText: `Create New ${entityName}`
+      };
+    } else if (entityName.toLowerCase() === 'batches') {
+      return {
+        title: `No ${entityName} found`,
+        description: `To create batches, you'll need to create and select jobs first`,
+        buttonText: location.pathname.includes('/postcards') ? "Select Jobs to Batch" : `Create Jobs for Batching`
+      };
+    }
+    
+    return {
+      title: `No ${entityName} found`,
+      description: `Get started by creating your first ${entityName.toLowerCase()}`,
+      buttonText: `Create ${entityName}`
+    };
+  };
+  
+  const entityText = getEntityText();
+  
   return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-500">
       <div className="bg-gray-100 p-4 rounded-full mb-4">
         <FileText className="h-10 w-10 text-gray-400" />
       </div>
-      <h3 className="font-medium text-lg mb-1">No {entityName} found</h3>
-      <p className="text-sm text-gray-400 mb-4">Get started by creating your first {entityName.toLowerCase()}</p>
+      <h3 className="font-medium text-lg mb-1">{entityText.title}</h3>
+      <p className="text-sm text-gray-400 mb-4">{entityText.description}</p>
       
       <Button asChild>
         <Link to={createButtonPath}>
-          {entityName === "batches" && location.pathname.includes('/postcards') 
-            ? "Select Jobs to Batch" 
-            : `Create ${entityName}`}
+          {entityText.buttonText}
         </Link>
       </Button>
       
