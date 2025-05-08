@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
-  const { user, isLoading, isAdmin } = useAuth();
+  const { user, isLoading, isAdmin, session } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -31,7 +31,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   }
 
   // If not authenticated, redirect to login
-  if (!user) {
+  if (!user || !session) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 

@@ -4,7 +4,6 @@ import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { cleanupAuthState } from '@/services/auth/authService';
 import { toast } from 'sonner';
-import { Spinner } from '@/components/ui/spinner';
 
 // Define types
 interface UserProfile {

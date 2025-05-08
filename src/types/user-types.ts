@@ -12,6 +12,8 @@ export interface UserWithRole {
   full_name: string | null;
   role: 'admin' | 'user';
   created_at: string;
+  last_sign_in_at?: string;
+  avatar_url?: string | null;
 }
 
 // Add missing types

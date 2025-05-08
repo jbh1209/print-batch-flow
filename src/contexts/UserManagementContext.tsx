@@ -31,7 +31,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, session } = useAuth();
 
   // Fetch all users (admin only)
   const fetchUsers = async () => {
@@ -41,15 +41,25 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
 
     setIsLoading(true);
+    setError(null);
+    console.log("Starting user fetch with session:", !!session);
+    
     try {
       const { data, error: fetchError } = await supabase.functions.invoke('get-all-users', {
         method: 'GET',
       });
       
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error("Function error:", fetchError);
+        throw fetchError;
+      }
       
+      if (!data) {
+        throw new Error("No data returned from edge function");
+      }
+      
+      console.log("Users fetched successfully:", data.length);
       setUsers(data || []);
-      setError(null);
     } catch (error: any) {
       console.error('Error fetching users:', error);
       setError(error.message || 'Failed to fetch users');
@@ -156,10 +166,10 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
   // Load users on mount if user is admin
   useEffect(() => {
-    if (user && isAdmin) {
+    if (user && isAdmin && session) {
       fetchUsers();
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, session]);
 
   const value = {
     users,
