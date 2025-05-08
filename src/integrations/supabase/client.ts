@@ -19,7 +19,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   global: {
     // Disable WebSockets globally to ensure HTTP is used for all operations
-    fetch: (...args) => fetch(...args)
+    fetch: function(url, options) {
+      return fetch(url, options);
+    }
   },
   realtime: {
     // Disable realtime features to prevent WebSocket connection issues
@@ -39,11 +41,15 @@ export const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISH
     flowType: 'pkce'
   },
   realtime: {
-    // Completely disable realtime/WebSocket features
-    enabled: false
+    // Disable realtime connections by setting low parameters
+    params: {
+      eventsPerSecond: 0
+    }
   },
   global: {
     // Force HTTP/HTTPS fetch for all operations
-    fetch: (...args) => fetch(...args)
+    fetch: function(url, options) {
+      return fetch(url, options);
+    }
   }
 });
