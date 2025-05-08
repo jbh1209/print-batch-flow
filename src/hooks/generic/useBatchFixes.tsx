@@ -4,7 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TableName } from '@/config/productTypes';
 import { isExistingTable } from '@/utils/database/tableValidation';
-import { castToUUID, prepareUpdateParams } from '@/utils/database/dbHelpers';
+import { 
+  castToUUID, 
+  prepareUpdateParams,
+  safeDbMap,
+  toSafeString,
+  safeGetId
+} from '@/utils/database/dbHelpers';
 
 interface JobWithId {
   id: string;
@@ -37,7 +43,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         .from(tableName as any)
         .select('id')
         .eq('user_id', castToUUID(userId))
-        .eq('status', 'batched')
+        .eq('status', castToUUID('batched'))
         .is('batch_id', null);
       
       if (findError) throw findError;
@@ -48,10 +54,11 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Create properly typed update parameters
         const updateParams = prepareUpdateParams({ status: 'queued' });
         
-        // Extract all job IDs from the orphaned jobs
-        const jobIds = orphanedJobs.map(job => job.id);
+        // Extract all job IDs from the orphaned jobs and ensure they are valid
+        const jobIds = safeDbMap(orphanedJobs, job => safeGetId(job));
+        const validJobIds = jobIds.filter(id => id !== '');
         
-        if (jobIds.length === 0) {
+        if (validJobIds.length === 0) {
           console.log("No valid job IDs found to update");
           return 0;
         }
@@ -60,14 +67,14 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         const { error: updateError } = await supabase
           .from(tableName as any)
           .update(updateParams)
-          .in('id', jobIds as any);
+          .in('id', validJobIds as any);
         
         if (updateError) throw updateError;
         
-        console.log(`Reset ${jobIds.length} jobs to queued status`);
-        toast.success(`Reset ${jobIds.length} orphaned jobs back to queued status`);
+        console.log(`Reset ${validJobIds.length} jobs to queued status`);
+        toast.success(`Reset ${validJobIds.length} orphaned jobs back to queued status`);
         
-        return jobIds.length;
+        return validJobIds.length;
       }
       
       return 0;

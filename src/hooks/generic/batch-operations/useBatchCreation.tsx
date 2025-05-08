@@ -12,7 +12,14 @@ import {
   extractCommonJobProperties,
   createBatchDataObject
 } from "@/utils/batch/batchDataProcessor";
-import { prepareUpdateParams, castToUUID, safeDbMap, toSafeString } from "@/utils/database/dbHelpers";
+import { 
+  prepareUpdateParams, 
+  castToUUID, 
+  safeDbMap, 
+  toSafeString, 
+  safeGetId,
+  safeBatchId
+} from "@/utils/database/dbHelpers";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -71,22 +78,24 @@ export function useBatchCreation(productType: string, tableName: string) {
       });
       
       // Create batch data object with proper typing
-      const batchData = prepareUpdateParams(
-        createBatchDataObject(
-          batchName,
-          sheetsRequired,
-          earliestDueDate,
-          laminationType,
-          paperType,
-          user.id,
-          slaTarget
-        )
-      );
+      const batchData = {
+        name: batchName,
+        sheets_required: sheetsRequired,
+        due_date: earliestDueDate.toISOString(),
+        lamination_type: laminationType,
+        paper_type: paperType,
+        status: "pending",
+        created_by: user.id,
+        sla_target_days: slaTarget
+      };
+      
+      // Prepare data for database insertion with type safety
+      const preparedBatchData = prepareUpdateParams(batchData);
       
       // Create the batch record
-      const { data: createdBatch, error: batchError } = await supabase
+      const { data: createdBatchData, error: batchError } = await supabase
         .from("batches")
-        .insert(batchData)
+        .insert(preparedBatchData)
         .select()
         .single();
         
@@ -95,18 +104,14 @@ export function useBatchCreation(productType: string, tableName: string) {
         throw batchError;
       }
       
-      if (!createdBatch) {
-        throw new Error("Failed to create batch, returned data is empty");
-      }
-      
-      console.log("Batch created successfully:", createdBatch);
-      
-      // Extract batch ID safely
-      const batchId = createdBatch.id;
+      // Extract batch ID safely using the new utility function
+      const batchId = safeBatchId(createdBatchData);
       
       if (!batchId) {
         throw new Error("Failed to get batch ID from created batch");
       }
+      
+      console.log("Batch created successfully with ID:", batchId);
       
       // Update all selected jobs to link them to this batch
       const jobIds = safeDbMap(selectedJobs, job => toSafeString(job.id));
@@ -131,12 +136,12 @@ export function useBatchCreation(productType: string, tableName: string) {
       if (updateError) {
         console.error("Error updating jobs with batch ID:", updateError);
         // Try to delete the batch since jobs update failed
-        await supabase.from("batches").delete().eq("id", batchId);
+        await supabase.from("batches").delete().eq("id", castToUUID(batchId));
         throw updateError;
       }
       
       toast.success(`Batch created with ${selectedJobs.length} jobs`);
-      return createdBatch;
+      return { ...createdBatchData, id: batchId };
     } catch (error) {
       console.error("Error in batch creation:", error);
       toast.error("Failed to create batch: " + (error instanceof Error ? error.message : "Unknown error"));

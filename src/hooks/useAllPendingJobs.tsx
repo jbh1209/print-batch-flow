@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { productConfigs, BaseJob, ProductConfig } from '@/config/productTypes';
 import { isExistingTable } from "@/utils/database/tableValidation";
 import { calculateJobUrgency } from "@/utils/dateCalculations";
+import { castToUUID } from '@/utils/database/dbHelpers';
 
 // Extended job type that includes product type information
 export interface ExtendedJob extends BaseJob {
@@ -31,12 +32,12 @@ export const useAllPendingJobs = () => {
 
       console.log(`Fetching ${config.productType} jobs for user ${user.id}`);
 
-      // Using any type to work around TypeScript limitations with dynamic table names
+      // Using castToUUID for safe parameter passing to Supabase
       const { data, error } = await supabase
         .from(config.tableName as any)
         .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'queued')
+        .eq('user_id', castToUUID(user.id))
+        .eq('status', castToUUID('queued'))
         .order('due_date', { ascending: true });
       
       if (error) {

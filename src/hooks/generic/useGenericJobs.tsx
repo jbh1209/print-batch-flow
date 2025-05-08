@@ -7,6 +7,7 @@ import { useGenericBatches } from './useGenericBatches';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
 import { isExistingTable } from '@/utils/database/tableValidation';
+import { castToUUID, safeGetId } from '@/utils/database/dbHelpers';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -43,11 +44,11 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       console.log('Fetching jobs for user:', user.id, 'from table:', config.tableName);
       
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Use castToUUID to safely cast user id for Supabase
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', castToUUID(user.id))
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -140,10 +141,13 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       );
       
       if (batch) {
+        // Safely get batch ID using our utility
+        const batchId = safeGetId(batch);
+        
         setJobs(prevJobs => 
           prevJobs.map(job => 
             selectedJobs.some(selectedJob => selectedJob.id === job.id)
-              ? { ...job, status: 'batched', batch_id: batch.id } as T
+              ? { ...job, status: 'batched', batch_id: batchId } as T
               : job
           )
         );

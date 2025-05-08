@@ -5,7 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
 import { getProductTypeCode } from "@/utils/batch/productTypeCodes";
-import { castToUUID, processBatchData } from "@/utils/database/dbHelpers";
+import { 
+  castToUUID, 
+  processBatchData, 
+  toSafeString, 
+  ensureEnumValue 
+} from "@/utils/database/dbHelpers";
 
 export function useBatchFetching(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
@@ -56,15 +61,15 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       
       if (data && Array.isArray(data)) {
         for (const batch of data) {
-          const processed = processBatchData(batch);
-          // Only add non-null processed batches
-          if (processed) {
+          const processedBatch = processBatchData(batch);
+          
+          if (processedBatch) {
             // Set the overview_pdf_url which might be missing in the database
             const genericBatch: BaseBatch = {
-              ...processed,
-              overview_pdf_url: processed.overview_pdf_url || null,
+              ...processedBatch,
+              overview_pdf_url: processedBatch.overview_pdf_url || null,
               // Ensure lamination_type is never undefined
-              lamination_type: processed.lamination_type || "none"
+              lamination_type: ensureEnumValue(processedBatch.lamination_type, 'none')
             };
             processedBatches.push(genericBatch);
           }

@@ -4,7 +4,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
-import { castToUUID, prepareUpdateParams, safeDbMap, toSafeString } from '@/utils/database/dbHelpers';
+import { 
+  castToUUID, 
+  prepareUpdateParams, 
+  safeDbMap, 
+  toSafeString, 
+  safeGetId,
+  safeBatchId
+} from '@/utils/database/dbHelpers';
 
 export function useFlyerJobOperations() {
   const { user } = useAuth();
@@ -35,12 +42,14 @@ export function useFlyerJobOperations() {
 
     try {
       // Fixed: Create a proper new job object with all required fields
-      const newJob = prepareUpdateParams({
+      const newJobData = {
         ...jobData,
         user_id: user.id,
         status: 'queued',
         batch_id: null
-      });
+      };
+      
+      const newJob = prepareUpdateParams(newJobData);
 
       const { data, error } = await supabase
         .from('flyer_jobs')
@@ -124,7 +133,7 @@ export function useFlyerJobOperations() {
       const batchNumber = await generateFlyerBatchNumber();
       
       // Create the batch with properly typed payload
-      const batchInsertData = prepareUpdateParams({
+      const batchInsertData = {
         name: batchNumber,
         paper_type: batchProperties.paperType,
         paper_weight: batchProperties.paperWeight,
@@ -136,27 +145,33 @@ export function useFlyerJobOperations() {
         created_by: user.id,
         status: 'pending',
         sla_target_days: batchProperties.slaTargetDays
-      });
+      };
+      
+      // Use prepareUpdateParams to ensure type safety
+      const preparedBatchData = prepareUpdateParams(batchInsertData);
       
       // Create the batch
-      const { data: createdBatch, error: batchError } = await supabase
+      const { data: createdBatchData, error: batchError } = await supabase
         .from('batches')
-        .insert(batchInsertData)
+        .insert(preparedBatchData)
         .select()
         .single();
         
       if (batchError) throw batchError;
       
-      if (!createdBatch) {
+      // Safely extract batch ID
+      const batchId = safeBatchId(createdBatchData);
+      
+      if (!batchId) {
         throw new Error("Failed to create batch, returned data is empty");
       }
       
       // Update all selected jobs to be part of this batch
       const jobIds = safeDbMap(selectedJobs, job => toSafeString(job.id));
       
-      // Create properly typed update data
+      // Create properly typed update data with explicit casting
       const updateData = prepareUpdateParams({ 
-        batch_id: createdBatch.id,
+        batch_id: batchId,
         status: 'batched' 
       });
       
@@ -168,8 +183,7 @@ export function useFlyerJobOperations() {
       if (updateError) throw updateError;
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
-      return createdBatch;
-      
+      return { ...createdBatchData, id: batchId };
     } catch (err) {
       console.error('Error creating batch:', err);
       toast.error('Failed to create batch');

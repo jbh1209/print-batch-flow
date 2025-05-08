@@ -6,7 +6,12 @@ import { ProductConfig, BaseBatch, BaseJob } from "@/config/productTypes";
 import { toast } from "sonner";
 import { isExistingTable } from "@/utils/database/tableValidation";
 import { useBatchDeletion } from "./batch-operations/useBatchDeletion";
-import { castToUUID, processBatchData, processDbFields } from "@/utils/database/dbHelpers";
+import { 
+  castToUUID, 
+  processBatchData, 
+  processDbFields,
+  safeGetId
+} from "@/utils/database/dbHelpers";
 
 interface UseGenericBatchDetailsProps {
   batchId: string | undefined;
@@ -86,7 +91,9 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
           if (jobsData && Array.isArray(jobsData)) {
             for (const job of jobsData) {
               const processedJob = processDbFields(job);
-              processedJobs.push(processedJob as BaseJob);
+              if (processedJob && safeGetId(processedJob)) {
+                processedJobs.push(processedJob as BaseJob);
+              }
             }
           }
           

@@ -6,6 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Job, LaminationType } from "@/components/business-cards/JobsTable";
 import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
+import { 
+  prepareUpdateParams, 
+  safeDbMap, 
+  toSafeString,
+  castToUUID,
+  safeGetId
+} from "@/utils/database/dbHelpers";
 
 // Standardized product type codes for batch naming
 const PRODUCT_TYPE_CODES = {
@@ -44,9 +51,12 @@ export function useBatchCreation() {
       let nextNumber = 1;
       
       if (data && data.length > 0) {
-        // Extract numbers from existing batch names
-        const numbers = data.map(batch => {
-          const match = batch.name.match(/DXB-[A-Z]+-(\d+)/);
+        // Extract numbers from existing batch names safely
+        const batchNames = safeDbMap(data, batch => toSafeString(batch.name));
+        
+        // Extract numeric portions of batch names
+        const numbers = batchNames.map(name => {
+          const match = name.match(/DXB-[A-Z]+-(\d+)/);
           return match ? parseInt(match[1], 10) : 0;
         });
         
@@ -109,18 +119,21 @@ export function useBatchCreation() {
         user.id
       );
       
+      // Create batch data with proper type handling
+      const batchData = prepareUpdateParams({
+        name,
+        lamination_type: laminationType,
+        sheets_required: sheetsRequired,
+        due_date: earliestDueDate.toISOString(),
+        created_by: user.id,
+        front_pdf_url: impositionUrl,
+        back_pdf_url: overviewUrl
+      });
+      
       // Insert batch record into database
-      const { error: batchError, data: batchData } = await supabase
+      const { data: batchData, error: batchError } = await supabase
         .from("batches")
-        .insert({
-          name,
-          lamination_type: laminationType,
-          sheets_required: sheetsRequired,
-          due_date: earliestDueDate.toISOString(),
-          created_by: user.id,
-          front_pdf_url: impositionUrl,
-          back_pdf_url: overviewUrl
-        })
+        .insert(batchData)
         .select()
         .single();
         
@@ -128,8 +141,14 @@ export function useBatchCreation() {
         throw new Error(`Failed to create batch record: ${batchError.message}`);
       }
       
+      // Safely extract batch ID
+      const batchId = safeGetId(batchData);
+      
+      if (!batchId) {
+        throw new Error("Failed to get batch ID from created batch");
+      }
+      
       // Update all selected jobs to link them to the batch and change status
-      const batchId = batchData.id;
       const updatePromises = selectedJobs.map(job => 
         supabase
           .from("business_card_jobs")
@@ -137,7 +156,7 @@ export function useBatchCreation() {
             batch_id: batchId,
             status: "batched"
           })
-          .eq("id", job.id)
+          .eq("id", castToUUID(job.id))
       );
       
       await Promise.all(updatePromises);

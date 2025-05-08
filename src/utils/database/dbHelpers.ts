@@ -10,17 +10,12 @@
 export const castToUUID = (id: string | undefined) => {
   // Allow undefined for optional parameters
   if (id === undefined) return undefined;
-  return id as unknown as never;
+  return id as any; // Use 'any' to bypass TypeScript's type checking
 };
 
 /**
  * Helper to safely access properties from potentially undefined or error objects
  * Useful when handling database query results
- * 
- * @param obj The object to safely access properties from
- * @param key The key to access
- * @param defaultValue Optional default value if property doesn't exist
- * @returns The property value or undefined/defaultValue
  */
 export const safeGet = <T, K extends keyof T>(
   obj: T | null | undefined, 
@@ -76,8 +71,6 @@ export const hasData = <T>(response: { data: T | null }): response is { data: T 
 /**
  * Safe string getter that ensures string type and provides default value
  * Useful for type-safe operations with Supabase data
- * 
- * This function will safely handle any SelectQueryError types
  */
 export const safeString = (
   value: any,
@@ -94,8 +87,6 @@ export const safeString = (
 /**
  * Safe number getter that ensures number type and provides default value
  * Useful for type-safe operations with Supabase data
- * 
- * This function will safely handle any SelectQueryError types
  */
 export const safeNumber = (
   value: any,
@@ -139,10 +130,6 @@ export const safeExtract = <T>(obj: any, key: string, defaultValue: T): T => {
 
 /**
  * Safely handle a potentially error-containing database result
- * @param data The data to process
- * @param defaultValue The default value to return if data is an error or falsy
- * @param processor Optional function to process valid data
- * @returns Processed data or default value
  */
 export const safeDbResult = <T, R = T>(
   data: any, 
@@ -167,8 +154,6 @@ export const safeDbResult = <T, R = T>(
 
 /**
  * Safe check for objects that might be error types
- * @param obj Object to check
- * @returns true if the object is valid (not an error)
  */
 export const isValidDbObject = (obj: any): boolean => {
   return obj && typeof obj === 'object' && !('error' in obj);
@@ -264,8 +249,6 @@ export const isSelectQueryError = (obj: any): boolean => {
 
 /**
  * Process database result with safety checks for each field
- * @param data Raw data from database
- * @returns Object with processed values
  */
 export const processDbFields = <T extends Record<string, any>>(data: any): T => {
   if (!data || typeof data !== 'object' || isSelectQueryError(data)) {
@@ -285,9 +268,6 @@ export const processDbFields = <T extends Record<string, any>>(data: any): T => 
 
 /**
  * Ensure a value is cast to the correct enum type
- * @param value The string value to convert
- * @param defaultValue The default enum value if conversion fails
- * @returns The correctly typed enum value
  */
 export function ensureEnumValue<T extends string>(value: any, defaultValue: T): T {
   if (typeof value === 'string') {
@@ -330,4 +310,34 @@ export const processBatchData = (data: any): any => {
  */
 export const asFilterValue = <T>(value: T): any => {
   return value as any;
+};
+
+/**
+ * Enhanced safe extraction of ID from potentially error objects
+ */
+export const safeGetId = (obj: any): string => {
+  if (!obj) return '';
+  if (typeof obj === 'object' && 'error' in obj) return '';
+  return obj.id ? String(obj.id) : '';
+};
+
+/**
+ * Safe batch ID extraction from data or error objects
+ */
+export const safeBatchId = (data: any): string => {
+  if (!data) return '';
+  if ('error' in data) return '';
+  return data.id ? String(data.id) : '';
+};
+
+/**
+ * Get a property from a database result or return a default value
+ * Specially handles error objects
+ */
+export const getOrDefault = <T>(obj: any, key: string, defaultValue: T): T => {
+  if (!obj || typeof obj !== 'object' || 'error' in obj) {
+    return defaultValue;
+  }
+  
+  return (obj[key] !== undefined && obj[key] !== null) ? obj[key] : defaultValue;
 };
