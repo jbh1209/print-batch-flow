@@ -20,6 +20,7 @@ interface AuthContextType {
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshSession: () => Promise<Session | null>;
 }
 
 // Create context with default values
@@ -31,6 +32,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   signOut: async () => {},
   refreshProfile: async () => {},
+  refreshSession: async () => null,
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -108,6 +110,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setTimeout(() => {
         window.location.reload();
       }, 1000);
+    }
+  };
+
+  // Refresh session token
+  const refreshSession = async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error('Error refreshing session:', error);
+        return null;
+      }
+      
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        return data.session;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+      return null;
     }
   };
 
@@ -224,6 +249,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isLoading,
     signOut: handleSignOut,
     refreshProfile,
+    refreshSession,
   };
 
   return (

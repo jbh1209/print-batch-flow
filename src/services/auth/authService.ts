@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Session } from '@supabase/supabase-js';
 
 /**
  * Clean up all auth state in localStorage and sessionStorage
@@ -135,5 +136,24 @@ export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;
+  }
+};
+
+/**
+ * Refresh the session token
+ */
+export const refreshToken = async (): Promise<Session | null> => {
+  try {
+    const { data, error } = await supabase.auth.refreshSession();
+    
+    if (error) {
+      console.error('Error refreshing token:', error);
+      return null;
+    }
+    
+    return data.session;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    return null;
   }
 };

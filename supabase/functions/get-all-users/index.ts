@@ -13,50 +13,69 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   
+  console.log("Starting get-all-users function");
+  
   try {
-    console.log("Starting get-all-users function");
-    
-    // Get auth token from request
+    // Get auth token from request and validate it
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.log("No authorization header found");
+    console.log("Auth header present:", !!authHeader);
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error("Missing or invalid authorization header");
       return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          error: 'Missing or invalid authorization header. Format should be: Bearer [token]' 
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
       );
     }
     
-    console.log("Auth header found, creating client");
+    // Extract the JWT token
+    const token = authHeader.replace('Bearer ', '');
+    console.log("Token extracted successfully");
     
     // Create supabase client with auth token
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
         global: {
           headers: { Authorization: authHeader },
         },
       }
     );
     
-    // Verify the user is authenticated
-    console.log("Getting current user");
+    // Verify the user is authenticated by getting the current user
+    console.log("Getting current user from JWT");
     const {
       data: { user },
       error: userError,
-    } = await supabaseClient.auth.getUser();
+    } = await supabaseClient.auth.getUser(token);
     
     if (userError || !user) {
-      console.error("Auth error:", userError);
+      console.error("Auth error:", userError || "No user found");
       return new Response(
-        JSON.stringify({ error: 'Not authenticated', details: userError?.message }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          error: 'Authentication failed', 
+          details: userError?.message || "Invalid or expired token"
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
       );
     }
     
     console.log("User authenticated:", user.id);
     
-    // Check if the user is an admin using our fixed function
+    // Check if the user is an admin
     console.log("Checking admin status");
     const { data: isAdmin, error: adminCheckError } = await supabaseClient.rpc(
       'is_admin_secure_fixed',
@@ -92,7 +111,7 @@ serve(async (req) => {
       );
     }
     
-    console.log("Auth users fetched:", authUsers.users.length);
+    console.log("Auth users fetched successfully:", authUsers.users.length);
     
     // Get all profiles
     const { data: profiles, error: profilesError } = await supabaseClient
@@ -149,7 +168,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in get-all-users function:', error);
     return new Response(
-      JSON.stringify({ error: 'Server error', details: error.message }),
+      JSON.stringify({ 
+        error: 'Server error', 
+        details: error.message || 'Unknown error occurred' 
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

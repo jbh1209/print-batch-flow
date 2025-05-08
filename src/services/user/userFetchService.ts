@@ -11,9 +11,20 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
   try {
     console.log(`Fetching users using Edge Function (attempt ${retryCount + 1}/${maxRetries + 1})`);
     
-    // Call the edge function to get all users
+    // Get current session to ensure we have a fresh token
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !sessionData.session?.access_token) {
+      console.error('Session error:', sessionError || 'No access token available');
+      throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
+    }
+    
+    // Call the edge function to get all users with explicit auth header
     const { data, error } = await supabase.functions.invoke('get-all-users', {
       method: 'GET',
+      headers: {
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      }
     });
     
     if (error) {
@@ -33,6 +44,14 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
         
         // Wait for backoff time
         await new Promise(resolve => setTimeout(resolve, backoffTime));
+        
+        // Try refreshing the session first
+        try {
+          await supabase.auth.refreshSession();
+          console.log('Session refreshed before retry');
+        } catch (refreshError) {
+          console.log('Session refresh failed, retrying anyway');
+        }
         
         // Retry the request
         return fetchUsers(retryCount + 1, maxRetries);

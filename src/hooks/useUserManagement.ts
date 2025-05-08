@@ -13,7 +13,7 @@ export function useUserManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [anyAdminExists, setAnyAdminExists] = useState(false);
-  const { isAdmin } = useAuth();
+  const { isAdmin, session } = useAuth();
 
   // Check if any admin exists in the system
   const checkAdminExists = useCallback(async () => {
@@ -45,16 +45,34 @@ export function useUserManagement() {
       return;
     }
     
+    // Check if we have a valid access token
+    if (!session?.access_token) {
+      console.error('No access token available for API call');
+      setError('Authentication token missing or expired. Please sign in again.');
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     
     try {
-      // Call the edge function to get users
+      // Call the edge function to get users with explicit auth header
       const { data, error } = await supabase.functions.invoke('get-all-users', {
         method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        }
       });
       
       if (error) {
+        console.error('Edge function error:', error);
+        
+        // Handle specific error types
+        if (error.message?.includes('JWT') || error.status === 401) {
+          throw new Error('Your session has expired. Please sign out and sign in again.');
+        }
+        
         throw error;
       }
       
@@ -77,13 +95,17 @@ export function useUserManagement() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, session]);
 
   // Create a new user
   const createUser = useCallback(async (userData: UserFormData) => {
     try {
       if (!userData.email || !userData.password) {
         throw new Error('Email and password are required');
+      }
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
       // Create user via edge function
@@ -93,6 +115,9 @@ export function useUserManagement() {
           password: userData.password,
           full_name: userData.full_name,
           role: userData.role || 'user'
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         }
       });
       
@@ -107,13 +132,17 @@ export function useUserManagement() {
       toast.error(`Failed to create user: ${error.message}`);
       throw error;
     }
-  }, [fetchUsers]);
+  }, [fetchUsers, session]);
 
   // Update an existing user
   const updateUser = useCallback(async (userId: string, userData: UserFormData) => {
     try {
       if (!userId) {
         throw new Error('No user ID provided');
+      }
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
       if (userData.full_name !== undefined) {
@@ -145,13 +174,17 @@ export function useUserManagement() {
       toast.error(`Failed to update user: ${error.message}`);
       throw error;
     }
-  }, [fetchUsers]);
+  }, [fetchUsers, session]);
 
   // Delete/revoke access for a user
   const deleteUser = useCallback(async (userId: string) => {
     try {
       if (!userId) {
         throw new Error('Invalid user ID');
+      }
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
       const { error } = await supabase.rpc('revoke_user_role', {
@@ -169,13 +202,17 @@ export function useUserManagement() {
       toast.error(`Failed to revoke user access: ${error.message}`);
       throw error;
     }
-  }, [fetchUsers]);
+  }, [fetchUsers, session]);
 
   // Add admin role to a user
   const addAdminRole = useCallback(async (userId: string) => {
     try {
       if (!userId) {
         throw new Error('Invalid user ID');
+      }
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
       const { error } = await supabase.rpc('set_user_role_admin', {
@@ -195,7 +232,7 @@ export function useUserManagement() {
       toast.error(`Failed to set admin role: ${error.message}`);
       throw error;
     }
-  }, [fetchUsers]);
+  }, [fetchUsers, session]);
 
   return {
     users,

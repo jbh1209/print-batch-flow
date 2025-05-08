@@ -40,17 +40,33 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       return;
     }
 
+    // Check if we have a valid session with a token
+    if (!session?.access_token) {
+      setError("Authentication token missing. Please sign in again.");
+      toast.error("Authentication token missing. Please sign in again.");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
-    console.log("Starting user fetch with session:", !!session);
+    console.log("Starting user fetch with session token available:", !!session?.access_token);
     
     try {
       const { data, error: fetchError } = await supabase.functions.invoke('get-all-users', {
         method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        }
       });
       
       if (fetchError) {
         console.error("Function error:", fetchError);
+        
+        // Handle specific error cases
+        if (fetchError.message?.includes('JWT') || fetchError.status === 401) {
+          throw new Error('Authentication error: Your session has expired. Please sign out and sign in again.');
+        }
+        
         throw fetchError;
       }
       
@@ -63,6 +79,15 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     } catch (error: any) {
       console.error('Error fetching users:', error);
       setError(error.message || 'Failed to fetch users');
+      
+      // If this is an auth error, suggest a sign out/in
+      if (error.message?.includes('Authentication') || 
+          error.message?.includes('expired') || 
+          error.message?.includes('token')) {
+        toast.error("Authentication error. Please sign out and sign in again.");
+      } else {
+        toast.error(error.message || "Failed to fetch users");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -70,13 +95,16 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
   // Create a new user with admin privileges
   const createUser = async (userData: UserFormData): Promise<void> => {
-    if (!user || !isAdmin) {
-      throw new Error("Admin privileges required");
+    if (!user || !isAdmin || !session?.access_token) {
+      throw new Error("Admin privileges required or session expired");
     }
 
     try {
       const { data, error: createError } = await supabase.functions.invoke('create-user', {
-        body: userData
+        body: userData,
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        }
       });
       
       if (createError) throw createError;
@@ -92,8 +120,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
   // Update an existing user
   const updateUser = async (userId: string, userData: UserFormData): Promise<void> => {
-    if (!user || !isAdmin) {
-      throw new Error("Admin privileges required");
+    if (!user || !isAdmin || !session?.access_token) {
+      throw new Error("Admin privileges required or session expired");
     }
 
     try {
@@ -127,8 +155,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
   // Delete/deactivate a user
   const deleteUser = async (userId: string): Promise<void> => {
-    if (!user || !isAdmin) {
-      throw new Error("Admin privileges required");
+    if (!user || !isAdmin || !session?.access_token) {
+      throw new Error("Admin privileges required or session expired");
     }
 
     try {
@@ -149,6 +177,10 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
   // Add admin role to a user
   const addAdminRole = async (userId: string): Promise<void> => {
+    if (!session?.access_token) {
+      throw new Error("Authentication session expired. Please sign in again.");
+    }
+    
     try {
       const { error } = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
@@ -164,12 +196,12 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
   };
 
-  // Load users on mount if user is admin
+  // Load users on mount if user is admin and session exists
   useEffect(() => {
-    if (user && isAdmin && session) {
+    if (user && isAdmin && session?.access_token) {
       fetchUsers();
     }
-  }, [user, isAdmin, session]);
+  }, [user, isAdmin, session?.access_token]);
 
   const value = {
     users,
