@@ -5,4 +5,5 @@ export * from './userRoleService';
 export * from './userProfileService';
 export * from './userCreationService';
 export * from './userFetchService';
-export * from '../auth/authService';
+// Export auth services but exclude the duplicate checkIsAdmin function
+export { signOut, signIn, signUp, getSession, cleanupAuthState } from '../auth/authService';
