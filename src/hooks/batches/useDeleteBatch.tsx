@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ExistingTableName } from "@/config/types/baseTypes";
+import { isExistingTable } from "@/utils/database/tableValidation";
 
 interface UseDeleteBatchProps {
   productType: string;
@@ -21,30 +23,45 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
     setIsDeleting(true);
     try {
       // Determine which job table to use based on product type
-      let jobsTable: string;
+      let jobsTable: ExistingTableName;
       if (productType === "Business Cards") {
         jobsTable = "business_card_jobs";
       } else if (productType === "Flyers") {
         jobsTable = "flyer_jobs";
+      } else if (productType === "Postcards") {
+        jobsTable = "postcard_jobs";
+      } else if (productType === "Boxes") {
+        jobsTable = "box_jobs";
+      } else if (productType === "Sleeves") {
+        jobsTable = "sleeve_jobs";
+      } else if (productType === "Stickers") {
+        jobsTable = "sticker_jobs";
+      } else if (productType === "Posters") {
+        jobsTable = "poster_jobs";
+      } else if (productType === "Covers") {
+        jobsTable = "cover_jobs";
       } else {
         jobsTable = "business_card_jobs"; // Default
       }
       
-      // 1. First reset all jobs in this batch back to queued
-      const { error: jobsError } = await supabase
-        .from(jobsTable)
-        .update({
-          status: "queued",
-          batch_id: null
-        })
-        .eq("batch_id", batchToDelete);
-      
-      if (jobsError) {
-        console.error("Error resetting jobs in batch:", jobsError);
-        throw jobsError;
+      // Only attempt to reset jobs if we have a valid table
+      if (isExistingTable(jobsTable)) {
+        // Reset all jobs in this batch back to queued
+        const { error: jobsError } = await supabase
+          .from(jobsTable)
+          .update({
+            status: "queued",
+            batch_id: null
+          })
+          .eq("batch_id", batchToDelete);
+        
+        if (jobsError) {
+          console.error("Error resetting jobs in batch:", jobsError);
+          throw jobsError;
+        }
       }
       
-      // 2. Then delete the batch
+      // Then delete the batch
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()

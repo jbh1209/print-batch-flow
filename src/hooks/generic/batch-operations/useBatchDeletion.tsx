@@ -20,7 +20,7 @@ export function useBatchDeletion(tableName: ExistingTableName, onSuccessCallback
       if (isExistingTable(tableName)) {
         // First reset all jobs in this batch back to queued
         const { error: jobsError } = await supabase
-          .from(tableName as any)
+          .from(tableName)
           .update({ 
             status: "queued",  // Reset status to queued
             batch_id: null     // Clear batch_id reference
