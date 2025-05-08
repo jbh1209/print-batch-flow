@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +8,8 @@ import {
   castToUUID, 
   processBatchData, 
   toSafeString, 
-  safeDbMap 
+  safeDbMap,
+  prepareUpdateParams
 } from "@/utils/database/dbHelpers";
 
 export function useBusinessCardBatches() {
@@ -64,13 +66,15 @@ export function useBusinessCardBatches() {
     try {
       console.log(`Deleting batch ${batchId}`);
       
-      // First, update all business card jobs linked to this batch to remove batch_id
+      // First, update all business card jobs linked to this batch
+      const updateData = prepareUpdateParams({ 
+        status: "queued",
+        batch_id: null 
+      });
+      
       const { error: updateError } = await supabase
         .from('business_card_jobs')
-        .update({ 
-          status: "queued",
-          batch_id: null 
-        })
+        .update(updateData)
         .eq("batch_id", castToUUID(batchId));
       
       if (updateError) {

@@ -7,6 +7,7 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { useJobFilters } from "./business-cards/useJobFilters";
 import { useJobSelection } from "./business-cards/useJobSelection";
 import { useBatchCleanup } from "./business-cards/useBatchCleanup";
+import { castToUUID, toJobArray, prepareUpdateParams } from "@/utils/database/dbHelpers";
 
 export const useBusinessCardJobsList = () => {
   const { toast } = useToast();
@@ -53,15 +54,15 @@ export const useBusinessCardJobsList = () => {
       let query = supabase
         .from('business_card_jobs')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', castToUUID(user.id))
         .order('created_at', { ascending: false });
       
       if (filterView !== 'all') {
-        query = query.eq('status', filterView);
+        query = query.eq('status', filterView as any);
       }
       
       if (laminationFilter) {
-        query = query.eq('lamination_type', laminationFilter);
+        query = query.eq('lamination_type', laminationFilter as any);
       }
       
       const { data, error: fetchError } = await query;
@@ -70,21 +71,26 @@ export const useBusinessCardJobsList = () => {
       
       console.log("Business card jobs data received:", data?.length || 0, "records");
       
-      setJobs(data || []);
+      // Convert to properly typed Job array using our utility function
+      const typedJobs = toJobArray<Job>(data);
+      setJobs(typedJobs);
       
       // Second query to get all job counts for filters
       const { data: allJobs, error: countError } = await supabase
         .from('business_card_jobs')
         .select('status')
-        .eq('user_id', user.id);
+        .eq('user_id', castToUUID(user.id));
       
       if (countError) throw countError;
       
+      // Process job counts safely
+      const allJobsArray = allJobs || [];
+      
       setFilterCounts({
-        all: allJobs?.length || 0,
-        queued: allJobs?.filter(job => job.status === 'queued').length || 0,
-        batched: allJobs?.filter(job => job.status === 'batched').length || 0,
-        completed: allJobs?.filter(job => job.status === 'completed').length || 0
+        all: allJobsArray.length || 0,
+        queued: allJobsArray.filter(job => job?.status === 'queued').length || 0,
+        batched: allJobsArray.filter(job => job?.status === 'batched').length || 0,
+        completed: allJobsArray.filter(job => job?.status === 'completed').length || 0
       });
       
       setSelectedJobs([]);
@@ -106,7 +112,7 @@ export const useBusinessCardJobsList = () => {
       const { error: deleteError } = await supabase
         .from('business_card_jobs')
         .delete()
-        .eq('id', jobId);
+        .eq('id', castToUUID(jobId));
       
       if (deleteError) throw deleteError;
       

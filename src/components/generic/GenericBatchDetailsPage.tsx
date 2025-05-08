@@ -1,119 +1,179 @@
 
-import React, { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
-import { ProductConfig, BatchStatus } from "@/config/productTypes";
-import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
-import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
-import JobsHeader from "@/components/business-cards/JobsHeader";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { ProductConfig, BaseBatch, BaseJob } from '@/config/productTypes';
+import GenericBatchDetails from './GenericBatchDetails';
+import DeleteBatchDialog from '@/components/batches/DeleteBatchDialog';
+import { castToUUID, safeBatchId } from '@/utils/database/dbHelpers';
+import { adaptBatchFromDb, adaptJobArrayFromDb } from '@/utils/database/typeAdapters';
+import { useAuth } from '@/hooks/useAuth';
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
-  batchId?: string;
+  backUrl: string;
 }
 
-const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ config, batchId: propBatchId }) => {
+const GenericBatchDetailsPage = ({ config, backUrl }: GenericBatchDetailsPageProps) => {
+  const { user } = useAuth();
+  const { batchId = '' } = useParams<{ batchId: string }>();
   const navigate = useNavigate();
-  const { batchId: paramBatchId } = useParams<{ batchId: string }>();
   
-  // Use the batchId from props or params
-  const batchId = propBatchId || paramBatchId;
+  const [batch, setBatch] = useState<BaseBatch | null>(null);
+  const [jobs, setJobs] = useState<BaseJob[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   
-  const {
-    batch,
-    relatedJobs,
-    isLoading,
-    error,
-    batchToDelete,
-    isDeleting,
-    setBatchToDelete,
-    handleDeleteBatch
-  } = useGenericBatchDetails({ batchId, config });
+  // For deletion handling
+  const [showDeleteDialog, setShowDeleteDialog] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [batchToDelete, setBatchToDelete] = useState<BaseBatch | null>(null);
 
+  const fetchBatchAndJobs = async () => {
+    if (!user || !batchId) {
+      setIsLoading(false);
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Fetch batch details
+      const { data: batchData, error: batchError } = await supabase
+        .from('batches')
+        .select('*')
+        .eq('id', castToUUID(batchId))
+        .eq('created_by', castToUUID(user.id))
+        .single();
+      
+      if (batchError) {
+        throw batchError;
+      }
+      
+      // Use adapter to safely convert to BaseBatch
+      const processedBatch = adaptBatchFromDb<BaseBatch>(batchData);
+      
+      if (!processedBatch) {
+        throw new Error("Failed to process batch data");
+      }
+      
+      setBatch(processedBatch);
+      
+      // Fetch related jobs if we have a table name
+      if (config.tableName) {
+        const { data: jobsData, error: jobsError } = await supabase
+          .from(config.tableName as any)
+          .select('*')
+          .eq('batch_id', castToUUID(batchId));
+          
+        if (jobsError) {
+          throw jobsError;
+        }
+        
+        // Use adapter to safely convert to BaseJob array
+        const processedJobs = adaptJobArrayFromDb<BaseJob>(jobsData);
+        setJobs(processedJobs);
+      }
+    } catch (err) {
+      console.error("Error fetching batch details:", err);
+      setError("Failed to load batch details or related jobs");
+      toast.error("Error loading batch details");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Load batch and jobs on component mount
   useEffect(() => {
-    console.log("GenericBatchDetailsPage - Batch ID:", batchId);
-    console.log("GenericBatchDetailsPage - Product Type:", config.productType);
-  }, [batchId, config]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary border-t-transparent"></div>
-      </div>
-    );
-  }
-
-  if (error || !batch) {
-    return (
-      <Alert variant="destructive" className="mb-6">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Batch Not Found</AlertTitle>
-        <AlertDescription>
-          The requested batch could not be found or has been deleted.
-          <div className="mt-2">
-            <Button 
-              variant="outline" 
-              onClick={() => navigate(config.routes.batchesPath)}
-            >
-              Back to Batches
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  console.log("Rendering batch details for:", batch.name, "with related jobs:", relatedJobs.length);
-
-  // Convert batch to BatchDetailsType to satisfy the component props
-  const batchDetailsData: BatchDetailsType = {
-    id: batch.id,
-    name: batch.name,
-    lamination_type: batch.lamination_type,
-    sheets_required: batch.sheets_required,
-    front_pdf_url: batch.front_pdf_url,
-    back_pdf_url: batch.back_pdf_url,
-    overview_pdf_url: batch.overview_pdf_url || null,
-    due_date: batch.due_date,
-    created_at: batch.created_at,
-    status: batch.status as BatchStatus
+    fetchBatchAndJobs();
+  }, [batchId, user]);
+  
+  // Handle viewing PDF
+  const handleViewPDF = (url: string | null) => {
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      toast.error("No PDF available for this batch");
+    }
+  };
+  
+  // Handle batch deletion
+  const handleDeleteBatch = async () => {
+    if (!batchToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // First update jobs to remove batch_id
+      if (config.tableName) {
+        const { error: updateError } = await supabase
+          .from(config.tableName as any)
+          .update({ 
+            status: 'queued',
+            batch_id: null
+          })
+          .eq('batch_id', castToUUID(batchToDelete.id));
+          
+        if (updateError) {
+          throw updateError;
+        }
+      }
+      
+      // Then delete the batch
+      const { error: deleteError } = await supabase
+        .from('batches')
+        .delete()
+        .eq('id', castToUUID(batchToDelete.id));
+        
+      if (deleteError) {
+        throw deleteError;
+      }
+      
+      toast.success("Batch deleted successfully");
+      navigate(backUrl);
+    } catch (err) {
+      console.error("Error deleting batch:", err);
+      toast.error("Failed to delete batch");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+  
+  const handleOpenDeleteDialog = (selectedBatch: BaseBatch) => {
+    setBatchToDelete(selectedBatch);
+    setShowDeleteDialog(true);
   };
 
-  // Convert related jobs to match the Job interface, ensuring job_number is included
-  const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
-    id: job.id,
-    name: job.name || '',
-    quantity: job.quantity,
-    status: job.status,
-    pdf_url: job.pdf_url || null,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
-  }));
-
   return (
-    <div>
-      <JobsHeader 
-        title={`${batch.name} - ${config.ui.batchFormTitle || 'Batch'} Details`}
-        subtitle={`View details and manage ${config.ui.title ? config.ui.title.toLowerCase() : 'batch'}`}
+    <>
+      <GenericBatchDetails
+        batch={batch}
+        batchId={batchId}
+        isLoading={isLoading}
+        error={error}
+        jobs={jobs}
+        backUrl={backUrl}
+        productType={config.productType}
+        onViewPDF={handleViewPDF}
+        onDeleteBatch={handleOpenDeleteDialog}
       />
       
-      <BatchDetailsContent
-        batch={batchDetailsData}
-        relatedJobs={typedRelatedJobs}
-        productType={config.productType}
-        onDeleteClick={() => setBatchToDelete(batch.id)}
-      />
-
-      <BatchDeleteDialog 
-        isOpen={!!batchToDelete}
-        isDeleting={isDeleting}
-        onClose={() => setBatchToDelete(null)}
-        onConfirmDelete={handleDeleteBatch}
-      />
-    </div>
+      {/* Delete confirmation dialog */}
+      {batch && (
+        <DeleteBatchDialog
+          isOpen={showDeleteDialog}
+          isDeleting={isDeleting}
+          batchName={batch.name}
+          onClose={() => setShowDeleteDialog(false)}
+          onConfirmDelete={handleDeleteBatch}
+        />
+      )}
+    </>
   );
 };
 

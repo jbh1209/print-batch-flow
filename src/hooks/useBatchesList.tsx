@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { processBatchData } from "@/utils/database/dbHelpers";
+import { processBatchData, castToUUID } from "@/utils/database/dbHelpers";
 
 export function useBatchesList() {
   const { user } = useAuth();
@@ -24,7 +25,7 @@ export function useBatchesList() {
       const { data, error: fetchError } = await supabase
         .from('batches')
         .select('*')
-        .eq('created_by', user.id)
+        .eq('created_by', castToUUID(user.id))
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;

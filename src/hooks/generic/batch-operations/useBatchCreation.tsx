@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import {
   safeGetId,
   safeBatchId
 } from "@/utils/database/dbHelpers";
+import { prepareBatchForDb } from "@/utils/database/typeAdapters";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -89,7 +91,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       };
       
       // Prepare data for database insertion with type safety
-      const preparedBatchData = prepareUpdateParams(batchData);
+      const preparedBatchData = prepareBatchForDb(batchData);
       
       // Create the batch record
       const { data: createdBatchData, error: batchError } = await supabase
@@ -103,7 +105,7 @@ export function useBatchCreation(productType: string, tableName: string) {
         throw batchError;
       }
       
-      // Extract batch ID safely using the new utility function
+      // Extract batch ID safely using the utility function
       const batchId = safeBatchId(createdBatchData);
       
       if (!batchId) {
@@ -140,6 +142,8 @@ export function useBatchCreation(productType: string, tableName: string) {
       }
       
       toast.success(`Batch created with ${selectedJobs.length} jobs`);
+      
+      // Return the created batch with proper ID
       return { ...createdBatchData, id: batchId };
     } catch (error) {
       console.error("Error in batch creation:", error);

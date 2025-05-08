@@ -38,12 +38,15 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         return;
       }
       
+      // Use proper type casting for table name and status
+      const batchedStatus = 'batched' as any;
+      
       // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data: orphanedJobs, error: findError } = await supabase
         .from(tableName as any)
         .select('id')
         .eq('user_id', castToUUID(userId))
-        .eq('status', castToUUID('batched'))
+        .eq('status', batchedStatus)
         .is('batch_id', null);
       
       if (findError) throw findError;
@@ -52,7 +55,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Create properly typed update parameters
-        const updateParams = prepareUpdateParams({ status: 'queued' });
+        const updateParams = prepareUpdateParams({ status: 'queued' as any });
         
         // Extract all job IDs from the orphaned jobs and ensure they are valid
         const jobIds = safeDbMap(orphanedJobs, job => safeGetId(job));
