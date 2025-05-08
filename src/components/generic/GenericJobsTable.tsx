@@ -21,6 +21,7 @@ interface GenericJobsTableProps {
   fixBatchedJobsWithoutBatch: () => Promise<number | void>;
   isFixingBatchedJobs?: boolean;
   onEditJob?: (jobId: string) => void;
+  onViewJob?: (jobId: string) => void;
 }
 
 const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
@@ -35,6 +36,7 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
   fixBatchedJobsWithoutBatch,
   isFixingBatchedJobs,
   onEditJob,
+  onViewJob,
 }) => {
   const navigate = useNavigate();
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
@@ -67,6 +69,13 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
   const handleEditJob = (jobId: string) => {
     if (onEditJob) {
       onEditJob(jobId);
+    }
+  };
+
+  // Handle job view
+  const handleViewJob = (jobId: string) => {
+    if (onViewJob) {
+      onViewJob(jobId);
     }
   };
 

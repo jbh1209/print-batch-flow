@@ -74,6 +74,11 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
     navigate(config.routes.jobEditPath(jobId));
   };
 
+  // Handle view job action
+  const handleViewJob = (jobId: string) => {
+    navigate(config.routes.jobDetailPath(jobId));
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -118,6 +123,7 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
             fixBatchedJobsWithoutBatch={fixBatchedJobsWithoutBatch}
             isFixingBatchedJobs={isFixingBatchedJobs}
             onEditJob={handleEditJob}
+            onViewJob={handleViewJob}
           />
         )}
       </div>
