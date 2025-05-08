@@ -49,16 +49,32 @@ const Sidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
-  // Helper function to determine if a route is active
+  // Enhanced route active detection
   const isRouteActive = (path: string): boolean => {
+    // For root path, only match exact path
     if (path === "/" && location.pathname === "/") {
       return true;
     }
+    
+    // For other paths, match if the current path starts with the given path
+    // but make sure we're matching complete segments
     if (path !== "/" && location.pathname.startsWith(path)) {
-      return true;
+      // Check if it's an exact match or if the next character is a slash
+      // or if we're at the end of the path
+      if (
+        location.pathname === path ||
+        location.pathname.charAt(path.length) === "/" ||
+        path.charAt(path.length - 1) === "/"
+      ) {
+        return true;
+      }
     }
+    
     return false;
   };
+  
+  // Debug the current route
+  console.log("Current Path:", location.pathname);
 
   return (
     <div className={cn(
@@ -97,7 +113,7 @@ const Sidebar = () => {
             to="/batches" 
             icon={<Layers size={20} />} 
             label={collapsed ? "" : "All Batches"} 
-            isActive={isRouteActive("/batches")} 
+            isActive={isRouteActive("/batches") && !location.pathname.includes("/batches/")} 
           />
           
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Batch Types</div>}

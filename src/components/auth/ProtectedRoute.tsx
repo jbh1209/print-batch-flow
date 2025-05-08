@@ -15,6 +15,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   const { user, isLoading, isAdmin, session, refreshSession } = useAuth();
   const location = useLocation();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   
   // Attempt to refresh the session if needed
   const handleSessionRefresh = async () => {
@@ -25,6 +26,8 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
         toast.error('Unable to refresh authentication. Please sign in again.');
       } else {
         toast.success('Authentication refreshed successfully');
+        // Force reload after successful refresh to ensure consistent state
+        window.location.reload();
       }
     } catch (error) {
       console.error('Error refreshing session:', error);
@@ -35,11 +38,16 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   };
 
   useEffect(() => {
+    // Mark auth as checked once we've determined loading is complete
+    if (!isLoading) {
+      setAuthChecked(true);
+    }
+    
     // Only show admin-required message if user is trying to access admin-only route
     if (user && requireAdmin && !isAdmin) {
       toast.error('You need administrator privileges to access this page');
     }
-  }, [user, requireAdmin, isAdmin]);
+  }, [user, requireAdmin, isAdmin, isLoading]);
 
   // While checking authentication status
   if (isLoading || isRefreshing) {
@@ -50,8 +58,18 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     );
   }
 
+  // Explicitly log authentication state for debugging
+  console.log("Auth state:", { 
+    user: !!user, 
+    session: !!session, 
+    isAdmin, 
+    requireAdmin, 
+    authChecked,
+    currentPath: location.pathname
+  });
+
   // If not authenticated, redirect to login
-  if (!user || !session) {
+  if (authChecked && (!user || !session)) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
