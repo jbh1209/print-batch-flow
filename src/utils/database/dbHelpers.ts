@@ -1,3 +1,4 @@
+
 /**
  * Utility functions to handle database operations with proper type handling
  */
@@ -83,14 +84,6 @@ export const processDbFields = <T extends Record<string, any>>(data: any): T => 
 };
 
 /**
- * Prepare update parameters with type safety
- * This version adds explicit type assertion for Supabase tables
- */
-export const prepareUpdateParams = <T extends Record<string, any>>(params: T): T => {
-  return params as T;
-};
-
-/**
  * Safely map database results to typed objects
  * Especially useful for batch query results with potential error handling
  */
@@ -133,66 +126,6 @@ export function ensureEnumValue<T extends string>(value: any, defaultValue: T): 
   }
   return defaultValue;
 }
-
-/**
- * Process batch data with proper type handling
- */
-export const processBatchData = (data: any): any => {
-  if (!data || typeof data !== 'object') return null;
-  
-  // If it's an error object, return null
-  if ('error' in data) return null;
-  
-  return {
-    id: toSafeString(data.id),
-    name: toSafeString(data.name),
-    status: ensureEnumValue(data.status, 'pending'),
-    sheets_required: safeNumber(data.sheets_required),
-    front_pdf_url: data.front_pdf_url ? toSafeString(data.front_pdf_url) : null,
-    back_pdf_url: data.back_pdf_url ? toSafeString(data.back_pdf_url) : null,
-    overview_pdf_url: data.overview_pdf_url ? toSafeString(data.overview_pdf_url) : null,
-    due_date: toSafeString(data.due_date),
-    created_at: toSafeString(data.created_at),
-    created_by: toSafeString(data.created_by),
-    updated_at: toSafeString(data.updated_at),
-    lamination_type: ensureEnumValue(data.lamination_type, 'none'),
-    paper_type: data.paper_type ? toSafeString(data.paper_type) : undefined,
-    paper_weight: data.paper_weight ? toSafeString(data.paper_weight) : undefined,
-    sheet_size: data.sheet_size ? toSafeString(data.sheet_size) : undefined,
-    printer_type: data.printer_type ? toSafeString(data.printer_type) : undefined
-  };
-};
-
-/**
- * Process job data with type safety
- */
-export const processJobData = <T extends Record<string, any>>(data: any): T | null => {
-  if (!data || typeof data !== 'object') return null;
-  if ('error' in data) return null;
-  
-  const processedData: Record<string, any> = {};
-  
-  // Extract all properties safely
-  for (const key in data) {
-    if (Object.prototype.hasOwnProperty.call(data, key)) {
-      const value = data[key];
-      
-      if (key === 'id' || key === 'user_id' || key === 'batch_id') {
-        processedData[key] = toSafeString(value);
-      } else if (typeof value === 'number') {
-        processedData[key] = value;
-      } else if (typeof value === 'boolean') {
-        processedData[key] = value;
-      } else if (value === null) {
-        processedData[key] = null;
-      } else {
-        processedData[key] = toSafeString(value);
-      }
-    }
-  }
-  
-  return processedData as T;
-};
 
 /**
  * Safe number getter that ensures number type and provides default value
@@ -244,40 +177,6 @@ export const handleDatabaseResponse = <T>(
 };
 
 /**
- * Creates a database filter that safely handles UUID values
- * Use this for any .eq() operation with UUIDs
- */
-export const createUuidFilter = (columnName: string, value: string | undefined) => {
-  return { [columnName]: castToUUID(value) };
-};
-
-/**
- * Type-safe partial update helper
- */
-export const createPartialUpdate = <T extends Record<string, any>>(updates: Partial<T>): Record<string, any> => {
-  return updates as Record<string, any>;
-};
-
-/**
- * Convert a database batch result to typed BaseBatch object
- */
-export const toBatch = (data: any) => {
-  return processBatchData(data);
-};
-
-/**
- * Convert DB results to a typed Job array
- */
-export const toJobArray = <T>(data: any): T[] => {
-  if (!data || !Array.isArray(data)) return [];
-  
-  return data
-    .filter(item => item && typeof item === 'object' && !('error' in item))
-    .map(item => processJobData<T>(item))
-    .filter((item): item is T => item !== null);
-};
-
-/**
  * Check if a value has a specific property safely
  */
 export const hasProperty = <T extends string>(obj: any, prop: T): boolean => {
@@ -286,18 +185,24 @@ export const hasProperty = <T extends string>(obj: any, prop: T): boolean => {
 
 /**
  * Create properly typed data for insert operations
- * This helps with the specific Supabase type requirements
+ * Uses the 'as any' type assertion to allow for inserting data into Supabase tables
  */
 export function createInsertData<T extends Record<string, any>>(data: T): any {
-  // For Supabase, we need to return the data as-is but with the correct typing
   return data as any;
 }
 
 /**
  * Create properly typed data for update operations
- * This helps with the specific Supabase type requirements
+ * Uses the 'as any' type assertion to allow for updating data in Supabase tables
  */
 export function createUpdateData<T extends Record<string, any>>(data: T): any {
-  // For Supabase, we need to return the data as-is but with the correct typing
   return data as any;
 }
+
+/**
+ * Type-safe prepare update parameters function that uses 'as any' casting
+ * for compatibility with Supabase's typed interfaces
+ */
+export const prepareUpdateParams = <T extends Record<string, any>>(params: T): any => {
+  return params as any;
+};

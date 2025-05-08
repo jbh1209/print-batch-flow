@@ -2,7 +2,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isExistingTable } from "@/utils/database/tableValidation";
-import { prepareUpdateParams, castToUUID } from "@/utils/database/dbHelpers";
+import { 
+  createUpdateData, 
+  createInsertData, 
+  castToUUID 
+} from "@/utils/database/dbHelpers";
 
 /**
  * Hook for handling job database operations
@@ -102,12 +106,13 @@ export const useJobDatabase = () => {
       console.log("Creating new job in table:", tableName);
       console.log("With job data:", JSON.stringify(jobData, null, 2));
       
-      const preparedData = prepareUpdateParams(jobData);
+      // Use our enhanced helper for insertion
+      const insertData = createInsertData(jobData);
       
       // Use properly typed insert
       const { data, error } = await supabase
         .from(tableName as any)
-        .insert(preparedData)
+        .insert(insertData)
         .select();
 
       if (error) {
@@ -161,7 +166,8 @@ export const useJobDatabase = () => {
       console.log("Job ID:", jobId);
       console.log("With update data:", JSON.stringify(updateData, null, 2));
       
-      const preparedData = prepareUpdateParams(updateData);
+      // Use our enhanced helper for update
+      const preparedData = createUpdateData(updateData);
       
       // Use castToUUID for safe parameter passing
       const { data, error } = await supabase

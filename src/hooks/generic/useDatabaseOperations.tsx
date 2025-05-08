@@ -4,8 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TableName, BaseBatch, BaseJob } from '@/config/productTypes';
 import { isExistingTable } from '@/utils/database/tableValidation';
-import { castToUUID, prepareUpdateParams } from '@/utils/database/dbHelpers';
-import { adaptBatchFromDb, adaptJobFromDb, prepareBatchForDb, prepareJobForDb } from '@/utils/database/typeAdapters';
+import { 
+  castToUUID,
+  createUpdateData,
+  createInsertData
+} from '@/utils/database/dbHelpers';
+import { adaptBatchFromDb, adaptJobFromDb } from '@/utils/database/typeAdapters';
 
 export function useDatabaseOperations() {
   const [isLoading, setIsLoading] = useState(false);
@@ -99,12 +103,12 @@ export function useDatabaseOperations() {
       setIsLoading(true);
       setError(null);
       
-      // Prepare batch data for insertion
-      const preparedData = prepareBatchForDb(batchData);
+      // Prepare batch data for insertion using our enhanced helper
+      const insertData = createInsertData(batchData);
 
       const { data, error: insertError } = await supabase
         .from('batches')
-        .insert(preparedData)
+        .insert(insertData)
         .select()
         .single();
         
@@ -153,8 +157,8 @@ export function useDatabaseOperations() {
         return false;
       }
 
-      const updateData = prepareUpdateParams({
-        batch_id: castToUUID(batchId),
+      const updateData = createUpdateData({
+        batch_id: batchId,
         status: 'batched'
       });
 

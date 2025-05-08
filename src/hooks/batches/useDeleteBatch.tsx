@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { prepareUpdateParams, castToUUID } from "@/utils/database/dbHelpers";
+import { createUpdateData, castToUUID } from "@/utils/database/dbHelpers";
 
 interface UseDeleteBatchProps {
   productType: string;
@@ -21,8 +21,8 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
     
     setIsDeleting(true);
     try {
-      // Prepare update parameters with proper type safety
-      const updateParams = prepareUpdateParams({
+      // Create update data using our enhanced helper
+      const updateData = createUpdateData({
         status: "queued",
         batch_id: null
       });
@@ -30,14 +30,14 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
       if (productType === "Business Cards") {
         const { error: jobsError } = await supabase
           .from("business_card_jobs")
-          .update(updateParams)
+          .update(updateData)
           .eq("batch_id", castToUUID(batchToDelete));
         
         if (jobsError) throw jobsError;
       } else if (productType === "Flyers") {
         const { error: jobsError } = await supabase
           .from("flyer_jobs")
-          .update(updateParams)
+          .update(updateData)
           .eq("batch_id", castToUUID(batchToDelete));
         
         if (jobsError) throw jobsError;

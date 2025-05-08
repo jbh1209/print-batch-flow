@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
-import { prepareUpdateParams, castToUUID } from "@/utils/database/dbHelpers";
+import { castToUUID, createUpdateData } from "@/utils/database/dbHelpers";
 
 interface UseBatchDeletionProps {
   config: ProductConfig;
@@ -25,8 +25,8 @@ export function useBatchDeletion({ config }: UseBatchDeletionProps) {
       const tableName = config.tableName;
       
       if (isExistingTable(tableName)) {
-        // Prepare update parameters with proper type safety
-        const updateParams = prepareUpdateParams({
+        // Create update data using our enhanced helper
+        const updateData = createUpdateData({
           status: "queued",
           batch_id: null
         });
@@ -34,7 +34,7 @@ export function useBatchDeletion({ config }: UseBatchDeletionProps) {
         // Use type assertion to bypass TypeScript's static checking
         const { error: jobsError } = await supabase
           .from(tableName as any)
-          .update(updateParams)
+          .update(updateData)
           .eq("batch_id", castToUUID(batchToDelete));
         
         if (jobsError) throw jobsError;

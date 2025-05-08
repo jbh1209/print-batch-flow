@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -12,16 +13,15 @@ import {
   createBatchDataObject
 } from "@/utils/batch/batchDataProcessor";
 import { 
-  prepareUpdateParams, 
+  createUpdateData,
+  createInsertData,
   castToUUID, 
   safeDbMap, 
   toSafeString, 
   safeGetId,
   safeBatchId
 } from "@/utils/database/dbHelpers";
-import { prepareBatchForDb } from "@/utils/database/typeAdapters";
 import { BatchStatus } from "@/config/types/baseTypes";
-import { createInsertData } from "@/utils/database/dbHelpers";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -124,7 +124,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       const validatedTableName = tableName as ExistingTableName;
       
       // Create properly typed update data
-      const updateData = prepareUpdateParams({
+      const updateData = createUpdateData({
         status: "batched",
         batch_id: batchId
       });
@@ -145,7 +145,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       toast.success(`Batch created with ${selectedJobs.length} jobs`);
       
       // Return the created batch with proper ID
-      return { ...createdBatchData, id: batchId };
+      return createdBatchData ? { ...createdBatchData, id: batchId } : null;
     } catch (error) {
       console.error("Error in batch creation:", error);
       toast.error("Failed to create batch: " + (error instanceof Error ? error.message : "Unknown error"));

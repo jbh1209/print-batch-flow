@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
@@ -6,7 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Job, LaminationType } from "@/components/business-cards/JobsTable";
 import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
 import { 
-  prepareUpdateParams, 
+  createUpdateData,
+  createInsertData,
   safeDbMap, 
   toSafeString,
   castToUUID,
@@ -118,8 +120,8 @@ export function useBatchCreation() {
         user.id
       );
       
-      // Create batch data object for insertion
-      const batchInsertData = prepareUpdateParams({
+      // Create batch data object for insertion using our enhanced helper
+      const batchInsertData = createInsertData({
         name,
         lamination_type: laminationType,
         sheets_required: sheetsRequired,
@@ -151,7 +153,7 @@ export function useBatchCreation() {
       const updatePromises = selectedJobs.map(job => 
         supabase
           .from("business_card_jobs")
-          .update(prepareUpdateParams({ 
+          .update(createUpdateData({ 
             batch_id: batchId,
             status: "batched"
           }))

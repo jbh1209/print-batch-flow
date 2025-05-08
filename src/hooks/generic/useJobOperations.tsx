@@ -4,7 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, JobStatus, TableName } from '@/config/productTypes';
 import { isExistingTable } from '@/utils/database/tableValidation';
-import { castToUUID, prepareUpdateParams } from '@/utils/database/dbHelpers';
+import { 
+  castToUUID, 
+  createUpdateData, 
+  createInsertData 
+} from '@/utils/database/dbHelpers';
 
 export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
@@ -58,8 +62,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         status: 'queued' as JobStatus
       };
       
-      // Use prepareUpdateParams for type safety
-      const newJob = prepareUpdateParams(newJobBase);
+      // Use our enhanced helper for insertion
+      const newJob = createInsertData(newJobBase);
 
       // Use proper typing with table name
       const { data, error } = await supabase
@@ -92,13 +96,13 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Use prepareUpdateParams for type safety
-      const preparedData = prepareUpdateParams(jobData);
+      // Use our enhanced helper for update
+      const updateData = createUpdateData(jobData);
       
       // Use castToUUID to safely cast parameters
       const { data, error } = await supabase
         .from(tableName as any)
-        .update(preparedData)
+        .update(updateData)
         .eq('id', castToUUID(jobId))
         .eq('user_id', castToUUID(userId))
         .select()

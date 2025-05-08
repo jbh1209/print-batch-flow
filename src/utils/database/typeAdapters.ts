@@ -8,6 +8,22 @@ import { castToUUID, toSafeString, safeNumber, safeBoolean } from "./dbHelpers";
  */
 
 /**
+ * Adapts user profile data from database response
+ */
+export const adaptUserProfile = (dbProfile: any): any => {
+  if (!dbProfile || typeof dbProfile !== 'object') return null;
+  if ('error' in dbProfile) return null;
+
+  return {
+    id: toSafeString(dbProfile.id),
+    full_name: dbProfile.full_name ? toSafeString(dbProfile.full_name) : undefined,
+    avatar_url: dbProfile.avatar_url ? toSafeString(dbProfile.avatar_url) : undefined,
+    created_at: dbProfile.created_at ? toSafeString(dbProfile.created_at) : undefined,
+    updated_at: dbProfile.updated_at ? toSafeString(dbProfile.updated_at) : undefined,
+  };
+};
+
+/**
  * Adapts batch object from DB to application BaseBatch type
  */
 export const adaptBatchFromDb = <T extends BaseBatch>(dbBatch: any): T | null => {
