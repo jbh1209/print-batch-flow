@@ -35,7 +35,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   };
 
   useEffect(() => {
-    // Show admin-required message if trying to access admin route
+    // Only show admin-required message if user is trying to access admin-only route
     if (user && requireAdmin && !isAdmin) {
       toast.error('You need administrator privileges to access this page');
     }

@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -48,6 +49,17 @@ const Sidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
+  // Helper function to determine if a route is active
+  const isRouteActive = (path: string): boolean => {
+    if (path === "/" && location.pathname === "/") {
+      return true;
+    }
+    if (path !== "/" && location.pathname.startsWith(path)) {
+      return true;
+    }
+    return false;
+  };
+
   return (
     <div className={cn(
       "bg-batchflow-primary text-white flex flex-col transition-all duration-300",
@@ -73,19 +85,19 @@ const Sidebar = () => {
             to="/" 
             icon={<LayoutDashboard size={20} />} 
             label={collapsed ? "" : "Dashboard"} 
-            isActive={location.pathname === "/"} 
+            isActive={isRouteActive("/")} 
           />
           <NavItem 
             to="/all-jobs" 
             icon={<ClipboardList size={20} />} 
             label={collapsed ? "" : "All Jobs"} 
-            isActive={location.pathname === "/all-jobs"} 
+            isActive={isRouteActive("/all-jobs")} 
           />
           <NavItem 
             to="/batches" 
             icon={<Layers size={20} />} 
             label={collapsed ? "" : "All Batches"} 
-            isActive={location.pathname === "/batches" || location.pathname.startsWith("/batches/all")} 
+            isActive={isRouteActive("/batches")} 
           />
           
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Batch Types</div>}
@@ -95,49 +107,49 @@ const Sidebar = () => {
             to="/batches/business-cards" 
             icon={<CreditCard size={20} />} 
             label={collapsed ? "" : "Business Cards"} 
-            isActive={location.pathname.includes("/batches/business-cards")} 
+            isActive={isRouteActive("/batches/business-cards")} 
           />
           <NavItem 
             to="/batches/flyers" 
             icon={<FileText size={20} />} 
             label={collapsed ? "" : "Flyers"} 
-            isActive={location.pathname.includes("/batches/flyers")} 
+            isActive={isRouteActive("/batches/flyers")} 
           />
           <NavItem 
             to="/batches/postcards" 
             icon={<Mail size={20} />} 
             label={collapsed ? "" : "Postcards"} 
-            isActive={location.pathname.includes("/batches/postcards")} 
+            isActive={isRouteActive("/batches/postcards")} 
           />
           <NavItem 
             to="/batches/sleeves" 
             icon={<Package size={20} />} 
             label={collapsed ? "" : "Shipper Box Sleeves"} 
-            isActive={location.pathname.includes("/batches/sleeves")} 
+            isActive={isRouteActive("/batches/sleeves")} 
           />
           <NavItem 
             to="/batches/boxes" 
             icon={<Box size={20} />} 
             label={collapsed ? "" : "Product Boxes"} 
-            isActive={location.pathname.includes("/batches/boxes")} 
+            isActive={isRouteActive("/batches/boxes")} 
           />
           <NavItem 
             to="/batches/stickers" 
             icon={<Sticker size={20} />} 
             label={collapsed ? "" : "Zund Stickers"} 
-            isActive={location.pathname.includes("/batches/stickers")} 
+            isActive={isRouteActive("/batches/stickers")} 
           />
           <NavItem 
             to="/batches/covers" 
             icon={<Book size={20} />} 
             label={collapsed ? "" : "Covers"} 
-            isActive={location.pathname.includes("/batches/covers")} 
+            isActive={isRouteActive("/batches/covers")} 
           />
           <NavItem 
             to="/batches/posters" 
             icon={<Image size={20} />} 
             label={collapsed ? "" : "Posters"} 
-            isActive={location.pathname.includes("/batches/posters")} 
+            isActive={isRouteActive("/batches/posters")} 
           />
           
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Administration</div>}
@@ -147,13 +159,13 @@ const Sidebar = () => {
             to="/users" 
             icon={<Users size={20} />} 
             label={collapsed ? "" : "Users"} 
-            isActive={location.pathname === "/users"} 
+            isActive={isRouteActive("/users")} 
           />
           <NavItem 
             to="/settings" 
             icon={<Settings size={20} />} 
             label={collapsed ? "" : "Settings"} 
-            isActive={location.pathname === "/settings"} 
+            isActive={isRouteActive("/settings")} 
           />
         </nav>
       </div>
