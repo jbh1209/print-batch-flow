@@ -43,12 +43,6 @@ export const useBusinessCardJobsList = () => {
     setError(null);
     
     try {
-      if (!user) {
-        console.log("No authenticated user found for jobs");
-        setIsLoading(false);
-        return;
-      }
-      
       console.log("Fetching all business card jobs");
       
       // Remove user_id filter to allow seeing all jobs (assuming that's what we want)
@@ -104,6 +98,7 @@ export const useBusinessCardJobsList = () => {
         description: "There was a problem loading your jobs.",
         variant: "destructive",
       });
+      sonnerToast.error("Failed to load jobs. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -129,6 +124,8 @@ export const useBusinessCardJobsList = () => {
         description: "The job was successfully deleted.",
       });
       
+      sonnerToast.success("Job deleted successfully");
+      
       return true;
     } catch (error) {
       console.error('Error deleting job:', error);
@@ -137,13 +134,14 @@ export const useBusinessCardJobsList = () => {
         description: "There was a problem deleting the job.",
         variant: "destructive",
       });
+      sonnerToast.error("Failed to delete job. Please try again.");
       return false;
     }
   };
 
   useEffect(() => {
     fetchJobs();
-  }, [user, filterView, laminationFilter]);
+  }, [filterView, laminationFilter]);
   
   useEffect(() => {
     if (user) {

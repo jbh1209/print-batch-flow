@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, AlertCircle, Loader2, Search } from "lucide-react";
+import { FileText, AlertCircle, Loader2, Search, ArrowRight, Info } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 interface EmptyStateProps {
@@ -26,18 +26,16 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   const getCreatePath = () => {
     if (createPath) return createPath;
     
-    // Use standard pattern for entity creation paths
-    const currentPath = location.pathname;
-    console.log("EmptyState currentPath:", currentPath);
-    
-    // Extract product type from path: /batches/[product]/...
-    const pathParts = currentPath.split('/');
+    // Extract product type from the current path
+    const pathParts = location.pathname.split('/');
     let productType = '';
     
-    if (pathParts.length >= 3 && pathParts[1] === 'batches') {
-      productType = pathParts[2];
+    // Find "batches" in the path and get the next segment
+    const batchesIndex = pathParts.indexOf('batches');
+    if (batchesIndex >= 0 && batchesIndex + 1 < pathParts.length) {
+      productType = pathParts[batchesIndex + 1];
       
-      // Handle various entity types
+      // Handle the jobs vs batches case
       if (entityName.toLowerCase() === 'jobs') {
         return `/batches/${productType}/jobs/new`;
       } else if (entityName.toLowerCase() === 'batches') {
@@ -45,44 +43,21 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       }
     }
     
-    // Check if we're on a jobs page but not seeing any jobs
-    if (currentPath.includes('/jobs') && !currentPath.includes('/new')) {
-      // We're on a jobs page but no jobs are found, direct to create new job
-      const productTypePath = currentPath.split('/jobs')[0];
-      return `${productTypePath}/jobs/new`;
+    // If we're on a root product page
+    if (location.pathname.endsWith(`/${productType}`)) {
+      return `/batches/${productType}/jobs`;
     }
     
-    // Standard mappings for common paths
-    if (location.pathname.includes('/postcards')) {
-      // If we're on the postcard batches page, direct to jobs selection for batching
-      if (location.pathname.endsWith('/batches')) {
-        return "/batches/postcards/jobs";
+    // Default paths for common product types
+    if (productType) {
+      if (entityName.toLowerCase() === 'jobs') {
+        return `/batches/${productType}/jobs/new`;
+      } else {
+        return `/batches/${productType}/jobs`;
       }
-      return "/batches/postcards/jobs/new";
-    } else if (location.pathname.includes('/business-cards')) {
-      // If we're on the business cards jobs page, direct to new job creation
-      if (location.pathname.endsWith('/jobs')) {
-        return "/batches/business-cards/jobs/new";
-      }
-      return "/batches/business-cards/jobs/new";
-    } else if (location.pathname.includes('/flyers')) {
-      // If we're on the flyers jobs page, direct to new job creation
-      if (location.pathname.endsWith('/jobs')) {
-        return "/batches/flyers/jobs/new";
-      }
-      return "/batches/flyers/jobs/new";
-    } else if (location.pathname.includes('/covers')) {
-      return "/batches/covers/jobs/new";
-    } else if (location.pathname.includes('/posters')) {
-      return "/batches/posters/jobs/new";
-    } else if (location.pathname.includes('/sleeves')) {
-      return "/batches/sleeves/jobs/new";
-    } else if (location.pathname.includes('/stickers')) {
-      return "/batches/stickers/jobs/new";
-    } else if (location.pathname.includes('/boxes')) {
-      return "/batches/boxes/jobs/new";
     }
     
+    // Fallback to dashboard
     return "/";
   };
   
@@ -121,13 +96,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       return {
         title: `No ${entityName} found`,
         description: `Get started by creating your first ${entityName.toLowerCase()}`,
-        buttonText: `Create New ${entityName}`
+        buttonText: `Create New ${entityName.slice(0, -1)}` // Remove plural 's'
       };
     } else if (entityName.toLowerCase() === 'batches') {
       return {
         title: `No ${entityName} found`,
         description: `To create batches, you'll need to create and select jobs first`,
-        buttonText: location.pathname.includes('/postcards') ? "Select Jobs to Batch" : `Create Jobs for Batching`
+        buttonText: `View Jobs`
       };
     }
     
@@ -140,6 +115,22 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   
   const entityText = getEntityText();
   
+  // Extract product name for better messaging
+  const getProductName = () => {
+    const path = location.pathname;
+    if (path.includes('/business-cards')) return 'Business Card';
+    if (path.includes('/flyers')) return 'Flyer';
+    if (path.includes('/postcards')) return 'Postcard';
+    if (path.includes('/sleeves')) return 'Sleeve';
+    if (path.includes('/boxes')) return 'Box';
+    if (path.includes('/stickers')) return 'Sticker';
+    if (path.includes('/covers')) return 'Cover';
+    if (path.includes('/posters')) return 'Poster';
+    return '';
+  };
+  
+  const productName = getProductName();
+  
   return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-500">
       <div className="bg-gray-100 p-4 rounded-full mb-4">
@@ -148,16 +139,43 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <h3 className="font-medium text-lg mb-1">{entityText.title}</h3>
       <p className="text-sm text-gray-400 mb-4">{entityText.description}</p>
       
-      <Button asChild>
-        <Link to={createButtonPath}>
-          {entityText.buttonText}
-        </Link>
-      </Button>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button asChild>
+          <Link to={createButtonPath}>
+            {productName ? `${entityText.buttonText} ${productName}` : entityText.buttonText}
+          </Link>
+        </Button>
+        
+        {entityName.toLowerCase() === 'jobs' && (
+          <Button variant="outline" asChild>
+            <Link to={createButtonPath.replace('/jobs/new', '')}>
+              View {productName} Overview
+            </Link>
+          </Button>
+        )}
+      </div>
       
-      {/* Display path for clarity */}
-      <div className="mt-4 flex items-center text-xs text-gray-400">
+      {/* Help section */}
+      <div className="mt-6 bg-blue-50 border border-blue-100 text-blue-800 p-4 rounded-md text-sm max-w-md">
+        <div className="flex items-start">
+          <Info className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium mb-2">Navigation Help:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Use the sidebar to navigate between products</li>
+              <li>Create jobs first, then batch them for printing</li>
+              <li>Each product has its own jobs and batches sections</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      {/* Debug info to help users understand paths */}
+      <div className="mt-4 flex items-center text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-full">
         <Search className="h-3 w-3 mr-1" />
         <span>Path: {createButtonPath}</span>
+        <ArrowRight className="h-3 w-3 mx-1" />
+        <span className="font-mono">{entityName.toLowerCase() === 'jobs' ? 'Create' : 'View'}</span>
       </div>
     </div>
   );
