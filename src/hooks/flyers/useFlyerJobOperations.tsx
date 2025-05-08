@@ -124,7 +124,7 @@ export function useFlyerJobOperations() {
       const batchNumber = await generateFlyerBatchNumber();
       
       // Create the batch with properly typed payload
-      const batchData = prepareUpdateParams({
+      const batchInsertData = prepareUpdateParams({
         name: batchNumber,
         paper_type: batchProperties.paperType,
         paper_weight: batchProperties.paperWeight,
@@ -139,15 +139,15 @@ export function useFlyerJobOperations() {
       });
       
       // Create the batch
-      const { data: batchData, error: batchError } = await supabase
+      const { data: createdBatch, error: batchError } = await supabase
         .from('batches')
-        .insert(batchData)
+        .insert(batchInsertData)
         .select()
         .single();
         
       if (batchError) throw batchError;
       
-      if (!batchData) {
+      if (!createdBatch) {
         throw new Error("Failed to create batch, returned data is empty");
       }
       
@@ -156,7 +156,7 @@ export function useFlyerJobOperations() {
       
       // Create properly typed update data
       const updateData = prepareUpdateParams({ 
-        batch_id: batchData.id,
+        batch_id: createdBatch.id,
         status: 'batched' 
       });
       
@@ -168,7 +168,7 @@ export function useFlyerJobOperations() {
       if (updateError) throw updateError;
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
-      return batchData;
+      return createdBatch;
       
     } catch (err) {
       console.error('Error creating batch:', err);

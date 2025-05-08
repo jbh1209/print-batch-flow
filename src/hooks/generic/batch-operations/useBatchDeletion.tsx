@@ -3,6 +3,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isExistingTable } from "@/utils/database/tableValidation";
+import { castToUUID, prepareUpdateParams } from "@/utils/database/dbHelpers";
 
 export function useBatchDeletion(tableName: string | undefined, onSuccess: () => void) {
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
@@ -21,13 +22,15 @@ export function useBatchDeletion(tableName: string | undefined, onSuccess: () =>
       }
       
       // Reset jobs in the batch (update their status and batch_id)
+      const updateParams = prepareUpdateParams({ 
+        status: "queued",
+        batch_id: null
+      });
+      
       const { error: jobsError } = await supabase
         .from(tableName as any)
-        .update({ 
-          status: "queued",
-          batch_id: null
-        })
-        .eq("batch_id", batchToDelete);
+        .update(updateParams)
+        .eq("batch_id", castToUUID(batchToDelete));
       
       if (jobsError) {
         console.error("Error resetting jobs in batch:", jobsError);
@@ -38,7 +41,7 @@ export function useBatchDeletion(tableName: string | undefined, onSuccess: () =>
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
-        .eq("id", batchToDelete);
+        .eq("id", castToUUID(batchToDelete));
       
       if (deleteError) {
         console.error("Error deleting batch:", deleteError);

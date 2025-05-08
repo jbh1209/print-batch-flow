@@ -324,3 +324,10 @@ export const processBatchData = (data: any): any => {
     printer_type: data.printer_type ? toSafeString(data.printer_type) : undefined
   };
 };
+
+/**
+ * Helper for safely casting values to Supabase table filter values
+ */
+export const asFilterValue = <T>(value: T): any => {
+  return value as any;
+};

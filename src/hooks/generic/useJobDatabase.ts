@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isExistingTable } from "@/utils/database/tableValidation";
+import { prepareUpdateParams } from "@/utils/database/dbHelpers";
 
 /**
  * Hook for handling job database operations
@@ -101,10 +102,12 @@ export const useJobDatabase = () => {
       console.log("Creating new job in table:", tableName);
       console.log("With job data:", JSON.stringify(jobData, null, 2));
       
+      const preparedData = prepareUpdateParams(jobData);
+      
       // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
-        .insert(jobData)
+        .insert(preparedData)
         .select();
 
       if (error) {
@@ -158,11 +161,13 @@ export const useJobDatabase = () => {
       console.log("Job ID:", jobId);
       console.log("With update data:", JSON.stringify(updateData, null, 2));
       
+      const preparedData = prepareUpdateParams(updateData);
+      
       // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
-        .update(updateData)
-        .eq('id', jobId)
+        .update(preparedData)
+        .eq('id', jobId as any)
         .select();
         
       if (error) {

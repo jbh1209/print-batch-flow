@@ -11,7 +11,6 @@ import {
   toSafeString,
   safeNumber,
   safeDbMap,
-  processDbFields as processData,
   ensureEnumValue
 } from "@/utils/database/dbHelpers";
 import { BatchStatus } from "@/config/types/baseTypes";
@@ -67,11 +66,12 @@ export function useFetchBatchDetails({
         return;
       }
       
-      console.log("Batch details received:", data?.id);
+      console.log("Batch details received:", data);
       
       // Process the data using our safe helper
-      const processedData = processData(data);
+      const processedData = processDbFields(data);
       
+      // Safely extract batch data using helper functions
       const batchData: BatchDetailsType = {
         id: toSafeString(processedData.id),
         name: toSafeString(processedData.name),

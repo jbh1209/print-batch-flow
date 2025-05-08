@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { TableName } from '@/config/productTypes';
 import { isExistingTable } from '@/utils/database/tableValidation';
+import { castToUUID, prepareUpdateParams } from '@/utils/database/dbHelpers';
 
 interface JobWithId {
   id: string;
@@ -35,7 +36,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       const { data: orphanedJobs, error: findError } = await supabase
         .from(tableName as any)
         .select('id')
-        .eq('user_id', userId)
+        .eq('user_id', castToUUID(userId))
         .eq('status', 'batched')
         .is('batch_id', null);
       
@@ -44,16 +45,11 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Fixed: Use a safer approach for extracting job IDs
-        const jobIds = (orphanedJobs as unknown[])
-          .filter((job): job is JobWithId => 
-            job !== null && 
-            typeof job === 'object' && 
-            job !== undefined && 
-            'id' in job && 
-            typeof job.id === 'string'
-          )
-          .map(job => job.id);
+        // Create properly typed update parameters
+        const updateParams = prepareUpdateParams({ status: 'queued' });
+        
+        // Extract all job IDs from the orphaned jobs
+        const jobIds = orphanedJobs.map(job => job.id);
         
         if (jobIds.length === 0) {
           console.log("No valid job IDs found to update");
@@ -63,8 +59,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         // Use 'as any' to bypass TypeScript's type checking for the table name
         const { error: updateError } = await supabase
           .from(tableName as any)
-          .update({ status: 'queued' })
-          .in('id', jobIds);
+          .update(updateParams)
+          .in('id', jobIds as any);
         
         if (updateError) throw updateError;
         

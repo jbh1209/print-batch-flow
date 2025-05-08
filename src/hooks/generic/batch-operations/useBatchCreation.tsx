@@ -84,7 +84,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       );
       
       // Create the batch record
-      const { data: batch, error: batchError } = await supabase
+      const { data: createdBatch, error: batchError } = await supabase
         .from("batches")
         .insert(batchData)
         .select()
@@ -95,16 +95,23 @@ export function useBatchCreation(productType: string, tableName: string) {
         throw batchError;
       }
       
-      if (!batch) {
+      if (!createdBatch) {
         throw new Error("Failed to create batch, returned data is empty");
       }
       
-      console.log("Batch created successfully:", batch);
+      console.log("Batch created successfully:", createdBatch);
+      
+      // Extract batch ID safely
+      const batchId = createdBatch.id;
+      
+      if (!batchId) {
+        throw new Error("Failed to get batch ID from created batch");
+      }
       
       // Update all selected jobs to link them to this batch
       const jobIds = safeDbMap(selectedJobs, job => toSafeString(job.id));
       
-      console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
+      console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batchId}`);
       
       // Use a validated table name that we confirmed is an existing table
       const validatedTableName = tableName as ExistingTableName;
@@ -112,7 +119,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Create properly typed update data
       const updateData = prepareUpdateParams({
         status: "batched",
-        batch_id: batch.id
+        batch_id: batchId
       });
       
       // Update the jobs with the batch ID
@@ -124,12 +131,12 @@ export function useBatchCreation(productType: string, tableName: string) {
       if (updateError) {
         console.error("Error updating jobs with batch ID:", updateError);
         // Try to delete the batch since jobs update failed
-        await supabase.from("batches").delete().eq("id", batch.id);
+        await supabase.from("batches").delete().eq("id", batchId);
         throw updateError;
       }
       
       toast.success(`Batch created with ${selectedJobs.length} jobs`);
-      return batch;
+      return createdBatch;
     } catch (error) {
       console.error("Error in batch creation:", error);
       toast.error("Failed to create batch: " + (error instanceof Error ? error.message : "Unknown error"));
