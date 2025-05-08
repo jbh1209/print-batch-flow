@@ -5,7 +5,10 @@ import { toast } from "sonner";
 import { ExistingTableName } from "@/config/types/baseTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
 
-export function useBatchDeletion(tableName: ExistingTableName | null, onSuccessCallback?: () => void) {
+// Type to ensure we only accept valid table names
+type TableNameParam = ExistingTableName | null;
+
+export function useBatchDeletion(tableName: TableNameParam, onSuccessCallback?: () => void) {
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -19,9 +22,11 @@ export function useBatchDeletion(tableName: ExistingTableName | null, onSuccessC
       // Only attempt to reset jobs if the table exists and is not null
       if (tableName && isExistingTable(tableName)) {
         // First reset all jobs in this batch back to queued
-        // Use type assertion to avoid TypeScript deep instantiation issue
+        // We need to use a specific approach with concrete table names to avoid type issues
+        const table = tableName as ExistingTableName; // This helps TypeScript narrow the type
+        
         const { error: jobsError } = await supabase
-          .from(tableName as string)  // Force simple string type to avoid deep type resolution
+          .from(table) // Use the properly typed table name
           .update({ 
             status: "queued",  // Reset status to queued
             batch_id: null     // Clear batch_id reference
