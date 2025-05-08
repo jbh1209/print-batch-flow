@@ -2,39 +2,40 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ExistingTableName } from "@/config/types/baseTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
 
-export function useBatchDeletion(tableName: string | undefined, onSuccess: () => void) {
+export function useBatchDeletion(tableName: ExistingTableName, onSuccessCallback?: () => void) {
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteBatch = async () => {
-    if (!batchToDelete || !tableName) return;
+    if (!batchToDelete) return;
     
     setIsDeleting(true);
     try {
-      console.log("Deleting batch:", batchToDelete);
+      console.log(`Deleting batch ${batchToDelete} and updating jobs in ${tableName}`);
       
-      // Validate the table name before using it with Supabase
-      if (!isExistingTable(tableName)) {
-        throw new Error(`Invalid table name: ${tableName}`);
+      // Only attempt to reset jobs if the table exists
+      if (isExistingTable(tableName)) {
+        // First reset all jobs in this batch back to queued
+        const { error: jobsError } = await supabase
+          .from(tableName as any)
+          .update({ 
+            status: "queued",  // Reset status to queued
+            batch_id: null     // Clear batch_id reference
+          })
+          .eq("batch_id", batchToDelete);
+        
+        if (jobsError) {
+          console.error(`Error resetting jobs in batch (${tableName}):`, jobsError);
+          throw jobsError;
+        }
+      } else {
+        console.warn(`Table ${tableName} does not exist, skipping job updates`);
       }
       
-      // Reset jobs in the batch (update their status and batch_id)
-      const { error: jobsError } = await supabase
-        .from(tableName as any)
-        .update({ 
-          status: "queued",
-          batch_id: null
-        })
-        .eq("batch_id", batchToDelete);
-      
-      if (jobsError) {
-        console.error("Error resetting jobs in batch:", jobsError);
-        throw jobsError;
-      }
-      
-      // Then delete the batch from the batches table
+      // Then delete the batch
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
@@ -46,9 +47,12 @@ export function useBatchDeletion(tableName: string | undefined, onSuccess: () =>
       }
       
       console.log("Batch deleted successfully");
-      
       toast.success("Batch deleted and its jobs returned to queue");
-      onSuccess();
+      
+      // Call the success callback if provided
+      if (onSuccessCallback) {
+        onSuccessCallback();
+      }
     } catch (error) {
       console.error("Error deleting batch:", error);
       toast.error("Failed to delete batch. Please try again.");
@@ -58,5 +62,10 @@ export function useBatchDeletion(tableName: string | undefined, onSuccess: () =>
     }
   };
 
-  return { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch };
+  return {
+    batchToDelete,
+    isDeleting,
+    setBatchToDelete,
+    handleDeleteBatch
+  };
 }

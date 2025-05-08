@@ -33,7 +33,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       try {
         console.log(`Fetching batch details for batch ID: ${batchId} and table: ${config.tableName}`);
         
-        // Fetch batch details
+        // Removed user filter to allow viewing any batch
         const { data: batchData, error: batchError } = await supabase
           .from("batches")
           .select("*")

@@ -41,7 +41,7 @@ export const useBusinessCardBatches = (batchId: string | null) => {
         return;
       }
       
-      console.log("Fetching all business card batches for authenticated user");
+      console.log("Fetching all business card batches");
       
       let query = supabase
         .from("batches")
@@ -145,7 +145,8 @@ export const useBusinessCardBatches = (batchId: string | null) => {
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    navigate(`/batches/business-cards/batches?batchId=${batchId}`);
+    // Update to use path parameter instead of query parameter
+    navigate(`/batches/business-cards/batches/${batchId}`);
   };
 
   useEffect(() => {

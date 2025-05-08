@@ -49,6 +49,10 @@ import FlyerBatchDetailsPage from '@/pages/generic/FlyerBatchDetailsPage';
 import AllBatches from '@/pages/AllBatches';
 import AllJobsPage from '@/pages/AllJobsPage';
 
+// Import for generic batch detail pages
+import GenericBatchDetailsPage from '@/pages/generic/GenericBatchDetailsPage';
+import { productConfigs } from '@/config/productTypes';
+
 // Create a client for React Query
 const queryClient = new QueryClient();
 
@@ -106,6 +110,9 @@ function App() {
                 {/* Postcards Routes */}
                 <Route path="batches/postcards">
                   <Route index element={<PostcardBatchesPage />} />
+                  <Route path="batches/:batchId" element={
+                    <GenericBatchDetailsPage config={productConfigs["Postcards"]} />
+                  } />
                   <Route path="jobs" element={<PostcardJobsPage />} />
                   <Route path="jobs/new" element={<PostcardJobNewPage />} />
                 </Route>
@@ -113,6 +120,9 @@ function App() {
                 {/* Boxes Routes */}
                 <Route path="batches/boxes">
                   <Route index element={<BoxBatchesPage />} />
+                  <Route path="batches/:batchId" element={
+                    <GenericBatchDetailsPage config={productConfigs["Boxes"]} />
+                  } />
                   <Route path="jobs" element={<BoxJobsPage />} />
                   <Route path="jobs/new" element={<BoxJobNewPage />} />
                 </Route>
@@ -120,6 +130,9 @@ function App() {
                 {/* Sleeves Routes */}
                 <Route path="batches/sleeves">
                   <Route index element={<SleeveBatchesPage />} />
+                  <Route path="batches/:batchId" element={
+                    <GenericBatchDetailsPage config={productConfigs["Sleeves"]} />
+                  } />
                   <Route path="jobs" element={<SleeveJobsPage />} />
                   <Route path="jobs/new" element={<SleeveJobNewPage />} />
                 </Route>
@@ -127,6 +140,9 @@ function App() {
                 {/* Stickers Routes */}
                 <Route path="batches/stickers">
                   <Route index element={<StickerBatchesPage />} />
+                  <Route path="batches/:batchId" element={
+                    <GenericBatchDetailsPage config={productConfigs["Stickers"]} />
+                  } />
                   <Route path="jobs" element={<StickerJobsPage />} />
                   <Route path="jobs/new" element={<StickerJobNewPage />} />
                 </Route>
@@ -134,6 +150,9 @@ function App() {
                 {/* Covers Routes */}
                 <Route path="batches/covers">
                   <Route index element={<CoverBatchesPage />} />
+                  <Route path="batches/:batchId" element={
+                    <GenericBatchDetailsPage config={productConfigs["Covers"]} />
+                  } />
                   <Route path="jobs" element={<CoverJobsPage />} />
                   <Route path="jobs/new" element={<CoverJobNewPage />} />
                 </Route>
@@ -141,6 +160,9 @@ function App() {
                 {/* Posters Routes */}
                 <Route path="batches/posters">
                   <Route index element={<PosterBatchesPage />} />
+                  <Route path="batches/:batchId" element={
+                    <GenericBatchDetailsPage config={productConfigs["Posters"]} />
+                  } />
                   <Route path="jobs" element={<PosterJobsPage />} />
                   <Route path="jobs/new" element={<PosterJobNewPage />} />
                 </Route>
