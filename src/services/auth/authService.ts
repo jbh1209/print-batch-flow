@@ -50,8 +50,6 @@ export const signOut = async (): Promise<void> => {
     
     // Force reload as last resort
     setTimeout(() => window.location.reload(), 1000);
-    
-    throw error;
   }
 };
 

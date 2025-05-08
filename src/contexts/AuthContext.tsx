@@ -227,15 +227,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     refreshProfile,
   };
 
-  // Show loading spinner if initializing
-  if (isLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Spinner size={40} />
-      </div>
-    );
-  }
-
   return (
     <AuthContext.Provider value={value}>
       {children}

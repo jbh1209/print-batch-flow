@@ -42,7 +42,9 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
     setIsLoading(true);
     try {
-      const { data, error: fetchError } = await supabase.functions.invoke('get-all-users');
+      const { data, error: fetchError } = await supabase.functions.invoke('get-all-users', {
+        method: 'GET',
+      });
       
       if (fetchError) throw fetchError;
       
