@@ -31,7 +31,7 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
       console.error('Edge function error:', error);
       
       // Handle authentication errors specifically
-      if (error.status === 401 || (error.message && error.message.includes('JWT'))) {
+      if (error.status === 401) {
         throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
       } else if (error.status === 403) {
         throw new Error('Access denied: You need admin privileges to view user data.');
@@ -39,7 +39,7 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
       
       // If we haven't reached max retries, attempt retry with exponential backoff
       if (retryCount < maxRetries) {
-        const backoffTime = Math.pow(2, retryCount) * 500; // Exponential backoff: 500ms, 1s, 2s
+        const backoffTime = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
         console.log(`Retrying user fetch in ${backoffTime}ms...`);
         
         // Wait for backoff time
@@ -47,8 +47,12 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
         
         // Try refreshing the session first
         try {
-          await supabase.auth.refreshSession();
-          console.log('Session refreshed before retry');
+          const { data: refreshData } = await supabase.auth.refreshSession();
+          if (refreshData?.session) {
+            console.log('Session refreshed before retry');
+          } else {
+            console.log('Session refresh returned no session, retrying anyway');
+          }
         } catch (refreshError) {
           console.log('Session refresh failed, retrying anyway');
         }
@@ -69,8 +73,10 @@ export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWi
     return data as UserWithRole[];
   } catch (error: any) {
     console.error('Error in fetchUsers:', error);
-    // Check if the error is about the JWT
-    if (error.message?.includes('JWT') || error.message?.includes('expired') || error.message?.includes('Authentication')) {
+    // Check if the error is about authorization
+    if (error.message?.includes('Authentication') || 
+        error.message?.includes('expired') || 
+        error.message?.includes('session')) {
       throw new Error('Your session has expired. Please sign out and sign in again.');
     }
     throw error;

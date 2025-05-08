@@ -37,10 +37,10 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     console.log("Token extracted successfully");
     
-    // Create supabase client with auth token
-    const supabaseClient = createClient(
+    // First tier: Create client with user's JWT to verify identity and permissions
+    const userClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         auth: {
           autoRefreshToken: false,
@@ -57,7 +57,7 @@ serve(async (req) => {
     const {
       data: { user },
       error: userError,
-    } = await supabaseClient.auth.getUser(token);
+    } = await userClient.auth.getUser(token);
     
     if (userError || !user) {
       console.error("Auth error:", userError || "No user found");
@@ -77,7 +77,7 @@ serve(async (req) => {
     
     // Check if the user is an admin
     console.log("Checking admin status");
-    const { data: isAdmin, error: adminCheckError } = await supabaseClient.rpc(
+    const { data: isAdmin, error: adminCheckError } = await userClient.rpc(
       'is_admin_secure_fixed',
       { _user_id: user.id }
     );
@@ -100,8 +100,21 @@ serve(async (req) => {
     
     console.log("Admin status confirmed, fetching users");
     
-    // Get all users from auth.users
-    const { data: authUsers, error: authUsersError } = await supabaseClient.auth.admin.listUsers();
+    // Second tier: Create a new client with the service role key
+    // for admin-level operations (bypassing RLS)
+    const adminClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+    
+    // Get all users from auth.users using the admin client with service role key
+    const { data: authUsers, error: authUsersError } = await adminClient.auth.admin.listUsers();
     
     if (authUsersError) {
       console.error("Error listing users:", authUsersError);
@@ -113,8 +126,8 @@ serve(async (req) => {
     
     console.log("Auth users fetched successfully:", authUsers.users.length);
     
-    // Get all profiles
-    const { data: profiles, error: profilesError } = await supabaseClient
+    // Get all profiles using the admin client
+    const { data: profiles, error: profilesError } = await adminClient
       .from('profiles')
       .select('*');
     
@@ -128,8 +141,8 @@ serve(async (req) => {
     
     console.log("Profiles fetched:", profiles?.length || 0);
     
-    // Get all user roles
-    const { data: userRoles, error: userRolesError } = await supabaseClient
+    // Get all user roles using the admin client
+    const { data: userRoles, error: userRolesError } = await adminClient
       .from('user_roles')
       .select('*');
     
