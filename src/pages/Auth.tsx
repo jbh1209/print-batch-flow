@@ -151,7 +151,7 @@ const Auth = () => {
           <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
             <div className="px-6">
               <TabsList className="grid grid-cols-2 w-full">
-                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="login" className="bg-rose-600 hover:bg-rose-500 text-white">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
             </div>
