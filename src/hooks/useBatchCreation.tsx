@@ -119,8 +119,8 @@ export function useBatchCreation() {
         user.id
       );
       
-      // Create batch data with proper type handling
-      const batchData = prepareUpdateParams({
+      // Create batch data object for insertion
+      const batchInsertData = prepareUpdateParams({
         name,
         lamination_type: laminationType,
         sheets_required: sheetsRequired,
@@ -131,9 +131,9 @@ export function useBatchCreation() {
       });
       
       // Insert batch record into database
-      const { data: batchData, error: batchError } = await supabase
+      const { data: createdBatch, error: batchError } = await supabase
         .from("batches")
-        .insert(batchData)
+        .insert(batchInsertData)
         .select()
         .single();
         
@@ -142,7 +142,7 @@ export function useBatchCreation() {
       }
       
       // Safely extract batch ID
-      const batchId = safeGetId(batchData);
+      const batchId = safeGetId(createdBatch);
       
       if (!batchId) {
         throw new Error("Failed to get batch ID from created batch");
@@ -152,10 +152,10 @@ export function useBatchCreation() {
       const updatePromises = selectedJobs.map(job => 
         supabase
           .from("business_card_jobs")
-          .update({ 
+          .update(prepareUpdateParams({ 
             batch_id: batchId,
             status: "batched"
-          })
+          }))
           .eq("id", castToUUID(job.id))
       );
       
