@@ -30,21 +30,27 @@ import BatchDetailsPage from '@/pages/BatchDetailsPage';
 import BoxBatchesPage from '@/pages/generic/BoxBatchesPage';
 import BoxJobsPage from '@/pages/generic/BoxJobsPage';
 import BoxJobNewPage from '@/pages/generic/BoxJobNewPage';
+import BoxJobEditPage from '@/pages/generic/BoxJobEditPage';
 import PostcardBatchesPage from '@/pages/generic/PostcardBatchesPage';
 import PostcardJobsPage from '@/pages/generic/PostcardJobsPage';
 import PostcardJobNewPage from '@/pages/generic/PostcardJobNewPage';
+import PostcardJobEditPage from '@/pages/generic/PostcardJobEditPage';
 import SleeveBatchesPage from '@/pages/generic/SleeveBatchesPage';
 import SleeveJobsPage from '@/pages/generic/SleeveJobsPage';
 import SleeveJobNewPage from '@/pages/generic/SleeveJobNewPage';
+import SleeveJobEditPage from '@/pages/generic/SleeveJobEditPage';
 import StickerBatchesPage from '@/pages/generic/StickerBatchesPage';
 import StickerJobsPage from '@/pages/generic/StickerJobsPage';
 import StickerJobNewPage from '@/pages/generic/StickerJobNewPage';
+import StickerJobEditPage from '@/pages/generic/StickerJobEditPage';
 import CoverBatchesPage from '@/pages/generic/CoverBatchesPage';
 import CoverJobsPage from '@/pages/generic/CoverJobsPage';
 import CoverJobNewPage from '@/pages/generic/CoverJobNewPage';
+import CoverJobEditPage from '@/pages/generic/CoverJobEditPage';
 import PosterBatchesPage from '@/pages/generic/PosterBatchesPage';
 import PosterJobsPage from '@/pages/generic/PosterJobsPage';
 import PosterJobNewPage from '@/pages/generic/PosterJobNewPage';
+import PosterJobEditPage from '@/pages/generic/PosterJobEditPage';
 import FlyerBatchDetailsPage from '@/pages/generic/FlyerBatchDetailsPage';
 import AllBatches from '@/pages/AllBatches';
 import AllJobsPage from '@/pages/AllJobsPage';
@@ -104,7 +110,7 @@ function App() {
                   <Route path="jobs" element={<FlyerJobs />} />
                   <Route path="jobs/new" element={<FlyerJobNew />} />
                   <Route path="jobs/:id" element={<FlyerJobDetail />} />
-                  <Route path="jobs/:id/edit" element={<FlyerJobEdit />} />
+                  <Route path="jobs/:jobId/edit" element={<FlyerJobEdit />} />
                 </Route>
                 
                 {/* Postcards Routes */}
@@ -115,6 +121,7 @@ function App() {
                   } />
                   <Route path="jobs" element={<PostcardJobsPage />} />
                   <Route path="jobs/new" element={<PostcardJobNewPage />} />
+                  <Route path="jobs/:jobId/edit" element={<PostcardJobEditPage />} />
                 </Route>
                 
                 {/* Boxes Routes */}
@@ -125,6 +132,7 @@ function App() {
                   } />
                   <Route path="jobs" element={<BoxJobsPage />} />
                   <Route path="jobs/new" element={<BoxJobNewPage />} />
+                  <Route path="jobs/:jobId/edit" element={<BoxJobEditPage />} />
                 </Route>
                 
                 {/* Sleeves Routes */}
@@ -135,6 +143,7 @@ function App() {
                   } />
                   <Route path="jobs" element={<SleeveJobsPage />} />
                   <Route path="jobs/new" element={<SleeveJobNewPage />} />
+                  <Route path="jobs/:jobId/edit" element={<SleeveJobEditPage />} />
                 </Route>
                 
                 {/* Stickers Routes */}
@@ -145,6 +154,7 @@ function App() {
                   } />
                   <Route path="jobs" element={<StickerJobsPage />} />
                   <Route path="jobs/new" element={<StickerJobNewPage />} />
+                  <Route path="jobs/:jobId/edit" element={<StickerJobEditPage />} />
                 </Route>
                 
                 {/* Covers Routes */}
@@ -155,6 +165,7 @@ function App() {
                   } />
                   <Route path="jobs" element={<CoverJobsPage />} />
                   <Route path="jobs/new" element={<CoverJobNewPage />} />
+                  <Route path="jobs/:jobId/edit" element={<CoverJobEditPage />} />
                 </Route>
                 
                 {/* Posters Routes */}
@@ -165,6 +176,7 @@ function App() {
                   } />
                   <Route path="jobs" element={<PosterJobsPage />} />
                   <Route path="jobs/new" element={<PosterJobNewPage />} />
+                  <Route path="jobs/:jobId/edit" element={<PosterJobEditPage />} />
                 </Route>
                 
                 {/* Catch all other routes inside the layout */}
