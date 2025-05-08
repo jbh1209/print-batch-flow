@@ -35,20 +35,23 @@ export const useJobDatabase = () => {
         return { valid: false };
       }
       
-      // Get column names from a direct database query instead of using RPC
-      const { data: tableColumns, error: tableInfoError } = await supabase
-        .from('information_schema.columns')
-        .select('column_name')
-        .eq('table_name', tableName)
-        .eq('table_schema', 'public');
+      // We'll use a simpler approach - the column names should be present in the sample data
+      // or we'll compare against known field names for each job type
+      let allowedColumns: string[] = [];
       
-      if (tableInfoError) {
-        console.error("Error fetching table info:", tableInfoError);
-        return { valid: false };
+      if (columns && columns.length > 0) {
+        // Extract column names from a sample row
+        allowedColumns = Object.keys(columns[0]);
+      } else {
+        // Fallback to common fields we know exist in all job tables
+        allowedColumns = [
+          'id', 'name', 'quantity', 'due_date', 'pdf_url', 'file_name',
+          'user_id', 'batch_id', 'status', 'created_at', 'updated_at',
+          'job_number', 'lamination_type', 'paper_type', 'paper_weight',
+          'size', 'sides', 'stock_type', 'single_sided', 'double_sided',
+          'uv_varnish'
+        ];
       }
-      
-      // Extract column names from the result
-      const allowedColumns = tableColumns?.map((col: any) => col.column_name) || [];
       
       // Check if any field doesn't exist in the table schema
       const jobDataKeys = Object.keys(jobData);
@@ -102,7 +105,7 @@ export const useJobDatabase = () => {
       // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
-        .insert(jobData)
+        .insert(jobData as any)
         .select();
 
       if (error) {
@@ -159,7 +162,7 @@ export const useJobDatabase = () => {
       // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
-        .update(updateData)
+        .update(updateData as any)
         .eq('id', jobId)
         .select();
         
