@@ -73,10 +73,10 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // If session exists but token might be expired, show refresh option
-  if (user && session && requireAdmin && !isAdmin) {
+  // If admin is required but user is not admin
+  if (requireAdmin && !isAdmin) {
     // Check if this might be a token expiration issue
-    const tokenExpirationTime = session.expires_at ? new Date(session.expires_at * 1000) : null;
+    const tokenExpirationTime = session?.expires_at ? new Date(session.expires_at * 1000) : null;
     const now = new Date();
     const isTokenNearExpiration = tokenExpirationTime && 
       ((tokenExpirationTime.getTime() - now.getTime()) < 10 * 60 * 1000); // 10 minutes
@@ -102,10 +102,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
         </div>
       );
     }
-  }
-
-  // If admin required but user is not admin
-  if (requireAdmin && !isAdmin) {
+    
     return <Navigate to="/" replace />;
   }
 

@@ -42,12 +42,11 @@ export const useBatchesList = () => {
         return;
       }
       
-      console.log("Fetching batches for user:", user.id);
+      console.log("Fetching all batches (team view)");
       
       const { data, error } = await supabase
         .from("batches")
         .select("*")
-        .eq("created_by", user.id)
         .order("created_at", { ascending: false });
       
       if (error) {
