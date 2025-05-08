@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { castToUUID, prepareUpdateParams, safeDbMap, toSafeString } from "@/utils/database/dbHelpers";
 
 export const useBatchCleanup = () => {
   const { toast } = useToast();
@@ -13,22 +14,30 @@ export const useBatchCleanup = () => {
       const { data: orphanedJobs, error: findError } = await supabase
         .from('business_card_jobs')
         .select('id')
-        .eq('status', 'batched')
+        .eq("status", castToUUID("batched") as any)
         .is('batch_id', null);
       
       if (findError) throw findError;
       
       if (orphanedJobs && orphanedJobs.length > 0) {
+        // Create a properly typed update payload
+        const updateData = prepareUpdateParams({
+          status: "queued"
+        });
+        
+        // Map job IDs safely for the 'in' clause
+        const jobIds = safeDbMap(orphanedJobs, job => toSafeString(job.id));
+        
         const { error: updateError } = await supabase
           .from('business_card_jobs')
-          .update({ status: 'queued' })
-          .in('id', orphanedJobs.map(job => job.id));
+          .update(updateData)
+          .in('id', jobIds as any);
         
         if (updateError) throw updateError;
         
         toast({
           title: "Jobs fixed",
-          description: `Reset ${orphanedJobs.length} orphaned jobs back to queued status`,
+          description: `Reset ${jobIds.length} orphaned jobs back to queued status`,
         });
       }
     } catch (error) {

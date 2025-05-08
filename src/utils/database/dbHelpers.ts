@@ -48,7 +48,7 @@ export const isValidUUID = (id: string): boolean => {
  * Type guard to check if an object is a database error
  */
 export const isDatabaseError = (obj: any): boolean => {
-  return obj && typeof obj === 'object' && 'code' in obj && 'message' in obj;
+  return obj && typeof obj === 'object' && 'error' in obj;
 };
 
 /**
@@ -281,4 +281,46 @@ export const processDbFields = <T extends Record<string, any>>(data: any): T => 
   }
   
   return result as T;
+};
+
+/**
+ * Ensure a value is cast to the correct enum type
+ * @param value The string value to convert
+ * @param defaultValue The default enum value if conversion fails
+ * @returns The correctly typed enum value
+ */
+export function ensureEnumValue<T extends string>(value: any, defaultValue: T): T {
+  if (typeof value === 'string') {
+    return value as T;
+  }
+  return defaultValue;
+}
+
+/**
+ * Process database results with proper type handling for batch operations
+ */
+export const processBatchData = (data: any): any => {
+  if (!data || typeof data !== 'object') return null;
+  
+  // If it's an error object, return null
+  if ('error' in data) return null;
+  
+  return {
+    id: toSafeString(data.id),
+    name: toSafeString(data.name),
+    status: ensureEnumValue(data.status, 'pending'),
+    sheets_required: safeNumber(data.sheets_required),
+    front_pdf_url: data.front_pdf_url ? toSafeString(data.front_pdf_url) : null,
+    back_pdf_url: data.back_pdf_url ? toSafeString(data.back_pdf_url) : null,
+    overview_pdf_url: data.overview_pdf_url ? toSafeString(data.overview_pdf_url) : null,
+    due_date: toSafeString(data.due_date),
+    created_at: toSafeString(data.created_at),
+    created_by: toSafeString(data.created_by),
+    updated_at: toSafeString(data.updated_at),
+    lamination_type: ensureEnumValue(data.lamination_type, 'none'),
+    paper_type: data.paper_type ? toSafeString(data.paper_type) : undefined,
+    paper_weight: data.paper_weight ? toSafeString(data.paper_weight) : undefined,
+    sheet_size: data.sheet_size ? toSafeString(data.sheet_size) : undefined,
+    printer_type: data.printer_type ? toSafeString(data.printer_type) : undefined
+  };
 };

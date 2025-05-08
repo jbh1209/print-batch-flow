@@ -10,8 +10,11 @@ import {
   processDbFields,
   toSafeString,
   safeNumber,
-  safeDbMap
+  safeDbMap,
+  processDbFields as processData,
+  ensureEnumValue
 } from "@/utils/database/dbHelpers";
+import { BatchStatus } from "@/config/types/baseTypes";
 
 interface UseFetchBatchDetailsProps {
   batchId: string;
@@ -67,19 +70,20 @@ export function useFetchBatchDetails({
       console.log("Batch details received:", data?.id);
       
       // Process the data using our safe helper
-      const processedData = processDbFields(data);
+      const processedData = processData(data);
       
       const batchData: BatchDetailsType = {
         id: toSafeString(processedData.id),
         name: toSafeString(processedData.name),
-        lamination_type: toSafeString(processedData.lamination_type),
+        lamination_type: ensureEnumValue(processedData.lamination_type, 'none'),
         sheets_required: safeNumber(processedData.sheets_required),
         front_pdf_url: processedData.front_pdf_url ? toSafeString(processedData.front_pdf_url) : null,
         back_pdf_url: processedData.back_pdf_url ? toSafeString(processedData.back_pdf_url) : null,
-        overview_pdf_url: processedData.back_pdf_url ? toSafeString(processedData.back_pdf_url) : null,
+        overview_pdf_url: processedData.overview_pdf_url ? toSafeString(processedData.overview_pdf_url) : 
+                       (processedData.back_pdf_url ? toSafeString(processedData.back_pdf_url) : null),
         due_date: toSafeString(processedData.due_date),
         created_at: toSafeString(processedData.created_at),
-        status: toSafeString(processedData.status),
+        status: ensureEnumValue(processedData.status, 'pending') as BatchStatus,
       };
       
       setBatch(batchData);

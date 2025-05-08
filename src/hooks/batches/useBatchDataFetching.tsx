@@ -10,7 +10,8 @@ import {
   toSafeString, 
   safeNumber,
   processDbFields,
-  safeDbMap
+  safeDbMap,
+  ensureEnumValue
 } from "@/utils/database/dbHelpers";
 
 interface UseBatchDataFetchingProps {
@@ -77,7 +78,7 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       const typedBatchData: BaseBatch = {
         id: toSafeString(processedData.id),
         name: toSafeString(processedData.name),
-        status: toSafeString(processedData.status) as any,
+        status: ensureEnumValue(processedData.status, 'pending'),
         sheets_required: safeNumber(processedData.sheets_required, 0),
         front_pdf_url: processedData.front_pdf_url ? toSafeString(processedData.front_pdf_url) : null,
         back_pdf_url: processedData.back_pdf_url ? toSafeString(processedData.back_pdf_url) : null,
@@ -85,7 +86,7 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
         due_date: toSafeString(processedData.due_date),
         created_at: toSafeString(processedData.created_at),
         created_by: toSafeString(processedData.created_by),
-        lamination_type: toSafeString(processedData.lamination_type || 'none') as any,
+        lamination_type: ensureEnumValue(processedData.lamination_type, 'none'),
         paper_type: processedData.paper_type ? toSafeString(processedData.paper_type) : (isSleeveBatch ? 'premium' : undefined),
         paper_weight: processedData.paper_weight ? toSafeString(processedData.paper_weight) : undefined,
         updated_at: toSafeString(processedData.updated_at)

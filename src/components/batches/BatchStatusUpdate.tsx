@@ -19,7 +19,7 @@ interface BatchStatusUpdateProps {
 }
 
 const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStatusUpdateProps) => {
-  const updateBatchStatus = async (newStatus: "completed" | "sent_to_print") => {
+  const updateBatchStatus = async (newStatus: BatchStatus) => {
     try {
       // Use prepareUpdateParams to create properly typed update parameters
       const updateData = prepareUpdateParams({
