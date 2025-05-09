@@ -25,6 +25,7 @@ interface BusinessCardJob {
   status: string;
   file_name: string;
   pdf_url: string;
+  batch_id?: string | null; // Add this field to fix the type error
 }
 
 const BusinessCardJobDetail = () => {
