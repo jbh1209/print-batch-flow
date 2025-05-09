@@ -71,10 +71,20 @@ export const extractProductCodeFromBatchName = (batchName: string): string | nul
     return alternateMatch[1];
   }
   
-  // 3. Match just the code anywhere in the name (last resort)
+  // 3. Direct code match anywhere in the batch name 
   for (const code of Object.keys(CODE_TO_PRODUCT_TYPE)) {
-    if (batchName.includes(code)) {
-      console.log(`Found loose code match: ${code}`);
+    // Look for the code as a standalone identifier (avoiding partial matches)
+    const codeRegex = new RegExp(`\\b${code}\\b`, 'i');
+    if (codeRegex.test(batchName)) {
+      console.log(`Found direct code match: ${code}`);
+      return code;
+    }
+  }
+  
+  // 4. Last resort - check for any product type name in the batch name
+  for (const [productType, code] of Object.entries(PRODUCT_TYPE_CODES)) {
+    if (batchName.toLowerCase().includes(productType.toLowerCase())) {
+      console.log(`Found product type name in batch: ${productType} -> ${code}`);
       return code;
     }
   }

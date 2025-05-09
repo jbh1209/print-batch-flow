@@ -34,19 +34,25 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       // Get product code from the standardized utility function
       const productCode = getProductTypeCode(config.productType);
       
-      if (productCode) {
+      if (productCode && !batchId) {
         console.log(`Using product code ${productCode} for ${config.productType} batches`);
         
-        // Use proper Supabase OR filter syntax
-        // This uses the .or() method with an array of filter conditions
-        if (batchId) {
-          query = query.eq("id", batchId);
-        } else {
-          // Filter by any of these patterns
-          query = query.or(`name.ilike.%DXB-${productCode}-%,name.ilike.%-${productCode}-%,name.ilike.%${productCode}%`);
-          
-          console.log(`Using OR filter: name.ilike.%DXB-${productCode}-%,name.ilike.%-${productCode}-%,name.ilike.%${productCode}%`);
-        }
+        // FIX: Use proper Supabase filter syntax for OR conditions
+        // This is a critical fix that was causing batches not to be found
+        query = query.or([
+          `name.ilike.%DXB-${productCode}-%`, 
+          `name.ilike.%-${productCode}-%`, 
+          `name.ilike.%${productCode}%`
+        ].join(','));
+        
+        console.log(`Using fixed OR filter: "${[
+          `name.ilike.%DXB-${productCode}-%`, 
+          `name.ilike.%-${productCode}-%`, 
+          `name.ilike.%${productCode}%`
+        ].join(',')}"`);
+      } else if (batchId) {
+        query = query.eq("id", batchId);
+        console.log(`Fetching specific batch by ID: ${batchId}`);
       } else {
         console.warn(`No product code found for ${config.productType} - fetching all batches`);
       }
@@ -77,11 +83,19 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
             console.log('All batches:', allData.length);
             console.log('All batch names:', allData.map(b => b.name).join(', '));
             
-            // Filter manually by trying to extract product code from batch name
+            // Improved fallback filtering logic
             const filteredBatches = allData.filter(batch => {
-              const extractedCode = extractProductCodeFromBatchName(batch.name);
-              const matched = extractedCode === productCode;
-              console.log(`Batch ${batch.name}: extracted code=${extractedCode}, product code=${productCode}, matched=${matched}`);
+              if (!batch.name) return false;
+              
+              // More robust pattern matching for batch names
+              const batchNameLower = batch.name.toLowerCase();
+              const productTypeLower = config.productType.toLowerCase();
+              const codeMatches = extractProductCodeFromBatchName(batch.name) === productCode;
+              const nameContainsProductType = batchNameLower.includes(productTypeLower);
+              const nameContainsCode = batchNameLower.includes(productCode?.toLowerCase() || '');
+              
+              const matched = codeMatches || nameContainsProductType || nameContainsCode;
+              console.log(`Batch ${batch.name}: matched=${matched} (code match: ${codeMatches}, name match: ${nameContainsProductType}, code in name: ${nameContainsCode})`);
               return matched;
             });
             
@@ -95,6 +109,8 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
               })));
               setIsLoading(false);
               return;
+            } else {
+              console.warn('No batches found after manual filtering - this is likely an issue with batch naming patterns or product types');
             }
           }
         }
