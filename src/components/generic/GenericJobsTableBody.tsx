@@ -7,7 +7,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BaseJob, ProductConfig } from "@/config/productTypes";
-import { useNavigate } from "react-router-dom";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
 
@@ -18,6 +17,7 @@ interface GenericJobsTableBodyProps {
   onSelectJob: (jobId: string, isSelected: boolean) => void;
   onDeleteJob: (jobId: string) => void;
   onEditJob: (jobId: string) => void;
+  onViewJob?: (jobId: string) => void; // Adding this prop
 }
 
 const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
@@ -26,10 +26,9 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
   selectedJobs,
   onSelectJob,
   onDeleteJob,
-  onEditJob
+  onEditJob,
+  onViewJob
 }) => {
-  const navigate = useNavigate();
-
   // Get row background class based on urgency and status
   const getRowBackgroundClass = (job: BaseJob) => {
     if (selectedJobs.includes(job.id)) return "bg-primary/5";
@@ -52,6 +51,13 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
       return format(new Date(dateString), "dd MMM yyyy");
     } catch (error) {
       return "Invalid date";
+    }
+  };
+
+  // Handle view job action
+  const handleViewJob = (jobId: string) => {
+    if (onViewJob) {
+      onViewJob(jobId);
     }
   };
 
@@ -93,7 +99,7 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
                 size="icon"
                 variant="ghost"
                 title="View Job Details"
-                onClick={() => navigate(config.routes.jobDetailPath(job.id))}
+                onClick={() => handleViewJob(job.id)}
               >
                 <FileText size={16} />
               </Button>

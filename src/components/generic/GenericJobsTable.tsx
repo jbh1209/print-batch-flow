@@ -132,6 +132,7 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
           onSelectJob={handleSelectJob}
           onDeleteJob={handleDeleteJob}
           onEditJob={handleEditJob}
+          onViewJob={handleViewJob}
         />
       </Table>
     </div>
