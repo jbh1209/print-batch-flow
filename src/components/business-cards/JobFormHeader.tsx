@@ -3,7 +3,7 @@ import { CreditCard, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
-interface JobFormHeaderProps {
+export interface JobFormHeaderProps {
   title: string;
   description: string;
   isEditing?: boolean;
