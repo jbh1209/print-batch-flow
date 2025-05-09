@@ -1,4 +1,3 @@
-
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,8 +24,21 @@ const NotFound = () => {
     // Get path segments for analysis
     const segments = path.split('/');
     
+    // Check for business cards job detail paths
+    if (path.includes('/batches/business-cards/jobs/') && segments.length >= 5) {
+      if (path.includes('/edit/')) {
+        // This is likely trying to be an edit path with wrong format
+        const jobId = segments[4];
+        suggestion = `/batches/business-cards/jobs/${jobId}/edit`;
+      } else {
+        // Just a view path
+        const jobId = segments[4];
+        suggestion = `/batches/business-cards/jobs/${jobId}`;
+      }
+    }
+    
     // Special handling for poster paths
-    if (path.includes('/posters/jobs/') && segments.length >= 4) {
+    else if (path.includes('/posters/jobs/') && segments.length >= 4) {
       const jobId = segments[3];
       if (jobId && jobId.length > 10) { // Looks like an ID
         // Fix the path to match the correct route pattern

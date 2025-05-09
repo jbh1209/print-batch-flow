@@ -29,8 +29,8 @@ const JobsTable: React.FC<JobsTableProps> = ({
       return;
     }
     
-    // For business cards jobs, we need to use a different path format
-    if (job.productConfig.productType === "Business Cards") {
+    // For business cards, use the JobDetail component
+    if (job.productConfig.productType === "BusinessCards") {
       const path = `/batches/business-cards/jobs/${job.id}`;
       console.log("Navigating to business card job:", path);
       navigate(path);

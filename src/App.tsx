@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -59,6 +58,7 @@ import AllJobsPage from '@/pages/AllJobsPage';
 import GenericBatchDetailsPage from '@/pages/generic/GenericBatchDetailsPage';
 import GenericJobDetailsPage from '@/pages/generic/GenericJobDetailsPage';
 import { productConfigs } from '@/config/productTypes';
+import BusinessCardJobDetail from '@/pages/BusinessCardJobDetail';
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -101,7 +101,8 @@ function App() {
                   } />
                   <Route path="jobs" element={<BusinessCardJobs />} />
                   <Route path="jobs/new" element={<BusinessCardJobNew />} />
-                  <Route path="jobs/:id" element={<BusinessCardJobEdit />} />
+                  <Route path="jobs/:id" element={<BusinessCardJobDetail />} />
+                  <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
                 </Route>
                 
                 {/* Flyers Routes */}
@@ -206,7 +207,11 @@ function App() {
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Router>
-          <SonnerToaster position="top-right" closeButton toastOptions={{ duration: 3000, className: "unique-toast-class" }} />
+          <SonnerToaster position="top-right" closeButton toastOptions={{ 
+            duration: 3000, 
+            className: "unique-toast-class",
+            id: (id) => `${id}-${Date.now()}`  // Add timestamp to make IDs unique
+          }} />
           <Toaster />
         </UserManagementProvider>
       </AuthProvider>

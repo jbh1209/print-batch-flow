@@ -25,14 +25,15 @@ export function useBusinessCardJob(jobId: string | undefined) {
   // Fetch job data
   useEffect(() => {
     const fetchJobData = async () => {
-      if (!jobId || !user) return;
+      if (!jobId) return;
       
       try {
+        console.log(`Fetching business card job with ID: ${jobId}`);
+        
         const { data, error } = await supabase
           .from("business_card_jobs")
           .select("*")
           .eq("id", jobId)
-          .eq("user_id", user.id)
           .single();
           
         if (error) throw error;
@@ -119,8 +120,7 @@ export function useBusinessCardJob(jobId: string | undefined) {
       const { error: updateError } = await supabase
         .from("business_card_jobs")
         .update(updateData)
-        .eq("id", jobId)
-        .eq("user_id", user.id);
+        .eq("id", jobId);
 
       if (updateError) {
         throw new Error(updateError.message);
