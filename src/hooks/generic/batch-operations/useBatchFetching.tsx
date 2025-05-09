@@ -37,9 +37,13 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
         // Using the standardized code prefix for batch naming patterns
         console.log(`Using product code ${productCode} for ${config.productType} batches`);
         
-        // Fix: Use a clearer filter pattern for product-specific batches
-        // This ensures we match both formats: DXB-PC-00001 and older formats with %-PC-%
-        query = query.or(`name.ilike.DXB-${productCode}-%,name.ilike.%-${productCode}-%`);
+        // Fix: Improve the batch name matching pattern to be more robust
+        // This will find any batch name that contains the product code in the standard format:
+        // 1. DXB-XX-##### format (e.g., DXB-BC-00001)
+        // 2. Any name containing -XX- pattern (e.g., OLD-BC-001)
+        query = query.or(`name.ilike.%DXB-${productCode}-%,name.ilike.%-${productCode}-%`);
+        
+        console.log(`Query filter: name.ilike.%DXB-${productCode}-%,name.ilike.%-${productCode}-%`);
       }
       
       if (batchId) {
@@ -52,6 +56,9 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       if (fetchError) throw fetchError;
 
       console.log('Batches data received for', config.productType, ':', data?.length || 0, 'records');
+      if (data && data.length > 0) {
+        console.log('Sample batch name:', data[0].name);
+      }
       
       const genericBatches: BaseBatch[] = (data || []).map(batch => ({
         ...batch,

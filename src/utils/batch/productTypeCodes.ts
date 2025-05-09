@@ -16,5 +16,10 @@ export const PRODUCT_TYPE_CODES = {
 
 // Function to get the code for a product type
 export const getProductTypeCode = (productType: string): string => {
-  return PRODUCT_TYPE_CODES[productType] || "UNK";
+  const code = PRODUCT_TYPE_CODES[productType];
+  if (!code) {
+    console.warn(`No product code found for product type: ${productType}`);
+    return "UNK";
+  }
+  return code;
 };

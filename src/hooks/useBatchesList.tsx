@@ -61,12 +61,13 @@ export const useBatchesList = () => {
         // Extract product type from standardized batch name format: DXB-BC-00001
         let productType = "Unknown";
         if (batch.name) {
-          // Regex to match DXB-XX-##### format
-          const match = batch.name.match(/DXB-([A-Z]+)-\d+/);
+          // Regex to match DXB-XX-##### format or any format with -XX- in it
+          const match = batch.name.match(/DXB-([A-Z]+)-\d+/) || batch.name.match(/-([A-Z]+)-/);
           if (match && match[1]) {
             const code = match[1];
             productType = BATCH_PREFIX_TO_PRODUCT_TYPE[code] || "Unknown";
           }
+          console.log(`Batch ${batch.name} detected as product type: ${productType}`);
         }
         
         return {
