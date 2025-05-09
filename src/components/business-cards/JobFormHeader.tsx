@@ -4,16 +4,13 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
 interface JobFormHeaderProps {
+  title: string;
+  description: string;
   isEditing?: boolean;
 }
 
-const JobFormHeader = ({ isEditing = false }: JobFormHeaderProps) => {
+const JobFormHeader = ({ title, description, isEditing = false }: JobFormHeaderProps) => {
   const navigate = useNavigate();
-  
-  const title = isEditing ? "Edit Business Card Job" : "Add New Business Card Job";
-  const subtitle = isEditing 
-    ? "Update the details of your business card job"
-    : "Create a new business card job";
   
   return (
     <div className="flex justify-between items-center mb-6">
@@ -22,7 +19,7 @@ const JobFormHeader = ({ isEditing = false }: JobFormHeaderProps) => {
           <CreditCard className="h-6 w-6 mr-2 text-batchflow-primary" />
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         </div>
-        <p className="text-gray-500 mt-1">{subtitle}</p>
+        <p className="text-gray-500 mt-1">{description}</p>
       </div>
       <Button 
         variant="outline" 

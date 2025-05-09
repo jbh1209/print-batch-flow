@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -209,8 +210,7 @@ function App() {
           </Router>
           <SonnerToaster position="top-right" closeButton toastOptions={{ 
             duration: 3000, 
-            className: "unique-toast-class",
-            id: (id) => `${id}-${Date.now()}`  // Add timestamp to make IDs unique
+            className: "unique-toast-class"
           }} />
           <Toaster />
         </UserManagementProvider>

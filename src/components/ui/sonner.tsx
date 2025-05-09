@@ -21,8 +21,7 @@ function Toaster({ ...props }: ToasterProps) {
           success: `success-toast-${Math.random().toString(36).substring(7)}`,
           warning: `warning-toast-${Math.random().toString(36).substring(7)}`,
           info: `info-toast-${Math.random().toString(36).substring(7)}`,
-        },
-        id: (id) => `${id}-${Date.now()}`  // Add timestamp to make IDs unique
+        }
       }}
       {...props}
     />

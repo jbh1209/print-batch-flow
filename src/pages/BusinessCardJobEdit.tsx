@@ -24,6 +24,8 @@ const BusinessCardJobEdit = () => {
         navigate('/batches/business-cards/jobs');
       }, 2000);
     }
+    
+    return success;
   };
 
   if (isLoading) {
