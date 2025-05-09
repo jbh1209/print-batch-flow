@@ -2,11 +2,11 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useBusinessCardJob } from "@/hooks/useBusinessCardJob";
-import JobEditForm from "@/components/business-cards/JobEditForm";
-import JobFormHeader from "@/components/business-cards/JobFormHeader";
-import JobErrorDisplay from "@/components/business-cards/JobErrorDisplay";
-import FormLoadingSpinner from "@/components/business-cards/FormLoadingSpinner";
 import { Card, CardContent } from "@/components/ui/card";
+import JobFormHeader from "@/components/business-cards/JobFormHeader";
+import JobEditForm from "@/components/business-cards/JobEditForm";
+import FormLoadingSpinner from "@/components/business-cards/FormLoadingSpinner";
+import JobErrorDisplay from "@/components/business-cards/JobErrorDisplay";
 
 const BusinessCardJobEdit = () => {
   const navigate = useNavigate();
@@ -43,6 +43,7 @@ const BusinessCardJobEdit = () => {
           <JobFormHeader 
             title="Edit Business Card Job"
             description="Update the details for this business card job."
+            isEditing={true}
           />
           <JobEditForm
             initialData={{
