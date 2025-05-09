@@ -1,3 +1,4 @@
+
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -21,8 +22,20 @@ const NotFound = () => {
     const path = location.pathname;
     let suggestion: string | null = null;
     
+    // Get path segments for analysis
+    const segments = path.split('/');
+    
+    // Special handling for poster paths
+    if (path.includes('/posters/jobs/') && segments.length >= 4) {
+      const jobId = segments[3];
+      if (jobId && jobId.length > 10) { // Looks like an ID
+        // Fix the path to match the correct route pattern
+        suggestion = `/batches/posters/jobs/${jobId}`;
+      }
+    }
+    
     // Check for users accessing jobs directly without the proper batches prefix
-    if (path.includes('/jobs') && !path.includes('/batches/')) {
+    else if (path.includes('/jobs') && !path.includes('/batches/')) {
       // Missing /batches/ prefix in product path
       const productType = path.split('/')[1];
       suggestion = `/batches/${productType}/jobs`;
@@ -70,14 +83,16 @@ const NotFound = () => {
     }
     
     // Check for batch path errors
-    if (path.includes('/batches/') && !path.includes('/jobs/') && !path.includes('/batches/')) {
-      // Possible missing 'batches' in the path - common error when trying to view batch details
-      const segments = path.split('/');
-      if (segments.length >= 3) {
-        const productType = segments[2];
-        const batchId = segments[3];
-        if (batchId && batchId.length > 10) { // Looks like an ID
-          suggestion = `/batches/${productType}/batches/${batchId}`;
+    else if (path.includes('/batches/') && path.includes('/jobs/') && segments.length >= 5) {
+      // This might be a job detail page with wrong format
+      const productType = segments[2]; // e.g., "posters"
+      const jobId = segments[4]; // The ID part
+      
+      // Check if this is a path like /batches/posters/jobs/SOME-ID
+      if (jobId && jobId.length > 10) { // Looks like a valid UUID or similar
+        // For poster jobs, check if we should add an "edit" segment
+        if (productType === "posters" || productType === "flyers") {
+          suggestion = `/batches/${productType}/jobs/${jobId}/edit`;
         }
       }
     }
@@ -114,7 +129,7 @@ const NotFound = () => {
       toast("We found a possible correct path", {
         action: {
           label: "Go There",
-          onClick: () => navigate(suggestion)
+          onClick: () => navigate(suggestion || "/")
         },
         duration: 10000
       });
@@ -139,8 +154,6 @@ const NotFound = () => {
       navigate(suggestedPath);
     }
   };
-
-  const segments = location.pathname.split('/');
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

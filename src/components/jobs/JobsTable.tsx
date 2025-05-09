@@ -24,14 +24,32 @@ const JobsTable: React.FC<JobsTableProps> = ({
   const navigate = useNavigate();
 
   const handleNavigateToJob = (job: ExtendedJob) => {
-    if (!job.productConfig?.routes?.jobDetailPath) {
-      console.error("Cannot navigate: job detail path not defined for", job.productConfig?.productType);
+    if (!job.productConfig?.routes) {
+      console.error("Cannot navigate: job routes not defined for", job.productConfig?.productType);
       return;
     }
     
-    const detailPath = job.productConfig.routes.jobDetailPath(job.id);
-    console.log("Navigating to:", detailPath);
-    navigate(detailPath);
+    // For business cards jobs, we need to use a different path format
+    if (job.productConfig.productType === "Business Cards") {
+      const path = `/batches/business-cards/jobs/${job.id}`;
+      console.log("Navigating to business card job:", path);
+      navigate(path);
+      return;
+    }
+    
+    // For other product types, check if there's an explicit jobDetailPath function
+    if (job.productConfig.routes.jobDetailPath) {
+      const detailPath = job.productConfig.routes.jobDetailPath(job.id);
+      console.log("Navigating to job detail:", detailPath);
+      navigate(detailPath);
+      return;
+    }
+    
+    // Fallback to a generic path format
+    const productPath = job.productConfig.productType.toLowerCase().replace(/\s+/g, '-');
+    const path = `/batches/${productPath}/jobs/${job.id}`;
+    console.log("Navigating to job using fallback path:", path);
+    navigate(path);
   };
 
   // Function to determine row background color based on status and urgency

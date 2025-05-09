@@ -57,6 +57,7 @@ import AllJobsPage from '@/pages/AllJobsPage';
 
 // Import for generic batch detail pages
 import GenericBatchDetailsPage from '@/pages/generic/GenericBatchDetailsPage';
+import GenericJobDetailsPage from '@/pages/generic/GenericJobDetailsPage';
 import { productConfigs } from '@/config/productTypes';
 
 // Create a client for React Query
@@ -121,6 +122,9 @@ function App() {
                   } />
                   <Route path="jobs" element={<PostcardJobsPage />} />
                   <Route path="jobs/new" element={<PostcardJobNewPage />} />
+                  <Route path="jobs/:id" element={
+                    <GenericJobDetailsPage config={productConfigs["Postcards"]} />
+                  } />
                   <Route path="jobs/:jobId/edit" element={<PostcardJobEditPage />} />
                 </Route>
                 
@@ -132,6 +136,9 @@ function App() {
                   } />
                   <Route path="jobs" element={<BoxJobsPage />} />
                   <Route path="jobs/new" element={<BoxJobNewPage />} />
+                  <Route path="jobs/:id" element={
+                    <GenericJobDetailsPage config={productConfigs["Boxes"]} />
+                  } />
                   <Route path="jobs/:jobId/edit" element={<BoxJobEditPage />} />
                 </Route>
                 
@@ -143,6 +150,9 @@ function App() {
                   } />
                   <Route path="jobs" element={<SleeveJobsPage />} />
                   <Route path="jobs/new" element={<SleeveJobNewPage />} />
+                  <Route path="jobs/:id" element={
+                    <GenericJobDetailsPage config={productConfigs["Sleeves"]} />
+                  } />
                   <Route path="jobs/:jobId/edit" element={<SleeveJobEditPage />} />
                 </Route>
                 
@@ -154,6 +164,9 @@ function App() {
                   } />
                   <Route path="jobs" element={<StickerJobsPage />} />
                   <Route path="jobs/new" element={<StickerJobNewPage />} />
+                  <Route path="jobs/:id" element={
+                    <GenericJobDetailsPage config={productConfigs["Stickers"]} />
+                  } />
                   <Route path="jobs/:jobId/edit" element={<StickerJobEditPage />} />
                 </Route>
                 
@@ -165,6 +178,9 @@ function App() {
                   } />
                   <Route path="jobs" element={<CoverJobsPage />} />
                   <Route path="jobs/new" element={<CoverJobNewPage />} />
+                  <Route path="jobs/:id" element={
+                    <GenericJobDetailsPage config={productConfigs["Covers"]} />
+                  } />
                   <Route path="jobs/:jobId/edit" element={<CoverJobEditPage />} />
                 </Route>
                 
@@ -176,6 +192,9 @@ function App() {
                   } />
                   <Route path="jobs" element={<PosterJobsPage />} />
                   <Route path="jobs/new" element={<PosterJobNewPage />} />
+                  <Route path="jobs/:id" element={
+                    <GenericJobDetailsPage config={productConfigs["Posters"]} />
+                  } />
                   <Route path="jobs/:jobId/edit" element={<PosterJobEditPage />} />
                 </Route>
                 
@@ -187,7 +206,7 @@ function App() {
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Router>
-          <SonnerToaster position="top-right" closeButton />
+          <SonnerToaster position="top-right" closeButton toastOptions={{ duration: 3000, className: "unique-toast-class" }} />
           <Toaster />
         </UserManagementProvider>
       </AuthProvider>
