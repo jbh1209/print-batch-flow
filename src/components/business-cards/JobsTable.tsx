@@ -155,8 +155,7 @@ const JobsTable = ({
                 disabled={!canSelect}
               />
             </TableCell>
-            {/* Fixed: Use job.name instead of job_number for the job name */}
-            <TableCell>{job.name || job.job_number || 'Unnamed Job'}</TableCell>
+            <TableCell>{job.job_number || job.name || 'Unnamed Job'}</TableCell>
             <TableCell>
               <span 
                 className="text-blue-600 hover:underline cursor-pointer" 

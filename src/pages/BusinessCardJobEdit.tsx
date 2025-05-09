@@ -21,7 +21,7 @@ const BusinessCardJobEdit = () => {
     if (success) {
       // Navigate after a short delay
       setTimeout(() => {
-        navigate('/batches/business-cards/jobs');
+        navigate(`/batches/business-cards/jobs/${id}`);
       }, 2000);
     }
     

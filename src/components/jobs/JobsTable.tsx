@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { format, isPast } from 'date-fns';
+import { format } from 'date-fns';
 import { ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from "@/components/ui/badge";
@@ -117,7 +117,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
                     {job.productConfig.productType}
                   </Badge>
                 </TableCell>
-                <TableCell>{job.name}</TableCell>
+                <TableCell>{job.name || job.job_number}</TableCell>
                 <TableCell>{job.quantity}</TableCell>
                 <TableCell>{format(new Date(job.due_date), 'MMM dd, yyyy')}</TableCell>
                 <TableCell>
