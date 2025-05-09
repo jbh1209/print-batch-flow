@@ -25,6 +25,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
     setError(null);
 
     try {
+      // Start building the query
       let query = supabase
         .from('batches')
         .select('*')
@@ -36,20 +37,18 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       if (productCode) {
         console.log(`Using product code ${productCode} for ${config.productType} batches`);
         
-        // We'll use proper OR filtering with multiple conditions
-        query = query.or([
-          `name.ilike.%DXB-${productCode}-%`, 
-          `name.ilike.%-${productCode}-%`
-        ].join(','));
-        
-        console.log(`Query filter: ${[
-          `name.ilike.%DXB-${productCode}-%`, 
-          `name.ilike.%-${productCode}-%`
-        ].join(',')}`);
-      }
-      
-      if (batchId) {
-        query = query.eq("id", batchId);
+        // Use proper Supabase OR filter syntax
+        // This uses the .or() method with an array of filter conditions
+        if (batchId) {
+          query = query.eq("id", batchId);
+        } else {
+          // Filter by any of these patterns
+          query = query.or(`name.ilike.%DXB-${productCode}-%,name.ilike.%-${productCode}-%,name.ilike.%${productCode}%`);
+          
+          console.log(`Using OR filter: name.ilike.%DXB-${productCode}-%,name.ilike.%-${productCode}-%,name.ilike.%${productCode}%`);
+        }
+      } else {
+        console.warn(`No product code found for ${config.productType} - fetching all batches`);
       }
       
       const { data, error: fetchError } = await query
@@ -81,7 +80,9 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
             // Filter manually by trying to extract product code from batch name
             const filteredBatches = allData.filter(batch => {
               const extractedCode = extractProductCodeFromBatchName(batch.name);
-              return extractedCode === productCode;
+              const matched = extractedCode === productCode;
+              console.log(`Batch ${batch.name}: extracted code=${extractedCode}, product code=${productCode}, matched=${matched}`);
+              return matched;
             });
             
             if (filteredBatches.length > 0) {

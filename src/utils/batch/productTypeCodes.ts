@@ -49,18 +49,36 @@ export const getProductTypeFromCode = (code: string): string => {
 
 // Helper function to extract product code from batch name
 export const extractProductCodeFromBatchName = (batchName: string): string | null => {
+  if (!batchName) {
+    console.warn("Empty batch name provided to extractProductCodeFromBatchName");
+    return null;
+  }
+  
+  console.log(`Extracting product code from batch name: ${batchName}`);
+  
   // Try different batch naming patterns:
   // 1. Standard DXB-XX-##### format
   const standardMatch = batchName.match(/DXB-([A-Z]{2,3})-\d+/);
   if (standardMatch && standardMatch[1]) {
+    console.log(`Found standard code: ${standardMatch[1]}`);
     return standardMatch[1];
   }
   
   // 2. Alternative -XX- format (any prefix)
   const alternateMatch = batchName.match(/-([A-Z]{2,3})-/);
   if (alternateMatch && alternateMatch[1]) {
+    console.log(`Found alternate code: ${alternateMatch[1]}`);
     return alternateMatch[1];
   }
   
+  // 3. Match just the code anywhere in the name (last resort)
+  for (const code of Object.keys(CODE_TO_PRODUCT_TYPE)) {
+    if (batchName.includes(code)) {
+      console.log(`Found loose code match: ${code}`);
+      return code;
+    }
+  }
+  
+  console.warn(`No product code could be extracted from batch name: ${batchName}`);
   return null;
 };

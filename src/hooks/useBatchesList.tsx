@@ -44,6 +44,9 @@ export const useBatchesList = () => {
       }
       
       console.log("Batches data received:", data?.length || 0, "records");
+      if (data && data.length > 0) {
+        console.log("Sample batch names:", data.slice(0, 5).map(b => b.name).join(', '));
+      }
       
       // Process batch data to determine product type from standardized batch name
       const processedBatches = data?.map(batch => {
@@ -57,6 +60,15 @@ export const useBatchesList = () => {
             console.log(`Batch ${batch.name} with code ${code} detected as: ${productType}`);
           } else {
             console.warn(`Could not extract product code from batch name: ${batch.name}`);
+            
+            // Try simple substring matching as a fallback
+            for (const [code, type] of Object.entries(CODE_TO_PRODUCT_TYPE)) {
+              if (batch.name.includes(code)) {
+                productType = type;
+                console.log(`Fallback detection: Batch ${batch.name} contains code ${code}, detected as: ${productType}`);
+                break;
+              }
+            }
           }
         }
         
