@@ -3,6 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
+// Check if we're in Lovable preview mode
+const isLovablePreview = 
+  typeof window !== 'undefined' && 
+  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+
 /**
  * Hook for checking session validity
  */
@@ -14,6 +19,12 @@ export const useSessionCheck = () => {
    * @returns User ID if session is valid, null otherwise
    */
   const validateSession = async (): Promise<string | null> => {
+    // In preview mode, return a mock user ID
+    if (isLovablePreview) {
+      console.log("Preview mode detected, skipping session validation");
+      return "preview-user-id";
+    }
+    
     try {
       console.log("Validating user session...");
       

@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -13,6 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import UsersPage from '@/pages/UsersPage';
 import NotFound from '@/pages/NotFound';
 import Index from '@/pages/Index';
+import PreviewSafeWrapper from '@/components/PreviewSafeWrapper';
 
 // Import the product type specific pages
 import BusinessCardBatches from '@/pages/BusinessCardBatches';
@@ -62,33 +62,49 @@ import { productConfigs } from '@/config/productTypes';
 import BusinessCardJobDetail from '@/pages/BusinessCardJobDetail';
 
 // Create a client for React Query
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Reduce stale time for preview mode to help with rendering issues
+      staleTime: typeof window !== 'undefined' && 
+        (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'))
+        ? 0 
+        : 5 * 60 * 1000, // 5 minutes for normal mode
+      retry: 1, // Reduce retries in preview mode
+      // Safe fallbacks for query failures
+      onError: (error) => {
+        console.error('Query error:', error);
+      }
+    },
+  },
+});
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <UserManagementProvider>
-          <Router>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/auth/callback" element={<Auth />} />
-              
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<Index />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="settings" element={<Settings />} />
+    <PreviewSafeWrapper>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <UserManagementProvider>
+            <Router>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/callback" element={<Auth />} />
                 
-                {/* Users admin page */}
-                <Route path="users" element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <UsersPage />
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <Layout />
                   </ProtectedRoute>
-                } />
+                }>
+                  <Route index element={<Index />} />
+                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="settings" element={<Settings />} />
+                  
+                  {/* Users admin page */}
+                  <Route path="users" element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <UsersPage />
+                    </ProtectedRoute>
+                  } />
 
                 {/* All batches and jobs */}
                 <Route path="batches" element={<AllBatches />} />
@@ -216,6 +232,7 @@ function App() {
         </UserManagementProvider>
       </AuthProvider>
     </QueryClientProvider>
+    </PreviewSafeWrapper>
   );
 }
 
