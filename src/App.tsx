@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -71,9 +72,11 @@ const queryClient = new QueryClient({
         ? 0 
         : 5 * 60 * 1000, // 5 minutes for normal mode
       retry: 1, // Reduce retries in preview mode
-      // Safe fallbacks for query failures
-      onError: (error) => {
-        console.error('Query error:', error);
+      // Safe fallbacks for query failures using the meta approach in v5
+      meta: {
+        errorHandler: (error: Error) => {
+          console.error('Query error:', error);
+        }
       }
     },
   },
