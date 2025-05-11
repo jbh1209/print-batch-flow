@@ -33,6 +33,7 @@ export const useBatchesList = () => {
       
       console.log("Fetching all batches (team view)");
       
+      // Remove the user ID filter to get all batches regardless of who created them
       const { data, error } = await supabase
         .from("batches")
         .select("*")

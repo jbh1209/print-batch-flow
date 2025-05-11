@@ -6,7 +6,15 @@ import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
 import { getProductTypeCode, extractProductCodeFromBatchName } from "@/utils/batch/productTypeCodes";
 
-export function useBatchFetching(config: ProductConfig, batchId: string | null = null) {
+interface BatchFetchingOptions {
+  filterByCurrentUser?: boolean;
+}
+
+export function useBatchFetching(
+  config: ProductConfig, 
+  batchId: string | null = null,
+  options: BatchFetchingOptions = { filterByCurrentUser: false }
+) {
   const { user } = useAuth();
   const [batches, setBatches] = useState<BaseBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,7 +27,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       return;
     }
 
-    console.log('Fetching batches for user:', user.id, 'product type:', config.productType);
+    console.log('Fetching batches for product type:', config.productType, 'filterByCurrentUser:', options.filterByCurrentUser);
     
     setIsLoading(true);
     setError(null);
@@ -28,8 +36,13 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       // Start building the query
       let query = supabase
         .from('batches')
-        .select('*')
-        .eq('created_by', user.id);
+        .select('*');
+      
+      // Only filter by user ID if explicitly requested
+      if (options.filterByCurrentUser) {
+        query = query.eq('created_by', user.id);
+        console.log('Filtering batches by current user:', user.id);
+      }
       
       // Get product code from the standardized utility function
       const productCode = getProductTypeCode(config.productType);
@@ -37,15 +50,14 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       if (productCode && !batchId) {
         console.log(`Using product code ${productCode} for ${config.productType} batches`);
         
-        // FIX: Use proper Supabase filter syntax for OR conditions
-        // This is a critical fix that was causing batches not to be found
+        // Use proper Supabase filter syntax for OR conditions
         query = query.or([
           `name.ilike.%DXB-${productCode}-%`, 
           `name.ilike.%-${productCode}-%`, 
           `name.ilike.%${productCode}%`
         ].join(','));
         
-        console.log(`Using fixed OR filter: "${[
+        console.log(`Using filter: "${[
           `name.ilike.%DXB-${productCode}-%`, 
           `name.ilike.%-${productCode}-%`, 
           `name.ilike.%${productCode}%`
@@ -76,7 +88,6 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
           const { data: allData } = await supabase
             .from('batches')
             .select('*')
-            .eq('created_by', user.id)
             .order('created_at', { ascending: false });
             
           if (allData && allData.length > 0) {

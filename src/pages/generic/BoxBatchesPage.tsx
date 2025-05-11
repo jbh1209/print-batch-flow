@@ -24,9 +24,9 @@ const BoxBatchesPage = () => {
     });
   }, []);
   
-  // Use the useGenericBatches hook directly to expose more debugging info
+  // Use the useGenericBatches hook with filterByCurrentUser set to false
   const batchesHook = () => {
-    const hook = useGenericBatches(config);
+    const hook = useGenericBatches(config, null, { filterByCurrentUser: false });
     console.log('Boxes batches data:', hook.batches);
     
     if (hook.batches.length === 0 && !hook.isLoading) {

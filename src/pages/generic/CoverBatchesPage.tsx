@@ -24,13 +24,18 @@ const CoverBatchesPage = () => {
     });
   }, []);
   
-  // Use the useGenericBatches hook directly to expose more debugging info
+  // Use the useGenericBatches hook with filterByCurrentUser set to false
   const batchesHook = () => {
-    const hook = useGenericBatches(config);
+    const hook = useGenericBatches(config, null, { filterByCurrentUser: false });
     console.log('Covers batches data:', hook.batches);
     
     if (hook.batches.length === 0 && !hook.isLoading) {
       console.warn('No cover batches found! This might indicate a filtering issue.');
+      
+      // Enhanced debug logging for product code issues
+      const productCode = getProductTypeCode(config.productType);
+      console.log(`Product type: ${config.productType}, Product code: ${productCode}`);
+      console.log(`Expected batch names should include patterns like: DXB-${productCode}-XXXXX`);
     } else {
       console.log('Cover batch names:', hook.batches.map(b => b.name).join(', '));
     }
@@ -70,6 +75,7 @@ const CoverBatchesPage = () => {
             <div>Product Code: {getProductTypeCode(config.productType)}</div>
             <div>Table Name: {config.tableName}</div>
             <div>Job Number Prefix: {config.jobNumberPrefix}</div>
+            <div>Expected Batch Name Pattern: DXB-{getProductTypeCode(config.productType)}-#####</div>
           </AlertDescription>
         </Alert>
       )}
