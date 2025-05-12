@@ -15,12 +15,15 @@ const KNOWN_ADMIN_EMAILS = [
  */
 export const cleanupAuthState = () => {
   try {
+    console.log('Cleaning up auth state');
+    
     // Remove standard auth tokens
     localStorage.removeItem('supabase.auth.token');
     
     // Remove all Supabase auth keys from localStorage
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        console.log(`Removing auth key from localStorage: ${key}`);
         localStorage.removeItem(key);
       }
     });
@@ -29,10 +32,13 @@ export const cleanupAuthState = () => {
     if (typeof sessionStorage !== 'undefined') {
       Object.keys(sessionStorage).forEach((key) => {
         if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          console.log(`Removing auth key from sessionStorage: ${key}`);
           sessionStorage.removeItem(key);
         }
       });
     }
+    
+    console.log('Auth state cleanup completed');
   } catch (error) {
     console.error('Error cleaning up auth state:', error);
   }
@@ -43,11 +49,14 @@ export const cleanupAuthState = () => {
  */
 export const signOut = async (): Promise<void> => {
   try {
+    console.log('Signing out user');
+    
     // Clean up auth state first
     cleanupAuthState();
     
     // Attempt global sign out
     await supabase.auth.signOut({ scope: 'global' });
+    console.log('Supabase signOut completed');
     
     // Force page reload for a clean state
     window.location.href = '/auth';
@@ -65,6 +74,8 @@ export const signOut = async (): Promise<void> => {
  */
 export const signIn = async (email: string, password: string): Promise<void> => {
   try {
+    console.log('Attempting to sign in user:', email);
+    
     // Clean up existing state first
     cleanupAuthState();
     
@@ -74,8 +85,12 @@ export const signIn = async (email: string, password: string): Promise<void> => 
       password,
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
     
+    console.log('Sign in successful for user:', data?.user?.id);
     // Success - the auth listener will handle the redirect
   } catch (error: any) {
     console.error('Sign in error:', error);
@@ -88,6 +103,8 @@ export const signIn = async (email: string, password: string): Promise<void> => 
  */
 export const signUp = async (email: string, password: string, userData?: { full_name?: string }): Promise<void> => {
   try {
+    console.log('Attempting to sign up new user:', email);
+    
     // Clean up existing state first
     cleanupAuthState();
     
@@ -101,8 +118,12 @@ export const signUp = async (email: string, password: string, userData?: { full_
       }
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Sign up error:', error);
+      throw error;
+    }
     
+    console.log('Sign up successful for user:', data?.user?.id);
     // Success - the auth listener will handle the rest
   } catch (error: any) {
     console.error('Sign up error:', error);
@@ -184,6 +205,7 @@ export const checkIsAdmin = async (userId: string, userEmail?: string | null): P
  */
 export const refreshToken = async (): Promise<Session | null> => {
   try {
+    console.log('Attempting to refresh authentication token');
     const { data, error } = await supabase.auth.refreshSession();
     
     if (error) {
@@ -191,6 +213,7 @@ export const refreshToken = async (): Promise<Session | null> => {
       return null;
     }
     
+    console.log('Token refreshed successfully');
     return data.session;
   } catch (error) {
     console.error('Error refreshing token:', error);
