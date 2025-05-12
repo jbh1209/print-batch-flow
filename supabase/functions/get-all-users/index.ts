@@ -7,6 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Cache control constants
+const CACHE_CONTROL_VALUE = "public, s-maxage=10, max-age=5"; // 10s on CDN, 5s in browser
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -54,10 +57,22 @@ serve(async (req) => {
     
     // Verify the user is authenticated by getting the current user
     console.log("Getting current user from JWT");
+    const userPromise = userClient.auth.getUser(token);
+    
+    // Add a timeout to the user authentication check
+    const userTimeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('User authentication timeout')), 3000);
+    });
+    
     const {
       data: { user },
       error: userError,
-    } = await userClient.auth.getUser(token);
+    } = await Promise.race([
+      userPromise,
+      userTimeoutPromise.then(() => {
+        throw new Error('User authentication timed out');
+      })
+    ]);
     
     if (userError || !user) {
       console.error("Auth error:", userError || "No user found");
@@ -81,7 +96,7 @@ serve(async (req) => {
     
     // Add a timeout to the admin check
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Admin check timeout')), 5000);
+      setTimeout(() => reject(new Error('Admin check timeout')), 3000);
     });
     
     const { data: isAdmin, error: adminCheckError } = await Promise.race([
@@ -118,12 +133,28 @@ serve(async (req) => {
         auth: {
           autoRefreshToken: false,
           persistSession: false,
-        },
+        }
       }
     );
     
+    // Set a timeout for each DB operation to prevent hanging
+    const authUsersPromise = adminClient.auth.admin.listUsers();
+    const profilesPromise = adminClient.from('profiles').select('*');
+    const userRolesPromise = adminClient.from('user_roles').select('*');
+    
+    // Execute all queries in parallel with a timeout
+    const dbOperationTimeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Database operations timeout')), 5000);
+    });
+    
     // Get all users from auth.users using the admin client with service role key
-    const { data: authUsers, error: authUsersError } = await adminClient.auth.admin.listUsers();
+    const [authUsersResult, profilesResult, userRolesResult] = await Promise.all([
+      Promise.race([authUsersPromise, dbOperationTimeoutPromise]),
+      Promise.race([profilesPromise, dbOperationTimeoutPromise]),
+      Promise.race([userRolesPromise, dbOperationTimeoutPromise])
+    ]);
+    
+    const { data: authUsers, error: authUsersError } = authUsersResult;
     
     if (authUsersError) {
       console.error("Error listing users:", authUsersError);
@@ -136,34 +167,26 @@ serve(async (req) => {
     console.log("Auth users fetched successfully:", authUsers.users.length);
     
     // Get all profiles using the admin client
-    const { data: profiles, error: profilesError } = await adminClient
-      .from('profiles')
-      .select('*');
+    const { data: profiles, error: profilesError } = profilesResult;
     
     if (profilesError) {
       console.error("Error fetching profiles:", profilesError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch profiles', details: profilesError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      // Continue with limited data rather than failing completely
+      console.log("Continuing without profiles data");
+    } else {
+      console.log("Profiles fetched:", profiles?.length || 0);
     }
     
-    console.log("Profiles fetched:", profiles?.length || 0);
-    
     // Get all user roles using the admin client
-    const { data: userRoles, error: userRolesError } = await adminClient
-      .from('user_roles')
-      .select('*');
+    const { data: userRoles, error: userRolesError } = userRolesResult;
     
     if (userRolesError) {
       console.error("Error fetching user roles:", userRolesError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch user roles', details: userRolesError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      // Continue with limited data rather than failing completely
+      console.log("Continuing without user roles data");
+    } else {
+      console.log("User roles fetched:", userRoles?.length || 0);
     }
-    
-    console.log("User roles fetched:", userRoles?.length || 0);
     
     // Combine the data
     const combinedUsers = authUsers.users.map(authUser => {
@@ -190,7 +213,7 @@ serve(async (req) => {
         headers: { 
           ...corsHeaders, 
           "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate"
+          "Cache-Control": CACHE_CONTROL_VALUE
         } 
       }
     );

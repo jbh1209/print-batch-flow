@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { UserTable } from "./UserTable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ export function UserTableContainer() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(contextError);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
   
   // Sync context error to local state
   useEffect(() => {
@@ -26,35 +27,40 @@ export function UserTableContainer() {
     }
   }, [contextError]);
 
-  const handleRefresh = async () => {
+  // Debounced refresh function
+  const handleRefresh = useCallback(async () => {
+    // Prevent rapid consecutive refreshes
+    const now = Date.now();
+    if (now - lastRefreshAttempt < 2000 || isRefreshing) {
+      toast.error("Please wait before refreshing again");
+      return;
+    }
+    
     try {
       setIsRefreshing(true);
+      setLastRefreshAttempt(now);
       setError(null);
-      toast.loading('Refreshing user data...');
+      toast.loading('Refreshing user data...', { duration: 3000 });
       await fetchUsers();
-      toast.dismiss();
-      toast.success("User data refreshed successfully");
     } catch (err: any) {
-      toast.dismiss();
       setError(err.message || "Failed to refresh user data");
       toast.error(`Failed to refresh user data: ${err.message || "Unknown error"}`);
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [fetchUsers, isRefreshing, lastRefreshAttempt]);
 
   const handleAddUser = async (userData: UserFormData) => {
     try {
       setError(null);
       setIsProcessing(true);
-      toast.loading('Creating new user...');
+      toast.loading('Creating new user...', { duration: 5000 });
+      
       await createUser(userData);
-      toast.dismiss();
-      toast.success(`User ${userData.email} created successfully`);
+      form.reset();
       setDialogOpen(false);
-      // No need to manually refresh - the createUser function should update the state
+      toast.success(`User ${userData.email} created successfully`);
     } catch (error: any) {
-      toast.dismiss();
       console.error("Error adding user:", error);
       setError(error.message || "Failed to create user");
       toast.error(`Failed to create user: ${error.message || "Unknown error"}`);
@@ -68,15 +74,13 @@ export function UserTableContainer() {
       if (!editingUser) return;
       setError(null);
       setIsProcessing(true);
-      toast.loading('Updating user...');
+      toast.loading('Updating user...', { duration: 5000 });
       
       await updateUser(editingUser.id, userData);
-      toast.dismiss();
       toast.success(`User ${userData.full_name || editingUser.email} updated successfully`);
       setDialogOpen(false);
       setEditingUser(null);
     } catch (error: any) {
-      toast.dismiss();
       console.error("Error updating user:", error);
       setError(error.message || "Failed to update user");
       toast.error(`Failed to update user: ${error.message || "Unknown error"}`);
@@ -85,15 +89,13 @@ export function UserTableContainer() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
+  const handleDeleteUser = async (userId: string, userName: string) => {
     try {
       setError(null);
-      toast.loading("Revoking user access...");
+      toast.loading("Revoking user access...", { duration: 5000 });
       await deleteUser(userId);
-      toast.dismiss();
       toast.success("User access revoked successfully");
     } catch (error: any) {
-      toast.dismiss();
       console.error("Error deleting user:", error);
       setError(error.message || "Failed to revoke user access");
       toast.error(`Failed to revoke user access: ${error.message || "Unknown error"}`);
@@ -108,6 +110,15 @@ export function UserTableContainer() {
   const openAddUserDialog = () => {
     setEditingUser(null);
     setDialogOpen(true);
+  };
+  
+  // Handle form initialization and reset
+  const form = {
+    reset: () => {
+      setEditingUser(null);
+      setDialogOpen(false);
+      setError(null);
+    }
   };
 
   return (
@@ -152,7 +163,7 @@ export function UserTableContainer() {
           }
         }}>
           <DialogTrigger asChild>
-            <Button onClick={openAddUserDialog}>
+            <Button onClick={openAddUserDialog} disabled={isProcessing || isLoading}>
               <UserPlus className="mr-2 h-4 w-4" />
               Add User
             </Button>

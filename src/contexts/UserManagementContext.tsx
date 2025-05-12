@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase, adminClient } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,57 +31,99 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fetchAttempts, setFetchAttempts] = useState(0);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const { user, isAdmin, session } = useAuth();
+  
+  // Use refs to store state that won't trigger re-renders
+  const fetchingRef = useRef<boolean>(false); // Active fetch in progress
+  const pendingFetchRef = useRef<boolean>(false); // Pending fetch requests
+  const retryTimeoutRef = useRef<number | null>(null); // For tracking retry timeouts
+  const fetchAttemptsRef = useRef<number>(0); // Count fetch attempts
+  const COOLDOWN_PERIOD = 5000; // 5 seconds between fetch attempts
+  const CACHE_TTL = 30000; // 30 seconds cache lifetime
 
   // Check if we're in Lovable preview mode
   const isLovablePreview = 
     typeof window !== 'undefined' && 
     (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
 
-  // Fetch all users (admin only)
-  const fetchUsers = useCallback(async () => {
-    if (isLovablePreview) {
-      console.log("Preview mode detected, using mock user data");
-      setUsers([
-        {
-          id: "preview-user-1",
-          email: "admin@example.com",
-          full_name: "Preview Admin",
-          role: "admin",
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "preview-user-2",
-          email: "user@example.com",
-          full_name: "Preview User",
-          role: "user",
-          created_at: new Date().toISOString(),
-        }
-      ]);
-      setIsLoading(false);
-      setError(null);
+  // Debounced fetch function to prevent multiple concurrent calls
+  const debouncedFetchUsers = useCallback(async () => {
+    // If already fetching, mark as pending and return
+    if (fetchingRef.current) {
+      pendingFetchRef.current = true;
       return;
     }
-
-    if (!user || !isAdmin) {
-      setError("Admin privileges required");
-      setIsLoading(false);
+    
+    // Check for cooldown period
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchTime;
+    if (timeSinceLastFetch < COOLDOWN_PERIOD) {
+      console.log(`Fetch on cooldown. Will retry in ${COOLDOWN_PERIOD - timeSinceLastFetch}ms`);
+      
+      // Clear any existing timeout
+      if (retryTimeoutRef.current) {
+        window.clearTimeout(retryTimeoutRef.current);
+      }
+      
+      // Set a new timeout after the cooldown period
+      retryTimeoutRef.current = window.setTimeout(() => {
+        retryTimeoutRef.current = null;
+        debouncedFetchUsers();
+      }, COOLDOWN_PERIOD - timeSinceLastFetch);
+      
       return;
     }
-
-    // Check if we have a valid session with a token
-    if (!session?.access_token) {
-      setError("Authentication token missing. Please sign in again.");
-      setIsLoading(false);
+    
+    // If cache is still valid, no need to fetch
+    if (users.length > 0 && timeSinceLastFetch < CACHE_TTL && fetchAttemptsRef.current === 0) {
+      console.log('Using cached users data');
       return;
     }
-
+    
+    fetchingRef.current = true;
     setIsLoading(true);
-    setError(null);
-    console.log("Starting user fetch with session token available:", !!session?.access_token);
     
     try {
+      // Handle preview mode with mock data
+      if (isLovablePreview) {
+        console.log("Preview mode detected, using mock user data");
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+        setUsers([
+          {
+            id: "preview-user-1",
+            email: "admin@example.com",
+            full_name: "Preview Admin",
+            role: "admin",
+            created_at: new Date().toISOString(),
+          },
+          {
+            id: "preview-user-2",
+            email: "user@example.com",
+            full_name: "Preview User",
+            role: "user",
+            created_at: new Date().toISOString(),
+          }
+        ]);
+        setLastFetchTime(Date.now());
+        fetchAttemptsRef.current = 0;
+        setError(null);
+        return;
+      }
+
+      if (!user || !isAdmin) {
+        setError("Admin privileges required");
+        return;
+      }
+
+      // Check if we have a valid session with a token
+      if (!session?.access_token) {
+        setError("Authentication token missing. Please sign in again.");
+        return;
+      }
+
+      console.log("Starting user fetch with session token available:", !!session?.access_token);
+      
       // Use adminClient for edge function calls to ensure HTTP/REST is used
       const { data, error: fetchError } = await adminClient.functions.invoke('get-all-users', {
         method: 'GET',
@@ -96,20 +139,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         console.error("Function error:", fetchError);
         console.error("Error details:", JSON.stringify(fetchError));
         
-        // If this is a connection issue and we haven't retried too many times, retry
-        if (fetchAttempts < 2 && (
-          fetchError.message?.includes('Failed to fetch') || 
-          fetchError.message?.includes('NetworkError')
-        )) {
-          setFetchAttempts(prev => prev + 1);
-          throw new Error('Network connection error. Retrying...');
-        }
-        
         throw fetchError;
       }
-      
-      // Reset fetch attempts on success
-      setFetchAttempts(0);
       
       if (!data) {
         throw new Error("No data returned from edge function");
@@ -117,26 +148,62 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       
       console.log("Users fetched successfully:", data.length);
       setUsers(data || []);
+      setLastFetchTime(Date.now());
+      fetchAttemptsRef.current = 0;
+      setError(null);
     } catch (error: any) {
       console.error('Error fetching users:', error);
       setError(error.message || 'Failed to fetch users');
       
-      if (fetchAttempts < 2) {
-        // If we haven't tried too many times, delay and try again
-        console.log(`Retry attempt ${fetchAttempts + 1}/3`);
-        setTimeout(() => {
-          setFetchAttempts(prev => prev + 1);
-          fetchUsers();
-        }, 2000); // 2 second delay between retries
+      // Increment fetch attempts counter
+      fetchAttemptsRef.current += 1;
+      
+      // Limit the number of automatic retries
+      if (fetchAttemptsRef.current <= 2) {
+        const retryDelay = Math.min(2000 * Math.pow(2, fetchAttemptsRef.current - 1), 10000);
+        console.log(`Scheduled retry attempt ${fetchAttemptsRef.current} in ${retryDelay}ms`);
+        
+        if (retryTimeoutRef.current) {
+          window.clearTimeout(retryTimeoutRef.current);
+        }
+        
+        // Schedule a single retry with increasing backoff
+        retryTimeoutRef.current = window.setTimeout(() => {
+          console.log(`Executing retry attempt ${fetchAttemptsRef.current}`);
+          retryTimeoutRef.current = null;
+          debouncedFetchUsers();
+        }, retryDelay);
       } else {
         // Give up after multiple retries
-        setError(`Failed to load users after multiple attempts: ${error.message}`);
-        toast.error("Could not load users. Please try refreshing the page.");
+        toast.error("Could not load users after multiple attempts. Please try refreshing the page.");
+        fetchAttemptsRef.current = 0; // Reset for next manual attempt
       }
     } finally {
       setIsLoading(false);
+      fetchingRef.current = false;
+      
+      // If there were pending requests while we were fetching,
+      // schedule another fetch after a short delay
+      if (pendingFetchRef.current) {
+        pendingFetchRef.current = false;
+        
+        if (retryTimeoutRef.current) {
+          window.clearTimeout(retryTimeoutRef.current);
+        }
+        
+        retryTimeoutRef.current = window.setTimeout(() => {
+          retryTimeoutRef.current = null;
+          debouncedFetchUsers();
+        }, 500); // Small delay to batch rapid requests
+      }
     }
-  }, [user, isAdmin, session, fetchAttempts, isLovablePreview]);
+  }, [user, isAdmin, session, users.length, lastFetchTime, isLovablePreview]);
+
+  // Exposed fetch function that uses the debounced implementation
+  const fetchUsers = useCallback(async () => {
+    setError(null);
+    debouncedFetchUsers();
+  }, [debouncedFetchUsers]);
 
   // Create a new user
   const createUser = useCallback(async (userData: UserFormData): Promise<void> => {
@@ -162,7 +229,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
     try {
       console.log("Creating user with data:", userData);
-      const { data, error: createError } = await supabase.functions.invoke('create-user', {
+      const { data, error: createError } = await adminClient.functions.invoke('create-user', {
+        method: 'POST',
         body: userData,
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -190,6 +258,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       };
       
       setUsers(prevUsers => [...prevUsers, newUser]);
+      setLastFetchTime(Date.now()); // Update last fetch time to avoid immediate refetch
+      toast.success("User created successfully");
     } catch (error: any) {
       console.error('Error creating user:', error);
       throw error;
@@ -216,14 +286,18 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
 
     try {
+      const updatePromises = [];
+      
       // Update the user role if specified
       if (userData.role) {
-        const { error: roleError } = await supabase.rpc('set_user_role_admin', {
+        const rolePromise = supabase.rpc('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
+        }).then(({ error }) => {
+          if (error) throw error;
         });
         
-        if (roleError) throw roleError;
+        updatePromises.push(rolePromise);
         
         // Optimistically update the role in the local state
         setUsers(prevUsers =>
@@ -233,23 +307,32 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       
       // Update user profile if full_name provided
       if (userData.full_name) {
-        const { error: profileError } = await supabase.rpc('update_user_profile_admin', {
+        const profilePromise = supabase.rpc('update_user_profile_admin', {
           _user_id: userId,
           _full_name: userData.full_name
+        }).then(({ error }) => {
+          if (error) throw error;
         });
-          
-        if (profileError) throw profileError;
+        
+        updatePromises.push(profilePromise);
         
         // Optimistically update the full_name in the local state
         setUsers(prevUsers =>
           prevUsers.map(u => (u.id === userId ? { ...u, full_name: userData.full_name } : u))
         );
       }
+      
+      // Wait for all updates to complete
+      await Promise.all(updatePromises);
+      setLastFetchTime(Date.now()); // Update last fetch time
+      toast.success("User updated successfully");
     } catch (error: any) {
       console.error('Error updating user:', error);
+      // Force a refresh of the data if the update failed
+      debouncedFetchUsers();
       throw error;
     }
-  }, [user, isAdmin, session, isLovablePreview, users]);
+  }, [user, isAdmin, session, isLovablePreview, debouncedFetchUsers]);
 
   // Delete/deactivate a user
   const deleteUser = useCallback(async (userId: string): Promise<void> => {
@@ -275,11 +358,15 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       
       // Optimistically update the user list by removing the deleted user
       setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+      setLastFetchTime(Date.now()); // Update last fetch time
+      toast.success("User access revoked successfully");
     } catch (error: any) {
       console.error('Error revoking user access:', error);
+      // Force a refresh of the data if the deletion failed
+      debouncedFetchUsers();
       throw error;
     }
-  }, [user, isAdmin, session, isLovablePreview]);
+  }, [user, isAdmin, session, isLovablePreview, debouncedFetchUsers]);
 
   // Add admin role to a user
   const addAdminRole = useCallback(async (userId: string): Promise<void> => {
@@ -310,11 +397,14 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       setUsers(prevUsers =>
         prevUsers.map(u => (u.id === userId ? { ...u, role: 'admin' } : u))
       );
+      setLastFetchTime(Date.now()); // Update last fetch time
     } catch (error: any) {
       console.error('Error setting admin role:', error);
+      // Force a refresh of the data if the update failed
+      debouncedFetchUsers();
       throw new Error(error.message || 'Failed to set admin role');
     }
-  }, [user, isAdmin, session, isLovablePreview, fetchUsers]);
+  }, [session, isLovablePreview, debouncedFetchUsers]);
 
   // Load users on mount if user is admin and session exists, with debounce
   useEffect(() => {
@@ -326,8 +416,13 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     
     return () => {
       isMounted = false;
+      // Clean up any pending timeouts
+      if (retryTimeoutRef.current) {
+        window.clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
     };
-  }, [user, isAdmin, session?.access_token]);
+  }, [user, isAdmin, session?.access_token, fetchUsers]);
 
   const value = {
     users,
