@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { cleanupAuthState } from '@/services/auth/authService';
+import { cleanupAuthState, checkIsAdmin as authServiceCheckIsAdmin } from '@/services/auth/authService';
 import { toast } from 'sonner';
 
 // Define types
@@ -70,20 +70,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Check if user is admin
-  const checkAdmin = async (userId: string) => {
+  // Check if user is admin using the enhanced method
+  const checkAdmin = async (userId: string, userEmail?: string | null) => {
     if (!userId) return false;
     
     try {
-      const { data, error } = await supabase
-        .rpc('is_admin_secure_fixed', { _user_id: userId });
-      
-      if (error) {
-        console.error('Error checking admin status:', error);
-        return false;
-      }
-      
-      return !!data;
+      // Use the enhanced admin checking function with multiple strategies
+      const isUserAdmin = await authServiceCheckIsAdmin(userId, userEmail);
+      return isUserAdmin;
     } catch (error) {
       console.error('Error checking admin status:', error);
       return false;
@@ -151,7 +145,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(profileData);
       }
       
-      const adminStatus = await checkAdmin(user.id);
+      const adminStatus = await checkAdmin(user.id, user.email);
       setIsAdmin(adminStatus);
     } catch (error) {
       console.error('Error refreshing profile:', error);
@@ -209,7 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setProfile(profileData);
               }
               
-              const adminStatus = await checkAdmin(currentSession.user.id);
+              const adminStatus = await checkAdmin(currentSession.user.id, currentSession.user.email);
               if (isMounted) {
                 setIsAdmin(adminStatus);
               }
@@ -247,7 +241,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setProfile(profileData);
             }
             
-            const adminStatus = await checkAdmin(currentSession.user.id);
+            const adminStatus = await checkAdmin(currentSession.user.id, currentSession.user.email);
             if (isMounted) {
               setIsAdmin(adminStatus);
             }

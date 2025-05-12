@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Session } from '@supabase/supabase-js';
 
+// List of known admin emails for emergency access
+const KNOWN_ADMIN_EMAILS = [
+  "james@impressweb.co.za",
+  "studio@impressweb.co.za"
+];
+
 /**
  * Clean up all auth state in localStorage and sessionStorage
  * This helps prevent auth limbo states
@@ -119,22 +125,56 @@ export const getSession = async () => {
 };
 
 /**
- * Check if current user has admin role
+ * Robust admin check with multiple fallback strategies
+ * This helps ensure admin access continues to work even if one check method fails
  */
-export const checkIsAdmin = async (userId: string): Promise<boolean> => {
+export const checkIsAdmin = async (userId: string, userEmail?: string | null): Promise<boolean> => {
   if (!userId) return false;
+  console.log('Checking admin status for user:', userId);
   
   try {
-    const { data, error } = await supabase.rpc('is_admin_secure_fixed', { _user_id: userId });
+    // Strategy 1: Check using secure fixed RPC function (primary method)
+    const { data: rpcData, error: rpcError } = await supabase.rpc('is_admin_secure_fixed', { _user_id: userId });
     
-    if (error) {
-      console.error('Error checking admin status:', error);
-      return false;
+    if (!rpcError && rpcData === true) {
+      console.log('Admin status confirmed via RPC function');
+      return true;
     }
     
-    return !!data;
+    if (rpcError) {
+      console.warn('RPC admin check failed:', rpcError);
+    }
+    
+    // Strategy 2: Direct DB query to user_roles table
+    const { data: roleData, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
+    
+    if (!roleError && roleData) {
+      console.log('Admin status confirmed via direct query');
+      return true;
+    }
+    
+    // Strategy 3: Emergency fallback - check against known admin emails
+    if (userEmail && KNOWN_ADMIN_EMAILS.includes(userEmail.toLowerCase())) {
+      console.log('Admin status confirmed via known admin email list');
+      return true;
+    }
+    
+    console.log('User is not an admin');
+    return false;
   } catch (error) {
     console.error('Error checking admin status:', error);
+    
+    // Last resort emergency fallback - check against known admin emails
+    if (userEmail && KNOWN_ADMIN_EMAILS.includes(userEmail.toLowerCase())) {
+      console.log('Admin status granted via emergency fallback');
+      return true;
+    }
+    
     return false;
   }
 };
