@@ -37,7 +37,7 @@ export const calculateJobUrgency = (dueDate: string, config?: ProductConfig): Ur
 /**
  * Get CSS class for row background based on urgency
  */
-export const getUrgencyBackgroundClass = (urgency: string): string => {
+export const getUrgencyBackgroundClass = (urgency: UrgencyLevel): string => {
   switch (urgency) {
     case 'critical':
       return 'bg-red-50';
@@ -53,7 +53,7 @@ export const getUrgencyBackgroundClass = (urgency: string): string => {
 /**
  * Get CSS class for text color based on urgency
  */
-export const getUrgencyTextClass = (urgency: string): string => {
+export const getUrgencyTextClass = (urgency: UrgencyLevel): string => {
   switch (urgency) {
     case 'critical':
       return 'text-red-600';

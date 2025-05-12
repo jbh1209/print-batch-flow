@@ -2,7 +2,6 @@
 import React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableRow, TableCell, TableBody } from "@/components/ui/table";
-import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Eye, Pencil, Trash } from "lucide-react";
 import JobStatusBadge from "@/components/JobStatusBadge";

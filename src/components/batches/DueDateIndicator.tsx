@@ -1,32 +1,29 @@
 
-import React from "react";
-import { format } from "date-fns";
-import { calculateJobUrgency, getUrgencyTextClass } from "@/utils/dateCalculations";
-import { productConfigs } from "@/config/productTypes";
+import React from 'react';
+import { format } from 'date-fns';
+import { calculateJobUrgency, getUrgencyTextClass, UrgencyLevel } from '@/utils/dateCalculations';
+import { productConfigs } from '@/config/productTypes';
 
 interface DueDateIndicatorProps {
   dueDate: string;
-  productType?: string;
+  productType: string;
 }
 
-export const DueDateIndicator: React.FC<DueDateIndicatorProps> = ({
-  dueDate,
-  productType = "BusinessCards"
-}) => {
-  // Get the appropriate product config (default to BusinessCards if not specified)
-  const config = productConfigs[productType as keyof typeof productConfigs] || productConfigs.BusinessCards;
+export const DueDateIndicator: React.FC<DueDateIndicatorProps> = ({ dueDate, productType }) => {
+  // Get config for this product type
+  const config = productConfigs[productType] || { slaTargetDays: 3 };
   
   // Calculate urgency level
-  const urgency = calculateJobUrgency(dueDate, config);
+  const urgency: UrgencyLevel = calculateJobUrgency(dueDate, config);
   
-  // Get appropriate text color class based on urgency
-  const textColorClass = getUrgencyTextClass(urgency);
+  // Format date for display
+  const formattedDate = format(new Date(dueDate), 'MMM dd, yyyy');
   
-  // Format the date for display
-  const formattedDate = format(new Date(dueDate), "MMM dd, yyyy");
+  // Get appropriate CSS class based on urgency
+  const urgencyClass = getUrgencyTextClass(urgency);
   
   return (
-    <span className={`font-medium ${textColorClass}`}>
+    <span className={`font-medium ${urgencyClass}`}>
       {formattedDate}
     </span>
   );

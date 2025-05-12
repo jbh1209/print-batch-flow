@@ -1,114 +1,27 @@
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import { Plus, FileUp } from "lucide-react";
-import GenericJobsTable from "@/components/generic/GenericJobsTable";
+import { productConfigs } from "@/config/productTypes";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
-import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';
-import { productConfigs } from '@/config/productTypes';
+import GenericJobsPage from "@/components/generic/GenericJobsPage";
 
 const PostcardJobsPage = () => {
-  const navigate = useNavigate();
   const config = productConfigs["Postcards"];
-  const {
-    jobs,
-    isLoading,
-    error,
-    deleteJob,
-    createBatch,
-    isCreatingBatch,
-    fixBatchedJobsWithoutBatch,
-    isFixingBatchedJobs
-  } = useGenericJobs(config);
-
-  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
-  const [selectedJobs, setSelectedJobs] = useState<any[]>([]);
-
-  const handleNewJob = () => {
-    navigate(config.routes.newJobPath);
+  
+  // Create a wrapper function that returns the hook result with type conversion
+  const jobsHookWrapper = () => {
+    const hookResult = useGenericJobs(config);
+    
+    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
+    const fixBatchedJobsWrapper = async () => {
+      return await hookResult.fixBatchedJobsWithoutBatch();
+    };
+    
+    return {
+      ...hookResult,
+      fixBatchedJobsWithoutBatch: fixBatchedJobsWrapper
+    };
   };
 
-  const handleViewJob = (jobId: string) => {
-    console.log("Navigating to job details:", jobId);
-    if (config.routes.jobDetailPath) {
-      const path = config.routes.jobDetailPath(jobId);
-      console.log("Navigation path:", path);
-      navigate(path);
-    } else {
-      console.error("No jobDetailPath route defined in config");
-    }
-  };
-
-  const handleEditJob = (jobId: string) => {
-    console.log("Navigating to job edit:", jobId);
-    if (config.routes.jobEditPath) {
-      const path = config.routes.jobEditPath(jobId);
-      console.log("Navigation path:", path);
-      navigate(path);
-    } else {
-      console.error("No jobEditPath route defined in config");
-    }
-  };
-
-  const handleSelectionChange = (jobs: any[]) => {
-    setSelectedJobs(jobs);
-  };
-
-  const handleCreateBatch = (jobs: any[]) => {
-    setSelectedJobs(jobs);
-    setIsBatchDialogOpen(true);
-  };
-
-  const handleBatchCreated = () => {
-    setIsBatchDialogOpen(false);
-  };
-
-  return (
-    <div className="container mx-auto py-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">{config.ui.title || "Postcard"} Jobs</h1>
-        <div className="flex space-x-2">
-          <Button onClick={() => handleCreateBatch(jobs.filter(job => job.status === 'queued'))}>
-            <FileUp className="mr-2 h-4 w-4" />
-            Batch Jobs
-          </Button>
-          <Button onClick={handleNewJob}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Job
-          </Button>
-        </div>
-      </div>
-
-      <GenericJobsTable
-        jobs={jobs}
-        isLoading={isLoading}
-        error={error}
-        deleteJob={deleteJob}
-        fetchJobs={async () => {}}
-        createBatch={createBatch}
-        isCreatingBatch={isCreatingBatch}
-        fixBatchedJobsWithoutBatch={async () => { 
-          // Convert the return value to void by wrapping the original function
-          await fixBatchedJobsWithoutBatch();
-        }}
-        isFixingBatchedJobs={isFixingBatchedJobs}
-        config={config}
-        onViewJob={handleViewJob}
-        onEditJob={handleEditJob}
-      />
-
-      <GenericBatchCreateDialog
-        config={config}
-        isOpen={isBatchDialogOpen}
-        onClose={() => setIsBatchDialogOpen(false)}
-        onSuccess={handleBatchCreated}
-        preSelectedJobs={selectedJobs}
-        createBatch={createBatch}
-        isCreatingBatch={isCreatingBatch}
-      />
-    </div>
-  );
+  return <GenericJobsPage config={config} useJobsHook={jobsHookWrapper} />;
 };
 
 export default PostcardJobsPage;
