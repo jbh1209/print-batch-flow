@@ -89,7 +89,9 @@ export function UserTableContainer() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
+  // Fix: Modify the handleDeleteUser function to match the expected signature
+  // from UserTable component (userId: string) => void
+  const handleDeleteUser = async (userId: string) => {
     try {
       setError(null);
       toast.loading("Revoking user access...", { duration: 5000 });

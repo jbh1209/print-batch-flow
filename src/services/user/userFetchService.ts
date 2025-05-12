@@ -63,8 +63,8 @@ export async function fetchUsers(retryCount = 0, maxRetries = 2): Promise<UserWi
           'Accept': 'application/json',
           // Bypass cache for forced refreshes
           'Cache-Control': retryCount > 0 ? 'no-cache' : 'max-age=5'
-        },
-        signal: controller.signal
+        }
+        // Removed the 'signal' property as it's not supported in FunctionInvokeOptions
       });
       
       clearTimeout(timeoutId);

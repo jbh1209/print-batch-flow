@@ -28,7 +28,7 @@ import { toast } from "sonner";
 interface UserTableProps {
   users: UserWithRole[];
   onEdit: (user: UserWithRole) => void;
-  onDelete: (userId: string) => void;
+  onDelete: (userId: string) => void; // Changed signature to match implementation
 }
 
 export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
