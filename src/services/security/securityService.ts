@@ -1,4 +1,3 @@
-
 /**
  * Centralized Security Service 
  * 
@@ -105,7 +104,7 @@ export async function getSecureCurrentUser(): Promise<UserWithRole | null> {
       id: user.id,
       email: user.email || '',
       created_at: user.created_at,
-      last_sign_in_at: user.last_seen_at,
+      last_sign_in_at: user.last_sign_in_at || null, // Fixed: use last_sign_in_at property which exists on Supabase User type
       role,
       full_name: profile?.full_name || null,
       avatar_url: profile?.avatar_url || null
