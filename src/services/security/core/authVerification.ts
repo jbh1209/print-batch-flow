@@ -35,8 +35,9 @@ export async function verifyUserRole(userId: string, role: 'admin' | 'user', use
       let functionName = role === 'admin' ? 'is_admin_secure_fixed' : 'has_role';
       const params = role === 'admin' ? { _user_id: userId } : { _user_id: userId, _role: role };
       
+      // Add type assertion to fix TypeScript error
       const { data: rpcData, error: rpcError } = await supabase.rpc(
-        functionName, 
+        functionName as any, 
         params
       );
       

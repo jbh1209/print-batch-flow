@@ -1,3 +1,4 @@
+
 /**
  * User Fetching Core Utilities
  * 
@@ -51,7 +52,7 @@ export async function secureGetAllUsers(): Promise<UserWithRole[]> {
     
     // APPROACH 1: Use RPC function (most reliable method)
     try {
-      // Use type assertion to tell TypeScript this function exists
+      // Use type assertion to fix TypeScript error
       const { data: rpcData, error: rpcError } = await supabase.rpc(
         'get_all_users_with_roles' as any
       );
