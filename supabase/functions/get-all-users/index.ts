@@ -65,7 +65,7 @@ serve(async (req) => {
           email: "admin@example.com",
           created_at: new Date().toISOString(),
           last_sign_in_at: new Date().toISOString(),
-          role: "admin",
+          role: "admin", // Ensure we're using string literals that match UserRole
           full_name: "Admin User",
           avatar_url: null
         },
@@ -74,7 +74,7 @@ serve(async (req) => {
           email: "user@example.com",
           created_at: new Date().toISOString(),
           last_sign_in_at: new Date().toISOString(),
-          role: "user",
+          role: "user", // Ensure we're using string literals that match UserRole
           full_name: "Regular User",
           avatar_url: null
         },
@@ -83,7 +83,7 @@ serve(async (req) => {
           email: "dev@example.com",
           created_at: new Date().toISOString(),
           last_sign_in_at: new Date().toISOString(),
-          role: "user",
+          role: "user", // Ensure we're using string literals that match UserRole
           full_name: "Developer User",
           avatar_url: null
         }
@@ -297,17 +297,23 @@ serve(async (req) => {
         console.log("User roles fetched:", userRoles?.length || 0);
       }
       
-      // Combine the data
+      // Combine the data with normalized role values
       const combinedUsers = authUsers.users.map(authUser => {
         const profile = profiles?.find(p => p.id === authUser.id) || null;
-        const userRole = userRoles?.find(r => r.user_id === authUser.id)?.role || 'user';
+        const userRoleRecord = userRoles?.find(r => r.user_id === authUser.id);
+        
+        // Ensure role is either 'admin' or 'user', defaulting to 'user'
+        let role = 'user';
+        if (userRoleRecord && (userRoleRecord.role === 'admin' || userRoleRecord.role === 'user')) {
+          role = userRoleRecord.role;
+        }
         
         return {
           id: authUser.id,
           email: authUser.email,
           created_at: authUser.created_at,
           last_sign_in_at: authUser.last_sign_in_at,
-          role: userRole,
+          role,
           full_name: profile?.full_name || null,
           avatar_url: profile?.avatar_url || null
         };

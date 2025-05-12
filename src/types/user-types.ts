@@ -6,21 +6,21 @@ export interface UserFormData {
   role?: 'admin' | 'user';
 }
 
+export type UserRole = 'admin' | 'user';
+
 export interface UserWithRole {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'admin' | 'user';
+  role: UserRole;
   created_at: string;
   last_sign_in_at?: string;
   avatar_url?: string | null;
 }
 
 // Add missing types
-export type UserRole = 'admin' | 'user';
-
-export interface User {
+export type User = {
   id: string;
   email: string;
   full_name?: string | null;
-}
+};

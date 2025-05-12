@@ -1,14 +1,14 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import { supabase, adminClient, isLovablePreview } from '@/integrations/supabase/client';
+import { supabase, adminClient } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserFormData, UserWithRole } from '@/types/user-types';
+import { UserFormData, UserWithRole, UserRole } from '@/types/user-types';
+import { isPreviewMode, generateMockData, simulateApiCall } from '@/services/previewService';
 
 // Define the Supabase URL using the environment variable or directly
 const SUPABASE_URL = "https://kgizusgqexmlfcqfjopk.supabase.co";
 
-// Mock data used in preview mode
+// Enhanced mock data used in preview mode with proper type safety
 const MOCK_USERS: UserWithRole[] = [
   {
     id: "preview-user-1",
@@ -69,18 +69,6 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
   const fetchAttemptsRef = useRef<number>(0); // Count fetch attempts
   const COOLDOWN_PERIOD = 5000; // 5 seconds between fetch attempts
   const CACHE_TTL = 30000; // 30 seconds cache lifetime
-  
-  // Enhanced preview mode detection
-  const isPreviewMode = useCallback(() => {
-    // Check multiple indicators to ensure we properly detect preview mode
-    return (
-      isLovablePreview || 
-      typeof window !== "undefined" && (
-        window.location.hostname.includes('lovable.dev') || 
-        window.location.hostname.includes('gpteng.co')
-      )
-    );
-  }, []);
 
   // Debounced fetch function to prevent multiple concurrent calls
   const debouncedFetchUsers = useCallback(async () => {
@@ -123,7 +111,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       // ENHANCED PREVIEW MODE: Always use mock data in preview
       if (isPreviewMode()) {
         console.log("Preview mode detected, using mock user data");
-        await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API call with a shorter delay
+        await simulateApiCall(800); // Simulate API call with a shorter delay
         setUsers(MOCK_USERS);
         setLastFetchTime(Date.now());
         fetchAttemptsRef.current = 0;
@@ -171,7 +159,14 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         }
         
         console.log("Users fetched successfully via direct fetch:", data.length);
-        setUsers(data || []);
+        
+        // Ensure role values are valid by mapping them to the allowed types
+        const typedUsers = data.map((user: any) => ({
+          ...user,
+          role: validateRole(user.role)
+        }));
+        
+        setUsers(typedUsers);
         setLastFetchTime(Date.now());
         fetchAttemptsRef.current = 0;
         setError(null);
@@ -203,12 +198,13 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
             
             if (authError) throw authError;
             
-            // Map the basic user data to our expected format
+            // Map the basic user data to our expected format with proper type safety
             const basicUsers = authUsers.users.map(authUser => ({
               id: authUser.id,
               email: authUser.email || "",
               full_name: authUser.user_metadata?.full_name || null,
-              role: "user", // Default role as we can't determine actual role
+              // Ensure role is a valid UserRole type
+              role: "user" as UserRole, // Default role as we can't determine actual role
               created_at: authUser.created_at
             }));
             
@@ -230,7 +226,14 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         }
         
         console.log("Users fetched successfully via functions API:", data.length);
-        setUsers(data);
+        
+        // Ensure role values are valid by mapping them to the allowed types
+        const typedUsers = data.map((user: any) => ({
+          ...user,
+          role: validateRole(user.role)
+        }));
+        
+        setUsers(typedUsers);
         setLastFetchTime(Date.now());
         fetchAttemptsRef.current = 0;
         setError(null);
@@ -281,7 +284,17 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         }, 500); // Small delay to batch rapid requests
       }
     }
-  }, [user, isAdmin, session, users.length, lastFetchTime, isPreviewMode]);
+  }, [user, isAdmin, session, users.length, lastFetchTime]);
+
+  // Utility function to validate and normalize role values
+  const validateRole = (role: any): UserRole => {
+    if (role === 'admin' || role === 'user') {
+      return role;
+    }
+    // Default to 'user' for any invalid role values
+    console.warn(`Invalid role value detected: "${role}", defaulting to "user"`);
+    return 'user';
+  };
 
   // Exposed fetch function that uses the debounced implementation
   const fetchUsers = useCallback(async () => {
@@ -294,14 +307,14 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     // Handle preview mode separately for consistent behavior
     if (isPreviewMode()) {
       console.log("Preview mode detected, simulating user creation");
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await simulateApiCall(800);
       
-      // Create a new mock user with realistic data
+      // Create a new mock user with realistic data and proper typings
       const newMockUser: UserWithRole = {
         id: `preview-user-${Date.now()}`,
         email: userData.email,
         full_name: userData.full_name || '',
-        role: userData.role || 'user',
+        role: (userData.role || 'user') as UserRole,
         created_at: new Date().toISOString(),
       };
       
@@ -348,7 +361,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
           id: data.user.id,
           email: data.user.email,
           full_name: userData.full_name || null,
-          role: userData.role || 'user',
+          role: (userData.role || 'user') as UserRole,
           created_at: new Date().toISOString()
         };
         
@@ -385,7 +398,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
           id: data.user.id,
           email: data.user.email,
           full_name: userData.full_name || null,
-          role: userData.role || 'user',
+          role: (userData.role || 'user') as UserRole,
           created_at: new Date().toISOString()
         };
         
@@ -400,14 +413,14 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [user, isAdmin, session, isPreviewMode]);
+  }, [user, isAdmin, session]);
 
   // Update an existing user
   const updateUser = useCallback(async (userId: string, userData: UserFormData): Promise<void> => {
     // Handle preview mode separately for consistent behavior
     if (isPreviewMode()) {
       console.log("Preview mode detected, simulating user update");
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await simulateApiCall(600);
       
       setUsers(prev =>
         prev.map(u =>
@@ -415,7 +428,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
             ? { 
                 ...u, 
                 full_name: userData.full_name || u.full_name, 
-                role: userData.role || u.role 
+                role: (userData.role as UserRole) || u.role 
               }
             : u
         )
@@ -445,9 +458,12 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         
         updatePromises.push(rolePromise);
         
+        // Ensure role is a valid UserRole type
+        const validatedRole = validateRole(userData.role);
+        
         // Optimistically update the role in the local state
         setUsers(prevUsers =>
-          prevUsers.map(u => (u.id === userId ? { ...u, role: userData.role || 'user' } : u))
+          prevUsers.map(u => (u.id === userId ? { ...u, role: validatedRole } : u))
         );
       }
       
@@ -482,14 +498,14 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [user, isAdmin, session, debouncedFetchUsers, isPreviewMode]);
+  }, [user, isAdmin, session, debouncedFetchUsers, validateRole]);
 
   // Delete/deactivate a user
   const deleteUser = useCallback(async (userId: string): Promise<void> => {
     // Handle preview mode separately for consistent behavior
     if (isPreviewMode()) {
       console.log("Preview mode detected, simulating user deletion");
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await simulateApiCall(600);
       
       setUsers(prev => prev.filter(u => u.id !== userId));
       toast.success("User access revoked successfully (Preview Mode)");
@@ -523,17 +539,17 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [user, isAdmin, session, debouncedFetchUsers, isPreviewMode]);
+  }, [user, isAdmin, session, debouncedFetchUsers]);
 
   // Add admin role to a user
   const addAdminRole = useCallback(async (userId: string): Promise<void> => {
     // Handle preview mode separately for consistent behavior
     if (isPreviewMode()) {
       console.log("Preview mode detected, simulating add admin role");
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await simulateApiCall(600);
       
       setUsers(prev =>
-        prev.map(u => (u.id === userId ? { ...u, role: 'admin' } : u))
+        prev.map(u => (u.id === userId ? { ...u, role: 'admin' as UserRole } : u))
       );
       
       toast.success('Admin role granted successfully (Preview Mode)');
@@ -557,7 +573,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       
       // Optimistically update the user role in the local state
       setUsers(prevUsers =>
-        prevUsers.map(u => (u.id === userId ? { ...u, role: 'admin' } : u))
+        prevUsers.map(u => (u.id === userId ? { ...u, role: 'admin' as UserRole } : u))
       );
       setLastFetchTime(Date.now()); // Update last fetch time
     } catch (error: any) {
@@ -569,7 +585,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [session, debouncedFetchUsers, isPreviewMode]);
+  }, [session, debouncedFetchUsers]);
 
   // Load users on mount if user is admin and session exists, with debounce
   useEffect(() => {
@@ -587,7 +603,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         retryTimeoutRef.current = null;
       }
     };
-  }, [user, isAdmin, session?.access_token, fetchUsers, isPreviewMode]);
+  }, [user, isAdmin, session?.access_token, fetchUsers]);
 
   const value = {
     users,
