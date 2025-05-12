@@ -49,11 +49,17 @@ export function useUserFetching() {
     }
   }, [isAdmin]);
 
+  // Add a void version of the fetch function to fix type compatibility
+  const fetchUsersVoid = useCallback(async (): Promise<void> => {
+    await fetchAllUsers();
+  }, [fetchAllUsers]);
+
   return {
     users,
     isLoading,
     error,
     fetchUsers: fetchAllUsers,
+    fetchUsersVoid, // Add void version for context compatibility
     setUsers // Exposing this to allow other hooks to update users array
   };
 }

@@ -24,16 +24,16 @@ const UserManagementContext = createContext<UserManagementContextType | undefine
 
 export const UserManagementProvider = ({ children }: { children: ReactNode }) => {
   const { isAdmin } = useAuth();
-  const { users, isLoading, error, fetchUsers, setUsers } = useUserFetching();
-  const { createUser } = useUserCreation(fetchUsers, setUsers);
-  const { updateUser, deleteUser } = useUserModification(fetchUsers);
+  const { users, isLoading, error, fetchUsersVoid, setUsers } = useUserFetching();
+  const { createUser } = useUserCreation(fetchUsersVoid, setUsers);
+  const { updateUser, deleteUser } = useUserModification(fetchUsersVoid);
   const { 
     anyAdminExists, 
     error: adminError, 
     checkAdminExists, 
     addAdminRole, 
     setError 
-  } = useAdminChecks(fetchUsers);
+  } = useAdminChecks(fetchUsersVoid);
 
   // Sync errors between hooks
   useEffect(() => {
@@ -49,9 +49,9 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     
     // Load users if admin
     if (isAdmin) {
-      fetchUsers().catch(console.error);
+      fetchUsersVoid().catch(console.error);
     }
-  }, [checkAdminExists, fetchUsers, isAdmin]);
+  }, [checkAdminExists, fetchUsersVoid, isAdmin]);
 
   return (
     <UserManagementContext.Provider
@@ -60,7 +60,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         isLoading,
         error: error || adminError,
         anyAdminExists,
-        fetchUsers,
+        fetchUsers: fetchUsersVoid,
         createUser,
         updateUser,
         deleteUser,
