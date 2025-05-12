@@ -1,7 +1,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import { supabase, adminClient } from '@/integrations/supabase/client';
+import { supabase, adminClient, isLovablePreview } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 
@@ -41,11 +41,6 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
   const fetchAttemptsRef = useRef<number>(0); // Count fetch attempts
   const COOLDOWN_PERIOD = 5000; // 5 seconds between fetch attempts
   const CACHE_TTL = 30000; // 30 seconds cache lifetime
-
-  // Check if we're in Lovable preview mode
-  const isLovablePreview = 
-    typeof window !== 'undefined' && 
-    (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
 
   // Debounced fetch function to prevent multiple concurrent calls
   const debouncedFetchUsers = useCallback(async () => {
@@ -124,33 +119,65 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
       console.log("Starting user fetch with session token available:", !!session?.access_token);
       
-      // Use adminClient for edge function calls to ensure HTTP/REST is used
-      const { data, error: fetchError } = await adminClient.functions.invoke('get-all-users', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
-      });
-      
-      if (fetchError) {
-        console.error("Function error:", fetchError);
-        console.error("Error details:", JSON.stringify(fetchError));
+      try {
+        // Use raw fetch for edge function in production, bypassing WebSocket issues
+        const response = await fetch(`${supabase.supabaseUrl}/functions/v1/get-all-users`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
         
-        throw fetchError;
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid response format from edge function");
+        }
+        
+        console.log("Users fetched successfully:", data.length);
+        setUsers(data || []);
+        setLastFetchTime(Date.now());
+        fetchAttemptsRef.current = 0;
+        setError(null);
+      } catch (fetchError) {
+        console.error("Direct fetch error:", fetchError);
+        
+        // Fall back to Supabase functions API if direct fetch fails
+        console.log("Falling back to Supabase functions API");
+        
+        const { data, error: functionError } = await adminClient.functions.invoke('get-all-users', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        if (functionError) {
+          console.error("Function error:", functionError);
+          throw functionError;
+        }
+        
+        if (!data) {
+          throw new Error("No data returned from edge function");
+        }
+        
+        console.log("Users fetched successfully via fallback:", data.length);
+        setUsers(data || []);
+        setLastFetchTime(Date.now());
+        fetchAttemptsRef.current = 0;
+        setError(null);
       }
-      
-      if (!data) {
-        throw new Error("No data returned from edge function");
-      }
-      
-      console.log("Users fetched successfully:", data.length);
-      setUsers(data || []);
-      setLastFetchTime(Date.now());
-      fetchAttemptsRef.current = 0;
-      setError(null);
     } catch (error: any) {
       console.error('Error fetching users:', error);
       setError(error.message || 'Failed to fetch users');
@@ -197,7 +224,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         }, 500); // Small delay to batch rapid requests
       }
     }
-  }, [user, isAdmin, session, users.length, lastFetchTime, isLovablePreview]);
+  }, [user, isAdmin, session, users.length, lastFetchTime]);
 
   // Exposed fetch function that uses the debounced implementation
   const fetchUsers = useCallback(async () => {
@@ -229,42 +256,82 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
     try {
       console.log("Creating user with data:", userData);
-      const { data, error: createError } = await adminClient.functions.invoke('create-user', {
-        method: 'POST',
-        body: userData,
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+      
+      try {
+        // Try direct fetch first
+        const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-user`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(userData)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error ${response.status}`);
         }
-      });
-      
-      if (createError) {
-        console.error("User creation error:", createError);
-        throw new Error(`Failed to create user: ${createError.message || 'Unknown error'}`);
+        
+        const data = await response.json();
+        
+        if (!data || !data.success) {
+          throw new Error("Invalid response from create-user function");
+        }
+        
+        // Manually add the new user to the state to avoid another API call
+        const newUser: UserWithRole = {
+          id: data.user.id,
+          email: data.user.email,
+          full_name: userData.full_name || null,
+          role: userData.role || 'user',
+          created_at: new Date().toISOString()
+        };
+        
+        setUsers(prevUsers => [...prevUsers, newUser]);
+        setLastFetchTime(Date.now()); // Update last fetch time to avoid immediate refetch
+        toast.success("User created successfully");
+      } catch (fetchError) {
+        console.error("Direct fetch error:", fetchError);
+        
+        // Fall back to Supabase functions API
+        const { data, error: createError } = await adminClient.functions.invoke('create-user', {
+          method: 'POST',
+          body: userData,
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (createError) {
+          console.error("User creation error:", createError);
+          throw createError;
+        }
+        
+        if (!data || !data.success) {
+          console.error("Invalid response from create-user function:", data);
+          throw new Error('User creation failed: Invalid response from server');
+        }
+        
+        // Manually add the new user to the state to avoid another API call
+        const newUser: UserWithRole = {
+          id: data.user.id,
+          email: data.user.email,
+          full_name: userData.full_name || null,
+          role: userData.role || 'user',
+          created_at: new Date().toISOString()
+        };
+        
+        setUsers(prevUsers => [...prevUsers, newUser]);
+        setLastFetchTime(Date.now()); // Update last fetch time to avoid immediate refetch
+        toast.success("User created successfully");
       }
-      
-      if (!data || !data.success) {
-        console.error("Invalid response from create-user function:", data);
-        throw new Error('User creation failed: Invalid response from server');
-      }
-      
-      // Manually add the new user to the state to avoid another API call
-      const newUser: UserWithRole = {
-        id: data.user.id,
-        email: data.user.email,
-        full_name: userData.full_name || null,
-        role: userData.role || 'user',
-        created_at: new Date().toISOString()
-      };
-      
-      setUsers(prevUsers => [...prevUsers, newUser]);
-      setLastFetchTime(Date.now()); // Update last fetch time to avoid immediate refetch
-      toast.success("User created successfully");
     } catch (error: any) {
       console.error('Error creating user:', error);
       throw error;
     }
-  }, [user, isAdmin, session, isLovablePreview]);
+  }, [user, isAdmin, session]);
 
   // Update an existing user
   const updateUser = useCallback(async (userId: string, userData: UserFormData): Promise<void> => {
@@ -332,7 +399,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       debouncedFetchUsers();
       throw error;
     }
-  }, [user, isAdmin, session, isLovablePreview, debouncedFetchUsers]);
+  }, [user, isAdmin, session, debouncedFetchUsers]);
 
   // Delete/deactivate a user
   const deleteUser = useCallback(async (userId: string): Promise<void> => {
@@ -366,7 +433,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       debouncedFetchUsers();
       throw error;
     }
-  }, [user, isAdmin, session, isLovablePreview, debouncedFetchUsers]);
+  }, [user, isAdmin, session, debouncedFetchUsers]);
 
   // Add admin role to a user
   const addAdminRole = useCallback(async (userId: string): Promise<void> => {
@@ -404,7 +471,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       debouncedFetchUsers();
       throw new Error(error.message || 'Failed to set admin role');
     }
-  }, [session, isLovablePreview, debouncedFetchUsers]);
+  }, [session, debouncedFetchUsers]);
 
   // Load users on mount if user is admin and session exists, with debounce
   useEffect(() => {

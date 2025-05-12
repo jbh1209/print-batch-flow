@@ -5,11 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-
-// Check if we're in Lovable preview mode
-const isLovablePreview = 
-  typeof window !== 'undefined' && 
-  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+import { isLovablePreview } from '@/integrations/supabase/client';
 
 interface ProtectedRouteProps {
   children: ReactNode;

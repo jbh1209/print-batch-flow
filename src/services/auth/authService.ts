@@ -9,6 +9,11 @@ const KNOWN_ADMIN_EMAILS = [
   "studio@impressweb.co.za"
 ];
 
+// Check if we're in Lovable preview mode
+export const isLovablePreview = 
+  typeof window !== 'undefined' && 
+  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+
 /**
  * Clean up all auth state in localStorage and sessionStorage
  * This helps prevent auth limbo states
@@ -150,6 +155,12 @@ export const getSession = async () => {
  * This helps ensure admin access continues to work even if one check method fails
  */
 export const checkIsAdmin = async (userId: string, userEmail?: string | null): Promise<boolean> => {
+  // Skip checks in preview mode
+  if (isLovablePreview) {
+    console.log('Preview mode detected, user granted admin status automatically');
+    return true;
+  }
+  
   if (!userId) return false;
   console.log('Checking admin status for user:', userId);
   

@@ -7,7 +7,7 @@ const SUPABASE_URL = "https://kgizusgqexmlfcqfjopk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnaXp1c2dxZXhtbGZjcWZqb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NTQwNzAsImV4cCI6MjA2MDEzMDA3MH0.NA2wRme-L8Z15my7n8u-BCQtO4Nw2opfsX0KSLYcs-I";
 
 // Check if we're in Lovable preview mode
-const isLovablePreview = 
+export const isLovablePreview = 
   typeof window !== 'undefined' && 
   (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
 
@@ -23,8 +23,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     flowType: 'implicit' // Changed from 'pkce' to 'implicit' flow
   },
   global: {
-    // Use HTTP fetch for all operations to avoid WebSocket issues in preview
+    // Always use HTTP fetch for all operations to avoid WebSocket issues
     fetch: function(url, options) {
+      console.log('Supabase client making request to:', url);
       return fetch(url, options);
     }
   },
@@ -55,6 +56,7 @@ export const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISH
   global: {
     // Force HTTP/HTTPS fetch for all operations
     fetch: function(url, options) {
+      console.log('Admin client making request to:', url);
       return fetch(url, options);
     }
   }
