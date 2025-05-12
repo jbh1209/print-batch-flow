@@ -35,6 +35,34 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
   // Fetch all users (admin only)
   const fetchUsers = async () => {
+    // Check if we're in Lovable preview mode
+    const isLovablePreview = 
+      typeof window !== 'undefined' && 
+      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+      
+    if (isLovablePreview) {
+      console.log("Preview mode detected, using mock user data");
+      setUsers([
+        {
+          id: "preview-user-1",
+          email: "admin@example.com",
+          full_name: "Preview Admin",
+          role: "admin",
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "preview-user-2",
+          email: "user@example.com",
+          full_name: "Preview User",
+          role: "user",
+          created_at: new Date().toISOString(),
+        }
+      ]);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
     if (!user || !isAdmin) {
       setError("Admin privileges required");
       return;
@@ -106,20 +134,41 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
   // Create a new user with admin privileges
   const createUser = async (userData: UserFormData): Promise<void> => {
+    // Check if we're in Lovable preview mode
+    const isLovablePreview = 
+      typeof window !== 'undefined' && 
+      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+      
+    if (isLovablePreview) {
+      console.log("Preview mode detected, simulating user creation");
+      // Simulate success
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return;
+    }
+
     if (!user || !isAdmin || !session?.access_token) {
       throw new Error("Admin privileges required or session expired");
     }
 
     try {
+      console.log("Creating user with data:", userData);
       const { data, error: createError } = await supabase.functions.invoke('create-user', {
         body: userData,
         headers: {
           Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
         }
       });
       
-      if (createError) throw createError;
-      if (!data || !data.success) throw new Error('User creation failed');
+      if (createError) {
+        console.error("User creation error:", createError);
+        throw new Error(`Failed to create user: ${createError.message || 'Unknown error'}`);
+      }
+      
+      if (!data || !data.success) {
+        console.error("Invalid response from create-user function:", data);
+        throw new Error('User creation failed: Invalid response from server');
+      }
       
       // Refresh the user list
       await fetchUsers();
@@ -131,6 +180,18 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
   // Update an existing user
   const updateUser = async (userId: string, userData: UserFormData): Promise<void> => {
+    // Check if we're in Lovable preview mode
+    const isLovablePreview = 
+      typeof window !== 'undefined' && 
+      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+      
+    if (isLovablePreview) {
+      console.log("Preview mode detected, simulating user update");
+      // Simulate success
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return;
+    }
+
     if (!user || !isAdmin || !session?.access_token) {
       throw new Error("Admin privileges required or session expired");
     }
@@ -148,10 +209,10 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       
       // Update user profile if full_name provided
       if (userData.full_name) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ full_name: userData.full_name })
-          .eq('id', userId);
+        const { error: profileError } = await supabase.rpc('update_user_profile_admin', {
+          _user_id: userId,
+          _full_name: userData.full_name
+        });
           
         if (profileError) throw profileError;
       }
@@ -166,28 +227,53 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
   // Delete/deactivate a user
   const deleteUser = async (userId: string): Promise<void> => {
+    // Check if we're in Lovable preview mode
+    const isLovablePreview = 
+      typeof window !== 'undefined' && 
+      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+      
+    if (isLovablePreview) {
+      console.log("Preview mode detected, simulating user deletion");
+      // Simulate success
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return;
+    }
+
     if (!user || !isAdmin || !session?.access_token) {
       throw new Error("Admin privileges required or session expired");
     }
 
     try {
-      // Admin users can delete other users through the admin API
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(
-        userId
-      );
+      // We'll use revoke_user_role instead of actual deletion
+      // This retains the user but removes their access capabilities
+      const { error: revokeError } = await supabase.rpc('revoke_user_role', {
+        target_user_id: userId
+      });
       
-      if (deleteError) throw deleteError;
+      if (revokeError) throw revokeError;
       
       // Refresh the user list
       await fetchUsers();
     } catch (error: any) {
-      console.error('Error deleting user:', error);
+      console.error('Error revoking user access:', error);
       throw error;
     }
   };
 
   // Add admin role to a user
   const addAdminRole = async (userId: string): Promise<void> => {
+    // Check if we're in Lovable preview mode
+    const isLovablePreview = 
+      typeof window !== 'undefined' && 
+      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+      
+    if (isLovablePreview) {
+      console.log("Preview mode detected, simulating add admin role");
+      // Simulate success
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return;
+    }
+
     if (!session?.access_token) {
       throw new Error("Authentication session expired. Please sign in again.");
     }
@@ -201,6 +287,9 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       if (error) throw error;
       
       toast.success('Admin role granted successfully');
+      
+      // Refresh the user list
+      await fetchUsers();
     } catch (error: any) {
       console.error('Error setting admin role:', error);
       throw new Error(error.message || 'Failed to set admin role');
