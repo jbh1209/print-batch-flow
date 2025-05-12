@@ -2,18 +2,50 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 
+// Enhanced CORS headers to ensure better compatibility
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-requested-with, accept",
+  "Access-Control-Max-Age": "86400" // 24 hours cache for preflight requests
 };
 
-// Check if we're in Lovable preview mode
-const isPreviewMode = (url: string): boolean => {
-  return url.includes('lovable.dev') || url.includes('gpteng.co');
+// Enhanced preview mode detection with multiple indicators
+const isPreviewMode = (url: string, headers: Headers): boolean => {
+  // Check URL patterns associated with preview environments
+  const urlCheck = url.includes('lovable.dev') || 
+                  url.includes('gpteng.co') || 
+                  url.includes('localhost');
+  
+  // Check headers that might indicate preview environments
+  const headerCheck = headers.get('x-lovable-preview') === 'true' || 
+                     headers.get('origin')?.includes('lovable.dev') || 
+                     headers.get('origin')?.includes('gpteng.co');
+  
+  return urlCheck || headerCheck;
 };
 
 // Cache control constants
 const CACHE_CONTROL_VALUE = "public, s-maxage=10, max-age=5"; // 10s on CDN, 5s in browser
+
+// Helper function to generate detailed error responses
+const createErrorResponse = (status: number, message: string, details?: any) => {
+  return new Response(
+    JSON.stringify({ 
+      error: message, 
+      details: details,
+      timestamp: new Date().toISOString(),
+    }),
+    { 
+      status, 
+      headers: { 
+        ...corsHeaders, 
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store" 
+      } 
+    }
+  );
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -25,7 +57,7 @@ serve(async (req) => {
   
   try {
     // Check if in preview mode and return mock data if needed
-    if (isPreviewMode(req.url)) {
+    if (isPreviewMode(req.url, req.headers)) {
       console.log("Preview mode detected, returning mock data");
       const mockUsers = [
         {
@@ -45,8 +77,20 @@ serve(async (req) => {
           role: "user",
           full_name: "Regular User",
           avatar_url: null
+        },
+        {
+          id: "preview-user-3",
+          email: "dev@example.com",
+          created_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString(),
+          role: "user",
+          full_name: "Developer User",
+          avatar_url: null
         }
       ];
+      
+      // Add artificial delay to simulate network latency (makes UI testing more realistic)
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       return new Response(
         JSON.stringify(mockUsers),
@@ -55,7 +99,8 @@ serve(async (req) => {
           headers: { 
             ...corsHeaders, 
             "Content-Type": "application/json",
-            "Cache-Control": CACHE_CONTROL_VALUE
+            "Cache-Control": CACHE_CONTROL_VALUE,
+            "X-Preview-Mode": "true"
           } 
         }
       );
@@ -66,16 +111,7 @@ serve(async (req) => {
     console.log("Auth header present:", !!authHeader);
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error("Missing or invalid authorization header");
-      return new Response(
-        JSON.stringify({ 
-          error: 'Missing or invalid authorization header. Format should be: Bearer [token]' 
-        }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        }
-      );
+      return createErrorResponse(401, 'Missing or invalid authorization header. Format should be: Bearer [token]');
     }
     
     // Extract the JWT token
@@ -123,15 +159,18 @@ serve(async (req) => {
       
       if (userError || !user) {
         console.error("Auth error:", userError || "No user found");
-        throw new Error('Authentication failed: ' + (userError?.message || "Invalid or expired token"));
+        return createErrorResponse(401, 'Authentication failed', userError?.message || "Invalid or expired token");
       }
       
       console.log("User authenticated:", user.id);
       userId = user.id;
       
-      // Method 2: Check admin status via RPC - most secure
+      // SIMPLIFIED ADMIN VALIDATION APPROACH: 
+      // Consolidate the multiple checks into a single function call for better performance
+      
       try {
-        console.log("Checking admin status via RPC");
+        console.log("Checking admin status via combined approach");
+        // First try the RPC function (most reliable)
         const { data: isAdminRpc, error: adminError } = await userClient.rpc('is_admin_secure_fixed', { 
           _user_id: user.id 
         });
@@ -141,67 +180,39 @@ serve(async (req) => {
           isAdmin = true;
         } else if (adminError) {
           console.warn("RPC admin check failed:", adminError.message);
-          // Continue to fallback methods
-        }
-      } catch (rpcError) {
-        console.error("Error in admin RPC check:", rpcError);
-        // Continue to fallback methods
-      }
-      
-      // Method 3: Direct query to user_roles if RPC failed
-      if (!isAdmin) {
-        try {
-          console.log("Checking admin status via direct query");
-          const { data: roleData, error: roleError } = await userClient
+          
+          // If RPC fails, try direct query as fallback
+          const { data: roleData } = await userClient
             .from('user_roles')
             .select('role')
             .eq('user_id', user.id)
             .eq('role', 'admin')
             .maybeSingle();
           
-          if (!roleError && roleData) {
-            console.log("Admin status confirmed via direct query");
-            isAdmin = true;
-          } else if (roleError) {
-            console.warn("Direct query admin check failed:", roleError.message);
+          isAdmin = !!roleData;
+          
+          // Final fallback - check against known admin emails
+          if (!isAdmin && user.email) {
+            const knownAdminEmails = [
+              "james@impressweb.co.za",
+              "studio@impressweb.co.za"
+            ];
+            
+            isAdmin = knownAdminEmails.includes(user.email.toLowerCase());
           }
-        } catch (queryError) {
-          console.error("Error in direct query admin check:", queryError);
         }
-      }
-      
-      // Method 4: Emergency fallback - check against known admin emails
-      if (!isAdmin && user.email) {
-        const knownAdminEmails = [
-          "james@impressweb.co.za",
-          "studio@impressweb.co.za"
-        ];
-        
-        if (knownAdminEmails.includes(user.email.toLowerCase())) {
-          console.log("Admin status granted via known admin email list");
-          isAdmin = true;
-        }
+      } catch (adminCheckError) {
+        console.error("Error in admin checks:", adminCheckError);
+        // Continue with admin = false
       }
     } catch (authError) {
       console.error("Authentication error:", authError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Authentication failed', 
-          details: authError.message || "Invalid or expired token"
-        }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        }
-      );
+      return createErrorResponse(401, 'Authentication failed', authError.message || "Invalid or expired token");
     }
     
     if (!isAdmin) {
       console.log("User is not admin");
-      return new Response(
-        JSON.stringify({ error: 'Access denied: admin privileges required' }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return createErrorResponse(403, 'Access denied: admin privileges required');
     }
     
     console.log("Admin status confirmed, fetching users");
@@ -221,7 +232,7 @@ serve(async (req) => {
           fetch: (url, options) => {
             // Custom fetch implementation with timeout
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
             
             return fetch(url, {
               ...options,
@@ -238,32 +249,28 @@ serve(async (req) => {
       }
     );
     
-    // Set a timeout for each DB operation to prevent hanging
-    const authUsersPromise = adminClient.auth.admin.listUsers();
-    const profilesPromise = adminClient.from('profiles').select('*');
-    const userRolesPromise = adminClient.from('user_roles').select('*');
-    
-    // Execute all queries in parallel with a timeout
-    const dbOperationTimeoutPromise = new Promise((_, reject) => {
+    // Set timeouts for each DB operation to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Database operations timeout')), 5000);
     });
     
     try {
-      // Get all users from auth.users using the admin client with service role key
+      // Get all users data in parallel for better performance
+      const authUsersPromise = adminClient.auth.admin.listUsers();
+      const profilesPromise = adminClient.from('profiles').select('*');
+      const userRolesPromise = adminClient.from('user_roles').select('*');
+      
       const [authUsersResult, profilesResult, userRolesResult] = await Promise.all([
-        Promise.race([authUsersPromise, dbOperationTimeoutPromise]),
-        Promise.race([profilesPromise, dbOperationTimeoutPromise]),
-        Promise.race([userRolesPromise, dbOperationTimeoutPromise])
+        Promise.race([authUsersPromise, timeoutPromise]),
+        Promise.race([profilesPromise, timeoutPromise]),
+        Promise.race([userRolesPromise, timeoutPromise])
       ]);
       
       const { data: authUsers, error: authUsersError } = authUsersResult;
       
       if (authUsersError) {
         console.error("Error listing users:", authUsersError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to fetch users', details: authUsersError.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return createErrorResponse(500, 'Failed to fetch users', authUsersError.message);
       }
       
       console.log("Auth users fetched successfully:", authUsers.users.length);
@@ -321,22 +328,10 @@ serve(async (req) => {
       );
     } catch (dbError) {
       console.error('Error in database operations:', dbError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Database error', 
-          details: dbError.message || 'Error retrieving user data' 
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return createErrorResponse(500, 'Database error', dbError.message || 'Error retrieving user data');
     }
   } catch (error) {
     console.error('Error in get-all-users function:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Server error', 
-        details: error.message || 'Unknown error occurred' 
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return createErrorResponse(500, 'Server error', error.message || 'Unknown error occurred');
   }
 });

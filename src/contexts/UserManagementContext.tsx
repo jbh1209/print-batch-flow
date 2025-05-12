@@ -8,6 +8,31 @@ import { UserFormData, UserWithRole } from '@/types/user-types';
 // Define the Supabase URL using the environment variable or directly
 const SUPABASE_URL = "https://kgizusgqexmlfcqfjopk.supabase.co";
 
+// Mock data used in preview mode
+const MOCK_USERS: UserWithRole[] = [
+  {
+    id: "preview-user-1",
+    email: "admin@example.com",
+    full_name: "Preview Admin",
+    role: "admin",
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "preview-user-2",
+    email: "user@example.com",
+    full_name: "Preview User",
+    role: "user",
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "preview-user-3",
+    email: "dev@example.com",
+    full_name: "Developer User",
+    role: "user",
+    created_at: new Date().toISOString(),
+  }
+];
+
 interface UserManagementContextType {
   users: UserWithRole[];
   isLoading: boolean;
@@ -44,6 +69,18 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
   const fetchAttemptsRef = useRef<number>(0); // Count fetch attempts
   const COOLDOWN_PERIOD = 5000; // 5 seconds between fetch attempts
   const CACHE_TTL = 30000; // 30 seconds cache lifetime
+  
+  // Enhanced preview mode detection
+  const isPreviewMode = useCallback(() => {
+    // Check multiple indicators to ensure we properly detect preview mode
+    return (
+      isLovablePreview || 
+      typeof window !== "undefined" && (
+        window.location.hostname.includes('lovable.dev') || 
+        window.location.hostname.includes('gpteng.co')
+      )
+    );
+  }, []);
 
   // Debounced fetch function to prevent multiple concurrent calls
   const debouncedFetchUsers = useCallback(async () => {
@@ -83,26 +120,11 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     setIsLoading(true);
     
     try {
-      // Handle preview mode with mock data
-      if (isLovablePreview) {
+      // ENHANCED PREVIEW MODE: Always use mock data in preview
+      if (isPreviewMode()) {
         console.log("Preview mode detected, using mock user data");
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-        setUsers([
-          {
-            id: "preview-user-1",
-            email: "admin@example.com",
-            full_name: "Preview Admin",
-            role: "admin",
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: "preview-user-2",
-            email: "user@example.com",
-            full_name: "Preview User",
-            role: "user",
-            created_at: new Date().toISOString(),
-          }
-        ]);
+        await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API call with a shorter delay
+        setUsers(MOCK_USERS);
         setLastFetchTime(Date.now());
         fetchAttemptsRef.current = 0;
         setError(null);
@@ -123,7 +145,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       console.log("Starting user fetch with session token available:", !!session?.access_token);
       
       try {
-        // Use raw fetch for edge function in production, bypassing WebSocket issues
+        // APPROACH 1: Direct fetch method with improved error handling and CORS settings
+        console.log("Attempting direct fetch to edge function");
         const response = await fetch(`${SUPABASE_URL}/functions/v1/get-all-users`, {
           method: 'GET',
           headers: {
@@ -131,7 +154,9 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
             'Accept': 'application/json',
             'Content-Type': 'application/json',
             'Cache-Control': 'no-cache'
-          }
+          },
+          // Add timeout for the fetch request
+          signal: AbortSignal.timeout(8000)
         });
         
         if (!response.ok) {
@@ -145,7 +170,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
           throw new Error("Invalid response format from edge function");
         }
         
-        console.log("Users fetched successfully:", data.length);
+        console.log("Users fetched successfully via direct fetch:", data.length);
         setUsers(data || []);
         setLastFetchTime(Date.now());
         fetchAttemptsRef.current = 0;
@@ -153,7 +178,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       } catch (fetchError) {
         console.error("Direct fetch error:", fetchError);
         
-        // Fall back to Supabase functions API if direct fetch fails
+        // APPROACH 2: Fall back to Supabase functions API
         console.log("Falling back to Supabase functions API");
         
         const { data, error: functionError } = await adminClient.functions.invoke('get-all-users', {
@@ -168,15 +193,44 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         
         if (functionError) {
           console.error("Function error:", functionError);
-          throw functionError;
+          
+          // APPROACH 3: Last resort fallback to use built-in admin APIs
+          console.log("Attempting last-resort admin API fallback");
+          
+          try {
+            // Try to at least get basic user info without the full edge function
+            const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+            
+            if (authError) throw authError;
+            
+            // Map the basic user data to our expected format
+            const basicUsers = authUsers.users.map(authUser => ({
+              id: authUser.id,
+              email: authUser.email || "",
+              full_name: authUser.user_metadata?.full_name || null,
+              role: "user", // Default role as we can't determine actual role
+              created_at: authUser.created_at
+            }));
+            
+            console.log("Basic user data retrieved via fallback:", basicUsers.length);
+            setUsers(basicUsers);
+            setLastFetchTime(Date.now());
+            fetchAttemptsRef.current = 0;
+            // Show partial success message
+            setError("Limited user data available. Some features may be restricted.");
+            return;
+          } catch (fallbackError) {
+            console.error("All fallback attempts failed:", fallbackError);
+            throw functionError; // Throw original error
+          }
         }
         
-        if (!data) {
-          throw new Error("No data returned from edge function");
+        if (!data || !Array.isArray(data)) {
+          throw new Error("Invalid data format received from functions API");
         }
         
-        console.log("Users fetched successfully via fallback:", data.length);
-        setUsers(data || []);
+        console.log("Users fetched successfully via functions API:", data.length);
+        setUsers(data);
         setLastFetchTime(Date.now());
         fetchAttemptsRef.current = 0;
         setError(null);
@@ -227,7 +281,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         }, 500); // Small delay to batch rapid requests
       }
     }
-  }, [user, isAdmin, session, users.length, lastFetchTime]);
+  }, [user, isAdmin, session, users.length, lastFetchTime, isPreviewMode]);
 
   // Exposed fetch function that uses the debounced implementation
   const fetchUsers = useCallback(async () => {
@@ -235,21 +289,24 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     debouncedFetchUsers();
   }, [debouncedFetchUsers]);
 
-  // Create a new user
+  // Create a new user with enhanced preview mode handling
   const createUser = useCallback(async (userData: UserFormData): Promise<void> => {
-    if (isLovablePreview) {
+    // Handle preview mode separately for consistent behavior
+    if (isPreviewMode()) {
       console.log("Preview mode detected, simulating user creation");
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setUsers(prev => [
-        ...prev,
-        {
-          id: `preview-user-${Date.now()}`,
-          email: userData.email,
-          full_name: userData.full_name || '',
-          role: userData.role || 'user',
-          created_at: new Date().toISOString(),
-        }
-      ]);
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Create a new mock user with realistic data
+      const newMockUser: UserWithRole = {
+        id: `preview-user-${Date.now()}`,
+        email: userData.email,
+        full_name: userData.full_name || '',
+        role: userData.role || 'user',
+        created_at: new Date().toISOString(),
+      };
+      
+      setUsers(prev => [...prev, newMockUser]);
+      toast.success(`User ${userData.email} created successfully (Preview Mode)`);
       return;
     }
 
@@ -259,16 +316,20 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
     try {
       console.log("Creating user with data:", userData);
+      setIsLoading(true);
       
+      // APPROACH 1: Try direct fetch with improved error handling
       try {
-        // Try direct fetch first
+        console.log("Attempting direct fetch for user creation");
         const response = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(userData)
+          body: JSON.stringify(userData),
+          // Add timeout for the fetch request
+          signal: AbortSignal.timeout(10000)
         });
         
         if (!response.ok) {
@@ -297,7 +358,9 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       } catch (fetchError) {
         console.error("Direct fetch error:", fetchError);
         
-        // Fall back to Supabase functions API
+        // APPROACH 2: Fall back to Supabase functions API
+        console.log("Falling back to Supabase functions API for user creation");
+        
         const { data, error: createError } = await adminClient.functions.invoke('create-user', {
           method: 'POST',
           body: userData,
@@ -332,22 +395,33 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       }
     } catch (error: any) {
       console.error('Error creating user:', error);
+      toast.error(`Failed to create user: ${error.message || "Unknown error"}`);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
-  }, [user, isAdmin, session]);
+  }, [user, isAdmin, session, isPreviewMode]);
 
   // Update an existing user
   const updateUser = useCallback(async (userId: string, userData: UserFormData): Promise<void> => {
-    if (isLovablePreview) {
+    // Handle preview mode separately for consistent behavior
+    if (isPreviewMode()) {
       console.log("Preview mode detected, simulating user update");
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
       setUsers(prev =>
         prev.map(u =>
           u.id === userId
-            ? { ...u, full_name: userData.full_name || u.full_name, role: userData.role || u.role }
+            ? { 
+                ...u, 
+                full_name: userData.full_name || u.full_name, 
+                role: userData.role || u.role 
+              }
             : u
         )
       );
+      
+      toast.success(`User updated successfully (Preview Mode)`);
       return;
     }
 
@@ -356,10 +430,12 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
 
     try {
+      setIsLoading(true);
       const updatePromises = [];
       
       // Update the user role if specified
       if (userData.role) {
+        console.log(`Updating role for user ${userId} to ${userData.role}`);
         const rolePromise = supabase.rpc('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
@@ -376,7 +452,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       }
       
       // Update user profile if full_name provided
-      if (userData.full_name) {
+      if (userData.full_name !== undefined) {
+        console.log(`Updating name for user ${userId} to "${userData.full_name}"`);
         const profilePromise = supabase.rpc('update_user_profile_admin', {
           _user_id: userId,
           _full_name: userData.full_name
@@ -398,18 +475,24 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       toast.success("User updated successfully");
     } catch (error: any) {
       console.error('Error updating user:', error);
+      toast.error(`Failed to update user: ${error.message || "Unknown error"}`);
       // Force a refresh of the data if the update failed
       debouncedFetchUsers();
       throw error;
+    } finally {
+      setIsLoading(false);
     }
-  }, [user, isAdmin, session, debouncedFetchUsers]);
+  }, [user, isAdmin, session, debouncedFetchUsers, isPreviewMode]);
 
   // Delete/deactivate a user
   const deleteUser = useCallback(async (userId: string): Promise<void> => {
-    if (isLovablePreview) {
+    // Handle preview mode separately for consistent behavior
+    if (isPreviewMode()) {
       console.log("Preview mode detected, simulating user deletion");
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
       setUsers(prev => prev.filter(u => u.id !== userId));
+      toast.success("User access revoked successfully (Preview Mode)");
       return;
     }
 
@@ -418,6 +501,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
 
     try {
+      setIsLoading(true);
       // We'll use revoke_user_role instead of actual deletion
       // This retains the user but removes their access capabilities
       const { error: revokeError } = await supabase.rpc('revoke_user_role', {
@@ -432,20 +516,27 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       toast.success("User access revoked successfully");
     } catch (error: any) {
       console.error('Error revoking user access:', error);
+      toast.error(`Failed to revoke user access: ${error.message || "Unknown error"}`);
       // Force a refresh of the data if the deletion failed
       debouncedFetchUsers();
       throw error;
+    } finally {
+      setIsLoading(false);
     }
-  }, [user, isAdmin, session, debouncedFetchUsers]);
+  }, [user, isAdmin, session, debouncedFetchUsers, isPreviewMode]);
 
   // Add admin role to a user
   const addAdminRole = useCallback(async (userId: string): Promise<void> => {
-    if (isLovablePreview) {
+    // Handle preview mode separately for consistent behavior
+    if (isPreviewMode()) {
       console.log("Preview mode detected, simulating add admin role");
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
       setUsers(prev =>
         prev.map(u => (u.id === userId ? { ...u, role: 'admin' } : u))
       );
+      
+      toast.success('Admin role granted successfully (Preview Mode)');
       return;
     }
 
@@ -454,6 +545,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
     
     try {
+      setIsLoading(true);
       const { error } = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
@@ -470,17 +562,20 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       setLastFetchTime(Date.now()); // Update last fetch time
     } catch (error: any) {
       console.error('Error setting admin role:', error);
+      toast.error(`Failed to set admin role: ${error.message || "Unknown error"}`);
       // Force a refresh of the data if the update failed
       debouncedFetchUsers();
       throw new Error(error.message || 'Failed to set admin role');
+    } finally {
+      setIsLoading(false);
     }
-  }, [session, debouncedFetchUsers]);
+  }, [session, debouncedFetchUsers, isPreviewMode]);
 
   // Load users on mount if user is admin and session exists, with debounce
   useEffect(() => {
     let isMounted = true;
     
-    if (user && isAdmin && session?.access_token && isMounted) {
+    if ((user && isAdmin && session?.access_token) || isPreviewMode()) {
       fetchUsers();
     }
     
@@ -492,7 +587,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         retryTimeoutRef.current = null;
       }
     };
-  }, [user, isAdmin, session?.access_token, fetchUsers]);
+  }, [user, isAdmin, session?.access_token, fetchUsers, isPreviewMode]);
 
   const value = {
     users,

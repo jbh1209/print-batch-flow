@@ -6,10 +6,13 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://kgizusgqexmlfcqfjopk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnaXp1c2dxZXhtbGZjcWZqb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NTQwNzAsImV4cCI6MjA2MDEzMDA3MH0.NA2wRme-L8Z15my7n8u-BCQtO4Nw2opfsX0KSLYcs-I";
 
-// Check if we're in Lovable preview mode
+// Enhanced preview mode detection with multiple indicators
 export const isLovablePreview = 
   typeof window !== 'undefined' && 
-  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+  (window.location.hostname.includes('lovable.dev') || 
+   window.location.hostname.includes('gpteng.co') ||
+   window.location.hostname === 'localhost' ||
+   window.location.hostname === '127.0.0.1');
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -25,8 +28,24 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   global: {
     // Always use HTTP fetch for all operations to avoid WebSocket issues
     fetch: function(url, options) {
+      // Add debugging information
       console.log('Supabase client making request to:', url);
-      return fetch(url, options);
+      
+      // Create a fetch request with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      
+      return fetch(url, { 
+        ...options, 
+        signal: controller.signal 
+      }).then(response => {
+        clearTimeout(timeoutId);
+        return response;
+      }).catch(error => {
+        clearTimeout(timeoutId);
+        console.error('Fetch error in supabase client:', error);
+        throw error;
+      });
     }
   },
   realtime: {
@@ -54,10 +73,26 @@ export const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISH
     }
   },
   global: {
-    // Force HTTP/HTTPS fetch for all operations
+    // Force HTTP/HTTPS fetch for all operations with timeout
     fetch: function(url, options) {
+      // Add debugging information
       console.log('Admin client making request to:', url);
-      return fetch(url, options);
+      
+      // Create a fetch request with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      
+      return fetch(url, { 
+        ...options, 
+        signal: controller.signal 
+      }).then(response => {
+        clearTimeout(timeoutId);
+        return response;
+      }).catch(error => {
+        clearTimeout(timeoutId);
+        console.error('Fetch error in admin client:', error);
+        throw error;
+      });
     }
   }
 });
