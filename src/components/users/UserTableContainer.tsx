@@ -17,19 +17,31 @@ export function UserTableContainer() {
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(contextError);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Force refresh users on component mount
-  useEffect(() => {
-    fetchUsers().catch(err => {
-      console.error("Error fetching users on mount:", err);
-    });
-  }, [fetchUsers]);
-
+  // Sync context error to local state
   useEffect(() => {
     if (contextError) {
       setError(contextError);
     }
   }, [contextError]);
+
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      setError(null);
+      toast.loading('Refreshing user data...');
+      await fetchUsers();
+      toast.dismiss();
+      toast.success("User data refreshed successfully");
+    } catch (err: any) {
+      toast.dismiss();
+      setError(err.message || "Failed to refresh user data");
+      toast.error(`Failed to refresh user data: ${err.message || "Unknown error"}`);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleAddUser = async (userData: UserFormData) => {
     try {
@@ -40,8 +52,7 @@ export function UserTableContainer() {
       toast.dismiss();
       toast.success(`User ${userData.email} created successfully`);
       setDialogOpen(false);
-      // Refresh the user list
-      fetchUsers();
+      // No need to manually refresh - the createUser function should update the state
     } catch (error: any) {
       toast.dismiss();
       console.error("Error adding user:", error);
@@ -64,8 +75,6 @@ export function UserTableContainer() {
       toast.success(`User ${userData.full_name || editingUser.email} updated successfully`);
       setDialogOpen(false);
       setEditingUser(null);
-      // Refresh the user list
-      fetchUsers();
     } catch (error: any) {
       toast.dismiss();
       console.error("Error updating user:", error);
@@ -83,28 +92,11 @@ export function UserTableContainer() {
       await deleteUser(userId);
       toast.dismiss();
       toast.success("User access revoked successfully");
-      // Refresh the user list
-      fetchUsers();
     } catch (error: any) {
       toast.dismiss();
       console.error("Error deleting user:", error);
       setError(error.message || "Failed to revoke user access");
       toast.error(`Failed to revoke user access: ${error.message || "Unknown error"}`);
-    }
-  };
-
-  const handleRefresh = async () => {
-    try {
-      setError(null);
-      toast.loading("Refreshing user data...");
-      await fetchUsers();
-      toast.dismiss();
-      toast.success("User data refreshed successfully");
-    } catch (error: any) {
-      toast.dismiss();
-      console.error("Error refreshing users:", error);
-      setError(error.message || "Failed to refresh user data");
-      toast.error(`Failed to refresh user data: ${error.message || "Unknown error"}`);
     }
   };
 
@@ -124,7 +116,19 @@ export function UserTableContainer() {
         <Alert variant="destructive" className="mb-4">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex flex-col gap-2">
+            <span>{error}</span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              className="self-start"
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? <Spinner size={16} className="mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Try Again
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -134,8 +138,9 @@ export function UserTableContainer() {
           size="sm" 
           onClick={handleRefresh}
           className="flex items-center gap-1"
+          disabled={isRefreshing}
         >
-          <RefreshCw className="h-4 w-4" />
+          {isRefreshing ? <Spinner size={16} className="mr-1" /> : <RefreshCw className="h-4 w-4" />}
           Refresh Users
         </Button>
         

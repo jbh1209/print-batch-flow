@@ -1,5 +1,4 @@
-
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase, adminClient } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,15 +30,16 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fetchAttempts, setFetchAttempts] = useState(0);
   const { user, isAdmin, session } = useAuth();
 
+  // Check if we're in Lovable preview mode
+  const isLovablePreview = 
+    typeof window !== 'undefined' && 
+    (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+
   // Fetch all users (admin only)
-  const fetchUsers = async () => {
-    // Check if we're in Lovable preview mode
-    const isLovablePreview = 
-      typeof window !== 'undefined' && 
-      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
-      
+  const fetchUsers = useCallback(async () => {
     if (isLovablePreview) {
       console.log("Preview mode detected, using mock user data");
       setUsers([
@@ -65,13 +65,14 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
 
     if (!user || !isAdmin) {
       setError("Admin privileges required");
+      setIsLoading(false);
       return;
     }
 
     // Check if we have a valid session with a token
     if (!session?.access_token) {
       setError("Authentication token missing. Please sign in again.");
-      toast.error("Authentication token missing. Please sign in again.");
+      setIsLoading(false);
       return;
     }
 
@@ -86,7 +87,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         headers: {
           Authorization: `Bearer ${session.access_token}`,
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
         }
       });
       
@@ -94,18 +96,20 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         console.error("Function error:", fetchError);
         console.error("Error details:", JSON.stringify(fetchError));
         
-        // Handle connection errors
-        if (fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('NetworkError')) {
-          throw new Error('Network connection error. Please check your internet connection and try again.');
-        }
-        
-        // Handle specific error cases
-        if (fetchError.message?.includes('JWT') || fetchError.status === 401) {
-          throw new Error('Authentication error: Your session has expired. Please sign out and sign in again.');
+        // If this is a connection issue and we haven't retried too many times, retry
+        if (fetchAttempts < 2 && (
+          fetchError.message?.includes('Failed to fetch') || 
+          fetchError.message?.includes('NetworkError')
+        )) {
+          setFetchAttempts(prev => prev + 1);
+          throw new Error('Network connection error. Retrying...');
         }
         
         throw fetchError;
       }
+      
+      // Reset fetch attempts on success
+      setFetchAttempts(0);
       
       if (!data) {
         throw new Error("No data returned from edge function");
@@ -117,32 +121,38 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       console.error('Error fetching users:', error);
       setError(error.message || 'Failed to fetch users');
       
-      // If this is an auth error, suggest a sign out/in
-      if (error.message?.includes('Authentication') || 
-          error.message?.includes('expired') || 
-          error.message?.includes('token')) {
-        toast.error("Authentication error. Please sign out and sign in again.");
-      } else if (error.message?.includes('Network') || error.message?.includes('connect')) {
-        toast.error("Network error. Please check your internet connection and try again.");
+      if (fetchAttempts < 2) {
+        // If we haven't tried too many times, delay and try again
+        console.log(`Retry attempt ${fetchAttempts + 1}/3`);
+        setTimeout(() => {
+          setFetchAttempts(prev => prev + 1);
+          fetchUsers();
+        }, 2000); // 2 second delay between retries
       } else {
-        toast.error(error.message || "Failed to fetch users");
+        // Give up after multiple retries
+        setError(`Failed to load users after multiple attempts: ${error.message}`);
+        toast.error("Could not load users. Please try refreshing the page.");
       }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, isAdmin, session, fetchAttempts, isLovablePreview]);
 
-  // Create a new user with admin privileges
-  const createUser = async (userData: UserFormData): Promise<void> => {
-    // Check if we're in Lovable preview mode
-    const isLovablePreview = 
-      typeof window !== 'undefined' && 
-      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
-      
+  // Create a new user
+  const createUser = useCallback(async (userData: UserFormData): Promise<void> => {
     if (isLovablePreview) {
       console.log("Preview mode detected, simulating user creation");
-      // Simulate success
       await new Promise(resolve => setTimeout(resolve, 1000));
+      setUsers(prev => [
+        ...prev,
+        {
+          id: `preview-user-${Date.now()}`,
+          email: userData.email,
+          full_name: userData.full_name || '',
+          role: userData.role || 'user',
+          created_at: new Date().toISOString(),
+        }
+      ]);
       return;
     }
 
@@ -170,25 +180,34 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         throw new Error('User creation failed: Invalid response from server');
       }
       
-      // Refresh the user list
-      await fetchUsers();
+      // Manually add the new user to the state to avoid another API call
+      const newUser: UserWithRole = {
+        id: data.user.id,
+        email: data.user.email,
+        full_name: userData.full_name || null,
+        role: userData.role || 'user',
+        created_at: new Date().toISOString()
+      };
+      
+      setUsers(prevUsers => [...prevUsers, newUser]);
     } catch (error: any) {
       console.error('Error creating user:', error);
       throw error;
     }
-  };
+  }, [user, isAdmin, session, isLovablePreview]);
 
   // Update an existing user
-  const updateUser = async (userId: string, userData: UserFormData): Promise<void> => {
-    // Check if we're in Lovable preview mode
-    const isLovablePreview = 
-      typeof window !== 'undefined' && 
-      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
-      
+  const updateUser = useCallback(async (userId: string, userData: UserFormData): Promise<void> => {
     if (isLovablePreview) {
       console.log("Preview mode detected, simulating user update");
-      // Simulate success
       await new Promise(resolve => setTimeout(resolve, 1000));
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === userId
+            ? { ...u, full_name: userData.full_name || u.full_name, role: userData.role || u.role }
+            : u
+        )
+      );
       return;
     }
 
@@ -205,6 +224,11 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         });
         
         if (roleError) throw roleError;
+        
+        // Optimistically update the role in the local state
+        setUsers(prevUsers =>
+          prevUsers.map(u => (u.id === userId ? { ...u, role: userData.role || 'user' } : u))
+        );
       }
       
       // Update user profile if full_name provided
@@ -215,27 +239,24 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         });
           
         if (profileError) throw profileError;
+        
+        // Optimistically update the full_name in the local state
+        setUsers(prevUsers =>
+          prevUsers.map(u => (u.id === userId ? { ...u, full_name: userData.full_name } : u))
+        );
       }
-      
-      // Refresh the user list
-      await fetchUsers();
     } catch (error: any) {
       console.error('Error updating user:', error);
       throw error;
     }
-  };
+  }, [user, isAdmin, session, isLovablePreview, users]);
 
   // Delete/deactivate a user
-  const deleteUser = async (userId: string): Promise<void> => {
-    // Check if we're in Lovable preview mode
-    const isLovablePreview = 
-      typeof window !== 'undefined' && 
-      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
-      
+  const deleteUser = useCallback(async (userId: string): Promise<void> => {
     if (isLovablePreview) {
       console.log("Preview mode detected, simulating user deletion");
-      // Simulate success
       await new Promise(resolve => setTimeout(resolve, 1000));
+      setUsers(prev => prev.filter(u => u.id !== userId));
       return;
     }
 
@@ -252,25 +273,22 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       
       if (revokeError) throw revokeError;
       
-      // Refresh the user list
-      await fetchUsers();
+      // Optimistically update the user list by removing the deleted user
+      setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
     } catch (error: any) {
       console.error('Error revoking user access:', error);
       throw error;
     }
-  };
+  }, [user, isAdmin, session, isLovablePreview]);
 
   // Add admin role to a user
-  const addAdminRole = async (userId: string): Promise<void> => {
-    // Check if we're in Lovable preview mode
-    const isLovablePreview = 
-      typeof window !== 'undefined' && 
-      (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
-      
+  const addAdminRole = useCallback(async (userId: string): Promise<void> => {
     if (isLovablePreview) {
       console.log("Preview mode detected, simulating add admin role");
-      // Simulate success
       await new Promise(resolve => setTimeout(resolve, 1000));
+      setUsers(prev =>
+        prev.map(u => (u.id === userId ? { ...u, role: 'admin' } : u))
+      );
       return;
     }
 
@@ -288,19 +306,27 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       
       toast.success('Admin role granted successfully');
       
-      // Refresh the user list
-      await fetchUsers();
+      // Optimistically update the user role in the local state
+      setUsers(prevUsers =>
+        prevUsers.map(u => (u.id === userId ? { ...u, role: 'admin' } : u))
+      );
     } catch (error: any) {
       console.error('Error setting admin role:', error);
       throw new Error(error.message || 'Failed to set admin role');
     }
-  };
+  }, [user, isAdmin, session, isLovablePreview, fetchUsers]);
 
-  // Load users on mount if user is admin and session exists
+  // Load users on mount if user is admin and session exists, with debounce
   useEffect(() => {
-    if (user && isAdmin && session?.access_token) {
+    let isMounted = true;
+    
+    if (user && isAdmin && session?.access_token && isMounted) {
       fetchUsers();
     }
+    
+    return () => {
+      isMounted = false;
+    };
   }, [user, isAdmin, session?.access_token]);
 
   const value = {

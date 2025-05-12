@@ -14,9 +14,12 @@ serve(async (req) => {
   }
   
   try {
+    console.log("Starting create-user function");
+    
     // Get auth token from request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error("Authorization header missing");
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -35,18 +38,21 @@ serve(async (req) => {
     );
     
     // Verify the user is authenticated
+    console.log("Verifying user authentication");
     const {
       data: { user },
       error: userError,
     } = await supabaseClient.auth.getUser();
     
     if (userError || !user) {
-      console.error("Authentication error:", userError);
+      console.error("Authentication error:", userError || "No user found");
       return new Response(
-        JSON.stringify({ error: 'Not authenticated', details: userError?.message }),
+        JSON.stringify({ error: 'Not authenticated', details: userError?.message || "No user found" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("User authenticated, checking admin status");
     
     // Check if the user is an admin
     const { data: isAdmin, error: adminCheckError } = await supabaseClient.rpc(
@@ -63,17 +69,20 @@ serve(async (req) => {
     }
     
     if (!isAdmin) {
+      console.error("User is not an admin:", user.id);
       return new Response(
         JSON.stringify({ error: 'Access denied: admin privileges required' }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
+    console.log("Admin status confirmed, proceeding to create user");
+    
     // Parse request body
     let body;
     try {
       body = await req.json();
-      console.log("Received body:", JSON.stringify(body));
+      console.log("Request body parsed successfully");
     } catch (error) {
       console.error("Body parsing error:", error);
       return new Response(
@@ -103,6 +112,15 @@ serve(async (req) => {
     
     if (createUserError) {
       console.error("User creation error:", createUserError);
+      
+      // Check for duplicate email error
+      if (createUserError.message?.includes('already registered')) {
+        return new Response(
+          JSON.stringify({ error: 'This email is already registered', details: createUserError.message }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ error: 'Failed to create user', details: createUserError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
