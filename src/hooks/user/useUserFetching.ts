@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { UserWithRole } from '@/types/user-types';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchUsers, invalidateUserCache } from '@/services/user/userFetchService';
+import { fetchUsers, invalidateUserCache } from '@/services/security/core/userFetch';
 import { isPreviewMode } from '@/services/previewService';
 
 /**
@@ -16,7 +16,7 @@ export function useUserFetching() {
   const { isAdmin } = useAuth();
 
   // Fetch all users with enhanced security
-  const fetchAllUsers = useCallback(async () => {
+  const fetchAllUsers = useCallback(async (): Promise<UserWithRole[]> => {
     // Skip fetch if not admin
     if (!isAdmin) {
       console.log('Not admin, skipping fetchUsers');
@@ -49,7 +49,7 @@ export function useUserFetching() {
     }
   }, [isAdmin]);
 
-  // Add a void version of the fetch function to fix type compatibility
+  // Add a void version of the fetch function for context compatibility
   const fetchUsersVoid = useCallback(async (): Promise<void> => {
     await fetchAllUsers();
   }, [fetchAllUsers]);
@@ -59,7 +59,7 @@ export function useUserFetching() {
     isLoading,
     error,
     fetchUsers: fetchAllUsers,
-    fetchUsersVoid, // Add void version for context compatibility
+    fetchUsersVoid,
     setUsers // Exposing this to allow other hooks to update users array
   };
 }

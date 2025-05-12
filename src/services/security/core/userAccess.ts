@@ -6,7 +6,8 @@
  * with enhanced error handling and preview mode support.
  */
 import { supabase } from '@/integrations/supabase/client';
-import { isPreviewMode, getPreviewMockData } from '@/services/previewService';
+import { isPreviewMode } from '@/services/previewService';
+import { getPreviewMockData } from './userFetch';
 import { verifyUserRole } from './authVerification';
 
 // Type for authenticated user details

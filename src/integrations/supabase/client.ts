@@ -23,7 +23,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false, // Disabled for security
-    flowType: 'implicit' // Changed from 'pkce' to 'implicit' flow
+    flowType: 'pkce' // Changed from 'implicit' to 'pkce' for better security
   },
   global: {
     // Always use HTTP fetch for all operations to avoid WebSocket issues
@@ -64,7 +64,7 @@ export const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISH
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
-    flowType: 'implicit'
+    flowType: 'pkce'
   },
   realtime: {
     // Disable realtime connections completely
