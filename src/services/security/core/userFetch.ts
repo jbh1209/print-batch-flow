@@ -3,40 +3,25 @@
  * User Fetching Core Utilities
  * 
  * Provides secure methods for fetching multiple user records
- * with proper authentication and preview mode support.
+ * with enhanced error handling, preview mode support, and multi-layered fallbacks.
  */
-import { adminClient } from '@/integrations/supabase/client';
-import { UserWithRole, validateUserRole } from '@/types/user-types';
-import { isPreviewMode } from '@/services/previewService';
 import { supabase } from '@/integrations/supabase/client';
+import { UserWithRole, validateUserRole } from '@/types/user-types';
+import { isPreviewMode, getPreviewMockData } from '@/services/previewService';
 
 /**
- * Secure fetch users implementation with enhanced security and preview mode support
- * Uses multiple fallback strategies for resilience
+ * Securely fetch all users with improved resilience and security
+ * Uses multi-layered fallbacks and preview mode support
+ * 
+ * @returns Promise resolving to array of users with roles
  */
 export async function secureGetAllUsers(): Promise<UserWithRole[]> {
-  // In preview mode, return mock data
+  // In preview mode, return consistent mock data
   if (isPreviewMode()) {
-    console.log("Preview mode detected, returning mock users data");
+    console.log("Preview mode detected in secureGetAllUsers, returning mock users");
     return [
-      {
-        id: "preview-admin-1",
-        email: "admin@example.com",
-        created_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        role: "admin", 
-        full_name: "Preview Admin",
-        avatar_url: null
-      },
-      {
-        id: "preview-user-1",
-        email: "user@example.com",
-        created_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        role: "user",
-        full_name: "Regular User",
-        avatar_url: null
-      },
+      getPreviewMockData('admin') as UserWithRole,
+      getPreviewMockData('user') as UserWithRole,
       {
         id: "preview-user-2",
         email: "dev@example.com",
@@ -50,76 +35,120 @@ export async function secureGetAllUsers(): Promise<UserWithRole[]> {
   }
   
   try {
+    console.log("Fetching all users with secure method");
+    
     // Get current session to ensure we have a fresh token
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
-    if (sessionError || !sessionData.session?.access_token) {
+    if (sessionError) {
+      console.error("Session error in secureGetAllUsers:", sessionError);
       throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
     }
     
-    // APPROACH 1: Use the functions client with proper headers
+    if (!sessionData.session?.access_token) {
+      console.error("No access token available in secureGetAllUsers");
+      throw new Error('Authentication error: No valid session found. Please log in again.');
+    }
+    
+    // APPROACH 1: Use RPC function (most reliable method)
     try {
-      const { data, error } = await adminClient.functions.invoke('get-all-users', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
-      });
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_all_users_with_roles');
       
-      if (error) throw error;
-      
-      if (!data || !Array.isArray(data)) {
-        throw new Error("Invalid data format received from functions API");
+      if (rpcError) {
+        console.warn("RPC get_all_users_with_roles failed:", rpcError);
+        throw rpcError; // Try next approach
       }
       
-      // Ensure role values are valid
-      const typedUsers = data.map((user: any) => ({
-        ...user,
-        role: validateUserRole(user.role)
+      if (!rpcData || !Array.isArray(rpcData)) {
+        throw new Error("Invalid data format from RPC");
+      }
+      
+      // Process and validate the data
+      const typedUsers = rpcData.map((user: any) => ({
+        id: user.id,
+        email: user.email || '',
+        full_name: user.full_name || null,
+        role: validateUserRole(user.role),
+        created_at: user.created_at || new Date().toISOString(),
+        last_sign_in_at: user.last_sign_in_at || null,
+        avatar_url: user.avatar_url || null
       }));
       
       return typedUsers;
-    } 
-    catch (invocationError) {
-      console.error("Function invocation failed:", invocationError);
+    } catch (rpcError) {
+      console.warn("RPC approach failed, trying direct approach:", rpcError);
       
-      // APPROACH 2: Direct fetch as fallback with enhanced security headers
-      console.log('Falling back to direct fetch');
-      const response = await fetch(`https://kgizusgqexmlfcqfjopk.supabase.co/functions/v1/get-all-users`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-        },
-        // Add timeout for the fetch request
-        signal: AbortSignal.timeout(8000)
+      // APPROACH 2: Direct queries with join
+      // First get the basic user list
+      const { data: usersData, error: usersError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          full_name,
+          avatar_url
+        `);
+      
+      if (usersError) {
+        console.error("Error fetching users:", usersError);
+        throw usersError;
+      }
+      
+      // Then get roles for those users
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+      
+      if (rolesError) {
+        console.error("Error fetching roles:", rolesError);
+        // Continue without role data, defaulting to 'user'
+      }
+      
+      // Create a map of user IDs to roles for easier lookup
+      const roleMap = new Map();
+      if (rolesData) {
+        rolesData.forEach((roleEntry) => {
+          roleMap.set(roleEntry.user_id, roleEntry.role);
+        });
+      }
+      
+      // Get email data from auth
+      const { data: authData, error: authError } = await supabase.rpc('get_all_users_secure');
+      
+      if (authError) {
+        console.error("Error fetching auth data:", authError);
+        // Continue with partial data
+      }
+      
+      // Create a map of user IDs to emails
+      const emailMap = new Map();
+      if (authData) {
+        authData.forEach((authUser: any) => {
+          emailMap.set(authUser.id, authUser.email);
+        });
+      }
+      
+      // Combine all the data
+      const combinedUsers = usersData.map((user: any) => {
+        const role = validateUserRole(roleMap.get(user.id));
+        const email = emailMap.get(user.id) || 'email@unavailable.com';
+        
+        return {
+          id: user.id,
+          email,
+          full_name: user.full_name || null,
+          role,
+          created_at: new Date().toISOString(), // Fallback
+          last_sign_in_at: null,
+          avatar_url: user.avatar_url || null
+        } as UserWithRole;
       });
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid response format from edge function");
-      }
-      
-      // Ensure role values are valid by mapping them to the allowed types
-      const typedUsers = data.map((user: any) => ({
-        ...user,
-        role: validateUserRole(user.role)
-      }));
-      
-      return typedUsers;
+      return combinedUsers;
     }
   } catch (error: any) {
-    console.error('Error in secureGetAllUsers:', error);
-    throw error;
+    console.error('Critical error in secureGetAllUsers:', error);
+    
+    // Return informative error that can be displayed to users
+    throw new Error(`Failed to load users: ${error.message || "Unknown error"}`);
   }
 }
