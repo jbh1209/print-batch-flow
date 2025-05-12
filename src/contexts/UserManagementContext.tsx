@@ -5,6 +5,9 @@ import { supabase, adminClient, isLovablePreview } from '@/integrations/supabase
 import { useAuth } from '@/contexts/AuthContext';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 
+// Define the Supabase URL using the environment variable or directly
+const SUPABASE_URL = "https://kgizusgqexmlfcqfjopk.supabase.co";
+
 interface UserManagementContextType {
   users: UserWithRole[];
   isLoading: boolean;
@@ -121,7 +124,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       
       try {
         // Use raw fetch for edge function in production, bypassing WebSocket issues
-        const response = await fetch(`${supabase.supabaseUrl}/functions/v1/get-all-users`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-all-users`, {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -259,7 +262,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       
       try {
         // Try direct fetch first
-        const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-user`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${session.access_token}`,
