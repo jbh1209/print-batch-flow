@@ -1,4 +1,3 @@
-
 /**
  * User Fetching Core Utilities
  * 
@@ -52,7 +51,10 @@ export async function secureGetAllUsers(): Promise<UserWithRole[]> {
     
     // APPROACH 1: Use RPC function (most reliable method)
     try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_all_users_with_roles');
+      // Use type assertion to tell TypeScript this function exists
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'get_all_users_with_roles' as any
+      );
       
       if (rpcError) {
         console.warn("RPC get_all_users_with_roles failed:", rpcError);
@@ -79,6 +81,7 @@ export async function secureGetAllUsers(): Promise<UserWithRole[]> {
       console.warn("RPC approach failed, trying direct approach:", rpcError);
       
       // APPROACH 2: Direct queries with join
+      
       // First get the basic user list
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
@@ -112,6 +115,7 @@ export async function secureGetAllUsers(): Promise<UserWithRole[]> {
       }
       
       // Get email data from auth
+      // Use a known function that exists in the TypeScript types
       const { data: authData, error: authError } = await supabase.rpc('get_all_users_secure');
       
       if (authError) {
