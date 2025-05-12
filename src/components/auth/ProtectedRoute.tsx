@@ -5,7 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { isLovablePreview } from '@/integrations/supabase/client';
+import { isPreviewMode } from '@/services/previewService';
+import { secureSignOut } from '@/services/security/securityService';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -18,7 +19,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   
-  // Attempt to refresh the session if needed
+  // Attempt to refresh the session if needed with improved security
   const handleSessionRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -38,6 +39,18 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     }
   };
 
+  // Secure logout with proper auth state cleanup
+  const handleSecureSignOut = async () => {
+    try {
+      await secureSignOut();
+      toast.success("Signed out securely");
+    } catch (error) {
+      console.error("Error during secure sign out:", error);
+      // Force navigation to auth page
+      window.location.href = '/auth';
+    }
+  };
+
   useEffect(() => {
     // Mark auth as checked once we've determined loading is complete
     if (!isLoading) {
@@ -45,7 +58,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     }
     
     // Only show admin-required message if user is trying to access admin-only route
-    if (user && requireAdmin && !isAdmin && !isLovablePreview) {
+    if (user && requireAdmin && !isAdmin && !isPreviewMode()) {
       toast.error('You need administrator privileges to access this page');
     }
   }, [user, requireAdmin, isAdmin, isLoading]);
@@ -60,7 +73,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   }
 
   // Skip authentication checks in preview mode
-  if (isLovablePreview) {
+  if (isPreviewMode()) {
     return <>{children}</>;
   }
 
@@ -100,8 +113,8 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
                 {isRefreshing ? <Spinner size={16} className="mr-2" /> : null}
                 Refresh Authentication
               </Button>
-              <Button variant="outline" onClick={() => window.location.href = '/auth'}>
-                Sign In Again
+              <Button variant="outline" onClick={handleSecureSignOut}>
+                Sign Out Securely
               </Button>
             </div>
           </div>

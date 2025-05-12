@@ -47,6 +47,18 @@ const createErrorResponse = (status: number, message: string, details?: any) => 
   );
 };
 
+/**
+ * Validates and normalizes role values to prevent security issues
+ */
+const validateRole = (role: any): string => {
+  if (role === 'admin' || role === 'user') {
+    return role;
+  }
+  // Default to 'user' for any invalid role values
+  console.log(`Invalid role value detected: "${role}", defaulting to "user"`);
+  return 'user';
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -303,10 +315,7 @@ serve(async (req) => {
         const userRoleRecord = userRoles?.find(r => r.user_id === authUser.id);
         
         // Ensure role is either 'admin' or 'user', defaulting to 'user'
-        let role = 'user';
-        if (userRoleRecord && (userRoleRecord.role === 'admin' || userRoleRecord.role === 'user')) {
-          role = userRoleRecord.role;
-        }
+        const role = validateRole(userRoleRecord?.role);
         
         return {
           id: authUser.id,
