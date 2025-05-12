@@ -1,39 +1,35 @@
 
-import { toast } from "sonner";
+/**
+ * Utility functions for handling PDF downloads and viewing
+ */
 
 /**
- * Handles file download using a temporary link
+ * Opens the provided URL in a new browser tab
+ * @param url URL to open in new tab
  */
-export const downloadFile = (url: string, filename: string): void => {
-  // Clean up any existing temporary download links
-  const existingLinks = document.querySelectorAll('a.pdf-download-link');
-  existingLinks.forEach(link => document.body.removeChild(link));
-  
-  // Create a new temporary link
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.classList.add('pdf-download-link');
-  link.style.display = 'none';
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  toast.success("Download initiated");
+export const openInNewTab = (url: string): void => {
+  const newWindow = window.open(url, '_blank');
+  if (!newWindow) {
+    console.error('Failed to open new tab. This might be due to popup blocking.');
+  }
 };
 
 /**
- * Opens a URL in a new tab with fallback
+ * Initiates a file download for the provided URL
+ * @param url URL of the file to download
+ * @param filename Suggested filename for the download
  */
-export const openInNewTab = (url: string): void => {
-  const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
-  
-  if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-    console.warn("Popup blocked or failed to open");
-    toast.info("Opening PDF in current tab as popup was blocked");
-    window.location.href = url;
-  } else {
-    toast.success("PDF opened in new tab");
+export const downloadFile = (url: string, filename: string): void => {
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Error initiating download:', error);
+    openInNewTab(url); // Fallback to opening in new tab
   }
 };

@@ -1,101 +1,148 @@
 
-import { UserWithRole } from '@/types/user-types';
-import { toast } from 'sonner';
-import { isPreviewMode, simulateApiCall } from '@/services/previewService';
-import { secureGetAllUsers } from '@/services/security/securityService';
+import { supabase, adminClient } from '@/integrations/supabase/client';
+import { UserWithRole, validateUserRole } from '@/types/user-types';
+import { isPreviewMode } from '@/services/previewService';
+
+// Simple in-memory cache for user data with expiration
+let userCache: UserWithRole[] | null = null;
+let lastCacheTime: number = 0;
+const CACHE_EXPIRY_MS = 60000; // 1 minute
 
 /**
- * User fetching functions - Enhanced with security, retry logic, proper error handling, and connection robustness
+ * Clear user data cache to force a fresh fetch
  */
-
-// In-memory cache implementation
-const userCache = {
-  data: null as UserWithRole[] | null,
-  timestamp: 0,
-  TTL: 30000, // 30 seconds cache lifetime
-  
-  isValid() {
-    return this.data && (Date.now() - this.timestamp < this.TTL);
-  },
-  
-  set(data: UserWithRole[]) {
-    this.data = data;
-    this.timestamp = Date.now();
-  },
-  
-  clear() {
-    this.data = null;
-    this.timestamp = 0;
-  }
+export const invalidateUserCache = (): void => {
+  userCache = null;
+  lastCacheTime = 0;
+  console.log('User cache invalidated');
 };
 
-// Fetch all users with their roles using secure implementation
-export async function fetchUsers(retryCount = 0, maxRetries = 2): Promise<UserWithRole[]> {
-  // Check cache first
-  if (userCache.isValid()) {
-    console.log('Using cached user data');
-    return userCache.data as UserWithRole[];
+/**
+ * Securely fetch all users with proper validation and authorization checks
+ * @returns Promise resolving to array of users with roles
+ */
+export const fetchUsers = async (): Promise<UserWithRole[]> => {
+  // Return cached data if valid
+  const now = Date.now();
+  if (userCache && (now - lastCacheTime < CACHE_EXPIRY_MS)) {
+    console.log('Returning cached users data');
+    return userCache;
+  }
+  
+  // In preview mode, return mock data
+  if (isPreviewMode()) {
+    console.log("Preview mode detected, returning mock users data");
+    const mockUsers: UserWithRole[] = [
+      {
+        id: "preview-admin-1",
+        email: "admin@example.com",
+        created_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        role: "admin", 
+        full_name: "Preview Admin",
+        avatar_url: null
+      },
+      {
+        id: "preview-user-1",
+        email: "user@example.com",
+        created_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        role: "user",
+        full_name: "Regular User",
+        avatar_url: null
+      },
+      {
+        id: "preview-user-2",
+        email: "dev@example.com",
+        created_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        role: "user",
+        full_name: "Developer User",
+        avatar_url: null
+      }
+    ];
+    
+    // Update cache
+    userCache = mockUsers;
+    lastCacheTime = now;
+    
+    return mockUsers;
+  }
+  
+  // Get current session to ensure fresh token
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  
+  if (sessionError || !sessionData.session?.access_token) {
+    throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
   }
   
   try {
-    console.log(`Fetching users (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    // Approach 1: Direct edge function call with enhanced security headers
+    console.log('Fetching users data via edge function');
+    const response = await fetch(`https://kgizusgqexmlfcqfjopk.supabase.co/functions/v1/get-all-users`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
+      // Add timeout for the fetch request
+      signal: AbortSignal.timeout(8000)
+    });
     
-    // For preview mode, simulate delay for realistic testing
-    if (isPreviewMode()) {
-      console.log('Preview mode detected, using mock data with simulated delay');
-      await simulateApiCall(800, 1200);
-      const mockUsers = await secureGetAllUsers(); // Gets mock data in preview mode
-      userCache.set(mockUsers);
-      return mockUsers;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error ${response.status}`);
     }
     
-    // Use our secure implementation
-    const users = await secureGetAllUsers();
+    const data = await response.json();
     
-    console.log(`Successfully fetched ${users.length} users`);
-    
-    // Cache the successful response
-    userCache.set(users);
-    
-    return users;
-  } catch (error: any) {
-    console.error('Error in fetchUsers:', error);
-    
-    // Implement exponential backoff for retries
-    if (retryCount < maxRetries) {
-      const backoffTime = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s
-      console.log(`Network error, retrying in ${backoffTime}ms...`);
-      
-      // Wait for backoff time
-      await new Promise(resolve => setTimeout(resolve, backoffTime));
-      
-      // Retry the request
-      return fetchUsers(retryCount + 1, maxRetries);
+    if (!Array.isArray(data)) {
+      throw new Error("Invalid response format from edge function");
     }
     
-    // Only show toast on final retry failure
-    if (retryCount >= maxRetries) {
-      // Handle specific connection errors
-      if (error.message?.includes('Failed to fetch') || 
-          error.message?.includes('NetworkError') || 
-          error.message?.includes('AbortError')) {
-        toast.error('Connection error: Please check your network and try again');
-        throw new Error('Connection error: Unable to communicate with the server.');
+    // Ensure role values are valid by mapping them to the allowed types
+    const typedUsers = data.map((user: any) => ({
+      ...user,
+      role: validateUserRole(user.role)
+    }));
+    
+    // Update cache
+    userCache = typedUsers;
+    lastCacheTime = now;
+    
+    return typedUsers;
+  } catch (fetchError) {
+    console.error("Direct fetch error:", fetchError);
+    
+    // Approach 2: Fall back to Supabase functions API
+    console.log('Falling back to functions API');
+    const { data, error: functionError } = await adminClient.functions.invoke('get-all-users', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
       }
-      
-      // Check if the error is about authorization
-      if (error.message?.includes('Authentication') || 
-          error.message?.includes('expired') || 
-          error.message?.includes('session')) {
-        throw new Error('Your session has expired. Please sign out and sign in again.');
-      }
+    });
+    
+    if (functionError) throw functionError;
+    
+    if (!data || !Array.isArray(data)) {
+      throw new Error("Invalid data format received from functions API");
     }
     
-    throw error;
+    // Ensure role values are valid
+    const typedUsers = data.map((user: any) => ({
+      ...user,
+      role: validateUserRole(user.role)
+    }));
+    
+    // Update cache
+    userCache = typedUsers;
+    lastCacheTime = now;
+    
+    return typedUsers;
   }
-}
-
-// Invalidate the user cache - call this after any data-changing operation
-export function invalidateUserCache() {
-  userCache.clear();
-}
+};
