@@ -1,14 +1,13 @@
 
 import React from "react";
-import { format } from "date-fns";
-import { FileText, Pencil, Trash2 } from "lucide-react";
-import { TableCell, TableRow, TableBody } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TableRow, TableCell, TableBody } from "@/components/ui/table";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { BaseJob, ProductConfig } from "@/config/productTypes";
+import { Eye, Pencil, Trash } from "lucide-react";
 import JobStatusBadge from "@/components/JobStatusBadge";
-import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
+import { DueDateIndicator } from "@/components/batches/DueDateIndicator";
+import { ProductConfig, BaseJob } from "@/config/productTypes";
 
 interface GenericJobsTableBodyProps {
   jobs: BaseJob[];
@@ -17,7 +16,7 @@ interface GenericJobsTableBodyProps {
   onSelectJob: (jobId: string, isSelected: boolean) => void;
   onDeleteJob: (jobId: string) => void;
   onEditJob: (jobId: string) => void;
-  onViewJob?: (jobId: string) => void; // Adding this prop
+  onViewJob: (jobId: string) => void;
 }
 
 const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
@@ -27,108 +26,77 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
   onSelectJob,
   onDeleteJob,
   onEditJob,
-  onViewJob
+  onViewJob,
 }) => {
-  // Get row background class based on urgency and status
-  const getRowBackgroundClass = (job: BaseJob) => {
-    if (selectedJobs.includes(job.id)) return "bg-primary/5";
-    
-    // Status-based coloring
-    switch (job.status) {
-      case 'completed': return 'bg-green-50';
-      case 'batched': return 'bg-blue-50';
-      case 'cancelled': return 'bg-red-50';
-    }
-    
-    // If status doesn't determine color, use urgency
-    const urgency = calculateJobUrgency(job.due_date, config);
-    return getUrgencyBackgroundClass(urgency);
-  };
+  // Check if a job is selectable (only queued jobs)
+  const isJobSelectable = (job: BaseJob) => job.status === "queued";
 
-  // Format date string
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), "dd MMM yyyy");
-    } catch (error) {
-      return "Invalid date";
+  // Get row background color based on selection status
+  const getRowBackgroundColor = (job: BaseJob) => {
+    if (selectedJobs.includes(job.id)) {
+      return "bg-primary/5";
     }
-  };
-
-  // Handle view job action
-  const handleViewJob = (jobId: string) => {
-    if (onViewJob) {
-      onViewJob(jobId);
-    }
+    return "";
   };
 
   return (
     <TableBody>
-      {jobs.map(job => (
-        <TableRow key={job.id} className={getRowBackgroundClass(job)}>
-          <TableCell>
-            <Checkbox 
-              checked={selectedJobs.includes(job.id)} 
-              onCheckedChange={(checked) => onSelectJob(job.id, checked === true)}
-              disabled={job.status !== "queued"} 
-            />
-          </TableCell>
-          <TableCell className="font-medium">{job.name || "Untitled"}</TableCell>
-          <TableCell>{job.job_number}</TableCell>
-          {config.hasSize && <TableCell>{job.size || "N/A"}</TableCell>}
-          <TableCell>
-            {config.productType === "Sleeves" ? job.stock_type : 
-              <>
-                {job.paper_weight && `${job.paper_weight} `}
-                {job.paper_type || "Standard"}
-                {job.lamination_type && job.lamination_type !== "none" && (
-                  <Badge variant="outline" className="ml-2">
-                    {job.lamination_type.replace("_", " ")}
-                  </Badge>
+      {jobs.map((job) => {
+        const isSelected = selectedJobs.includes(job.id);
+        const canSelect = isJobSelectable(job);
+
+        return (
+          <TableRow key={job.id} className={getRowBackgroundColor(job)}>
+            <TableCell>
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => onSelectJob(job.id, checked === true)}
+                disabled={!canSelect}
+              />
+            </TableCell>
+            <TableCell>{job.name}</TableCell>
+            <TableCell>{job.job_number}</TableCell>
+            {config.hasSize && <TableCell>{job.size}</TableCell>}
+            <TableCell>{job.productType === "Sleeves" ? job.stock_type : job.paper_type}</TableCell>
+            <TableCell>{job.quantity}</TableCell>
+            <TableCell>
+              <DueDateIndicator dueDate={job.due_date} />
+            </TableCell>
+            <TableCell>
+              <JobStatusBadge status={job.status} />
+            </TableCell>
+            <TableCell className="text-right">
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onViewJob(job.id)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                {job.status === "queued" && (
+                  <>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => onEditJob(job.id)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => onDeleteJob(job.id)}
+                    >
+                      <Trash className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </>
                 )}
-              </>
-            }
-          </TableCell>
-          <TableCell>{job.quantity}</TableCell>
-          <TableCell>{formatDate(job.due_date)}</TableCell>
-          <TableCell>
-            <JobStatusBadge status={job.status} />
-          </TableCell>
-          <TableCell>
-            <div className="flex gap-2 justify-end">
-              <Button
-                size="icon"
-                variant="ghost"
-                title="View Job Details"
-                onClick={() => handleViewJob(job.id)}
-              >
-                <FileText size={16} />
-              </Button>
-              
-              {job.status === "queued" && (
-                <>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Edit Job"
-                    onClick={() => onEditJob(job.id)}
-                  >
-                    <Pencil size={16} />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Delete Job"
-                    onClick={() => onDeleteJob(job.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 size={16} />
-                  </Button>
-                </>
-              )}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
+              </div>
+            </TableCell>
+          </TableRow>
+        );
+      })}
     </TableBody>
   );
 };

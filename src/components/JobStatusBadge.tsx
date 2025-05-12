@@ -1,38 +1,53 @@
 
+import React from "react";
 import { Badge } from "@/components/ui/badge";
+import { cva } from "class-variance-authority";
+
+type StatusType = "queued" | "batched" | "completed" | "cancelled" | "processing" | "sent_to_print";
+
+const statusVariants = cva("", {
+  variants: {
+    status: {
+      queued: "bg-blue-100 text-blue-800 hover:bg-blue-100/80",
+      batched: "bg-purple-100 text-purple-800 hover:bg-purple-100/80",
+      completed: "bg-green-100 text-green-800 hover:bg-green-100/80",
+      cancelled: "bg-red-100 text-red-800 hover:bg-red-100/80",
+      processing: "bg-amber-100 text-amber-800 hover:bg-amber-100/80",
+      sent_to_print: "bg-indigo-100 text-indigo-800 hover:bg-indigo-100/80",
+    },
+  },
+  defaultVariants: {
+    status: "queued",
+  },
+});
 
 interface JobStatusBadgeProps {
   status: string;
 }
 
-const JobStatusBadge = ({ status }: JobStatusBadgeProps) => {
-  const getVariant = () => {
-    switch (status) {
-      case "queued":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "batched":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "completed":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "cancelled":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "sent_to_print":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
+const StatusMap: Record<string, string> = {
+  queued: "Queued",
+  batched: "Batched",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  processing: "Processing",
+  sent_to_print: "Sent to Print"
+};
 
-  const getDisplayText = () => {
-    if (status === "sent_to_print") {
-      return "Sent to Print";
-    }
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  };
-
+const JobStatusBadge: React.FC<JobStatusBadgeProps> = ({ status }) => {
+  // Validate status is one of our known types
+  const validStatus = (Object.keys(StatusMap).includes(status) 
+    ? status 
+    : "queued") as StatusType;
+  
+  const displayText = StatusMap[validStatus] || "Unknown";
+  
   return (
-    <Badge className={`font-medium ${getVariant()}`} variant="outline">
-      {getDisplayText()}
+    <Badge 
+      variant="outline" 
+      className={statusVariants({ status: validStatus })}
+    >
+      {displayText}
     </Badge>
   );
 };
