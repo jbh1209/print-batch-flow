@@ -2,7 +2,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { calculateJobUrgency, getUrgencyTextClass, UrgencyLevel } from '@/utils/dateCalculations';
-import { productConfigs } from '@/config/productTypes';
+import { productConfigs, ProductConfig } from '@/config/productTypes';
 
 interface DueDateIndicatorProps {
   dueDate: string;
@@ -11,7 +11,7 @@ interface DueDateIndicatorProps {
 
 export const DueDateIndicator: React.FC<DueDateIndicatorProps> = ({ dueDate, productType }) => {
   // Get config for this product type
-  const config = productConfigs[productType] || { slaTargetDays: 3 };
+  const config: ProductConfig = productConfigs[productType] || productConfigs["BusinessCards"];
   
   // Calculate urgency level
   const urgency: UrgencyLevel = calculateJobUrgency(dueDate, config);

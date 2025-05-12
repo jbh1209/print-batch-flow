@@ -23,6 +23,15 @@ const AllBatchesTabs: React.FC<AllBatchesTabsProps> = ({
   getBatchUrl,
   handleBatchClick
 }) => {
+  const handleViewDetails = (batchId: string) => {
+    // Find the batch
+    const batch = [...currentBatches, ...completedBatches].find(b => b.id === batchId);
+    if (batch) {
+      const url = getBatchUrl(batch);
+      handleBatchClick(url);
+    }
+  };
+
   return (
     <Tabs defaultValue="current" value={activeTab} onValueChange={setActiveTab} className="mb-6">
       <TabsList className="mb-4">
@@ -37,9 +46,7 @@ const AllBatchesTabs: React.FC<AllBatchesTabsProps> = ({
       <TabsContent value="current" className="bg-white shadow rounded-lg">
         <AllBatchesTable 
           batches={currentBatches}
-          getBadgeVariant={getBadgeVariant}
-          getBatchUrl={getBatchUrl}
-          handleBatchClick={handleBatchClick}
+          onViewDetails={handleViewDetails}
           emptyMessage="No current batches"
           emptyDescription="There are no batches in progress."
         />
@@ -48,9 +55,7 @@ const AllBatchesTabs: React.FC<AllBatchesTabsProps> = ({
       <TabsContent value="completed" className="bg-white shadow rounded-lg">
         <AllBatchesTable 
           batches={completedBatches}
-          getBadgeVariant={getBadgeVariant}
-          getBatchUrl={getBatchUrl}
-          handleBatchClick={handleBatchClick}
+          onViewDetails={handleViewDetails}
           emptyMessage="No completed batches"
           emptyDescription="No batches have been completed or sent to print yet."
         />

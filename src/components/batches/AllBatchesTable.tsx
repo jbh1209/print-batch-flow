@@ -13,6 +13,12 @@ interface AllBatchesTableProps {
   onViewDetails: (batchId: string) => void;
   onViewPDF?: (pdfUrl: string) => void;
   onDeleteBatch?: (batchId: string) => void;
+  // Add the missing properties that are being passed from AllBatchesTabs
+  getBadgeVariant?: (status: string) => "default" | "secondary" | "destructive" | "outline" | "success";
+  getBatchUrl?: (batch: BatchSummary) => string;
+  handleBatchClick?: (url: string) => void;
+  emptyMessage?: string;
+  emptyDescription?: string;
 }
 
 const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
@@ -20,6 +26,8 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
   onViewDetails,
   onViewPDF,
   onDeleteBatch,
+  emptyMessage = "No batches found",
+  emptyDescription,
 }) => {
   // Function to determine row background color based on urgency
   const getRowBackgroundColor = (dueDate: string): string => {
@@ -71,7 +79,8 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
   if (batches.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No batches found</p>
+        <p className="text-gray-500">{emptyMessage}</p>
+        {emptyDescription && <p className="text-gray-400 text-sm mt-1">{emptyDescription}</p>}
       </div>
     );
   }

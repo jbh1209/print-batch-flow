@@ -1,6 +1,5 @@
-
 import React from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, File, Trash2 } from "lucide-react";
@@ -10,6 +9,7 @@ import { BaseBatch } from "@/config/productTypes";
 
 interface BatchesTableProps {
   batches: BaseBatch[];
+  isLoading?: boolean;  // Add isLoading as an optional prop
   onViewDetails: (batchId: string) => void;
   onViewPDF?: (pdfUrl: string) => void;
   onDeleteBatch?: (batchId: string) => void;
@@ -17,6 +17,7 @@ interface BatchesTableProps {
 
 const BatchesTable: React.FC<BatchesTableProps> = ({
   batches,
+  isLoading = false,  // Default to false if not provided
   onViewDetails,
   onViewPDF,
   onDeleteBatch,
@@ -52,11 +53,26 @@ const BatchesTable: React.FC<BatchesTableProps> = ({
     }
   };
 
+  if (isLoading) {
+    return (
+      <TableRow>
+        <TableCell colSpan={6} className="h-24 text-center">
+          <div className="flex justify-center items-center space-x-2">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+            <span>Loading batches...</span>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
   if (batches.length === 0) {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-500">No batches found</p>
-      </div>
+      <TableRow>
+        <TableCell colSpan={6} className="h-24 text-center">
+          <p className="text-gray-500">No batches found</p>
+        </TableCell>
+      </TableRow>
     );
   }
 
