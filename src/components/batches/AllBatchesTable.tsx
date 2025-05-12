@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
+import { calculateJobUrgency, getUrgencyBackgroundClass, UrgencyLevel } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
 import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";

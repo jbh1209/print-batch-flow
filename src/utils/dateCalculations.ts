@@ -2,10 +2,13 @@
 import { isAfter, addDays, differenceInDays } from "date-fns";
 import { ProductConfig } from "@/config/productTypes";
 
+// Define UrgencyLevel type to be used across the application
+export type UrgencyLevel = 'critical' | 'high' | 'medium' | 'low';
+
 /**
  * Calculate job urgency based on due date and SLA
  */
-export const calculateJobUrgency = (dueDate: string, config?: ProductConfig): 'critical' | 'urgent' | 'normal' => {
+export const calculateJobUrgency = (dueDate: string, config?: ProductConfig): UrgencyLevel => {
   const today = new Date();
   const dueDateObj = new Date(dueDate);
   
@@ -17,13 +20,18 @@ export const calculateJobUrgency = (dueDate: string, config?: ProductConfig): 'c
     return 'critical';
   }
   
-  // Urgent: Due within SLA period
+  // High urgency (previously "urgent"): Due within SLA period
   if (isAfter(dueDateObj, today) && isAfter(addDays(today, slaTargetDays), dueDateObj)) {
-    return 'urgent';
+    return 'high';
+  }
+
+  // Medium urgency: Due within 2x the SLA period
+  if (isAfter(dueDateObj, today) && isAfter(addDays(today, slaTargetDays * 2), dueDateObj)) {
+    return 'medium';
   }
   
-  // Normal: Due beyond SLA period
-  return 'normal';
+  // Low urgency (previously "normal"): Due beyond 2x SLA period
+  return 'low';
 };
 
 /**
@@ -33,8 +41,10 @@ export const getUrgencyBackgroundClass = (urgency: string): string => {
   switch (urgency) {
     case 'critical':
       return 'bg-red-50';
-    case 'urgent':
+    case 'high':
       return 'bg-amber-50';
+    case 'medium':
+      return 'bg-yellow-50';
     default:
       return '';
   }
@@ -47,10 +57,44 @@ export const getUrgencyTextClass = (urgency: string): string => {
   switch (urgency) {
     case 'critical':
       return 'text-red-600';
-    case 'urgent':
+    case 'high':
       return 'text-amber-600';
+    case 'medium':
+      return 'text-yellow-600';
     default:
       return 'text-gray-600';
+  }
+};
+
+/**
+ * Get color class for batch urgency indicators
+ */
+export const getBatchUrgencyColor = (urgency: UrgencyLevel): string => {
+  switch (urgency) {
+    case 'critical':
+      return 'text-red-500';
+    case 'high':
+      return 'text-amber-500';
+    case 'medium':
+      return 'text-yellow-500';
+    case 'low':
+      return 'text-green-500';
+  }
+};
+
+/**
+ * Get icon type for batch urgency indicators
+ */
+export const getBatchUrgencyIcon = (urgency: UrgencyLevel): string => {
+  switch (urgency) {
+    case 'critical':
+      return 'circle-x';
+    case 'high':
+      return 'circle-alert';
+    case 'medium':
+      return 'circle-alert';
+    case 'low':
+      return 'circle-check';
   }
 };
 

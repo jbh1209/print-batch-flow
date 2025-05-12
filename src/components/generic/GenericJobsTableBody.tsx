@@ -45,6 +45,9 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
         const isSelected = selectedJobs.includes(job.id);
         const canSelect = isJobSelectable(job);
 
+        // Determine the correct property to check for product type
+        const paperOrStockType = job.stock_type || job.paper_type;
+
         return (
           <TableRow key={job.id} className={getRowBackgroundColor(job)}>
             <TableCell>
@@ -57,10 +60,10 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
             <TableCell>{job.name}</TableCell>
             <TableCell>{job.job_number}</TableCell>
             {config.hasSize && <TableCell>{job.size}</TableCell>}
-            <TableCell>{job.productType === "Sleeves" ? job.stock_type : job.paper_type}</TableCell>
+            <TableCell>{paperOrStockType}</TableCell>
             <TableCell>{job.quantity}</TableCell>
             <TableCell>
-              <DueDateIndicator dueDate={job.due_date} />
+              <DueDateIndicator dueDate={job.due_date} productType={config.productType} />
             </TableCell>
             <TableCell>
               <JobStatusBadge status={job.status} />

@@ -1,16 +1,15 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from "sonner";
 import { productConfigs, BaseJob, ProductConfig } from '@/config/productTypes';
 import { isExistingTable } from "@/utils/database/tableValidation";
-import { calculateJobUrgency } from "@/utils/dateCalculations";
+import { calculateJobUrgency, UrgencyLevel } from "@/utils/dateCalculations";
 
 // Extended job type that includes product type information
 export interface ExtendedJob extends BaseJob {
   productConfig: ProductConfig;
-  urgency: "critical" | "high" | "medium" | "low";
+  urgency: UrgencyLevel;
 }
 
 export const useAllPendingJobs = () => {
