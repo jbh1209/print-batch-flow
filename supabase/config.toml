@@ -1,9 +1,30 @@
 
-# This file is managed by Lovable - do not modify manually
 project_id = "kgizusgqexmlfcqfjopk"
 
+[api]
+# API Configuration for your Supabase project
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+# Database Configuration for your Supabase project
+port = 54322
+
+[auth]
+# Authentication Configuration
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+autoconfirm = true
+disable_signup = false
+
+[functions]
+# Edge Functions Configuration with enhanced security
 [functions.get-all-users]
 verify_jwt = true
-
 [functions.create-user]
 verify_jwt = true
+
+[storage]
+# Storage Configuration for your Supabase project

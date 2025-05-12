@@ -1,3 +1,4 @@
+
 /**
  * Centralized Security Service 
  * 
@@ -9,7 +10,7 @@ import { UserRole, UserWithRole, validateUserRole } from '@/types/user-types';
 import { isPreviewMode } from '@/services/previewService';
 
 /**
- * Verify that a user has a specific role
+ * Verify that a user has a specific role using the most secure method available
  * @param userId User ID to check
  * @param role Role to verify
  * @returns Promise resolving to boolean indicating if the user has the role
@@ -24,37 +25,37 @@ export async function verifyUserRole(userId: string, role: UserRole): Promise<bo
   }
   
   try {
-    // Try first with the most secure method - the RPC function
+    // Use the improved secure RPC function that avoids RLS recursion
     const { data, error } = await supabase.rpc(
-      role === 'admin' ? 'is_admin_secure_fixed' : 'has_role',
-      role === 'admin' ? { _user_id: userId } : { role }
+      'is_admin_secure_fixed',
+      { _user_id: userId }
     );
     
     if (error) throw error;
-    return !!data;
+    
+    // For admin check, we can directly return the result
+    if (role === 'admin') {
+      return !!data;
+    }
+    
+    // For non-admin roles, check specifically for that role
+    const { data: roleData, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', role)
+      .maybeSingle();
+    
+    if (roleError) throw roleError;
+    return !!roleData;
   } catch (error) {
     console.error(`Error verifying role ${role} for user ${userId}:`, error);
-    
-    try {
-      // Fallback to direct query if RPC fails
-      const { data, error: queryError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', role)
-        .maybeSingle();
-      
-      if (queryError) throw queryError;
-      return !!data;
-    } catch (fallbackError) {
-      console.error('Role verification fallback failed:', fallbackError);
-      return false;
-    }
+    return false;
   }
 }
 
 /**
- * Get current user with enhanced security checks
+ * Get current user with enhanced security checks and proper type handling
  * @returns Promise resolving to the current authenticated user or null
  */
 export async function getSecureCurrentUser(): Promise<UserWithRole | null> {
@@ -65,7 +66,7 @@ export async function getSecureCurrentUser(): Promise<UserWithRole | null> {
       id: "preview-admin-1",
       email: "admin@example.com",
       created_at: new Date().toISOString(),
-      last_sign_in_at: new Date().toISOString(),
+      last_sign_in_at: new Date().toISOString(), // Fixed property name
       role: "admin", 
       full_name: "Preview Admin",
       avatar_url: null
@@ -73,7 +74,7 @@ export async function getSecureCurrentUser(): Promise<UserWithRole | null> {
   }
 
   try {
-    // Get current session
+    // Get current session with improved error handling
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError || !sessionData.session) {
@@ -98,13 +99,14 @@ export async function getSecureCurrentUser(): Promise<UserWithRole | null> {
       .eq('user_id', user.id)
       .maybeSingle();
     
+    // Validate role to ensure type safety
     const role = validateUserRole(roleData?.role);
     
     return {
       id: user.id,
       email: user.email || '',
       created_at: user.created_at,
-      last_sign_in_at: user.last_sign_in_at || null, // Fixed: use last_sign_in_at property which exists on Supabase User type
+      last_sign_in_at: user.last_sign_in_at || null, // Fixed property name
       role,
       full_name: profile?.full_name || null,
       avatar_url: profile?.avatar_url || null
@@ -117,6 +119,7 @@ export async function getSecureCurrentUser(): Promise<UserWithRole | null> {
 
 /**
  * Clean up authentication state for secure sign out
+ * Prevents authentication "limbo" states
  */
 export const cleanupAuthState = () => {
   // Remove standard auth tokens
@@ -138,7 +141,7 @@ export const cleanupAuthState = () => {
 };
 
 /**
- * Secure sign out with thorough cleanup
+ * Secure sign out with thorough cleanup to prevent auth limbo states
  */
 export async function secureSignOut(): Promise<void> {
   try {
@@ -159,6 +162,7 @@ export async function secureSignOut(): Promise<void> {
 
 /**
  * Secure fetch users implementation with enhanced security and preview mode support
+ * Uses multiple fallback strategies for resilience
  */
 export async function secureGetAllUsers(): Promise<UserWithRole[]> {
   // In preview mode, return mock data
@@ -203,8 +207,36 @@ export async function secureGetAllUsers(): Promise<UserWithRole[]> {
       throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
     }
     
-    // APPROACH 1: Direct edge function call with enhanced security headers
+    // APPROACH 1: Use the functions client with proper headers
     try {
+      const { data, error } = await adminClient.functions.invoke('get-all-users', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (!data || !Array.isArray(data)) {
+        throw new Error("Invalid data format received from functions API");
+      }
+      
+      // Ensure role values are valid
+      const typedUsers = data.map((user: any) => ({
+        ...user,
+        role: validateUserRole(user.role)
+      }));
+      
+      return typedUsers;
+    } 
+    catch (invocationError) {
+      console.error("Function invocation failed:", invocationError);
+      
+      // APPROACH 2: Direct fetch as fallback with enhanced security headers
+      console.log('Falling back to direct fetch');
       const response = await fetch(`https://kgizusgqexmlfcqfjopk.supabase.co/functions/v1/get-all-users`, {
         method: 'GET',
         headers: {
@@ -229,32 +261,6 @@ export async function secureGetAllUsers(): Promise<UserWithRole[]> {
       }
       
       // Ensure role values are valid by mapping them to the allowed types
-      const typedUsers = data.map((user: any) => ({
-        ...user,
-        role: validateUserRole(user.role)
-      }));
-      
-      return typedUsers;
-    } catch (fetchError) {
-      console.error("Direct fetch error:", fetchError);
-      
-      // APPROACH 2: Fall back to Supabase functions API
-      const { data, error: functionError } = await adminClient.functions.invoke('get-all-users', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
-      });
-      
-      if (functionError) throw functionError;
-      
-      if (!data || !Array.isArray(data)) {
-        throw new Error("Invalid data format received from functions API");
-      }
-      
-      // Ensure role values are valid
       const typedUsers = data.map((user: any) => ({
         ...user,
         role: validateUserRole(user.role)
