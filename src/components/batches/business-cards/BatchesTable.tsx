@@ -1,5 +1,6 @@
+
 import React from "react";
-import { TableCell, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, File, Trash2 } from "lucide-react";
@@ -9,7 +10,7 @@ import { BaseBatch } from "@/config/productTypes";
 
 interface BatchesTableProps {
   batches: BaseBatch[];
-  isLoading?: boolean;  // Add isLoading as an optional prop
+  isLoading?: boolean;
   onViewDetails: (batchId: string) => void;
   onViewPDF?: (pdfUrl: string) => void;
   onDeleteBatch?: (batchId: string) => void;
@@ -17,7 +18,7 @@ interface BatchesTableProps {
 
 const BatchesTable: React.FC<BatchesTableProps> = ({
   batches,
-  isLoading = false,  // Default to false if not provided
+  isLoading = false,
   onViewDetails,
   onViewPDF,
   onDeleteBatch,
@@ -77,73 +78,59 @@ const BatchesTable: React.FC<BatchesTableProps> = ({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Batch Name</TableHead>
-            <TableHead>Sheets</TableHead>
-            <TableHead>Due Date</TableHead>
-            <TableHead>Lamination</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {batches.map((batch) => {
-            const urgency = calculateUrgencyLevel(batch.due_date);
-            const bgClass = getUrgencyBackgroundClass(urgency);
+    <>
+      {batches.map((batch) => {
+        const urgency = calculateUrgencyLevel(batch.due_date);
+        const bgClass = getUrgencyBackgroundClass(urgency);
 
-            return (
-              <TableRow key={batch.id} className={bgClass}>
-                <TableCell className="font-medium">{batch.name}</TableCell>
-                <TableCell>{batch.sheets_required}</TableCell>
-                <TableCell>{formatDate(batch.due_date)}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">
-                    {batch.lamination_type === "none"
-                      ? "None"
-                      : batch.lamination_type.charAt(0).toUpperCase() +
-                        batch.lamination_type.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell>{getStatusBadge(batch.status)}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onViewDetails(batch.id)}
-                    >
-                      <Eye size={16} />
-                    </Button>
-                    {batch.front_pdf_url && onViewPDF && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onViewPDF(batch.front_pdf_url)}
-                      >
-                        <File size={16} />
-                      </Button>
-                    )}
-                    {onDeleteBatch && batch.status !== "completed" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-500 hover:text-red-700"
-                        onClick={() => onDeleteBatch(batch.id)}
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+        return (
+          <TableRow key={batch.id} className={bgClass}>
+            <TableCell className="font-medium">{batch.name}</TableCell>
+            <TableCell>{batch.sheets_required}</TableCell>
+            <TableCell>{formatDate(batch.due_date)}</TableCell>
+            <TableCell>
+              <Badge variant="outline">
+                {batch.lamination_type === "none"
+                  ? "None"
+                  : batch.lamination_type.charAt(0).toUpperCase() +
+                    batch.lamination_type.slice(1)}
+              </Badge>
+            </TableCell>
+            <TableCell>{getStatusBadge(batch.status)}</TableCell>
+            <TableCell className="text-right">
+              <div className="flex justify-end items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onViewDetails(batch.id)}
+                >
+                  <Eye size={16} />
+                </Button>
+                {batch.front_pdf_url && onViewPDF && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewPDF(batch.front_pdf_url)}
+                  >
+                    <File size={16} />
+                  </Button>
+                )}
+                {onDeleteBatch && batch.status !== "completed" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => onDeleteBatch(batch.id)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                )}
+              </div>
+            </TableCell>
+          </TableRow>
+        );
+      })}
+    </>
   );
 };
 
