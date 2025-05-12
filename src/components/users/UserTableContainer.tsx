@@ -1,18 +1,18 @@
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { UserTable } from "./UserTable";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { UserPlus, AlertTriangle, RefreshCw } from "lucide-react";
-import { UserForm } from "./UserForm";
-import { useUserManagement } from "@/contexts/UserManagementContext";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { UserFormData, UserWithRole } from "@/types/user-types";
 import { toast } from "sonner";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Spinner } from "@/components/ui/spinner";
+import { useUserManagement } from "@/hooks/useUserManagement";
+import { ErrorDisplay } from "./ErrorDisplay";
+import { TableControls } from "./TableControls";
+import { UserDialogForm } from "./UserDialogForm";
+import { LoadingState } from "./LoadingState";
 
 export function UserTableContainer() {
   const { users, createUser, updateUser, deleteUser, error: contextError, fetchUsers, isLoading } = useUserManagement();
+  
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,7 +21,7 @@ export function UserTableContainer() {
   const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
   
   // Sync context error to local state
-  useEffect(() => {
+  React.useEffect(() => {
     if (contextError) {
       setError(contextError);
     }
@@ -50,57 +50,29 @@ export function UserTableContainer() {
     }
   }, [fetchUsers, isRefreshing, lastRefreshAttempt]);
 
-  const handleAddUser = async (userData: UserFormData) => {
+  const handleUserFormSubmit = async (userData: UserFormData) => {
     try {
       setError(null);
       setIsProcessing(true);
-      toast.loading('Creating new user...', { duration: 5000 });
       
-      await createUser(userData);
-      form.reset();
-      setDialogOpen(false);
-      toast.success(`User ${userData.email} created successfully`);
-    } catch (error: any) {
-      console.error("Error adding user:", error);
-      setError(error.message || "Failed to create user");
-      toast.error(`Failed to create user: ${error.message || "Unknown error"}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleEditUser = async (userData: UserFormData) => {
-    try {
-      if (!editingUser) return;
-      setError(null);
-      setIsProcessing(true);
-      toast.loading('Updating user...', { duration: 5000 });
+      if (editingUser) {
+        toast.loading('Updating user...', { duration: 5000 });
+        await updateUser(editingUser.id, userData);
+        toast.success(`User ${userData.full_name || editingUser.email} updated successfully`);
+      } else {
+        toast.loading('Creating new user...', { duration: 5000 });
+        await createUser(userData);
+        toast.success(`User ${userData.email} created successfully`);
+      }
       
-      await updateUser(editingUser.id, userData);
-      toast.success(`User ${userData.full_name || editingUser.email} updated successfully`);
       setDialogOpen(false);
       setEditingUser(null);
     } catch (error: any) {
-      console.error("Error updating user:", error);
-      setError(error.message || "Failed to update user");
-      toast.error(`Failed to update user: ${error.message || "Unknown error"}`);
+      console.error("Error processing user:", error);
+      setError(error.message || "Failed to process user");
+      toast.error(`Failed to process user: ${error.message || "Unknown error"}`);
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  // Fix: Modify the handleDeleteUser function to match the expected signature
-  // from UserTable component (userId: string) => void
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      setError(null);
-      toast.loading("Revoking user access...", { duration: 5000 });
-      await deleteUser(userId);
-      toast.success("User access revoked successfully");
-    } catch (error: any) {
-      console.error("Error deleting user:", error);
-      setError(error.message || "Failed to revoke user access");
-      toast.error(`Failed to revoke user access: ${error.message || "Unknown error"}`);
     }
   };
 
@@ -114,95 +86,57 @@ export function UserTableContainer() {
     setDialogOpen(true);
   };
   
-  // Handle form initialization and reset
-  const form = {
-    reset: () => {
-      setEditingUser(null);
-      setDialogOpen(false);
+  const handleDeleteUser = async (userId: string) => {
+    try {
       setError(null);
+      toast.loading("Revoking user access...", { duration: 5000 });
+      await deleteUser(userId);
+      toast.success("User access revoked successfully");
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      setError(error.message || "Failed to revoke user access");
+      toast.error(`Failed to revoke user access: ${error.message || "Unknown error"}`);
     }
   };
 
   return (
     <div>
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <span>{error}</span>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRefresh}
-              className="self-start"
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? <Spinner size={16} className="mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-              Try Again
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      <ErrorDisplay 
+        error={error} 
+        onRetry={handleRefresh}
+        isRefreshing={isRefreshing}
+      />
 
-      <div className="flex justify-between mb-4">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRefresh}
-          className="flex items-center gap-1"
-          disabled={isRefreshing}
-        >
-          {isRefreshing ? <Spinner size={16} className="mr-1" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh Users
-        </Button>
-        
-        <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) {
-            setError(null);
-            setEditingUser(null);
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button onClick={openAddUserDialog} disabled={isProcessing || isLoading}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add User
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>
-                {editingUser ? 'Edit User' : 'Add New User'}
-              </DialogTitle>
-            </DialogHeader>
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <UserForm 
-              initialData={editingUser ? {
-                email: editingUser.email,
-                full_name: editingUser.full_name || '',
-                role: editingUser.role
-              } : undefined}
-              onSubmit={editingUser ? handleEditUser : handleAddUser}
-              isEditing={!!editingUser}
-              isProcessing={isProcessing}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+      <TableControls 
+        onRefresh={handleRefresh}
+        onAddUser={openAddUserDialog}
+        isRefreshing={isRefreshing}
+        isLoading={isLoading}
+        isProcessing={isProcessing}
+      />
+      
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) {
+          setError(null);
+          setEditingUser(null);
+        }
+      }}>
+        <DialogTrigger asChild>
+          <span style={{ display: 'none' }}></span> {/* Hidden trigger, we use the one in TableControls */}
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          <UserDialogForm 
+            onSubmit={handleUserFormSubmit}
+            editingUser={editingUser}
+            error={error}
+            isProcessing={isProcessing}
+          />
+        </DialogContent>
+      </Dialog>
       
       {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="flex flex-col items-center">
-            <Spinner size={40} />
-            <p className="mt-4 text-muted-foreground">Loading user data...</p>
-          </div>
-        </div>
+        <LoadingState />
       ) : (
         <UserTable 
           users={users}
