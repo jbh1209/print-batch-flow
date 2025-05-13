@@ -26,6 +26,7 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
     console.log("Creating user:", userData.email);
     
     // Step 1: Create the user account through auth API
+    // Use explicit parameter object to avoid deep type recursion
     const authResult = await supabase.auth.admin.createUser({
       email: userData.email,
       password: userData.password,

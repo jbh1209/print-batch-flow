@@ -31,4 +31,5 @@ export const secureSignOut = async (): Promise<void> => {
 };
 
 // Re-export isPreviewMode and cleanupAuthState for easy access
-export { isPreviewMode, cleanupAuthState };
+export { isPreviewMode } from '@/services/previewService';
+export { cleanupAuthState } from '@/services/auth/authService';
