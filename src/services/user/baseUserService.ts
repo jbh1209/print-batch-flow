@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode } from '@/services/previewService';
-import { UserWithRole } from '@/types/user-types';
+import { UserWithRole, validateUserRole } from '@/types/user-types';
 
 // Check if a user is an admin
 export const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
@@ -24,10 +24,5 @@ export const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
   }
 };
 
-// Type-safe role validation
-export const validateUserRole = (role: unknown): 'admin' | 'user' => {
-  if (typeof role === 'string' && (role === 'admin' || role === 'user')) {
-    return role;
-  }
-  return 'user'; // Default role
-};
+// Type-safe role validation - re-export from user-types for convenience
+export { validateUserRole } from '@/types/user-types';
