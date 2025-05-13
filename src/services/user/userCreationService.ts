@@ -11,6 +11,16 @@ interface UserCreationData {
   role?: 'admin' | 'user';
 }
 
+// Define a simpler interface for createUser parameters
+interface AdminUserCreateParams {
+  email: string;
+  password: string;
+  email_confirm: boolean;
+  user_metadata: {
+    full_name: string;
+  };
+}
+
 /**
  * Create a new user with proper error handling
  */
@@ -25,8 +35,8 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
   try {
     console.log("Creating user:", userData.email);
     
-    // Step 1: Create the user account through auth API using explicit type casting
-    const createUserParams = {
+    // Step 1: Create the user account through auth API with explicit typing
+    const params: AdminUserCreateParams = {
       email: userData.email,
       password: userData.password,
       email_confirm: true,
@@ -35,8 +45,8 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
       }
     };
     
-    // Use type assertion to bypass deep type recursion
-    const authResult = await supabase.auth.admin.createUser(createUserParams as any);
+    // Pass the explicitly typed parameters
+    const authResult = await supabase.auth.admin.createUser(params);
     
     if (authResult.error) {
       throw authResult.error;
