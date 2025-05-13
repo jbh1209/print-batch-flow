@@ -1,161 +1,109 @@
 
-import { supabase, trackApiRequest } from '@/integrations/supabase/client';
-import { UserWithRole, validateUserRole } from '@/types/user-types';
-import { isPreviewMode, getMockUserData, simulateApiDelay } from '@/services/previewService';
+import { supabase } from '@/integrations/supabase/client';
+import { UserWithRole } from '@/types/user-types';
+import { isPreviewMode, getMockUsers } from '@/services/previewService';
 
-// Simple in-memory cache for user data with expiration
+// Cache for users data
 let userCache: UserWithRole[] | null = null;
-let lastCacheTime: number = 0;
-const CACHE_EXPIRY_MS = 60000; // 1 minute
+let lastFetchTime = 0;
+const CACHE_TTL = 60000; // 1 minute
 
 /**
- * Clear user data cache to force a fresh fetch
+ * Invalidate the user cache to force a fresh fetch
  */
-export const invalidateUserCache = (): void => {
+export const invalidateUserCache = () => {
   userCache = null;
-  lastCacheTime = 0;
-  console.log('User cache invalidated');
+  lastFetchTime = 0;
 };
 
 /**
- * Securely fetch all users with consistent error handling
+ * Securely get all users with their roles
+ * Uses optimistic updates and caching for better performance
  */
 export const fetchUsers = async (): Promise<UserWithRole[]> => {
-  // Return cached data if valid
+  // Return cached data if available and recent
   const now = Date.now();
-  if (userCache && (now - lastCacheTime < CACHE_EXPIRY_MS)) {
-    console.log('Returning cached users data');
+  if (userCache && (now - lastFetchTime < CACHE_TTL)) {
     return userCache;
   }
   
-  // In preview mode, return mock data
+  // Use preview mode data if enabled
   if (isPreviewMode()) {
-    console.log("Preview mode detected, returning mock users data");
-    await simulateApiDelay(600, 1200);
-    
-    const mockUsers: UserWithRole[] = [
-      {
-        id: "preview-admin-1",
-        email: "admin@example.com",
-        created_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        role: "admin",
-        full_name: "Preview Admin",
-        avatar_url: null
-      },
-      {
-        id: "preview-user-1",
-        email: "user@example.com",
-        created_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        role: "user",
-        full_name: "Regular User",
-        avatar_url: null
-      },
-      {
-        id: "preview-user-2",
-        email: "dev@example.com",
-        created_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        role: "user", 
-        full_name: "Developer User",
-        avatar_url: null
-      }
-    ];
-    
-    // Update cache
+    console.log('Preview mode - using mock user data');
+    const mockUsers = getMockUsers();
     userCache = mockUsers;
-    lastCacheTime = now;
-    
+    lastFetchTime = now;
     return mockUsers;
   }
-  
+
   try {
-    console.log("Attempting to fetch users via edge function");
+    console.log('Fetching users from database...');
     
-    // Get the current session for authorization
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.access_token) {
-      console.error("No access token available in fetchUsers");
-      throw new Error('Authentication required to fetch users');
-    }
-    
-    // Call the edge function to fetch users securely
-    const { data, error } = await supabase.functions.invoke('get-all-users', {
-      headers: {
-        Authorization: `Bearer ${session.access_token}`
-      }
-    });
-    
-    if (error) {
-      console.error("Edge function error:", error);
-      throw error;
-    }
-    
-    if (!data || !Array.isArray(data)) {
-      console.error("Invalid data format from edge function:", data);
-      throw new Error("Invalid data format received from edge function");
-    }
-    
-    // Map and validate the data
-    const users: UserWithRole[] = data.map((user: any) => {
-      return {
-        id: user.id,
-        email: user.email || '',
-        role: validateUserRole(user.role),
-        full_name: user.full_name || null,
-        avatar_url: user.avatar_url || null,
-        created_at: user.created_at || new Date().toISOString(),
-        last_sign_in_at: user.last_sign_in_at || null
-      };
-    });
-    
-    // Update cache and track successful request
-    userCache = users;
-    lastCacheTime = now;
-    trackApiRequest(true);
-    console.log("Successfully fetched and cached users data");
-    
-    return users;
-  } catch (error: any) {
-    console.error("Error in fetchUsers:", error);
-    
-    // Try fallback method using direct RPC call
+    // First try to use the RPC function
     try {
-      console.log("Attempting fallback to direct RPC call");
-      const { data: userData, error: rpcError } = await supabase.rpc('get_all_users_with_roles');
+      const { data, error } = await supabase.rpc('get_all_users_with_roles');
       
-      if (rpcError) {
-        throw rpcError;
+      if (error) {
+        console.error('Error with get_all_users_with_roles RPC:', error);
+        throw error;
       }
       
-      if (!userData || !Array.isArray(userData)) {
-        throw new Error("Invalid data format from RPC");
+      if (data && Array.isArray(data)) {
+        userCache = data as UserWithRole[];
+        lastFetchTime = now;
+        return data as UserWithRole[];
       }
       
-      const users: UserWithRole[] = userData.map((user: any) => ({
-        id: user.id,
-        email: user.email || '',
-        role: validateUserRole(user.role),
-        full_name: user.full_name || null,
-        avatar_url: user.avatar_url || null,
-        created_at: user.created_at || new Date().toISOString(),
-        last_sign_in_at: user.last_sign_in_at || null
-      }));
+      throw new Error('Invalid response data');
+    } catch (rpcError) {
+      console.error('RPC error, trying direct query:', rpcError);
       
-      userCache = users;
-      lastCacheTime = now;
-      console.log("Successfully fetched users via fallback method");
-      return users;
+      // Fall back to direct query with manual join
+      const { data: users, error: usersError } = await supabase
+        .from('auth.users')
+        .select(`
+          id,
+          email,
+          created_at,
+          last_sign_in_at
+        `);
+        
+      if (usersError) throw usersError;
       
-    } catch (fallbackError) {
-      console.error("Fallback method also failed:", fallbackError);
-      trackApiRequest(false);
-      throw new Error(`Failed to fetch users: ${error.message || "Unknown error"}`);
+      if (!users) return [];
+      
+      // Fetch profiles
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url');
+        
+      // Fetch roles
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+        
+      // Combine data
+      const combinedUsers = users.map(user => {
+        const profile = profiles?.find(p => p.id === user.id);
+        const userRole = roles?.find(r => r.user_id === user.id);
+        
+        return {
+          id: user.id,
+          email: user.email,
+          full_name: profile?.full_name || null,
+          avatar_url: profile?.avatar_url || null,
+          role: userRole?.role || 'user',
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at,
+        };
+      });
+      
+      userCache = combinedUsers;
+      lastFetchTime = now;
+      return combinedUsers;
     }
+  } catch (error: any) {
+    console.error('Error in secureGetAllUsers:', error);
+    throw error;
   }
 };
-
-// Alias functions for backward compatibility
-export const fetchAllUsers = fetchUsers;

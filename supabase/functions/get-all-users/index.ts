@@ -1,138 +1,129 @@
 
-// Follow Deno edge function conventions
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.14.0";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.26.0'
 
-// Set up CORS headers
+// CORS headers for browser support
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-// Handle options requests for CORS
-function handleOptions(req: Request) {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: {
-        ...corsHeaders,
-        "Allow": "GET, OPTIONS",
-      },
-      status: 204,
-    });
-  }
-  return null;
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
-// Main handler function
+// Handle requests to the function
 serve(async (req) => {
   // Handle CORS preflight requests
-  const optionsResponse = handleOptions(req);
-  if (optionsResponse) return optionsResponse;
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { 
+      status: 204,
+      headers: corsHeaders 
+    })
+  }
 
   try {
-    // Only allow GET requests
-    if (req.method !== "GET") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 405,
-      });
+    // Create a Supabase client with the provided auth header
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing Authorization header' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      )
     }
 
-    // Get the authorization header
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Missing or invalid authorization header" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
+    // Create Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    )
 
-    // Initialize Supabase client with service role key
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing environment variables for Supabase");
-    }
-    
-    // Create a client with the user's JWT to check permissions
-    const userJWT = authHeader.substring(7);
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: `Bearer ${userJWT}` } }
-    });
-
-    // Get the requesting user's ID
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(userJWT);
-    
+    // Verify user has admin access
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
     if (userError || !user) {
-      console.error("Error getting user:", userError);
       return new Response(
-        JSON.stringify({ error: "Failed to authenticate user" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 401,
-        }
-      );
+        JSON.stringify({ error: 'Unauthorized - could not verify user' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      )
     }
 
-    // Check if the user is an admin
-    const { data: isAdmin, error: adminCheckError } = await supabaseClient.rpc(
-      "is_admin_secure_fixed",
-      { _user_id: user.id }
-    );
+    // Check if user is admin
+    const { data: isAdmin, error: adminError } = await supabaseClient.rpc('is_admin_secure_fixed', {
+      _user_id: user.id
+    })
 
-    if (adminCheckError) {
-      console.error("Admin check failed:", adminCheckError);
+    if (adminError || !isAdmin) {
       return new Response(
-        JSON.stringify({ error: `Admin check failed: ${adminCheckError.message}` }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        }
-      );
+        JSON.stringify({ error: 'Forbidden - admin access required' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      )
     }
 
-    if (!isAdmin) {
-      return new Response(
-        JSON.stringify({ error: "Only administrators can view all users" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 403,
-        }
-      );
-    }
-
-    // Use the get_all_users_with_roles RPC function
-    const { data: users, error: usersError } = await supabaseClient.rpc("get_all_users_with_roles");
+    // Get all users with roles
+    const { data: users, error: usersError } = await supabaseClient.rpc('get_all_users_with_roles')
 
     if (usersError) {
-      console.error("Error fetching users:", usersError);
-      return new Response(
-        JSON.stringify({ error: `Failed to fetch users: ${usersError.message}` }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        }
-      );
+      console.error('Error fetching users:', usersError)
+      
+      // Try a fallback method with direct queries if RPC fails
+      try {
+        // Fetch users
+        const { data: authUsers, error: authUsersError } = await supabaseClient
+          .from('auth.users')
+          .select('id, email, created_at, last_sign_in_at')
+        
+        if (authUsersError) throw authUsersError
+        
+        // Fetch profiles
+        const { data: profiles, error: profilesError } = await supabaseClient
+          .from('profiles')
+          .select('*')
+        
+        if (profilesError) throw profilesError
+        
+        // Fetch roles
+        const { data: roles, error: rolesError } = await supabaseClient
+          .from('user_roles')
+          .select('*')
+        
+        if (rolesError) throw rolesError
+        
+        // Combine data
+        const combinedUsers = authUsers.map(user => {
+          const profile = profiles?.find(p => p.id === user.id)
+          const userRole = roles?.find(r => r.user_id === user.id)
+          
+          return {
+            id: user.id,
+            email: user.email,
+            full_name: profile?.full_name || null,
+            avatar_url: profile?.avatar_url || null,
+            role: userRole?.role || 'user',
+            created_at: user.created_at,
+            last_sign_in_at: user.last_sign_in_at
+          }
+        })
+        
+        return new Response(
+          JSON.stringify(combinedUsers),
+          { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      } catch (fallbackError) {
+        console.error('Fallback error:', fallbackError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch users data' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      }
     }
 
-    // Return the users
     return new Response(
-      JSON.stringify(users || []),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+      JSON.stringify(users),
+      { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+    )
   } catch (error) {
-    console.error("Unhandled error in get-all-users function:", error);
-    
+    console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: `Internal server error: ${error.message}` }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      }
-    );
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+    )
   }
-});
+})

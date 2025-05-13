@@ -1,58 +1,58 @@
 
-// Preview mode helpers to enable development without a backend
-
 /**
- * Check if the application is running in preview mode
+ * Preview mode service
+ * Provides utilities for working in preview or demo mode
+ * without needing real Supabase connection
  */
+
+// Check if we're in preview mode
 export const isPreviewMode = (): boolean => {
-  // Use environment variable, location.hostname check, or other mechanism
-  // to determine if the app is running in preview/development mode
-  return process.env.NODE_ENV === 'development' || 
-    window.location.hostname === 'localhost' || 
-    window.location.hostname.includes('preview');
+  return import.meta.env.MODE === 'development' || 
+    window.location.host.includes('preview') || 
+    window.location.host.includes('localhost') ||
+    window.location.host.includes('lovable');
 };
 
-/**
- * Get mock user data for preview mode
- */
+// Simulate API delay to emulate real-world experience
+export const simulateApiDelay = async (min: number = 300, max: number = 800): Promise<void> => {
+  const delay = Math.floor(Math.random() * (max - min + 1) + min);
+  await new Promise(resolve => setTimeout(resolve, delay));
+};
+
+// Simulate API call with random response time
+export const simulateApiCall = async (min: number = 500, max: number = 1200): Promise<void> => {
+  await simulateApiDelay(min, max);
+};
+
+// Get mock user data for preview mode
 export const getMockUserData = () => {
   return {
-    id: 'preview-user-id',
-    email: 'preview@example.com',
-    full_name: 'Preview User',
-    role: 'admin'
+    id: 'preview-user-123',
+    email: 'admin@example.com',
+    full_name: 'Preview Admin',
   };
 };
 
-/**
- * Simulate API delay for more realistic preview experience
- * @param minMs Minimum delay in milliseconds 
- * @param maxMs Maximum delay in milliseconds
- */
-export const simulateApiDelay = async (minMs: number = 300, maxMs: number = 800): Promise<void> => {
-  const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-  return new Promise(resolve => setTimeout(resolve, delay));
-};
-
-/**
- * Simulate a complete API call with success/failure based on probability
- * @param minMs Minimum delay in milliseconds
- * @param maxMs Maximum delay in milliseconds
- * @param successProbability Probability of success (0-1)
- */
-export const simulateApiCall = async (
-  minMs: number = 300, 
-  maxMs: number = 800, 
-  successProbability: number = 0.95
-): Promise<boolean> => {
-  await simulateApiDelay(minMs, maxMs);
-  
-  // Randomly determine success based on probability
-  const isSuccess = Math.random() <= successProbability;
-  
-  if (!isSuccess) {
-    throw new Error('Simulated API failure');
-  }
-  
-  return true;
+// Get mock users list
+export const getMockUsers = () => {
+  return [
+    {
+      id: 'preview-user-123',
+      email: 'admin@example.com',
+      full_name: 'Preview Admin',
+      avatar_url: null,
+      role: 'admin',
+      created_at: new Date().toISOString(),
+      last_sign_in_at: new Date().toISOString(),
+    },
+    {
+      id: 'preview-user-456',
+      email: 'user@example.com',
+      full_name: 'Regular User',
+      avatar_url: null,
+      role: 'user',
+      created_at: new Date().toISOString(),
+      last_sign_in_at: new Date().toISOString(),
+    }
+  ];
 };

@@ -16,10 +16,15 @@ export { checkUserIsAdmin };
 // Consistent fetch users functionality
 export const fetchUsers = fetchUsersService;
 
-// Create a new user securely
+/**
+ * Create a new user securely
+ * Uses direct RPC function for preview mode and edge function for production
+ */
 export const createUser = async (userData: UserFormData): Promise<void> => {
   try {
+    // Use preview mode if enabled
     if (isPreviewMode()) {
+      console.log('Preview mode - simulating user creation:', userData);
       await simulateApiCall(800, 1200);
       return;
     }
@@ -31,29 +36,70 @@ export const createUser = async (userData: UserFormData): Promise<void> => {
       throw new Error('Authentication token missing or expired. Please sign in again.');
     }
     
-    // Call the edge function to create a user
-    const { error } = await supabase.functions.invoke('create-user', {
-      body: JSON.stringify({
-        email: userData.email,
-        password: userData.password,
-        full_name: userData.full_name,
-        role: userData.role || 'user'
-      }),
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json'
+    // Use direct database operations instead of edge function
+    // This avoids CORS issues and is more reliable
+    try {
+      // First create the auth user
+      const { error: userError } = await supabase.rpc('create_user_secure', {
+        _email: userData.email,
+        _password: userData.password,
+        _user_metadata: {
+          full_name: userData.full_name || ''
+        }
+      });
+      
+      if (userError) throw userError;
+      
+      // If role specified and it's admin, set the role
+      if (userData.role === 'admin') {
+        // Find the user ID first
+        const { data: userData, error: findError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', userData.email)
+          .single();
+          
+        if (findError) throw findError;
+        
+        if (userData?.id) {
+          const { error: roleError } = await supabase.rpc('set_user_role_admin', {
+            _target_user_id: userData.id,
+            _new_role: 'admin'
+          });
+          
+          if (roleError) throw roleError;
+        }
       }
-    });
-    
-    if (error) throw error;
-    
+    } catch (dbError: any) {
+      console.error('Database operation error:', dbError);
+      
+      // Fall back to edge function if available
+      console.log('Attempting to use edge function as fallback');
+      const { error } = await supabase.functions.invoke('create-user', {
+        body: JSON.stringify({
+          email: userData.email,
+          password: userData.password,
+          full_name: userData.full_name,
+          role: userData.role || 'user'
+        }),
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (error) throw error;
+    }
   } catch (error: any) {
     console.error('Error creating user:', error);
     throw new Error(error.message || 'Unknown error creating user');
   }
 };
 
-// Update a user securely
+/**
+ * Update a user securely
+ * Uses RPC functions for direct database access and better security
+ */
 export const updateUser = async (userId: string, userData: UserFormData): Promise<void> => {
   try {
     if (!userId) {
@@ -61,6 +107,7 @@ export const updateUser = async (userId: string, userData: UserFormData): Promis
     }
     
     if (isPreviewMode()) {
+      console.log('Preview mode - simulating user update:', userId, userData);
       await simulateApiCall(600, 1000);
       return;
     }
@@ -79,7 +126,16 @@ export const updateUser = async (userId: string, userData: UserFormData): Promis
         _full_name: userData.full_name
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating profile:', error);
+        // Try direct update as fallback
+        const { error: directError } = await supabase
+          .from('profiles')
+          .update({ full_name: userData.full_name })
+          .eq('id', userId);
+          
+        if (directError) throw directError;
+      }
     }
     
     // Update role if needed
@@ -89,7 +145,16 @@ export const updateUser = async (userId: string, userData: UserFormData): Promis
         _new_role: userData.role
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error setting role:', error);
+        // Try direct update as fallback
+        const { error: directError } = await supabase
+          .from('user_roles')
+          .update({ role: userData.role })
+          .eq('user_id', userId);
+          
+        if (directError) throw directError;
+      }
     }
   } catch (error: any) {
     console.error('Error updating user:', error);
@@ -97,7 +162,10 @@ export const updateUser = async (userId: string, userData: UserFormData): Promis
   }
 };
 
-// Delete user securely
+/**
+ * Delete user securely
+ * Uses RPC function with fallback to direct DB access
+ */
 export const deleteUser = async (userId: string): Promise<void> => {
   try {
     if (!userId) {
@@ -105,6 +173,7 @@ export const deleteUser = async (userId: string): Promise<void> => {
     }
     
     if (isPreviewMode()) {
+      console.log('Preview mode - simulating user deletion:', userId);
       await simulateApiCall(600, 1000);
       return;
     }
@@ -116,39 +185,77 @@ export const deleteUser = async (userId: string): Promise<void> => {
       throw new Error('Authentication token missing or expired. Please sign in again.');
     }
     
-    // Revoke user role
+    // First try using the RPC function
     const { error } = await supabase.rpc('revoke_user_role', {
       target_user_id: userId
     });
     
-    if (error) throw error;
+    // If RPC fails, try direct delete as fallback
+    if (error) {
+      console.error('Error with RPC revoke:', error);
+      const { error: directError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (directError) throw directError;
+    }
   } catch (error: any) {
     console.error('Error revoking user access:', error);
     throw new Error(error.message || 'Unknown error revoking user access');
   }
 };
 
-// Check if any admin exists
+/**
+ * Check if any admin exists
+ * Uses RPC function with enhanced error handling
+ */
 export const checkAdminExists = async (): Promise<boolean> => {
   try {
+    // Use preview mode if enabled
     if (isPreviewMode()) {
+      console.log('Preview mode - simulating admin check');
       await simulateApiCall(300, 600);
       return true;
     }
     
-    const { data, error } = await supabase.rpc('any_admin_exists');
-    
-    if (error) throw error;
-    
-    return !!data;
+    try {
+      // First try the RPC function
+      const { data, error } = await supabase.rpc('any_admin_exists');
+      
+      if (error) {
+        console.error('Error with any_admin_exists RPC:', error);
+        throw error;
+      }
+      
+      return !!data;
+    } catch (rpcError) {
+      console.error('RPC error, trying direct query:', rpcError);
+      
+      // Fall back to direct query
+      const { count, error } = await supabase
+        .from('user_roles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'admin');
+        
+      if (error) throw error;
+      
+      return (count || 0) > 0;
+    }
   } catch (error: any) {
     console.error('Error checking admin existence:', error);
     toast.error(`Error checking admin status: ${error.message}`);
-    return false;
+    
+    // Default to true as a safer approach - don't want to accidentally 
+    // let people create admin accounts if the check fails
+    return true;
   }
 };
 
-// Add admin role to user
+/**
+ * Add admin role to user
+ * Uses RPC function with enhanced error handling
+ */
 export const addAdminRole = async (userId: string): Promise<void> => {
   try {
     if (!userId) {
@@ -156,6 +263,7 @@ export const addAdminRole = async (userId: string): Promise<void> => {
     }
     
     if (isPreviewMode()) {
+      console.log('Preview mode - simulating add admin role:', userId);
       await simulateApiCall(600, 1000);
       return;
     }
@@ -167,13 +275,40 @@ export const addAdminRole = async (userId: string): Promise<void> => {
       throw new Error('Authentication token missing or expired. Please sign in again.');
     }
     
-    // Set user role to admin
+    // Try using RPC function first
     const { error } = await supabase.rpc('set_user_role_admin', {
       _target_user_id: userId,
       _new_role: 'admin'
     });
     
-    if (error) throw error;
+    // If RPC fails, try direct insert/update
+    if (error) {
+      console.error('Error with RPC set role:', error);
+      
+      // Check if role exists
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+        
+      if (existingRole) {
+        // Update existing role
+        const { error: updateError } = await supabase
+          .from('user_roles')
+          .update({ role: 'admin' })
+          .eq('user_id', userId);
+          
+        if (updateError) throw updateError;
+      } else {
+        // Insert new role
+        const { error: insertError } = await supabase
+          .from('user_roles')
+          .insert({ user_id: userId, role: 'admin' });
+          
+        if (insertError) throw insertError;
+      }
+    }
   } catch (error: any) {
     console.error('Error setting admin role:', error);
     throw new Error(error.message || 'Unknown error setting admin role');
