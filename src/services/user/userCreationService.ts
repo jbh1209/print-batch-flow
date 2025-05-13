@@ -46,7 +46,7 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
       }
     };
     
-    // Use type assertion to bypass the complex type checking
+    // Use type assertion to bypass the complex type checking for ALL auth API calls
     const authResult = await supabase.auth.admin.createUser(createUserParams as any);
     
     if (authResult.error) {
