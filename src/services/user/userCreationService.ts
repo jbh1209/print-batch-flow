@@ -25,15 +25,19 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
   try {
     console.log("Creating user:", userData.email);
     
-    // Step 1: Create the user account through auth API using type assertion
-    const authResult = await supabase.auth.admin.createUser({
+    // Step 1: Create the user account through auth API
+    // Create a simple object instead of using the complex type directly
+    const createUserParams = {
       email: userData.email,
       password: userData.password,
       email_confirm: true,
       user_metadata: {
         full_name: userData.full_name || ''
       }
-    } as any); // Use type assertion to bypass complex type checking
+    };
+    
+    // Use type assertion to bypass the complex type checking
+    const authResult = await supabase.auth.admin.createUser(createUserParams as any);
     
     if (authResult.error) {
       throw authResult.error;
