@@ -1,9 +1,14 @@
 
-// Re-export all functions from user service files
-export * from './baseUserService';
-export * from './userRoleService';
-export * from './userProfileService';
+// Re-export all user service functionality for better organization
+
+// Export user creation functionality
 export * from './userCreationService';
+
+// Export user fetching functionality
 export * from './userFetchService';
-// Export auth services but exclude the duplicate checkIsAdmin function
-export { signOut, signIn, signUp, getSession, cleanupAuthState } from '../auth/authService';
+
+// Export user modification functionality
+export * from './userProfileService';
+
+// Export user role functionality
+export * from './userRoleService';

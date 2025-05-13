@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { invalidateUserCache } from '@/services/user/userFetchService';
 import { isPreviewMode, simulateApiCall } from '@/services/previewService';
+import { createUser as createUserService } from '@/services/user';
 
 /**
  * Hook for user creation operations with enhanced security
@@ -44,22 +45,13 @@ export function useUserCreation(
         throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
-      // Create user via edge function
-      const { data, error } = await supabase.functions.invoke('create-user', {
-        body: {
-          email: userData.email,
-          password: userData.password,
-          full_name: userData.full_name,
-          role: userData.role || 'user'
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        }
+      // Create user directly via service in production
+      await createUserService({
+        email: userData.email,
+        password: userData.password,
+        full_name: userData.full_name,
+        role: userData.role
       });
-      
-      if (error) {
-        throw error;
-      }
       
       toast.success('User created successfully');
       invalidateUserCache();
