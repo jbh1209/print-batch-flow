@@ -24,4 +24,4 @@ export { default as SecureProtectedRoute } from '@/components/auth/SecureProtect
 /**
  * Version information for security service
  */
-export const SECURITY_SERVICE_VERSION = '1.0.0';
+export const SECURITY_SERVICE_VERSION = '1.1.0';

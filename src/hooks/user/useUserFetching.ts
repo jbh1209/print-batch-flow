@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { UserWithRole } from '@/types/user-types';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchUsers, invalidateUserCache } from '@/services/security/core/userFetch';
+import { fetchUsers, invalidateUserCache } from '@/services/security/securityService';
 import { isPreviewMode } from '@/services/previewService';
 
 /**

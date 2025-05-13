@@ -5,7 +5,7 @@
  * Provides secure methods for fetching multiple user records
  * with enhanced error handling, preview mode support, and multi-layered fallbacks.
  */
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, adminClient } from '@/integrations/supabase/client';
 import { UserWithRole, validateUserRole } from '@/types/user-types';
 import { isPreviewMode } from '@/services/previewService';
 
