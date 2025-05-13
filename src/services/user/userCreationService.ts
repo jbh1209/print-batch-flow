@@ -26,7 +26,7 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
     console.log("Creating user:", userData.email);
     
     // Step 1: Create the user account through auth API
-    // Use explicitly constructed object to avoid deep type recursion
+    // Avoid complex type inference by using specific parameters
     const authResult = await supabase.auth.admin.createUser({
       email: userData.email,
       password: userData.password,
@@ -34,7 +34,7 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
       user_metadata: {
         full_name: userData.full_name || ''
       }
-    });
+    } as any); // Use type assertion to bypass deep type checking
     
     if (authResult.error) {
       throw authResult.error;
