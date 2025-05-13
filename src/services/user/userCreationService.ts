@@ -3,6 +3,19 @@ import { supabase, trackApiRequest } from '@/integrations/supabase/client';
 import { isPreviewMode, simulateApiDelay } from '@/services/previewService';
 import { invalidateUserCache } from './userFetchService';
 
+/**
+ * Simple interface for Supabase auth.admin.createUser parameters
+ * This avoids the deep type recursion issues by providing a flat structure
+ */
+interface CreateUserAuthParams {
+  email: string;
+  password: string;
+  email_confirm: boolean;
+  user_metadata: {
+    full_name: string;
+  };
+}
+
 // Define a simpler interface for user data to avoid deep type recursion
 interface UserCreationData {
   email: string;
@@ -25,9 +38,8 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
   try {
     console.log("Creating user:", userData.email);
     
-    // Step 1: Create the user account through auth API
-    // Prepare parameters but avoid complex types completely
-    const createUserParams = {
+    // Step 1: Create the user account through auth API using our simplified interface
+    const createUserParams: CreateUserAuthParams = {
       email: userData.email,
       password: userData.password,
       email_confirm: true,
@@ -36,11 +48,13 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
       }
     };
     
-    // Cast to unknown then any to completely bypass TypeScript's type checking for this call
-    const authResult = await supabase.auth.admin.createUser(createUserParams as unknown as any);
+    // Use proper type casting to avoid excessive type instantiation
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser(
+      createUserParams as any // Use single cast to avoid deep type checking
+    );
     
-    if (authResult.error) {
-      throw authResult.error;
+    if (authError) {
+      throw authError;
     }
     
     // Step 2: Fetch the profile ID for the newly created user
