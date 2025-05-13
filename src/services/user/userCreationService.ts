@@ -21,7 +21,7 @@ export const createUser = async (userData: {
   
   try {
     // Step 1: Create the user account through auth API
-    const authResult = await supabase.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: userData.email,
       password: userData.password,
       email_confirm: true,
@@ -30,35 +30,35 @@ export const createUser = async (userData: {
       }
     });
     
-    if (authResult.error) {
-      throw authResult.error;
+    if (authError) {
+      throw authError;
     }
     
     // Step 2: Fetch the profile ID for the newly created user
-    const profileData = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('id')
       .eq('email', userData.email)
       .single();
     
-    if (profileData.error) {
-      throw profileData.error;
+    if (profileError) {
+      throw profileError;
     }
     
-    const userId = profileData.data?.id;
+    const userId = profileData?.id;
     if (!userId) {
       throw new Error("Created user not found");
     }
     
     // Step 3: Set the user role if specified
     if (userData.role) {
-      const roleResult = await supabase.rpc('set_user_role_admin', {
+      const { error: roleError } = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: userData.role
       });
       
-      if (roleResult.error) {
-        throw roleResult.error;
+      if (roleError) {
+        throw roleError;
       }
     }
     
