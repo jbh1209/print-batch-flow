@@ -70,59 +70,41 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
     return mockUsers;
   }
   
-  // Production mode - try to fetch real data
+  // Production mode - use edge function
   try {
-    // Use RPC function to get user data securely
-    const { data: userData, error: userError } = await supabase.rpc('get_all_users_secure');
+    // Get the current session for authorization
+    const { data: { session } } = await supabase.auth.getSession();
     
-    if (userError) throw userError;
-    
-    if (!userData || !Array.isArray(userData)) {
-      throw new Error("Invalid data format received");
+    if (!session?.access_token) {
+      throw new Error('Authentication required to fetch users');
     }
     
-    // Get roles data
-    const { data: rolesData, error: rolesError } = await supabase
-      .from('user_roles')
-      .select('user_id, role');
-      
-    if (rolesError) throw rolesError;
+    // Call the edge function to fetch users securely
+    const { data, error } = await supabase.functions.invoke('get-all-users', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    });
     
-    // Get profiles data
-    const { data: profilesData, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, full_name, avatar_url');
-      
-    if (profilesError) throw profilesError;
-    
-    // Create maps for faster lookups
-    const roleMap = new Map();
-    if (rolesData) {
-      rolesData.forEach((role: any) => {
-        roleMap.set(role.user_id, role.role);
-      });
+    if (error) {
+      console.error("Edge function error:", error);
+      throw error;
     }
     
-    const profileMap = new Map();
-    if (profilesData) {
-      profilesData.forEach((profile: any) => {
-        profileMap.set(profile.id, profile);
-      });
+    if (!data || !Array.isArray(data)) {
+      throw new Error("Invalid data format received from edge function");
     }
     
     // Map and validate the data
-    const users: UserWithRole[] = userData.map((user: any) => {
-      const profile = profileMap.get(user.id) || {};
-      const role = validateUserRole(roleMap.get(user.id));
-      
+    const users: UserWithRole[] = data.map((user: any) => {
       return {
         id: user.id,
         email: user.email || '',
-        role: role,
-        full_name: profile.full_name || null,
-        avatar_url: profile.avatar_url || null,
-        created_at: new Date().toISOString(), // Default when not available
-        last_sign_in_at: null
+        role: validateUserRole(user.role),
+        full_name: user.full_name || null,
+        avatar_url: user.avatar_url || null,
+        created_at: user.created_at || new Date().toISOString(),
+        last_sign_in_at: user.last_sign_in_at || null
       };
     });
     

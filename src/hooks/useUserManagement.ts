@@ -37,8 +37,8 @@ export function useUserManagement() {
     
     try {
       const loadedUsers = await fetchUsers();
-      // Ensure proper typing
-      setUsers(loadedUsers as any);
+      // Set users with proper typing
+      setUsers(loadedUsers);
     } catch (error: any) {
       console.error('Error loading users:', error);
       setError(`Failed to load users: ${error.message || 'Unknown error'}`);
@@ -70,7 +70,7 @@ export function useUserManagement() {
     
     try {
       setError(null);
-      await createUser(userData as any);
+      await createUser(userData);
       toast.success(`User ${userData.email} created successfully`);
       await fetchAllUsers(); // Refresh the list
     } catch (error: any) {
