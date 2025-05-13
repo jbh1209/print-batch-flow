@@ -107,7 +107,7 @@ export async function secureSignOut(): Promise<void> {
 /**
  * Verify if a user has a specific role
  */
-export async function verifyUserRole(userId: string, role: 'admin' | 'user', userEmail?: string | null): Promise<boolean> {
+export async function verifyUserRole(userId: string, role: 'admin' | 'user'): Promise<boolean> {
   if (!userId) return false;
   
   // Auto-approve in preview mode for testing
@@ -139,57 +139,6 @@ export async function verifyUserRole(userId: string, role: 'admin' | 'user', use
   } catch (error) {
     console.error(`Error verifying role '${role}':`, error);
     return false;
-  }
-}
-
-/**
- * Get current user with role information
- */
-export async function getSecureCurrentUser() {
-  // In preview mode, return a consistent mock user
-  if (isPreviewMode()) {
-    const mockAdmin = getPreviewMockData('admin');
-    return {
-      id: mockAdmin.id,
-      email: mockAdmin.email,
-      isAdmin: true,
-      fullName: mockAdmin.full_name,
-      avatarUrl: mockAdmin.avatar_url,
-      lastSignInAt: mockAdmin.last_sign_in_at
-    };
-  }
-
-  try {
-    // Get current session
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !sessionData.session?.user) {
-      return null;
-    }
-    
-    const user = sessionData.session.user;
-    
-    // Get user profile
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('full_name, avatar_url')
-      .eq('id', user.id)
-      .maybeSingle();
-    
-    // Check admin status
-    const isAdmin = await verifyUserRole(user.id, 'admin', user.email);
-    
-    return {
-      id: user.id,
-      email: user.email || '',
-      isAdmin,
-      fullName: profileData?.full_name || null,
-      avatarUrl: profileData?.avatar_url || null,
-      lastSignInAt: user.last_sign_in_at || null
-    };
-  } catch (error) {
-    console.error("Error in getSecureCurrentUser:", error);
-    return null;
   }
 }
 
@@ -226,95 +175,73 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
   }
   
   try {
-    // Approach 1: Use the RPC function (primary approach)
+    // Approach 1: Use the secure stored procedure
     try {
-      // TypeScript fix: Using type assertion for the RPC function name
-      const { data, error } = await supabase.rpc('get_all_users_with_roles' as any);
+      const { data, error } = await supabase.rpc('get_all_users_secure');
       
       if (error) {
         throw error;
       }
       
-      // Add type check to ensure data is an array before mapping
       if (!Array.isArray(data)) {
-        throw new Error('Expected array response from get_all_users_with_roles function');
-      }
-      
-      const typedUsers = data.map((user: any) => ({
-        id: user.id,
-        email: user.email || '',
-        full_name: user.full_name || null,
-        role: validateUserRole(user.role),
-        created_at: user.created_at || new Date().toISOString(),
-        last_sign_in_at: user.last_sign_in_at || null,
-        avatar_url: user.avatar_url || null
-      }));
-      
-      userCache = typedUsers;
-      lastCacheTime = now;
-      
-      return typedUsers;
-    } catch (rpcError) {
-      console.warn("RPC approach failed:", rpcError);
-      
-      // Approach 2: Fallback to get_all_users_secure function
-      const { data: authData, error: authError } = await supabase.rpc('get_all_users_secure');
-      
-      if (authError) {
-        throw authError;
-      }
-      
-      // Add type check to ensure authData is an array before continuing
-      if (!Array.isArray(authData)) {
         throw new Error('Expected array response from get_all_users_secure function');
       }
       
       // Get roles for those users
-      const { data: rolesData } = await supabase
+      const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
       
+      if (rolesError) {
+        throw rolesError;
+      }
+      
       // Create a map of user IDs to roles
       const roleMap = new Map();
-      if (rolesData) {
-        rolesData.forEach((roleEntry: any) => {
+      if (rolesData && Array.isArray(rolesData)) {
+        rolesData.forEach((roleEntry) => {
           roleMap.set(roleEntry.user_id, roleEntry.role);
         });
       }
       
       // Get profiles data
-      const { data: profilesData } = await supabase
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, avatar_url');
       
+      if (profilesError) {
+        throw profilesError;
+      }
+      
       // Create a map of user IDs to profiles
       const profileMap = new Map();
-      if (profilesData) {
-        profilesData.forEach((profile: any) => {
+      if (profilesData && Array.isArray(profilesData)) {
+        profilesData.forEach((profile) => {
           profileMap.set(profile.id, profile);
         });
       }
       
       // Combine all the data
-      const combinedUsers = authData.map((authUser: any) => {
-        const profile = profileMap.get(authUser.id) || {};
-        const role = validateUserRole(roleMap.get(authUser.id));
+      const users = data.map((user: any) => {
+        const profile = profileMap.get(user.id) || {};
+        const role = validateUserRole(roleMap.get(user.id));
         
         return {
-          id: authUser.id,
-          email: authUser.email || '',
+          id: user.id,
+          email: user.email || '',
+          role: role,
           full_name: profile.full_name || null,
-          role,
+          avatar_url: profile.avatar_url || null,
           created_at: new Date().toISOString(),
-          last_sign_in_at: null,
-          avatar_url: profile.avatar_url || null
+          last_sign_in_at: null
         } as UserWithRole;
       });
       
-      userCache = combinedUsers;
+      userCache = users;
       lastCacheTime = now;
-      
-      return combinedUsers;
+      return users;
+    } catch (error) {
+      throw error;
     }
   } catch (error: any) {
     console.error('Error in fetchUsers:', error);
@@ -322,4 +249,4 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
   }
 }
 
-export const SECURITY_SERVICE_VERSION = '1.2.1';
+export const SECURITY_SERVICE_VERSION = '1.3.0';

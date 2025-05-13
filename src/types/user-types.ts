@@ -9,7 +9,7 @@
 // Form data for creating/updating users
 export interface UserFormData {
   email: string;
-  password?: string;
+  password: string; // Required for creation
   full_name?: string;
   role?: 'admin' | 'user';
 }

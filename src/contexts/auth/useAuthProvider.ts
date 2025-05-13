@@ -2,10 +2,10 @@
 import { useState, useEffect } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { isPreviewMode, getMockUserData, simulateApiDelay } from '@/services/PreviewService';
+import { isPreviewMode, getMockUserData, simulateApiDelay } from '@/services/previewService';
 import { UserProfile } from './types';
 import { toast } from 'sonner';
-import { checkUserIsAdmin } from '@/services/UserService';
+import { checkUserIsAdmin } from '@/services/userService';
 
 // Clean up auth state
 export const cleanupAuthState = () => {

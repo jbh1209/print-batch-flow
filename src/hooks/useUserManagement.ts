@@ -10,8 +10,8 @@ import {
   deleteUser, 
   checkAdminExists as checkIfAdminExists, 
   addAdminRole as giveUserAdminRole
-} from '@/services/UserService';
-import { isPreviewMode } from '@/services/PreviewService';
+} from '@/services/userService';
+import { isPreviewMode } from '@/services/previewService';
 
 // Simplified user management hook
 export function useUserManagement() {
@@ -37,7 +37,12 @@ export function useUserManagement() {
     
     try {
       const loadedUsers = await fetchAllUsers();
-      setUsers(loadedUsers);
+      // Ensure consistent types by mapping if needed
+      const typedUsers = loadedUsers.map(user => ({
+        ...user,
+        created_at: user.created_at || new Date().toISOString()
+      }));
+      setUsers(typedUsers);
     } catch (error: any) {
       console.error('Error loading users:', error);
       setError(`Failed to load users: ${error.message || 'Unknown error'}`);
@@ -63,6 +68,10 @@ export function useUserManagement() {
 
   // Create a new user
   const handleCreateUser = useCallback(async (userData: UserFormData) => {
+    if (!userData.password) {
+      throw new Error('Password is required when creating a user');
+    }
+    
     try {
       setError(null);
       await createUser(userData);

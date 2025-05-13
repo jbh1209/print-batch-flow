@@ -7,7 +7,7 @@ const SUPABASE_URL = "https://kgizusgqexmlfcqfjopk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnaXp1c2dxZXhtbGZjcWZqb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NTQwNzAsImV4cCI6MjA2MDEzMDA3MH0.NA2wRme-L8Z15my7n8u-BCQtO4Nw2opfsX0KSLYcs-I";
 
 // Import from central service to avoid circular dependencies
-import { isPreviewMode } from '../PreviewService';
+import { isPreviewMode } from '@/services/previewService';
 
 // Standard supabase client with improved error handling
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
