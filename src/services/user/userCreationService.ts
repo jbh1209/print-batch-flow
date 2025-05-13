@@ -20,6 +20,7 @@ export const createUser = async (userData: {
   }
   
   try {
+    // Create the user account
     const { error } = await supabase.auth.admin.createUser({
       email: userData.email,
       password: userData.password,
@@ -32,18 +33,18 @@ export const createUser = async (userData: {
     if (error) throw error;
     
     // Get the user ID from the newly created user
-    const { data: userProfile } = await supabase
+    const { data: newUserProfile } = await supabase
       .from('profiles')
       .select('id')
       .eq('email', userData.email)
       .single();
     
-    if (!userProfile?.id) throw new Error("Created user not found");
+    if (!newUserProfile?.id) throw new Error("Created user not found");
     
     // Set the user role if specified
     if (userData.role) {
       const { error: roleError } = await supabase.rpc('set_user_role_admin', {
-        _target_user_id: userProfile.id,
+        _target_user_id: newUserProfile.id,
         _new_role: userData.role
       });
       

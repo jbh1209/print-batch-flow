@@ -5,7 +5,6 @@
 
 import { isPreviewMode } from '@/services/previewService';
 import { getSignedUrl } from './urlUtils';
-import { sanitizeFileName } from './securityUtils';
 
 // Get secure current user
 export const getSecureCurrentUser = () => {
@@ -71,4 +70,3 @@ export const logPdfAccess = (url: string, action: 'view' | 'download'): void => 
   // In a production environment, this would log to a secure audit log
   console.log(`PDF ${action} access: ${url.substring(0, 20)}... at ${new Date().toISOString()}`);
 };
-
