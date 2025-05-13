@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { isPreviewMode } from '@/services/previewService';
-import { cleanupAuthState } from '@/services/security/securityService';
+import { cleanupAuthState } from '@/services/auth/authService';
 
 /**
  * Enhanced hook for checking session validity with improved security

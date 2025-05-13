@@ -3,15 +3,18 @@ import { supabase, trackApiRequest } from '@/integrations/supabase/client';
 import { isPreviewMode, simulateApiDelay } from '@/services/previewService';
 import { invalidateUserCache } from './userFetchService';
 
-/**
- * Create a new user with proper error handling
- */
-export const createUser = async (userData: {
+// Define a simpler interface for user data to avoid deep type recursion
+interface UserCreationData {
   email: string;
   password: string;
   full_name?: string;
   role?: 'admin' | 'user';
-}): Promise<void> => {
+}
+
+/**
+ * Create a new user with proper error handling
+ */
+export const createUser = async (userData: UserCreationData): Promise<void> => {
   // In preview mode, simulate success
   if (isPreviewMode()) {
     await simulateApiDelay(800, 1500);
@@ -68,7 +71,7 @@ export const createUser = async (userData: {
     invalidateUserCache();
     trackApiRequest(true);
   } catch (error) {
-    console.error("Error creating user:", error);
+    console.error("Creating user error:", error);
     trackApiRequest(false);
     throw error;
   }

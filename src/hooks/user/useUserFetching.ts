@@ -3,7 +3,8 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { UserWithRole } from '@/types/user-types';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchUsers, invalidateUserCache, isPreviewMode } from '@/services/security/securityService';
+import { fetchUsers, invalidateUserCache } from '@/services/user/userFetchService';
+import { isPreviewMode } from '@/services/security/securityService';
 
 /**
  * Hook for fetching user data with security enhancements
