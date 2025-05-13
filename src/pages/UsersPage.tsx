@@ -1,8 +1,35 @@
 
 import React from 'react';
 import { UserTableContainer } from '@/components/users/UserTableContainer';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { Navigate } from 'react-router-dom';
+
+// Centralized error handler for consistent UX
+const handleError = (error: any) => {
+  console.error("User management error:", error);
+  const message = error?.message || "An unexpected error occurred";
+  toast.error(message);
+};
 
 const UsersPage = () => {
+  const { isAdmin, isLoading } = useAuth();
+
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-6 flex justify-center items-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Redirect if not admin
+  if (!isAdmin) {
+    toast.error("You don't have permission to access this page");
+    return <Navigate to="/" />;
+  }
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex items-center justify-between mb-6">

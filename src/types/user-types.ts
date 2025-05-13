@@ -24,7 +24,7 @@ export interface UserWithRole {
   full_name: string | null;
   role: UserRole;
   created_at: string;
-  last_sign_in_at?: string;
+  last_sign_in_at?: string | null;
   avatar_url?: string | null;
 }
 
@@ -42,7 +42,6 @@ export const isValidUserRole = (role: unknown): role is UserRole => {
 
 export const validateUserRole = (role: unknown): UserRole => {
   if (!isValidUserRole(role)) {
-    console.warn(`Invalid role value detected: "${role}", defaulting to "user"`);
     return 'user';
   }
   return role;

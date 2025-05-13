@@ -2,15 +2,44 @@
 import { useState, useEffect } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { isPreviewMode, getMockUserData, simulateApiDelay } from '@/services/PreviewService';
 import { UserProfile } from './types';
-import { cleanupAuthState, checkIsAdmin } from '@/services/auth/authService';
 import { toast } from 'sonner';
+import { checkUserIsAdmin } from '@/services/UserService';
 
-// Check if we're in Lovable preview mode
-const isLovablePreview = 
-  typeof window !== 'undefined' && 
-  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+// Clean up auth state
+export const cleanupAuthState = () => {
+  try {
+    console.log('Cleaning up auth state');
+    
+    // Remove standard auth tokens
+    localStorage.removeItem('supabase.auth.token');
+    
+    // Remove all Supabase auth keys from localStorage
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        console.log(`Removing auth key from localStorage: ${key}`);
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // Clean sessionStorage if used
+    if (typeof sessionStorage !== 'undefined') {
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          console.log(`Removing auth key from sessionStorage: ${key}`);
+          sessionStorage.removeItem(key);
+        }
+      });
+    }
+    
+    console.log('Auth state cleanup completed');
+  } catch (error) {
+    console.error('Error cleaning up auth state:', error);
+  }
+};
 
+// Auth provider hook with improved error handling
 export function useAuthProvider() {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -18,7 +47,7 @@ export function useAuthProvider() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch user profile with retry
+  // Fetch user profile with better error handling
   const fetchProfile = async (userId: string) => {
     if (!userId) return null;
     
@@ -41,21 +70,7 @@ export function useAuthProvider() {
     }
   };
 
-  // Check if user is admin using the enhanced method
-  const checkAdmin = async (userId: string, userEmail?: string | null) => {
-    if (!userId) return false;
-    
-    try {
-      // Use the enhanced admin checking function with multiple strategies
-      const isUserAdmin = await checkIsAdmin(userId, userEmail);
-      return isUserAdmin;
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      return false;
-    }
-  };
-
-  // Sign out function
+  // Sign out function with cleanup and fallbacks
   const handleSignOut = async () => {
     try {
       // First clean up all auth state
@@ -116,7 +131,7 @@ export function useAuthProvider() {
         setProfile(profileData);
       }
       
-      const adminStatus = await checkAdmin(user.id, user.email);
+      const adminStatus = await checkUserIsAdmin(user.id);
       setIsAdmin(adminStatus);
     } catch (error) {
       console.error('Error refreshing profile:', error);
@@ -127,54 +142,63 @@ export function useAuthProvider() {
   useEffect(() => {
     let isMounted = true;
 
-    // For preview mode, set a mock session to allow navigation
-    if (isLovablePreview) {
+    // For preview mode, set a mock session
+    if (isPreviewMode()) {
       console.log('Preview mode detected, using mock authentication');
-      setIsLoading(false);
-      
-      // Only if in preview - create a mock user for easier navigation
-      // This will not persist or affect real authentication
-      const mockUser = {
-        id: 'preview-user',
-        email: 'preview@example.com',
-        role: 'authenticated',
-      } as SupabaseUser;
-      
-      const mockProfile = {
-        id: 'preview-user',
-        full_name: 'Preview User',
-        avatar_url: null,
-      };
+      simulateApiDelay(300, 700).then(() => {
+        if (isMounted) {
+          const mockData = getMockUserData();
+          
+          // Create mock user
+          const mockUser = {
+            id: mockData.id,
+            email: mockData.email,
+            role: 'authenticated',
+          } as SupabaseUser;
+          
+          // Create mock profile
+          const mockProfile = {
+            id: mockData.id,
+            full_name: mockData.full_name,
+            avatar_url: null,
+          };
 
-      // Set mock data for preview
-      setUser(mockUser);
-      setProfile(mockProfile);
-      setIsAdmin(true);
-      return;
+          // Set mock data
+          setUser(mockUser);
+          setProfile(mockProfile);
+          setIsAdmin(true);
+          setIsLoading(false);
+        }
+      });
+      
+      return () => { isMounted = false; };
     }
     
-    // Set up auth state listener FIRST to avoid missing events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        if (!isMounted) return;
-        
-        console.log('Auth state changed:', event);
-        setSession(currentSession);
-        
+    // Set up auth listener first to avoid race conditions
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (!isMounted) return;
+      
+      console.log('Auth state changed:', event);
+      setSession(currentSession);
+      
+      // Only continue auth flow for key events
+      if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'TOKEN_REFRESHED'].includes(event)) {
         if (currentSession?.user) {
           setUser(currentSession.user);
           
-          // Defer profile fetching to avoid recursive RLS issues
+          // Defer other operations to avoid deadlock
           setTimeout(async () => {
             if (!isMounted) return;
             
             try {
+              // Fetch profile 
               const profileData = await fetchProfile(currentSession.user.id);
               if (isMounted) {
                 setProfile(profileData);
               }
               
-              const adminStatus = await checkAdmin(currentSession.user.id, currentSession.user.email);
+              // Check admin status
+              const adminStatus = await checkUserIsAdmin(currentSession.user.id);
               if (isMounted) {
                 setIsAdmin(adminStatus);
               }
@@ -183,36 +207,40 @@ export function useAuthProvider() {
                 setIsLoading(false);
               }
             }
-          }, 100);
+          }, 50);
         } else {
+          // User signed out
           setUser(null);
           setProfile(null);
           setIsAdmin(false);
           setIsLoading(false);
         }
       }
-    );
+    });
 
     // Then check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       
+      const currentSession = data?.session;
       setSession(currentSession);
       
       if (currentSession?.user) {
         setUser(currentSession.user);
         
-        // Defer profile fetching
+        // Defer other operations
         setTimeout(async () => {
           if (!isMounted) return;
           
           try {
+            // Fetch profile
             const profileData = await fetchProfile(currentSession.user.id);
             if (isMounted) {
               setProfile(profileData);
             }
             
-            const adminStatus = await checkAdmin(currentSession.user.id, currentSession.user.email);
+            // Check admin status
+            const adminStatus = await checkUserIsAdmin(currentSession.user.id);
             if (isMounted) {
               setIsAdmin(adminStatus);
             }
@@ -221,7 +249,7 @@ export function useAuthProvider() {
               setIsLoading(false);
             }
           }
-        }, 100);
+        }, 50);
       } else {
         setUser(null);
         setProfile(null);

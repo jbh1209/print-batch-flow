@@ -11,14 +11,21 @@ import { UserDialogForm } from "./UserDialogForm";
 import { LoadingState } from "./LoadingState";
 
 export function UserTableContainer() {
-  const { users, createUser, updateUser, deleteUser, error: contextError, fetchUsers, isLoading } = useUserManagement();
+  const { 
+    users, 
+    createUser, 
+    updateUser, 
+    deleteUser, 
+    error: contextError, 
+    fetchUsers, 
+    isLoading,
+    isRefreshing 
+  } = useUserManagement();
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(contextError);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
   
   // Sync context error to local state
   React.useEffect(() => {
@@ -27,40 +34,18 @@ export function UserTableContainer() {
     }
   }, [contextError]);
 
-  // Debounced refresh function
-  const handleRefresh = useCallback(async () => {
-    // Prevent rapid consecutive refreshes
-    const now = Date.now();
-    if (now - lastRefreshAttempt < 2000 || isRefreshing) {
-      toast.error("Please wait before refreshing again");
-      return;
-    }
-    
-    try {
-      setIsRefreshing(true);
-      setLastRefreshAttempt(now);
-      setError(null);
-      toast.loading('Refreshing user data...', { duration: 3000 });
-      await fetchUsers();
-    } catch (err: any) {
-      setError(err.message || "Failed to refresh user data");
-      toast.error(`Failed to refresh user data: ${err.message || "Unknown error"}`);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [fetchUsers, isRefreshing, lastRefreshAttempt]);
-
+  // Handle user form submission
   const handleUserFormSubmit = async (userData: UserFormData) => {
     try {
       setError(null);
       setIsProcessing(true);
       
       if (editingUser) {
-        toast.loading('Updating user...', { duration: 5000 });
+        toast.loading('Updating user...', { duration: 3000 });
         await updateUser(editingUser.id, userData);
         toast.success(`User ${userData.full_name || editingUser.email} updated successfully`);
       } else {
-        toast.loading('Creating new user...', { duration: 5000 });
+        toast.loading('Creating new user...', { duration: 3000 });
         await createUser(userData);
         toast.success(`User ${userData.email} created successfully`);
       }
@@ -76,20 +61,23 @@ export function UserTableContainer() {
     }
   };
 
+  // Open edit dialog
   const openEditDialog = (user: UserWithRole) => {
     setEditingUser(user);
     setDialogOpen(true);
   };
 
+  // Open add user dialog
   const openAddUserDialog = () => {
     setEditingUser(null);
     setDialogOpen(true);
   };
   
+  // Handle user deletion
   const handleDeleteUser = async (userId: string) => {
     try {
       setError(null);
-      toast.loading("Revoking user access...", { duration: 5000 });
+      toast.loading("Revoking user access...", { duration: 3000 });
       await deleteUser(userId);
       toast.success("User access revoked successfully");
     } catch (error: any) {
@@ -103,12 +91,12 @@ export function UserTableContainer() {
     <div>
       <ErrorDisplay 
         error={error} 
-        onRetry={handleRefresh}
+        onRetry={fetchUsers}
         isRefreshing={isRefreshing}
       />
 
       <TableControls 
-        onRefresh={handleRefresh}
+        onRefresh={fetchUsers}
         onAddUser={openAddUserDialog}
         isRefreshing={isRefreshing}
         isLoading={isLoading}
@@ -123,7 +111,7 @@ export function UserTableContainer() {
         }
       }}>
         <DialogTrigger asChild>
-          <span style={{ display: 'none' }}></span> {/* Hidden trigger, we use the one in TableControls */}
+          <span style={{ display: 'none' }}></span> {/* Hidden trigger */}
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <UserDialogForm 
