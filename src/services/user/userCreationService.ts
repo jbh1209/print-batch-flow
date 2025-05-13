@@ -32,18 +32,18 @@ export const createUser = async (userData: {
     if (error) throw error;
     
     // Get the user ID from the newly created user
-    const { data: userData1 } = await supabase
+    const { data: userProfile } = await supabase
       .from('profiles')
       .select('id')
       .eq('email', userData.email)
       .single();
     
-    if (!userData1?.id) throw new Error("Created user not found");
+    if (!userProfile?.id) throw new Error("Created user not found");
     
     // Set the user role if specified
     if (userData.role) {
       const { error: roleError } = await supabase.rpc('set_user_role_admin', {
-        _target_user_id: userData1.id,
+        _target_user_id: userProfile.id,
         _new_role: userData.role
       });
       

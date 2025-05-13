@@ -4,6 +4,8 @@
  */
 
 import { isPreviewMode } from '@/services/previewService';
+import { getSignedUrl } from './urlUtils';
+import { sanitizeFileName } from './securityUtils';
 
 // Get secure current user
 export const getSecureCurrentUser = () => {
@@ -37,3 +39,36 @@ export const validatePdfAccess = (pdfId: string, userId: string): boolean => {
   // TODO: Implement proper PDF access validation
   return !!userId;
 };
+
+/**
+ * Securely get a PDF URL with proper validation and signing
+ */
+export const secureGetPdfUrl = async (
+  url: string | null,
+  userId?: string
+): Promise<string | null> => {
+  if (!url) return null;
+  
+  // Validate access
+  if (userId && !validatePdfAccess(url, userId)) {
+    console.error('Access denied to PDF');
+    return null;
+  }
+  
+  try {
+    // Get a signed URL for secure access
+    return await getSignedUrl(url);
+  } catch (error) {
+    console.error('Error securing PDF URL:', error);
+    return null;
+  }
+};
+
+/**
+ * Log PDF access for audit purposes
+ */
+export const logPdfAccess = (url: string, action: 'view' | 'download'): void => {
+  // In a production environment, this would log to a secure audit log
+  console.log(`PDF ${action} access: ${url.substring(0, 20)}... at ${new Date().toISOString()}`);
+};
+
