@@ -228,10 +228,16 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
     // Approach 1: Use the RPC function (primary approach)
     try {
-      const { data, error } = await supabase.rpc('get_all_users_with_roles');
+      // TypeScript fix: Using type assertion for the RPC function name
+      const { data, error } = await supabase.rpc('get_all_users_with_roles' as any);
       
       if (error) {
         throw error;
+      }
+      
+      // Add type check to ensure data is an array before mapping
+      if (!Array.isArray(data)) {
+        throw new Error('Expected array response from get_all_users_with_roles function');
       }
       
       const typedUsers = data.map((user: any) => ({
@@ -256,6 +262,11 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       
       if (authError) {
         throw authError;
+      }
+      
+      // Add type check to ensure authData is an array before continuing
+      if (!Array.isArray(authData)) {
+        throw new Error('Expected array response from get_all_users_secure function');
       }
       
       // Get roles for those users
@@ -311,4 +322,4 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
   }
 }
 
-export const SECURITY_SERVICE_VERSION = '1.2.0';
+export const SECURITY_SERVICE_VERSION = '1.2.1';
