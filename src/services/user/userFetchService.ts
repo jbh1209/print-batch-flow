@@ -1,7 +1,7 @@
 
-import { supabase, adminClient } from '@/integrations/supabase/client';
+import { supabase, trackApiRequest } from '@/integrations/supabase/client';
 import { UserWithRole, validateUserRole } from '@/types/user-types';
-import { isPreviewMode } from '@/services/previewService';
+import { isPreviewMode, getMockUserData, simulateApiDelay } from '@/services/previewService';
 
 // Simple in-memory cache for user data with expiration
 let userCache: UserWithRole[] | null = null;
@@ -18,8 +18,7 @@ export const invalidateUserCache = (): void => {
 };
 
 /**
- * Securely fetch all users with proper validation and authorization checks
- * @returns Promise resolving to array of users with roles
+ * Securely fetch all users with consistent error handling
  */
 export const fetchUsers = async (): Promise<UserWithRole[]> => {
   // Return cached data if valid
@@ -32,13 +31,15 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
   // In preview mode, return mock data
   if (isPreviewMode()) {
     console.log("Preview mode detected, returning mock users data");
+    await simulateApiDelay(600, 1200);
+    
     const mockUsers: UserWithRole[] = [
       {
         id: "preview-admin-1",
         email: "admin@example.com",
         created_at: new Date().toISOString(),
         last_sign_in_at: new Date().toISOString(),
-        role: "admin", 
+        role: "admin",
         full_name: "Preview Admin",
         avatar_url: null
       },
@@ -56,7 +57,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         email: "dev@example.com",
         created_at: new Date().toISOString(),
         last_sign_in_at: new Date().toISOString(),
-        role: "user",
+        role: "user", 
         full_name: "Developer User",
         avatar_url: null
       }
@@ -69,80 +70,74 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
     return mockUsers;
   }
   
-  // Get current session to ensure fresh token
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError || !sessionData.session?.access_token) {
-    throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
-  }
-  
+  // Production mode - try to fetch real data
   try {
-    // Approach 1: Direct edge function call with enhanced security headers
-    console.log('Fetching users data via edge function');
-    const response = await fetch(`https://kgizusgqexmlfcqfjopk.supabase.co/functions/v1/get-all-users`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
-      },
-      // Add timeout for the fetch request
-      signal: AbortSignal.timeout(8000)
+    // Use RPC function to get user data securely
+    const { data: userData, error: userError } = await supabase.rpc('get_all_users_secure');
+    
+    if (userError) throw userError;
+    
+    if (!userData || !Array.isArray(userData)) {
+      throw new Error("Invalid data format received");
+    }
+    
+    // Get roles data
+    const { data: rolesData, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('user_id, role');
+      
+    if (rolesError) throw rolesError;
+    
+    // Get profiles data
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url');
+      
+    if (profilesError) throw profilesError;
+    
+    // Create maps for faster lookups
+    const roleMap = new Map();
+    if (rolesData) {
+      rolesData.forEach((role: any) => {
+        roleMap.set(role.user_id, role.role);
+      });
+    }
+    
+    const profileMap = new Map();
+    if (profilesData) {
+      profilesData.forEach((profile: any) => {
+        profileMap.set(profile.id, profile);
+      });
+    }
+    
+    // Map and validate the data
+    const users: UserWithRole[] = userData.map((user: any) => {
+      const profile = profileMap.get(user.id) || {};
+      const role = validateUserRole(roleMap.get(user.id));
+      
+      return {
+        id: user.id,
+        email: user.email || '',
+        role: role,
+        full_name: profile.full_name || null,
+        avatar_url: profile.avatar_url || null,
+        created_at: new Date().toISOString(), // Default when not available
+        last_sign_in_at: null
+      };
     });
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!Array.isArray(data)) {
-      throw new Error("Invalid response format from edge function");
-    }
-    
-    // Ensure role values are valid by mapping them to the allowed types
-    const typedUsers = data.map((user: any) => ({
-      ...user,
-      role: validateUserRole(user.role)
-    }));
-    
-    // Update cache
-    userCache = typedUsers;
+    // Update cache and track successful request
+    userCache = users;
     lastCacheTime = now;
+    trackApiRequest(true);
     
-    return typedUsers;
-  } catch (fetchError) {
-    console.error("Direct fetch error:", fetchError);
-    
-    // Approach 2: Fall back to Supabase functions API
-    console.log('Falling back to functions API');
-    const { data, error: functionError } = await adminClient.functions.invoke('get-all-users', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
-      }
-    });
-    
-    if (functionError) throw functionError;
-    
-    if (!data || !Array.isArray(data)) {
-      throw new Error("Invalid data format received from functions API");
-    }
-    
-    // Ensure role values are valid
-    const typedUsers = data.map((user: any) => ({
-      ...user,
-      role: validateUserRole(user.role)
-    }));
-    
-    // Update cache
-    userCache = typedUsers;
-    lastCacheTime = now;
-    
-    return typedUsers;
+    return users;
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    trackApiRequest(false);
+    throw new Error(`Failed to fetch users: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 };
+
+// Alias functions for backward compatibility
+export const fetchAllUsers = fetchUsers;

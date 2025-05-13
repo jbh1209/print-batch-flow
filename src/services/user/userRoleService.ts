@@ -1,66 +1,54 @@
 
-import { supabase } from '@/integrations/supabase/client';
-import { UserRole } from '@/types/user-types';
+import { supabase, trackApiRequest } from '@/integrations/supabase/client';
+import { isPreviewMode, simulateApiDelay } from '@/services/previewService';
+import { invalidateUserCache } from './userFetchService';
 
 /**
- * User role management functions
+ * Check if any admin exists in the system
  */
-
-// Add admin role to a user
-export async function addAdminRole(userId: string): Promise<void> {
+export const checkAdminExists = async (): Promise<boolean> => {
+  // In preview mode, always true
+  if (isPreviewMode()) {
+    await simulateApiDelay(300, 700);
+    return true;
+  }
+  
   try {
-    console.log('Setting admin role for user:', userId);
+    const { data, error } = await supabase.rpc('any_admin_exists');
     
-    const { error } = await supabase.rpc('set_user_role_admin', {
-      _target_user_id: userId, 
-      _new_role: 'admin'
+    if (error) throw error;
+    trackApiRequest(true);
+    return !!data;
+  } catch (error) {
+    console.error("Error checking admin existence:", error);
+    trackApiRequest(false);
+    return false;
+  }
+};
+
+/**
+ * Add admin role to a user
+ */
+export const addAdminRole = async (userId: string): Promise<void> => {
+  // In preview mode, simulate success
+  if (isPreviewMode()) {
+    await simulateApiDelay(500, 1000);
+    invalidateUserCache(); // Clear cache
+    return;
+  }
+  
+  try {
+    const { error } = await supabase.rpc('add_admin_role', {
+      admin_user_id: userId
     });
     
-    if (error) {
-      console.error('Error setting admin role:', error);
-      throw error;
-    }
+    if (error) throw error;
+    
+    invalidateUserCache(); // Clear cache
+    trackApiRequest(true);
   } catch (error) {
-    console.error('Exception in addAdminRole:', error);
+    console.error("Error adding admin role:", error);
+    trackApiRequest(false);
     throw error;
   }
-}
-
-// Update user role - using secure function
-export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
-  try {
-    console.log(`Updating user ${userId} role to ${role}`);
-    
-    const { error } = await supabase.rpc('set_user_role_admin', {
-      _target_user_id: userId,
-      _new_role: role
-    });
-    
-    if (error) {
-      console.error('Error updating role:', error);
-      throw error;
-    }
-  } catch (error) {
-    console.error('Exception in updateUserRole:', error);
-    throw error;
-  }
-}
-
-// Revoke user role/access
-export async function revokeUserAccess(userId: string): Promise<void> {
-  try {
-    console.log(`Revoking access for user ${userId}`);
-    
-    const { error } = await supabase.rpc('revoke_user_role', {
-      target_user_id: userId
-    });
-    
-    if (error) {
-      console.error('Error revoking user access:', error);
-      throw error;
-    }
-  } catch (error) {
-    console.error('Exception in revokeUserAccess:', error);
-    throw error;
-  }
-}
+};

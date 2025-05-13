@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode, getMockUserData, simulateApiDelay } from '@/services/previewService';
 import { UserProfile } from './types';
 import { toast } from 'sonner';
-import { checkUserIsAdmin } from '@/services/userService';
+import { checkUserIsAdmin } from '@/services/user';
 
 // Clean up auth state
 export const cleanupAuthState = () => {

@@ -33,3 +33,6 @@ export const simulateApiDelay = async (minMs = 300, maxMs = 800): Promise<void> 
   const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
   return new Promise(resolve => setTimeout(resolve, delay));
 };
+
+// Alias for simulateApiDelay for backward compatibility
+export const simulateApiCall = simulateApiDelay;

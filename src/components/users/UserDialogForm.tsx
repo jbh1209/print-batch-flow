@@ -37,6 +37,7 @@ export function UserDialogForm({
       <UserForm 
         initialData={editingUser ? {
           email: editingUser.email,
+          password: '', // Always empty for editing
           full_name: editingUser.full_name || '',
           role: editingUser.role
         } : undefined}

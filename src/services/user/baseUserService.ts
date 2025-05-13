@@ -1,44 +1,33 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { isPreviewMode } from '@/services/previewService';
+import { UserWithRole } from '@/types/user-types';
 
-/**
- * Base utility functions for user services
- */
-
-// Check if any admin exists in the system
-export async function checkAdminExists(): Promise<boolean> {
-  try {
-    const { data, error } = await supabase.rpc('any_admin_exists');
-    
-    if (error) {
-      console.error('Error checking admin existence:', error);
-      throw error;
-    }
-    
-    return !!data; // Ensure we consistently return a boolean
-  } catch (error) {
-    console.error('Error checking admin existence:', error);
-    throw error;
+// Check if a user is an admin
+export const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
+  // In preview mode, always true for testing
+  if (isPreviewMode()) {
+    return true;
   }
-}
 
-// Check if a user has admin role - using fixed secure function
-export async function checkIsAdmin(userId: string): Promise<boolean> {
   try {
-    if (!userId) return false;
-    
+    // Use the secure RPC function 
     const { data, error } = await supabase.rpc('is_admin_secure_fixed', { 
       _user_id: userId 
     });
     
-    if (error) {
-      console.error('Error checking admin status:', error);
-      throw error;
-    }
-    
-    return !!data; // Ensure we consistently return a boolean
+    if (error) throw error;
+    return !!data;
   } catch (error) {
     console.error('Error checking admin status:', error);
-    throw error;
+    return false;
   }
-}
+};
+
+// Type-safe role validation
+export const validateUserRole = (role: unknown): 'admin' | 'user' => {
+  if (typeof role === 'string' && (role === 'admin' || role === 'user')) {
+    return role;
+  }
+  return 'user'; // Default role
+};

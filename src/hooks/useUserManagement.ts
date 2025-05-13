@@ -4,13 +4,13 @@ import { UserFormData, UserWithRole } from '@/types/user-types';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { 
-  fetchAllUsers, 
+  fetchUsers, 
   createUser, 
   updateUser, 
   deleteUser, 
-  checkAdminExists as checkIfAdminExists, 
-  addAdminRole as giveUserAdminRole
-} from '@/services/userService';
+  checkAdminExists, 
+  addAdminRole
+} from '@/services/user';
 import { isPreviewMode } from '@/services/previewService';
 
 // Simplified user management hook
@@ -24,7 +24,7 @@ export function useUserManagement() {
   const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
 
   // Fetch users with better error handling
-  const fetchUsers = useCallback(async () => {
+  const fetchAllUsers = useCallback(async () => {
     // Skip fetch if not admin
     if (!isAdmin && !isPreviewMode()) {
       console.log('Not admin, skipping fetchUsers');
@@ -36,13 +36,9 @@ export function useUserManagement() {
     setError(null);
     
     try {
-      const loadedUsers = await fetchAllUsers();
-      // Ensure consistent types by mapping if needed
-      const typedUsers = loadedUsers.map(user => ({
-        ...user,
-        created_at: user.created_at || new Date().toISOString()
-      }));
-      setUsers(typedUsers);
+      const loadedUsers = await fetchUsers();
+      // Ensure proper typing
+      setUsers(loadedUsers as any);
     } catch (error: any) {
       console.error('Error loading users:', error);
       setError(`Failed to load users: ${error.message || 'Unknown error'}`);
@@ -53,10 +49,10 @@ export function useUserManagement() {
   }, [isAdmin]);
 
   // Check if any admin exists
-  const checkAdminExists = useCallback(async () => {
+  const checkIfAdminExists = useCallback(async () => {
     try {
       setError(null);
-      const adminExists = await checkIfAdminExists();
+      const adminExists = await checkAdminExists();
       setAnyAdminExists(adminExists);
       return adminExists;
     } catch (error: any) {
@@ -74,15 +70,15 @@ export function useUserManagement() {
     
     try {
       setError(null);
-      await createUser(userData);
+      await createUser(userData as any);
       toast.success(`User ${userData.email} created successfully`);
-      await fetchUsers(); // Refresh the list
+      await fetchAllUsers(); // Refresh the list
     } catch (error: any) {
       console.error('Error creating user:', error);
       setError(`Failed to create user: ${error.message || 'Unknown error'}`);
       throw error;
     }
-  }, [fetchUsers]);
+  }, [fetchAllUsers]);
 
   // Update an existing user
   const handleUpdateUser = useCallback(async (userId: string, userData: UserFormData) => {
@@ -90,13 +86,13 @@ export function useUserManagement() {
       setError(null);
       await updateUser(userId, userData);
       toast.success(`User updated successfully`);
-      await fetchUsers(); // Refresh the list
+      await fetchAllUsers(); // Refresh the list
     } catch (error: any) {
       console.error('Error updating user:', error);
       setError(`Failed to update user: ${error.message || 'Unknown error'}`);
       throw error;
     }
-  }, [fetchUsers]);
+  }, [fetchAllUsers]);
 
   // Delete a user
   const handleDeleteUser = useCallback(async (userId: string) => {
@@ -104,28 +100,28 @@ export function useUserManagement() {
       setError(null);
       await deleteUser(userId);
       toast.success('User access revoked successfully');
-      await fetchUsers(); // Refresh the list
+      await fetchAllUsers(); // Refresh the list
     } catch (error: any) {
       console.error('Error deleting user:', error);
       setError(`Failed to revoke user access: ${error.message || 'Unknown error'}`);
       throw error;
     }
-  }, [fetchUsers]);
+  }, [fetchAllUsers]);
 
   // Add admin role to a user
   const handleAddAdminRole = useCallback(async (userId: string) => {
     try {
       setError(null);
-      await giveUserAdminRole(userId);
+      await addAdminRole(userId);
       toast.success('Admin role added successfully');
-      await fetchUsers(); // Refresh the list
-      await checkAdminExists(); // Update admin existence
+      await fetchAllUsers(); // Refresh the list
+      await checkIfAdminExists(); // Update admin existence
     } catch (error: any) {
       console.error('Error adding admin role:', error);
       setError(`Failed to add admin role: ${error.message || 'Unknown error'}`);
       throw error;
     }
-  }, [fetchUsers, checkAdminExists]);
+  }, [fetchAllUsers, checkIfAdminExists]);
 
   // Debounced refresh function
   const handleRefresh = useCallback(async () => {
@@ -141,26 +137,26 @@ export function useUserManagement() {
       setLastRefreshAttempt(now);
       setError(null);
       toast.loading('Refreshing user data...', { duration: 3000 });
-      await fetchUsers();
-      await checkAdminExists();
+      await fetchAllUsers();
+      await checkIfAdminExists();
     } catch (err: any) {
       setError(err.message || "Failed to refresh user data");
       toast.error(`Failed to refresh user data: ${err.message || "Unknown error"}`);
     } finally {
       setIsRefreshing(false);
     }
-  }, [fetchUsers, checkAdminExists, isRefreshing, lastRefreshAttempt]);
+  }, [fetchAllUsers, checkIfAdminExists, isRefreshing, lastRefreshAttempt]);
 
   // Effect for initial data loading
   useEffect(() => {
     // Check if any admin exists on component mount
-    checkAdminExists().catch(console.error);
+    checkIfAdminExists().catch(console.error);
     
     // Load users if admin
     if (isAdmin || isPreviewMode()) {
-      fetchUsers().catch(console.error);
+      fetchAllUsers().catch(console.error);
     }
-  }, [checkAdminExists, fetchUsers, isAdmin]);
+  }, [checkIfAdminExists, fetchAllUsers, isAdmin]);
 
   return {
     users,
@@ -172,7 +168,7 @@ export function useUserManagement() {
     createUser: handleCreateUser,
     updateUser: handleUpdateUser,
     deleteUser: handleDeleteUser,
-    checkAdminExists,
+    checkAdminExists: checkIfAdminExists,
     addAdminRole: handleAddAdminRole,
   };
 }
