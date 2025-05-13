@@ -6,9 +6,19 @@ import { invalidateUserCache } from './userFetchService';
 // Define a simpler interface for user data to avoid deep type recursion
 interface UserCreationData {
   email: string;
-  password: string; // Required for creation
+  password: string;
   full_name?: string;
   role?: 'admin' | 'user';
+}
+
+// Interface for admin createUser parameters to avoid deep type inference
+interface AdminCreateUserParams {
+  email: string;
+  password: string;
+  email_confirm: boolean;
+  user_metadata: {
+    full_name: string;
+  }
 }
 
 /**
@@ -25,16 +35,17 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
   try {
     console.log("Creating user:", userData.email);
     
-    // Step 1: Create the user account through auth API
-    // Avoid complex type inference by using specific parameters
-    const authResult = await supabase.auth.admin.createUser({
+    // Step 1: Create the user account through auth API with explicit typing
+    const createUserParams: AdminCreateUserParams = {
       email: userData.email,
       password: userData.password,
       email_confirm: true,
       user_metadata: {
         full_name: userData.full_name || ''
       }
-    } as any); // Use type assertion to bypass deep type checking
+    };
+    
+    const authResult = await supabase.auth.admin.createUser(createUserParams);
     
     if (authResult.error) {
       throw authResult.error;
