@@ -14,23 +14,17 @@ export const isLovablePreview =
    window.location.hostname === 'localhost' ||
    window.location.hostname === '127.0.0.1');
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
-
+// Standard supabase client configuration
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false, // Disabled for security
-    flowType: 'pkce' // Changed from 'implicit' to 'pkce' for better security
+    detectSessionInUrl: false
   },
   global: {
-    // Always use HTTP fetch for all operations to avoid WebSocket issues
+    // Use fetch with timeout to prevent hanging requests
     fetch: function(url, options) {
-      // Add debugging information
-      console.log('Supabase client making request to:', url);
-      
       // Create a fetch request with timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -49,50 +43,25 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     }
   },
   realtime: {
-    // Disable realtime features in preview mode to prevent WebSocket connection issues
+    // Disable realtime features in preview mode
     params: {
       eventsPerSecond: isLovablePreview ? 0 : 10
     }
   }
 });
 
-// Create a dedicated client for admin operations and edge function calls
-// This client ensures HTTP/REST is used and no WebSocket connections are attempted
+// Create a dedicated admin client for edge function calls
 export const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
-    flowType: 'pkce'
+    detectSessionInUrl: false
   },
   realtime: {
     // Disable realtime connections completely
     params: {
       eventsPerSecond: 0
-    }
-  },
-  global: {
-    // Force HTTP/HTTPS fetch for all operations with timeout
-    fetch: function(url, options) {
-      // Add debugging information
-      console.log('Admin client making request to:', url);
-      
-      // Create a fetch request with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-      
-      return fetch(url, { 
-        ...options, 
-        signal: controller.signal 
-      }).then(response => {
-        clearTimeout(timeoutId);
-        return response;
-      }).catch(error => {
-        clearTimeout(timeoutId);
-        console.error('Fetch error in admin client:', error);
-        throw error;
-      });
     }
   }
 });
