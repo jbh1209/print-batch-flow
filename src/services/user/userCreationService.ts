@@ -25,16 +25,18 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
   try {
     console.log("Creating user:", userData.email);
     
-    // Step 1: Create the user account through auth API using explicit parameters
-    // Use type assertion to avoid TypeScript recursion issues
-    const authResult = await supabase.auth.admin.createUser({
+    // Step 1: Create the user account through auth API using explicit type casting
+    const createUserParams = {
       email: userData.email,
       password: userData.password,
       email_confirm: true,
       user_metadata: {
         full_name: userData.full_name || ''
       }
-    } as any); // Using type assertion to break the recursive type checking
+    };
+    
+    // Use type assertion to bypass deep type recursion
+    const authResult = await supabase.auth.admin.createUser(createUserParams as any);
     
     if (authResult.error) {
       throw authResult.error;
