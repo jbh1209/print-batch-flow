@@ -1,123 +1,138 @@
 
+// Follow Deno edge function conventions
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.14.0";
 
-// Enhanced CORS headers with proper security
+// Set up CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Max-Age": "86400", // 24 hours cache for preflight requests
-  "Access-Control-Expose-Headers": "content-length, content-type" // Allow clients to see these headers
 };
 
-// Check if in preview mode
-const isPreviewMode = (url: string): boolean => {
-  return url.includes('lovable.dev') || 
-         url.includes('gpteng.co') || 
-         url.includes('localhost');
-};
+// Handle options requests for CORS
+function handleOptions(req: Request) {
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        ...corsHeaders,
+        "Allow": "GET, OPTIONS",
+      },
+      status: 204,
+    });
+  }
+  return null;
+}
 
+// Main handler function
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-  
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
+
   try {
-    // Check if in preview mode and return mock data if needed
-    if (isPreviewMode(req.url)) {
-      console.log("Preview mode detected, returning mock data");
-      const mockUsers = [
-        {
-          id: "preview-admin-1",
-          email: "admin@example.com",
-          created_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString(),
-          role: "admin", 
-          full_name: "Preview Admin",
-          avatar_url: null
-        },
-        {
-          id: "preview-user-1",
-          email: "user@example.com",
-          created_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString(),
-          role: "user",
-          full_name: "Regular User",
-          avatar_url: null
-        }
-      ];
-      
-      return new Response(JSON.stringify(mockUsers), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+    // Only allow GET requests
+    if (req.method !== "GET") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 405,
       });
     }
+
+    // Get the authorization header
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Missing or invalid authorization header" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
+    // Initialize Supabase client with service role key
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     
-    // Get auth token from request
-    const authHeader = req.headers.get('Authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Missing or invalid authorization header' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Missing environment variables for Supabase");
     }
     
-    // Extract the JWT token
-    const token = authHeader.replace('Bearer ', '');
-    
-    // Create Supabase client with the user's JWT
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
-    
-    // Verify the token by getting the user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser(token);
+    // Create a client with the user's JWT to check permissions
+    const userJWT = authHeader.substring(7);
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { Authorization: `Bearer ${userJWT}` } }
+    });
+
+    // Get the requesting user's ID
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(userJWT);
     
     if (userError || !user) {
+      console.error("Error getting user:", userError);
       return new Response(
-        JSON.stringify({ error: 'Invalid or expired token' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Failed to authenticate user" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        }
       );
     }
-    
-    // Call the RPC function to get all users with roles
-    const { data, error } = await supabaseClient.rpc('get_all_users_with_roles');
-    
-    if (error) {
-      console.error("Error calling get_all_users_with_roles:", error);
+
+    // Check if the user is an admin
+    const { data: isAdmin, error: adminCheckError } = await supabaseClient.rpc(
+      "is_admin_secure_fixed",
+      { _user_id: user.id }
+    );
+
+    if (adminCheckError) {
+      console.error("Admin check failed:", adminCheckError);
       return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: `Admin check failed: ${adminCheckError.message}` }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
       );
     }
-    
-    return new Response(JSON.stringify(data), {
-      headers: { 
-        ...corsHeaders, 
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate" 
-      }
-    });
-  } catch (error) {
-    console.error("Unexpected error in edge function:", error);
+
+    if (!isAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Only administrators can view all users" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403,
+        }
+      );
+    }
+
+    // Use the get_all_users_with_roles RPC function
+    const { data: users, error: usersError } = await supabaseClient.rpc("get_all_users_with_roles");
+
+    if (usersError) {
+      console.error("Error fetching users:", usersError);
+      return new Response(
+        JSON.stringify({ error: `Failed to fetch users: ${usersError.message}` }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
+    }
+
+    // Return the users
     return new Response(
-      JSON.stringify({ error: error.message || 'Unknown server error' }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify(users || []),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      }
+    );
+  } catch (error) {
+    console.error("Unhandled error in get-all-users function:", error);
+    
+    return new Response(
+      JSON.stringify({ error: `Internal server error: ${error.message}` }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      }
     );
   }
 });
