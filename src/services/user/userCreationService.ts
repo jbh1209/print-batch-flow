@@ -20,8 +20,8 @@ export const createUser = async (userData: {
   }
   
   try {
-    // Create the user account
-    const { error } = await supabase.auth.admin.createUser({
+    // Step 1: Create the user account
+    const authResponse = await supabase.auth.admin.createUser({
       email: userData.email,
       password: userData.password,
       email_confirm: true,
@@ -30,28 +30,32 @@ export const createUser = async (userData: {
       }
     });
     
-    if (error) throw error;
+    if (authResponse.error) throw authResponse.error;
     
-    // Get the user ID from the newly created user
-    const { data: newUserProfile } = await supabase
+    // Step 2: Get the user ID from the newly created user
+    const profileResponse = await supabase
       .from('profiles')
       .select('id')
       .eq('email', userData.email)
       .single();
     
-    if (!newUserProfile?.id) throw new Error("Created user not found");
+    if (profileResponse.error) throw profileResponse.error;
     
-    // Set the user role if specified
+    const userId = profileResponse.data?.id;
+    if (!userId) throw new Error("Created user not found");
+    
+    // Step 3: Set the user role if specified
     if (userData.role) {
-      const { error: roleError } = await supabase.rpc('set_user_role_admin', {
-        _target_user_id: newUserProfile.id,
+      const roleResponse = await supabase.rpc('set_user_role_admin', {
+        _target_user_id: userId,
         _new_role: userData.role
       });
       
-      if (roleError) throw roleError;
+      if (roleResponse.error) throw roleResponse.error;
     }
     
-    invalidateUserCache(); // Clear cache
+    // Step 4: Invalidate cache and track successful request
+    invalidateUserCache();
     trackApiRequest(true);
   } catch (error) {
     console.error("Error creating user:", error);
