@@ -1,7 +1,7 @@
 
 // Re-export user service functionality in a standardized way
 import { checkUserIsAdmin } from './auth/authService';
-import { UserFormData } from '@/types/user-types';
+import { UserFormData, UserRole, validateUserRole } from '@/types/user-types';
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode, simulateApiCall } from '@/services/previewService';
 import { fetchUsers as fetchUsersService } from './user/userFetchService';
@@ -36,59 +36,27 @@ export const createUser = async (userData: UserFormData): Promise<void> => {
       throw new Error('Authentication token missing or expired. Please sign in again.');
     }
     
-    // Use direct database operations instead of edge function
-    // This avoids CORS issues and is more reliable
+    // Use edge function instead of direct RPC
     try {
-      // First create the auth user
-      const { error: userError } = await supabase.rpc('create_user_secure', {
-        _email: userData.email,
-        _password: userData.password,
-        _user_metadata: {
-          full_name: userData.full_name || ''
-        }
-      });
+      console.log('Creating user via edge function:', userData.email);
       
-      if (userError) throw userError;
-      
-      // If role specified and it's admin, set the role
-      if (userData.role === 'admin') {
-        // Find the user ID first
-        const { data: userData, error: findError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', userData.email)
-          .single();
-          
-        if (findError) throw findError;
-        
-        if (userData?.id) {
-          const { error: roleError } = await supabase.rpc('set_user_role_admin', {
-            _target_user_id: userData.id,
-            _new_role: 'admin'
-          });
-          
-          if (roleError) throw roleError;
-        }
-      }
-    } catch (dbError: any) {
-      console.error('Database operation error:', dbError);
-      
-      // Fall back to edge function if available
-      console.log('Attempting to use edge function as fallback');
+      // Call the edge function to create a user
       const { error } = await supabase.functions.invoke('create-user', {
-        body: JSON.stringify({
+        body: {
           email: userData.email,
           password: userData.password,
-          full_name: userData.full_name,
+          full_name: userData.full_name || '',
           role: userData.role || 'user'
-        }),
+        },
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${session.access_token}`
         }
       });
       
       if (error) throw error;
+    } catch (apiError: any) {
+      console.error('Edge function error:', apiError);
+      throw new Error(apiError.message || 'Error creating user');
     }
   } catch (error: any) {
     console.error('Error creating user:', error);

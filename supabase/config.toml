@@ -1,6 +1,4 @@
 
-# This file controls the behavior of the Supabase CLI.
-
 project_id = "kgizusgqexmlfcqfjopk"
 
 [functions]

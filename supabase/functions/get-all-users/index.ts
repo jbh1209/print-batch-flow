@@ -65,12 +65,8 @@ serve(async (req) => {
       
       // Try a fallback method with direct queries if RPC fails
       try {
-        // Fetch users
-        const { data: authUsers, error: authUsersError } = await supabaseClient
-          .from('auth.users')
-          .select('id, email, created_at, last_sign_in_at')
-        
-        if (authUsersError) throw authUsersError
+        // Since we can't directly query auth.users from edge functions,
+        // we'll use a combination of profiles and user_roles tables
         
         // Fetch profiles
         const { data: profiles, error: profilesError } = await supabaseClient
@@ -87,18 +83,17 @@ serve(async (req) => {
         if (rolesError) throw rolesError
         
         // Combine data
-        const combinedUsers = authUsers.map(user => {
-          const profile = profiles?.find(p => p.id === user.id)
-          const userRole = roles?.find(r => r.user_id === user.id)
+        const combinedUsers = profiles.map(profile => {
+          const userRole = roles?.find(r => r.user_id === profile.id)
           
           return {
-            id: user.id,
-            email: user.email,
-            full_name: profile?.full_name || null,
-            avatar_url: profile?.avatar_url || null,
+            id: profile.id,
+            email: profile.id, // Limited: can't access email, use id as placeholder
+            full_name: profile.full_name || null,
+            avatar_url: profile.avatar_url || null,
             role: userRole?.role || 'user',
-            created_at: user.created_at,
-            last_sign_in_at: user.last_sign_in_at
+            created_at: profile.created_at,
+            last_sign_in_at: null
           }
         })
         
