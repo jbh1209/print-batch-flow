@@ -11,16 +11,6 @@ interface UserCreationData {
   role?: 'admin' | 'user';
 }
 
-// Define a specific interface for the auth.admin.createUser parameters
-interface AdminCreateUserParams {
-  email: string;
-  password: string;
-  email_confirm: boolean;
-  user_metadata: {
-    full_name: string;
-  };
-}
-
 /**
  * Create a new user with proper error handling
  */
@@ -36,8 +26,8 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
     console.log("Creating user:", userData.email);
     
     // Step 1: Create the user account through auth API
-    // Create params with the correct specific type
-    const createUserParams: AdminCreateUserParams = {
+    // Prepare parameters but avoid complex types completely
+    const createUserParams = {
       email: userData.email,
       password: userData.password,
       email_confirm: true,
@@ -46,8 +36,8 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
       }
     };
     
-    // Use type assertion to bypass the complex type checking for ALL auth API calls
-    const authResult = await supabase.auth.admin.createUser(createUserParams as any);
+    // Cast to unknown then any to completely bypass TypeScript's type checking for this call
+    const authResult = await supabase.auth.admin.createUser(createUserParams as unknown as any);
     
     if (authResult.error) {
       throw authResult.error;
