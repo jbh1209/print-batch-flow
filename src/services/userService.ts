@@ -1,4 +1,6 @@
 
 // Re-export user service functionality in a standardized way
-// This file uses lowercase naming convention for consistency
+import { checkUserIsAdmin } from './auth/authService';
+
 export * from './user';
+export { checkUserIsAdmin };

@@ -3,7 +3,6 @@ import { createContext, useContext, ReactNode } from 'react';
 import { AuthContextType } from './auth/types';
 import { useAuthProvider } from './auth/useAuthProvider';
 
-// Create context with default values
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
@@ -15,7 +14,6 @@ const AuthContext = createContext<AuthContextType>({
   refreshSession: async () => null,
 });
 
-// Auth provider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const auth = useAuthProvider();
 
@@ -26,7 +24,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Custom hook to use the auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   
