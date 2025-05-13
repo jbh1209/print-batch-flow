@@ -13,7 +13,7 @@ import {
 } from '@/services/user';
 import { isPreviewMode } from '@/services/previewService';
 
-// Simplified user management hook
+// Improved user management hook
 export function useUserManagement() {
   const { isAdmin } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
@@ -23,7 +23,7 @@ export function useUserManagement() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
 
-  // Fetch users with better error handling
+  // Fetch users with enhanced error handling
   const fetchAllUsers = useCallback(async () => {
     // Skip fetch if not admin
     if (!isAdmin && !isPreviewMode()) {
@@ -36,9 +36,22 @@ export function useUserManagement() {
     setError(null);
     
     try {
+      console.log("Fetching users in useUserManagement");
       const loadedUsers = await fetchUsers();
-      // Set users with proper typing
-      setUsers(loadedUsers);
+      
+      if (!loadedUsers || !Array.isArray(loadedUsers)) {
+        throw new Error("Invalid user data structure received");
+      }
+      
+      // Sort users by name for better UX
+      const sortedUsers = [...loadedUsers].sort((a, b) => {
+        const nameA = a.full_name || a.email || '';
+        const nameB = b.full_name || b.email || '';
+        return nameA.localeCompare(nameB);
+      });
+      
+      setUsers(sortedUsers);
+      console.log(`Successfully loaded ${sortedUsers.length} users`);
     } catch (error: any) {
       console.error('Error loading users:', error);
       setError(`Failed to load users: ${error.message || 'Unknown error'}`);
@@ -53,6 +66,7 @@ export function useUserManagement() {
     try {
       setError(null);
       const adminExists = await checkAdminExists();
+      console.log(`Admin exists check result: ${adminExists}`);
       setAnyAdminExists(adminExists);
       return adminExists;
     } catch (error: any) {
@@ -136,25 +150,41 @@ export function useUserManagement() {
       setIsRefreshing(true);
       setLastRefreshAttempt(now);
       setError(null);
+      console.log("Refreshing user data...");
       toast.loading('Refreshing user data...', { duration: 3000 });
-      await fetchAllUsers();
-      await checkIfAdminExists();
+      
+      // First check admin status
+      const adminExists = await checkIfAdminExists();
+      console.log(`Admin exists: ${adminExists}`);
+      
+      // Then fetch users if we're an admin or in preview mode
+      if (isAdmin || isPreviewMode()) {
+        await fetchAllUsers();
+      }
+      
+      toast.success("User data refreshed");
     } catch (err: any) {
       setError(err.message || "Failed to refresh user data");
       toast.error(`Failed to refresh user data: ${err.message || "Unknown error"}`);
     } finally {
       setIsRefreshing(false);
     }
-  }, [fetchAllUsers, checkIfAdminExists, isRefreshing, lastRefreshAttempt]);
+  }, [fetchAllUsers, checkIfAdminExists, isRefreshing, lastRefreshAttempt, isAdmin]);
 
   // Effect for initial data loading
   useEffect(() => {
     // Check if any admin exists on component mount
-    checkIfAdminExists().catch(console.error);
+    checkIfAdminExists().catch(err => {
+      console.error("Error in initial admin check:", err);
+    });
     
-    // Load users if admin
+    // Load users if admin or in preview mode
     if (isAdmin || isPreviewMode()) {
-      fetchAllUsers().catch(console.error);
+      fetchAllUsers().catch(err => {
+        console.error("Error in initial user fetch:", err);
+      });
+    } else {
+      setIsLoading(false);
     }
   }, [checkIfAdminExists, fetchAllUsers, isAdmin]);
 

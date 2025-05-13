@@ -27,6 +27,7 @@ serve(async (req) => {
   try {
     // Check if in preview mode and return mock data if needed
     if (isPreviewMode(req.url)) {
+      console.log("Preview mode detected, returning mock data");
       const mockUsers = [
         {
           id: "preview-admin-1",
@@ -98,6 +99,7 @@ serve(async (req) => {
     const { data, error } = await supabaseClient.rpc('get_all_users_with_roles');
     
     if (error) {
+      console.error("Error calling get_all_users_with_roles:", error);
       return new Response(
         JSON.stringify({ error: error.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -112,6 +114,7 @@ serve(async (req) => {
       }
     });
   } catch (error) {
+    console.error("Unexpected error in edge function:", error);
     return new Response(
       JSON.stringify({ error: error.message || 'Unknown server error' }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -70,12 +70,14 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
     return mockUsers;
   }
   
-  // Production mode - use edge function
   try {
+    console.log("Attempting to fetch users via edge function");
+    
     // Get the current session for authorization
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session?.access_token) {
+      console.error("No access token available in fetchUsers");
       throw new Error('Authentication required to fetch users');
     }
     
@@ -92,6 +94,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
     }
     
     if (!data || !Array.isArray(data)) {
+      console.error("Invalid data format from edge function:", data);
       throw new Error("Invalid data format received from edge function");
     }
     
@@ -112,12 +115,45 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
     userCache = users;
     lastCacheTime = now;
     trackApiRequest(true);
+    console.log("Successfully fetched and cached users data");
     
     return users;
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    trackApiRequest(false);
-    throw new Error(`Failed to fetch users: ${error instanceof Error ? error.message : "Unknown error"}`);
+  } catch (error: any) {
+    console.error("Error in fetchUsers:", error);
+    
+    // Try fallback method using direct RPC call
+    try {
+      console.log("Attempting fallback to direct RPC call");
+      const { data: userData, error: rpcError } = await supabase.rpc('get_all_users_with_roles');
+      
+      if (rpcError) {
+        throw rpcError;
+      }
+      
+      if (!userData || !Array.isArray(userData)) {
+        throw new Error("Invalid data format from RPC");
+      }
+      
+      const users: UserWithRole[] = userData.map((user: any) => ({
+        id: user.id,
+        email: user.email || '',
+        role: validateUserRole(user.role),
+        full_name: user.full_name || null,
+        avatar_url: user.avatar_url || null,
+        created_at: user.created_at || new Date().toISOString(),
+        last_sign_in_at: user.last_sign_in_at || null
+      }));
+      
+      userCache = users;
+      lastCacheTime = now;
+      console.log("Successfully fetched users via fallback method");
+      return users;
+      
+    } catch (fallbackError) {
+      console.error("Fallback method also failed:", fallbackError);
+      trackApiRequest(false);
+      throw new Error(`Failed to fetch users: ${error.message || "Unknown error"}`);
+    }
   }
 };
 

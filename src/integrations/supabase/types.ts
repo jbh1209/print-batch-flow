@@ -672,6 +672,18 @@ export type Database = {
           email: string
         }[]
       }
+      get_all_users_with_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+          full_name: string
+          avatar_url: string
+          role: string
+          created_at: string
+          last_sign_in_at: string
+        }[]
+      }
       has_role: {
         Args: { role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
