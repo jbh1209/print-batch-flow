@@ -49,7 +49,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
       }
       
       if (data && Array.isArray(data)) {
-        // Ensure correct types by validating the role
+        // Ensure correct types by properly validating the role field
         const validatedUsers: UserWithRole[] = data.map(user => ({
           ...user,
           role: validateUserRole(user.role)
@@ -82,7 +82,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         if (error) throw error;
         
         if (data && Array.isArray(data)) {
-          // Ensure correct types by validating the role
+          // Ensure correct types by properly validating the role field
           const validatedUsers: UserWithRole[] = data.map(user => ({
             ...user,
             role: validateUserRole(user.role)
@@ -98,7 +98,6 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         console.error('Edge function error, trying direct queries:', edgeFunctionError);
         
         // Final fallback - try manual joins with allowed public tables
-        // Note: Can't query auth.users directly, so this is a limited backup
         
         // Get profiles which are in the public schema
         const { data: profiles, error: profilesError } = await supabase
