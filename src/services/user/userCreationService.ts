@@ -27,54 +27,37 @@ export const createUser = async (userData: UserCreationData): Promise<void> => {
   }
   
   try {
-    console.log("Creating user:", userData.email);
+    console.log("Creating user via edge function:", userData.email);
     
-    // Step 1: Create the user account through auth API
-    // Avoid type recursion by using direct object without type annotations
-    const { error: authError } = await supabase.auth.admin.createUser({
-      email: userData.email,
-      password: userData.password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: userData.full_name || ''
+    // Get the current session for authorization
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Authentication required to create users');
+    }
+    
+    // Use the edge function to create the user securely
+    const { data, error } = await supabase.functions.invoke('create-user', {
+      body: {
+        email: userData.email,
+        password: userData.password,
+        full_name: userData.full_name || '',
+        role: userData.role || 'user'
+      },
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
       }
     });
     
-    if (authError) {
-      throw authError;
+    if (error) {
+      console.error("Edge function error:", error);
+      throw error;
     }
     
-    // Step 2: Fetch the profile ID for the newly created user
-    const profileResult = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', userData.email)
-      .maybeSingle();
-    
-    if (profileResult.error) {
-      throw profileResult.error;
-    }
-    
-    const userId = profileResult.data?.id;
-    if (!userId) {
-      throw new Error("Created user not found");
-    }
-    
-    // Step 3: Set the user role if specified
-    if (userData.role) {
-      const roleResult = await supabase.rpc('set_user_role_admin', {
-        _target_user_id: userId,
-        _new_role: userData.role
-      });
-      
-      if (roleResult.error) {
-        throw roleResult.error;
-      }
-    }
-    
-    // Step 4: Invalidate cache and track successful request
+    // Invalidate cache and track successful request
     invalidateUserCache();
     trackApiRequest(true);
+    
+    return data;
   } catch (error) {
     console.error("Creating user error:", error);
     trackApiRequest(false);

@@ -45,7 +45,7 @@ export function useUserCreation(
         throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
-      // Create user directly via service in production
+      // Use the user creation service which calls the edge function
       await createUserService({
         email: userData.email,
         password: userData.password,
