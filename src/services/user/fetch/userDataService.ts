@@ -13,10 +13,15 @@ export const fetchUsersWithRpc = async (
   console.log('Fetching users via RPC - EXPLICIT CALL ONLY');
   
   // The correct way to pass the abortSignal to Supabase RPC call
+  const options: Parameters<typeof supabase.rpc>[2] = {};
+  if (abortSignal) {
+    options.signal = abortSignal;
+  }
+  
   const { data, error } = await supabase.rpc(
     'get_all_users_with_roles',
     {},
-    { signal: abortSignal }
+    options
   );
   
   if (error) {
