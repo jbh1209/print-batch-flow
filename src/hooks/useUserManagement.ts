@@ -28,6 +28,7 @@ export function useUserManagement() {
   const abortController = useRef<AbortController | null>(null);
   
   // Fetch users with enhanced error handling and cancellation
+  // IMPORTANT: This will only run when explicitly called now
   const fetchAllUsers = useCallback(async () => {
     // Skip fetch if not admin and not in preview mode
     if (!isAdmin && !isPreviewMode()) {
@@ -48,7 +49,7 @@ export function useUserManagement() {
     setError(null);
     
     try {
-      console.log("Fetching users in useUserManagement");
+      console.log("Fetching users in useUserManagement - EXPLICIT REQUEST");
       const loadedUsers = await fetchUsersService();
       
       if (!loadedUsers || !Array.isArray(loadedUsers)) {
@@ -79,7 +80,7 @@ export function useUserManagement() {
     }
   }, [isAdmin]);
 
-  // Check if any admin exists - this is a lightweight operation and ok to run more often
+  // Check if any admin exists - this is a lightweight operation 
   const checkIfAdminExists = useCallback(async () => {
     try {
       setError(null);
@@ -168,14 +169,14 @@ export function useUserManagement() {
       setIsRefreshing(true);
       setLastRefreshAttempt(now);
       setError(null);
-      console.log("Refreshing user data...");
+      console.log("Explicit refresh of user data requested...");
       toast.loading('Refreshing user data...', { duration: 3000 });
       
       // First check admin status
       const adminExists = await checkIfAdminExists();
       console.log(`Admin exists: ${adminExists}`);
       
-      // Then fetch users if we're an admin or in preview mode
+      // Then fetch users if we're an admin or in preview mode and explicitly requested
       if (isAdmin || isPreviewMode()) {
         await fetchAllUsers();
       }

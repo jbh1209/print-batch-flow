@@ -23,7 +23,7 @@ interface UserManagementContextType {
 
 const UserManagementContext = createContext<UserManagementContextType | undefined>(undefined);
 
-// Array of admin-only routes where users data should be loaded
+// Array of admin-only routes where users data should be loaded ON DEMAND ONLY
 const ADMIN_ROUTES = ['/users', '/admin'];
 
 export const UserManagementProvider = ({ children }: { children: ReactNode }) => {
@@ -59,19 +59,14 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
   }, [error, setError]);
 
-  // Effect for initial data loading - ONLY when needed
+  // Effect for initial data loading - ONLY CHECK ADMIN EXISTS
   useEffect(() => {
-    // Check if any admin exists on component mount - this is lightweight and OK
+    // Only check admin existence on first mount - no user data loading
     checkAdminExists().catch(console.error);
     
-    // ONLY load users if admin AND on an admin page
-    if (isAdmin && isAdminPage) {
-      console.log('Loading users data because this is an admin page:', location.pathname);
-      fetchUsersVoid().catch(console.error);
-    } else {
-      console.log('Skipping users fetch - not an admin page or not admin user');
-    }
-  }, [checkAdminExists, fetchUsersVoid, isAdmin, isAdminPage, location.pathname]);
+    // IMPORTANT: We're no longer auto-loading users data on all pages
+    // Users will only be fetched when explicitly requested
+  }, [checkAdminExists]);
 
   return (
     <UserManagementContext.Provider

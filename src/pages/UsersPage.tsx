@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { UserTableContainer } from '@/components/users/UserTableContainer';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
+import { useUserManagement } from '@/hooks/useUserManagement';
 
 // Centralized error handler for consistent UX
 const handleError = (error: any) => {
@@ -13,10 +14,19 @@ const handleError = (error: any) => {
 };
 
 const UsersPage = () => {
-  const { isAdmin, isLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { fetchUsers, isLoading: usersLoading } = useUserManagement();
+  
+  // Explicitly fetch users data ONLY on the users page
+  useEffect(() => {
+    if (isAdmin) {
+      console.log('Users page - explicitly fetching user data');
+      fetchUsers().catch(handleError);
+    }
+  }, [isAdmin, fetchUsers]);
 
   // Show loading state while checking auth
-  if (isLoading) {
+  if (authLoading) {
     return (
       <div className="container mx-auto py-6 flex justify-center items-center min-h-[50vh]">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
