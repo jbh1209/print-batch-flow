@@ -4,6 +4,9 @@
  * 
  * Provides secure methods for verifying user roles and permissions
  * with multiple fallback strategies to ensure robust security.
+ * 
+ * IMPORTANT: These functions are designed to be called explicitly,
+ * not automatically during app initialization.
  */
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode } from '@/services/previewService';

@@ -7,10 +7,18 @@ import { Navigate } from 'react-router-dom';
 import { useUserManagement } from '@/hooks/useUserManagement';
 
 const UsersPage = () => {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, refreshProfile } = useAuth();
   const { fetchUsers, isLoading: usersLoading } = useUserManagement();
   
-  // Explicitly fetch users data ONLY on the users page when it loads
+  // First refresh profile to ensure admin status is up-to-date
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      await refreshProfile();
+    };
+    checkAdminStatus();
+  }, [refreshProfile]);
+  
+  // Then, explicitly fetch users data ONLY on the users page when it loads
   useEffect(() => {
     if (isAdmin) {
       console.log('Users page - explicitly fetching user data');

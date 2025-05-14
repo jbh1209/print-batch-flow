@@ -3,11 +3,13 @@ import { useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from './types';
-import { checkUserIsAdmin, cleanupAuthState } from '@/services/auth/authService';
+import { cleanupAuthState } from '@/services/auth/authService';
 import { isPreviewMode, getMockUserData } from '@/services/previewService';
 
 /**
  * Auth provider hook with improved error handling and simplified structure
+ * IMPORTANT: This hook ONLY loads essential auth state and does NOT fetch additional user data
+ * unless explicitly requested via refreshProfile()
  */
 export function useAuthProvider() {
   const [user, setUser] = useState<User | null>(null);
@@ -16,7 +18,7 @@ export function useAuthProvider() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch user profile with better error handling
+  // Fetch user profile with better error handling - explicitly called only when needed
   const fetchProfile = async (userId: string) => {
     if (!userId) return null;
     
@@ -86,16 +88,19 @@ export function useAuthProvider() {
     }
   };
 
-  // Refresh user profile
+  // ON-DEMAND ONLY: Refresh user profile and admin status
   const refreshProfile = async () => {
     if (!user?.id) return;
     
     try {
+      // Fetch profile data
       const profileData = await fetchProfile(user.id);
       if (profileData) {
         setProfile(profileData);
       }
       
+      // Check admin status - import dynamically to prevent circular dependencies
+      const { checkUserIsAdmin } = await import('@/services/auth/authService');
       const adminStatus = await checkUserIsAdmin(user.id);
       setIsAdmin(adminStatus);
     } catch (error) {
@@ -110,27 +115,39 @@ export function useAuthProvider() {
     if (isPreviewMode()) {
       console.log('Preview mode detected, using mock authentication');
       
-      const setupPreview = async () => {
+      const setupPreview = () => {
+        // Create mock data
         const mockData = getMockUserData();
         
-        // Create mock user
-        const mockUser = {
-          id: mockData.id,
-          email: mockData.email,
-        } as User;
-        
-        // Create mock profile
-        const mockProfile = {
-          id: mockData.id,
-          full_name: mockData.full_name,
-          avatar_url: null,
-        };
+        if (mockData && mockData.length > 0) {
+          // Use first mock user
+          const firstUser = mockData[0];
+          
+          // Create mock user
+          const mockUser = {
+            id: firstUser.id,
+            email: firstUser.email,
+          } as User;
+          
+          // Create mock profile
+          const mockProfile = {
+            id: firstUser.id,
+            full_name: firstUser.full_name,
+            avatar_url: null,
+          };
 
-        // Set mock data
-        setUser(mockUser);
-        setProfile(mockProfile);
-        setIsAdmin(true);
-        setIsLoading(false);
+          // Set mock data
+          setUser(mockUser);
+          setProfile(mockProfile);
+          setIsAdmin(firstUser.role === 'admin');
+          setIsLoading(false);
+        } else {
+          // Default mock user if no mock data available
+          setUser({ id: 'preview-user-id', email: 'preview@example.com' } as User);
+          setProfile({ id: 'preview-user-id', full_name: 'Preview User', avatar_url: null });
+          setIsAdmin(true);
+          setIsLoading(false);
+        }
       };
       
       setupPreview();
@@ -141,25 +158,15 @@ export function useAuthProvider() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       if (!isMounted) return;
       
+      console.log('Auth state change:', event);
       setSession(currentSession);
       
       if (currentSession?.user) {
         setUser(currentSession.user);
         
-        // Defer profile loading to prevent circular requests
-        setTimeout(async () => {
-          if (!isMounted) return;
-          
-          // Fetch profile
-          const profileData = await fetchProfile(currentSession.user.id);
-          if (isMounted) setProfile(profileData);
-          
-          // Check admin status
-          const adminStatus = await checkUserIsAdmin(currentSession.user.id);
-          if (isMounted) setIsAdmin(adminStatus);
-          
-          if (isMounted) setIsLoading(false);
-        }, 0);
+        // IMPORTANT: We do NOT automatically fetch profile or check admin status
+        // This is now done on-demand via refreshProfile()
+        setIsLoading(false);
       } else {
         // User signed out
         setUser(null);
@@ -178,21 +185,9 @@ export function useAuthProvider() {
       
       if (currentSession?.user) {
         setUser(currentSession.user);
-        
-        // Defer profile loading to prevent circular requests
-        setTimeout(async () => {
-          if (!isMounted) return;
-          
-          // Fetch profile
-          const profileData = await fetchProfile(currentSession.user.id);
-          if (isMounted) setProfile(profileData);
-          
-          // Check admin status
-          const adminStatus = await checkUserIsAdmin(currentSession.user.id);
-          if (isMounted) setIsAdmin(adminStatus);
-          
-          if (isMounted) setIsLoading(false);
-        }, 0);
+        // IMPORTANT: We do NOT automatically fetch profile or check admin status
+        // This is now done on-demand via refreshProfile()
+        setIsLoading(false);
       } else {
         setUser(null);
         setProfile(null);

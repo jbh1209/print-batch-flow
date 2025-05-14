@@ -1,5 +1,5 @@
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Spinner } from '@/components/ui/spinner';
@@ -17,9 +17,16 @@ interface SecureProtectedRouteProps {
  * Simplified protected route with improved security validation
  */
 const SecureProtectedRoute = ({ children, requireAdmin = false }: SecureProtectedRouteProps) => {
-  const { user, isLoading, isAdmin, refreshSession } = useAuth();
+  const { user, isLoading, isAdmin, refreshSession, refreshProfile } = useAuth();
   const location = useLocation();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Check admin status only when needed
+  useEffect(() => {
+    if (requireAdmin && user && !isLoading && !isPreviewMode()) {
+      refreshProfile();
+    }
+  }, [user, requireAdmin, isLoading, refreshProfile]);
   
   // Handle session refresh
   const handleSessionRefresh = async () => {
@@ -28,6 +35,7 @@ const SecureProtectedRoute = ({ children, requireAdmin = false }: SecureProtecte
       const refreshed = await refreshSession();
       if (refreshed) {
         toast.success('Authentication refreshed successfully');
+        await refreshProfile(); // Only load profile data after refresh
         window.location.reload();
       } else {
         toast.error('Unable to refresh authentication. Please sign in again.');

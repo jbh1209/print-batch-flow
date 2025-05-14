@@ -1,96 +1,119 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRole } from '@/types/user-types';
-import { transformUserData, combineProfileAndRoleData } from './userDataTransformer';
+import { transformUserData } from './userDataTransformer';
 
 /**
- * Fetch users using the RPC function
- * @param signal Abort signal for cancellation
+ * Primary method for fetching users using RPC
+ * Only called explicitly from the Users page
  */
-export const fetchUsersWithRpc = async (signal: AbortSignal): Promise<UserWithRole[]> => {
-  // Check if the request was cancelled
-  if (signal.aborted) {
-    console.log('User fetch aborted');
-    throw new Error('Request aborted');
-  }
+export const fetchUsersWithRpc = async (
+  signal?: AbortSignal
+): Promise<UserWithRole[]> => {
+  console.log('Fetching users via RPC - EXPLICIT CALL ONLY');
   
-  const { data, error } = await supabase.rpc('get_all_users_with_roles');
+  const { data, error } = await supabase.rpc('get_all_users_with_roles', {}, {
+    signal,
+  });
   
   if (error) {
-    console.error('Error with get_all_users_with_roles RPC:', error);
+    console.error('RPC error:', error);
     throw error;
   }
   
-  if (data && Array.isArray(data)) {
-    // Transform raw data into properly typed UserWithRole objects
-    return transformUserData(data);
+  if (!Array.isArray(data)) {
+    throw new Error('Invalid response format from RPC');
   }
   
-  throw new Error('Invalid response data');
+  return transformUserData(data);
 };
 
 /**
- * Fetch users using the edge function
- * @param signal Abort signal for cancellation
+ * Fallback method using edge functions
+ * Only called if RPC method fails
  */
-export const fetchUsersWithEdgeFunction = async (signal: AbortSignal): Promise<UserWithRole[]> => {
-  // Check if the request was cancelled
-  if (signal.aborted) {
-    console.log('User fetch aborted');
-    throw new Error('Request aborted');
-  }
+export const fetchUsersWithEdgeFunction = async (
+  signal?: AbortSignal
+): Promise<UserWithRole[]> => {
+  console.log('Fetching users via edge function - FALLBACK ONLY');
   
-  const { data: sessionData } = await supabase.auth.getSession();
-  const session = sessionData?.session;
+  // Get current session for authentication
+  const { data: { session } } = await supabase.auth.getSession();
   
-  if (!session) {
-    throw new Error('Authentication required');
+  if (!session?.access_token) {
+    throw new Error('Authentication required to access user data');
   }
   
   const { data, error } = await supabase.functions.invoke('get-all-users', {
     headers: {
-      Authorization: `Bearer ${session.access_token}`
-    }
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    signal,
   });
   
-  if (error) throw error;
-  
-  if (data && Array.isArray(data)) {
-    return transformUserData(data);
+  if (error) {
+    console.error('Edge function error:', error);
+    throw error;
   }
   
-  throw new Error('Invalid response data from edge function');
+  if (!Array.isArray(data)) {
+    throw new Error('Invalid response format from edge function');
+  }
+  
+  return transformUserData(data);
 };
 
 /**
- * Fetch users using direct database queries as a last resort
- * @param signal Abort signal for cancellation
+ * Last resort fallback using direct DB queries
+ * Only used if both RPC and edge function methods fail
  */
-export const fetchUsersWithDirectQueries = async (signal: AbortSignal): Promise<UserWithRole[]> => {
-  // Check if the request was cancelled
-  if (signal.aborted) {
-    console.log('User fetch aborted');
-    throw new Error('Request aborted');
-  }
+export const fetchUsersWithDirectQueries = async (
+  signal?: AbortSignal
+): Promise<UserWithRole[]> => {
+  console.log('Fetching users via direct queries - LAST RESORT ONLY');
   
-  // Get profiles which are in the public schema
+  // First get profiles
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
-    .select('*');
-    
-  if (profilesError) throw profilesError;
+    .select('*', { signal });
   
-  // Fetch roles
-  const { data: roles, error: rolesError } = await supabase
-    .from('user_roles')
-    .select('*');
-    
-  if (rolesError) throw rolesError;
-  
-  if (!profiles) {
-    return [];
+  if (profilesError) {
+    throw profilesError;
   }
   
-  // Combine data using profiles as the base
-  return combineProfileAndRoleData(profiles, roles || []);
+  // Then get roles
+  const { data: roles, error: rolesError } = await supabase
+    .from('user_roles')
+    .select('*', { signal });
+  
+  if (rolesError) {
+    throw rolesError;
+  }
+  
+  // Combine data from both sources
+  const userMap = new Map();
+  
+  // Add profiles
+  profiles.forEach(profile => {
+    userMap.set(profile.id, {
+      id: profile.id,
+      email: `user-${profile.id.substring(0, 6)}@example.com`,
+      full_name: profile.full_name || null,
+      avatar_url: profile.avatar_url || null,
+      role: 'user',
+      created_at: profile.created_at || null,
+      last_sign_in_at: null,
+    });
+  });
+  
+  // Add roles
+  roles.forEach(role => {
+    const userId = role.user_id;
+    if (userMap.has(userId)) {
+      const user = userMap.get(userId);
+      user.role = role.role;
+    }
+  });
+  
+  return transformUserData(Array.from(userMap.values()));
 };

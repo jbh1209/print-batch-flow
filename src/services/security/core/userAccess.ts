@@ -4,6 +4,9 @@
  * 
  * Provides secure methods for accessing current user data
  * with enhanced error handling and preview mode support.
+ * 
+ * IMPORTANT: These functions are designed to be called explicitly
+ * and do NOT execute automatically.
  */
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode } from '@/services/previewService';

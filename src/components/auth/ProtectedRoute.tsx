@@ -14,10 +14,22 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
-  const { user, isLoading, isAdmin, session, refreshSession } = useAuth();
+  const { user, isLoading, isAdmin, session, refreshSession, refreshProfile } = useAuth();
   const location = useLocation();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [adminChecked, setAdminChecked] = useState(false);
+  
+  // Only check admin status if required and not already checked
+  useEffect(() => {
+    if (requireAdmin && user && !adminChecked && !isPreviewMode()) {
+      const checkAdminStatus = async () => {
+        await refreshProfile();
+        setAdminChecked(true);
+      };
+      checkAdminStatus();
+    }
+  }, [user, requireAdmin, adminChecked, refreshProfile]);
   
   // Attempt to refresh the session if needed with improved security
   const handleSessionRefresh = async () => {
@@ -28,6 +40,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
         toast.error('Unable to refresh authentication. Please sign in again.');
       } else {
         toast.success('Authentication refreshed successfully');
+        await refreshProfile();
         // Force reload after successful refresh to ensure consistent state
         window.location.reload();
       }
@@ -58,10 +71,10 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     }
     
     // Only show admin-required message if user is trying to access admin-only route
-    if (user && requireAdmin && !isAdmin && !isPreviewMode()) {
+    if (user && requireAdmin && !isAdmin && adminChecked && !isPreviewMode()) {
       toast.error('You need administrator privileges to access this page');
     }
-  }, [user, requireAdmin, isAdmin, isLoading]);
+  }, [user, requireAdmin, isAdmin, isLoading, adminChecked]);
 
   // While checking authentication status
   if (isLoading || isRefreshing) {
@@ -84,6 +97,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     isAdmin, 
     requireAdmin, 
     authChecked,
+    adminChecked,
     currentPath: location.pathname
   });
 
@@ -93,7 +107,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   }
 
   // If admin is required but user is not admin
-  if (requireAdmin && !isAdmin) {
+  if (requireAdmin && adminChecked && !isAdmin) {
     // Check if this might be a token expiration issue
     const tokenExpirationTime = session?.expires_at ? new Date(session.expires_at * 1000) : null;
     const now = new Date();
