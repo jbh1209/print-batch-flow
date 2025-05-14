@@ -6,22 +6,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import { useUserManagement } from '@/hooks/useUserManagement';
 
-// Centralized error handler for consistent UX
-const handleError = (error: any) => {
-  console.error("User management error:", error);
-  const message = error?.message || "An unexpected error occurred";
-  toast.error(message);
-};
-
 const UsersPage = () => {
   const { isAdmin, isLoading: authLoading } = useAuth();
   const { fetchUsers, isLoading: usersLoading } = useUserManagement();
   
-  // Explicitly fetch users data ONLY on the users page
+  // Explicitly fetch users data ONLY on the users page when it loads
   useEffect(() => {
     if (isAdmin) {
       console.log('Users page - explicitly fetching user data');
-      fetchUsers().catch(handleError);
+      fetchUsers().catch(error => {
+        console.error("User management error:", error);
+        const message = error?.message || "An unexpected error occurred";
+        toast.error(message);
+      });
     }
   }, [isAdmin, fetchUsers]);
 

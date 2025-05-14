@@ -1,12 +1,8 @@
 
-import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
+import { createContext, useContext, ReactNode, useState } from 'react';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import { useAuth } from '@/hooks/useAuth';
-import { useUserFetching } from '@/hooks/user/useUserFetching';
-import { useUserCreation } from '@/hooks/user/useUserCreation';
-import { useUserModification } from '@/hooks/user/useUserModification';
-import { useAdminChecks } from '@/hooks/user/useAdminChecks';
-import { useLocation } from 'react-router-dom';
+import { useCallback } from 'react';
 
 interface UserManagementContextType {
   users: UserWithRole[];
@@ -23,59 +19,89 @@ interface UserManagementContextType {
 
 const UserManagementContext = createContext<UserManagementContextType | undefined>(undefined);
 
-// Array of admin-only routes where users data should be loaded ON DEMAND ONLY
-const ADMIN_ROUTES = ['/users', '/admin'];
-
 export const UserManagementProvider = ({ children }: { children: ReactNode }) => {
+  const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [anyAdminExists, setAnyAdminExists] = useState(false);
   const { isAdmin } = useAuth();
-  const location = useLocation();
-  const { users, isLoading, error, fetchUsersVoid, setUsers } = useUserFetching();
-  const { createUser } = useUserCreation(fetchUsersVoid, setUsers);
-  const { updateUser, deleteUser } = useUserModification(fetchUsersVoid);
-  const { 
-    anyAdminExists, 
-    error: adminError, 
-    checkAdminExists, 
-    addAdminRole, 
-    setError 
-  } = useAdminChecks(fetchUsersVoid);
 
-  // Track if this is an admin page that needs user data
-  const [isAdminPage, setIsAdminPage] = useState(false);
-  
-  // Determine if current route is an admin page
-  useEffect(() => {
-    const currentPath = location.pathname;
-    const isCurrentPathAdminRoute = ADMIN_ROUTES.some(route => 
-      currentPath === route || currentPath.startsWith(`${route}/`)
-    );
-    setIsAdminPage(isCurrentPathAdminRoute);
-  }, [location.pathname]);
-
-  // Sync errors between hooks
-  useEffect(() => {
-    if (error) {
-      setError(error);
+  // Placeholder for fetching user data - this is ONLY called manually from the Users page
+  const fetchUsers = useCallback(async () => {
+    if (!isAdmin) {
+      console.log('Not admin, skipping fetchUsers in context');
+      return;
     }
-  }, [error, setError]);
-
-  // Effect for initial data loading - ONLY CHECK ADMIN EXISTS
-  useEffect(() => {
-    // Only check admin existence on first mount - no user data loading
-    checkAdminExists().catch(console.error);
     
-    // IMPORTANT: We're no longer auto-loading users data on all pages
-    // Users will only be fetched when explicitly requested
-  }, [checkAdminExists]);
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const { fetchUsers } = await import('@/services/user/userFetchService');
+      const loadedUsers = await fetchUsers();
+      
+      setUsers(loadedUsers);
+      console.log(`Successfully loaded ${loadedUsers.length} users on explicit request`);
+    } catch (error: any) {
+      console.error('Error loading users:', error);
+      setError(`Failed to load users: ${error.message || 'Unknown error'}`);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAdmin]);
+
+  // Simple stub functions that will be implemented only when called from the Users page
+  const createUser = useCallback(async (userData: UserFormData) => {
+    setError(null);
+    const { createUser } = await import('@/services/user');
+    await createUser(userData);
+    await fetchUsers();
+  }, [fetchUsers]);
+
+  const updateUser = useCallback(async (userId: string, userData: UserFormData) => {
+    setError(null);
+    const { updateUser } = await import('@/services/user');
+    await updateUser(userId, userData);
+    await fetchUsers();
+  }, [fetchUsers]);
+
+  const deleteUser = useCallback(async (userId: string) => {
+    setError(null);
+    const { deleteUser } = await import('@/services/user');
+    await deleteUser(userId);
+    await fetchUsers();
+  }, [fetchUsers]);
+
+  const checkAdminExists = useCallback(async () => {
+    try {
+      const { checkAdminExists } = await import('@/services/user');
+      const exists = await checkAdminExists();
+      setAnyAdminExists(exists);
+      return exists;
+    } catch (error: any) {
+      console.error('Error checking admin existence:', error);
+      setError(error.message || "Failed to check admin status");
+      return false;
+    }
+  }, []);
+
+  const addAdminRole = useCallback(async (userId: string) => {
+    setError(null);
+    const { addAdminRole } = await import('@/services/user');
+    await addAdminRole(userId);
+    await checkAdminExists();
+    await fetchUsers();
+  }, [fetchUsers, checkAdminExists]);
 
   return (
     <UserManagementContext.Provider
       value={{
         users,
         isLoading,
-        error: error || adminError,
+        error,
         anyAdminExists,
-        fetchUsers: fetchUsersVoid,
+        fetchUsers,
         createUser,
         updateUser,
         deleteUser,

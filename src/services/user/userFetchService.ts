@@ -3,34 +3,26 @@ import { supabase } from '@/integrations/supabase/client';
 import { UserWithRole, validateUserRole } from '@/types/user-types';
 import { isPreviewMode, getMockUsers } from '@/services/previewService';
 
-// Cache for users data
-let userCache: UserWithRole[] | null = null;
-let lastFetchTime = 0;
-const CACHE_TTL = 60000; // 1 minute
-
 // Request controller for cancellation
 let currentController: AbortController | null = null;
 
 /**
- * Invalidate the user cache to force a fresh fetch
+ * Cancel any pending requests
  */
-export const invalidateUserCache = () => {
-  userCache = null;
-  lastFetchTime = 0;
+export const cancelFetchUsers = () => {
+  if (currentController) {
+    console.log('Cancelling user fetch request');
+    currentController.abort();
+    currentController = null;
+  }
 };
 
 /**
  * Securely get all users with their roles
- * Uses optimistic updates and caching for better performance
+ * IMPORTANT: This function should ONLY be called on demand from the Users admin page
+ * and nowhere else in the application.
  */
 export const fetchUsers = async (): Promise<UserWithRole[]> => {
-  // Return cached data if available and recent
-  const now = Date.now();
-  if (userCache && (now - lastFetchTime < CACHE_TTL)) {
-    console.log('Using cached user data', userCache.length, 'users');
-    return userCache;
-  }
-  
   // Cancel any pending requests
   if (currentController) {
     console.log('Cancelling existing user fetch request');
@@ -45,13 +37,11 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
   if (isPreviewMode()) {
     console.log('Preview mode - using mock user data');
     const mockUsers = getMockUsers();
-    userCache = mockUsers;
-    lastFetchTime = now;
     return mockUsers;
   }
 
   try {
-    console.log('Fetching users from database...');
+    console.log('Fetching users from database - ADMIN PAGE ONLY');
     
     // First try to use the RPC function
     try {
@@ -69,14 +59,12 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
       }
       
       if (data && Array.isArray(data)) {
-        // Ensure correct types by properly validating and casting the role field
-        const validatedUsers: UserWithRole[] = data.map(user => ({
+        // Ensure correct types with explicit casting
+        const validatedUsers = data.map(user => ({
           ...user,
           role: validateUserRole(user.role)
-        }));
+        })) as UserWithRole[];
         
-        userCache = validatedUsers;
-        lastFetchTime = now;
         return validatedUsers;
       }
       
@@ -108,14 +96,12 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         if (error) throw error;
         
         if (data && Array.isArray(data)) {
-          // Ensure correct types by properly validating and casting the role field
-          const validatedUsers: UserWithRole[] = data.map(user => ({
+          // Ensure correct types with explicit casting
+          const validatedUsers = data.map(user => ({
             ...user,
             role: validateUserRole(user.role)
-          }));
+          })) as UserWithRole[];
           
-          userCache = validatedUsers;
-          lastFetchTime = now;
           return validatedUsers;
         }
         
@@ -164,8 +150,6 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           } as UserWithRole; // Explicit cast to UserWithRole after validation
         });
         
-        userCache = combinedUsers;
-        lastFetchTime = now;
         return combinedUsers;
       }
     }
@@ -175,21 +159,9 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
     if (error.message !== 'Request aborted') {
       throw error;
     }
-    // Return the cache if available when request is aborted
-    return userCache || [];
+    // Return empty array when request is aborted
+    return [];
   } finally {
-    currentController = null;
-  }
-};
-
-/**
- * Cleanup function to cancel any pending requests
- * Call this when component unmounts
- */
-export const cancelFetchUsers = () => {
-  if (currentController) {
-    console.log('Cancelling user fetch on cleanup');
-    currentController.abort();
     currentController = null;
   }
 };
