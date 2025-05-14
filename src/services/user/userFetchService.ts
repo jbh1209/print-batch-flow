@@ -8,6 +8,9 @@ let userCache: UserWithRole[] | null = null;
 let lastFetchTime = 0;
 const CACHE_TTL = 60000; // 1 minute
 
+// Request controller for cancellation
+let currentController: AbortController | null = null;
+
 /**
  * Invalidate the user cache to force a fresh fetch
  */
@@ -24,8 +27,19 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
   // Return cached data if available and recent
   const now = Date.now();
   if (userCache && (now - lastFetchTime < CACHE_TTL)) {
+    console.log('Using cached user data', userCache.length, 'users');
     return userCache;
   }
+  
+  // Cancel any pending requests
+  if (currentController) {
+    console.log('Cancelling existing user fetch request');
+    currentController.abort();
+  }
+  
+  // Create new controller for this request
+  currentController = new AbortController();
+  const signal = currentController.signal;
   
   // Use preview mode data if enabled
   if (isPreviewMode()) {
@@ -41,6 +55,12 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
     
     // First try to use the RPC function
     try {
+      // Check if the request was cancelled
+      if (signal.aborted) {
+        console.log('User fetch aborted');
+        throw new Error('Request aborted');
+      }
+      
       const { data, error } = await supabase.rpc('get_all_users_with_roles');
       
       if (error) {
@@ -63,6 +83,12 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
       throw new Error('Invalid response data');
     } catch (rpcError) {
       console.error('RPC error, trying edge function:', rpcError);
+      
+      // Check if the request was cancelled
+      if (signal.aborted) {
+        console.log('User fetch aborted');
+        throw new Error('Request aborted');
+      }
       
       // Try using the edge function as a fallback
       try {
@@ -96,6 +122,12 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         throw new Error('Invalid response data from edge function');
       } catch (edgeFunctionError) {
         console.error('Edge function error, trying direct queries:', edgeFunctionError);
+        
+        // Check if the request was cancelled
+        if (signal.aborted) {
+          console.log('User fetch aborted');
+          throw new Error('Request aborted');
+        }
         
         // Final fallback - try manual joins with allowed public tables
         
@@ -139,6 +171,25 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
     }
   } catch (error: any) {
     console.error('Error in fetchUsers:', error);
-    throw error;
+    // Only propagate non-abort errors
+    if (error.message !== 'Request aborted') {
+      throw error;
+    }
+    // Return the cache if available when request is aborted
+    return userCache || [];
+  } finally {
+    currentController = null;
+  }
+};
+
+/**
+ * Cleanup function to cancel any pending requests
+ * Call this when component unmounts
+ */
+export const cancelFetchUsers = () => {
+  if (currentController) {
+    console.log('Cancelling user fetch on cleanup');
+    currentController.abort();
+    currentController = null;
   }
 };

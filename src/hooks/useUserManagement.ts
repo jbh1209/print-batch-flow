@@ -1,43 +1,55 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { 
-  fetchUsers, 
+  fetchUsers as fetchUsersService, 
   createUser, 
   updateUser, 
   deleteUser, 
   checkAdminExists, 
-  addAdminRole
+  addAdminRole,
+  cancelFetchUsers
 } from '@/services/user';
 import { isPreviewMode } from '@/services/previewService';
 
-// Improved user management hook
+// Improved user management hook with optimizations
 export function useUserManagement() {
   const { isAdmin } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [anyAdminExists, setAnyAdminExists] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
-
-  // Fetch users with enhanced error handling
+  
+  // AbortController for request cancellation
+  const abortController = useRef<AbortController | null>(null);
+  
+  // Fetch users with enhanced error handling and cancellation
   const fetchAllUsers = useCallback(async () => {
-    // Skip fetch if not admin
+    // Skip fetch if not admin and not in preview mode
     if (!isAdmin && !isPreviewMode()) {
-      console.log('Not admin, skipping fetchUsers');
+      console.log('Not admin, skipping fetchUsers in useUserManagement');
       setIsLoading(false);
       return;
     }
+    
+    // Cancel previous request if it exists
+    if (abortController.current) {
+      abortController.current.abort();
+    }
+    
+    // Create new controller
+    abortController.current = new AbortController();
     
     setIsLoading(true);
     setError(null);
     
     try {
       console.log("Fetching users in useUserManagement");
-      const loadedUsers = await fetchUsers();
+      const loadedUsers = await fetchUsersService();
       
       if (!loadedUsers || !Array.isArray(loadedUsers)) {
         throw new Error("Invalid user data structure received");
@@ -53,15 +65,21 @@ export function useUserManagement() {
       setUsers(sortedUsers);
       console.log(`Successfully loaded ${sortedUsers.length} users`);
     } catch (error: any) {
-      console.error('Error loading users:', error);
-      setError(`Failed to load users: ${error.message || 'Unknown error'}`);
-      toast.error(`Error loading users: ${error.message || 'Unknown error'}`);
+      // Only show error if it's not an abort error
+      if (error.name !== 'AbortError') {
+        console.error('Error loading users:', error);
+        setError(`Failed to load users: ${error.message || 'Unknown error'}`);
+        toast.error(`Error loading users: ${error.message || 'Unknown error'}`);
+      } else {
+        console.log('User fetch aborted');
+      }
     } finally {
       setIsLoading(false);
+      abortController.current = null;
     }
   }, [isAdmin]);
 
-  // Check if any admin exists
+  // Check if any admin exists - this is a lightweight operation and ok to run more often
   const checkIfAdminExists = useCallback(async () => {
     try {
       setError(null);
@@ -171,22 +189,17 @@ export function useUserManagement() {
     }
   }, [fetchAllUsers, checkIfAdminExists, isRefreshing, lastRefreshAttempt, isAdmin]);
 
-  // Effect for initial data loading
+  // Cleanup on unmount
   useEffect(() => {
-    // Check if any admin exists on component mount
-    checkIfAdminExists().catch(err => {
-      console.error("Error in initial admin check:", err);
-    });
-    
-    // Load users if admin or in preview mode
-    if (isAdmin || isPreviewMode()) {
-      fetchAllUsers().catch(err => {
-        console.error("Error in initial user fetch:", err);
-      });
-    } else {
-      setIsLoading(false);
-    }
-  }, [checkIfAdminExists, fetchAllUsers, isAdmin]);
+    return () => {
+      // Cancel any pending fetch requests
+      if (abortController.current) {
+        abortController.current.abort();
+      }
+      // Also cancel any service-level requests
+      cancelFetchUsers();
+    };
+  }, []);
 
   return {
     users,
