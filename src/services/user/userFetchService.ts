@@ -69,7 +69,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
       }
       
       if (data && Array.isArray(data)) {
-        // Ensure correct types by properly validating the role field
+        // Ensure correct types by properly validating and casting the role field
         const validatedUsers: UserWithRole[] = data.map(user => ({
           ...user,
           role: validateUserRole(user.role)
@@ -108,7 +108,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         if (error) throw error;
         
         if (data && Array.isArray(data)) {
-          // Ensure correct types by properly validating the role field
+          // Ensure correct types by properly validating and casting the role field
           const validatedUsers: UserWithRole[] = data.map(user => ({
             ...user,
             role: validateUserRole(user.role)
@@ -150,7 +150,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         }
         
         // Combine data using profiles as the base
-        const combinedUsers: UserWithRole[] = profiles.map(profile => {
+        const combinedUsers = profiles.map(profile => {
           const userRole = roles?.find(r => r.user_id === profile.id);
           
           return {
@@ -161,7 +161,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
             role: validateUserRole(userRole?.role || 'user'),
             created_at: profile.created_at,
             last_sign_in_at: null
-          };
+          } as UserWithRole; // Explicit cast to UserWithRole after validation
         });
         
         userCache = combinedUsers;
