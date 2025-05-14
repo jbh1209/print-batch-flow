@@ -12,9 +12,12 @@ export const fetchUsersWithRpc = async (
 ): Promise<UserWithRole[]> => {
   console.log('Fetching users via RPC - EXPLICIT CALL ONLY');
   
-  const options = abortSignal ? { signal: abortSignal } : undefined;
-  
-  const { data, error } = await supabase.rpc('get_all_users_with_roles', {}, { abortSignal });
+  // The correct way to pass the abortSignal to Supabase RPC call
+  const { data, error } = await supabase.rpc(
+    'get_all_users_with_roles',
+    {},
+    { signal: abortSignal }
+  );
   
   if (error) {
     console.error('RPC error:', error);
@@ -77,7 +80,7 @@ export const fetchUsersWithDirectQueries = async (
   // First get profiles
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
-    .select('*', { count: null })
+    .select('*')
     .abortSignal(abortSignal);
   
   if (profilesError) {
@@ -87,7 +90,7 @@ export const fetchUsersWithDirectQueries = async (
   // Then get roles
   const { data: roles, error: rolesError } = await supabase
     .from('user_roles')
-    .select('*', { count: null })
+    .select('*')
     .abortSignal(abortSignal);
   
   if (rolesError) {
