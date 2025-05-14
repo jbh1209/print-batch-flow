@@ -53,22 +53,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   }
 });
 
-// Simple admin client without realtime for reduced complexity
-export const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false
-  },
-  realtime: {
-    // Disable realtime connections completely
-    params: {
-      eventsPerSecond: 0
-    }
-  }
-});
-
 // Track failed requests to implement circuit breaker pattern
 let consecutiveFailures = 0;
 const MAX_FAILURES = 3;

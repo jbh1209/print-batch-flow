@@ -62,17 +62,17 @@ export function useSecureJobValidation() {
   };
 
   /**
-   * Verify if user has admin permissions
-   * Throws error if not an admin
+   * Admin access is no longer supported
+   * This function now always returns false and displays an error message
    */
   const assertAdminAccess = () => {
-    // In preview mode, grant admin access
+    // In preview mode, grant access for testing purposes
     if (isPreviewMode()) {
       return true;
     }
     
-    // Since admin functionality is removed, this always fails in production
-    const errorMessage = 'Administrator privileges required';
+    // Admin functionality is not supported
+    const errorMessage = 'This feature is not available';
     toast.error(errorMessage);
     throw new Error(errorMessage);
     

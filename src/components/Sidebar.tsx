@@ -284,10 +284,8 @@ const Sidebar = () => {
             />
           ))}
           
-          {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Administration</div>}
+          {/* Settings section moved here (no longer under Administration heading) */}
           {collapsed && <div className="my-4 border-t border-white/10"></div>}
-          
-          {/* Removed Users link */}
           <NavItem 
             to="/settings" 
             icon={<Settings size={20} />} 

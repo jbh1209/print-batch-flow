@@ -4,45 +4,38 @@
  * 
  * Provides secure methods for accessing current user data
  * with enhanced error handling and preview mode support.
- * 
- * IMPORTANT: These functions are designed to be called explicitly
- * and do NOT execute automatically.
  */
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode } from '@/services/previewService';
-import { verifyUserRole } from './authVerification';
 
 // Type for authenticated user details
 export interface SecureCurrentUser {
   id: string;
   email: string;
-  isAdmin: boolean;
   fullName: string | null;
   avatarUrl: string | null;
   lastSignInAt: string | null;
 }
 
 /**
- * Get secure current user with role information
+ * Get secure current user
  * Uses multiple strategies to ensure robust access
- * NOTE: This function is designed to be called explicitly, not automatically
  */
 export async function getSecureCurrentUser(): Promise<SecureCurrentUser | null> {
   // In preview mode, return a consistent mock user
   if (isPreviewMode()) {
-    console.log("Preview mode detected, returning mock admin user");
+    console.log("Preview mode detected, returning mock user");
     return {
       id: 'preview-user-id',
-      email: 'admin@example.com',
-      isAdmin: true,
-      fullName: 'Preview Admin',
+      email: 'user@example.com',
+      fullName: 'Preview User',
       avatarUrl: null,
       lastSignInAt: new Date().toISOString()
     };
   }
 
   try {
-    console.log("Getting secure current user - EXPLICIT CALL ONLY");
+    console.log("Getting secure current user");
     
     // Get current session
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -71,13 +64,9 @@ export async function getSecureCurrentUser(): Promise<SecureCurrentUser | null> 
       // Continue without profile data
     }
     
-    // Check admin status with all fallback strategies
-    const isAdmin = await verifyUserRole(user.id, 'admin', user.email);
-    
     return {
       id: user.id,
       email: user.email || '',
-      isAdmin,
       fullName: profileData?.full_name || null,
       avatarUrl: profileData?.avatar_url || null,
       lastSignInAt: user.last_sign_in_at || null

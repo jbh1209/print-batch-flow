@@ -158,26 +158,3 @@ export const refreshSession = async (): Promise<{ session: Session | null; error
     return { session: null, error };
   }
 };
-
-/**
- * Check if user has admin role
- */
-export const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
-  if (!userId) return false;
-  
-  try {
-    // Use direct RPC function for role check
-    const { data, error } = await supabase.rpc('is_admin_secure_fixed', { 
-      _user_id: userId 
-    });
-    
-    if (error || data !== true) {
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error checking admin status:', error);
-    return false;
-  }
-};
