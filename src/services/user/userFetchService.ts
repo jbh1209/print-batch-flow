@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { UserWithRole, validateUserRole } from '@/types/user-types';
+import { UserWithRole, validateUserRole, UserRole } from '@/types/user-types';
 import { isPreviewMode, getMockUsers } from '@/services/previewService';
 
 // Request controller for cancellation
@@ -70,7 +70,8 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         // Ensure correct types with explicit casting and validation
         const validatedUsers = data.map(user => ({
           ...user,
-          role: validateUserRole(user.role)
+          // Explicitly cast the role to UserRole type after validation
+          role: validateUserRole(user.role) as UserRole
         })) as UserWithRole[];
         
         return validatedUsers;
@@ -107,7 +108,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           // Ensure correct types with explicit casting
           const validatedUsers = data.map(user => ({
             ...user,
-            role: validateUserRole(user.role)
+            role: validateUserRole(user.role) as UserRole
           })) as UserWithRole[];
           
           return validatedUsers;
@@ -152,7 +153,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
             email: profile.id, // Limited: we don't have emails, so use id as placeholder
             full_name: profile.full_name || null,
             avatar_url: profile.avatar_url || null,
-            role: validateUserRole(userRole?.role || 'user'),
+            role: validateUserRole(userRole?.role || 'user') as UserRole,
             created_at: profile.created_at,
             last_sign_in_at: null
           } as UserWithRole; // Explicit cast to UserWithRole after validation
