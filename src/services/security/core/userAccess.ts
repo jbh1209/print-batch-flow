@@ -7,7 +7,6 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode } from '@/services/previewService';
-import { getPreviewMockData } from './userFetch';
 import { verifyUserRole } from './authVerification';
 
 // Type for authenticated user details
@@ -28,14 +27,13 @@ export async function getSecureCurrentUser(): Promise<SecureCurrentUser | null> 
   // In preview mode, return a consistent mock user
   if (isPreviewMode()) {
     console.log("Preview mode detected, returning mock admin user");
-    const mockAdmin = getPreviewMockData('admin');
     return {
-      id: mockAdmin.id,
-      email: mockAdmin.email,
+      id: 'preview-user-id',
+      email: 'admin@example.com',
       isAdmin: true,
-      fullName: mockAdmin.full_name,
-      avatarUrl: mockAdmin.avatar_url || null,
-      lastSignInAt: mockAdmin.last_sign_in_at
+      fullName: 'Preview Admin',
+      avatarUrl: null,
+      lastSignInAt: new Date().toISOString()
     };
   }
 
