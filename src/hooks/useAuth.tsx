@@ -1,8 +1,6 @@
 
-import { useAuth } from '@/contexts/AuthContext';
-
 // Export the hook for direct usage
-export { useAuth };
+export { useAuth } from '@/contexts/AuthContext';
 
 // Export the AuthProvider for direct usage
 export { AuthProvider } from '@/contexts/AuthContext';

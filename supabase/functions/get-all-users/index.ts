@@ -22,6 +22,7 @@ serve(async (req) => {
     console.log("Get-all-users function called, returning empty array");
     
     // Return empty array since admin functionality is removed
+    // This avoids any database calls that might cause errors
     return new Response(
       JSON.stringify([]),
       { 
