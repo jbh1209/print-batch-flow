@@ -77,7 +77,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
             email: user.email,
             full_name: user.full_name,
             avatar_url: user.avatar_url,
-            role: validRole as UserRole, // Explicitly cast to UserRole
+            role: validRole as UserRole, // Important: must explicitly cast to UserRole type
             created_at: user.created_at,
             last_sign_in_at: user.last_sign_in_at
           };
@@ -122,7 +122,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
               email: user.email,
               full_name: user.full_name,
               avatar_url: user.avatar_url,
-              role: validRole as UserRole, // Explicitly cast to UserRole
+              role: validRole as UserRole, // Important: must explicitly cast to UserRole type
               created_at: user.created_at,
               last_sign_in_at: user.last_sign_in_at
             };
@@ -171,7 +171,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
             email: profile.id, // Limited: we don't have emails, so use id as placeholder
             full_name: profile.full_name || null,
             avatar_url: profile.avatar_url || null,
-            role: validRole as UserRole, // Explicitly cast to UserRole
+            role: validRole as UserRole, // Important: must explicitly cast to UserRole type
             created_at: profile.created_at,
             last_sign_in_at: null
           };
