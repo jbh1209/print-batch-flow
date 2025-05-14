@@ -6,27 +6,19 @@ import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { isPreviewMode, secureSignOut } from '@/services/security/securityService';
-import { Shield, RefreshCw, LogOut } from 'lucide-react';
+import { RefreshCw, LogOut } from 'lucide-react';
 
 interface SecureProtectedRouteProps {
   children: ReactNode;
-  requireAdmin?: boolean;
 }
 
 /**
  * Simplified protected route with improved security validation
  */
-const SecureProtectedRoute = ({ children, requireAdmin = false }: SecureProtectedRouteProps) => {
-  const { user, isLoading, isAdmin, refreshSession, refreshProfile } = useAuth();
+const SecureProtectedRoute = ({ children }: SecureProtectedRouteProps) => {
+  const { user, isLoading, refreshSession, refreshProfile } = useAuth();
   const location = useLocation();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // Check admin status only when needed
-  useEffect(() => {
-    if (requireAdmin && user && !isLoading && !isPreviewMode()) {
-      refreshProfile();
-    }
-  }, [user, requireAdmin, isLoading, refreshProfile]);
   
   // Handle session refresh
   const handleSessionRefresh = async () => {
@@ -72,34 +64,7 @@ const SecureProtectedRoute = ({ children, requireAdmin = false }: SecureProtecte
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // If admin is required but user is not admin
-  if (requireAdmin && !isAdmin) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-lg border p-6 shadow-md">
-          <div className="mb-4 flex items-center space-x-2">
-            <Shield className="h-5 w-5 text-amber-500" />
-            <h2 className="text-xl font-semibold">Administrator Access Required</h2>
-          </div>
-          <p className="mb-6 text-gray-600">
-            This area requires administrator privileges. Your current account doesn't have the necessary permissions.
-          </p>
-          <div className="flex flex-col space-y-2">
-            <Button onClick={handleSessionRefresh} disabled={isRefreshing} className="flex items-center">
-              {isRefreshing ? <Spinner size={16} className="mr-2" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-              Refresh Authentication
-            </Button>
-            <Button variant="outline" onClick={secureSignOut} className="flex items-center">
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // User is authenticated and has admin if required
+  // User is authenticated
   return <>{children}</>;
 };
 

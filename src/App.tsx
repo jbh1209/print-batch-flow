@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -8,7 +9,6 @@ import Settings from '@/pages/Settings';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import UsersPage from '@/pages/UsersPage';
 import NotFound from '@/pages/NotFound';
 import Index from '@/pages/Index';
 import PreviewSafeWrapper from '@/components/PreviewSafeWrapper';
@@ -99,13 +99,8 @@ function App() {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="settings" element={<Settings />} />
                 
-                {/* Users admin page */}
-                <Route path="users" element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <UsersPage />
-                  </ProtectedRoute>
-                } />
-
+                {/* Removed Users admin page */}
+                
                 {/* All batches and jobs */}
                 <Route path="batches" element={<AllBatches />} />
                 <Route path="all-jobs" element={<AllJobsPage />} />
@@ -113,122 +108,85 @@ function App() {
                 {/* Business Cards Routes */}
                 <Route path="batches/business-cards">
                   <Route index element={<BusinessCardBatches />} />
-                  <Route path="batches/:batchId" element={
-                    <BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards" />
-                  } />
                   <Route path="jobs" element={<BusinessCardJobs />} />
                   <Route path="jobs/new" element={<BusinessCardJobNew />} />
                   <Route path="jobs/:id" element={<BusinessCardJobDetail />} />
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
+                  <Route path=":id" element={<BatchDetailsPage />} />
                 </Route>
                 
                 {/* Flyers Routes */}
                 <Route path="batches/flyers">
                   <Route index element={<FlyerBatches />} />
-                  <Route path="batches/:batchId" element={<FlyerBatchDetailsPage />} />
                   <Route path="jobs" element={<FlyerJobs />} />
                   <Route path="jobs/new" element={<FlyerJobNew />} />
                   <Route path="jobs/:id" element={<FlyerJobDetail />} />
-                  <Route path="jobs/:jobId/edit" element={<FlyerJobEdit />} />
+                  <Route path="jobs/:id/edit" element={<FlyerJobEdit />} />
+                  <Route path=":id" element={<FlyerBatchDetailsPage />} />
                 </Route>
                 
-                {/* Postcards Routes */}
-                <Route path="batches/postcards">
-                  <Route index element={<PostcardBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Postcards"]} />
-                  } />
-                  <Route path="jobs" element={<PostcardJobsPage />} />
-                  <Route path="jobs/new" element={<PostcardJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Postcards"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<PostcardJobEditPage />} />
-                </Route>
-                
-                {/* Boxes Routes */}
+                {/* Box Routes */}
                 <Route path="batches/boxes">
                   <Route index element={<BoxBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Boxes"]} />
-                  } />
                   <Route path="jobs" element={<BoxJobsPage />} />
                   <Route path="jobs/new" element={<BoxJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Boxes"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<BoxJobEditPage />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="boxes" />} />
+                  <Route path="jobs/:id/edit" element={<BoxJobEditPage />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage productType="boxes" />} />
                 </Route>
                 
-                {/* Sleeves Routes */}
+                {/* Add other product routes */}
+                <Route path="batches/postcards">
+                  <Route index element={<PostcardBatchesPage />} />
+                  <Route path="jobs" element={<PostcardJobsPage />} />
+                  <Route path="jobs/new" element={<PostcardJobNewPage />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="postcards" />} />
+                  <Route path="jobs/:id/edit" element={<PostcardJobEditPage />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage productType="postcards" />} />
+                </Route>
+                
                 <Route path="batches/sleeves">
                   <Route index element={<SleeveBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Sleeves"]} />
-                  } />
                   <Route path="jobs" element={<SleeveJobsPage />} />
                   <Route path="jobs/new" element={<SleeveJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Sleeves"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<SleeveJobEditPage />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="sleeves" />} />
+                  <Route path="jobs/:id/edit" element={<SleeveJobEditPage />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage productType="sleeves" />} />
                 </Route>
                 
-                {/* Stickers Routes */}
                 <Route path="batches/stickers">
                   <Route index element={<StickerBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Stickers"]} />
-                  } />
                   <Route path="jobs" element={<StickerJobsPage />} />
                   <Route path="jobs/new" element={<StickerJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Stickers"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<StickerJobEditPage />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="stickers" />} />
+                  <Route path="jobs/:id/edit" element={<StickerJobEditPage />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage productType="stickers" />} />
                 </Route>
                 
-                {/* Covers Routes */}
                 <Route path="batches/covers">
                   <Route index element={<CoverBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Covers"]} />
-                  } />
                   <Route path="jobs" element={<CoverJobsPage />} />
                   <Route path="jobs/new" element={<CoverJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Covers"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<CoverJobEditPage />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="covers" />} />
+                  <Route path="jobs/:id/edit" element={<CoverJobEditPage />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage productType="covers" />} />
                 </Route>
                 
-                {/* Posters Routes */}
                 <Route path="batches/posters">
                   <Route index element={<PosterBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Posters"]} />
-                  } />
                   <Route path="jobs" element={<PosterJobsPage />} />
                   <Route path="jobs/new" element={<PosterJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Posters"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<PosterJobEditPage />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="posters" />} />
+                  <Route path="jobs/:id/edit" element={<PosterJobEditPage />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage productType="posters" />} />
                 </Route>
-                
-                {/* Catch all other routes inside the layout */}
-                <Route path="*" element={<NotFound />} />
               </Route>
               
-              {/* Fallback route for anything else */}
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
+            <Toaster />
+            <SonnerToaster position="top-right" />
           </Router>
-          <SonnerToaster position="top-right" closeButton toastOptions={{ 
-            duration: 3000, 
-            className: "unique-toast-class"
-          }} />
-          <Toaster />
         </AuthProvider>
       </QueryClientProvider>
     </PreviewSafeWrapper>

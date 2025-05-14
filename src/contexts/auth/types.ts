@@ -1,19 +1,16 @@
 
-import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { User, Session } from '@supabase/supabase-js';
 
-// Define user profile type
-export interface UserProfile {
+export interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
 }
 
-// Define the auth context type
 export interface AuthContextType {
-  user: SupabaseUser | null;
-  profile: UserProfile | null;
+  user: User | null;
+  profile: Profile | null;
   session: Session | null;
-  isAdmin: boolean;
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;

@@ -10,7 +10,6 @@ import {
   Sticker, 
   Book, 
   Image, 
-  Users, 
   Settings, 
   ChevronLeft,
   Mail,
@@ -288,12 +287,7 @@ const Sidebar = () => {
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Administration</div>}
           {collapsed && <div className="my-4 border-t border-white/10"></div>}
           
-          <NavItem 
-            to="/users" 
-            icon={<Users size={20} />} 
-            label={collapsed ? "" : "Users"} 
-            isActive={isRouteActive("/users")} 
-          />
+          {/* Removed Users link */}
           <NavItem 
             to="/settings" 
             icon={<Settings size={20} />} 
