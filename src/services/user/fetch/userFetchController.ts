@@ -2,53 +2,61 @@
 /**
  * User Fetch Controller
  * 
- * Handles cancellation and request management for user data fetching
- * 
- * IMPORTANT: This file is designed to be imported explicitly and does not
- * trigger any service calls during module initialization
+ * Provides utilities for managing user data fetching, including
+ * cache invalidation and request cancellation.
  */
 
-// Request controller for cancellation
+// Module-level controller reference for cancellation
 let currentController: AbortController | null = null;
 
-/**
- * Cancel any pending requests
- */
-export const cancelFetchUsers = (): void => {
-  if (currentController) {
-    console.log('Cancelling user fetch request');
-    currentController.abort();
-    currentController = null;
-  }
-};
+// Cache invalidation timestamp
+let cacheInvalidatedAt: number = 0;
 
 /**
- * Create new controller for fetch requests
- * @returns AbortSignal for the request
+ * Create a new fetch controller and return its signal
  */
-export const createFetchController = (): AbortSignal => {
-  // Cancel any pending requests
+export const createFetchController = (): AbortController => {
+  // Cancel any existing request
   if (currentController) {
-    console.log('Cancelling existing user fetch request');
     currentController.abort();
   }
   
-  // Create new controller for this request
+  // Create new controller
   currentController = new AbortController();
-  return currentController.signal;
+  return currentController;
 };
 
 /**
- * Reset controller after request completes
+ * Reset the current fetch controller
  */
 export const resetFetchController = (): void => {
   currentController = null;
 };
 
 /**
- * Invalidate user cache
- * This is a no-op function to maintain API compatibility
+ * Cancel any ongoing user fetch request
+ */
+export const cancelFetchUsers = (): void => {
+  if (currentController) {
+    currentController.abort();
+    currentController = null;
+    console.log('User fetch requests cancelled');
+  }
+};
+
+/**
+ * Invalidate the user cache to force a fresh fetch
  */
 export const invalidateUserCache = (): void => {
-  console.log('User cache invalidated - no caching is used anymore');
+  cacheInvalidatedAt = Date.now();
+  console.log('User cache invalidated');
+};
+
+/**
+ * Check if the user cache is still valid
+ */
+export const isCacheValid = (maxAgeMs: number = 30000): boolean => {
+  if (cacheInvalidatedAt === 0) return false;
+  const timeSinceInvalidation = Date.now() - cacheInvalidatedAt;
+  return timeSinceInvalidation < maxAgeMs;
 };

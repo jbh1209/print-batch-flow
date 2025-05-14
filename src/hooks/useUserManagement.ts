@@ -19,6 +19,7 @@ export const useUserManagement = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [anyAdminExists, setAnyAdminExists] = useState(false);
   const { isAdmin } = useAuth();
   
   // Lazy-load user services to prevent circular dependencies
@@ -27,14 +28,15 @@ export const useUserManagement = () => {
       // Dynamically import user service functions
       const userModule = await import('@/services/user');
       const fetchModule = await import('@/services/user/userFetchService');
+      const roleModule = await import('@/services/user/userRoleService');
       
       return {
         fetchUsers: fetchModule.fetchUsers,
         createUser: userModule.createUser,
         updateUser: userModule.updateUser,
         deleteUser: userModule.deleteUser,
-        checkAdminExists: userModule.checkAdminExists,
-        addAdminRole: userModule.addAdminRole,
+        checkAdminExists: roleModule.checkAdminExists,
+        addAdminRole: roleModule.addAdminRole,
       };
     } catch (error) {
       console.error('Error loading user services:', error);
@@ -124,15 +126,52 @@ export const useUserManagement = () => {
     }
   }, [fetchUsers, loadUserServices]);
 
+  // Check if any admin exists
+  const checkAdminExists = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const services = await loadUserServices();
+      const exists = await services.checkAdminExists();
+      setAnyAdminExists(exists);
+      return exists;
+    } catch (error: any) {
+      console.error('Error checking admin exists:', error);
+      setError(`Error checking admin status: ${error.message || 'Unknown error'}`);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadUserServices]);
+
+  // Add admin role to a user
+  const addAdminRole = useCallback(async (userId: string) => {
+    try {
+      setIsLoading(true);
+      const services = await loadUserServices();
+      await services.addAdminRole(userId);
+      setAnyAdminExists(true);
+      // Refresh the user list
+      await fetchUsers();
+    } catch (error: any) {
+      console.error('Error adding admin role:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchUsers, loadUserServices]);
+
   return {
     users,
     isLoading,
     isRefreshing,
     error,
+    anyAdminExists,
     fetchUsers,
     createUser,
     updateUser,
     deleteUser,
+    checkAdminExists,
+    addAdminRole,
     setUsers,
   };
 };

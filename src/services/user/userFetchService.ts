@@ -35,7 +35,8 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
   }
 
   // Create controller and get signal
-  const signal = createFetchController();
+  const controller = createFetchController();
+  const signal = controller.signal;
   
   try {
     console.log('Fetching users from database - ADMIN PAGE ONLY');
@@ -59,7 +60,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
   } catch (error: any) {
     console.error('Error in fetchUsers:', error);
     // Only propagate non-abort errors
-    if (error.message !== 'Request aborted') {
+    if (error.name !== 'AbortError') {
       throw error;
     }
     // Return empty array when request is aborted

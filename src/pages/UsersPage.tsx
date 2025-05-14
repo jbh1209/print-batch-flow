@@ -1,5 +1,5 @@
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { UserTableContainer } from '@/components/users/UserTableContainer';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';

@@ -12,9 +12,9 @@ export const fetchUsersWithRpc = async (
 ): Promise<UserWithRole[]> => {
   console.log('Fetching users via RPC - EXPLICIT CALL ONLY');
   
-  const options = abortSignal ? { abortSignal } : undefined;
+  const options = abortSignal ? { signal: abortSignal } : undefined;
   
-  const { data, error } = await supabase.rpc('get_all_users_with_roles', {}, options);
+  const { data, error } = await supabase.rpc('get_all_users_with_roles', {}, { abortSignal });
   
   if (error) {
     console.error('RPC error:', error);
@@ -47,12 +47,9 @@ export const fetchUsersWithEdgeFunction = async (
   const options = {
     headers: {
       Authorization: `Bearer ${session.access_token}`,
-    }
+    },
+    signal: abortSignal
   };
-  
-  if (abortSignal) {
-    Object.assign(options, { abortSignal });
-  }
   
   const { data, error } = await supabase.functions.invoke('get-all-users', options);
   
@@ -77,12 +74,11 @@ export const fetchUsersWithDirectQueries = async (
 ): Promise<UserWithRole[]> => {
   console.log('Fetching users via direct queries - LAST RESORT ONLY');
   
-  const options = abortSignal ? { abortSignal } : undefined;
-  
   // First get profiles
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
-    .select('*', options);
+    .select('*', { count: null })
+    .abortSignal(abortSignal);
   
   if (profilesError) {
     throw profilesError;
@@ -91,7 +87,8 @@ export const fetchUsersWithDirectQueries = async (
   // Then get roles
   const { data: roles, error: rolesError } = await supabase
     .from('user_roles')
-    .select('*', options);
+    .select('*', { count: null })
+    .abortSignal(abortSignal);
   
   if (rolesError) {
     throw rolesError;
