@@ -1,4 +1,11 @@
 
+/**
+ * User Fetch Service - Explicit On-Demand Only
+ * 
+ * IMPORTANT: This service will ONLY fetch user data when explicitly called
+ * and does not trigger any requests during module initialization
+ */
+
 import { UserWithRole } from '@/types/user-types';
 import { isInPreviewMode, getMockUserData } from './fetch/mockUserData';
 import { 

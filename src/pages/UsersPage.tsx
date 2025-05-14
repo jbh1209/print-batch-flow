@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { UserTableContainer } from '@/components/users/UserTableContainer';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,26 +7,20 @@ import { Navigate } from 'react-router-dom';
 import { useUserManagement } from '@/hooks/useUserManagement';
 
 const UsersPage = () => {
-  const { isAdmin, isLoading: authLoading, refreshProfile } = useAuth();
+  const { isAdmin, isLoading: authLoading } = useAuth();
   const { fetchUsers, isLoading: usersLoading } = useUserManagement();
   
-  // First refresh profile to ensure admin status is up-to-date
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      await refreshProfile();
-    };
-    checkAdminStatus();
-  }, [refreshProfile]);
-  
-  // Then, explicitly fetch users data ONLY on the users page when it loads
-  useEffect(() => {
+  // Explicitly fetch users data when the button is clicked
+  const handleFetchUsers = useCallback(async () => {
     if (isAdmin) {
-      console.log('Users page - explicitly fetching user data');
-      fetchUsers().catch(error => {
+      try {
+        console.log('Users page - explicitly fetching user data');
+        await fetchUsers();
+      } catch (error: any) {
         console.error("User management error:", error);
         const message = error?.message || "An unexpected error occurred";
         toast.error(message);
-      });
+      }
     }
   }, [isAdmin, fetchUsers]);
 
@@ -49,6 +43,13 @@ const UsersPage = () => {
     <div className="container mx-auto py-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">User Management</h1>
+        <button 
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          onClick={handleFetchUsers}
+          disabled={usersLoading}
+        >
+          {usersLoading ? "Loading..." : "Load Users"}
+        </button>
       </div>
       <UserTableContainer />
     </div>

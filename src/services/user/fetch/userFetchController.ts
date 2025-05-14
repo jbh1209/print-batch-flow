@@ -3,6 +3,9 @@
  * User Fetch Controller
  * 
  * Handles cancellation and request management for user data fetching
+ * 
+ * IMPORTANT: This file is designed to be imported explicitly and does not
+ * trigger any service calls during module initialization
  */
 
 // Request controller for cancellation
@@ -11,7 +14,7 @@ let currentController: AbortController | null = null;
 /**
  * Cancel any pending requests
  */
-export const cancelFetchUsers = () => {
+export const cancelFetchUsers = (): void => {
   if (currentController) {
     console.log('Cancelling user fetch request');
     currentController.abort();
@@ -38,7 +41,7 @@ export const createFetchController = (): AbortSignal => {
 /**
  * Reset controller after request completes
  */
-export const resetFetchController = () => {
+export const resetFetchController = (): void => {
   currentController = null;
 };
 
@@ -46,6 +49,6 @@ export const resetFetchController = () => {
  * Invalidate user cache
  * This is a no-op function to maintain API compatibility
  */
-export const invalidateUserCache = () => {
+export const invalidateUserCache = (): void => {
   console.log('User cache invalidated - no caching is used anymore');
 };

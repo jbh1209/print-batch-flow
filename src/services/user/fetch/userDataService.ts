@@ -8,13 +8,13 @@ import { transformUserData } from './userDataTransformer';
  * Only called explicitly from the Users page
  */
 export const fetchUsersWithRpc = async (
-  signal?: AbortSignal
+  abortSignal?: AbortSignal
 ): Promise<UserWithRole[]> => {
   console.log('Fetching users via RPC - EXPLICIT CALL ONLY');
   
-  const { data, error } = await supabase.rpc('get_all_users_with_roles', {}, {
-    signal,
-  });
+  const options = abortSignal ? { abortSignal } : undefined;
+  
+  const { data, error } = await supabase.rpc('get_all_users_with_roles', {}, options);
   
   if (error) {
     console.error('RPC error:', error);
@@ -33,7 +33,7 @@ export const fetchUsersWithRpc = async (
  * Only called if RPC method fails
  */
 export const fetchUsersWithEdgeFunction = async (
-  signal?: AbortSignal
+  abortSignal?: AbortSignal
 ): Promise<UserWithRole[]> => {
   console.log('Fetching users via edge function - FALLBACK ONLY');
   
@@ -44,12 +44,17 @@ export const fetchUsersWithEdgeFunction = async (
     throw new Error('Authentication required to access user data');
   }
   
-  const { data, error } = await supabase.functions.invoke('get-all-users', {
+  const options = {
     headers: {
       Authorization: `Bearer ${session.access_token}`,
-    },
-    signal,
-  });
+    }
+  };
+  
+  if (abortSignal) {
+    Object.assign(options, { abortSignal });
+  }
+  
+  const { data, error } = await supabase.functions.invoke('get-all-users', options);
   
   if (error) {
     console.error('Edge function error:', error);
@@ -68,14 +73,16 @@ export const fetchUsersWithEdgeFunction = async (
  * Only used if both RPC and edge function methods fail
  */
 export const fetchUsersWithDirectQueries = async (
-  signal?: AbortSignal
+  abortSignal?: AbortSignal
 ): Promise<UserWithRole[]> => {
   console.log('Fetching users via direct queries - LAST RESORT ONLY');
+  
+  const options = abortSignal ? { abortSignal } : undefined;
   
   // First get profiles
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
-    .select('*', { signal });
+    .select('*', options);
   
   if (profilesError) {
     throw profilesError;
@@ -84,7 +91,7 @@ export const fetchUsersWithDirectQueries = async (
   // Then get roles
   const { data: roles, error: rolesError } = await supabase
     .from('user_roles')
-    .select('*', { signal });
+    .select('*', options);
   
   if (rolesError) {
     throw rolesError;

@@ -1,27 +1,40 @@
 
-// Re-export user service functionality in a standardized way
-import { checkUserIsAdmin } from './auth/authService';
-import { UserFormData, UserRole, validateUserRole } from '@/types/user-types';
+/**
+ * User Service Root
+ * 
+ * Top-level re-export of user service functionality with explicit exports
+ * to prevent circular dependencies and unintended data fetching.
+ */
+import { UserFormData } from '@/types/user-types';
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode, simulateApiCall } from '@/services/previewService';
-import { 
-  fetchUsers as fetchUsersService,
-  cancelFetchUsers,
-  invalidateUserCache
-} from './user/userFetchService';
 import { toast } from 'sonner';
 
-// Export all functions from the user module
-export * from './user';
+// Import function types only (no implementation)
+import type { invalidateUserCache as InvalidateCacheType } from './user/userFetchService';
 
-// Export auth-related functions
-export { checkUserIsAdmin };
+// Export auth-related functions - imported dynamically when needed
+export const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
+  // Dynamic import to avoid circular dependencies
+  const { checkUserIsAdmin: checkAdminImpl } = await import('./auth/authService');
+  return checkAdminImpl(userId);
+};
 
-// Consistent fetch users functionality
-export const fetchUsers = fetchUsersService;
+// DO NOT re-export wildcard imports that could trigger fetches
+// export * from './user'; // <-- REMOVED to prevent unintended importing
 
-// Export cancellation function
-export { cancelFetchUsers, invalidateUserCache };
+/**
+ * Safe, isolated invalidateUserCache function
+ * This prevents import of the actual fetchUsers implementation
+ */
+export const invalidateUserCache = (): void => {
+  // Import dynamically to prevent circular dependencies
+  import('./user/userFetchService').then(module => {
+    module.invalidateUserCache();
+  }).catch(error => {
+    console.error('Error invalidating user cache:', error);
+  });
+};
 
 /**
  * Create a new user securely
@@ -287,5 +300,17 @@ export const addAdminRole = async (userId: string): Promise<void> => {
   } catch (error: any) {
     console.error('Error setting admin role:', error);
     throw new Error(error.message || 'Unknown error setting admin role');
+  }
+};
+
+// Explicitly export functions users need to fetch users
+// This requires an explicit import to avoid unwanted execution
+export const lazyLoadFetchUsers = async (): Promise<typeof import('./user/userFetchService').fetchUsers> => {
+  try {
+    const module = await import('./user/userFetchService');
+    return module.fetchUsers;
+  } catch (error) {
+    console.error('Error loading fetchUsers function:', error);
+    throw new Error('Failed to load user fetching functionality');
   }
 };

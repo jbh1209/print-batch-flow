@@ -1,11 +1,11 @@
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useState, useCallback } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { isPreviewMode } from '@/services/previewService';
+import { isPreviewMode } from '@/services/core/previewService';
 import { secureSignOut } from '@/services/security/securityService';
 
 interface ProtectedRouteProps {
@@ -17,19 +17,15 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   const { user, isLoading, isAdmin, session, refreshSession, refreshProfile } = useAuth();
   const location = useLocation();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [adminChecked, setAdminChecked] = useState(false);
+  const [adminChecked, setAdminChecked] = useState(!requireAdmin);
   
-  // Only check admin status if required and not already checked
-  useEffect(() => {
-    if (requireAdmin && user && !adminChecked && !isPreviewMode()) {
-      const checkAdminStatus = async () => {
-        await refreshProfile();
-        setAdminChecked(true);
-      };
-      checkAdminStatus();
+  // On-demand admin check - only executed when button is clicked
+  const checkAdminStatus = useCallback(async () => {
+    if (requireAdmin && user && !isPreviewMode()) {
+      await refreshProfile();
+      setAdminChecked(true);
     }
-  }, [user, requireAdmin, adminChecked, refreshProfile]);
+  }, [requireAdmin, refreshProfile, user]);
   
   // Attempt to refresh the session if needed with improved security
   const handleSessionRefresh = async () => {
@@ -64,18 +60,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     }
   };
 
-  useEffect(() => {
-    // Mark auth as checked once we've determined loading is complete
-    if (!isLoading) {
-      setAuthChecked(true);
-    }
-    
-    // Only show admin-required message if user is trying to access admin-only route
-    if (user && requireAdmin && !isAdmin && adminChecked && !isPreviewMode()) {
-      toast.error('You need administrator privileges to access this page');
-    }
-  }, [user, requireAdmin, isAdmin, isLoading, adminChecked]);
-
   // While checking authentication status
   if (isLoading || isRefreshing) {
     return (
@@ -96,47 +80,50 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     session: !!session, 
     isAdmin, 
     requireAdmin, 
-    authChecked,
     adminChecked,
     currentPath: location.pathname
   });
 
   // If not authenticated, redirect to login
-  if (authChecked && (!user || !session)) {
+  if (!user || !session) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   // If admin is required but user is not admin
-  if (requireAdmin && adminChecked && !isAdmin) {
+  if (requireAdmin && !isAdmin) {
     // Check if this might be a token expiration issue
     const tokenExpirationTime = session?.expires_at ? new Date(session.expires_at * 1000) : null;
     const now = new Date();
     const isTokenNearExpiration = tokenExpirationTime && 
       ((tokenExpirationTime.getTime() - now.getTime()) < 10 * 60 * 1000); // 10 minutes
     
-    if (isTokenNearExpiration) {
-      return (
-        <div className="flex h-screen w-full flex-col items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-lg border p-6 shadow-md">
-            <h2 className="mb-4 text-xl font-semibold">Session May Have Expired</h2>
-            <p className="mb-6 text-gray-600">
-              Your admin privileges could not be verified. This may be due to an expired session.
-            </p>
-            <div className="flex flex-col space-y-2">
-              <Button onClick={handleSessionRefresh} disabled={isRefreshing}>
-                {isRefreshing ? <Spinner size={16} className="mr-2" /> : null}
-                Refresh Authentication
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-lg border p-6 shadow-md">
+          <h2 className="mb-4 text-xl font-semibold">Administrator Access Required</h2>
+          <p className="mb-6 text-gray-600">
+            {!adminChecked ? 
+              "Checking administrator privileges..." :
+              "Your administrator privileges could not be verified."
+            }
+          </p>
+          <div className="flex flex-col space-y-2">
+            {!adminChecked && (
+              <Button onClick={checkAdminStatus} className="mb-2">
+                Check Admin Status
               </Button>
-              <Button variant="outline" onClick={handleSecureSignOut}>
-                Sign Out Securely
-              </Button>
-            </div>
+            )}
+            <Button onClick={handleSessionRefresh} disabled={isRefreshing}>
+              {isRefreshing ? <Spinner size={16} className="mr-2" /> : null}
+              Refresh Authentication
+            </Button>
+            <Button variant="outline" onClick={handleSecureSignOut}>
+              Sign Out Securely
+            </Button>
           </div>
         </div>
-      );
-    }
-    
-    return <Navigate to="/" replace />;
+      </div>
+    );
   }
 
   // User is authenticated (and has admin if required)

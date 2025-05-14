@@ -1,38 +1,65 @@
-import { useState, useCallback } from 'react';
-import { UserFormData, UserWithRole } from '@/types/user-types';
-import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
-import { isPreviewMode } from '@/services/previewService';
 
-// Improved user management hook that will ONLY be used on the Users page
-export function useUserManagement() {
-  const { isAdmin } = useAuth();
+/**
+ * User Management Hook
+ * 
+ * IMPORTANT: This hook uses lazy-loading for all user-related functionality
+ * to prevent circular dependencies and unintended data fetching.
+ */
+import { useState, useCallback, useEffect } from 'react';
+import { UserWithRole } from '@/types/user-types';
+import { isPreviewMode } from '@/services/core/previewService';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+
+/**
+ * Hook for managing users in the admin interface
+ */
+export const useUserManagement = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [anyAdminExists, setAnyAdminExists] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { isAdmin } = useAuth();
   
-  // On-demand fetch users - ONLY used on users page
+  // Lazy-load user services to prevent circular dependencies
+  const loadUserServices = useCallback(async () => {
+    try {
+      // Dynamically import user service functions
+      const userModule = await import('@/services/user');
+      const fetchModule = await import('@/services/user/userFetchService');
+      
+      return {
+        fetchUsers: fetchModule.fetchUsers,
+        createUser: userModule.createUser,
+        updateUser: userModule.updateUser,
+        deleteUser: userModule.deleteUser,
+        checkAdminExists: userModule.checkAdminExists,
+        addAdminRole: userModule.addAdminRole,
+      };
+    } catch (error) {
+      console.error('Error loading user services:', error);
+      throw new Error('Failed to load user management functionality');
+    }
+  }, []);
+  
+  // Fetch users data - EXPLICIT CALL ONLY
   const fetchUsers = useCallback(async () => {
-    // Skip fetch if not admin and not in preview mode
+    // Skip fetch if not admin
     if (!isAdmin && !isPreviewMode()) {
-      console.log('Not admin, skipping fetchUsers in useUserManagement');
+      console.log('Not admin, skipping fetchUsers');
       return;
     }
     
     setIsLoading(true);
+    setIsRefreshing(true);
     setError(null);
     
     try {
-      console.log("Fetching users in useUserManagement - EXPLICIT REQUEST");
-      // Dynamically import to avoid loading this code unless explicitly called
-      const { fetchUsers: fetchUsersService } = await import('@/services/user/userFetchService');
-      const loadedUsers = await fetchUsersService();
+      // Load the fetchUsers function on demand
+      const services = await loadUserServices();
+      console.log("Explicitly fetching users on demand");
       
-      if (!loadedUsers || !Array.isArray(loadedUsers)) {
-        throw new Error("Invalid user data structure received");
-      }
+      const loadedUsers = await services.fetchUsers();
       
       // Sort users by name for better UX
       const sortedUsers = [...loadedUsers].sort((a, b) => {
@@ -42,111 +69,70 @@ export function useUserManagement() {
       });
       
       setUsers(sortedUsers);
-      console.log(`Successfully loaded ${sortedUsers.length} users`);
     } catch (error: any) {
       console.error('Error loading users:', error);
-      setError(`Failed to load users: ${error.message || 'Unknown error'}`);
+      setError(`Error loading users: ${error.message || 'Unknown error'}`);
       toast.error(`Error loading users: ${error.message || 'Unknown error'}`);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [isAdmin]);
-
-  // Check if any admin exists - this is a lightweight operation 
-  const checkAdminExists = useCallback(async () => {
-    try {
-      setError(null);
-      const { checkAdminExists } = await import('@/services/user');
-      const adminExists = await checkAdminExists();
-      console.log(`Admin exists check result: ${adminExists}`);
-      setAnyAdminExists(adminExists);
-      return adminExists;
-    } catch (error: any) {
-      console.error('Error checking admin existence:', error);
-      setError(`Failed to check admin status: ${error.message || 'Unknown error'}`);
-      return false;
-    }
-  }, []);
-
+  }, [isAdmin, loadUserServices]);
+  
   // Create a new user
-  const createUser = useCallback(async (userData: UserFormData) => {
-    if (!userData.password) {
-      throw new Error('Password is required when creating a user');
-    }
-    
+  const createUser = useCallback(async (userData: any) => {
     try {
-      setError(null);
-      const { createUser } = await import('@/services/user');
-      await createUser(userData);
-      toast.success(`User ${userData.email} created successfully`);
-      await fetchUsers(); // Refresh the list
+      // Load the createUser function on demand
+      const services = await loadUserServices();
+      await services.createUser(userData);
+      
+      // Fetch updated user list
+      await fetchUsers();
     } catch (error: any) {
       console.error('Error creating user:', error);
-      setError(`Failed to create user: ${error.message || 'Unknown error'}`);
       throw error;
     }
-  }, [fetchUsers]);
-
+  }, [fetchUsers, loadUserServices]);
+  
   // Update an existing user
-  const updateUser = useCallback(async (userId: string, userData: UserFormData) => {
+  const updateUser = useCallback(async (userId: string, userData: any) => {
     try {
-      setError(null);
-      const { updateUser } = await import('@/services/user');
-      await updateUser(userId, userData);
-      toast.success(`User updated successfully`);
-      await fetchUsers(); // Refresh the list
+      // Load the updateUser function on demand
+      const services = await loadUserServices();
+      await services.updateUser(userId, userData);
+      
+      // Fetch updated user list
+      await fetchUsers();
     } catch (error: any) {
       console.error('Error updating user:', error);
-      setError(`Failed to update user: ${error.message || 'Unknown error'}`);
       throw error;
     }
-  }, [fetchUsers]);
-
-  // Delete a user
+  }, [fetchUsers, loadUserServices]);
+  
+  // Delete/revoke a user
   const deleteUser = useCallback(async (userId: string) => {
     try {
-      setError(null);
-      const { deleteUser } = await import('@/services/user');
-      await deleteUser(userId);
-      toast.success('User access revoked successfully');
-      await fetchUsers(); // Refresh the list
+      // Load the deleteUser function on demand
+      const services = await loadUserServices();
+      await services.deleteUser(userId);
+      
+      // Fetch updated user list
+      await fetchUsers();
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      setError(`Failed to revoke user access: ${error.message || 'Unknown error'}`);
       throw error;
     }
-  }, [fetchUsers]);
-
-  // Add admin role to a user
-  const addAdminRole = useCallback(async (userId: string) => {
-    try {
-      setError(null);
-      const { addAdminRole } = await import('@/services/user');
-      await addAdminRole(userId);
-      toast.success('Admin role added successfully');
-      await fetchUsers(); // Refresh the list
-      await checkAdminExists(); // Update admin existence
-    } catch (error: any) {
-      console.error('Error adding admin role:', error);
-      setError(`Failed to add admin role: ${error.message || 'Unknown error'}`);
-      throw error;
-    }
-  }, [fetchUsers, checkAdminExists]);
+  }, [fetchUsers, loadUserServices]);
 
   return {
     users,
     isLoading,
-    error,
-    anyAdminExists,
     isRefreshing,
+    error,
     fetchUsers,
     createUser,
     updateUser,
     deleteUser,
-    checkAdminExists,
-    addAdminRole,
+    setUsers,
   };
-}
-
-// This is for backward compatibility
-export { useUserManagement as useUserManagementContext };
+};

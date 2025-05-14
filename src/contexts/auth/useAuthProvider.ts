@@ -4,7 +4,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from './types';
 import { cleanupAuthState } from '@/services/auth/authService';
-import { isPreviewMode, getMockUserData } from '@/services/previewService';
+import { isPreviewMode } from '@/services/previewService';
 
 /**
  * Auth provider hook with improved error handling and simplified structure
@@ -100,9 +100,18 @@ export function useAuthProvider() {
       }
       
       // Check admin status - import dynamically to prevent circular dependencies
-      const { checkUserIsAdmin } = await import('@/services/auth/authService');
-      const adminStatus = await checkUserIsAdmin(user.id);
-      setIsAdmin(adminStatus);
+      const checkAdminStatusAsync = async () => {
+        try {
+          const authServiceModule = await import('@/services/auth/authService');
+          const adminStatus = await authServiceModule.checkUserIsAdmin(user.id);
+          setIsAdmin(adminStatus);
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+        }
+      };
+      
+      // Execute the check asynchronously
+      checkAdminStatusAsync();
     } catch (error) {
       console.error('Error refreshing profile:', error);
     }
@@ -116,38 +125,24 @@ export function useAuthProvider() {
       console.log('Preview mode detected, using mock authentication');
       
       const setupPreview = () => {
-        // Create mock data
-        const mockData = getMockUserData();
+        // Use mock user data
+        const mockUser = { 
+          id: 'preview-user-id', 
+          email: 'preview@example.com' 
+        } as User;
         
-        if (mockData && mockData.length > 0) {
-          // Use first mock user
-          const firstUser = mockData[0];
-          
-          // Create mock user
-          const mockUser = {
-            id: firstUser.id,
-            email: firstUser.email,
-          } as User;
-          
-          // Create mock profile
-          const mockProfile = {
-            id: firstUser.id,
-            full_name: firstUser.full_name,
-            avatar_url: null,
-          };
+        // Create mock profile
+        const mockProfile = {
+          id: 'preview-user-id',
+          full_name: 'Preview User',
+          avatar_url: null,
+        };
 
-          // Set mock data
-          setUser(mockUser);
-          setProfile(mockProfile);
-          setIsAdmin(firstUser.role === 'admin');
-          setIsLoading(false);
-        } else {
-          // Default mock user if no mock data available
-          setUser({ id: 'preview-user-id', email: 'preview@example.com' } as User);
-          setProfile({ id: 'preview-user-id', full_name: 'Preview User', avatar_url: null });
-          setIsAdmin(true);
-          setIsLoading(false);
-        }
+        // Set mock data
+        setUser(mockUser);
+        setProfile(mockProfile);
+        setIsAdmin(true);
+        setIsLoading(false);
       };
       
       setupPreview();

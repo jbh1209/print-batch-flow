@@ -1,6 +1,11 @@
 
-import { isPreviewMode } from '@/services/previewService';
-import { cleanupAuthState, signOut } from '@/services/auth/authService';
+/**
+ * Security Service
+ * 
+ * IMPORTANT: This file uses explicit dynamic imports to prevent circular dependencies
+ * and unintended data fetching during module initialization.
+ */
+import { isPreviewMode } from '@/services/core/previewService';
 
 /**
  * Perform a secure signout with proper cleanup
@@ -14,11 +19,14 @@ export const secureSignOut = async (): Promise<void> => {
       return;
     }
     
+    // Dynamically import auth service to prevent circular dependencies
+    const authService = await import('@/services/auth/authService');
+    
     // Clean up auth state
-    cleanupAuthState();
+    authService.cleanupAuthState();
     
     // Perform sign out
-    await signOut();
+    await authService.signOut();
     
     // Redirect to auth page
     window.location.href = '/auth';
@@ -30,6 +38,15 @@ export const secureSignOut = async (): Promise<void> => {
   }
 };
 
-// Re-export isPreviewMode and cleanupAuthState for easy access
-export { isPreviewMode } from '@/services/previewService';
-export { cleanupAuthState } from '@/services/auth/authService';
+// Re-export isPreviewMode for easy access
+export { isPreviewMode } from '@/services/core/previewService';
+
+// Dynamically export cleanupAuthState to avoid circular dependencies
+export const cleanupAuthState = async (): Promise<void> => {
+  try {
+    const authService = await import('@/services/auth/authService');
+    authService.cleanupAuthState();
+  } catch (error) {
+    console.error('Error importing cleanupAuthState:', error);
+  }
+};
