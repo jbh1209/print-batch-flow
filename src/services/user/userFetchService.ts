@@ -72,7 +72,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           // First validate the role
           const validRole = validateUserRole(user.role);
           // Then create a properly typed object with explicit type casting
-          return {
+          const typedUser: UserWithRole = {
             id: user.id,
             email: user.email,
             full_name: user.full_name,
@@ -81,6 +81,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
             created_at: user.created_at,
             last_sign_in_at: user.last_sign_in_at
           };
+          return typedUser;
         });
         
         return validatedUsers;
@@ -117,7 +118,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           // Create properly typed objects
           const validatedUsers: UserWithRole[] = data.map(user => {
             const validRole = validateUserRole(user.role);
-            return {
+            const typedUser: UserWithRole = {
               id: user.id,
               email: user.email,
               full_name: user.full_name,
@@ -126,6 +127,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
               created_at: user.created_at,
               last_sign_in_at: user.last_sign_in_at
             };
+            return typedUser;
           });
           
           return validatedUsers;
@@ -166,7 +168,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           const userRole = roles?.find(r => r.user_id === profile.id);
           const validRole = validateUserRole(userRole?.role || 'user');
           
-          return {
+          const typedUser: UserWithRole = {
             id: profile.id,
             email: profile.id, // Limited: we don't have emails, so use id as placeholder
             full_name: profile.full_name || null,
@@ -175,6 +177,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
             created_at: profile.created_at,
             last_sign_in_at: null
           };
+          return typedUser;
         });
         
         return validatedUsers;
