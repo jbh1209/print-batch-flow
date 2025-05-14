@@ -149,6 +149,7 @@ export function useUserManagement() {
   };
 }
 
-// Export the context version for backward compatibility
-// But this export will NOT be used by default in the application
-export { useUserManagement as useUserManagementContext } from '@/contexts/UserManagementContext';
+// This is what's causing the error - we need to remove or fix this export
+// We're updating it to simply re-export our hook itself for backward compatibility
+export { useUserManagement as useUserManagementContext };
+
