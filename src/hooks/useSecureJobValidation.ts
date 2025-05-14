@@ -62,8 +62,7 @@ export function useSecureJobValidation() {
   };
 
   /**
-   * Admin access is no longer supported
-   * This function now always returns false and displays an error message
+   * This feature is not available
    */
   const assertAdminAccess = () => {
     // In preview mode, grant access for testing purposes

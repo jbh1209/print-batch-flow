@@ -1,5 +1,4 @@
 
-// Just re-export the auth context hook for better organization
 import { useAuth } from '@/contexts/AuthContext';
 
 // Export the hook for direct usage
