@@ -29,3 +29,7 @@ export type User = {
   email: string;
   full_name?: string | null;
 };
+
+// Since we removed role functionality but references still exist,
+// create a simple validation function that always returns 'user'
+export const validateUserRole = () => 'user';

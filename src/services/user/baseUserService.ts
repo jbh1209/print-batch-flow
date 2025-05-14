@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode } from '@/services/previewService';
 import { UserWithRole, validateUserRole } from '@/types/user-types';
