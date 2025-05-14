@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserManagement } from "@/contexts/UserManagementContext";
+import { useUserManagement } from "@/hooks/useUserManagement"; // Changed from context import
 
 export function AdminSetupForm() {
   const { user } = useAuth();

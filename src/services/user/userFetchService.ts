@@ -67,12 +67,21 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
       }
       
       if (data && Array.isArray(data)) {
-        // Ensure correct types with explicit casting and validation
-        const validatedUsers = data.map(user => ({
-          ...user,
-          // Explicitly cast the role to UserRole type after validation
-          role: validateUserRole(user.role) as UserRole
-        })) as UserWithRole[];
+        // Important: Process each item separately to ensure proper typing
+        const validatedUsers: UserWithRole[] = data.map(user => {
+          // First validate the role
+          const validRole = validateUserRole(user.role);
+          // Then create a properly typed object
+          return {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            avatar_url: user.avatar_url,
+            role: validRole as UserRole,
+            created_at: user.created_at,
+            last_sign_in_at: user.last_sign_in_at
+          };
+        });
         
         return validatedUsers;
       }
@@ -105,11 +114,19 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         if (error) throw error;
         
         if (data && Array.isArray(data)) {
-          // Ensure correct types with explicit casting
-          const validatedUsers = data.map(user => ({
-            ...user,
-            role: validateUserRole(user.role) as UserRole
-          })) as UserWithRole[];
+          // Create properly typed objects
+          const validatedUsers: UserWithRole[] = data.map(user => {
+            const validRole = validateUserRole(user.role);
+            return {
+              id: user.id,
+              email: user.email,
+              full_name: user.full_name,
+              avatar_url: user.avatar_url,
+              role: validRole as UserRole,
+              created_at: user.created_at,
+              last_sign_in_at: user.last_sign_in_at
+            };
+          });
           
           return validatedUsers;
         }
@@ -144,22 +161,23 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           return [];
         }
         
-        // Combine data using profiles as the base
-        const combinedUsers = profiles.map(profile => {
+        // Combine data using profiles as the base and ensure proper typing
+        const validatedUsers: UserWithRole[] = profiles.map(profile => {
           const userRole = roles?.find(r => r.user_id === profile.id);
+          const validRole = validateUserRole(userRole?.role || 'user');
           
           return {
             id: profile.id,
             email: profile.id, // Limited: we don't have emails, so use id as placeholder
             full_name: profile.full_name || null,
             avatar_url: profile.avatar_url || null,
-            role: validateUserRole(userRole?.role || 'user') as UserRole,
+            role: validRole as UserRole,
             created_at: profile.created_at,
             last_sign_in_at: null
-          } as UserWithRole; // Explicit cast to UserWithRole after validation
+          };
         });
         
-        return combinedUsers;
+        return validatedUsers;
       }
     }
   } catch (error: any) {
