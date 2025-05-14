@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import { useAuth } from '@/hooks/useAuth';
@@ -152,4 +151,3 @@ export function useUserManagement() {
 // This is what's causing the error - we need to remove or fix this export
 // We're updating it to simply re-export our hook itself for backward compatibility
 export { useUserManagement as useUserManagementContext };
-
