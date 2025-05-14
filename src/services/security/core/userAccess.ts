@@ -22,6 +22,7 @@ export interface SecureCurrentUser {
 /**
  * Get secure current user with role information
  * Uses multiple strategies to ensure robust access
+ * NOTE: This function is designed to be called explicitly, not automatically
  */
 export async function getSecureCurrentUser(): Promise<SecureCurrentUser | null> {
   // In preview mode, return a consistent mock user
@@ -38,7 +39,7 @@ export async function getSecureCurrentUser(): Promise<SecureCurrentUser | null> 
   }
 
   try {
-    console.log("Getting secure current user");
+    console.log("Getting secure current user - EXPLICIT CALL ONLY");
     
     // Get current session
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();

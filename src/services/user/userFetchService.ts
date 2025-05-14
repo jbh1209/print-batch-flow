@@ -72,16 +72,13 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           // First validate the role
           const validRole = validateUserRole(user.role);
           
-          // Ensure it's properly typed as UserRole
-          const typedRole: UserRole = validRole;
-          
-          // Then create a properly typed object
+          // Create a properly typed object
           return {
             id: user.id,
             email: user.email,
             full_name: user.full_name,
             avatar_url: user.avatar_url,
-            role: typedRole,
+            role: validRole,
             created_at: user.created_at,
             last_sign_in_at: user.last_sign_in_at
           };
@@ -122,15 +119,12 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           const validatedUsers: UserWithRole[] = data.map(user => {
             const validRole = validateUserRole(user.role);
             
-            // Ensure it's properly typed as UserRole
-            const typedRole: UserRole = validRole;
-            
             return {
               id: user.id,
               email: user.email,
               full_name: user.full_name,
               avatar_url: user.avatar_url,
-              role: typedRole,
+              role: validRole,
               created_at: user.created_at,
               last_sign_in_at: user.last_sign_in_at
             };
@@ -174,15 +168,12 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           const userRole = roles?.find(r => r.user_id === profile.id);
           const validRole = validateUserRole(userRole?.role || 'user');
           
-          // Ensure it's properly typed as UserRole
-          const typedRole: UserRole = validRole;
-          
           return {
             id: profile.id,
             email: profile.id, // Limited: we don't have emails, so use id as placeholder
             full_name: profile.full_name || null,
             avatar_url: profile.avatar_url || null,
-            role: typedRole,
+            role: validRole,
             created_at: profile.created_at,
             last_sign_in_at: null
           };
