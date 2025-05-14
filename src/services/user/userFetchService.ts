@@ -73,7 +73,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           const validRole = validateUserRole(user.role);
           
           // Ensure it's properly typed as UserRole
-          const typedRole: UserRole = validRole as UserRole;
+          const typedRole: UserRole = validRole;
           
           // Then create a properly typed object
           return {
@@ -123,7 +123,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
             const validRole = validateUserRole(user.role);
             
             // Ensure it's properly typed as UserRole
-            const typedRole: UserRole = validRole as UserRole;
+            const typedRole: UserRole = validRole;
             
             return {
               id: user.id,
@@ -175,7 +175,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
           const validRole = validateUserRole(userRole?.role || 'user');
           
           // Ensure it's properly typed as UserRole
-          const typedRole: UserRole = validRole as UserRole;
+          const typedRole: UserRole = validRole;
           
           return {
             id: profile.id,
