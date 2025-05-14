@@ -18,9 +18,31 @@ serve(async (req) => {
     })
   }
 
-  // Return empty array since admin functionality is removed
-  return new Response(
-    JSON.stringify([]),
-    { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-  )
+  try {
+    console.log("Get-all-users function called, returning empty array");
+    
+    // Return empty array since admin functionality is removed
+    return new Response(
+      JSON.stringify([]),
+      { 
+        headers: { 
+          'Content-Type': 'application/json', 
+          ...corsHeaders 
+        } 
+      }
+    )
+  } catch (error) {
+    console.error("Error in get-all-users function:", error);
+    
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { 
+        status: 500,
+        headers: { 
+          'Content-Type': 'application/json', 
+          ...corsHeaders 
+        } 
+      }
+    )
+  }
 })
