@@ -23,7 +23,6 @@ import FlyerJobs from '@/pages/FlyerJobs';
 import FlyerJobNew from '@/pages/FlyerJobNew';
 import FlyerJobDetail from '@/pages/FlyerJobDetail';
 import FlyerJobEdit from '@/pages/FlyerJobEdit';
-import BatchDetailsPage from '@/pages/BatchDetailsPage';
 
 // Import generic product pages
 import BoxBatchesPage from '@/pages/generic/BoxBatchesPage';
@@ -99,8 +98,6 @@ function App() {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="settings" element={<Settings />} />
                 
-                {/* Removed Users admin page */}
-                
                 {/* All batches and jobs */}
                 <Route path="batches" element={<AllBatches />} />
                 <Route path="all-jobs" element={<AllJobsPage />} />
@@ -112,7 +109,7 @@ function App() {
                   <Route path="jobs/new" element={<BusinessCardJobNew />} />
                   <Route path="jobs/:id" element={<BusinessCardJobDetail />} />
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
-                  <Route path=":id" element={<BatchDetailsPage />} />
+                  <Route path=":id" element={<BatchDetailsPage productType="business-cards" backUrl="/batches/business-cards" />} />
                 </Route>
                 
                 {/* Flyers Routes */}
@@ -130,9 +127,9 @@ function App() {
                   <Route index element={<BoxBatchesPage />} />
                   <Route path="jobs" element={<BoxJobsPage />} />
                   <Route path="jobs/new" element={<BoxJobNewPage />} />
-                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="boxes" />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage config={productConfigs["Boxes"]} />} />
                   <Route path="jobs/:id/edit" element={<BoxJobEditPage />} />
-                  <Route path=":id" element={<GenericBatchDetailsPage productType="boxes" />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage config={productConfigs["Boxes"]} />} />
                 </Route>
                 
                 {/* Add other product routes */}
@@ -140,45 +137,45 @@ function App() {
                   <Route index element={<PostcardBatchesPage />} />
                   <Route path="jobs" element={<PostcardJobsPage />} />
                   <Route path="jobs/new" element={<PostcardJobNewPage />} />
-                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="postcards" />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage config={productConfigs["Postcards"]} />} />
                   <Route path="jobs/:id/edit" element={<PostcardJobEditPage />} />
-                  <Route path=":id" element={<GenericBatchDetailsPage productType="postcards" />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage config={productConfigs["Postcards"]} />} />
                 </Route>
                 
                 <Route path="batches/sleeves">
                   <Route index element={<SleeveBatchesPage />} />
                   <Route path="jobs" element={<SleeveJobsPage />} />
                   <Route path="jobs/new" element={<SleeveJobNewPage />} />
-                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="sleeves" />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage config={productConfigs["Sleeves"]} />} />
                   <Route path="jobs/:id/edit" element={<SleeveJobEditPage />} />
-                  <Route path=":id" element={<GenericBatchDetailsPage productType="sleeves" />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage config={productConfigs["Sleeves"]} />} />
                 </Route>
                 
                 <Route path="batches/stickers">
                   <Route index element={<StickerBatchesPage />} />
                   <Route path="jobs" element={<StickerJobsPage />} />
                   <Route path="jobs/new" element={<StickerJobNewPage />} />
-                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="stickers" />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage config={productConfigs["Stickers"]} />} />
                   <Route path="jobs/:id/edit" element={<StickerJobEditPage />} />
-                  <Route path=":id" element={<GenericBatchDetailsPage productType="stickers" />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage config={productConfigs["Stickers"]} />} />
                 </Route>
                 
                 <Route path="batches/covers">
                   <Route index element={<CoverBatchesPage />} />
                   <Route path="jobs" element={<CoverJobsPage />} />
                   <Route path="jobs/new" element={<CoverJobNewPage />} />
-                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="covers" />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage config={productConfigs["Covers"]} />} />
                   <Route path="jobs/:id/edit" element={<CoverJobEditPage />} />
-                  <Route path=":id" element={<GenericBatchDetailsPage productType="covers" />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage config={productConfigs["Covers"]} />} />
                 </Route>
                 
                 <Route path="batches/posters">
                   <Route index element={<PosterBatchesPage />} />
                   <Route path="jobs" element={<PosterJobsPage />} />
                   <Route path="jobs/new" element={<PosterJobNewPage />} />
-                  <Route path="jobs/:id" element={<GenericJobDetailsPage productType="posters" />} />
+                  <Route path="jobs/:id" element={<GenericJobDetailsPage config={productConfigs["Posters"]} />} />
                   <Route path="jobs/:id/edit" element={<PosterJobEditPage />} />
-                  <Route path=":id" element={<GenericBatchDetailsPage productType="posters" />} />
+                  <Route path=":id" element={<GenericBatchDetailsPage config={productConfigs["Posters"]} />} />
                 </Route>
               </Route>
               

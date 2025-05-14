@@ -7,7 +7,7 @@ import { toast } from 'sonner';
  * Enhanced job validation hook with improved security and permissions
  */
 export function useSecureJobValidation() {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
 
   /**
    * Validate user for job operations with enhanced security
@@ -44,8 +44,8 @@ export function useSecureJobValidation() {
       return false;
     }
     
-    // Check if user matches job owner or is admin
-    return jobUserId === user.id || isAdmin;
+    // Check if user matches job owner
+    return jobUserId === user.id;
   };
 
   /**
@@ -71,13 +71,12 @@ export function useSecureJobValidation() {
       return true;
     }
     
-    if (!isAdmin) {
-      const errorMessage = 'Administrator privileges required';
-      toast.error(errorMessage);
-      throw new Error(errorMessage);
-    }
+    // Since admin functionality is removed, this always fails in production
+    const errorMessage = 'Administrator privileges required';
+    toast.error(errorMessage);
+    throw new Error(errorMessage);
     
-    return true;
+    return false;
   };
 
   return { 

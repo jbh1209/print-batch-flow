@@ -41,9 +41,8 @@ export function useJobValidation() {
       return false;
     }
     
-    // Check if user matches job owner or is admin
-    const currentAuth = useAuth();
-    return jobUserId === user.id || currentAuth.isAdmin;
+    // Check if user matches job owner
+    return jobUserId === user.id;
   };
 
   return { validateUser, hasJobAccess };
