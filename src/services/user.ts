@@ -1,3 +1,4 @@
+
 // Re-export user service functionality in a standardized way
 import { checkUserIsAdmin } from './auth/authService';
 import { UserFormData, UserRole, validateUserRole } from '@/types/user-types';
@@ -5,7 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode, simulateApiCall } from '@/services/previewService';
 import { 
   fetchUsers as fetchUsersService,
-  cancelFetchUsers
+  cancelFetchUsers,
+  invalidateUserCache
 } from './user/userFetchService';
 import { toast } from 'sonner';
 
@@ -19,7 +21,7 @@ export { checkUserIsAdmin };
 export const fetchUsers = fetchUsersService;
 
 // Export cancellation function
-export { cancelFetchUsers };
+export { cancelFetchUsers, invalidateUserCache };
 
 /**
  * Create a new user securely

@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -8,7 +7,6 @@ import Auth from '@/pages/Auth';
 import Settings from '@/pages/Settings';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { UserManagementProvider } from '@/contexts/UserManagementContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import UsersPage from '@/pages/UsersPage';
 import NotFound from '@/pages/NotFound';
@@ -87,27 +85,26 @@ function App() {
     <PreviewSafeWrapper>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <UserManagementProvider>
-            <Router>
-              <Routes>
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/auth/callback" element={<Auth />} />
+          <Router>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<Auth />} />
+              
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Index />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="settings" element={<Settings />} />
                 
-                <Route path="/" element={
-                  <ProtectedRoute>
-                    <Layout />
+                {/* Users admin page */}
+                <Route path="users" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <UsersPage />
                   </ProtectedRoute>
-                }>
-                  <Route index element={<Index />} />
-                  <Route path="dashboard" element={<Dashboard />} />
-                  <Route path="settings" element={<Settings />} />
-                  
-                  {/* Users admin page */}
-                  <Route path="users" element={
-                    <ProtectedRoute requireAdmin={true}>
-                      <UsersPage />
-                    </ProtectedRoute>
-                  } />
+                } />
 
                 {/* All batches and jobs */}
                 <Route path="batches" element={<AllBatches />} />
@@ -232,9 +229,8 @@ function App() {
             className: "unique-toast-class"
           }} />
           <Toaster />
-        </UserManagementProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </PreviewSafeWrapper>
   );
 }

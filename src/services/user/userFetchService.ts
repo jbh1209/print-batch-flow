@@ -18,6 +18,14 @@ export const cancelFetchUsers = () => {
 };
 
 /**
+ * Invalidate user cache
+ * This is a no-op function to maintain API compatibility
+ */
+export const invalidateUserCache = () => {
+  console.log('User cache invalidated - no caching is used anymore');
+};
+
+/**
  * Securely get all users with their roles
  * IMPORTANT: This function should ONLY be called on demand from the Users admin page
  * and nowhere else in the application.
@@ -59,7 +67,7 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
       }
       
       if (data && Array.isArray(data)) {
-        // Ensure correct types with explicit casting
+        // Ensure correct types with explicit casting and validation
         const validatedUsers = data.map(user => ({
           ...user,
           role: validateUserRole(user.role)
