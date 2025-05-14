@@ -70,12 +70,10 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
       
       if (data && Array.isArray(data)) {
         // Ensure correct types by properly validating and casting the role field
-        const validatedUsers: UserWithRole[] = data.map(user => {
-          return {
-            ...user,
-            role: validateUserRole(user.role)
-          } as UserWithRole;
-        });
+        const validatedUsers: UserWithRole[] = data.map(user => ({
+          ...user,
+          role: validateUserRole(user.role)
+        }));
         
         userCache = validatedUsers;
         lastFetchTime = now;
@@ -111,12 +109,10 @@ export const fetchUsers = async (): Promise<UserWithRole[]> => {
         
         if (data && Array.isArray(data)) {
           // Ensure correct types by properly validating and casting the role field
-          const validatedUsers: UserWithRole[] = data.map(user => {
-            return {
-              ...user,
-              role: validateUserRole(user.role)
-            } as UserWithRole;
-          });
+          const validatedUsers: UserWithRole[] = data.map(user => ({
+            ...user,
+            role: validateUserRole(user.role)
+          }));
           
           userCache = validatedUsers;
           lastFetchTime = now;
