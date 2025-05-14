@@ -109,7 +109,7 @@ function App() {
                   <Route path="jobs/new" element={<BusinessCardJobNew />} />
                   <Route path="jobs/:id" element={<BusinessCardJobDetail />} />
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
-                  <Route path=":id" element={<BatchDetailsPage productType="business-cards" backUrl="/batches/business-cards" />} />
+                  <Route path=":id" element={<FlyerBatchDetailsPage productType="business-cards" backUrl="/batches/business-cards" />} />
                 </Route>
                 
                 {/* Flyers Routes */}
