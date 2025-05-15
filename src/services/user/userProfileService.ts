@@ -23,7 +23,7 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
       const response = await supabase.rpc('update_user_profile_admin', {
         _user_id: userId,
         _full_name: userData.full_name
-      }) as unknown as { error: any };
+      } as any) as any;
       
       if (response.error) {
         console.error('Error updating profile:', response.error);
@@ -39,7 +39,7 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
       const response = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: userData.role
-      }) as unknown as { error: any };
+      } as any) as any;
       
       if (response.error) {
         console.error('Error updating user role:', response.error);

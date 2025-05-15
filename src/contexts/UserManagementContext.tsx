@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { supabase, adminClient } from '@/integrations/supabase/client';
@@ -141,7 +140,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
         const response = await supabase.rpc('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
-        }) as unknown as { error: any };
+        } as any) as any;
         
         if (response.error) throw response.error;
       }
@@ -196,7 +195,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       const response = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
-      }) as unknown as { error: any };
+      } as any) as any;
       
       if (response.error) throw response.error;
       

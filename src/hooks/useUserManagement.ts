@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
@@ -20,7 +19,7 @@ export function useUserManagement() {
     try {
       setError(null);
       // Use async/await with proper typing
-      const response = await supabase.rpc('any_admin_exists') as unknown as { data: any, error: any };
+      const response = await supabase.rpc('any_admin_exists') as any;
       
       if (response.error) {
         throw response.error;
@@ -151,7 +150,7 @@ export function useUserManagement() {
         const response = await supabase.rpc('update_user_profile_admin', {
           _user_id: userId,
           _full_name: userData.full_name
-        }) as unknown as { error: any };
+        } as any) as any;
         
         if (response.error) {
           throw response.error;
@@ -163,7 +162,7 @@ export function useUserManagement() {
         const response = await supabase.rpc('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
-        }) as unknown as { error: any };
+        } as any) as any;
         
         if (response.error) {
           throw response.error;
@@ -193,7 +192,7 @@ export function useUserManagement() {
       // Use async/await with proper typing
       const response = await supabase.rpc('revoke_user_role', {
         target_user_id: userId
-      }) as unknown as { error: any };
+      } as any) as any;
       
       if (response.error) {
         throw response.error;
@@ -223,7 +222,7 @@ export function useUserManagement() {
       const response = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
-      }) as unknown as { error: any };
+      } as any) as any;
       
       if (response.error) {
         throw response.error;

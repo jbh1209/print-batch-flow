@@ -15,7 +15,7 @@ export async function addAdminRole(userId: string): Promise<void> {
     const response = await supabase.rpc('set_user_role_admin', {
       _target_user_id: userId, 
       _new_role: 'admin'
-    }) as unknown as { error: any };
+    } as any) as any;
     
     if (response.error) {
       console.error('Error setting admin role:', response.error);
@@ -36,7 +36,7 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<vo
     const response = await supabase.rpc('set_user_role_admin', {
       _target_user_id: userId,
       _new_role: role
-    }) as unknown as { error: any };
+    } as any) as any;
     
     if (response.error) {
       console.error('Error updating role:', response.error);
@@ -56,7 +56,7 @@ export async function revokeUserAccess(userId: string): Promise<void> {
     // Using await with proper typing
     const response = await supabase.rpc('revoke_user_role', {
       target_user_id: userId
-    }) as unknown as { error: any };
+    } as any) as any;
     
     if (response.error) {
       console.error('Error revoking user access:', response.error);

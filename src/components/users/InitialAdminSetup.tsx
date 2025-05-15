@@ -44,7 +44,7 @@ export function InitialAdminSetup() {
         
         const result = await supabase.rpc('add_admin_role', { 
           admin_user_id: adminUserId 
-        }) as unknown as { error: any };
+        }) as any;
           
         if (result.error) throw result.error;
         

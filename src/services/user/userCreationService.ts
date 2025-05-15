@@ -98,7 +98,7 @@ export async function createUser(userData: UserFormData): Promise<User> {
         const response = await supabase.rpc('set_user_role_admin', {
           _target_user_id: data.user.id,
           _new_role: userData.role
-        }) as unknown as { error: any };
+        } as any) as any;
         
         if (response.error) {
           console.error('Error setting role with secure function:', response.error);
@@ -107,7 +107,7 @@ export async function createUser(userData: UserFormData): Promise<User> {
           const fallbackResponse = await supabase.rpc('set_user_role', {
             target_user_id: data.user.id,
             new_role: userData.role
-          }) as unknown as { error: any };
+          } as any) as any;
           
           if (fallbackResponse.error) {
             throw fallbackResponse.error;
@@ -121,7 +121,7 @@ export async function createUser(userData: UserFormData): Promise<User> {
     // Convert Supabase user to our User type
     const userObj: User = {
       id: data.user.id,
-      email: data.user.email
+      email: data.user.email!
     };
     
     return userObj;
