@@ -2,6 +2,7 @@
 import { productConfigs } from "@/config/productTypes";
 import { useGenericFlyerJobs } from "@/hooks/generic/useGenericFlyerJobs";
 import GenericJobsPage from "@/components/generic/GenericJobsPage";
+import { DebugInfo } from "@/components/ui/debug-info";
 
 const FlyerJobsPage = () => {
   const config = productConfigs["Flyers"];
