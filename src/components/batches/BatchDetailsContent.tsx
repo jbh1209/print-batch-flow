@@ -52,6 +52,7 @@ const BatchDetailsContent = ({
 
       console.log("Downloading batch overview sheet:", overviewPdfUrl);
       toast.loading("Downloading batch overview sheet...");
+      // Updated to use correct parameter structure
       await handlePdfAction(overviewPdfUrl, 'download', `${batch.name}-overview.pdf`);
     } catch (error) {
       console.error("Error downloading batch overview sheet:", error);

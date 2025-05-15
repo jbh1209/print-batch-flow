@@ -33,6 +33,7 @@ const BatchActionsCard = ({
     
     try {
       toast.loading("Downloading batch front PDF...");
+      // Updated to use correct parameter structure
       await handlePdfAction(batch.front_pdf_url, 'download', `${batch.name}-front.pdf`);
     } catch (error) {
       console.error(`Error downloading front PDF for batch ${batch.id}:`, error);
@@ -48,6 +49,7 @@ const BatchActionsCard = ({
     
     try {
       toast.loading("Downloading batch back PDF...");
+      // Updated to use correct parameter structure
       await handlePdfAction(batch.back_pdf_url, 'download', `${batch.name}-back.pdf`);
     } catch (error) {
       console.error(`Error downloading back PDF for batch ${batch.id}:`, error);
@@ -132,4 +134,3 @@ const BatchActionsCard = ({
 };
 
 export default BatchActionsCard;
-

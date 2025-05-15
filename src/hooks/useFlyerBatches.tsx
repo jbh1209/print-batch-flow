@@ -41,7 +41,6 @@ export function useFlyerBatches(batchId: string | null = null) {
 
       // Convert to FlyerBatch type and ensure all required properties exist
       const flyerBatches: FlyerBatch[] = (data || []).map(batch => {
-        // Make sure to include overview_pdf_url property
         return {
           id: batch.id,
           name: batch.name,
@@ -49,7 +48,8 @@ export function useFlyerBatches(batchId: string | null = null) {
           sheets_required: batch.sheets_required,
           front_pdf_url: batch.front_pdf_url,
           back_pdf_url: batch.back_pdf_url,
-          overview_pdf_url: batch.overview_pdf_url || null, // Set to null since it doesn't exist in database yet
+          // Use the overview_pdf_url from the database, or initialize it to null if not present
+          overview_pdf_url: batch.overview_pdf_url || null,
           due_date: batch.due_date,
           created_at: batch.created_at,
           lamination_type: batch.lamination_type,

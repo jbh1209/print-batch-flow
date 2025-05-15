@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -129,7 +128,8 @@ export function useBatchFetching(
       
       const genericBatches: BaseBatch[] = (data || []).map(batch => ({
         ...batch,
-        overview_pdf_url: null,
+        // Always ensure overview_pdf_url is defined, even if it's null
+        overview_pdf_url: batch.overview_pdf_url || null,
         lamination_type: batch.lamination_type || "none"
       }));
       
