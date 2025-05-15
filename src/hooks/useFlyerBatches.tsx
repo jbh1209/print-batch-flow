@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerBatch, LaminationType } from '@/components/batches/types/FlyerTypes';
-import { BatchStatus } from '@/config/types/baseTypes';
+import { FlyerBatch, LaminationType, BatchStatus } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { handlePdfAction } from '@/utils/pdfActionUtils';

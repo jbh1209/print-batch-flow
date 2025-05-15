@@ -1,8 +1,11 @@
 
-import { BatchStatus, LaminationType } from "@/config/types/baseTypes";
+import { BatchStatus } from "@/config/types/baseTypes";
 
-// Import directly from the config file instead of from ./BatchTypes
-export type { BatchStatus, LaminationType };
+// Define LaminationType locally since it doesn't exist in baseTypes.ts
+export type LaminationType = "none" | "gloss" | "matt" | "soft_touch";
+
+// Re-export BatchStatus for convenience
+export { BatchStatus };
 
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";

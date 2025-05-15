@@ -1,191 +1,98 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
 import { getProductTypeCode, extractProductCodeFromBatchName } from "@/utils/batch/productTypeCodes";
-import { BatchStatus } from "@/config/types/baseTypes"; // Add this import
+import { BatchStatus } from "@/config/types/baseTypes";
 
 interface BatchFetchingOptions {
   filterByCurrentUser?: boolean;
+  specificBatchId?: string | null;
 }
 
-// Define a type that matches what Supabase returns for batches
-interface SupabaseBatch {
-  id: string;
-  name: string;
-  status: string;
-  sheets_required: number;
-  front_pdf_url: string | null;
-  back_pdf_url: string | null;
-  overview_pdf_url?: string | null; // May or may not exist in the database
-  due_date: string;
-  created_at: string;
-  lamination_type?: string;
-  paper_type?: string;
-  paper_weight?: string;
-  sides?: string;
-  created_by?: string;
-  updated_at?: string;
-  date_created?: string;
-  sheet_size?: string;
-  printer_type?: string;
-  [key: string]: any; // Allow for any additional properties
-}
-
-export function useBatchFetching(
-  config: ProductConfig, 
-  batchId: string | null = null,
-  options: BatchFetchingOptions = { filterByCurrentUser: false }
-) {
+export function useBatchFetching(config: ProductConfig, options: BatchFetchingOptions = {}) {
   const { user } = useAuth();
   const [batches, setBatches] = useState<BaseBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const fetchBatches = async () => {
-    if (!user) {
-      console.log('No authenticated user for batch fetching');
-      setIsLoading(false);
-      return;
-    }
+    if (!user) return;
 
-    console.log('Fetching batches for product type:', config.productType, 'filterByCurrentUser:', options.filterByCurrentUser);
-    
     setIsLoading(true);
     setError(null);
 
     try {
-      // Start building the query
       let query = supabase
         .from('batches')
         .select('*');
-      
-      // Only filter by user ID if explicitly requested
+
       if (options.filterByCurrentUser) {
         query = query.eq('created_by', user.id);
-        console.log('Filtering batches by current user:', user.id);
       }
-      
-      // Get product code from the standardized utility function
-      const productCode = getProductTypeCode(config.productType);
-      
-      if (productCode && !batchId) {
-        console.log(`Using product code ${productCode} for ${config.productType} batches`);
-        
-        // Use proper Supabase filter syntax for OR conditions
-        query = query.or([
-          `name.ilike.%DXB-${productCode}-%`, 
-          `name.ilike.%-${productCode}-%`, 
-          `name.ilike.%${productCode}%`
-        ].join(','));
-        
-        console.log(`Using filter: "${[
-          `name.ilike.%DXB-${productCode}-%`, 
-          `name.ilike.%-${productCode}-%`, 
-          `name.ilike.%${productCode}%`
-        ].join(',')}"`);
-      } else if (batchId) {
-        query = query.eq("id", batchId);
-        console.log(`Fetching specific batch by ID: ${batchId}`);
-      } else {
-        console.warn(`No product code found for ${config.productType} - fetching all batches`);
+
+      if (options.specificBatchId) {
+        query = query.eq('id', options.specificBatchId);
       }
-      
-      const { data, error: fetchError } = await query
-        .order('created_at', { ascending: false });
+
+      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
-      console.log('Batches data received for', config.productType, ':', data?.length || 0, 'records');
-      if (data && data.length > 0) {
-        console.log('Sample batch names:', data.slice(0, 3).map(b => b.name).join(', '));
-      } else {
-        console.warn(`No batches found for ${config.productType} with code ${productCode}`);
-        
-        // If no batches found with specific code, let's fetch all batches and filter here in code
-        // for development/debugging purposes
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Development mode: Attempting broader fetch to debug batch issue');
-          
-          const { data: allData } = await supabase
-            .from('batches')
-            .select('*')
-            .order('created_at', { ascending: false });
-            
-          if (allData && allData.length > 0) {
-            console.log('All batches:', allData.length);
-            console.log('All batch names:', allData.map(b => b.name).join(', '));
-            
-            // Improved fallback filtering logic
-            const filteredBatches = allData.filter(batch => {
-              if (!batch.name) return false;
-              
-              // More robust pattern matching for batch names
-              const batchNameLower = batch.name.toLowerCase();
-              const productTypeLower = config.productType.toLowerCase();
-              const codeMatches = extractProductCodeFromBatchName(batch.name) === productCode;
-              const nameContainsProductType = batchNameLower.includes(productTypeLower);
-              const nameContainsCode = batchNameLower.includes(productCode?.toLowerCase() || '');
-              
-              const matched = codeMatches || nameContainsProductType || nameContainsCode;
-              console.log(`Batch ${batch.name}: matched=${matched} (code match: ${codeMatches}, name match: ${nameContainsProductType}, code in name: ${nameContainsCode})`);
-              return matched;
-            });
-            
-            if (filteredBatches.length > 0) {
-              console.log('Manually filtered batches found:', filteredBatches.length);
-              console.log('Manual filtered batch names:', filteredBatches.map(b => b.name).join(', '));
-              
-              // Convert to BaseBatch type with explicit type assertion
-              const typedBatches: BaseBatch[] = filteredBatches.map((batch: SupabaseBatch) => ({
-                ...batch,
-                overview_pdf_url: batch.overview_pdf_url || null,
-                lamination_type: batch.lamination_type || "none",
-                status: (batch.status as BatchStatus) || 'pending'
-              }));
-              
-              setBatches(typedBatches);
-              setIsLoading(false);
-              return;
-            } else {
-              console.warn('No batches found after manual filtering - this is likely an issue with batch naming patterns or product types');
-            }
-          }
-        }
-      }
-      
-      // Convert database records to BaseBatch objects with required properties
-      // Use explicit typing for the batch parameter
-      const genericBatches: BaseBatch[] = (data || []).map((batch: SupabaseBatch) => ({
-        ...batch,
-        // Ensure overview_pdf_url is always defined, even if it's null
-        overview_pdf_url: batch.overview_pdf_url || null,
-        lamination_type: batch.lamination_type || "none",
-        status: (batch.status as BatchStatus) || 'pending'
-      }));
-      
-      setBatches(genericBatches);
-      
-      if (batchId && (!data || data.length === 0)) {
+      // Process the batches based on product type
+      const productBatches: BaseBatch[] = (data || [])
+        .filter((batch) => {
+          const productCode = extractProductCodeFromBatchName(batch.name);
+          const expectedProductCode = getProductTypeCode(config.productType);
+          return productCode === expectedProductCode;
+        })
+        .map((batch: any) => {
+          return {
+            id: batch.id,
+            name: batch.name,
+            status: batch.status as BatchStatus,
+            sheets_required: batch.sheets_required || 0,
+            front_pdf_url: batch.front_pdf_url,
+            back_pdf_url: batch.back_pdf_url,
+            overview_pdf_url: batch.overview_pdf_url || null,
+            due_date: batch.due_date,
+            created_at: batch.created_at,
+            lamination_type: batch.lamination_type || "none",
+            paper_type: batch.paper_type,
+            paper_weight: batch.paper_weight,
+            sheet_size: batch.sheet_size,
+            printer_type: batch.printer_type,
+            created_by: batch.created_by,
+            updated_at: batch.updated_at,
+            date_created: batch.date_created,
+          };
+        });
+
+      setBatches(productBatches);
+
+      if (options.specificBatchId && (!data || data.length === 0)) {
         toast.error("Batch not found or you don't have permission to view it.");
+        navigate(`/${config.routes.batchesPath}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Error fetching ${config.productType} batches:`, err);
-      setError(`Failed to load ${config.productType.toLowerCase()} batches`);
+      setError(`Failed to load ${config.productType} batches: ${err.message || "Unknown error"}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (user) {
-      fetchBatches();
-    } else {
-      setIsLoading(false);
-    }
-  }, [user, batchId]);
+    fetchBatches();
+  }, [user, config.productType, options.filterByCurrentUser, options.specificBatchId]);
 
-  return { batches, isLoading, error, fetchBatches };
+  return {
+    batches,
+    isLoading,
+    error,
+    fetchBatches,
+  };
 }
