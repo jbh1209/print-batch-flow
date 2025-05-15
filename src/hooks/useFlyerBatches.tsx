@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,6 +89,8 @@ export function useFlyerBatches(batchId: string | null = null) {
       // If we're looking for a specific batch and didn't find it
       if (batchId && (!data || data.length === 0)) {
         toast.error("Batch not found or you don't have permission to view it.");
+        // Navigate back to flyer batches list if the batch is not found
+        navigate("/batches/flyers/batches");
       }
     } catch (err) {
       console.error('Error fetching flyer batches:', err);
@@ -149,6 +152,11 @@ export function useFlyerBatches(batchId: string | null = null) {
       setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchToDelete));
       
       toast.success("Batch deleted and its jobs returned to queue");
+      
+      // If we're on a batch details page, navigate back to the batches list
+      if (batchId) {
+        navigate("/batches/flyers/batches");
+      }
     } catch (err: any) {
       console.error("Error deleting batch:", err);
       toast.error(`Failed to delete batch: ${err.message || "Unknown error"}`);

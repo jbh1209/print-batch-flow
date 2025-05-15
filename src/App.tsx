@@ -105,7 +105,7 @@ function App() {
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
                 </Route>
                 
-                {/* Flyers Routes */}
+                {/* Flyers Routes - Updated to use consistent path parameters */}
                 <Route path="batches/flyers">
                   <Route index element={<FlyerBatches />} />
                   <Route path="batches" element={<FlyerBatches />} />

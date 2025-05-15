@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams, Navigate } from "react-router-dom";
 import { useFlyerBatches } from "@/hooks/useFlyerBatches";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, FileText } from "lucide-react";
@@ -12,8 +12,8 @@ import { BatchesErrorAlert } from "./components/batches/BatchesErrorAlert";
 import BatchDeleteDialog from "@/components/flyers/batch-details/DeleteBatchDialog";
 
 const FlyerBatches = () => {
-  const [searchParams] = useSearchParams();
-  const batchId = searchParams.get('batchId');
+  // Change from using searchParams to useParams hook
+  const { batchId } = useParams();
   
   const {
     batches,
@@ -26,7 +26,7 @@ const FlyerBatches = () => {
     handleViewBatchDetails,
     handleDeleteBatch,
     setBatchToDelete
-  } = useFlyerBatches();
+  } = useFlyerBatches(batchId || null);
 
   // Convert FlyerBatch[] to BatchSummary[] for BatchesWrapper
   const batchSummaries = batches.map(batch => ({

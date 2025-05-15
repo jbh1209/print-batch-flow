@@ -26,7 +26,7 @@ const FlyerBatchDetails = () => {
     isDeleting,
     handleDeleteBatch,
     setBatchToDelete
-  } = useFlyerBatches(batchId);
+  } = useFlyerBatches(batchId || null);
 
   const batch = batches[0];
 

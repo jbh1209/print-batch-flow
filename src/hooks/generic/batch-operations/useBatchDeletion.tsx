@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ExistingTableName } from "@/config/types/baseTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
+import { useNavigate } from "react-router-dom";
 
 // Type to ensure we only accept valid table names
 type TableNameParam = ExistingTableName | null;
@@ -11,6 +12,7 @@ type TableNameParam = ExistingTableName | null;
 export function useBatchDeletion(tableName: TableNameParam, onSuccessCallback?: () => void) {
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const navigate = useNavigate();
 
   const handleDeleteBatch = async () => {
     if (!batchToDelete) return;
@@ -56,6 +58,16 @@ export function useBatchDeletion(tableName: TableNameParam, onSuccessCallback?: 
       // Call the success callback if provided
       if (onSuccessCallback) {
         onSuccessCallback();
+      }
+      
+      // Get the current path to determine which batch page we're on
+      const currentPath = window.location.pathname;
+      
+      // If we're on a specific batch details page, navigate back to the list page
+      if (currentPath.includes('/batches/') && currentPath.split('/').length > 3) {
+        const basePath = '/' + currentPath.split('/').slice(1, 3).join('/');
+        console.log(`Navigating back to batch list: ${basePath}`);
+        navigate(basePath);
       }
     } catch (error: any) {
       console.error("Error deleting batch:", error);
