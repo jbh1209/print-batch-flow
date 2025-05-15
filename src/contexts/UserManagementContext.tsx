@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { supabase, adminClient } from '@/integrations/supabase/client';
@@ -137,10 +138,10 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     try {
       // Update the user role if specified
       if (userData.role) {
-        const response = await supabase.rpc('set_user_role_admin', {
+        const response = await (supabase.rpc as any)('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
-        } as any) as any;
+        });
         
         if (response.error) throw response.error;
       }
@@ -192,10 +193,10 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
     
     try {
-      const response = await supabase.rpc('set_user_role_admin', {
+      const response = await (supabase.rpc as any)('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
-      } as any) as any;
+      });
       
       if (response.error) throw response.error;
       

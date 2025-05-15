@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData } from '@/types/user-types';
 
@@ -95,19 +94,19 @@ export async function createUser(userData: UserFormData): Promise<User> {
       console.log(`Setting user ${data.user.id} role to ${userData.role}`);
       try {
         // Try secured function first with proper typing
-        const response = await supabase.rpc('set_user_role_admin', {
+        const response = await (supabase.rpc as any)('set_user_role_admin', {
           _target_user_id: data.user.id,
           _new_role: userData.role
-        } as any) as any;
+        });
         
         if (response.error) {
           console.error('Error setting role with secure function:', response.error);
           
           // Fall back to regular function with proper typing
-          const fallbackResponse = await supabase.rpc('set_user_role', {
+          const fallbackResponse = await (supabase.rpc as any)('set_user_role', {
             target_user_id: data.user.id,
             new_role: userData.role
-          } as any) as any;
+          });
           
           if (fallbackResponse.error) {
             throw fallbackResponse.error;

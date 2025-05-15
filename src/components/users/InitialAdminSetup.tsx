@@ -42,9 +42,9 @@ export function InitialAdminSetup() {
         // Step 2: Use RPC to add admin role (with proper type assertion)
         const adminUserId = data.user.id;
         
-        const result = await supabase.rpc('add_admin_role', { 
+        const result = await (supabase.rpc as any)('add_admin_role', { 
           admin_user_id: adminUserId 
-        }) as any;
+        });
           
         if (result.error) throw result.error;
         

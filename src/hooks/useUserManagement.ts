@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
@@ -19,7 +20,7 @@ export function useUserManagement() {
     try {
       setError(null);
       // Use async/await with proper typing
-      const response = await supabase.rpc('any_admin_exists') as any;
+      const response = await (supabase.rpc as any)('any_admin_exists');
       
       if (response.error) {
         throw response.error;
@@ -147,10 +148,10 @@ export function useUserManagement() {
       
       if (userData.full_name !== undefined) {
         // Use async/await with proper typing
-        const response = await supabase.rpc('update_user_profile_admin', {
+        const response = await (supabase.rpc as any)('update_user_profile_admin', {
           _user_id: userId,
           _full_name: userData.full_name
-        } as any) as any;
+        });
         
         if (response.error) {
           throw response.error;
@@ -159,10 +160,10 @@ export function useUserManagement() {
       
       if (userData.role) {
         // Use async/await with proper typing
-        const response = await supabase.rpc('set_user_role_admin', {
+        const response = await (supabase.rpc as any)('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
-        } as any) as any;
+        });
         
         if (response.error) {
           throw response.error;
@@ -190,9 +191,9 @@ export function useUserManagement() {
       }
       
       // Use async/await with proper typing
-      const response = await supabase.rpc('revoke_user_role', {
+      const response = await (supabase.rpc as any)('revoke_user_role', {
         target_user_id: userId
-      } as any) as any;
+      });
       
       if (response.error) {
         throw response.error;
@@ -219,10 +220,10 @@ export function useUserManagement() {
       }
       
       // Use async/await with proper typing
-      const response = await supabase.rpc('set_user_role_admin', {
+      const response = await (supabase.rpc as any)('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
-      } as any) as any;
+      });
       
       if (response.error) {
         throw response.error;
