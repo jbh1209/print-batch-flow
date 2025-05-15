@@ -63,10 +63,15 @@ import BusinessCardJobDetail from '@/pages/BusinessCardJobDetail';
 // Import FlyerJobsPage instead of FlyerJobs
 import FlyerJobsPage from '@/pages/generic/FlyerJobsPage';
 
+// Add a version key for cache busting
+const appVersion = Date.now().toString();
+
 // Create a client for React Query
 const queryClient = new QueryClient();
 
 function App() {
+  console.log("App rendering with version", appVersion);
+  
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -108,11 +113,11 @@ function App() {
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
                 </Route>
                 
-                {/* Flyers Routes - Updated to use FlyerJobsPage */}
+                {/* Flyers Routes - Using FlyerJobsPage component explicitly */}
                 <Route path="batches/flyers">
                   <Route index element={<FlyerBatches />} />
                   <Route path="batches/:batchId" element={<FlyerBatchDetailsPage />} />
-                  <Route path="jobs" element={<FlyerJobsPage />} />
+                  <Route path="jobs" element={<FlyerJobsPage key={`flyer-jobs-${appVersion}`} />} />
                   <Route path="jobs/new" element={<FlyerJobNew />} />
                   <Route path="jobs/:id" element={<FlyerJobDetail />} />
                   <Route path="jobs/:jobId/edit" element={<FlyerJobEdit />} />
@@ -124,7 +129,7 @@ function App() {
                   <Route path="batches/:batchId" element={
                     <GenericBatchDetailsPage config={productConfigs["Postcards"]} />
                   } />
-                  <Route path="jobs" element={<PostcardJobsPage />} />
+                  <Route path="jobs" element={<PostcardJobsPage key={`postcard-jobs-${appVersion}`} />} />
                   <Route path="jobs/new" element={<PostcardJobNewPage />} />
                   <Route path="jobs/:id" element={
                     <GenericJobDetailsPage config={productConfigs["Postcards"]} />
@@ -138,7 +143,7 @@ function App() {
                   <Route path="batches/:batchId" element={
                     <GenericBatchDetailsPage config={productConfigs["Boxes"]} />
                   } />
-                  <Route path="jobs" element={<BoxJobsPage />} />
+                  <Route path="jobs" element={<BoxJobsPage key={`box-jobs-${appVersion}`} />} />
                   <Route path="jobs/new" element={<BoxJobNewPage />} />
                   <Route path="jobs/:id" element={
                     <GenericJobDetailsPage config={productConfigs["Boxes"]} />
@@ -152,7 +157,7 @@ function App() {
                   <Route path="batches/:batchId" element={
                     <GenericBatchDetailsPage config={productConfigs["Sleeves"]} />
                   } />
-                  <Route path="jobs" element={<SleeveJobsPage />} />
+                  <Route path="jobs" element={<SleeveJobsPage key={`sleeve-jobs-${appVersion}`} />} />
                   <Route path="jobs/new" element={<SleeveJobNewPage />} />
                   <Route path="jobs/:id" element={
                     <GenericJobDetailsPage config={productConfigs["Sleeves"]} />
@@ -166,7 +171,7 @@ function App() {
                   <Route path="batches/:batchId" element={
                     <GenericBatchDetailsPage config={productConfigs["Stickers"]} />
                   } />
-                  <Route path="jobs" element={<StickerJobsPage />} />
+                  <Route path="jobs" element={<StickerJobsPage key={`sticker-jobs-${appVersion}`} />} />
                   <Route path="jobs/new" element={<StickerJobNewPage />} />
                   <Route path="jobs/:id" element={
                     <GenericJobDetailsPage config={productConfigs["Stickers"]} />
@@ -180,7 +185,7 @@ function App() {
                   <Route path="batches/:batchId" element={
                     <GenericBatchDetailsPage config={productConfigs["Covers"]} />
                   } />
-                  <Route path="jobs" element={<CoverJobsPage />} />
+                  <Route path="jobs" element={<CoverJobsPage key={`cover-jobs-${appVersion}`} />} />
                   <Route path="jobs/new" element={<CoverJobNewPage />} />
                   <Route path="jobs/:id" element={
                     <GenericJobDetailsPage config={productConfigs["Covers"]} />
@@ -194,7 +199,7 @@ function App() {
                   <Route path="batches/:batchId" element={
                     <GenericBatchDetailsPage config={productConfigs["Posters"]} />
                   } />
-                  <Route path="jobs" element={<PosterJobsPage />} />
+                  <Route path="jobs" element={<PosterJobsPage key={`poster-jobs-${appVersion}`} />} />
                   <Route path="jobs/new" element={<PosterJobNewPage />} />
                   <Route path="jobs/:id" element={
                     <GenericJobDetailsPage config={productConfigs["Posters"]} />

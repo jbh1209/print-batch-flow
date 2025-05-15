@@ -45,17 +45,16 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
   onSelectAllJobs,
 }) => {
   const navigate = useNavigate();
-  console.log("GenericJobsTable rendering for", config.productType, "with", jobs.length, "jobs");
-  console.log("Selected jobs IDs:", selectedJobs);
+  console.log(`GenericJobsTable for ${config.productType} rendering with ${jobs.length} jobs`);
+  console.log(`Selected jobs IDs (${selectedJobs.length}):`, selectedJobs);
 
   // Count queued jobs
   const queuedJobs = jobs.filter(job => job.status === 'queued');
   const queuedJobsCount = queuedJobs.length;
   
   useEffect(() => {
-    console.log("Queued jobs:", queuedJobsCount);
-    console.log("Selected jobs:", selectedJobs.length);
-  }, [queuedJobsCount, selectedJobs]);
+    console.log(`Product: ${config.productType} - Queued jobs: ${queuedJobsCount}, Selected jobs: ${selectedJobs.length}`);
+  }, [queuedJobsCount, selectedJobs, config.productType]);
   
   // Check if all queued jobs are selected
   const areAllQueuedJobsSelected = queuedJobs.length > 0 && 
@@ -72,9 +71,23 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
     }
   };
 
+  // Add specific debug UI element to verify the component is rendering correctly
+  const renderDebugInfo = () => {
+    return (
+      <div className="p-2 text-xs text-gray-500 border-t border-dashed">
+        {config.productType} UI version: {Date.now()}
+      </div>
+    );
+  };
+
   // If there are no jobs, show empty state
   if (jobs.length === 0) {
-    return <FlyerJobsEmptyState productType={config.productType} />;
+    return (
+      <>
+        <FlyerJobsEmptyState productType={config.productType} />
+        {renderDebugInfo()}
+      </>
+    );
   }
 
   return (
@@ -86,10 +99,11 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
               <Checkbox 
                 checked={areAllQueuedJobsSelected && queuedJobsCount > 0}
                 onCheckedChange={(checked) => {
-                  console.log("Select all checkbox changed:", checked);
+                  console.log(`${config.productType} - Select all checkbox changed:`, checked);
                   onSelectAllJobs(!!checked);
                 }}
                 disabled={queuedJobsCount === 0}
+                aria-label={`Select all ${queuedJobsCount} queued jobs`}
               />
             </TableHead>
             <TableHead>Name</TableHead>
@@ -116,6 +130,7 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
           onViewJob={onViewJob}
         />
       </Table>
+      {renderDebugInfo()}
     </div>
   );
 };

@@ -1,135 +1,70 @@
-
-import React from "react";
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Layers, CreditCard, Mail, FileText, Box, ClipboardList, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
-import { Separator } from "@/components/ui/separator";
+import { DebugInfo } from "@/components/ui/debug-info";
+import { clearAppCache } from "@/utils/cacheUtils";
 
 const Index = () => {
-  const productTypes = [
-    {
-      name: "Business Cards",
-      icon: <CreditCard className="h-6 w-6 mb-2" />,
-      description: "Manage business card batches and jobs",
-      batchesLink: "/batches/business-cards",
-      jobsLink: "/batches/business-cards/jobs",
-      createJobLink: "/batches/business-cards/jobs/new"
-    },
-    {
-      name: "Postcards",
-      icon: <Mail className="h-6 w-6 mb-2" />,
-      description: "Create and manage postcard print batches",
-      batchesLink: "/batches/postcards",
-      jobsLink: "/batches/postcards/jobs",
-      createJobLink: "/batches/postcards/jobs/new"
-    },
-    {
-      name: "Flyers",
-      icon: <FileText className="h-6 w-6 mb-2" />,
-      description: "Organize flyer production batches",
-      batchesLink: "/batches/flyers",
-      jobsLink: "/batches/flyers/jobs",
-      createJobLink: "/batches/flyers/jobs/new"
-    },
-    {
-      name: "Product Boxes",
-      icon: <Box className="h-6 w-6 mb-2" />,
-      description: "Manage product box printing",
-      batchesLink: "/batches/boxes",
-      jobsLink: "/batches/boxes/jobs",
-      createJobLink: "/batches/boxes/jobs/new"
-    }
-  ];
+  // Add cache reset function
+  const handleResetCache = () => {
+    clearAppCache();
+    window.location.reload();
+  };
 
+  // Updated render to include debug info
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold mb-2">Welcome to BatchFlow</h1>
-        <p className="text-gray-600 mb-6">Your printing batch management solution</p>
-        
-        <div className="flex justify-center gap-4">
-          <Button asChild size="lg">
-            <Link to="/batches">View All Batches</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg">
-            <Link to="/all-jobs">View All Jobs</Link>
-          </Button>
+    <div>
+      <div className="container mx-auto p-8">
+        <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
+        <p className="text-gray-600 mb-8">Welcome to the Print Batch Flow application.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="text-xl font-semibold mb-2">Batches</h2>
+            <p className="text-gray-500 mb-4">Manage and view all your print batches.</p>
+            <Link to="/batches">
+              <Button>View Batches</Button>
+            </Link>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="text-xl font-semibold mb-2">Jobs</h2>
+            <p className="text-gray-500 mb-4">Create, view, and manage print jobs.</p>
+            <Link to="/all-jobs">
+              <Button>View Jobs</Button>
+            </Link>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="text-xl font-semibold mb-2">Users</h2>
+            <p className="text-gray-500 mb-4">Manage user accounts and permissions.</p>
+            <Link to="/users">
+              <Button>View Users</Button>
+            </Link>
+          </div>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {productTypes.map((product) => (
-          <Card key={product.name} className="overflow-hidden hover:shadow-lg transition-shadow">
-            <CardHeader className="text-center">
-              <div className="flex justify-center">{product.icon}</div>
-              <CardTitle>{product.name}</CardTitle>
-              <CardDescription>{product.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0 pb-3 flex flex-col gap-2">
-              <Button variant="default" asChild size="sm" className="w-full">
-                <Link to={product.jobsLink} className="flex items-center justify-center gap-2">
-                  <ClipboardList className="h-4 w-4" />
-                  View Jobs
-                </Link>
-              </Button>
-              <Button variant="outline" asChild size="sm" className="w-full">
-                <Link to={product.batchesLink} className="flex items-center justify-center gap-2">
-                  <Layers className="h-4 w-4" />
-                  Manage Batches
-                </Link>
-              </Button>
-            </CardContent>
-            <CardFooter className="bg-gray-50 p-3 flex justify-center">
-              <Button variant="ghost" size="sm" asChild className="w-full">
-                <Link to={product.createJobLink} className="flex items-center justify-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create New Job
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
-
-      <Separator className="my-8" />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Layers className="h-5 w-5" />
-              Recent Batches
-            </CardTitle>
-            <CardDescription>View and manage all your production batches</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-6">
-            <Button asChild>
-              <Link to="/batches" className="flex items-center gap-2">
-                <Layers className="h-5 w-5" />
-                View All Batches
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5" />
-              Print Jobs
-            </CardTitle>
-            <CardDescription>Manage all your print jobs across product types</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-6">
-            <Button asChild>
-              <Link to="/all-jobs" className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                View All Jobs
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      
+      <DebugInfo 
+        componentName="Index Page"
+        extraInfo={{
+          lastUpdate: new Date().toISOString()
+        }}
+        visible={true}
+      />
+      
+      {/* Add cache reset button at the bottom */}
+      <div className="mt-8 p-4 border rounded-md bg-gray-50">
+        <h3 className="text-lg font-medium mb-2">Debug Tools</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          If you're experiencing issues with the UI not updating, try clearing the application cache.
+        </p>
+        <Button 
+          variant="outline" 
+          onClick={handleResetCache}
+        >
+          Clear App Cache & Reload
+        </Button>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText, Loader2, AlertCircle } from "lucide-react";
@@ -7,6 +7,7 @@ import { ProductConfig, BaseJob } from "@/config/productTypes";
 import GenericJobsTable from "./GenericJobsTable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { GenericBatchCreateDialog } from './GenericBatchCreateDialog';
+import { DebugInfo } from "@/components/ui/debug-info";
 
 interface GenericJobsPageProps {
   config: ProductConfig;
@@ -25,7 +26,9 @@ interface GenericJobsPageProps {
 
 const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }) => {
   const navigate = useNavigate();
-  console.log("GenericJobsPage rendering for", config.productType);
+  const renderId = React.useId();
+  
+  console.log(`GenericJobsPage rendering for ${config.productType} (id: ${renderId})`);
   
   const {
     jobs,
@@ -44,6 +47,13 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   const [filterView, setFilterView] = useState<"all" | "queued" | "batched" | "completed">("all");
 
+  // Force a component refresh on mount
+  useEffect(() => {
+    console.log(`${config.productType} jobs page mounted, fetching jobs...`);
+    fetchJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Filter jobs based on current view
   const filteredJobs = filterView === 'all' 
     ? jobs 
@@ -57,11 +67,12 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
     completed: jobs.filter(job => job.status === 'completed').length
   };
 
-  console.log("Job counts:", filterCounts);
+  console.log(`${config.productType} job counts:`, filterCounts);
+  console.log(`${config.productType} selected jobs count:`, selectedJobs.length);
 
   // Handle job selection
   const handleSelectJob = (jobId: string, isSelected: boolean) => {
-    console.log("Job selection change:", jobId, isSelected);
+    console.log(`${config.productType} job selection change:`, jobId, isSelected);
     
     if (isSelected) {
       const jobToAdd = jobs.find(job => job.id === jobId);
@@ -75,7 +86,7 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
 
   // Handle select all jobs
   const handleSelectAllJobs = (isSelected: boolean) => {
-    console.log("Select all jobs:", isSelected);
+    console.log(`${config.productType} select all jobs:`, isSelected);
     
     if (isSelected) {
       // Only select jobs that are in "queued" status
@@ -147,10 +158,21 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
     fetchJobs();
   };
 
-  console.log("Selected jobs:", selectedJobs.length);
+  console.log(`${config.productType} - Selected jobs:`, selectedJobs.length);
 
   return (
     <div>
+      <DebugInfo 
+        componentName={`${config.productType} Jobs Page`}
+        extraInfo={{
+          selectedJobs: selectedJobs.length,
+          totalJobs: jobs.length,
+          queuedJobs: filterCounts.queued,
+          renderId
+        }}
+        visible={true}
+      />
+      
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="flex items-center">
