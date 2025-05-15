@@ -1,141 +1,131 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.26.0'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 
-// CORS headers for browser support
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, cache-control',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-// Handle requests to the function
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      status: 204,
-      headers: corsHeaders 
-    })
+    return new Response(null, { headers: corsHeaders });
   }
-
+  
   try {
-    // Create a Supabase client with the provided auth header
-    const authHeader = req.headers.get('Authorization')
+    // Get auth token from request
+    const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Missing Authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      )
+        JSON.stringify({ error: 'No authorization header' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-
-    // Create Supabase client with admin access
-    const adminClient = createClient(
+    
+    // Create supabase client with auth token
+    const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { 
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
       }
-    )
+    );
     
-    // Regular client for checking current user
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
-
-    // Verify current user has admin access
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    // Verify the user is authenticated and admin
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser();
+    
     if (userError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized - could not verify user' }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      )
+        JSON.stringify({ error: 'Not authenticated', details: userError?.message }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-
-    // Check if user is admin
-    const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin_secure_fixed', {
-      _user_id: user.id
-    })
-
-    if (adminError || !isAdmin) {
+    
+    // Check if the user is an admin
+    const { data: isAdmin, error: adminCheckError } = await supabaseClient.rpc(
+      'is_admin_secure_fixed',
+      { _user_id: user.id }
+    );
+    
+    if (adminCheckError) {
       return new Response(
-        JSON.stringify({ error: 'Forbidden - admin access required' }),
-        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      )
+        JSON.stringify({ error: 'Error checking admin status', details: adminCheckError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-
-    // Parse the request body
-    const { email, password, full_name, role } = await req.json()
+    
+    if (!isAdmin) {
+      return new Response(
+        JSON.stringify({ error: 'Access denied: admin privileges required' }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Parse request body
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body' }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const { email, password, full_name, role } = body;
     
     if (!email || !password) {
       return new Response(
         JSON.stringify({ error: 'Email and password are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      )
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-
-    // Create the new user
-    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+    
+    // Create the user with admin privileges
+    const { data: adminAuthResponse, error: createUserError } = await supabaseClient.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
       user_metadata: { full_name },
-    })
-
-    if (createError) {
-      console.error('Error creating user:', createError)
+    });
+    
+    if (createUserError) {
       return new Response(
-        JSON.stringify({ error: `Failed to create user: ${createError.message}` }),
-        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      )
+        JSON.stringify({ error: 'Failed to create user', details: createUserError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-
-    // If admin role was specified, set it
-    if (role === 'admin' && newUser?.user) {
-      try {
-        // Set admin role using RPC
-        const { error: roleError } = await adminClient.rpc('set_user_role_admin', {
-          _target_user_id: newUser.user.id,
-          _new_role: 'admin'
-        })
-
-        if (roleError) {
-          console.error('Error setting admin role:', roleError)
-          
-          // Try direct insert as fallback
-          const { error: insertError } = await adminClient
-            .from('user_roles')
-            .upsert({
-              user_id: newUser.user.id,
-              role: 'admin'
-            })
-            
-          if (insertError) {
-            console.error('Error with fallback role insert:', insertError)
-          }
-        }
-      } catch (roleError) {
-        console.error('Exception setting role:', roleError)
+    
+    const newUserId = adminAuthResponse.user.id;
+    
+    // Set custom role if provided
+    if (role && (role === 'admin' || role === 'user')) {
+      const { error: roleError } = await supabaseClient.rpc('set_user_role_admin', {
+        _target_user_id: newUserId,
+        _new_role: role
+      });
+      
+      if (roleError) {
+        console.error('Error setting user role:', roleError);
+        // We continue even if this fails since the user is created
       }
     }
-
+    
     return new Response(
-      JSON.stringify({ 
-        message: 'User created successfully', 
-        userId: newUser.user?.id 
-      }),
-      { status: 201, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    )
+      JSON.stringify({ success: true, user: adminAuthResponse.user }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Error in create-user function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    )
+      JSON.stringify({ error: 'Server error', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
-})
+});

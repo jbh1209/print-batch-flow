@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const Layout = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, isAdmin } = useAuth();
 
   // Get user initials for avatar
   const getUserInitials = (): string => {
@@ -62,6 +62,11 @@ const Layout = () => {
                     <p className="text-xs leading-none text-muted-foreground">
                       {user?.email}
                     </p>
+                    {isAdmin && (
+                      <p className="text-xs text-primary font-semibold pt-1">
+                        Administrator
+                      </p>
+                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

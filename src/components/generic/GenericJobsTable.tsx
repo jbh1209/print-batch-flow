@@ -8,10 +8,6 @@ import { Table, TableHeader, TableRow, TableHead, TableBody } from "@/components
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FlyerJobsEmptyState } from "@/components/flyers/components/FlyerJobsEmptyState";
 import GenericJobsTableBody from "./GenericJobsTableBody";
-import { SelectionControls } from "@/components/flyers/components/SelectionControls";
-import { BatchFixBanner } from "@/components/flyers/components/BatchFixBanner";
-import { GenericBatchCreateDialog } from "./GenericBatchCreateDialog";
-import { Plus } from "lucide-react";
 
 interface GenericJobsTableProps {
   config: ProductConfig;
@@ -95,24 +91,6 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
     }
   };
 
-  // Handle create batch
-  const handleCreateBatch = () => {
-    setShowBatchDialog(true);
-  };
-
-  // Handle batch dialog close
-  const handleBatchDialogClose = () => {
-    setShowBatchDialog(false);
-  };
-
-  // Handle batch success
-  const handleBatchSuccess = () => {
-    setShowBatchDialog(false);
-    setSelectedJobs([]);
-    fetchJobs();
-    toast.success(`Batch created successfully with ${selectedJobs.length} jobs`);
-  };
-
   // Check if all queued jobs are selected
   const areAllQueuedJobsSelected = () => {
     const queuedJobs = jobs.filter(job => job.status === 'queued');
@@ -122,83 +100,41 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
   // Count queued jobs
   const countQueuedJobs = () => jobs.filter(job => job.status === 'queued').length;
 
-  // Count batched jobs (for orphaned jobs banner)
-  const countBatchedJobs = () => jobs.filter(job => job.status === 'batched').length;
-
   // If there are no jobs, show empty state
   if (jobs.length === 0) {
     return <FlyerJobsEmptyState productType={config.productType} />;
   }
 
   return (
-    <div className="bg-white rounded-lg border shadow">
-      {/* Selection controls - shows selected job count and batch button */}
-      <SelectionControls 
-        selectedCount={selectedJobs.length}
-        totalSelectableCount={countQueuedJobs()}
-        onCreateBatch={handleCreateBatch}
-      />
+    <div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12"></TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead>Job #</TableHead>
+            {config.hasSize && <TableHead>Size</TableHead>}
+            {config.productType === "Sleeves" ? 
+              <TableHead>Stock Type</TableHead> : 
+              <TableHead>Paper</TableHead>
+            }
+            <TableHead>Quantity</TableHead>
+            <TableHead>Due Date</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
 
-      {/* Fix Orphaned Jobs Banner - only show if there are jobs stuck in batched state */}
-      {countBatchedJobs() > 0 && (
-        <BatchFixBanner 
-          onFixJobs={fixBatchedJobsWithoutBatch}
-          isFixingBatchedJobs={isFixingBatchedJobs || false}
+        <GenericJobsTableBody 
+          jobs={jobs}
+          config={config}
+          selectedJobs={selectedJobs}
+          onSelectJob={handleSelectJob}
+          onDeleteJob={handleDeleteJob}
+          onEditJob={handleEditJob}
+          onViewJob={handleViewJob}
         />
-      )}
-      
-      {/* Jobs Table */}
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12"></TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Job #</TableHead>
-              {config.hasSize && <TableHead>Size</TableHead>}
-              {config.productType === "Sleeves" ? 
-                <TableHead>Stock Type</TableHead> : 
-                <TableHead>Paper</TableHead>
-              }
-              <TableHead>Quantity</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <GenericJobsTableBody 
-            jobs={jobs}
-            config={config}
-            selectedJobs={selectedJobs}
-            onSelectJob={handleSelectJob}
-            onDeleteJob={handleDeleteJob}
-            onEditJob={handleEditJob}
-            onViewJob={handleViewJob}
-          />
-        </Table>
-      </div>
-
-      {/* Batch Creation Dialog */}
-      <GenericBatchCreateDialog
-        config={config}
-        isOpen={showBatchDialog}
-        onClose={handleBatchDialogClose}
-        onSuccess={handleBatchSuccess}
-        preSelectedJobs={getSelectedJobObjects()}
-        createBatch={createBatch}
-        isCreatingBatch={isCreatingBatch}
-      />
-
-      {/* Add button for adding new jobs */}
-      <div className="p-4 border-t flex justify-end">
-        <Button 
-          onClick={() => navigate(config.routes.newJobPath)}
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Add New {config.productType} Job
-        </Button>
-      </div>
+      </Table>
     </div>
   );
 };

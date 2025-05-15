@@ -4,14 +4,14 @@ import { useParams } from "react-router-dom";
 import { ProductConfig } from "@/config/productTypes";
 import GenericBatchDetails from "@/components/generic/GenericBatchDetails";
 
-export interface GenericBatchDetailsPageProps {
+interface GenericBatchDetailsPageProps {
   config: ProductConfig;
 }
 
 const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ config }) => {
-  const { id } = useParams<{ id: string }>();
+  const { batchId } = useParams<{ batchId: string }>();
   
-  if (!id) {
+  if (!batchId) {
     return (
       <div className="bg-white rounded-lg shadow p-8 text-center">
         <h2 className="text-xl font-semibold mb-2">No Batch Selected</h2>
@@ -20,7 +20,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     );
   }
 
-  return <GenericBatchDetails batchId={id} config={config} />;
+  return <GenericBatchDetails batchId={batchId} config={config} />;
 };
 
 export default GenericBatchDetailsPage;

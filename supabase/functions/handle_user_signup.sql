@@ -20,7 +20,7 @@ BEGIN
     END
   );
   
-  -- Create default user role with proper column
+  -- Create default user role
   INSERT INTO public.user_roles (user_id, role)
   VALUES (new.id, 'user');
   
