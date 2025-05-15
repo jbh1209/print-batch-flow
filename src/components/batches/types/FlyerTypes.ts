@@ -5,7 +5,7 @@ import { BatchStatus } from "@/config/types/baseTypes";
 export type LaminationType = "none" | "gloss" | "matt" | "soft_touch";
 
 // Re-export BatchStatus for convenience
-export { BatchStatus };
+export type { BatchStatus };
 
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";

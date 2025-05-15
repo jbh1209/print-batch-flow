@@ -15,7 +15,11 @@ export function useGenericBatch(
   const validTableName = isExistingTable(config.tableName) ? config.tableName : null;
   
   // Use our dedicated hooks to split functionality and avoid circular type references
-  const { batches, isLoading, error, fetchBatches } = useBatchFetching(config, batchId);
+  // Pass as options object instead of a string
+  const { batches, isLoading, error, fetchBatches } = useBatchFetching(config, {
+    specificBatchId: batchId
+  });
+  
   const { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch } = 
     useBatchDeletion(validTableName, fetchBatches);
   const { handleViewPDF, handleViewBatchDetails } = useBatchNavigation(config.productType);

@@ -24,8 +24,10 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   // Use our updated useBatchFetching hook with the filterByCurrentUser option
   const { batches, isLoading, error, fetchBatches } = useBatchFetching(
     config, 
-    batchId,
-    { filterByCurrentUser: options.filterByCurrentUser }
+    { 
+      filterByCurrentUser: options.filterByCurrentUser,
+      specificBatchId: batchId 
+    }
   );
   
   const { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch } = 
