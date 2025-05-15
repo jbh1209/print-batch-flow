@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
 import { getProductTypeCode, extractProductCodeFromBatchName } from "@/utils/batch/productTypeCodes";
+import { BatchStatus } from "@/config/types/baseTypes"; // Add this import
 
 interface BatchFetchingOptions {
   filterByCurrentUser?: boolean;

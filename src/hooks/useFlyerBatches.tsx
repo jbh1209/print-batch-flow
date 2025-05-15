@@ -1,12 +1,11 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerBatch } from '@/components/batches/types/FlyerTypes';
+import { FlyerBatch, LaminationType } from '@/components/batches/types/FlyerTypes';
+import { BatchStatus } from '@/config/types/baseTypes';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { handlePdfAction } from '@/utils/pdfActionUtils';
-import { BatchStatus } from '@/config/types/baseTypes';
 
 // Define a type that matches what Supabase returns for batches
 interface SupabaseBatch {
@@ -75,7 +74,7 @@ export function useFlyerBatches(batchId: string | null = null) {
         overview_pdf_url: batch.overview_pdf_url || null,
         due_date: batch.due_date,
         created_at: batch.created_at,
-        lamination_type: batch.lamination_type || 'none',
+        lamination_type: (batch.lamination_type || 'none') as LaminationType,
         paper_type: batch.paper_type,
         paper_weight: batch.paper_weight,
         sheet_size: batch.sheet_size,

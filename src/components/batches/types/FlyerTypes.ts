@@ -1,5 +1,5 @@
 
-import { BatchStatus, LaminationType } from "@/config/productTypes";
+import { BatchStatus, LaminationType } from "@/config/types/baseTypes";
 
 // Import directly from the config file instead of from ./BatchTypes
 export type { BatchStatus, LaminationType };
