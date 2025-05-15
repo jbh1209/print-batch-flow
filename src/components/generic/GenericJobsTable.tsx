@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -8,6 +8,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody } from "@/components
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FlyerJobsEmptyState } from "@/components/flyers/components/FlyerJobsEmptyState";
 import GenericJobsTableBody from "./GenericJobsTableBody";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface GenericJobsTableProps {
   config: ProductConfig;
@@ -22,6 +23,9 @@ interface GenericJobsTableProps {
   isFixingBatchedJobs?: boolean;
   onEditJob?: (jobId: string) => void;
   onViewJob?: (jobId: string) => void;
+  selectedJobs: string[];
+  onSelectJob: (jobId: string, isSelected: boolean) => void;
+  onSelectAllJobs: (isSelected: boolean) => void;
 }
 
 const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
@@ -37,47 +41,19 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
   isFixingBatchedJobs,
   onEditJob,
   onViewJob,
+  selectedJobs,
+  onSelectJob,
+  onSelectAllJobs,
 }) => {
   const navigate = useNavigate();
-  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
-  const [showBatchDialog, setShowBatchDialog] = useState(false);
 
-  // Handle selecting all jobs
-  const handleSelectAllJobs = (isSelected: boolean) => {
-    if (isSelected) {
-      setSelectedJobs(jobs.filter(job => job.status === 'queued').map(job => job.id));
-    } else {
-      setSelectedJobs([]);
-    }
-  };
-
-  // Handle selecting individual job
-  const handleSelectJob = (jobId: string, isSelected: boolean) => {
-    if (isSelected) {
-      setSelectedJobs(prev => [...prev, jobId]);
-    } else {
-      setSelectedJobs(prev => prev.filter(id => id !== jobId));
-    }
-  };
-
-  // Get selected job objects
-  const getSelectedJobObjects = () => {
-    return jobs.filter(job => selectedJobs.includes(job.id));
-  };
-
-  // Handle job edit
-  const handleEditJob = (jobId: string) => {
-    if (onEditJob) {
-      onEditJob(jobId);
-    }
-  };
-
-  // Handle job view
-  const handleViewJob = (jobId: string) => {
-    if (onViewJob) {
-      onViewJob(jobId);
-    }
-  };
+  // Count queued jobs
+  const queuedJobs = jobs.filter(job => job.status === 'queued');
+  const queuedJobsCount = queuedJobs.length;
+  
+  // Check if all queued jobs are selected
+  const areAllQueuedJobsSelected = queuedJobs.length > 0 && 
+    queuedJobs.every(job => selectedJobs.includes(job.id));
 
   // Handle job deletion
   const handleDeleteJob = async (jobId: string) => {
@@ -85,20 +61,10 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
     if (confirmed) {
       const success = await deleteJob(jobId);
       if (success) {
-        setSelectedJobs(prev => prev.filter(id => id !== jobId));
         toast.success("Job deleted successfully");
       }
     }
   };
-
-  // Check if all queued jobs are selected
-  const areAllQueuedJobsSelected = () => {
-    const queuedJobs = jobs.filter(job => job.status === 'queued');
-    return queuedJobs.length > 0 && queuedJobs.every(job => selectedJobs.includes(job.id));
-  };
-
-  // Count queued jobs
-  const countQueuedJobs = () => jobs.filter(job => job.status === 'queued').length;
 
   // If there are no jobs, show empty state
   if (jobs.length === 0) {
@@ -110,7 +76,13 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-12"></TableHead>
+            <TableHead className="w-12">
+              <Checkbox 
+                checked={areAllQueuedJobsSelected && queuedJobsCount > 0}
+                onCheckedChange={(checked) => onSelectAllJobs(!!checked)}
+                disabled={queuedJobsCount === 0}
+              />
+            </TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Job #</TableHead>
             {config.hasSize && <TableHead>Size</TableHead>}
@@ -129,10 +101,10 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
           jobs={jobs}
           config={config}
           selectedJobs={selectedJobs}
-          onSelectJob={handleSelectJob}
+          onSelectJob={onSelectJob}
           onDeleteJob={handleDeleteJob}
-          onEditJob={handleEditJob}
-          onViewJob={handleViewJob}
+          onEditJob={onEditJob}
+          onViewJob={onViewJob}
         />
       </Table>
     </div>
