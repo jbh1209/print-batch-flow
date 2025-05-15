@@ -20,7 +20,6 @@ import FlyerBatches from '@/pages/FlyerBatches';
 import BusinessCardJobs from '@/pages/BusinessCardJobs';
 import BusinessCardJobNew from '@/pages/BusinessCardJobNew';
 import BusinessCardJobEdit from '@/pages/BusinessCardJobEdit';
-import FlyerJobs from '@/pages/FlyerJobs';
 import FlyerJobNew from '@/pages/FlyerJobNew';
 import FlyerJobDetail from '@/pages/FlyerJobDetail';
 import FlyerJobEdit from '@/pages/FlyerJobEdit';
@@ -60,6 +59,9 @@ import GenericBatchDetailsPage from '@/pages/generic/GenericBatchDetailsPage';
 import GenericJobDetailsPage from '@/pages/generic/GenericJobDetailsPage';
 import { productConfigs } from '@/config/productTypes';
 import BusinessCardJobDetail from '@/pages/BusinessCardJobDetail';
+
+// Import FlyerJobsPage instead of FlyerJobs
+import FlyerJobsPage from '@/pages/generic/FlyerJobsPage';
 
 // Create a client for React Query
 const queryClient = new QueryClient();
@@ -106,11 +108,11 @@ function App() {
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
                 </Route>
                 
-                {/* Flyers Routes - Updated to use path parameters consistently */}
+                {/* Flyers Routes - Updated to use FlyerJobsPage */}
                 <Route path="batches/flyers">
                   <Route index element={<FlyerBatches />} />
                   <Route path="batches/:batchId" element={<FlyerBatchDetailsPage />} />
-                  <Route path="jobs" element={<FlyerJobs />} />
+                  <Route path="jobs" element={<FlyerJobsPage />} />
                   <Route path="jobs/new" element={<FlyerJobNew />} />
                   <Route path="jobs/:id" element={<FlyerJobDetail />} />
                   <Route path="jobs/:jobId/edit" element={<FlyerJobEdit />} />
