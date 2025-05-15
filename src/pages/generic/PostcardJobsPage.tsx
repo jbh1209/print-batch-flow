@@ -6,19 +6,20 @@ import GenericJobsPage from "@/components/generic/GenericJobsPage";
 const PostcardJobsPage = () => {
   const config = productConfigs["Postcards"];
   
-  // Create a wrapper function that returns the hook result with type conversion
+  // Create a wrapper function that returns the hook result with standardized interface
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
     
-    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
-    const fixBatchedJobsWrapper = async () => { 
-      // Convert the return value to void by wrapping the original function
-      await hookResult.fixBatchedJobsWithoutBatch();
-    };
-    
     return {
-      ...hookResult,
-      fixBatchedJobsWithoutBatch: fixBatchedJobsWrapper
+      jobs: hookResult.jobs,
+      isLoading: hookResult.isLoading,
+      error: hookResult.error,
+      deleteJob: hookResult.deleteJob,
+      fetchJobs: hookResult.fetchJobs,
+      createBatch: hookResult.createBatch,
+      isCreatingBatch: hookResult.isCreatingBatch,
+      fixBatchedJobsWithoutBatch: hookResult.fixBatchedJobsWithoutBatch,
+      isFixingBatchedJobs: hookResult.isFixingBatchedJobs
     };
   };
 

@@ -1,11 +1,10 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import { Table, TableHeader, TableRow, TableHead, TableBody } from "@/components/ui/table";
-import { useFileUpload } from "@/hooks/useFileUpload";
 import { FlyerJobsEmptyState } from "@/components/flyers/components/FlyerJobsEmptyState";
 import GenericJobsTableBody from "./GenericJobsTableBody";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,10 +45,17 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
   onSelectAllJobs,
 }) => {
   const navigate = useNavigate();
+  console.log("GenericJobsTable rendering for", config.productType, "with", jobs.length, "jobs");
+  console.log("Selected jobs IDs:", selectedJobs);
 
   // Count queued jobs
   const queuedJobs = jobs.filter(job => job.status === 'queued');
   const queuedJobsCount = queuedJobs.length;
+  
+  useEffect(() => {
+    console.log("Queued jobs:", queuedJobsCount);
+    console.log("Selected jobs:", selectedJobs.length);
+  }, [queuedJobsCount, selectedJobs]);
   
   // Check if all queued jobs are selected
   const areAllQueuedJobsSelected = queuedJobs.length > 0 && 
@@ -79,7 +85,10 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
             <TableHead className="w-12">
               <Checkbox 
                 checked={areAllQueuedJobsSelected && queuedJobsCount > 0}
-                onCheckedChange={(checked) => onSelectAllJobs(!!checked)}
+                onCheckedChange={(checked) => {
+                  console.log("Select all checkbox changed:", checked);
+                  onSelectAllJobs(!!checked);
+                }}
                 disabled={queuedJobsCount === 0}
               />
             </TableHead>

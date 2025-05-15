@@ -25,6 +25,8 @@ interface GenericJobsPageProps {
 
 const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }) => {
   const navigate = useNavigate();
+  console.log("GenericJobsPage rendering for", config.productType);
+  
   const {
     jobs,
     isLoading,
@@ -55,20 +57,26 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
     completed: jobs.filter(job => job.status === 'completed').length
   };
 
+  console.log("Job counts:", filterCounts);
+
   // Handle job selection
   const handleSelectJob = (jobId: string, isSelected: boolean) => {
+    console.log("Job selection change:", jobId, isSelected);
+    
     if (isSelected) {
       const jobToAdd = jobs.find(job => job.id === jobId);
       if (jobToAdd && jobToAdd.status === 'queued') {
-        setSelectedJobs([...selectedJobs, jobToAdd]);
+        setSelectedJobs(prev => [...prev, jobToAdd]);
       }
     } else {
-      setSelectedJobs(selectedJobs.filter(job => job.id !== jobId));
+      setSelectedJobs(prev => prev.filter(job => job.id !== jobId));
     }
   };
 
   // Handle select all jobs
   const handleSelectAllJobs = (isSelected: boolean) => {
+    console.log("Select all jobs:", isSelected);
+    
     if (isSelected) {
       // Only select jobs that are in "queued" status
       setSelectedJobs(jobs.filter(job => job.status === 'queued'));
@@ -138,6 +146,8 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
     setSelectedJobs([]);
     fetchJobs();
   };
+
+  console.log("Selected jobs:", selectedJobs.length);
 
   return (
     <div>

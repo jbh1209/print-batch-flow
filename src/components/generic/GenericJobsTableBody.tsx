@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Eye, Pencil, Trash } from 'lucide-react';
@@ -28,6 +28,10 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
   onEditJob,
   onViewJob,
 }) => {
+  useEffect(() => {
+    console.log("GenericJobsTableBody rendered with", jobs.length, "jobs and", selectedJobs.length, "selections");
+  }, [jobs.length, selectedJobs.length]);
+
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy');
@@ -78,7 +82,10 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
             <TableCell>
               <Checkbox 
                 checked={isSelected} 
-                onCheckedChange={(checked) => onSelectJob(job.id, checked === true)}
+                onCheckedChange={(checked) => {
+                  console.log("Job checkbox changed:", job.id, checked);
+                  onSelectJob(job.id, checked === true);
+                }}
                 disabled={!canSelect}
               />
             </TableCell>
