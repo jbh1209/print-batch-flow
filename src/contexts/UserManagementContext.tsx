@@ -139,10 +139,10 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
       // Update the user role if specified
       if (userData.role) {
         // Use type assertion to handle TypeScript limitations
-        const { error: roleError } = await supabase.rpc('set_user_role_admin', {
+        const { error: roleError } = await (supabase.rpc('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
-        }) as any;
+        }) as unknown as Promise<{ error: any }>);
         
         if (roleError) throw roleError;
       }
@@ -195,10 +195,10 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     
     try {
       // Use type assertion to handle TypeScript limitations
-      const { error } = await supabase.rpc('set_user_role_admin', {
+      const { error } = await (supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
-      }) as any;
+      }) as unknown as Promise<{ error: any }>);
       
       if (error) throw error;
       

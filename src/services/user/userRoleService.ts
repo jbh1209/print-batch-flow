@@ -12,10 +12,10 @@ export async function addAdminRole(userId: string): Promise<void> {
     console.log('Setting admin role for user:', userId);
     
     // Using explicit typecasting to handle TypeScript limitations with dynamic RPC calls
-    const { error } = await supabase.rpc('set_user_role_admin', {
+    const { error } = await (supabase.rpc('set_user_role_admin', {
       _target_user_id: userId, 
       _new_role: 'admin'
-    }) as any;
+    }) as unknown as Promise<{ error: any }>);
     
     if (error) {
       console.error('Error setting admin role:', error);
@@ -33,10 +33,10 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<vo
     console.log(`Updating user ${userId} role to ${role}`);
     
     // Using explicit typecasting to handle TypeScript limitations with dynamic RPC calls
-    const { error } = await supabase.rpc('set_user_role_admin', {
+    const { error } = await (supabase.rpc('set_user_role_admin', {
       _target_user_id: userId,
       _new_role: role
-    }) as any;
+    }) as unknown as Promise<{ error: any }>);
     
     if (error) {
       console.error('Error updating role:', error);
@@ -54,9 +54,9 @@ export async function revokeUserAccess(userId: string): Promise<void> {
     console.log(`Revoking access for user ${userId}`);
     
     // Using explicit typecasting to handle TypeScript limitations with dynamic RPC calls
-    const { error } = await supabase.rpc('revoke_user_role', {
+    const { error } = await (supabase.rpc('revoke_user_role', {
       target_user_id: userId
-    }) as any;
+    }) as unknown as Promise<{ error: any }>);
     
     if (error) {
       console.error('Error revoking user access:', error);
