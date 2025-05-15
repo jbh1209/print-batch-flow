@@ -20,7 +20,7 @@ export function useUserManagement() {
     try {
       setError(null);
       // Use type assertion to handle TypeScript limitations
-      const { data, error } = await (supabase.rpc('any_admin_exists') as unknown as Promise<{ data: any, error: any }>);
+      const { data, error } = await supabase.rpc('any_admin_exists') as unknown as Promise<{ data: any, error: any }>;
       
       if (error) {
         throw error;
@@ -148,10 +148,10 @@ export function useUserManagement() {
       
       if (userData.full_name !== undefined) {
         // Use type assertion to handle TypeScript limitations
-        const { error } = await (supabase.rpc('update_user_profile_admin', {
+        const { error } = await supabase.rpc('update_user_profile_admin', {
           _user_id: userId,
           _full_name: userData.full_name
-        }) as unknown as Promise<{ error: any }>);
+        }) as unknown as Promise<{ error: any }>;
         
         if (error) {
           throw error;
@@ -160,10 +160,10 @@ export function useUserManagement() {
       
       if (userData.role) {
         // Use type assertion to handle TypeScript limitations
-        const { error } = await (supabase.rpc('set_user_role_admin', {
+        const { error } = await supabase.rpc('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
-        }) as unknown as Promise<{ error: any }>);
+        }) as unknown as Promise<{ error: any }>;
         
         if (error) {
           throw error;
@@ -191,9 +191,9 @@ export function useUserManagement() {
       }
       
       // Use type assertion to handle TypeScript limitations
-      const { error } = await (supabase.rpc('revoke_user_role', {
+      const { error } = await supabase.rpc('revoke_user_role', {
         target_user_id: userId
-      }) as unknown as Promise<{ error: any }>);
+      }) as unknown as Promise<{ error: any }>;
       
       if (error) {
         throw error;
@@ -220,10 +220,10 @@ export function useUserManagement() {
       }
       
       // Use type assertion to handle TypeScript limitations
-      const { error } = await (supabase.rpc('set_user_role_admin', {
+      const { error } = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
-      }) as unknown as Promise<{ error: any }>);
+      }) as unknown as Promise<{ error: any }>;
       
       if (error) {
         throw error;

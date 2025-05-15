@@ -20,10 +20,10 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
       console.log(`Updating user ${userId} name to "${userData.full_name}"`);
       
       // Using type assertion to handle TypeScript limitations
-      const { error } = await (supabase.rpc('update_user_profile_admin', {
+      const { error } = await supabase.rpc('update_user_profile_admin', {
         _user_id: userId,
         _full_name: userData.full_name
-      }) as unknown as Promise<{ error: any }>);
+      }) as unknown as Promise<{ error: any }>;
       
       if (error) {
         console.error('Error updating profile:', error);
@@ -36,10 +36,10 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
       console.log(`Updating user ${userId} role to "${userData.role}"`);
       
       // Using type assertion to handle TypeScript limitations
-      const { error } = await (supabase.rpc('set_user_role_admin', {
+      const { error } = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: userData.role
-      }) as unknown as Promise<{ error: any }>);
+      }) as unknown as Promise<{ error: any }>;
       
       if (error) {
         console.error('Error updating user role:', error);
