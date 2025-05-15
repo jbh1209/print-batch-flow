@@ -632,18 +632,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          role: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          role?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          role?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -654,7 +657,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_all_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+        }[]
+      }
+      get_all_users_secure: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+        }[]
+      }
+      get_all_users_with_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+          full_name: string
+          avatar_url: string
+          role: string
+          created_at: string
+          last_sign_in_at: string
+        }[]
+      }
     }
     Enums: {
       batch_status:

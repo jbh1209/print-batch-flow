@@ -6,4 +6,3 @@ project_id = "kgizusgqexmlfcqfjopk"
 verify_jwt = true
 [functions.get-all-users]
 verify_jwt = false
-
