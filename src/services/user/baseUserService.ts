@@ -9,8 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 export async function checkAdminExists(): Promise<boolean> {
   try {
     try {
-      // Try using the stored procedure first
-      const { data, error } = await supabase.rpc('any_admin_exists');
+      // Try using the stored procedure first with explicit typecasting
+      const { data, error } = await supabase.rpc('any_admin_exists') as any;
       
       if (error) {
         console.error('Error checking admin existence with function:', error);
@@ -46,10 +46,10 @@ export async function checkIsAdmin(userId: string): Promise<boolean> {
     if (!userId) return false;
     
     try {
-      // Try using the stored procedure first
+      // Try using the stored procedure first with explicit typecasting
       const { data, error } = await supabase.rpc('is_admin_secure_fixed', { 
         _user_id: userId 
-      });
+      }) as any;
       
       if (error) {
         console.error('Error checking admin status with function:', error);

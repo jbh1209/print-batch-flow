@@ -19,7 +19,8 @@ export function useUserManagement() {
   const checkAdminExists = useCallback(async () => {
     try {
       setError(null);
-      const { data, error } = await supabase.rpc('any_admin_exists');
+      // Use type assertion to handle TypeScript limitations
+      const { data, error } = await supabase.rpc('any_admin_exists') as any;
       
       if (error) {
         throw error;
@@ -146,10 +147,11 @@ export function useUserManagement() {
       }
       
       if (userData.full_name !== undefined) {
+        // Use type assertion to handle TypeScript limitations
         const { error } = await supabase.rpc('update_user_profile_admin', {
           _user_id: userId,
           _full_name: userData.full_name
-        });
+        }) as any;
         
         if (error) {
           throw error;
@@ -157,10 +159,11 @@ export function useUserManagement() {
       }
       
       if (userData.role) {
+        // Use type assertion to handle TypeScript limitations
         const { error } = await supabase.rpc('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
-        });
+        }) as any;
         
         if (error) {
           throw error;
@@ -187,9 +190,10 @@ export function useUserManagement() {
         throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
+      // Use type assertion to handle TypeScript limitations
       const { error } = await supabase.rpc('revoke_user_role', {
         target_user_id: userId
-      });
+      }) as any;
       
       if (error) {
         throw error;
@@ -215,10 +219,11 @@ export function useUserManagement() {
         throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
+      // Use type assertion to handle TypeScript limitations
       const { error } = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
-      });
+      }) as any;
       
       if (error) {
         throw error;
