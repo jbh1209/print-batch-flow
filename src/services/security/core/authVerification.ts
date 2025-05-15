@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { isPreviewMode } from '@/services/previewService';
 
 /**
- * Verify user has a specific role
+ * Verify user has a specific role - simplified to always allow 'user' role
  */
 export async function verifyUserRole(userId: string, role: 'user', userEmail?: string | null): Promise<boolean> {
   if (!userId) return false;
