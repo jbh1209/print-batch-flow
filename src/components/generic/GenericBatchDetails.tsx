@@ -12,11 +12,11 @@ import { Button } from "@/components/ui/button";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsProps {
-  batchId: string;
   config: ProductConfig;
+  batchId: string;
 }
 
-const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, config }) => {
+const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ config, batchId }) => {
   const navigate = useNavigate();
   
   const {
@@ -38,22 +38,22 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary border-t-transparent"></div>
+        <div className="animate-spin h-12 w-12 border-t-2 border-b-2 border-primary rounded-full"></div>
       </div>
     );
   }
 
   if (error || !batch) {
     return (
-      <Alert variant="destructive" className="mb-6">
+      <Alert variant="destructive" className="mt-4">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Batch Not Found</AlertTitle>
+        <AlertTitle>Error loading batch details</AlertTitle>
         <AlertDescription>
-          The requested batch could not be found or has been deleted.
+          {error || "Batch not found"}
           <div className="mt-2">
             <Button 
               variant="outline" 
-              onClick={() => navigate(config.routes?.batchesPath || `/batches/${config.productType.toLowerCase()}`)}
+              onClick={() => navigate(`/batches/${config.productType.toLowerCase()}`)}
             >
               Back to Batches
             </Button>
@@ -79,14 +79,15 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs to match the Job interface, ensuring job_number is included
-  const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
+  // Convert jobs to the expected type
+  const convertedJobs: Job[] = relatedJobs.map(job => ({
     id: job.id,
-    name: job.name || '',
+    name: job.name,
+    job_number: job.job_number,
+    due_date: job.due_date,
     quantity: job.quantity,
     status: job.status,
-    pdf_url: job.pdf_url || null,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+    pdf_url: job.pdf_url
   }));
 
   return (
@@ -98,11 +99,12 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
       
       <BatchDetailsContent
         batch={batchDetailsData}
-        relatedJobs={typedRelatedJobs}
+        relatedJobs={convertedJobs}
         productType={config.productType}
         onDeleteClick={() => setBatchToDelete(batch.id)}
       />
-
+      
+      {/* Use the standardized BatchDeleteDialog */}
       <BatchDeleteDialog 
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}

@@ -60,14 +60,20 @@ export function useBatchDeletion(tableName: TableNameParam, onSuccessCallback?: 
         onSuccessCallback();
       }
       
-      // Get the current path to determine which batch page we're on
+      // Extract product type from current path for consistent navigation
       const currentPath = window.location.pathname;
+      const pathParts = currentPath.split('/');
       
-      // Always navigate back to the batch list page if we're on a details page
-      if (currentPath.includes('/batches/') && currentPath.split('/').length > 3) {
-        const basePath = '/' + currentPath.split('/').slice(1, 3).join('/');
-        console.log(`Navigating back to batch list: ${basePath}`);
-        navigate(basePath);
+      // Find the product type segment (should be at index 2 in /batches/[product]/...)
+      if (pathParts.length >= 3) {
+        const productType = pathParts[2]; // e.g., "flyers", "boxes", etc.
+        
+        // Always navigate to the base product path (/batches/[product])
+        // This avoids the '/batches/[product]/batches' 404 error
+        navigate(`/batches/${productType}`);
+      } else {
+        // Fallback to home if path structure is unexpected
+        navigate('/');
       }
     } catch (error: any) {
       console.error("Error deleting batch:", error);

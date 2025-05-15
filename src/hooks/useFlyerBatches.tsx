@@ -90,7 +90,7 @@ export function useFlyerBatches(batchId: string | null = null) {
       if (batchId && (!data || data.length === 0)) {
         toast.error("Batch not found or you don't have permission to view it.");
         // Navigate back to flyer batches list if the batch is not found
-        navigate("/batches/flyers/batches");
+        navigate("/batches/flyers");
       }
     } catch (err) {
       console.error('Error fetching flyer batches:', err);
@@ -153,8 +153,8 @@ export function useFlyerBatches(batchId: string | null = null) {
       
       toast.success("Batch deleted and its jobs returned to queue");
       
-      // Always navigate back to the batches list after deleting, whether we're on details page or not
-      navigate("/batches/flyers/batches");
+      // Important: Navigate to the main flyers page, not the batches subpath
+      navigate("/batches/flyers");
     } catch (err: any) {
       console.error("Error deleting batch:", err);
       toast.error(`Failed to delete batch: ${err.message || "Unknown error"}`);

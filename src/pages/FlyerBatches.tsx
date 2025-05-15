@@ -87,6 +87,7 @@ const FlyerBatches = () => {
       <BatchDeleteDialog 
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
+        batchName={batches.find(b => b.id === batchToDelete)?.name || ""}
         onClose={() => setBatchToDelete(null)}
         onConfirmDelete={handleDeleteBatch}
       />

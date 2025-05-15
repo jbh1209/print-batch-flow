@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -108,7 +109,6 @@ function App() {
                 {/* Flyers Routes - Updated to use path parameters consistently */}
                 <Route path="batches/flyers">
                   <Route index element={<FlyerBatches />} />
-                  <Route path="batches" element={<FlyerBatches />} />
                   <Route path="batches/:batchId" element={<FlyerBatchDetailsPage />} />
                   <Route path="jobs" element={<FlyerJobs />} />
                   <Route path="jobs/new" element={<FlyerJobNew />} />

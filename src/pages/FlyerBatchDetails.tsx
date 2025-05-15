@@ -59,6 +59,12 @@ const FlyerBatchDetails = () => {
     }
   }, [batchId, batch]);
 
+  // Add debugging logs
+  useEffect(() => {
+    console.log("FlyerBatchDetails - Batch ID:", batchId);
+    console.log("Loaded batch data:", batch);
+  }, [batchId, batch]);
+
   if (isLoading || isLoadingJobs) {
     return <FlyerBatchLoading />;
   }
