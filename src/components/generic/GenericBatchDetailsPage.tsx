@@ -4,12 +4,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
 import { ProductConfig, BatchStatus } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
-import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import BatchDeleteDialog from "@/components/batches/DeleteBatchDialog";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -110,6 +110,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
       <BatchDeleteDialog 
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
+        batchName={batch.name || ""}
         onClose={() => setBatchToDelete(null)}
         onConfirmDelete={handleDeleteBatch}
       />
