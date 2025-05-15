@@ -1,14 +1,14 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
 import { ProductConfig, BatchStatus } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
+import BatchDeleteDialog from "@/components/batches/DeleteBatchDialog";
+import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
-import JobsHeader from "@/components/business-cards/JobsHeader";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsProps {
@@ -30,6 +30,11 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     handleDeleteBatch
   } = useGenericBatchDetails({ batchId, config });
 
+  useEffect(() => {
+    console.log("GenericBatchDetails - Batch ID:", batchId);
+    console.log("GenericBatchDetails - Product Type:", config.productType);
+  }, [batchId, config]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -48,7 +53,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
           <div className="mt-2">
             <Button 
               variant="outline" 
-              onClick={() => navigate(config.routes.batchesPath)}
+              onClick={() => navigate(config.routes?.batchesPath || `/batches/${config.productType.toLowerCase()}`)}
             >
               Back to Batches
             </Button>
@@ -57,7 +62,9 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
       </Alert>
     );
   }
-  
+
+  console.log("Rendering batch details for:", batch.name, "with related jobs:", relatedJobs.length);
+
   // Convert batch to BatchDetailsType to satisfy the component props
   const batchDetailsData: BatchDetailsType = {
     id: batch.id,
@@ -66,7 +73,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     sheets_required: batch.sheets_required,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
-    overview_pdf_url: batch.overview_pdf_url,
+    overview_pdf_url: batch.overview_pdf_url || null,
     due_date: batch.due_date,
     created_at: batch.created_at,
     status: batch.status as BatchStatus
@@ -85,8 +92,8 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
   return (
     <div>
       <JobsHeader 
-        title={`${batch.name} - ${config.ui.batchFormTitle || 'Batch'} Details`}
-        subtitle={`View details and manage ${config.ui.title ? config.ui.title.toLowerCase() : 'batch'}`}
+        title={`${batch.name} - ${config.ui?.batchFormTitle || 'Batch'} Details`}
+        subtitle={`View details and manage ${config.ui?.title ? config.ui.title.toLowerCase() : 'batch'}`}
       />
       
       <BatchDetailsContent
@@ -99,6 +106,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
       <BatchDeleteDialog 
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
+        batchName={batch.name}
         onClose={() => setBatchToDelete(null)}
         onConfirmDelete={handleDeleteBatch}
       />

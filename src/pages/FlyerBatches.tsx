@@ -7,7 +7,7 @@ import { useParams, Navigate } from "react-router-dom";
 import FlyerBatchDetails from "./FlyerBatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
-import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
+import BatchDeleteDialog from "@/components/batches/DeleteBatchDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 
 const FlyerBatches = () => {
