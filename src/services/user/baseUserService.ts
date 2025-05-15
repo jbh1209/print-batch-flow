@@ -8,17 +8,35 @@ import { supabase } from '@/integrations/supabase/client';
 // Check if any admin exists in the system
 export async function checkAdminExists(): Promise<boolean> {
   try {
-    const { data, error } = await supabase.rpc('any_admin_exists');
-    
-    if (error) {
-      console.error('Error checking admin existence:', error);
-      throw error;
+    try {
+      // Try using the stored procedure first
+      const { data, error } = await supabase.rpc('any_admin_exists');
+      
+      if (error) {
+        console.error('Error checking admin existence with function:', error);
+        throw error;
+      }
+      
+      return !!data; // Ensure we consistently return a boolean
+    } catch (error) {
+      // Fallback: Query the user_roles table directly if function fails
+      console.warn('Falling back to direct query for admin check');
+      const { data, error: queryError } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('role', 'admin')
+        .limit(1);
+      
+      if (queryError) {
+        console.error('Error checking admin with fallback:', queryError);
+        throw queryError;
+      }
+      
+      return Array.isArray(data) && data.length > 0;
     }
-    
-    return !!data; // Ensure we consistently return a boolean
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error checking admin existence:', error);
-    throw error;
+    return false;
   }
 }
 
@@ -27,18 +45,37 @@ export async function checkIsAdmin(userId: string): Promise<boolean> {
   try {
     if (!userId) return false;
     
-    const { data, error } = await supabase.rpc('is_admin_secure_fixed', { 
-      _user_id: userId 
-    });
-    
-    if (error) {
-      console.error('Error checking admin status:', error);
-      throw error;
+    try {
+      // Try using the stored procedure first
+      const { data, error } = await supabase.rpc('is_admin_secure_fixed', { 
+        _user_id: userId 
+      });
+      
+      if (error) {
+        console.error('Error checking admin status with function:', error);
+        throw error;
+      }
+      
+      return !!data; // Ensure we consistently return a boolean
+    } catch (error) {
+      // Fallback: Query the user_roles table directly if function fails
+      console.warn('Falling back to direct query for admin role check');
+      const { data, error: queryError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      if (queryError) {
+        console.error('Error checking admin with fallback:', queryError);
+        return false;
+      }
+      
+      return !!data;
     }
-    
-    return !!data; // Ensure we consistently return a boolean
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error checking admin status:', error);
-    throw error;
+    return false;
   }
 }

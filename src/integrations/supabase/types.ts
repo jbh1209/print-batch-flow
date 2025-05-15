@@ -632,21 +632,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -657,13 +657,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_admin_role: {
-        Args: { admin_user_id: string }
-        Returns: undefined
-      }
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      get_all_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+        }[]
       }
       get_all_users_secure: {
         Args: Record<PropertyKey, never>
@@ -672,44 +675,24 @@ export type Database = {
           email: string
         }[]
       }
-      has_role: {
-        Args: { role: Database["public"]["Enums"]["app_role"] }
-        Returns: boolean
-      }
-      is_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      is_admin_secure: {
-        Args: { _user_id: string }
-        Returns: boolean
+      get_all_users_with_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+          full_name: string
+          avatar_url: string
+          role: string
+          created_at: string
+          last_sign_in_at: string
+        }[]
       }
       is_admin_secure_fixed: {
         Args: { _user_id: string }
         Returns: boolean
       }
-      revoke_user_role: {
-        Args: { target_user_id: string }
-        Returns: undefined
-      }
-      set_user_role: {
-        Args: {
-          target_user_id: string
-          new_role: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: undefined
-      }
-      set_user_role_admin: {
-        Args: { _target_user_id: string; _new_role: string }
-        Returns: undefined
-      }
-      update_user_profile_admin: {
-        Args: { _user_id: string; _full_name: string }
-        Returns: undefined
-      }
     }
     Enums: {
-      app_role: "admin" | "user"
       batch_status:
         | "pending"
         | "processing"
@@ -837,7 +820,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
       batch_status: [
         "pending",
         "processing",

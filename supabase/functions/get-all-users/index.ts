@@ -75,19 +75,45 @@ serve(async (req) => {
     
     console.log("User authenticated:", user.id);
     
-    // Check if the user is an admin
+    // Check if the user is an admin - first try using the RPC function
     console.log("Checking admin status");
-    const { data: isAdmin, error: adminCheckError } = await userClient.rpc(
-      'is_admin_secure_fixed',
-      { _user_id: user.id }
-    );
-    
-    if (adminCheckError) {
-      console.error("Admin check error:", adminCheckError);
-      return new Response(
-        JSON.stringify({ error: 'Error checking admin status', details: adminCheckError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    let isAdmin = false;
+    try {
+      const { data: adminCheck, error: adminCheckError } = await userClient.rpc(
+        'is_admin_secure_fixed',
+        { _user_id: user.id }
       );
+      
+      if (adminCheckError) {
+        console.error("Admin check error with RPC:", adminCheckError);
+        throw adminCheckError;
+      }
+      
+      isAdmin = !!adminCheck;
+    } catch (rpcError) {
+      // Fallback: check admin status directly from user_roles table
+      console.log("Falling back to direct query for admin check");
+      try {
+        const { data: roleData, error: roleError } = await userClient
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .maybeSingle();
+          
+        if (roleError) {
+          console.error("Error with direct admin check:", roleError);
+          throw roleError;
+        }
+        
+        isAdmin = !!roleData;
+      } catch (directQueryError) {
+        console.error("All admin check methods failed:", directQueryError);
+        return new Response(
+          JSON.stringify({ error: 'Error checking admin status', details: "Failed to verify admin privileges" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
     
     if (!isAdmin) {

@@ -125,14 +125,33 @@ export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   if (!userId) return false;
   
   try {
-    const { data, error } = await supabase.rpc('is_admin_secure_fixed', { _user_id: userId });
-    
-    if (error) {
-      console.error('Error checking admin status:', error);
-      return false;
+    try {
+      // Try using the stored procedure first
+      const { data, error } = await supabase.rpc('is_admin_secure_fixed', { _user_id: userId });
+      
+      if (error) {
+        console.error('Error checking admin status with function:', error);
+        throw error;
+      }
+      
+      return !!data;
+    } catch (functionError) {
+      // Fallback to direct query if function fails
+      console.warn('Falling back to direct query for admin check');
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error checking admin with fallback:', error);
+        return false;
+      }
+      
+      return !!data;
     }
-    
-    return !!data;
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;

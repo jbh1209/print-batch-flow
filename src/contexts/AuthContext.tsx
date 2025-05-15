@@ -70,12 +70,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!userId) return false;
     
     try {
+      // Try to check admin status using the secure function
       const { data, error } = await supabase
         .rpc('is_admin_secure_fixed', { _user_id: userId });
       
       if (error) {
         console.error('Error checking admin status:', error);
-        return false;
+        
+        // Fallback: check directly in user_roles table if function fails
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .eq('role', 'admin')
+          .maybeSingle();
+          
+        if (roleError) {
+          console.error('Fallback admin check failed:', roleError);
+          return false;
+        }
+        
+        return !!roleData; // Return true if the user has admin role
       }
       
       return !!data;
