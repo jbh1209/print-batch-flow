@@ -19,14 +19,14 @@ export function useUserManagement() {
   const checkAdminExists = useCallback(async () => {
     try {
       setError(null);
-      // Use type assertion to handle TypeScript limitations
-      const { data, error } = await supabase.rpc('any_admin_exists') as unknown as Promise<{ data: any, error: any }>;
+      // Use async/await with proper typing
+      const response = await supabase.rpc('any_admin_exists') as unknown as { data: any, error: any };
       
-      if (error) {
-        throw error;
+      if (response.error) {
+        throw response.error;
       }
       
-      const exists = !!data;
+      const exists = !!response.data;
       setAnyAdminExists(exists);
       return exists;
     } catch (error: any) {
@@ -147,26 +147,26 @@ export function useUserManagement() {
       }
       
       if (userData.full_name !== undefined) {
-        // Use type assertion to handle TypeScript limitations
-        const { error } = await supabase.rpc('update_user_profile_admin', {
+        // Use async/await with proper typing
+        const response = await supabase.rpc('update_user_profile_admin', {
           _user_id: userId,
           _full_name: userData.full_name
-        }) as unknown as Promise<{ error: any }>;
+        }) as unknown as { error: any };
         
-        if (error) {
-          throw error;
+        if (response.error) {
+          throw response.error;
         }
       }
       
       if (userData.role) {
-        // Use type assertion to handle TypeScript limitations
-        const { error } = await supabase.rpc('set_user_role_admin', {
+        // Use async/await with proper typing
+        const response = await supabase.rpc('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
-        }) as unknown as Promise<{ error: any }>;
+        }) as unknown as { error: any };
         
-        if (error) {
-          throw error;
+        if (response.error) {
+          throw response.error;
         }
       }
       
@@ -190,13 +190,13 @@ export function useUserManagement() {
         throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
-      // Use type assertion to handle TypeScript limitations
-      const { error } = await supabase.rpc('revoke_user_role', {
+      // Use async/await with proper typing
+      const response = await supabase.rpc('revoke_user_role', {
         target_user_id: userId
-      }) as unknown as Promise<{ error: any }>;
+      }) as unknown as { error: any };
       
-      if (error) {
-        throw error;
+      if (response.error) {
+        throw response.error;
       }
       
       toast.success('User access revoked successfully');
@@ -219,14 +219,14 @@ export function useUserManagement() {
         throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
-      // Use type assertion to handle TypeScript limitations
-      const { error } = await supabase.rpc('set_user_role_admin', {
+      // Use async/await with proper typing
+      const response = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
-      }) as unknown as Promise<{ error: any }>;
+      }) as unknown as { error: any };
       
-      if (error) {
-        throw error;
+      if (response.error) {
+        throw response.error;
       }
       
       setAnyAdminExists(true);

@@ -138,12 +138,12 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     try {
       // Update the user role if specified
       if (userData.role) {
-        const { error: roleError } = await supabase.rpc('set_user_role_admin', {
+        const response = await supabase.rpc('set_user_role_admin', {
           _target_user_id: userId,
           _new_role: userData.role
-        }) as unknown as Promise<{ error: any }>;
+        }) as unknown as { error: any };
         
-        if (roleError) throw roleError;
+        if (response.error) throw response.error;
       }
       
       // Update user profile if full_name provided
@@ -193,12 +193,12 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
     
     try {
-      const { error } = await supabase.rpc('set_user_role_admin', {
+      const response = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: 'admin'
-      }) as unknown as Promise<{ error: any }>;
+      }) as unknown as { error: any };
       
-      if (error) throw error;
+      if (response.error) throw response.error;
       
       toast.success('Admin role granted successfully');
     } catch (error: any) {

@@ -11,15 +11,15 @@ export async function addAdminRole(userId: string): Promise<void> {
   try {
     console.log('Setting admin role for user:', userId);
     
-    // Using explicit typecasting to handle TypeScript limitations with dynamic RPC calls
-    const { error } = await supabase.rpc('set_user_role_admin', {
+    // Using await with proper typing
+    const response = await supabase.rpc('set_user_role_admin', {
       _target_user_id: userId, 
       _new_role: 'admin'
-    }) as unknown as Promise<{ error: any }>;
+    }) as unknown as { error: any };
     
-    if (error) {
-      console.error('Error setting admin role:', error);
-      throw error;
+    if (response.error) {
+      console.error('Error setting admin role:', response.error);
+      throw response.error;
     }
   } catch (error) {
     console.error('Exception in addAdminRole:', error);
@@ -32,15 +32,15 @@ export async function updateUserRole(userId: string, role: UserRole): Promise<vo
   try {
     console.log(`Updating user ${userId} role to ${role}`);
     
-    // Using explicit typecasting to handle TypeScript limitations with dynamic RPC calls
-    const { error } = await supabase.rpc('set_user_role_admin', {
+    // Using await with proper typing
+    const response = await supabase.rpc('set_user_role_admin', {
       _target_user_id: userId,
       _new_role: role
-    }) as unknown as Promise<{ error: any }>;
+    }) as unknown as { error: any };
     
-    if (error) {
-      console.error('Error updating role:', error);
-      throw error;
+    if (response.error) {
+      console.error('Error updating role:', response.error);
+      throw response.error;
     }
   } catch (error) {
     console.error('Exception in updateUserRole:', error);
@@ -53,14 +53,14 @@ export async function revokeUserAccess(userId: string): Promise<void> {
   try {
     console.log(`Revoking access for user ${userId}`);
     
-    // Using explicit typecasting to handle TypeScript limitations with dynamic RPC calls
-    const { error } = await supabase.rpc('revoke_user_role', {
+    // Using await with proper typing
+    const response = await supabase.rpc('revoke_user_role', {
       target_user_id: userId
-    }) as unknown as Promise<{ error: any }>;
+    }) as unknown as { error: any };
     
-    if (error) {
-      console.error('Error revoking user access:', error);
-      throw error;
+    if (response.error) {
+      console.error('Error revoking user access:', response.error);
+      throw response.error;
     }
   } catch (error) {
     console.error('Exception in revokeUserAccess:', error);

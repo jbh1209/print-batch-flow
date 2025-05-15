@@ -19,15 +19,15 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
     if (userData.full_name !== undefined) {
       console.log(`Updating user ${userId} name to "${userData.full_name}"`);
       
-      // Using type assertion to handle TypeScript limitations
-      const { error } = await supabase.rpc('update_user_profile_admin', {
+      // Using await with proper typing
+      const response = await supabase.rpc('update_user_profile_admin', {
         _user_id: userId,
         _full_name: userData.full_name
-      }) as unknown as Promise<{ error: any }>;
+      }) as unknown as { error: any };
       
-      if (error) {
-        console.error('Error updating profile:', error);
-        throw error;
+      if (response.error) {
+        console.error('Error updating profile:', response.error);
+        throw response.error;
       }
     }
     
@@ -35,15 +35,15 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
     if (userData.role) {
       console.log(`Updating user ${userId} role to "${userData.role}"`);
       
-      // Using type assertion to handle TypeScript limitations
-      const { error } = await supabase.rpc('set_user_role_admin', {
+      // Using await with proper typing
+      const response = await supabase.rpc('set_user_role_admin', {
         _target_user_id: userId,
         _new_role: userData.role
-      }) as unknown as Promise<{ error: any }>;
+      }) as unknown as { error: any };
       
-      if (error) {
-        console.error('Error updating user role:', error);
-        throw error;
+      if (response.error) {
+        console.error('Error updating user role:', response.error);
+        throw response.error;
       }
     }
     

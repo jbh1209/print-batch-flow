@@ -94,20 +94,24 @@ export async function createUser(userData: UserFormData): Promise<User> {
     if (userData.role && userData.role !== 'user') {
       console.log(`Setting user ${data.user.id} role to ${userData.role}`);
       try {
-        // Try secured function first with type assertion
-        const { error: roleError } = await supabase.rpc('set_user_role_admin', {
+        // Try secured function first with proper typing
+        const response = await supabase.rpc('set_user_role_admin', {
           _target_user_id: data.user.id,
           _new_role: userData.role
-        }) as unknown as Promise<{ error: any }>;
+        }) as unknown as { error: any };
         
-        if (roleError) {
-          console.error('Error setting role with secure function:', roleError);
+        if (response.error) {
+          console.error('Error setting role with secure function:', response.error);
           
-          // Fall back to regular function with type assertion
-          await supabase.rpc('set_user_role', {
+          // Fall back to regular function with proper typing
+          const fallbackResponse = await supabase.rpc('set_user_role', {
             target_user_id: data.user.id,
             new_role: userData.role
-          }) as unknown as Promise<{ error: any }>;
+          }) as unknown as { error: any };
+          
+          if (fallbackResponse.error) {
+            throw fallbackResponse.error;
+          }
         }
       } catch (roleError) {
         console.error('Error setting user role:', roleError);
