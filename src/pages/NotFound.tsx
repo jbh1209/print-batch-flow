@@ -24,8 +24,23 @@ const NotFound = () => {
     // Get path segments for analysis
     const segments = path.split('/');
     
+    // Special handling for flyer batch paths
+    if (path.includes('/flyers/batches') && segments.length >= 4) {
+      if (segments[3] === 'batches') {
+        // User likely trying to access /batches/flyers/batches/
+        if (segments.length === 4) {
+          // They're trying to access the list view
+          suggestion = '/batches/flyers';
+        } else if (segments.length >= 5 && segments[4]) {
+          // They're trying to access a specific batch
+          const batchId = segments[4];
+          suggestion = `/batches/flyers/batches/${batchId}`;
+        }
+      }
+    }
+    
     // Check for business cards job detail paths
-    if (path.includes('/batches/business-cards/jobs/') && segments.length >= 5) {
+    else if (path.includes('/batches/business-cards/jobs/') && segments.length >= 5) {
       if (path.includes('/edit/')) {
         // This is likely trying to be an edit path with wrong format
         const jobId = segments[4];

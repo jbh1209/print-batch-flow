@@ -57,9 +57,9 @@ export function useBatchDeletion(tableName: TableNameParam, onSuccessCallback?: 
       if (onSuccessCallback) {
         onSuccessCallback();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting batch:", error);
-      toast.error("Failed to delete batch. Please try again.");
+      toast.error(`Failed to delete batch: ${error.message || "Please try again."}`);
     } finally {
       setIsDeleting(false);
       setBatchToDelete(null);

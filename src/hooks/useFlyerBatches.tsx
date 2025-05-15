@@ -49,7 +49,7 @@ export function useFlyerBatches(batchId: string | null = null) {
           sheets_required: batch.sheets_required,
           front_pdf_url: batch.front_pdf_url,
           back_pdf_url: batch.back_pdf_url,
-          overview_pdf_url: null, // Set to null since it doesn't exist in database yet
+          overview_pdf_url: batch.overview_pdf_url || null, // Set to null since it doesn't exist in database yet
           due_date: batch.due_date,
           created_at: batch.created_at,
           lamination_type: batch.lamination_type,
@@ -125,13 +125,13 @@ export function useFlyerBatches(batchId: string | null = null) {
       
       console.log("Batch deleted successfully");
       
-      toast.success("Batch deleted and its jobs returned to queue");
+      // Update local state to remove the deleted batch
+      setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchToDelete));
       
-      // Refresh batch list
-      fetchBatches();
-    } catch (error) {
-      console.error("Error deleting batch:", error);
-      toast.error("Failed to delete batch. Please try again.");
+      toast.success("Batch deleted and its jobs returned to queue");
+    } catch (err: any) {
+      console.error("Error deleting batch:", err);
+      toast.error(`Failed to delete batch: ${err.message || "Unknown error"}`);
     } finally {
       setIsDeleting(false);
       setBatchToDelete(null);

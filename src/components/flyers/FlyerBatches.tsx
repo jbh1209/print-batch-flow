@@ -9,6 +9,7 @@ import FlyerBatchDetails from "@/pages/FlyerBatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { BatchesHeader } from "./components/batches/BatchesHeader";
 import { BatchesErrorAlert } from "./components/batches/BatchesErrorAlert";
+import BatchDeleteDialog from "@/components/flyers/batch-details/DeleteBatchDialog";
 
 const FlyerBatches = () => {
   const [searchParams] = useSearchParams();
@@ -18,9 +19,13 @@ const FlyerBatches = () => {
     batches,
     isLoading,
     error,
+    batchToDelete,
+    isDeleting,
     fetchBatches,
     handleViewPDF,
-    handleViewBatchDetails
+    handleViewBatchDetails,
+    handleDeleteBatch,
+    setBatchToDelete
   } = useFlyerBatches();
 
   // Convert FlyerBatch[] to BatchSummary[] for BatchesWrapper
@@ -59,7 +64,15 @@ const FlyerBatches = () => {
         onRefresh={fetchBatches}
         onViewPDF={handleViewPDF}
         onViewDetails={handleViewBatchDetails}
-        onDeleteBatch={(id) => console.log('Delete batch', id)}
+        onDeleteBatch={setBatchToDelete}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <BatchDeleteDialog 
+        isOpen={!!batchToDelete}
+        isDeleting={isDeleting}
+        onClose={() => setBatchToDelete(null)}
+        onConfirm={handleDeleteBatch}
       />
     </div>
   );

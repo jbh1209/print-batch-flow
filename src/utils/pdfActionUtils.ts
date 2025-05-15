@@ -1,42 +1,33 @@
 
 import { toast } from "sonner";
-import { getSignedUrl } from "./pdf/urlUtils";
-import { downloadFile, openInNewTab } from "./pdf/downloadUtils";
-import { handlePdfError } from "./pdf/errorUtils";
 
 /**
- * Handles PDF view or download actions
+ * Handles PDF actions like viewing or downloading
+ * @param url The URL of the PDF to operate on
+ * @param action The action to perform ('view' or 'download')
+ * @returns void
  */
-export const handlePdfAction = async (
-  url: string | null,
-  action: 'view' | 'download',
-  filename?: string
-): Promise<void> => {
+export const handlePdfAction = (url: string | null, action: 'view' | 'download') => {
   if (!url) {
-    toast.error("PDF URL is not available");
+    toast.error('No PDF URL provided');
     return;
   }
 
   try {
-    console.log(`Attempting to access PDF at: ${url}`);
-    
-    // Get signed URL if needed
-    const isAlreadySigned = url.includes('/sign/');
-    const accessUrl = isAlreadySigned ? url : await getSignedUrl(url);
-    
-    if (!accessUrl) {
-      throw new Error("Could not generate a valid URL for this PDF");
-    }
-
-    console.log(`Access URL generated: ${accessUrl.substring(0, 100)}...`);
-    
     if (action === 'view') {
-      openInNewTab(accessUrl);
-    } else {
-      const displayFilename = filename || url.split('/').pop() || 'document.pdf';
-      downloadFile(accessUrl, displayFilename);
+      // Open PDF in a new tab
+      window.open(url, '_blank');
+    } else if (action === 'download') {
+      // Create a temporary link to trigger the download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `document-${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   } catch (error) {
-    handlePdfError(error);
+    console.error(`Error ${action === 'view' ? 'viewing' : 'downloading'} PDF:`, error);
+    toast.error(`Failed to ${action === 'view' ? 'view' : 'download'} PDF. Please try again.`);
   }
 };
