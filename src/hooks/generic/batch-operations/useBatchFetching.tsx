@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,7 +115,7 @@ export function useBatchFetching(
               console.log('Manual filtered batch names:', filteredBatches.map(b => b.name).join(', '));
               setBatches(filteredBatches.map(batch => ({
                 ...batch,
-                overview_pdf_url: null,
+                overview_pdf_url: batch.overview_pdf_url || null,
                 lamination_type: batch.lamination_type || "none"
               })));
               setIsLoading(false);
@@ -126,9 +127,10 @@ export function useBatchFetching(
         }
       }
       
+      // Convert database records to BaseBatch objects with required properties
       const genericBatches: BaseBatch[] = (data || []).map(batch => ({
         ...batch,
-        // Always ensure overview_pdf_url is defined, even if it's null
+        // Ensure overview_pdf_url is always defined, even if it's null
         overview_pdf_url: batch.overview_pdf_url || null,
         lamination_type: batch.lamination_type || "none"
       }));

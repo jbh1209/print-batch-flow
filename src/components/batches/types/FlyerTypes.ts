@@ -14,11 +14,11 @@ export interface FlyerBatch {
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
-  overview_pdf_url: string | null; // Property needed by the UI
+  overview_pdf_url: string | null; // Ensure this property is included
   due_date: string;
   created_at: string;
   lamination_type: LaminationType;
-  // Add missing properties needed by FlyerBatchDetails.tsx
+  // Add missing properties needed by the UI
   paper_type?: string;
   paper_weight?: string;
   sheet_size?: string;
