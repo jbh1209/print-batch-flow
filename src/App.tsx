@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -15,7 +16,7 @@ import Index from '@/pages/Index';
 
 // Import the product type specific pages
 import BusinessCardBatches from '@/pages/BusinessCardBatches';
-import FlyerBatches from '@/components/flyers/FlyerBatches';
+import FlyerBatches from '@/pages/FlyerBatches';
 import BusinessCardJobs from '@/pages/BusinessCardJobs';
 import BusinessCardJobNew from '@/pages/BusinessCardJobNew';
 import BusinessCardJobEdit from '@/pages/BusinessCardJobEdit';
@@ -105,7 +106,7 @@ function App() {
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
                 </Route>
                 
-                {/* Flyers Routes - Updated to use consistent path parameters */}
+                {/* Flyers Routes - Updated to use path parameters consistently */}
                 <Route path="batches/flyers">
                   <Route index element={<FlyerBatches />} />
                   <Route path="batches" element={<FlyerBatches />} />

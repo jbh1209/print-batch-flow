@@ -63,7 +63,7 @@ export function useBatchDeletion(tableName: TableNameParam, onSuccessCallback?: 
       // Get the current path to determine which batch page we're on
       const currentPath = window.location.pathname;
       
-      // If we're on a specific batch details page, navigate back to the list page
+      // Always navigate back to the batch list page if we're on a details page
       if (currentPath.includes('/batches/') && currentPath.split('/').length > 3) {
         const basePath = '/' + currentPath.split('/').slice(1, 3).join('/');
         console.log(`Navigating back to batch list: ${basePath}`);

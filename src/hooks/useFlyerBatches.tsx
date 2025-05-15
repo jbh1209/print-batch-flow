@@ -153,10 +153,8 @@ export function useFlyerBatches(batchId: string | null = null) {
       
       toast.success("Batch deleted and its jobs returned to queue");
       
-      // If we're on a batch details page, navigate back to the batches list
-      if (batchId) {
-        navigate("/batches/flyers/batches");
-      }
+      // Always navigate back to the batches list after deleting, whether we're on details page or not
+      navigate("/batches/flyers/batches");
     } catch (err: any) {
       console.error("Error deleting batch:", err);
       toast.error(`Failed to delete batch: ${err.message || "Unknown error"}`);

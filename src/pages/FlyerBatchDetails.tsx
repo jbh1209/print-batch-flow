@@ -1,10 +1,9 @@
 
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useFlyerBatches } from '@/hooks/useFlyerBatches';
 import { FlyerBatchOverview } from '@/components/flyers/FlyerBatchOverview';
 import FlyerBatchLoading from '@/components/flyers/batch-details/FlyerBatchLoading';
 import EmptyBatchState from '@/components/flyers/batch-details/EmptyBatchState';
-import DeleteBatchDialog from '@/components/flyers/batch-details/DeleteBatchDialog';
 import BatchDetailsHeader from '@/components/flyers/batch-details/BatchDetailsHeader';
 import BatchDetailsCard from '@/components/batches/BatchDetailsCard';
 import BatchActionsCard from '@/components/batches/BatchActionsCard';
@@ -12,9 +11,11 @@ import RelatedJobsCard from '@/components/batches/RelatedJobsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
+import BatchDeleteDialog from '@/components/batches/DeleteBatchDialog';
 
 const FlyerBatchDetails = () => {
-  const { batchId } = useParams(); // Use path parameter instead of query parameter
+  const { batchId } = useParams();
+  const navigate = useNavigate();
   const [relatedJobs, setRelatedJobs] = useState<FlyerJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   
@@ -92,12 +93,13 @@ const FlyerBatchDetails = () => {
         </>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <DeleteBatchDialog 
+      {/* Delete Confirmation Dialog - Use consistent component & props */}
+      <BatchDeleteDialog 
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
+        batchName={batch.name}
         onClose={() => setBatchToDelete(null)}
-        onConfirm={handleDeleteBatch}
+        onConfirmDelete={handleDeleteBatch}
       />
     </div>
   );
