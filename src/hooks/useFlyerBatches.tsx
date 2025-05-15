@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -5,6 +6,29 @@ import { FlyerBatch } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { handlePdfAction } from '@/utils/pdfActionUtils';
+import { BatchStatus } from '@/config/types/baseTypes';
+
+// Define a type that matches what Supabase returns for batches
+interface SupabaseBatch {
+  id: string;
+  name: string;
+  status: string;
+  sheets_required: number;
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
+  overview_pdf_url?: string | null; // May or may not exist in the database
+  due_date: string;
+  created_at: string;
+  lamination_type?: string;
+  paper_type?: string;
+  paper_weight?: string;
+  sheet_size?: string;
+  printer_type?: string;
+  created_by: string;
+  updated_at: string;
+  date_created?: string;
+  [key: string]: any; // Allow for any additional properties
+}
 
 export function useFlyerBatches(batchId: string | null = null) {
   const { user } = useAuth();
@@ -39,28 +63,27 @@ export function useFlyerBatches(batchId: string | null = null) {
       if (fetchError) throw fetchError;
 
       // Convert to FlyerBatch type and ensure all required properties exist
-      const flyerBatches: FlyerBatch[] = (data || []).map(batch => {
-        return {
-          id: batch.id,
-          name: batch.name,
-          status: batch.status,
-          sheets_required: batch.sheets_required,
-          front_pdf_url: batch.front_pdf_url,
-          back_pdf_url: batch.back_pdf_url,
-          // Make sure to use the overview_pdf_url if it exists, or default to null
-          overview_pdf_url: batch.overview_pdf_url || null,
-          due_date: batch.due_date,
-          created_at: batch.created_at,
-          lamination_type: batch.lamination_type,
-          paper_type: batch.paper_type,
-          paper_weight: batch.paper_weight,
-          sheet_size: batch.sheet_size,
-          printer_type: batch.printer_type,
-          created_by: batch.created_by,
-          updated_at: batch.updated_at,
-          date_created: batch.date_created
-        } as FlyerBatch;
-      });
+      // Use explicit type assertion for the batch parameter
+      const flyerBatches: FlyerBatch[] = (data || []).map((batch: SupabaseBatch) => ({
+        id: batch.id,
+        name: batch.name,
+        status: (batch.status as BatchStatus) || 'pending',
+        sheets_required: batch.sheets_required,
+        front_pdf_url: batch.front_pdf_url,
+        back_pdf_url: batch.back_pdf_url,
+        // Make sure to use the overview_pdf_url if it exists, or default to null
+        overview_pdf_url: batch.overview_pdf_url || null,
+        due_date: batch.due_date,
+        created_at: batch.created_at,
+        lamination_type: batch.lamination_type || 'none',
+        paper_type: batch.paper_type,
+        paper_weight: batch.paper_weight,
+        sheet_size: batch.sheet_size,
+        printer_type: batch.printer_type,
+        created_by: batch.created_by,
+        updated_at: batch.updated_at,
+        date_created: batch.date_created
+      }));
       
       setBatches(flyerBatches);
       

@@ -10,6 +10,29 @@ interface BatchFetchingOptions {
   filterByCurrentUser?: boolean;
 }
 
+// Define a type that matches what Supabase returns for batches
+interface SupabaseBatch {
+  id: string;
+  name: string;
+  status: string;
+  sheets_required: number;
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
+  overview_pdf_url?: string | null; // May or may not exist in the database
+  due_date: string;
+  created_at: string;
+  lamination_type?: string;
+  paper_type?: string;
+  paper_weight?: string;
+  sides?: string;
+  created_by?: string;
+  updated_at?: string;
+  date_created?: string;
+  sheet_size?: string;
+  printer_type?: string;
+  [key: string]: any; // Allow for any additional properties
+}
+
 export function useBatchFetching(
   config: ProductConfig, 
   batchId: string | null = null,
@@ -113,11 +136,16 @@ export function useBatchFetching(
             if (filteredBatches.length > 0) {
               console.log('Manually filtered batches found:', filteredBatches.length);
               console.log('Manual filtered batch names:', filteredBatches.map(b => b.name).join(', '));
-              setBatches(filteredBatches.map(batch => ({
+              
+              // Convert to BaseBatch type with explicit type assertion
+              const typedBatches: BaseBatch[] = filteredBatches.map((batch: SupabaseBatch) => ({
                 ...batch,
                 overview_pdf_url: batch.overview_pdf_url || null,
-                lamination_type: batch.lamination_type || "none"
-              })));
+                lamination_type: batch.lamination_type || "none",
+                status: (batch.status as BatchStatus) || 'pending'
+              }));
+              
+              setBatches(typedBatches);
               setIsLoading(false);
               return;
             } else {
@@ -128,11 +156,13 @@ export function useBatchFetching(
       }
       
       // Convert database records to BaseBatch objects with required properties
-      const genericBatches: BaseBatch[] = (data || []).map(batch => ({
+      // Use explicit typing for the batch parameter
+      const genericBatches: BaseBatch[] = (data || []).map((batch: SupabaseBatch) => ({
         ...batch,
         // Ensure overview_pdf_url is always defined, even if it's null
         overview_pdf_url: batch.overview_pdf_url || null,
-        lamination_type: batch.lamination_type || "none"
+        lamination_type: batch.lamination_type || "none",
+        status: (batch.status as BatchStatus) || 'pending'
       }));
       
       setBatches(genericBatches);
