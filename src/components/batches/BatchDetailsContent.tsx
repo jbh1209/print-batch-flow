@@ -34,11 +34,20 @@ const BatchDetailsContent = ({
     
     try {
       console.log("Attempting to download job PDFs for product type:", productType);
+      console.log("Jobs data available:", relatedJobs.length, "jobs");
+      console.log("First job sample:", relatedJobs[0]);
       
       // Special handling for business cards - uses dedicated function
       if (productType === "Business Cards") {
         console.log("Using Business Cards specific download function");
         toast.loading("Preparing Business Card PDFs for download...");
+        
+        // Check if double_sided property exists on jobs
+        const hasRequiredProperties = relatedJobs.every(job => 'double_sided' in job);
+        if (!hasRequiredProperties) {
+          console.warn("Warning: Some jobs are missing the double_sided property needed for PDF generation");
+        }
+        
         await downloadBatchJobPdfs(relatedJobs, batch.name);
         toast.success("Business card job PDFs downloaded successfully");
       } else {
@@ -47,7 +56,7 @@ const BatchDetailsContent = ({
       }
     } catch (error) {
       console.error("Error downloading job PDFs:", error);
-      toast.error("Failed to download job PDFs");
+      toast.error(`Failed to download job PDFs: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

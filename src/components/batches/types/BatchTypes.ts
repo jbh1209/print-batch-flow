@@ -20,6 +20,7 @@ export interface Job {
   status: string;
   pdf_url: string | null;
   job_number: string;  // Explicitly required, not optional
+  double_sided?: boolean; // Added for Business Card jobs PDF generation
   size?: string;
   sides?: string;
   stock_type?: string;

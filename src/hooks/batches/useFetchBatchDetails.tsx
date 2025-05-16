@@ -77,29 +77,38 @@ export function useFetchBatchDetails({
       let jobsData: Job[] = [];
       
       if (productType === "Business Cards") {
+        console.log("Fetching business card jobs with ALL fields needed for PDF generation");
         // Remove user filter from job queries as well
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number")
+          .select("*") // Select all fields to ensure we get double_sided and other required fields
           .eq("batch_id", batchId)
           .order("name");
         
         if (jobsError) throw jobsError;
         
-        // Map jobs to include job_number
+        console.log(`Found ${jobs?.length || 0} business card jobs, with full field data`);
+        
+        // Map jobs to include job_number and double_sided for PDF generation
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
           quantity: job.quantity,
           status: job.status,
           pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`, // Ensure job_number is always provided
+          double_sided: job.double_sided, // Important for PDF generation
+          paper_type: job.paper_type,
+          lamination_type: job.lamination_type,
+          file_name: job.file_name,
+          created_at: job.created_at,
+          due_date: job.due_date
         }));
       } else if (productType === "Flyers") {
         // Remove user filter from job queries
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number")
+          .select("*")
           .eq("batch_id", batchId)
           .order("name");
         
