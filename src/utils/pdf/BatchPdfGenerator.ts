@@ -1,6 +1,6 @@
 
 import { PDFDocument } from "pdf-lib";
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job } from "@/components/batches/types/BatchTypes";
 import { mmToPoints } from "./pdfUnitHelpers";
 import calculateJobPageDistribution from "./JobPageDistributor";
 import { processJobPdfs } from "./PdfPageProcessor";

@@ -1,11 +1,13 @@
 
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job } from "@/components/batches/types/BatchTypes";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
 
 export function isBusinessCardJobs(jobs: Job[] | FlyerJob[] | BaseJob[]): jobs is Job[] {
   if (jobs.length === 0) return false;
-  return 'double_sided' in jobs[0];
+  // Check for presence of business card properties 
+  // Also check job structure to ensure it's a Job type
+  return 'job_number' in jobs[0] && ('double_sided' in jobs[0] || 'lamination_type' in jobs[0]);
 }
 
 export function isFlyerJobs(jobs: Job[] | FlyerJob[] | BaseJob[]): jobs is FlyerJob[] {

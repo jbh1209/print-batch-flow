@@ -16,6 +16,14 @@ const TOTAL_SLOTS_PER_BATCH = 24;
 export async function downloadBatchJobPdfs(jobs: Job[], batchName: string): Promise<void> {
   try {
     toast.loading("Preparing batch job PDFs for download...");
+    console.log(`Starting to download batch job PDFs for ${jobs.length} jobs`);
+    
+    // Check if double_sided property exists on jobs
+    const missingProps = jobs.filter(job => job.double_sided === undefined);
+    if (missingProps.length > 0) {
+      console.warn(`Warning: ${missingProps.length} jobs are missing the double_sided property`);
+      console.log("Sample job missing double_sided:", missingProps[0]?.id);
+    }
     
     // Generate consolidated PDF with multiple copies per job based on slot allocation
     const consolidatedPdf = await generateConsolidatedJobPdfs(jobs);
@@ -38,7 +46,7 @@ export async function downloadBatchJobPdfs(jobs: Job[], batchName: string): Prom
     toast.success("Batch job PDFs downloaded successfully");
   } catch (error) {
     console.error("Error downloading batch job PDFs:", error);
-    toast.error("Failed to download batch job PDFs");
+    toast.error(`Failed to download batch job PDFs: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 
@@ -88,7 +96,8 @@ async function generateConsolidatedJobPdfs(jobs: Job[]): Promise<PDFDocument> {
       const pageCount = jobPdf.getPageCount();
       
       // Determine if this is a single or double-sided job
-      const isDoubleSided = pageCount > 1;
+      // Default to false if double_sided is not provided (for backward compatibility)
+      const isDoubleSided = job.double_sided ?? (pageCount > 1);
       
       // Find this job's slot allocation from our calculation
       const jobAllocation = jobDistribution.find(j => j.jobId === job.id);
@@ -136,7 +145,7 @@ async function generateConsolidatedJobPdfs(jobs: Job[]): Promise<PDFDocument> {
       console.error(`Error processing PDF for job ${job.id}:`, error);
       
       // Add error page for this job
-      const errorPdf = await createErrorPdf(job as any, `Failed to process PDF: ${error}`);
+      const errorPdf = await createErrorPdf(job, `Failed to process PDF: ${error}`);
       const [errorPage] = await consolidatedPdf.copyPages(errorPdf, [0]);
       consolidatedPdf.addPage(errorPage);
     }

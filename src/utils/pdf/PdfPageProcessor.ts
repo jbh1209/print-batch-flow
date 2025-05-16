@@ -2,7 +2,7 @@
 import { PDFDocument } from "pdf-lib";
 import { loadPdfAsBytes } from "./pdfLoaderCore";
 import { createErrorPdf } from "./emptyPdfGenerator";
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job } from "@/components/batches/types/BatchTypes";
 
 export interface ProcessedJobPages {
   jobId: string;
@@ -51,7 +51,8 @@ export async function processJobPdfs(
         jobName: job.name,
         frontPages: [],
         backPages: [],
-        isDoubleSided: job.double_sided
+        // Use double_sided property if available, otherwise infer from pageCount
+        isDoubleSided: job.double_sided !== undefined ? job.double_sided : pageCount > 1
       };
       
       // Extract front and back pages
@@ -76,7 +77,7 @@ export async function processJobPdfs(
         }
         
         // For double-sided jobs, extract back pages if available
-        if (job.double_sided && pageCount >= 2) {
+        if (processedJob.isDoubleSided && pageCount >= 2) {
           // Extract and duplicate back page
           const backPageBuffer = await extractAndDuplicatePage(pdfDoc, 1, allocation.slotsNeeded);
           if (backPageBuffer) {
@@ -85,7 +86,7 @@ export async function processJobPdfs(
           } else {
             throw new Error("Failed to extract back page");
           }
-        } else if (job.double_sided) {
+        } else if (processedJob.isDoubleSided) {
           // Double-sided but missing back page
           console.warn(`Job ${job.id} is marked as double-sided but PDF doesn't have a back page`);
           // Create an empty back page
@@ -112,8 +113,8 @@ export async function processJobPdfs(
         jobId: job.id,
         jobName: job.name,
         frontPages: new Array(allocation.slotsNeeded).fill(errorPdfBytes),
-        backPages: job.double_sided ? new Array(allocation.slotsNeeded).fill(errorPdfBytes) : [],
-        isDoubleSided: job.double_sided,
+        backPages: allocation.isDoubleSided ? new Array(allocation.slotsNeeded).fill(errorPdfBytes) : [],
+        isDoubleSided: allocation.isDoubleSided,
         error: errorMessage
       });
     }
