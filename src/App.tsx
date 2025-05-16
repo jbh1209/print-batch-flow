@@ -20,21 +20,15 @@ import ProductsListPage from '@/pages/admin/ProductsListPage';
 import CreateProductPage from '@/pages/admin/CreateProductPage';
 import EditProductPage from '@/pages/admin/EditProductPage';
 
-// Import only the business cards and flyer pages
+// Import only the business cards pages
 import BusinessCardBatches from '@/pages/BusinessCardBatches';
-import FlyerBatches from '@/pages/FlyerBatches';
 import BusinessCardJobs from '@/pages/BusinessCardJobs';
 import BusinessCardJobNew from '@/pages/BusinessCardJobNew';
 import BusinessCardJobEdit from '@/pages/BusinessCardJobEdit';
-import FlyerJobNew from '@/pages/FlyerJobNew';
-import FlyerJobDetail from '@/pages/FlyerJobDetail';
-import FlyerJobEdit from '@/pages/FlyerJobEdit';
+import BusinessCardJobDetail from '@/pages/BusinessCardJobDetail';
 import BatchDetailsPage from '@/pages/BatchDetailsPage';
-import FlyerJobsPage from '@/pages/generic/FlyerJobsPage';
-import FlyerBatchDetailsPage from '@/pages/generic/FlyerBatchDetailsPage';
 import AllBatches from '@/pages/AllBatches';
 import AllJobsPage from '@/pages/AllJobsPage';
-import BusinessCardJobDetail from '@/pages/BusinessCardJobDetail';
 
 // Add a version key for cache busting
 const appVersion = Date.now().toString();
@@ -102,15 +96,8 @@ function App() {
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
                 </Route>
                 
-                {/* Flyers Routes */}
-                <Route path="batches/flyers">
-                  <Route index element={<FlyerBatches />} />
-                  <Route path="batches/:batchId" element={<FlyerBatchDetailsPage />} />
-                  <Route path="jobs" element={<FlyerJobsPage key={`flyer-jobs-${appVersion}`} />} />
-                  <Route path="jobs/new" element={<FlyerJobNew />} />
-                  <Route path="jobs/:id" element={<FlyerJobDetail />} />
-                  <Route path="jobs/:jobId/edit" element={<FlyerJobEdit />} />
-                </Route>
+                {/* Note: Routes for dynamically created products will be handled by generic components */}
+                {/* and will be generated based on the product_types database table */}
                 
                 {/* Catch all other routes inside the layout */}
                 <Route path="*" element={<NotFound />} />

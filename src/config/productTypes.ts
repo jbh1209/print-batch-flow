@@ -7,14 +7,12 @@ export * from './types/productConfigTypes';
 
 // Import only the required product configs
 import { businessCardsConfig } from './products/businessCards';
-import { flyersConfig } from './products/flyers';
 import { ProductConfig } from './types/productConfigTypes';
 import { ExistingTableName } from './types/baseTypes';
 
-// Export product configs dictionary with only Business Cards and Flyers
+// Export product configs dictionary with only Business Cards
 export const productConfigs: Record<string, ProductConfig> = {
   "BusinessCards": businessCardsConfig,
-  "Flyers": flyersConfig,
 };
 
 // Additional type exports for compatibility

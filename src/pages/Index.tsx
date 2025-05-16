@@ -83,8 +83,8 @@ const Index = () => {
           </Card>
         </div>
         
-        {/* Dynamic Products Section */}
-        {productTypes.length > 0 && (
+        {/* Dynamic Products Section - Show products from database */}
+        {productTypes.length > 0 && productTypes.some(product => product.slug !== 'business-cards') && (
           <>
             <h2 className="text-xl font-bold mb-4">Custom Products</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
