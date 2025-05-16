@@ -14,7 +14,7 @@ import UsersPage from '@/pages/UsersPage';
 import NotFound from '@/pages/NotFound';
 import Index from '@/pages/Index';
 
-// Import the product type specific pages
+// Import only the business cards and flyer pages
 import BusinessCardBatches from '@/pages/BusinessCardBatches';
 import FlyerBatches from '@/pages/FlyerBatches';
 import BusinessCardJobs from '@/pages/BusinessCardJobs';
@@ -24,44 +24,11 @@ import FlyerJobNew from '@/pages/FlyerJobNew';
 import FlyerJobDetail from '@/pages/FlyerJobDetail';
 import FlyerJobEdit from '@/pages/FlyerJobEdit';
 import BatchDetailsPage from '@/pages/BatchDetailsPage';
-
-// Import generic product pages
-import BoxBatchesPage from '@/pages/generic/BoxBatchesPage';
-import BoxJobsPage from '@/pages/generic/BoxJobsPage';
-import BoxJobNewPage from '@/pages/generic/BoxJobNewPage';
-import BoxJobEditPage from '@/pages/generic/BoxJobEditPage';
-import PostcardBatchesPage from '@/pages/generic/PostcardBatchesPage';
-import PostcardJobsPage from '@/pages/generic/PostcardJobsPage';
-import PostcardJobNewPage from '@/pages/generic/PostcardJobNewPage';
-import PostcardJobEditPage from '@/pages/generic/PostcardJobEditPage';
-import SleeveBatchesPage from '@/pages/generic/SleeveBatchesPage';
-import SleeveJobsPage from '@/pages/generic/SleeveJobsPage';
-import SleeveJobNewPage from '@/pages/generic/SleeveJobNewPage';
-import SleeveJobEditPage from '@/pages/generic/SleeveJobEditPage';
-import StickerBatchesPage from '@/pages/generic/StickerBatchesPage';
-import StickerJobsPage from '@/pages/generic/StickerJobsPage';
-import StickerJobNewPage from '@/pages/generic/StickerJobNewPage';
-import StickerJobEditPage from '@/pages/generic/StickerJobEditPage';
-import CoverBatchesPage from '@/pages/generic/CoverBatchesPage';
-import CoverJobsPage from '@/pages/generic/CoverJobsPage';
-import CoverJobNewPage from '@/pages/generic/CoverJobNewPage';
-import CoverJobEditPage from '@/pages/generic/CoverJobEditPage';
-import PosterBatchesPage from '@/pages/generic/PosterBatchesPage';
-import PosterJobsPage from '@/pages/generic/PosterJobsPage';
-import PosterJobNewPage from '@/pages/generic/PosterJobNewPage';
-import PosterJobEditPage from '@/pages/generic/PosterJobEditPage';
+import FlyerJobsPage from '@/pages/generic/FlyerJobsPage';
 import FlyerBatchDetailsPage from '@/pages/generic/FlyerBatchDetailsPage';
 import AllBatches from '@/pages/AllBatches';
 import AllJobsPage from '@/pages/AllJobsPage';
-
-// Import for generic batch detail pages
-import GenericBatchDetailsPage from '@/pages/generic/GenericBatchDetailsPage';
-import GenericJobDetailsPage from '@/pages/generic/GenericJobDetailsPage';
-import { productConfigs } from '@/config/productTypes';
 import BusinessCardJobDetail from '@/pages/BusinessCardJobDetail';
-
-// Import FlyerJobsPage instead of FlyerJobs
-import FlyerJobsPage from '@/pages/generic/FlyerJobsPage';
 
 // Add a version key for cache busting
 const appVersion = Date.now().toString();
@@ -113,7 +80,7 @@ function App() {
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
                 </Route>
                 
-                {/* Flyers Routes - Using FlyerJobsPage component explicitly */}
+                {/* Flyers Routes */}
                 <Route path="batches/flyers">
                   <Route index element={<FlyerBatches />} />
                   <Route path="batches/:batchId" element={<FlyerBatchDetailsPage />} />
@@ -121,90 +88,6 @@ function App() {
                   <Route path="jobs/new" element={<FlyerJobNew />} />
                   <Route path="jobs/:id" element={<FlyerJobDetail />} />
                   <Route path="jobs/:jobId/edit" element={<FlyerJobEdit />} />
-                </Route>
-                
-                {/* Postcards Routes */}
-                <Route path="batches/postcards">
-                  <Route index element={<PostcardBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Postcards"]} />
-                  } />
-                  <Route path="jobs" element={<PostcardJobsPage key={`postcard-jobs-${appVersion}`} />} />
-                  <Route path="jobs/new" element={<PostcardJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Postcards"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<PostcardJobEditPage />} />
-                </Route>
-                
-                {/* Boxes Routes */}
-                <Route path="batches/boxes">
-                  <Route index element={<BoxBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Boxes"]} />
-                  } />
-                  <Route path="jobs" element={<BoxJobsPage key={`box-jobs-${appVersion}`} />} />
-                  <Route path="jobs/new" element={<BoxJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Boxes"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<BoxJobEditPage />} />
-                </Route>
-                
-                {/* Sleeves Routes */}
-                <Route path="batches/sleeves">
-                  <Route index element={<SleeveBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Sleeves"]} />
-                  } />
-                  <Route path="jobs" element={<SleeveJobsPage key={`sleeve-jobs-${appVersion}`} />} />
-                  <Route path="jobs/new" element={<SleeveJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Sleeves"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<SleeveJobEditPage />} />
-                </Route>
-                
-                {/* Stickers Routes */}
-                <Route path="batches/stickers">
-                  <Route index element={<StickerBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Stickers"]} />
-                  } />
-                  <Route path="jobs" element={<StickerJobsPage key={`sticker-jobs-${appVersion}`} />} />
-                  <Route path="jobs/new" element={<StickerJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Stickers"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<StickerJobEditPage />} />
-                </Route>
-                
-                {/* Covers Routes */}
-                <Route path="batches/covers">
-                  <Route index element={<CoverBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Covers"]} />
-                  } />
-                  <Route path="jobs" element={<CoverJobsPage key={`cover-jobs-${appVersion}`} />} />
-                  <Route path="jobs/new" element={<CoverJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Covers"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<CoverJobEditPage />} />
-                </Route>
-                
-                {/* Posters Routes */}
-                <Route path="batches/posters">
-                  <Route index element={<PosterBatchesPage />} />
-                  <Route path="batches/:batchId" element={
-                    <GenericBatchDetailsPage config={productConfigs["Posters"]} />
-                  } />
-                  <Route path="jobs" element={<PosterJobsPage key={`poster-jobs-${appVersion}`} />} />
-                  <Route path="jobs/new" element={<PosterJobNewPage />} />
-                  <Route path="jobs/:id" element={
-                    <GenericJobDetailsPage config={productConfigs["Posters"]} />
-                  } />
-                  <Route path="jobs/:jobId/edit" element={<PosterJobEditPage />} />
                 </Route>
                 
                 {/* Catch all other routes inside the layout */}

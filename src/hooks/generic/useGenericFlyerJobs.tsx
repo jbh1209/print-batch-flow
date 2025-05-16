@@ -21,7 +21,6 @@ export function useGenericFlyerJobs() {
   
   console.log(`[useGenericFlyerJobs] Hook executed, jobs count: ${genericJobs.jobs.length}`);
   
-  // Return the generic jobs hook with the right type
   return {
     ...genericJobs,
     renderKey
