@@ -170,6 +170,18 @@ export function useProductTypes() {
     }
   };
 
+  // Get the current cache status using API available in the current version
+  const getCacheStatus = () => {
+    const queryState = queryClient.getQueryState(['productTypes']);
+    return {
+      isFetching,
+      isStale: queryClient.getQueryState(['productTypes'])?.fetchStatus === 'idle' && 
+              queryClient.getQueryState(['productTypes'])?.dataUpdateCount !== undefined && 
+              queryClient.getQueryState(['productTypes'])?.dataUpdateCount > 0,
+      dataUpdatedAt: queryState?.dataUpdatedAt || 0
+    };
+  };
+
   return {
     productTypes,
     isLoading: isLoading || isFetching,
@@ -178,11 +190,7 @@ export function useProductTypes() {
     forceClearCache,
     getProductDetails,
     deleteProduct: deleteProductMutation.mutate,
-    cacheInfo: {
-      isFetching,
-      isStale: queryClient.getQueryState(['productTypes'])?.isStale || false,
-      dataUpdatedAt: queryClient.getQueryState(['productTypes'])?.dataUpdatedAt || 0
-    }
+    cacheInfo: getCacheStatus()
   };
 }
 

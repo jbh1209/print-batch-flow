@@ -38,8 +38,12 @@ export const CacheManager = {
   getCacheStatus: (queryClient: QueryClient, queryKey: string[]) => {
     const queryState = queryClient.getQueryState(queryKey);
     
+    // Use properties available in the current version of React Query
     return {
-      isStale: queryState?.isStale || false,
+      // We're checking if the fetch isn't in progress but we have data updates
+      isStale: queryState?.fetchStatus === 'idle' && 
+              queryState?.dataUpdateCount !== undefined && 
+              queryState?.dataUpdateCount > 0,
       isFetching: queryState?.fetchStatus === 'fetching',
       dataUpdatedAt: queryState?.dataUpdatedAt ? new Date(queryState.dataUpdatedAt).toISOString() : null,
       status: queryState?.status || 'unknown',
