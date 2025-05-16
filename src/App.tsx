@@ -14,6 +14,12 @@ import UsersPage from '@/pages/UsersPage';
 import NotFound from '@/pages/NotFound';
 import Index from '@/pages/Index';
 
+// Admin pages
+import AdminLayout from '@/pages/admin/AdminLayout';
+import ProductsListPage from '@/pages/admin/ProductsListPage';
+import CreateProductPage from '@/pages/admin/CreateProductPage';
+import EditProductPage from '@/pages/admin/EditProductPage';
+
 // Import only the business cards and flyer pages
 import BusinessCardBatches from '@/pages/BusinessCardBatches';
 import FlyerBatches from '@/pages/FlyerBatches';
@@ -63,6 +69,13 @@ function App() {
                     <UsersPage />
                   </ProtectedRoute>
                 } />
+
+                {/* Admin Routes */}
+                <Route path="admin" element={<AdminLayout />}>
+                  <Route path="products" element={<ProductsListPage />} />
+                  <Route path="products/create" element={<CreateProductPage />} />
+                  <Route path="products/:id" element={<EditProductPage />} />
+                </Route>
 
                 {/* All batches and jobs */}
                 <Route path="batches" element={<AllBatches />} />

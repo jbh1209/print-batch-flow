@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DebugInfo } from "@/components/ui/debug-info";
 import { generateRenderKey } from "@/utils/cacheUtils";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { CreditCard, Files } from "lucide-react";
+import { CreditCard, Files, Cog } from "lucide-react";
 
 const Index = () => {
   const renderKey = generateRenderKey();
@@ -60,7 +60,7 @@ const Index = () => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="text-xl font-semibold mb-2">All Batches</h2>
             <p className="text-gray-500 mb-4">View batches across all product types.</p>
@@ -74,6 +74,19 @@ const Index = () => {
             <p className="text-gray-500 mb-4">View jobs across all product types.</p>
             <Link to="/all-jobs">
               <Button>View All Jobs</Button>
+            </Link>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4">
+            <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
+              <Cog size={20} className="text-purple-600" />
+              Product Manager
+            </h2>
+            <p className="text-gray-500 mb-4">Create and manage custom product types.</p>
+            <Link to="/admin/products">
+              <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50">
+                Manage Products
+              </Button>
             </Link>
           </div>
         </div>

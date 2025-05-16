@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -17,7 +16,8 @@ import {
   ClipboardList,
   ChevronDown,
   ChevronRight,
-  Plus
+  Plus,
+  Cog
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -288,6 +288,12 @@ const Sidebar = () => {
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Administration</div>}
           {collapsed && <div className="my-4 border-t border-white/10"></div>}
           
+          <NavItem 
+            to="/admin/products" 
+            icon={<Cog size={20} />} 
+            label={collapsed ? "" : "Product Manager"} 
+            isActive={isRouteActive("/admin/products")} 
+          />
           <NavItem 
             to="/users" 
             icon={<Users size={20} />} 
