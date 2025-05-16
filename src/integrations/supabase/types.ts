@@ -486,6 +486,115 @@ export type Database = {
           },
         ]
       }
+      product_field_options: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          option_value: string
+          product_field_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          option_value: string
+          product_field_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          option_value?: string
+          product_field_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_field_options_product_field_id_fkey"
+            columns: ["product_field_id"]
+            isOneToOne: false
+            referencedRelation: "product_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_fields: {
+        Row: {
+          created_at: string
+          field_name: string
+          field_type: string
+          id: string
+          is_required: boolean
+          product_type_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          field_name: string
+          field_type: string
+          id?: string
+          is_required?: boolean
+          product_type_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          product_type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_fields_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_types: {
+        Row: {
+          color: string
+          created_at: string
+          icon_name: string
+          id: string
+          job_prefix: string
+          name: string
+          slug: string
+          table_name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon_name?: string
+          id?: string
+          job_prefix: string
+          name: string
+          slug: string
+          table_name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon_name?: string
+          id?: string
+          job_prefix?: string
+          name?: string
+          slug?: string
+          table_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
