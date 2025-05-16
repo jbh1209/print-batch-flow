@@ -1,5 +1,5 @@
 
-import { Job } from "@/components/batches/types/BatchTypes";
+import { Job, LaminationType } from "@/components/batches/types/BatchTypes";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
 

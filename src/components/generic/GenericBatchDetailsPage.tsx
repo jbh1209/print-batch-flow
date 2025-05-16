@@ -8,7 +8,7 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { BatchDetailsType, Job, LaminationType } from "@/components/batches/types/BatchTypes";
 import BatchDeleteDialog from "@/components/batches/DeleteBatchDialog";
 
 interface GenericBatchDetailsPageProps {
@@ -83,14 +83,17 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs to match the Job interface, ensuring job_number is included
+  // Convert related jobs to match the Job interface, ensuring all required fields are present
   const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
     id: job.id,
     name: job.name || '',
     quantity: job.quantity,
     status: job.status,
     pdf_url: job.pdf_url || null,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`,
+    file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`, // Add required file_name
+    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(), // Add required uploaded_at
+    lamination_type: (job.lamination_type as LaminationType) || "none" // Add required lamination_type with correct type
   }));
 
   return (

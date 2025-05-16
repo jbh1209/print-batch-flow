@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { BatchDetailsType, Job, LaminationType } from "@/components/batches/types/BatchTypes";
 
 interface UseFetchBatchDetailsProps {
   batchId: string;
@@ -89,7 +89,7 @@ export function useFetchBatchDetails({
         
         console.log(`Found ${jobs?.length || 0} business card jobs, with full field data`);
         
-        // Map jobs to include job_number and double_sided for PDF generation
+        // Map jobs to include all required fields for the Job type
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
@@ -99,10 +99,11 @@ export function useFetchBatchDetails({
           job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`, // Ensure job_number is always provided
           double_sided: job.double_sided, // Important for PDF generation
           paper_type: job.paper_type,
-          lamination_type: job.lamination_type,
-          file_name: job.file_name,
+          lamination_type: (job.lamination_type as LaminationType) || "none", // Ensure it's typed correctly
+          file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`, // Required field
           created_at: job.created_at,
-          due_date: job.due_date
+          due_date: job.due_date,
+          uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString() // Required field
         }));
       } else if (productType === "Flyers") {
         // Remove user filter from job queries
@@ -114,14 +115,17 @@ export function useFetchBatchDetails({
         
         if (jobsError) throw jobsError;
         
-        // Map jobs to include job_number
+        // Map jobs to include all required fields for the Job type
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
           quantity: job.quantity,
           status: job.status,
           pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`,
+          file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`, // Required field
+          uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(), // Required field
+          lamination_type: "none" as LaminationType // Default value for required field
         }));
       }
       

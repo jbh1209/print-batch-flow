@@ -13,6 +13,8 @@ export interface BatchDetailsType extends BaseBatch {
   // Additional properties specific to batch details
 }
 
+export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
+
 export interface Job {
   id: string;
   name: string;
@@ -27,7 +29,7 @@ export interface Job {
   single_sided?: boolean;
   paper_type?: string;
   paper_weight?: string;
-  lamination_type?: string;
+  lamination_type: LaminationType; // Changed from string to enum type and made required
   file_name: string; // Changed from optional to required to match JobsTable.Job
   created_at?: string;
   updated_at?: string;

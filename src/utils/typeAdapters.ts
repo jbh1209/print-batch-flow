@@ -1,6 +1,6 @@
 
 import { BaseJob, BaseBatch, BatchStatus } from "@/config/types/baseTypes";
-import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
+import { Job, BatchDetailsType, LaminationType } from "@/components/batches/types/BatchTypes";
 
 /**
  * Converts a BaseJob to a Job type
@@ -12,7 +12,10 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     quantity: baseJob.quantity,
     status: baseJob.status,
     pdf_url: baseJob.pdf_url || null,
-    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}` // Ensure job_number is always provided
+    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}`, // Ensure job_number is always provided
+    file_name: baseJob.file_name || `job-${baseJob.id.substring(0, 6)}.pdf`, // Add required file_name
+    uploaded_at: baseJob.uploaded_at || baseJob.created_at || new Date().toISOString(), // Add required uploaded_at
+    lamination_type: (baseJob.lamination_type as LaminationType) || "none" // Add required lamination_type
   };
 };
 

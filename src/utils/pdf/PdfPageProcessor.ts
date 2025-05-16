@@ -2,7 +2,7 @@
 import { PDFDocument } from "pdf-lib";
 import { loadPdfAsBytes } from "./pdfLoaderCore";
 import { createErrorPdf } from "./emptyPdfGenerator";
-import { Job } from "@/components/batches/types/BatchTypes";
+import { Job, LaminationType } from "@/components/batches/types/BatchTypes";
 
 export interface ProcessedJobPages {
   jobId: string;
@@ -11,6 +11,26 @@ export interface ProcessedJobPages {
   backPages: ArrayBuffer[];
   isDoubleSided: boolean;
   error?: string;
+}
+
+interface JobWithRequiredFields {
+  id: string;
+  name: string;
+  pdf_url: string | null;
+  double_sided?: boolean;
+  file_name: string;
+  uploaded_at: string;
+  lamination_type: LaminationType;
+}
+
+// Function to ensure job has all required properties
+function ensureRequiredFields(job: Job): JobWithRequiredFields {
+  return {
+    ...job,
+    file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
+    uploaded_at: job.uploaded_at || new Date().toISOString(),
+    lamination_type: job.lamination_type || "none" as LaminationType
+  };
 }
 
 /**
@@ -27,32 +47,35 @@ export async function processJobPdfs(
   for (const job of jobs) {
     console.log(`Processing job "${job.name}" (${job.id})`);
     
+    // Ensure job has all required fields
+    const completeJob = ensureRequiredFields(job);
+    
     // Find this job's allocation
-    const allocation = jobSlotAllocations.find(alloc => alloc.jobId === job.id);
+    const allocation = jobSlotAllocations.find(alloc => alloc.jobId === completeJob.id);
     if (!allocation) {
-      console.error(`No allocation found for job ${job.id}`);
+      console.error(`No allocation found for job ${completeJob.id}`);
       continue;
     }
     
     try {
       // Load the PDF
-      const pdfData = await loadPdfAsBytes(job.pdf_url || "", job.id);
+      const pdfData = await loadPdfAsBytes(completeJob.pdf_url || "", completeJob.id);
       
       if (!pdfData || !pdfData.buffer) {
         throw new Error("Failed to load PDF");
       }
       
       const { buffer, pageCount } = pdfData;
-      console.log(`Job ${job.id} PDF loaded with ${pageCount} pages, buffer size: ${buffer.byteLength} bytes`);
+      console.log(`Job ${completeJob.id} PDF loaded with ${pageCount} pages, buffer size: ${buffer.byteLength} bytes`);
       
       // Create processed job entry
       const processedJob: ProcessedJobPages = {
-        jobId: job.id,
-        jobName: job.name,
+        jobId: completeJob.id,
+        jobName: completeJob.name,
         frontPages: [],
         backPages: [],
         // Use double_sided property if available, otherwise infer from pageCount
-        isDoubleSided: job.double_sided !== undefined ? job.double_sided : pageCount > 1
+        isDoubleSided: completeJob.double_sided !== undefined ? completeJob.double_sided : pageCount > 1
       };
       
       // Extract front and back pages
@@ -70,7 +93,7 @@ export async function processJobPdfs(
           const frontPageBuffer = await extractAndDuplicatePage(pdfDoc, 0, allocation.slotsNeeded);
           if (frontPageBuffer) {
             processedJob.frontPages = new Array(allocation.slotsNeeded).fill(frontPageBuffer);
-            console.log(`Created ${processedJob.frontPages.length} front page copies for job ${job.id}, size: ${frontPageBuffer.byteLength} bytes`);
+            console.log(`Created ${processedJob.frontPages.length} front page copies for job ${completeJob.id}, size: ${frontPageBuffer.byteLength} bytes`);
           } else {
             throw new Error("Failed to extract front page");
           }
@@ -82,36 +105,36 @@ export async function processJobPdfs(
           const backPageBuffer = await extractAndDuplicatePage(pdfDoc, 1, allocation.slotsNeeded);
           if (backPageBuffer) {
             processedJob.backPages = new Array(allocation.slotsNeeded).fill(backPageBuffer);
-            console.log(`Created ${processedJob.backPages.length} back page copies for job ${job.id}, size: ${backPageBuffer.byteLength} bytes`);
+            console.log(`Created ${processedJob.backPages.length} back page copies for job ${completeJob.id}, size: ${backPageBuffer.byteLength} bytes`);
           } else {
             throw new Error("Failed to extract back page");
           }
         } else if (processedJob.isDoubleSided) {
           // Double-sided but missing back page
-          console.warn(`Job ${job.id} is marked as double-sided but PDF doesn't have a back page`);
+          console.warn(`Job ${completeJob.id} is marked as double-sided but PDF doesn't have a back page`);
           // Create an empty back page
-          const emptyPdf = await createErrorPdf(job, "Back side not provided");
+          const emptyPdf = await createErrorPdf(completeJob, "Back side not provided");
           const emptyPdfBytes = await emptyPdf.save();
           processedJob.backPages = new Array(allocation.slotsNeeded).fill(emptyPdfBytes);
         }
       } catch (error) {
-        console.error(`Error extracting pages from PDF for job ${job.id}:`, error);
+        console.error(`Error extracting pages from PDF for job ${completeJob.id}:`, error);
         throw error;
       }
       
       processedJobs.push(processedJob);
       
     } catch (error) {
-      console.error(`Error processing PDF for job ${job.id}:`, error);
+      console.error(`Error processing PDF for job ${completeJob.id}:`, error);
       
       // Create error placeholder
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      const errorPdf = await createErrorPdf(job, errorMessage);
+      const errorPdf = await createErrorPdf(completeJob, errorMessage);
       const errorPdfBytes = await errorPdf.save();
       
       processedJobs.push({
-        jobId: job.id,
-        jobName: job.name,
+        jobId: completeJob.id,
+        jobName: completeJob.name,
         frontPages: new Array(allocation.slotsNeeded).fill(errorPdfBytes),
         backPages: allocation.isDoubleSided ? new Array(allocation.slotsNeeded).fill(errorPdfBytes) : [],
         isDoubleSided: allocation.isDoubleSided,

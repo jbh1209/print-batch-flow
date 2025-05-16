@@ -1,6 +1,6 @@
 
 import { PDFDocument } from "pdf-lib";
-import { Job } from "@/components/batches/types/BatchTypes";
+import { Job, LaminationType } from "@/components/batches/types/BatchTypes";
 import { getSignedUrl } from "./signedUrlHelper";
 import { createErrorPdf } from "./emptyPdfGenerator";
 import { toast } from "sonner";
@@ -8,6 +8,29 @@ import { calculateJobPageDistribution } from "./JobPageDistributor";
 
 // Constants
 const TOTAL_SLOTS_PER_BATCH = 24;
+
+interface JobWithRequiredFields {
+  id: string;
+  name: string;
+  quantity: number;
+  status: string;
+  pdf_url: string | null;
+  job_number: string;
+  double_sided?: boolean;
+  file_name: string;
+  uploaded_at: string;
+  lamination_type: LaminationType;
+}
+
+// Function to ensure job has all required properties
+function ensureRequiredFields(job: Job): JobWithRequiredFields {
+  return {
+    ...job,
+    file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
+    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
+    lamination_type: job.lamination_type || "none"
+  };
+}
 
 /**
  * Downloads all job PDFs in a batch as a single consolidated file
@@ -19,12 +42,7 @@ export async function downloadBatchJobPdfs(jobs: Job[], batchName: string): Prom
     console.log(`Starting to download batch job PDFs for ${jobs.length} jobs`);
     
     // Ensure all jobs have the required properties
-    const validatedJobs = jobs.map(job => ({
-      ...job,
-      // Ensure these required properties always have a value
-      file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
-      uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
-    }));
+    const validatedJobs = jobs.map(job => ensureRequiredFields(job));
     
     // Generate consolidated PDF with multiple copies per job based on slot allocation
     const consolidatedPdf = await generateConsolidatedJobPdfs(validatedJobs);
@@ -54,7 +72,7 @@ export async function downloadBatchJobPdfs(jobs: Job[], batchName: string): Prom
 /**
  * Generates a consolidated PDF containing copies of each job PDF based on slot allocation
  */
-async function generateConsolidatedJobPdfs(jobs: Job[]): Promise<PDFDocument> {
+async function generateConsolidatedJobPdfs(jobs: JobWithRequiredFields[]): Promise<PDFDocument> {
   // Create a new PDF document
   const consolidatedPdf = await PDFDocument.create();
   
@@ -200,7 +218,7 @@ async function generateConsolidatedJobPdfs(jobs: Job[]): Promise<PDFDocument> {
  * Calculates how many slots should be allocated to each job
  * based on quantity and ensuring the total is 24 slots
  */
-function calculateSlotAllocation(jobs: Job[]): Array<{jobId: string, slots: number}> {
+function calculateSlotAllocation(jobs: JobWithRequiredFields[]): Array<{jobId: string, slots: number}> {
   // Get total quantity across all jobs
   const totalQuantity = jobs.reduce((sum, job) => sum + (job.quantity || 0), 0);
   
