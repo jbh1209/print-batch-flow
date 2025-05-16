@@ -1,6 +1,6 @@
 
 import { PDFPage } from "pdf-lib";
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job } from "@/components/batches/types/BatchTypes";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
 import { isBusinessCardJobs, isFlyerJobs, isSleeveJobs } from "./jobTypeUtils";

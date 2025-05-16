@@ -34,4 +34,5 @@ export interface Job {
   batch_id?: string | null;
   due_date?: string;
   user_id?: string;
+  uploaded_at?: string; // Added to match JobsTable.Job type
 }

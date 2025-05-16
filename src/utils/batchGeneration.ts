@@ -1,5 +1,5 @@
 
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job } from "@/components/batches/types/BatchTypes";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
@@ -16,7 +16,7 @@ import { isBusinessCardJobs, isSleeveJobs } from "./pdf/jobTypeUtils";
 import { drawCompactJobsTable } from "./pdf/jobTableRenderer";
 import { addJobPreviews } from "./pdf/jobPreviewRenderer";
 
-// Updated function that accepts BaseJob[] as a valid parameter type
+// Updated function that accepts various job types
 export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[], batchName: string): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -31,7 +31,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   // Calculate optimal distribution if jobs are of type Job (business cards)
   let optimization;
   if (isBusinessCardJobs(jobs)) {
-    optimization = calculateOptimalDistribution(jobs);
+    optimization = calculateOptimalDistribution(jobs as Job[]);
   } else {
     optimization = { 
       sheetsRequired: Math.ceil(jobs.reduce((sum, job) => sum + job.quantity, 0) / 4),

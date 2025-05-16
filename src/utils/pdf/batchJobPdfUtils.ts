@@ -1,4 +1,3 @@
-
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/batches/types/BatchTypes";
 import { getSignedUrl } from "./signedUrlHelper";
@@ -57,9 +56,8 @@ async function generateConsolidatedJobPdfs(jobs: Job[]): Promise<PDFDocument> {
   // Create a new PDF document
   const consolidatedPdf = await PDFDocument.create();
   
-  // Calculate job slot distribution
+  // Calculate job slot distribution 
   const jobDistribution = calculateSlotAllocation(jobs);
-  console.log("Job slot distribution:", jobDistribution);
   
   // Track total slots used to determine if we need to add blank pages
   let totalSlotsUsed = 0;
