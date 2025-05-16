@@ -21,7 +21,7 @@ import {
 import { PlusCircle, Pencil, Info, Box } from 'lucide-react';
 import { useProductTypes } from '@/hooks/admin/useProductTypes';
 import { Separator } from '@/components/ui/separator';
-import * as LucideIcons from 'lucide-react';
+import { icons } from 'lucide-react';
 
 const ProductsListPage = () => {
   const navigate = useNavigate();
@@ -33,8 +33,8 @@ const ProductsListPage = () => {
 
   // Render icon component based on icon name string
   const getIconComponent = (iconName: string) => {
-    // Use a type assertion to access the icon dynamically
-    const IconComponent = (LucideIcons as Record<string, React.ComponentType<any>>)[iconName] || Box;
+    // Use the icons object for safe dynamic icon access
+    const IconComponent = icons[iconName as keyof typeof icons] || Box;
     
     return <IconComponent className="w-5 h-5" />;
   };
