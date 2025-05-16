@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import Sidebar from './Sidebar';
-import { SearchBar } from './SearchBar';
+import { Sidebar } from '@/components/ui/sidebar';
+import SearchBar from './SearchBar';
 
 export function Layout() {
   return (

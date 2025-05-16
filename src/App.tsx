@@ -88,7 +88,10 @@ function App() {
                 <Route path="batches/business-cards">
                   <Route index element={<BusinessCardBatches />} />
                   <Route path="batches/:batchId" element={
-                    <BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards" />
+                    <BatchDetailsPage 
+                      productType="Business Cards" 
+                      backUrl="/batches/business-cards" 
+                    />
                   } />
                   <Route path="jobs" element={<BusinessCardJobs />} />
                   <Route path="jobs/new" element={<BusinessCardJobNew />} />
@@ -98,8 +101,16 @@ function App() {
                 
                 {/* Dynamic product routes */}
                 <Route path="batches/:productSlug">
-                  <Route index element={<BatchDetailsPage />} />
-                  <Route path="batches/:batchId" element={<BatchDetailsPage />} />
+                  <Route index element={<BatchDetailsPage 
+                    productType="Dynamic Product"
+                    backUrl="/batches" 
+                  />} />
+                  <Route path="batches/:batchId" element={
+                    <BatchDetailsPage 
+                      productType="Dynamic Product"
+                      backUrl="/batches" 
+                    />
+                  } />
                   <Route path="jobs" element={<AllJobsPage />} />
                   <Route path="jobs/new" element={<BusinessCardJobNew />} />
                   <Route path="jobs/:id" element={<BusinessCardJobDetail />} />

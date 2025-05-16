@@ -2,7 +2,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import CustomSidebar from './CustomSidebar';
-import { SearchBar } from './SearchBar';
+import SearchBar from './SearchBar';
 
 export function CustomLayout() {
   return (
