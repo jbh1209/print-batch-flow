@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -85,19 +84,20 @@ function App() {
                 <Route path="batches" element={<AllBatches />} />
                 <Route path="all-jobs" element={<AllJobsPage />} />
                 
-                {/* Legacy Postcards page */}
+                {/* Postcards page - keep this for now */}
                 <Route path="postcards" element={<Postcards />} />
                 
                 {/* Business Cards Routes */}
                 <Route path="batches/business-cards">
                   <Route index element={<BusinessCardBatches />} />
+                  <Route path="batches" element={<BusinessCardBatches />} />
+                  <Route path="jobs" element={<BusinessCardJobs />} />
                   <Route path="batches/:batchId" element={
                     <BatchDetailsPage 
                       productType="Business Cards" 
                       backUrl="/batches/business-cards" 
                     />
                   } />
-                  <Route path="jobs" element={<BusinessCardJobs />} />
                   <Route path="jobs/new" element={<BusinessCardJobNew />} />
                   <Route path="jobs/:id" element={<BusinessCardJobDetail />} />
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
@@ -105,12 +105,7 @@ function App() {
                 
                 {/* Dynamic product routes */}
                 <Route path="batches/:productSlug">
-                  <Route index element={
-                    <BatchDetailsPage 
-                      productType="Dynamic Product"
-                      backUrl="/batches" 
-                    />
-                  } />
+                  <Route index element={<AllBatches />} />
                   <Route path="batches/:batchId" element={
                     <BatchDetailsPage 
                       productType="Dynamic Product"

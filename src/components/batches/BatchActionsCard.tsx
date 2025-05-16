@@ -34,7 +34,6 @@ const BatchActionsCard = ({
     
     try {
       toast.loading("Downloading batch front PDF...");
-      // Updated to use correct parameter structure
       await handlePdfAction(batch.front_pdf_url, 'download', `${batch.name}-front.pdf`);
     } catch (error) {
       console.error(`Error downloading front PDF for batch ${batch.id}:`, error);
@@ -50,7 +49,6 @@ const BatchActionsCard = ({
     
     try {
       toast.loading("Downloading batch back PDF...");
-      // Updated to use correct parameter structure
       await handlePdfAction(batch.back_pdf_url, 'download', `${batch.name}-back.pdf`);
     } catch (error) {
       console.error(`Error downloading back PDF for batch ${batch.id}:`, error);
@@ -120,17 +118,13 @@ const BatchActionsCard = ({
           <div className="space-y-2 border-t border-gray-200 pt-2">
             <h3 className="text-sm font-medium">Job PDFs</h3>
             <Button
-              variant={productType === "Business Cards" ? "default" : "outline"}
+              variant="default"
               size="sm"
               onClick={onDownloadJobPdfs}
               className="w-full flex items-center justify-center gap-2"
-              title={productType !== "Business Cards" ? "This feature is only fully implemented for Business Cards" : ""}
             >
               <Download className="h-4 w-4" />
               Download All Job PDFs
-              {productType !== "Business Cards" && (
-                <span className="text-xs opacity-70">(Limited support)</span>
-              )}
             </Button>
           </div>
         </div>

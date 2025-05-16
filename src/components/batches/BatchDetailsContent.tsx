@@ -33,9 +33,13 @@ const BatchDetailsContent = ({
     }
     
     try {
+      console.log("Attempting to download job PDFs for product type:", productType);
+      
       // Special handling for business cards - uses dedicated function
       if (productType === "Business Cards") {
+        console.log("Using Business Cards specific download function");
         await downloadBatchJobPdfs(relatedJobs, batch.name);
+        toast.success("Business card job PDFs downloaded successfully");
       } else {
         // Generic handling for other product types
         toast.error("PDF download not implemented for this product type yet");
@@ -58,7 +62,6 @@ const BatchDetailsContent = ({
 
       console.log("Downloading batch overview sheet:", overviewPdfUrl);
       toast.loading("Downloading batch overview sheet...");
-      // Updated to use correct parameter structure
       await handlePdfAction(overviewPdfUrl, 'download', `${batch.name}-overview.pdf`);
     } catch (error) {
       console.error("Error downloading batch overview sheet:", error);
@@ -70,7 +73,6 @@ const BatchDetailsContent = ({
   const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
     return jobs.map(job => ({
       ...job,
-      // Directly copy job_number as is - no fallbacks
       job_number: job.job_number,
       due_date: job.due_date || new Date().toISOString(),
       file_name: job.file_name || "",
@@ -91,7 +93,7 @@ const BatchDetailsContent = ({
           batch={batch} 
           onDownloadJobPdfs={handleDownloadJobPdfs}
           onDownloadBatchOverviewSheet={handleDownloadBatchOverviewSheet}
-          productType={productType} // Added productType to configure buttons based on product
+          productType={productType} 
         />
       </div>
 

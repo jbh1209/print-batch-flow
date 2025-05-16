@@ -13,7 +13,9 @@ export function CustomLayout() {
           <SearchBar />
         </header>
         <main className="flex-1 overflow-auto">
-          <Outlet />
+          <div className="container px-6 py-6">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
