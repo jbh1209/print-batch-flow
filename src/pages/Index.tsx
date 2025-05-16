@@ -3,16 +3,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { DebugInfo } from "@/components/ui/debug-info";
-import { clearAppCache } from "@/utils/cacheUtils";
 
 const Index = () => {
-  // Add cache reset function
-  const handleResetCache = () => {
-    clearAppCache();
-    window.location.reload();
-  };
-
-  // Updated render to include debug info
   return (
     <div>
       <div className="container mx-auto p-8">
@@ -46,27 +38,16 @@ const Index = () => {
         </div>
       </div>
       
-      <DebugInfo 
-        componentName="Index Page"
-        extraInfo={{
-          lastUpdate: new Date().toISOString()
-        }}
-        visible={true}
-      />
-      
-      {/* Add cache reset button at the bottom */}
-      <div className="mt-8 p-4 border rounded-md bg-gray-50">
-        <h3 className="text-lg font-medium mb-2">Debug Tools</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          If you're experiencing issues with the UI not updating, try clearing the application cache.
-        </p>
-        <Button 
-          variant="outline" 
-          onClick={handleResetCache}
-        >
-          Clear App Cache & Reload
-        </Button>
-      </div>
+      {/* Simple debug info - development only */}
+      {process.env.NODE_ENV === 'development' && (
+        <DebugInfo 
+          componentName="Index Page"
+          extraInfo={{
+            renderTime: new Date().toISOString()
+          }}
+          visible={true}
+        />
+      )}
     </div>
   );
 };

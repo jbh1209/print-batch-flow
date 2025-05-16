@@ -1,4 +1,5 @@
 
+import React from "react";
 import { productConfigs } from "@/config/productTypes";
 import { useGenericFlyerJobs } from "@/hooks/generic/useGenericFlyerJobs";
 import GenericJobsPage from "@/components/generic/GenericJobsPage";
@@ -6,8 +7,9 @@ import { DebugInfo } from "@/components/ui/debug-info";
 
 const FlyerJobsPage = () => {
   const config = productConfigs["Flyers"];
+  const renderKey = React.useMemo(() => Date.now().toString(), []);
   
-  console.log("FlyerJobsPage rendering");
+  console.log("FlyerJobsPage rendering with key:", renderKey);
   
   // Create a wrapper function that returns the hook result with standardized interface
   const jobsHookWrapper = () => {
@@ -28,7 +30,19 @@ const FlyerJobsPage = () => {
     };
   };
 
-  return <GenericJobsPage config={config} useJobsHook={jobsHookWrapper} />;
+  // Use key to force re-render of the component tree
+  return (
+    <>
+      <GenericJobsPage key={renderKey} config={config} useJobsHook={jobsHookWrapper} />
+      <DebugInfo
+        componentName="FlyerJobsPage"
+        extraInfo={{
+          productType: config.productType,
+          renderKey
+        }}
+      />
+    </>
+  );
 };
 
 export default FlyerJobsPage;

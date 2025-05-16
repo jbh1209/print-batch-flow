@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { clearAppCache } from '@/utils/cacheUtils';
 
 interface DebugInfoProps {
   componentName: string;
@@ -9,14 +8,15 @@ interface DebugInfoProps {
 }
 
 /**
- * Component to display debugging information and provide cache-busting functionality
+ * Simplified component to display debugging information
  */
 export const DebugInfo: React.FC<DebugInfoProps> = ({ 
   componentName, 
   extraInfo = {}, 
   visible = true 
 }) => {
-  if (!visible && process.env.NODE_ENV === 'production') {
+  // Only show in development environment
+  if (!visible || process.env.NODE_ENV === 'production') {
     return null;
   }
   
@@ -30,17 +30,6 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({
             <span>{JSON.stringify(value)}</span>
           </div>
         ))}
-      </div>
-      <div className="mt-1 flex gap-1">
-        <button 
-          className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-0.5 rounded"
-          onClick={() => {
-            clearAppCache();
-            window.location.reload();
-          }}
-        >
-          Clear Cache & Reload
-        </button>
       </div>
     </div>
   );

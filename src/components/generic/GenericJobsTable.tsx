@@ -8,6 +8,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody } from "@/components
 import { FlyerJobsEmptyState } from "@/components/flyers/components/FlyerJobsEmptyState";
 import GenericJobsTableBody from "./GenericJobsTableBody";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DebugInfo } from "@/components/ui/debug-info";
 
 interface GenericJobsTableProps {
   config: ProductConfig;
@@ -45,7 +46,9 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
   onSelectAllJobs,
 }) => {
   const navigate = useNavigate();
-  console.log(`GenericJobsTable for ${config.productType} rendering with ${jobs.length} jobs`);
+  const renderKey = React.useMemo(() => Date.now().toString(), []);
+  
+  console.log(`GenericJobsTable for ${config.productType} rendering with key ${renderKey} and ${jobs.length} jobs`);
   console.log(`Selected jobs IDs (${selectedJobs.length}):`, selectedJobs);
 
   // Count queued jobs
@@ -71,21 +74,15 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
     }
   };
 
-  // Add specific debug UI element to verify the component is rendering correctly
-  const renderDebugInfo = () => {
-    return (
-      <div className="p-2 text-xs text-gray-500 border-t border-dashed">
-        {config.productType} UI version: {Date.now()}
-      </div>
-    );
-  };
-
   // If there are no jobs, show empty state
   if (jobs.length === 0) {
     return (
       <>
         <FlyerJobsEmptyState productType={config.productType} />
-        {renderDebugInfo()}
+        <DebugInfo
+          componentName={`${config.productType} Jobs Table`}
+          extraInfo={{ status: "Empty", renderKey }}
+        />
       </>
     );
   }
@@ -130,7 +127,16 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
           onViewJob={onViewJob}
         />
       </Table>
-      {renderDebugInfo()}
+      <DebugInfo
+        componentName={`${config.productType} Jobs Table`}
+        extraInfo={{ 
+          jobCount: jobs.length, 
+          selectedCount: selectedJobs.length,
+          queuedCount: queuedJobsCount,
+          renderKey,
+          tableRendered: true
+        }}
+      />
     </div>
   );
 };
