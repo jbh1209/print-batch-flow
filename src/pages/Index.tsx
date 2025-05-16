@@ -39,9 +39,9 @@ const Index = () => {
   };
 
   return (
-    <div>
-      <div className="container mx-auto p-8">
-        <div className="flex justify-between items-center mb-6">
+    <div className="px-4 py-6 md:p-8">
+      <div className="container mx-auto">
+        <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2">Print Management Dashboard</h1>
             <p className="text-gray-600">Manage your print jobs and batches</p>
@@ -60,7 +60,7 @@ const Index = () => {
 
         {/* Hardcoded Business Cards - Always show at the top */}
         <h2 className="text-xl font-bold mb-4">Core Products</h2>
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
+        <div className="grid grid-cols-1 gap-6 mb-10">
           <Card className="shadow-md">
             <CardHeader className="bg-blue-50">
               <div className="flex items-center gap-2">
@@ -87,11 +87,11 @@ const Index = () => {
         {productTypes.length > 0 && productTypes.some(product => product.slug !== 'business-cards') && (
           <>
             <h2 className="text-xl font-bold mb-4">Custom Products</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
               {productTypes
                 .filter(product => product.slug !== 'business-cards') // Filter out Business Cards if it exists in DB
                 .map(product => (
-                  <Card key={product.id} className="shadow-md">
+                  <Card key={product.id} className="shadow-md h-full">
                     <CardHeader className={`bg-${product.color}-50`}>
                       <div className="flex items-center gap-2">
                         {getProductIcon(product.icon_name)}
@@ -102,7 +102,7 @@ const Index = () => {
                     <CardContent className="pt-6">
                       <p className="text-gray-600 mb-4">Create and manage {product.name.toLowerCase()} jobs and batches.</p>
                     </CardContent>
-                    <CardFooter className="flex gap-2 border-t pt-4">
+                    <CardFooter className="flex gap-2 border-t pt-4 mt-auto">
                       <Button asChild variant="default">
                         <Link to={`/batches/${product.slug}/jobs`}>View Jobs</Link>
                       </Button>
@@ -117,14 +117,14 @@ const Index = () => {
         )}
         
         {isLoading && (
-          <div className="text-center p-6">
+          <div className="text-center p-6 mb-8">
             <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-2" />
             <p>Loading product types...</p>
           </div>
         )}
         
         {error && (
-          <div className="bg-red-50 text-red-700 p-4 rounded-md mb-6">
+          <div className="bg-red-50 text-red-700 p-4 rounded-md mb-8">
             <p>Error loading product types: {error}</p>
             <Button variant="outline" size="sm" onClick={handleRefreshCache} className="mt-2">
               Retry
@@ -134,34 +134,55 @@ const Index = () => {
 
         {/* Quick Access Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-xl font-semibold mb-2">All Batches</h2>
-            <p className="text-gray-500 mb-4">View batches across all product types.</p>
-            <Link to="/batches">
-              <Button>View All Batches</Button>
-            </Link>
-          </div>
+          <Card className="shadow-sm h-full">
+            <CardHeader>
+              <CardTitle className="text-xl">All Batches</CardTitle>
+              <CardDescription>View batches across all product types</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500 mb-4">Access and manage all batches in one place.</p>
+            </CardContent>
+            <CardFooter className="mt-auto">
+              <Link to="/batches" className="w-full">
+                <Button className="w-full">View All Batches</Button>
+              </Link>
+            </CardFooter>
+          </Card>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-xl font-semibold mb-2">All Jobs</h2>
-            <p className="text-gray-500 mb-4">View jobs across all product types.</p>
-            <Link to="/all-jobs">
-              <Button>View All Jobs</Button>
-            </Link>
-          </div>
+          <Card className="shadow-sm h-full">
+            <CardHeader>
+              <CardTitle className="text-xl">All Jobs</CardTitle>
+              <CardDescription>View jobs across all product types</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500 mb-4">Access and manage all jobs in one place.</p>
+            </CardContent>
+            <CardFooter className="mt-auto">
+              <Link to="/all-jobs" className="w-full">
+                <Button className="w-full">View All Jobs</Button>
+              </Link>
+            </CardFooter>
+          </Card>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
-              <Cog size={20} className="text-purple-600" />
-              Product Manager
-            </h2>
-            <p className="text-gray-500 mb-4">Create and manage custom product types.</p>
-            <Link to="/admin/products">
-              <Button variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-50">
-                Manage Products
-              </Button>
-            </Link>
-          </div>
+          <Card className="shadow-sm h-full">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Cog size={20} className="text-purple-600" />
+                <CardTitle className="text-xl">Product Manager</CardTitle>
+              </div>
+              <CardDescription>Create and manage product types</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500 mb-4">Create new products and customize existing ones.</p>
+            </CardContent>
+            <CardFooter className="mt-auto">
+              <Link to="/admin/products" className="w-full">
+                <Button variant="outline" className="w-full border-purple-600 text-purple-600 hover:bg-purple-50">
+                  Manage Products
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
         </div>
       </div>
       

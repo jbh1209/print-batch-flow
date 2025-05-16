@@ -5,10 +5,10 @@ import BatchDetailsCard from "./BatchDetailsCard";
 import BatchActionsCard from "./BatchActionsCard";
 import RelatedJobsCard from "./RelatedJobsCard";
 import { FlyerBatchOverview } from "../flyers/FlyerBatchOverview";
-import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BaseJob } from "@/config/productTypes";
+import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -33,7 +33,13 @@ const BatchDetailsContent = ({
     }
     
     try {
-      await downloadBatchJobPdfs(relatedJobs, batch.name);
+      // Special handling for business cards - uses dedicated function
+      if (productType === "Business Cards") {
+        await downloadBatchJobPdfs(relatedJobs, batch.name);
+      } else {
+        // Generic handling for other product types
+        toast.error("PDF download not implemented for this product type yet");
+      }
     } catch (error) {
       console.error("Error downloading job PDFs:", error);
       toast.error("Failed to download job PDFs");
@@ -75,7 +81,7 @@ const BatchDetailsContent = ({
   
   return (
     <>
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3 mb-8">
         <BatchDetailsCard 
           batch={batch}
           onDeleteClick={onDeleteClick}
@@ -85,6 +91,7 @@ const BatchDetailsContent = ({
           batch={batch} 
           onDownloadJobPdfs={handleDownloadJobPdfs}
           onDownloadBatchOverviewSheet={handleDownloadBatchOverviewSheet}
+          productType={productType} // Added productType to configure buttons based on product
         />
       </div>
 
@@ -92,10 +99,13 @@ const BatchDetailsContent = ({
       {relatedJobs.length > 0 && (
         <>
           <RelatedJobsCard jobs={relatedJobs} />
-          <FlyerBatchOverview 
-            jobs={convertToBaseJobs(relatedJobs)}
-            batchName={batch.name}
-          />
+          {/* Only show batch overview for Business Cards where it's fully implemented */}
+          {productType === "Business Cards" && (
+            <FlyerBatchOverview 
+              jobs={convertToBaseJobs(relatedJobs)}
+              batchName={batch.name}
+            />
+          )}
         </>
       )}
     </>

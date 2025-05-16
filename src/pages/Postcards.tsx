@@ -1,166 +1,83 @@
 
-import { useState } from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, Plus, ArrowLeft } from "lucide-react";
-import { productConfigs } from "@/config/productTypes";
-import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import JobsHeader from "@/components/business-cards/JobsHeader";
+import { useProductTypes } from "@/hooks/admin/useProductTypes";
 
 const Postcards = () => {
   const navigate = useNavigate();
-  const config = productConfigs["Postcards"];
-  const [activeTab, setActiveTab] = useState("overview");
+  const { productTypes, isLoading, error } = useProductTypes();
   
-  const { jobs, isLoading: jobsLoading } = useGenericJobs(config);
+  // Check if postcards product exists
+  const postcardsProduct = !isLoading && productTypes.find(p => 
+    p.slug === 'postcards' || p.name.toLowerCase() === 'postcards'
+  );
   
-  // Calculate basic stats
-  const pendingJobsCount = jobs.filter(job => job.status === "queued").length;
-  const activeBatchesCount = jobs.filter(job => job.status === "batched").length;
-  
-  // Calculate capacity percentage (example logic - customize as needed)
-  const capacityPercentage = activeBatchesCount > 0 
-    ? Math.min(Math.round((activeBatchesCount / 5) * 100), 100) 
-    : 0;
+  useEffect(() => {
+    // If postcards product exists in the database, navigate to its generic page
+    if (postcardsProduct) {
+      navigate(`/batches/${postcardsProduct.slug}`);
+    }
+  }, [postcardsProduct, navigate]);
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="flex items-center">
-            <FileText className="h-6 w-6 mr-2 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Postcards</h1>
-          </div>
-          <p className="text-gray-500 mt-1">Manage postcard batches and jobs</p>
+    <div className="container mx-auto p-6">
+      <JobsHeader 
+        title="Postcards Management" 
+        subtitle="Create and manage postcard print jobs" 
+      />
+
+      {isLoading ? (
+        <div className="flex justify-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
-        <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate("/")}
-          >
-            <ArrowLeft size={16} className="mr-1" />
-            <span>Back to Dashboard</span>
-          </Button>
-          <Button onClick={() => navigate(config.routes.newJobPath)}>
-            <Plus size={16} className="mr-1" />
-            Add New Job
-          </Button>
-        </div>
-      </div>
-      
-      <Tabs 
-        defaultValue="overview" 
-        className="w-full"
-        value={activeTab}
-        onValueChange={setActiveTab}
-      >
-        <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="jobs" onClick={() => navigate("/batches/postcards/jobs")}>Jobs</TabsTrigger>
-          <TabsTrigger value="batches" onClick={() => navigate("/batches/postcards/batches")}>Batches</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold mb-2">Pending Jobs</h3>
-              <div className="text-3xl font-bold">
-                {jobsLoading ? (
-                  <div className="h-8 w-8 rounded-full border-t-2 border-b-2 border-primary animate-spin"></div>
-                ) : (
-                  pendingJobsCount
-                )}
-              </div>
-              <p className="text-sm text-gray-500 mt-2">Unbatched jobs waiting for processing</p>
-              
-              <Button 
-                variant="outline" 
-                className="w-full mt-4"
-                onClick={() => {
-                  setActiveTab("jobs");
-                  navigate("/batches/postcards/jobs");
-                }}
-              >
-                View All Jobs
+      ) : error ? (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error}
+          </AlertDescription>
+        </Alert>
+      ) : !postcardsProduct ? (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Set Up Postcards Product</CardTitle>
+              <CardDescription>
+                You need to set up the Postcards product type before you can manage postcard jobs.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500 mb-4">
+                Use the Product Manager to create a new product type for postcards. 
+                This will enable all the functionality needed to manage postcard jobs and batches.
+              </p>
+            </CardContent>
+            <CardFooter className="flex gap-4">
+              <Button onClick={() => navigate("/admin/products/create")}>
+                Create Postcards Product
               </Button>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold mb-2">Active Batches</h3>
-              <div className="text-3xl font-bold">
-                {jobsLoading ? (
-                  <div className="h-8 w-8 rounded-full border-t-2 border-b-2 border-primary animate-spin"></div>
-                ) : (
-                  activeBatchesCount
-                )}
-              </div>
-              <p className="text-sm text-gray-500 mt-2">Batches currently in production</p>
-              
-              <Button 
-                variant="outline" 
-                className="w-full mt-4"
-                onClick={() => {
-                  setActiveTab("batches");
-                  navigate("/batches/postcards/batches");
-                }}
-              >
-                View All Batches
+              <Button variant="outline" onClick={() => navigate("/")}>
+                Back to Dashboard
               </Button>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold mb-2">Capacity</h3>
-              <div className="text-3xl font-bold">{capacityPercentage}%</div>
-              <p className="text-sm text-gray-500 mt-2">Current batch bucket capacity</p>
-              
-              <Button 
-                className="w-full mt-4"
-                onClick={() => navigate("/batches/postcards/jobs/new")}
-              >
-                Add New Job
-              </Button>
-            </div>
-          </div>
+            </CardFooter>
+          </Card>
           
-          <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold mb-4">Postcard Specifications</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Available Sizes</h4>
-                <p>{config.availableSizes?.join(", ")}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Paper Types</h4>
-                <p>{config.availablePaperTypes?.join(", ")}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Paper Weights</h4>
-                <p>{config.availablePaperWeights?.join(", ")}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Lamination Options</h4>
-                <p>{config.availableLaminationTypes?.map(l => l.replace("_", " ")).join(", ")}</p>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="jobs">
-          <div className="flex items-center justify-center p-12 text-gray-500">
-            Navigate to the Jobs tab to view postcard jobs
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="batches">
-          <div className="flex items-center justify-center p-12 text-gray-500">
-            Navigate to the Batches tab to view postcard batches
-          </div>
-        </TabsContent>
-      </Tabs>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Getting Started</AlertTitle>
+            <AlertDescription>
+              When creating the Postcards product, make sure to provide all required fields and 
+              configure options like paper types and sizes that are relevant for postcards.
+            </AlertDescription>
+          </Alert>
+        </div>  
+      ) : null}
     </div>
   );
 };

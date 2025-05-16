@@ -29,6 +29,7 @@ import BusinessCardJobDetail from '@/pages/BusinessCardJobDetail';
 import BatchDetailsPage from '@/pages/BatchDetailsPage';
 import AllBatches from '@/pages/AllBatches';
 import AllJobsPage from '@/pages/AllJobsPage';
+import Postcards from '@/pages/Postcards';
 
 // Add a version key for cache busting
 const appVersion = Date.now().toString();
@@ -84,6 +85,9 @@ function App() {
                 <Route path="batches" element={<AllBatches />} />
                 <Route path="all-jobs" element={<AllJobsPage />} />
                 
+                {/* Legacy Postcards page */}
+                <Route path="postcards" element={<Postcards />} />
+                
                 {/* Business Cards Routes */}
                 <Route path="batches/business-cards">
                   <Route index element={<BusinessCardBatches />} />
@@ -101,10 +105,12 @@ function App() {
                 
                 {/* Dynamic product routes */}
                 <Route path="batches/:productSlug">
-                  <Route index element={<BatchDetailsPage 
-                    productType="Dynamic Product"
-                    backUrl="/batches" 
-                  />} />
+                  <Route index element={
+                    <BatchDetailsPage 
+                      productType="Dynamic Product"
+                      backUrl="/batches" 
+                    />
+                  } />
                   <Route path="batches/:batchId" element={
                     <BatchDetailsPage 
                       productType="Dynamic Product"
