@@ -114,17 +114,18 @@ const BatchActionsCard = ({
             </Button>
           </div>
           
-          {/* Job PDFs Download - Only fully functional for Business Cards */}
+          {/* Job PDFs Download - Add special styling for Business Cards to highlight its availability */}
           <div className="space-y-2 border-t border-gray-200 pt-2">
             <h3 className="text-sm font-medium">Job PDFs</h3>
             <Button
-              variant="default"
+              variant={productType === "Business Cards" ? "default" : "outline"}
               size="sm"
               onClick={onDownloadJobPdfs}
-              className="w-full flex items-center justify-center gap-2"
+              className={`w-full flex items-center justify-center gap-2 ${productType === "Business Cards" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
             >
               <Download className="h-4 w-4" />
               Download All Job PDFs
+              {productType !== "Business Cards" && <span className="text-xs ml-1">(Business Cards only)</span>}
             </Button>
           </div>
         </div>

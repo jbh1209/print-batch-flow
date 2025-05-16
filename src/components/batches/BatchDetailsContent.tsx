@@ -38,6 +38,7 @@ const BatchDetailsContent = ({
       // Special handling for business cards - uses dedicated function
       if (productType === "Business Cards") {
         console.log("Using Business Cards specific download function");
+        toast.loading("Preparing Business Card PDFs for download...");
         await downloadBatchJobPdfs(relatedJobs, batch.name);
         toast.success("Business card job PDFs downloaded successfully");
       } else {
