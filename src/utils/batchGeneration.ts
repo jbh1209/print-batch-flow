@@ -31,7 +31,8 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   // Calculate optimal distribution if jobs are of type Job (business cards)
   let optimization;
   if (isBusinessCardJobs(jobs)) {
-    optimization = calculateOptimalDistribution(jobs as Job[]);
+    const typedJobs = jobs as Job[];
+    optimization = calculateOptimalDistribution(typedJobs);
   } else {
     optimization = { 
       sheetsRequired: Math.ceil(jobs.reduce((sum, job) => sum + job.quantity, 0) / 4),

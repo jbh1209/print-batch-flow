@@ -1,3 +1,4 @@
+
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/batches/types/BatchTypes";
 import { getSignedUrl } from "./signedUrlHelper";
@@ -17,15 +18,16 @@ export async function downloadBatchJobPdfs(jobs: Job[], batchName: string): Prom
     toast.loading("Preparing batch job PDFs for download...");
     console.log(`Starting to download batch job PDFs for ${jobs.length} jobs`);
     
-    // Check if double_sided property exists on jobs
-    const missingProps = jobs.filter(job => job.double_sided === undefined);
-    if (missingProps.length > 0) {
-      console.warn(`Warning: ${missingProps.length} jobs are missing the double_sided property`);
-      console.log("Sample job missing double_sided:", missingProps[0]?.id);
-    }
+    // Ensure all jobs have the required properties
+    const validatedJobs = jobs.map(job => ({
+      ...job,
+      // Ensure these required properties always have a value
+      file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
+      uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
+    }));
     
     // Generate consolidated PDF with multiple copies per job based on slot allocation
-    const consolidatedPdf = await generateConsolidatedJobPdfs(jobs);
+    const consolidatedPdf = await generateConsolidatedJobPdfs(validatedJobs);
     
     // Convert PDF to downloadable format
     const pdfBytes = await consolidatedPdf.save();

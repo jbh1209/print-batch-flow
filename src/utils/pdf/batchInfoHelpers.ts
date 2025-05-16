@@ -28,7 +28,8 @@ export function drawBatchInfo(
   
   // Draw specific info based on job type
   if (isBusinessCardJobs(jobs)) {
-    drawBusinessCardInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
+    const typedJobs = jobs as Job[];
+    drawBusinessCardInfo(page, typedJobs, margin, helveticaBold, helveticaFont, sheetsRequired);
   } else if (isFlyerJobs(jobs)) {
     drawFlyerInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
   } else if (isSleeveJobs(jobs)) {

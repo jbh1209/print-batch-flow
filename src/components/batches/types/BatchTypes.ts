@@ -28,11 +28,11 @@ export interface Job {
   paper_type?: string;
   paper_weight?: string;
   lamination_type?: string;
-  file_name?: string;
+  file_name: string; // Changed from optional to required to match JobsTable.Job
   created_at?: string;
   updated_at?: string;
   batch_id?: string | null;
   due_date?: string;
   user_id?: string;
-  uploaded_at?: string; // Added to match JobsTable.Job type
+  uploaded_at: string; // Changed from optional to required to match JobsTable.Job
 }
