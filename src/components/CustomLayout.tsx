@@ -1,12 +1,13 @@
+
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import Sidebar from './Sidebar';
+import CustomSidebar from './CustomSidebar';
 import { SearchBar } from './SearchBar';
 
-export function Layout() {
+export function CustomLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
+      <CustomSidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6">
           <SearchBar />
@@ -19,4 +20,4 @@ export function Layout() {
   );
 }
 
-export default Layout;
+export default CustomLayout;

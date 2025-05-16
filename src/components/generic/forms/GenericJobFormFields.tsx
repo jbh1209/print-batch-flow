@@ -23,6 +23,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { ProductConfig } from "@/config/productTypes";
+import { DateField } from "./DateField";
 
 interface GenericJobFormFieldsProps {
   config: ProductConfig;
@@ -30,6 +31,7 @@ interface GenericJobFormFieldsProps {
   setSelectedFile: (file: File | null) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   isEdit?: boolean;
+  customFields?: any[];
 }
 
 export const GenericJobFormFields = ({
@@ -37,9 +39,135 @@ export const GenericJobFormFields = ({
   selectedFile,
   setSelectedFile,
   handleFileChange,
-  isEdit = false
+  isEdit = false,
+  customFields = []
 }: GenericJobFormFieldsProps) => {
   const { control, formState } = useFormContext();
+
+  // Helper function to render a field based on its type
+  const renderCustomField = (field: any) => {
+    switch (field.field_type) {
+      case 'text':
+        return (
+          <FormField
+            key={field.field_name}
+            control={control}
+            name={field.field_name}
+            render={({ field: formField }) => (
+              <FormItem>
+                <FormLabel>{field.field_display || field.field_name}{field.is_required ? '*' : ''}</FormLabel>
+                <FormControl>
+                  <Input placeholder={`Enter ${field.field_name}`} {...formField} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        );
+        
+      case 'number':
+        return (
+          <FormField
+            key={field.field_name}
+            control={control}
+            name={field.field_name}
+            render={({ field: formField }) => (
+              <FormItem>
+                <FormLabel>{field.field_display || field.field_name}{field.is_required ? '*' : ''}</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    placeholder={`Enter ${field.field_name}`} 
+                    {...formField} 
+                    onChange={(e) => formField.onChange(parseFloat(e.target.value) || '')}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        );
+        
+      case 'select':
+        return (
+          <FormField
+            key={field.field_name}
+            control={control}
+            name={field.field_name}
+            render={({ field: formField }) => (
+              <FormItem>
+                <FormLabel>{field.field_display || field.field_name}{field.is_required ? '*' : ''}</FormLabel>
+                <Select onValueChange={formField.onChange} defaultValue={formField.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={`Select ${field.field_name}`} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {field.options?.map((option: any) => (
+                      <SelectItem key={option.option_value} value={option.option_value}>
+                        {option.display_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        );
+        
+      case 'boolean':
+        return (
+          <FormField
+            key={field.field_name}
+            control={control}
+            name={field.field_name}
+            render={({ field: formField }) => (
+              <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={formField.value}
+                    onChange={formField.onChange}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                </FormControl>
+                <FormLabel className="mt-0">
+                  {field.field_display || field.field_name}{field.is_required ? '*' : ''}
+                </FormLabel>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        );
+        
+      case 'date':
+        return (
+          <FormField
+            key={field.field_name}
+            control={control}
+            name={field.field_name}
+            render={({ field: formField }) => (
+              <FormItem>
+                <FormLabel>{field.field_display || field.field_name}{field.is_required ? '*' : ''}</FormLabel>
+                <FormControl>
+                  <DateField 
+                    value={formField.value} 
+                    onChange={formField.onChange}
+                    placeholder={`Select ${field.field_name}`}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        );
+        
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -130,6 +258,7 @@ export const GenericJobFormFields = ({
                       date < new Date(new Date().setHours(0, 0, 0, 0))
                     }
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -282,6 +411,16 @@ export const GenericJobFormFields = ({
         )}
       </div>
 
+      {/* Custom Fields */}
+      {customFields && customFields.length > 0 && (
+        <div className="space-y-4 border-t border-gray-200 pt-4 mt-4">
+          <h3 className="text-md font-medium">Custom Fields</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {customFields.map(renderCustomField)}
+          </div>
+        </div>
+      )}
+
       {/* File Upload */}
       <div className="space-y-2">
         <FormLabel>PDF File{isEdit ? '' : '*'}</FormLabel>
@@ -335,3 +474,5 @@ export const GenericJobFormFields = ({
     </div>
   );
 };
+
+export default GenericJobFormFields;

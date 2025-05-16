@@ -29,7 +29,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Trash, PlusCircle, Move } from 'lucide-react';
+import { Trash, PlusCircle, Move, Calendar } from 'lucide-react';
 import { DebugInfo } from '@/components/ui/debug-info';
 import { generateRenderKey } from '@/utils/cacheUtils';
 import { useForm } from 'react-hook-form';
@@ -42,6 +42,7 @@ const FIELD_TYPES = [
   { id: 'select', name: 'Dropdown Select' },
   { id: 'number', name: 'Number' },
   { id: 'boolean', name: 'Yes/No Toggle' },
+  { id: 'date', name: 'Date Picker' }, // Added date field type
 ];
 
 // Form schema
@@ -509,6 +510,19 @@ const CreateProductPage = () => {
                               No options added yet. Click "Add Option" to create options.
                             </p>
                           )}
+                        </div>
+                      )}
+
+                      {/* Special datepicker options for date fields */}
+                      {field.type === 'date' && (
+                        <div className="mt-4 border-t pt-4">
+                          <div className="flex items-center mb-2 gap-2">
+                            <Calendar size={16} className="text-gray-500" />
+                            <h4 className="text-sm font-medium">Date Field Options</h4>
+                          </div>
+                          <p className="text-sm text-gray-500 mb-4">
+                            The date field will use a calendar picker interface for selecting dates.
+                          </p>
                         </div>
                       )}
                     </div>

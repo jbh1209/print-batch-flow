@@ -2,7 +2,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
-import Layout from '@/components/Layout';
+import CustomLayout from '@/components/CustomLayout';
 import Dashboard from '@/pages/Dashboard';
 import Auth from '@/pages/Auth';
 import Settings from '@/pages/Settings';
@@ -59,7 +59,7 @@ function App() {
               
               <Route path="/" element={
                 <ProtectedRoute>
-                  <Layout />
+                  <CustomLayout />
                 </ProtectedRoute>
               }>
                 <Route index element={<Index />} />
@@ -96,8 +96,15 @@ function App() {
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
                 </Route>
                 
-                {/* Note: Routes for dynamically created products will be handled by generic components */}
-                {/* and will be generated based on the product_types database table */}
+                {/* Dynamic product routes */}
+                <Route path="batches/:productSlug">
+                  <Route index element={<BatchDetailsPage />} />
+                  <Route path="batches/:batchId" element={<BatchDetailsPage />} />
+                  <Route path="jobs" element={<AllJobsPage />} />
+                  <Route path="jobs/new" element={<BusinessCardJobNew />} />
+                  <Route path="jobs/:id" element={<BusinessCardJobDetail />} />
+                  <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
+                </Route>
                 
                 {/* Catch all other routes inside the layout */}
                 <Route path="*" element={<NotFound />} />
