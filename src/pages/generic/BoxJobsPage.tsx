@@ -1,14 +1,22 @@
 
+import React from "react";
 import { productConfigs } from "@/config/productTypes";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
 import GenericJobsPage from "@/components/generic/GenericJobsPage";
+import { DebugInfo } from "@/components/ui/debug-info";
+import { generateRenderKey } from "@/utils/cacheUtils";
 
 const BoxJobsPage = () => {
   const config = productConfigs["Boxes"];
+  const renderKey = generateRenderKey();
+  
+  console.log(`[BoxJobsPage] Rendering with key: ${renderKey}`);
   
   // Create a wrapper function that returns the hook result with standardized interface
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
+    
+    console.log(`[BoxJobsPage] Hook wrapper executed, jobs: ${hookResult.jobs.length}`);
     
     return {
       jobs: hookResult.jobs,
@@ -23,7 +31,22 @@ const BoxJobsPage = () => {
     };
   };
 
-  return <GenericJobsPage config={config} useJobsHook={jobsHookWrapper} />;
+  return (
+    <>
+      <GenericJobsPage 
+        key={renderKey} 
+        config={config} 
+        useJobsHook={jobsHookWrapper} 
+      />
+      <DebugInfo
+        componentName="BoxJobsPage"
+        extraInfo={{
+          productType: config.productType,
+          renderKey
+        }}
+      />
+    </>
+  );
 };
 
 export default BoxJobsPage;

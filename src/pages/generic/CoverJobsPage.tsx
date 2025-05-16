@@ -1,14 +1,22 @@
 
+import React from "react";
 import { productConfigs } from "@/config/productTypes";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
 import GenericJobsPage from "@/components/generic/GenericJobsPage";
+import { DebugInfo } from "@/components/ui/debug-info";
+import { generateRenderKey } from "@/utils/cacheUtils";
 
 const CoverJobsPage = () => {
   const config = productConfigs["Covers"];
+  const renderKey = generateRenderKey();
+  
+  console.log(`[CoverJobsPage] Rendering with key: ${renderKey}`);
   
   // Create a wrapper function that returns the hook result with standardized interface
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
+    
+    console.log(`[CoverJobsPage] Hook wrapper executed, jobs: ${hookResult.jobs.length}`);
     
     return {
       jobs: hookResult.jobs,
@@ -23,7 +31,22 @@ const CoverJobsPage = () => {
     };
   };
 
-  return <GenericJobsPage config={config} useJobsHook={jobsHookWrapper} />;
+  return (
+    <>
+      <GenericJobsPage 
+        key={renderKey} 
+        config={config} 
+        useJobsHook={jobsHookWrapper} 
+      />
+      <DebugInfo
+        componentName="CoverJobsPage"
+        extraInfo={{
+          productType: config.productType,
+          renderKey
+        }}
+      />
+    </>
+  );
 };
 
 export default CoverJobsPage;

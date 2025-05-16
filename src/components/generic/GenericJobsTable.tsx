@@ -9,6 +9,7 @@ import { FlyerJobsEmptyState } from "@/components/flyers/components/FlyerJobsEmp
 import GenericJobsTableBody from "./GenericJobsTableBody";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DebugInfo } from "@/components/ui/debug-info";
+import { generateRenderKey } from "@/utils/cacheUtils";
 
 interface GenericJobsTableProps {
   config: ProductConfig;
@@ -46,17 +47,18 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
   onSelectAllJobs,
 }) => {
   const navigate = useNavigate();
-  const renderKey = React.useMemo(() => Date.now().toString(), []);
+  const renderKey = generateRenderKey();
+  const instanceId = React.useId();
   
-  console.log(`GenericJobsTable for ${config.productType} rendering with key ${renderKey} and ${jobs.length} jobs`);
-  console.log(`Selected jobs IDs (${selectedJobs.length}):`, selectedJobs);
+  console.log(`[GenericJobsTable] Rendering table for ${config.productType} with key ${renderKey}, id ${instanceId}, and ${jobs.length} jobs`);
+  console.log(`[GenericJobsTable] Selected jobs IDs (${selectedJobs.length}):`, selectedJobs);
 
   // Count queued jobs
   const queuedJobs = jobs.filter(job => job.status === 'queued');
   const queuedJobsCount = queuedJobs.length;
   
   useEffect(() => {
-    console.log(`Product: ${config.productType} - Queued jobs: ${queuedJobsCount}, Selected jobs: ${selectedJobs.length}`);
+    console.log(`[GenericJobsTable] Product: ${config.productType} - Queued jobs: ${queuedJobsCount}, Selected jobs: ${selectedJobs.length}`);
   }, [queuedJobsCount, selectedJobs, config.productType]);
   
   // Check if all queued jobs are selected
@@ -81,7 +83,11 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
         <FlyerJobsEmptyState productType={config.productType} />
         <DebugInfo
           componentName={`${config.productType} Jobs Table`}
-          extraInfo={{ status: "Empty", renderKey }}
+          extraInfo={{ 
+            status: "Empty", 
+            renderKey,
+            instanceId
+          }}
         />
       </>
     );
@@ -96,7 +102,7 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
               <Checkbox 
                 checked={areAllQueuedJobsSelected && queuedJobsCount > 0}
                 onCheckedChange={(checked) => {
-                  console.log(`${config.productType} - Select all checkbox changed:`, checked);
+                  console.log(`[GenericJobsTable] ${config.productType} - Select all checkbox changed:`, checked);
                   onSelectAllJobs(!!checked);
                 }}
                 disabled={queuedJobsCount === 0}
@@ -118,6 +124,7 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
         </TableHeader>
 
         <GenericJobsTableBody 
+          key={`${config.productType.toLowerCase()}-table-body-${renderKey}`}
           jobs={jobs}
           config={config}
           selectedJobs={selectedJobs}
@@ -134,6 +141,7 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
           selectedCount: selectedJobs.length,
           queuedCount: queuedJobsCount,
           renderKey,
+          instanceId,
           tableRendered: true
         }}
       />

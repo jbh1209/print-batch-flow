@@ -5,7 +5,7 @@
 
 // Generate a unique render key based on the current time
 export const generateRenderKey = (): string => {
-  return Date.now().toString();
+  return Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9);
 };
 
 // Force reload the current page - only used in extreme cases

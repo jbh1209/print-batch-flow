@@ -8,7 +8,7 @@ interface DebugInfoProps {
 }
 
 /**
- * Simplified component to display debugging information
+ * Debug information component that shows component state and rendering info
  */
 export const DebugInfo: React.FC<DebugInfoProps> = ({ 
   componentName, 
@@ -21,13 +21,13 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({
   }
   
   return (
-    <div className="text-xs bg-gray-100 p-2 rounded border border-dashed border-gray-300 mb-2">
+    <div className="text-xs bg-slate-800 text-white p-2 rounded border border-dashed border-slate-600 mb-2 font-mono">
       <div className="font-medium">{componentName}</div>
-      <div className="mt-1 text-gray-500">
+      <div className="mt-1 text-slate-300 text-[10px]">
         {Object.entries(extraInfo).map(([key, value]) => (
           <div key={key} className="flex">
-            <span className="font-mono mr-1">{key}:</span>
-            <span>{JSON.stringify(value)}</span>
+            <span className="mr-1 text-slate-400">{key}:</span>
+            <span>{typeof value === 'object' ? JSON.stringify(value) : value.toString()}</span>
           </div>
         ))}
       </div>

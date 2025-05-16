@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Loader2, AlertCircle } from "lucide-react";
+import { Plus, FileText, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import GenericJobsTable from "./GenericJobsTable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -26,9 +26,9 @@ interface GenericJobsPageProps {
 
 const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }) => {
   const navigate = useNavigate();
-  const renderId = React.useId();
+  const renderId = React.useId(); // Unique ID for this instance
   
-  console.log(`GenericJobsPage rendering for ${config.productType} (id: ${renderId})`);
+  console.log(`[GenericJobsPage] Rendering for ${config.productType} (id: ${renderId})`);
   
   const {
     jobs,
@@ -49,7 +49,7 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
 
   // Force a component refresh on mount
   useEffect(() => {
-    console.log(`${config.productType} jobs page mounted, fetching jobs...`);
+    console.log(`[GenericJobsPage] ${config.productType} jobs page mounted, fetching jobs...`);
     fetchJobs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -67,12 +67,12 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
     completed: jobs.filter(job => job.status === 'completed').length
   };
 
-  console.log(`${config.productType} job counts:`, filterCounts);
-  console.log(`${config.productType} selected jobs count:`, selectedJobs.length);
+  console.log(`[GenericJobsPage] ${config.productType} job counts:`, filterCounts);
+  console.log(`[GenericJobsPage] ${config.productType} selected jobs count:`, selectedJobs.length);
 
   // Handle job selection
   const handleSelectJob = (jobId: string, isSelected: boolean) => {
-    console.log(`${config.productType} job selection change:`, jobId, isSelected);
+    console.log(`[GenericJobsPage] ${config.productType} job selection change:`, jobId, isSelected);
     
     if (isSelected) {
       const jobToAdd = jobs.find(job => job.id === jobId);
@@ -86,7 +86,7 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
 
   // Handle select all jobs
   const handleSelectAllJobs = (isSelected: boolean) => {
-    console.log(`${config.productType} select all jobs:`, isSelected);
+    console.log(`[GenericJobsPage] ${config.productType} select all jobs:`, isSelected);
     
     if (isSelected) {
       // Only select jobs that are in "queued" status
@@ -158,7 +158,14 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
     fetchJobs();
   };
 
-  console.log(`${config.productType} - Selected jobs:`, selectedJobs.length);
+  // Force refresh all data
+  const handleForceRefresh = () => {
+    console.log(`[GenericJobsPage] Force refreshing ${config.productType} jobs page`);
+    setSelectedJobs([]);
+    fetchJobs();
+  };
+
+  console.log(`[GenericJobsPage] ${config.productType} - Selected jobs:`, selectedJobs.length);
 
   return (
     <div>
@@ -182,6 +189,14 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
           <p className="text-gray-500 mt-1">Manage print jobs for {config.ui.title.toLowerCase()}</p>
         </div>
         <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={handleForceRefresh}
+            title="Force Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           <Button 
             variant="outline" 
             onClick={() => navigate(config.routes.basePath)}
@@ -278,6 +293,7 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
             renderLoadingState()
           ) : (
             <GenericJobsTable 
+              key={`${config.productType.toLowerCase()}-jobs-table-${renderId}`}
               config={config}
               jobs={filteredJobs}
               isLoading={isLoading}

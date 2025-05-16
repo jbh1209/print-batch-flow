@@ -3,8 +3,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { DebugInfo } from "@/components/ui/debug-info";
+import { generateRenderKey } from "@/utils/cacheUtils";
 
 const Index = () => {
+  const renderKey = generateRenderKey();
+  
   return (
     <div>
       <div className="container mx-auto p-8">
@@ -38,16 +41,15 @@ const Index = () => {
         </div>
       </div>
       
-      {/* Simple debug info - development only */}
-      {process.env.NODE_ENV === 'development' && (
-        <DebugInfo 
-          componentName="Index Page"
-          extraInfo={{
-            renderTime: new Date().toISOString()
-          }}
-          visible={true}
-        />
-      )}
+      {/* Debug info */}
+      <DebugInfo 
+        componentName="Index Page"
+        extraInfo={{
+          renderTime: new Date().toISOString(),
+          renderKey
+        }}
+        visible={true}
+      />
     </div>
   );
 };
