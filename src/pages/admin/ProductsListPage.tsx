@@ -18,9 +18,10 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { PlusCircle, Pencil, Info } from 'lucide-react';
+import { PlusCircle, Pencil, Info, Box } from 'lucide-react';
 import { useProductTypes } from '@/hooks/admin/useProductTypes';
 import { Separator } from '@/components/ui/separator';
+import * as LucideIcons from 'lucide-react';
 
 const ProductsListPage = () => {
   const navigate = useNavigate();
@@ -30,19 +31,12 @@ const ProductsListPage = () => {
     fetchProductTypes();
   }, []);
 
-  // Dynamically import icons for each product type
+  // Render icon component based on icon name string
   const getIconComponent = (iconName: string) => {
-    const IconComponent = React.lazy(() => 
-      import('lucide-react').then(module => ({ 
-        default: module[iconName] || module.Box 
-      }))
-    );
+    // Use a type assertion to access the icon dynamically
+    const IconComponent = (LucideIcons as Record<string, React.ComponentType<any>>)[iconName] || Box;
     
-    return (
-      <React.Suspense fallback={<div className="w-5 h-5 bg-gray-200 animate-pulse rounded" />}>
-        <IconComponent className="w-5 h-5" />
-      </React.Suspense>
-    );
+    return <IconComponent className="w-5 h-5" />;
   };
 
   return (
