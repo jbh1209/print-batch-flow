@@ -62,7 +62,7 @@ export function useProductTypes() {
       }
     },
     staleTime: 1000 * 60 * 5, // 5 minutes before considered stale
-    cacheTime: 1000 * 60 * 30, // 30 minutes in cache
+    gcTime: 1000 * 60 * 30, // 30 minutes in cache (renamed from cacheTime)
   });
 
   // Mutation for product deletion
