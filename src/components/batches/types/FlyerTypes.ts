@@ -48,4 +48,5 @@ export interface FlyerJob {
   user_id: string;
   created_at: string;
   updated_at: string;
+  uploaded_at?: string; // Add this field to match Job interface
 }

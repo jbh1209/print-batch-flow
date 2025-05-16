@@ -5,6 +5,7 @@ import { getSignedUrl } from "./signedUrlHelper";
 import { createErrorPdf } from "./emptyPdfGenerator";
 import { toast } from "sonner";
 import { calculateJobPageDistribution } from "./JobPageDistributor";
+import { convertToJobType } from "@/utils/typeAdapters";
 
 // Constants
 const TOTAL_SLOTS_PER_BATCH = 24;
@@ -20,6 +21,7 @@ interface JobWithRequiredFields {
   file_name: string;
   uploaded_at: string;
   lamination_type: LaminationType;
+  due_date: string;
 }
 
 // Function to ensure job has all required properties
@@ -28,7 +30,8 @@ function ensureRequiredFields(job: Job): JobWithRequiredFields {
     ...job,
     file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
     uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
-    lamination_type: job.lamination_type || "none"
+    lamination_type: job.lamination_type || "none",
+    due_date: job.due_date || new Date().toISOString()
   };
 }
 
@@ -61,7 +64,7 @@ export async function downloadBatchJobPdfs(jobs: Job[], batchName: string): Prom
     document.body.removeChild(link);
     
     // Clean up
-    setTimeout(() => URL.revokeObjectURL(url), 100);
+    setTimeout(() => URL.revoObjectURL(url), 100);
     toast.success("Batch job PDFs downloaded successfully");
   } catch (error) {
     console.error("Error downloading batch job PDFs:", error);

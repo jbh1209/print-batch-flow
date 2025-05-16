@@ -1,5 +1,5 @@
 
-import { BaseBatch, BatchStatus } from "@/config/types/baseTypes";
+import { BaseBatch, BatchStatus, BaseJob } from "@/config/types/baseTypes";
 
 export interface BatchSummary extends BaseBatch {
   product_type: string;
@@ -15,13 +15,13 @@ export interface BatchDetailsType extends BaseBatch {
 
 export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
 
-export interface Job {
+export interface Job extends BaseJob {
   id: string;
   name: string;
   quantity: number;
   status: string;
   pdf_url: string | null;
-  job_number: string;  // Explicitly required, not optional
+  job_number: string;
   double_sided?: boolean; // Added for Business Card jobs PDF generation
   size?: string;
   sides?: string;
@@ -29,12 +29,12 @@ export interface Job {
   single_sided?: boolean;
   paper_type?: string;
   paper_weight?: string;
-  lamination_type: LaminationType; // Changed from string to enum type and made required
-  file_name: string; // Changed from optional to required to match JobsTable.Job
+  lamination_type: LaminationType;
+  file_name: string;
   created_at?: string;
   updated_at?: string;
   batch_id?: string | null;
-  due_date?: string;
+  due_date: string;  // Changed to required for compatibility
   user_id?: string;
-  uploaded_at: string; // Changed from optional to required to match JobsTable.Job
+  uploaded_at: string; 
 }

@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BatchDetailsType, Job, LaminationType } from "@/components/batches/types/BatchTypes";
+import { convertToJobType } from "@/utils/typeAdapters";
 
 interface UseFetchBatchDetailsProps {
   batchId: string;
@@ -89,21 +90,11 @@ export function useFetchBatchDetails({
         
         console.log(`Found ${jobs?.length || 0} business card jobs, with full field data`);
         
-        // Map jobs to include all required fields for the Job type
-        jobsData = (jobs || []).map(job => ({
-          id: job.id,
-          name: job.name,
-          quantity: job.quantity,
-          status: job.status,
-          pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`, // Ensure job_number is always provided
-          double_sided: job.double_sided, // Important for PDF generation
-          paper_type: job.paper_type,
-          lamination_type: (job.lamination_type as LaminationType) || "none", // Ensure it's typed correctly
-          file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`, // Required field
-          created_at: job.created_at,
-          due_date: job.due_date,
-          uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString() // Required field
+        // Map jobs to include all required fields for the Job type using our utility
+        jobsData = (jobs || []).map(job => convertToJobType({
+          ...job, 
+          // Ensure uploaded_at is not undefined
+          uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
         }));
       } else if (productType === "Flyers") {
         // Remove user filter from job queries
@@ -115,17 +106,12 @@ export function useFetchBatchDetails({
         
         if (jobsError) throw jobsError;
         
-        // Map jobs to include all required fields for the Job type
-        jobsData = (jobs || []).map(job => ({
-          id: job.id,
-          name: job.name,
-          quantity: job.quantity,
-          status: job.status,
-          pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`,
-          file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`, // Required field
-          uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(), // Required field
-          lamination_type: "none" as LaminationType // Default value for required field
+        // Map jobs to include all required fields for the Job type using our utility
+        jobsData = (jobs || []).map(job => convertToJobType({
+          ...job,
+          // Add required fields that might be missing
+          uploaded_at: job.created_at || new Date().toISOString(),
+          lamination_type: "none" as LaminationType
         }));
       }
       

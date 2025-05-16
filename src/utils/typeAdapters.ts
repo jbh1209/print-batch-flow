@@ -15,7 +15,19 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}`, // Ensure job_number is always provided
     file_name: baseJob.file_name || `job-${baseJob.id.substring(0, 6)}.pdf`, // Add required file_name
     uploaded_at: baseJob.uploaded_at || baseJob.created_at || new Date().toISOString(), // Add required uploaded_at
-    lamination_type: (baseJob.lamination_type as LaminationType) || "none" // Add required lamination_type
+    lamination_type: (baseJob.lamination_type as LaminationType) || "none", // Add required lamination_type
+    due_date: baseJob.due_date || new Date().toISOString(), // Add required due_date with fallback
+    created_at: baseJob.created_at || new Date().toISOString(), // Add consistency for created_at
+    // Include other optional properties
+    double_sided: baseJob.double_sided,
+    size: baseJob.size,
+    sides: baseJob.sides,
+    stock_type: baseJob.stock_type,
+    single_sided: baseJob.single_sided,
+    paper_type: baseJob.paper_type,
+    paper_weight: baseJob.paper_weight,
+    batch_id: baseJob.batch_id,
+    user_id: baseJob.user_id
   };
 };
 

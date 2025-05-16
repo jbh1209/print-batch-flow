@@ -10,9 +10,11 @@ export function isBusinessCardJobs(jobs: Job[] | FlyerJob[] | BaseJob[]): jobs i
   // Also check job structure to ensure it's a Job type
   const firstJob = jobs[0];
   return 'job_number' in firstJob && 
-         ('double_sided' in firstJob || 'lamination_type' in firstJob) && 
+         'lamination_type' in firstJob &&
+         'uploaded_at' in firstJob &&
+         ('double_sided' in firstJob || 'file_name' in firstJob) && 
          // Ensure it's not a FlyerJob (which might have some overlapping properties)
-         !('size' in firstJob && typeof firstJob.size !== 'string');
+         !('size' in firstJob && typeof firstJob.size === 'object');
 }
 
 export function isFlyerJobs(jobs: Job[] | FlyerJob[] | BaseJob[]): jobs is FlyerJob[] {
@@ -20,7 +22,7 @@ export function isFlyerJobs(jobs: Job[] | FlyerJob[] | BaseJob[]): jobs is Flyer
   
   const firstJob = jobs[0];
   return 'size' in firstJob && 
-         typeof firstJob.size !== 'string' && // FlyerJob.size is an enum, not a string
+         typeof firstJob.size === 'object' && // FlyerJob.size is an enum, not a string
          !('stock_type' in firstJob) && 
          !('single_sided' in firstJob);
 }

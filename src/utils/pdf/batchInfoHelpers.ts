@@ -8,22 +8,11 @@ import { drawBatchHeader } from "./batch-info/batchHeaderRenderer";
 import { drawBusinessCardInfo } from "./batch-info/businessCardInfoRenderer";
 import { drawFlyerInfo } from "./batch-info/flyerInfoRenderer";
 import { drawSleeveInfo } from "./batch-info/sleeveInfoRenderer";
+import { convertToJobType } from "@/utils/typeAdapters";
 
 // Function to convert and normalize job types for internal use
 function normalizeJobsToRequiredFormat<T extends BaseJob>(jobs: T[]): Job[] {
-  return jobs.map(job => ({
-    id: job.id,
-    name: job.name || '',
-    quantity: job.quantity,
-    status: job.status,
-    pdf_url: job.pdf_url,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`,
-    file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
-    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
-    lamination_type: (job.lamination_type as LaminationType) || "none",
-    size: typeof job.size === 'string' ? job.size : job.size ? String(job.size) : undefined,
-    double_sided: 'double_sided' in job ? job.double_sided : undefined
-  }));
+  return jobs.map(job => convertToJobType(job));
 }
 
 export function drawBatchInfo(
@@ -49,9 +38,9 @@ export function drawBatchInfo(
   // Draw specific info based on job type
   if (isBusinessCardJobs(normalizedJobs)) {
     drawBusinessCardInfo(page, normalizedJobs, margin, helveticaBold, helveticaFont, sheetsRequired);
-  } else if (isFlyerJobs(jobs)) {
-    drawFlyerInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
-  } else if (isSleeveJobs(jobs)) {
-    drawSleeveInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
+  } else if (isFlyerJobs(jobs as FlyerJob[])) {
+    drawFlyerInfo(page, jobs as FlyerJob[], margin, helveticaBold, helveticaFont, sheetsRequired);
+  } else if (isSleeveJobs(jobs as BaseJob[])) {
+    drawSleeveInfo(page, jobs as BaseJob[], margin, helveticaBold, helveticaFont, sheetsRequired);
   }
 }

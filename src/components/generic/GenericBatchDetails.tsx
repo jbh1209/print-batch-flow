@@ -9,7 +9,8 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { BatchDetailsType, Job, LaminationType } from "@/components/batches/types/BatchTypes";
+import { convertToJobsArray } from "@/utils/typeAdapters";
 
 interface GenericBatchDetailsProps {
   config: ProductConfig;
@@ -79,19 +80,8 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ config, batch
     status: batch.status as BatchStatus
   };
 
-  // Convert jobs to the expected type with required properties
-  const convertedJobs: Job[] = relatedJobs.map(job => ({
-    id: job.id,
-    name: job.name,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`,
-    due_date: job.due_date,
-    quantity: job.quantity,
-    status: job.status,
-    pdf_url: job.pdf_url,
-    file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`, // Ensure file_name is provided
-    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(), // Ensure uploaded_at is provided
-    lamination_type: (job.lamination_type as LaminationType) || "none" // Ensure lamination_type is provided
-  }));
+  // Use the converter utility to ensure all required properties are included
+  const convertedJobs: Job[] = convertToJobsArray(relatedJobs);
 
   return (
     <div>

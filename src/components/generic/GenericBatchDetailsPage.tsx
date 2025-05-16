@@ -10,6 +10,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BatchDetailsType, Job, LaminationType } from "@/components/batches/types/BatchTypes";
 import BatchDeleteDialog from "@/components/batches/DeleteBatchDialog";
+import { convertToJobsArray } from "@/utils/typeAdapters";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -83,18 +84,8 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs to match the Job interface, ensuring all required fields are present
-  const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
-    id: job.id,
-    name: job.name || '',
-    quantity: job.quantity,
-    status: job.status,
-    pdf_url: job.pdf_url || null,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`,
-    file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`, // Add required file_name
-    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(), // Add required uploaded_at
-    lamination_type: (job.lamination_type as LaminationType) || "none" // Add required lamination_type with correct type
-  }));
+  // Convert related jobs using our utility function to ensure all fields are present
+  const convertedJobs = convertToJobsArray(relatedJobs);
 
   return (
     <div>
@@ -105,7 +96,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
       
       <BatchDetailsContent
         batch={batchDetailsData}
-        relatedJobs={typedRelatedJobs}
+        relatedJobs={convertedJobs}
         productType={config.productType}
         onDeleteClick={() => setBatchToDelete(batch.id)}
       />

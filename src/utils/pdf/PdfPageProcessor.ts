@@ -21,6 +21,10 @@ interface JobWithRequiredFields {
   file_name: string;
   uploaded_at: string;
   lamination_type: LaminationType;
+  job_number: string;
+  quantity: number;
+  status: string;
+  due_date: string;
 }
 
 // Function to ensure job has all required properties
@@ -29,7 +33,11 @@ function ensureRequiredFields(job: Job): JobWithRequiredFields {
     ...job,
     file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
     uploaded_at: job.uploaded_at || new Date().toISOString(),
-    lamination_type: job.lamination_type || "none" as LaminationType
+    lamination_type: job.lamination_type || "none" as LaminationType,
+    job_number: job.job_number,
+    quantity: job.quantity,
+    status: job.status,
+    due_date: job.due_date
   };
 }
 

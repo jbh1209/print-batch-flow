@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
 import { Job, LaminationType } from '@/components/batches/types/BatchTypes';
 import BatchDeleteDialog from '@/components/batches/DeleteBatchDialog';
+import { convertToJobType } from '@/utils/typeAdapters';
 
 const FlyerBatchDetails = () => {
   const { batchId } = useParams();
@@ -74,18 +75,13 @@ const FlyerBatchDetails = () => {
     return <EmptyBatchState />;
   }
 
-  // Convert FlyerJob[] to Job[] with required fields
-  const convertedJobs: Job[] = relatedJobs.map(job => ({
-    id: job.id,
-    name: job.name,
-    quantity: job.quantity,
-    status: job.status,
-    pdf_url: job.pdf_url,
-    job_number: job.job_number,
-    file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`, // Required field
-    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(), // Required field
-    lamination_type: "none" as LaminationType, // Required field with default value
-    size: typeof job.size === 'string' ? job.size : String(job.size) // Convert to string if needed
+  // Convert FlyerJob[] to Job[] with required fields using our utility function
+  const convertedJobs: Job[] = relatedJobs.map(job => convertToJobType({
+    ...job,
+    // Ensure required fields are present
+    lamination_type: "none" as LaminationType,
+    file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
+    uploaded_at: job.created_at || new Date().toISOString()
   }));
 
   return (
