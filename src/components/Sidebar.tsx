@@ -19,12 +19,14 @@ import {
   ChevronRight,
   Plus,
   Cog,
-  Loader2
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useProductTypes } from "@/hooks/admin/useProductTypes";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 interface NavItemProps {
   to: string;
@@ -201,7 +203,14 @@ const Sidebar = () => {
     // Invalidate and refetch
     queryClient.invalidateQueries({ queryKey: ['productTypes'] });
     fetchProductTypes();
+    toast.success('Product types refreshed');
   };
+  
+  // Fetch product types on mount
+  useEffect(() => {
+    // We don't need to await here as our hook handles the state updates
+    fetchProductTypes();
+  }, []);
 
   return (
     <div className={cn(
@@ -246,6 +255,15 @@ const Sidebar = () => {
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Products</div>}
           {collapsed && <div className="my-4 border-t border-white/10"></div>}
           
+          {/* Hardcoded Business Cards - Always show first */}
+          <ProductNav
+            name="Business Cards"
+            icon={<CreditCard size={20} />}
+            basePath="/batches/business-cards"
+            currentPath={location.pathname}
+            collapsed={collapsed}
+          />
+          
           {isLoading ? (
             <div className={cn(
               "flex justify-center py-4",
@@ -255,8 +273,10 @@ const Sidebar = () => {
             </div>
           ) : (
             <>
-              {/* Dynamic products from database */}
-              {productTypes.map(product => (
+              {/* Dynamic products from database - filter out business-cards if it exists there */}
+              {productTypes
+                .filter(product => product.slug !== 'business-cards')
+                .map(product => (
                 <ProductNav
                   key={product.id}
                   name={product.name}
@@ -297,7 +317,7 @@ const Sidebar = () => {
               onClick={handleRefreshProducts}
               className="mt-6 mx-4 text-xs px-3 py-1 bg-white/10 hover:bg-white/20 rounded flex items-center justify-center text-white/70 hover:text-white"
             >
-              <Loader2 className="h-3.5 w-3.5 mr-2" /> Refresh Cache
+              <RefreshCw className="h-3.5 w-3.5 mr-2" /> Refresh Cache
             </button>
           )}
         </nav>

@@ -7,9 +7,15 @@ import { useNavigate } from "react-router-dom";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { format, formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useProductTypes } from "@/hooks/admin/useProductTypes";
+import { useEffect } from "react";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  
   const { 
     activeBatches, 
     pendingJobs, 
@@ -17,10 +23,25 @@ const Dashboard = () => {
     bucketsFilled,
     batchTypeStats,
     recentActivity,
-    isLoading,
-    error,
-    refresh
+    isLoading: statsLoading,
+    error: statsError,
+    refresh: refreshStats
   } = useDashboardStats();
+
+  const {
+    productTypes,
+    isLoading: productsLoading,
+    error: productsError,
+    fetchProductTypes
+  } = useProductTypes();
+
+  const isLoading = statsLoading || productsLoading;
+  const error = statsError || productsError;
+
+  useEffect(() => {
+    // Fetch product types when component mounts
+    fetchProductTypes();
+  }, []);
 
   const stats = [
     { 
@@ -49,6 +70,37 @@ const Dashboard = () => {
     navigate(`/batches/${type.toLowerCase().replace(" ", "-")}`);
   };
 
+  // Refresh all data
+  const handleRefreshAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['productTypes'] });
+    fetchProductTypes();
+    refreshStats();
+    toast.success('Dashboard data refreshed');
+  };
+
+  // Get product batch types to display - combines hardcoded Business Cards with dynamic products
+  const getBatchTypes = () => {
+    // Always include Business Cards first
+    const batchTypes = [
+      { name: "Business Cards", desc: "90x50mm, various lamination options", slug: "business-cards" }
+    ];
+    
+    // Then add dynamic products (excluding Business Cards if it's in the database)
+    if (productTypes?.length > 0) {
+      productTypes.forEach(product => {
+        if (product.slug !== 'business-cards') {
+          batchTypes.push({
+            name: product.name,
+            desc: `Custom product type (${product.table_name})`,
+            slug: product.slug
+          });
+        }
+      });
+    }
+    
+    return batchTypes;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -59,11 +111,11 @@ const Dashboard = () => {
         <Button 
           size="sm" 
           variant="outline" 
-          onClick={refresh}
+          onClick={handleRefreshAll}
           className="flex items-center gap-1"
         >
           <RefreshCw className="h-4 w-4" />
-          Refresh
+          Refresh All
         </Button>
       </div>
 
@@ -181,13 +233,8 @@ const Dashboard = () => {
           <p className="text-sm text-gray-500">Start a new batch from available batch types</p>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { name: "Business Cards", desc: "90x50mm, various lamination options" },
-              { name: "Flyers A5", desc: "A5 flyers with various paper options" },
-              { name: "Flyers A6", desc: "A6 flyers with various paper options" },
-              { name: "Postcards", desc: "Various paper types and weights" },
-            ].map((type, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {getBatchTypes().map((type, i) => (
               <Card key={i} className="border border-gray-200 hover:border-gray-300">
                 <CardContent className="p-4">
                   <h3 className="font-bold">{type.name}</h3>
@@ -195,14 +242,32 @@ const Dashboard = () => {
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => handleCreateBatch(type.name)}
+                    onClick={() => handleCreateBatch(type.slug)}
                   >
                     View Bucket
                   </Button>
                 </CardContent>
               </Card>
             ))}
+            
+            {productsLoading && (
+              <Card className="border border-gray-200 hover:border-gray-300">
+                <CardContent className="p-4 flex flex-col items-center justify-center h-32">
+                  <RefreshCw className="h-6 w-6 animate-spin text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-500">Loading products...</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
+          
+          {productsError && (
+            <div className="mt-4 p-2 bg-red-50 text-red-700 rounded-md">
+              <p>Error loading product types: {productsError}</p>
+              <Button variant="outline" size="sm" onClick={fetchProductTypes} className="mt-2">
+                Retry
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
