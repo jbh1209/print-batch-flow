@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -17,10 +18,13 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
-  Cog
+  Cog,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useProductTypes } from "@/hooks/admin/useProductTypes";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface NavItemProps {
   to: string;
@@ -163,49 +167,10 @@ const ProductNav = ({ name, icon, basePath, currentPath, collapsed }: ProductNav
 const Sidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-
-  const products = [
-    {
-      name: "Business Cards",
-      icon: <CreditCard size={20} />,
-      basePath: "/batches/business-cards"
-    },
-    {
-      name: "Flyers",
-      icon: <FileText size={20} />,
-      basePath: "/batches/flyers"
-    },
-    {
-      name: "Postcards",
-      icon: <Mail size={20} />,
-      basePath: "/batches/postcards"
-    },
-    {
-      name: "Shipper Box Sleeves",
-      icon: <Package size={20} />,
-      basePath: "/batches/sleeves"
-    },
-    {
-      name: "Product Boxes",
-      icon: <Box size={20} />,
-      basePath: "/batches/boxes"
-    },
-    {
-      name: "Zund Stickers",
-      icon: <Sticker size={20} />,
-      basePath: "/batches/stickers"
-    },
-    {
-      name: "Covers",
-      icon: <Book size={20} />,
-      basePath: "/batches/covers"
-    },
-    {
-      name: "Posters",
-      icon: <Image size={20} />,
-      basePath: "/batches/posters"
-    }
-  ];
+  const queryClient = useQueryClient();
+  
+  // Use the existing hook to fetch product types with proper caching
+  const { productTypes, isLoading, fetchProductTypes } = useProductTypes();
 
   // Enhanced route active detection
   const isRouteActive = (path: string): boolean => {
@@ -229,6 +194,13 @@ const Sidebar = () => {
     }
     
     return false;
+  };
+
+  // Force refetch product types - this helps with cache invalidation issues
+  const handleRefreshProducts = () => {
+    // Invalidate and refetch
+    queryClient.invalidateQueries({ queryKey: ['productTypes'] });
+    fetchProductTypes();
   };
 
   return (
@@ -274,16 +246,28 @@ const Sidebar = () => {
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Products</div>}
           {collapsed && <div className="my-4 border-t border-white/10"></div>}
           
-          {products.map(product => (
-            <ProductNav
-              key={product.name}
-              name={product.name}
-              icon={product.icon}
-              basePath={product.basePath}
-              currentPath={location.pathname}
-              collapsed={collapsed}
-            />
-          ))}
+          {isLoading ? (
+            <div className={cn(
+              "flex justify-center py-4",
+              collapsed ? "px-0" : "px-4"
+            )}>
+              <Loader2 className="h-5 w-5 animate-spin text-white/70" />
+            </div>
+          ) : (
+            <>
+              {/* Dynamic products from database */}
+              {productTypes.map(product => (
+                <ProductNav
+                  key={product.id}
+                  name={product.name}
+                  icon={getProductIcon(product.icon_name)}
+                  basePath={`/batches/${product.slug}`}
+                  currentPath={location.pathname}
+                  collapsed={collapsed}
+                />
+              ))}
+            </>
+          )}
           
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Administration</div>}
           {collapsed && <div className="my-4 border-t border-white/10"></div>}
@@ -306,10 +290,38 @@ const Sidebar = () => {
             label={collapsed ? "" : "Settings"} 
             isActive={isRouteActive("/settings")} 
           />
+          
+          {/* Debug tools for admin */}
+          {!collapsed && (
+            <button 
+              onClick={handleRefreshProducts}
+              className="mt-6 mx-4 text-xs px-3 py-1 bg-white/10 hover:bg-white/20 rounded flex items-center justify-center text-white/70 hover:text-white"
+            >
+              <Loader2 className="h-3.5 w-3.5 mr-2" /> Refresh Cache
+            </button>
+          )}
         </nav>
       </div>
     </div>
   );
 };
+
+// Helper function to get the icon component
+function getProductIcon(iconName: string) {
+  // Predefined icon mapping
+  const iconMap: Record<string, React.ReactNode> = {
+    'CreditCard': <CreditCard size={20} />,
+    'FileText': <FileText size={20} />,
+    'Mail': <Mail size={20} />,
+    'Package': <Package size={20} />,
+    'Box': <Box size={20} />,
+    'Sticker': <Sticker size={20} />,
+    'Book': <Book size={20} />,
+    'Image': <Image size={20} />
+  };
+  
+  // Return the icon or a default one
+  return iconMap[iconName] || <Box size={20} />;
+}
 
 export default Sidebar;

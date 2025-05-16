@@ -39,8 +39,17 @@ import BusinessCardJobDetail from '@/pages/BusinessCardJobDetail';
 // Add a version key for cache busting
 const appVersion = Date.now().toString();
 
-// Create a client for React Query
-const queryClient = new QueryClient();
+// Create a client for React Query with improved default settings
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60, // 1 minute
+      cacheTime: 1000 * 60 * 10, // 10 minutes
+      retry: 1, // Only retry once on failure
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    },
+  },
+});
 
 function App() {
   console.log("App rendering with version", appVersion);
@@ -70,11 +79,11 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* Admin Routes */}
-                <Route path="admin" element={<AdminLayout />}>
-                  <Route path="products" element={<ProductsListPage />} />
-                  <Route path="products/create" element={<CreateProductPage />} />
-                  <Route path="products/:id" element={<EditProductPage />} />
+                {/* Admin Routes - Ensure they have a key for cache busting */}
+                <Route path="admin" element={<AdminLayout key={`admin-${appVersion}`} />}>
+                  <Route path="products" element={<ProductsListPage key={`products-${appVersion}`} />} />
+                  <Route path="products/create" element={<CreateProductPage key={`create-product-${appVersion}`} />} />
+                  <Route path="products/:id" element={<EditProductPage key={`edit-product-${appVersion}`} />} />
                 </Route>
 
                 {/* All batches and jobs */}

@@ -1,7 +1,8 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export type ProductType = {
   id: string;
@@ -31,36 +32,70 @@ export type ProductFieldOption = {
 };
 
 export function useProductTypes() {
-  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  
+  // Use React Query for data fetching with proper caching
+  const { 
+    data: productTypes = [], 
+    isLoading,
+    isFetching, 
+    refetch 
+  } = useQuery({
+    queryKey: ['productTypes'],
+    queryFn: async () => {
+      try {
+        setError(null);
+        const { data, error: fetchError } = await supabase
+          .from('product_types')
+          .select('*')
+          .order('name');
+          
+        if (fetchError) throw fetchError;
+        
+        return data || [];
+      } catch (err: any) {
+        console.error('Error fetching product types:', err);
+        setError(err.message || 'Failed to fetch product types');
+        toast.error('Failed to load products');
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes before considered stale
+    cacheTime: 1000 * 60 * 30, // 30 minutes in cache
+  });
 
-  useEffect(() => {
-    fetchProductTypes();
-  }, []);
-
-  const fetchProductTypes = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const { data, error } = await supabase
+  // Mutation for product deletion
+  const deleteProductMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      const { error } = await supabase
         .from('product_types')
-        .select('*')
-        .order('name');
+        .delete()
+        .eq('id', productId);
         
       if (error) throw error;
-      
-      setProductTypes(data || []);
+      return productId;
+    },
+    onSuccess: () => {
+      // Invalidate cache and refetch
+      queryClient.invalidateQueries({ queryKey: ['productTypes'] });
+      toast.success('Product deleted successfully');
+    },
+    onError: (err: any) => {
+      toast.error(`Failed to delete product: ${err.message}`);
+    }
+  });
+  
+  // Function for manual refetching - useful for debug buttons or force refresh
+  const fetchProductTypes = async () => {
+    try {
+      await refetch();
     } catch (err: any) {
-      console.error('Error fetching product types:', err);
-      setError(err.message || 'Failed to fetch product types');
-      toast.error('Failed to load products');
-    } finally {
-      setIsLoading(false);
+      console.error('Error refetching product types:', err);
     }
   };
 
+  // Get details for a single product
   const getProductDetails = async (productId: string) => {
     try {
       // First get the product type
@@ -118,10 +153,11 @@ export function useProductTypes() {
 
   return {
     productTypes,
-    isLoading,
+    isLoading: isLoading || isFetching,
     error,
     fetchProductTypes,
-    getProductDetails
+    getProductDetails,
+    deleteProduct: deleteProductMutation.mutate
   };
 }
 
