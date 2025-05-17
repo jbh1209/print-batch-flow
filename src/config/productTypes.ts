@@ -1,18 +1,8 @@
 
 // Main entry point for product types that re-exports all types and configurations
 
-// Re-export types with explicit names to avoid ambiguity
-import { BatchStatus, JobStatus as BaseJobStatus, BaseJob, BaseBatch } from './types/baseTypes';
-import { LaminationType as ConfigLaminationType } from './types/productConfigTypes';
-
-// Re-export with unique names using 'export type' for TypeScript modules
-export type { BatchStatus, BaseJobStatus, BaseJob, BaseBatch };
-export type { ConfigLaminationType };
-
-// Export ExistingTableName to fix errors in other modules
-export type { ExistingTableName } from './types/baseTypes';
-
-// Additional exports
+// Re-export all types
+export * from './types/baseTypes';
 export * from './types/productConfigTypes';
 
 // Import all product configs
@@ -41,5 +31,4 @@ export const productConfigs: Record<string, ProductConfig> = {
 
 // Additional type exports for compatibility
 export type TableName = ExistingTableName;
-export type JobStatus = BaseJobStatus;
-export type LaminationType = ConfigLaminationType;
+export type JobStatus = 'queued' | 'batched' | 'processing' | 'completed' | 'cancelled';

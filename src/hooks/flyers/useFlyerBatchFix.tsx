@@ -23,6 +23,7 @@ export function useFlyerBatchFix(onJobsUpdated: () => Promise<void>) {
       const { data: orphanedJobs, error: findError } = await supabase
         .from('flyer_jobs')
         .select('id')
+        .eq('user_id', user.id)
         .eq('status', 'batched')
         .is('batch_id', null);
       

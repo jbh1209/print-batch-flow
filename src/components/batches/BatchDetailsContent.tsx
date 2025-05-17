@@ -8,9 +8,7 @@ import { FlyerBatchOverview } from "../flyers/FlyerBatchOverview";
 import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
-import { BaseJob } from "@/config/types/baseTypes";
-import { ensureValidLaminationType, ensureValidJobStatus } from "@/utils/typeAdapters";
-import { convertToJobType } from "@/utils/typeAdapters";
+import { BaseJob } from "@/config/productTypes";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -35,15 +33,7 @@ const BatchDetailsContent = ({
     }
     
     try {
-      // Make sure all jobs have the required properties
-      const preparedJobs = relatedJobs.map(job => ({
-        ...job,
-        lamination_type: ensureValidLaminationType(job.lamination_type),
-        status: ensureValidJobStatus(job.status),
-        uploaded_at: job.uploaded_at || new Date().toISOString()
-      }));
-      
-      await downloadBatchJobPdfs(preparedJobs, batch.name);
+      await downloadBatchJobPdfs(relatedJobs, batch.name);
     } catch (error) {
       console.error("Error downloading job PDFs:", error);
       toast.error("Failed to download job PDFs");
@@ -69,21 +59,16 @@ const BatchDetailsContent = ({
     }
   };
   
-  // Convert Job[] to BaseJob[] for FlyerBatchOverview - ensuring all required fields are present
+  // Convert Job[] to BaseJob[] for FlyerBatchOverview - ensure job_number is passed directly
   const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
     return jobs.map(job => ({
-      id: job.id,
-      name: job.name,
-      quantity: job.quantity,
-      status: ensureValidJobStatus(job.status),
-      pdf_url: job.pdf_url,
+      ...job,
+      // Directly copy job_number as is - no fallbacks
       job_number: job.job_number,
-      due_date: job.due_date,
-      file_name: job.file_name,
+      due_date: job.due_date || new Date().toISOString(),
+      file_name: job.file_name || "",
       user_id: job.user_id || "",
       created_at: job.created_at || new Date().toISOString(),
-      lamination_type: ensureValidLaminationType(job.lamination_type),
-      uploaded_at: job.uploaded_at
     })) as BaseJob[];
   };
   

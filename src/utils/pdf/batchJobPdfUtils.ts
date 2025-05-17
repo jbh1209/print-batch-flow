@@ -1,6 +1,6 @@
 
 import { PDFDocument } from "pdf-lib";
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job } from "@/components/batches/types/BatchTypes";
 import { getSignedUrl } from "./signedUrlHelper";
 import { createErrorPdf } from "./emptyPdfGenerator";
 import { toast } from "sonner";
@@ -88,7 +88,7 @@ async function generateConsolidatedJobPdfs(jobs: Job[]): Promise<PDFDocument> {
       const pageCount = jobPdf.getPageCount();
       
       // Determine if this is a single or double-sided job
-      const isDoubleSided = job.double_sided;
+      const isDoubleSided = pageCount > 1;
       
       // Find this job's slot allocation from our calculation
       const jobAllocation = jobDistribution.find(j => j.jobId === job.id);
@@ -136,7 +136,7 @@ async function generateConsolidatedJobPdfs(jobs: Job[]): Promise<PDFDocument> {
       console.error(`Error processing PDF for job ${job.id}:`, error);
       
       // Add error page for this job
-      const errorPdf = await createErrorPdf(job, `Failed to process PDF: ${error}`);
+      const errorPdf = await createErrorPdf(job as any, `Failed to process PDF: ${error}`);
       const [errorPage] = await consolidatedPdf.copyPages(errorPdf, [0]);
       consolidatedPdf.addPage(errorPage);
     }

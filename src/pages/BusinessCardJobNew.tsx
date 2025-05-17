@@ -129,7 +129,11 @@ const BusinessCardJobNew = () => {
 
   return (
     <div className="container mx-auto max-w-4xl">
-      <JobFormHeader isEditing={false} />
+      <JobFormHeader 
+        title="New Business Card Job" 
+        description="Create a new business card printing job"
+        isEditing={false} 
+      />
 
       <div className="bg-white rounded-lg border shadow p-6">
         <Form {...form}>

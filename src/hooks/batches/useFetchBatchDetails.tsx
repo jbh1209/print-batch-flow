@@ -5,7 +5,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
-import { LaminationType } from "@/components/business-cards/JobsTable";
 
 interface UseFetchBatchDetailsProps {
   batchId: string;
@@ -35,6 +34,7 @@ export function useFetchBatchDetails({
     try {
       console.log(`Fetching batch details for batch ID: ${batchId}`);
       
+      // Remove the user filter to allow viewing any batch
       const { data, error } = await supabase
         .from("batches")
         .select("*")
@@ -77,56 +77,42 @@ export function useFetchBatchDetails({
       let jobsData: Job[] = [];
       
       if (productType === "Business Cards") {
-        // Expanded query to include ALL necessary fields for business card jobs
+        // Remove user filter from job queries as well
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number, file_name, double_sided, lamination_type, uploaded_at, paper_type, due_date")
+          .select("id, name, quantity, status, pdf_url, job_number")
           .eq("batch_id", batchId)
           .order("name");
         
         if (jobsError) throw jobsError;
         
-        // Map complete job data with correct typing for lamination_type
+        // Map jobs to include job_number
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
           quantity: job.quantity,
           status: job.status,
           pdf_url: job.pdf_url,
-          job_number: job.job_number,
-          file_name: job.file_name || job.name, // Ensure file_name is never empty
-          double_sided: job.double_sided,
-          lamination_type: job.lamination_type as LaminationType, // Cast to LaminationType
-          due_date: job.due_date,
-          uploaded_at: job.uploaded_at,
-          paper_type: job.paper_type
+          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
         }));
       } else if (productType === "Flyers") {
+        // Remove user filter from job queries
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number, file_name, paper_type, paper_weight, size, due_date, user_id, created_at")
+          .select("id, name, quantity, status, pdf_url, job_number")
           .eq("batch_id", batchId)
           .order("name");
         
         if (jobsError) throw jobsError;
         
-        // Map jobs for flyers with lamination_type set to none and add uploaded_at
+        // Map jobs to include job_number
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
           quantity: job.quantity,
           status: job.status,
           pdf_url: job.pdf_url,
-          job_number: job.job_number,
-          file_name: job.file_name || job.name, // Ensure file_name is never empty
-          paper_type: job.paper_type,
-          paper_weight: job.paper_weight,
-          size: job.size,
-          due_date: job.due_date,
-          lamination_type: 'none' as LaminationType, // Set a default value
-          user_id: job.user_id,
-          created_at: job.created_at,
-          uploaded_at: job.created_at || new Date().toISOString() // Use created_at as uploaded_at if available
+          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
         }));
       }
       

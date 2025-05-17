@@ -38,6 +38,7 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
         .from("batches")
         .select("*")
         .eq("id", batchId)
+        .eq("created_by", userId)
         .single();
       
       if (error) {
@@ -49,7 +50,7 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
         console.log("Batch not found");
         toast({
           title: "Batch not found",
-          description: "The requested batch could not be found.",
+          description: "The requested batch could not be found or you don't have permission to view it.",
           variant: "destructive",
         });
         navigate(config.routes.batchesPath);

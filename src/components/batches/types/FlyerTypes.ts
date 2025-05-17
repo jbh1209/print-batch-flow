@@ -1,8 +1,8 @@
 
-import { BatchStatus, LaminationType, JobStatus } from "@/config/types/baseTypes";
+import { BatchStatus, LaminationType } from "@/config/productTypes";
 
-// Import directly from baseTypes instead of productTypes
-export type { BatchStatus, LaminationType, JobStatus };
+// Import directly from the config file instead of from ./BatchTypes
+export type { BatchStatus, LaminationType };
 
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";
@@ -17,7 +17,7 @@ export interface FlyerBatch {
   overview_pdf_url: string | null; // Property needed by the UI
   due_date: string;
   created_at: string;
-  lamination_type: LaminationType | string;
+  lamination_type: LaminationType;
   // Add missing properties needed by FlyerBatchDetails.tsx
   paper_type?: string;
   paper_weight?: string;
@@ -38,12 +38,11 @@ export interface FlyerJob {
   quantity: number;
   due_date: string;
   batch_id: string | null;
-  // Update the status type to include all JobStatus values from baseTypes
-  status: JobStatus;
+  // Update the status type to include "sent_to_print"
+  status: "queued" | "batched" | "completed" | "cancelled" | "sent_to_print";
   pdf_url: string;
   file_name: string;
   user_id: string;
   created_at: string;
   updated_at: string;
-  uploaded_at: string; // Add the uploaded_at field to match Job interface
 }

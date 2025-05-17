@@ -26,22 +26,6 @@ export type BatchStatus =
   | 'sent_to_print'
   | 'cancelled';
 
-// Job status type that includes all possible job statuses
-export type JobStatus = 
-  | 'queued'
-  | 'batched'
-  | 'processing'
-  | 'completed'
-  | 'cancelled'
-  | 'sent_to_print';
-
-// Unified lamination type for all products
-export type LaminationType = 
-  | 'none'
-  | 'gloss'
-  | 'matt'
-  | 'soft_touch';
-
 export interface BaseBatch {
   id: string;
   name: string;
@@ -66,15 +50,15 @@ export interface BaseBatch {
 export interface BaseJob {
   id: string;
   name: string;
-  status: JobStatus | string;
+  status: string;
   quantity: number;
   due_date: string;
   created_at?: string;
   updated_at?: string;
-  lamination_type?: LaminationType | string;  // Accept both specific type or string
+  lamination_type?: string;
   paper_type?: string;
   paper_weight?: string;
-  pdf_url?: string | null;
+  pdf_url?: string;
   file_name?: string;
   batch_id?: string | null;
   job_number?: string;
@@ -82,9 +66,4 @@ export interface BaseJob {
   sides?: string;
   stock_type?: string; 
   single_sided?: boolean;
-  uploaded_at: string; // Required field
-  user_id?: string;    // User ID field
 }
-
-// Export ProductConfig from baseTypes as well to resolve import issues
-export type { ProductConfig } from '../types/productConfigTypes';

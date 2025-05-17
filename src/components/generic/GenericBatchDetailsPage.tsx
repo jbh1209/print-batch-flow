@@ -2,8 +2,7 @@
 import React, { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
-import { ProductConfig } from "@/config/productTypes";
-import { BatchStatus, JobStatus, LaminationType } from "@/config/types/baseTypes";
+import { ProductConfig, BatchStatus } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
@@ -11,7 +10,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
-import { ensureValidJobStatus, ensureValidLaminationType } from "@/utils/typeAdapters";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -85,18 +83,14 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs to match the Job interface, ensuring all required fields are present
+  // Convert related jobs to match the Job interface, ensuring job_number is included
   const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
     id: job.id,
     name: job.name || '',
     quantity: job.quantity,
-    status: ensureValidJobStatus(job.status),
+    status: job.status,
     pdf_url: job.pdf_url || null,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`, // Ensure job_number is always provided
-    due_date: job.due_date || new Date().toISOString(), // Ensure due_date is always provided
-    file_name: job.file_name || job.name || '', // Ensure file_name is always provided
-    lamination_type: ensureValidLaminationType(job.lamination_type), // Ensure compatibility with LaminationType
-    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString() // Add the required uploaded_at field
+    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
   }));
 
   return (

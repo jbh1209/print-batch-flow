@@ -1,5 +1,5 @@
 
-import { BaseJob, BaseBatch, BatchStatus, LaminationType, JobStatus } from "@/config/types/baseTypes";
+import { BaseJob, BaseBatch, BatchStatus } from "@/config/types/baseTypes";
 import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
 
 /**
@@ -10,14 +10,9 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     id: baseJob.id,
     name: baseJob.name || '',  // Ensure name is not undefined
     quantity: baseJob.quantity,
-    status: ensureValidJobStatus(baseJob.status), // Convert to proper JobStatus
+    status: baseJob.status,
     pdf_url: baseJob.pdf_url || null,
-    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}`, // Ensure job_number is always provided
-    due_date: baseJob.due_date || new Date().toISOString(), // Ensure due_date is always provided
-    file_name: baseJob.file_name || baseJob.name || '', // Ensure file_name is always provided
-    lamination_type: ensureValidLaminationType(baseJob.lamination_type), // Ensure lamination_type is always provided and cast to LaminationType
-    uploaded_at: baseJob.uploaded_at || baseJob.created_at || new Date().toISOString(), // Handle uploaded_at
-    user_id: baseJob.user_id || '' // Handle user_id with default
+    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}` // Ensure job_number is always provided
   };
 };
 
@@ -57,38 +52,12 @@ export const convertToBatchDetailsType = (batch: BaseBatch): BatchDetailsType =>
 /**
  * Ensures the database batch status is compatible with our BatchStatus type
  */
-export const ensureValidBatchStatus = (status: string | undefined | null): BatchStatus => {
+export const ensureValidBatchStatus = (status: string): BatchStatus => {
   // Check if the status is already a valid BatchStatus
-  if (status && ['pending', 'queued', 'processing', 'completed', 'sent_to_print', 'cancelled'].includes(status)) {
+  if (['pending', 'queued', 'processing', 'completed', 'sent_to_print', 'cancelled'].includes(status)) {
     return status as BatchStatus;
   }
   
   // Default to 'queued' if it's an invalid status
-  return 'queued';
-};
-
-/**
- * Ensures the lamination type is compatible with our LaminationType type
- */
-export const ensureValidLaminationType = (type: string | null | undefined): LaminationType => {
-  if (!type) return 'none';
-  
-  if (['none', 'gloss', 'matt', 'soft_touch'].includes(type)) {
-    return type as LaminationType;
-  }
-  
-  return 'none';
-};
-
-/**
- * Ensures the job status is compatible with our JobStatus type
- */
-export const ensureValidJobStatus = (status: string | null | undefined): JobStatus => {
-  if (!status) return 'queued';
-  
-  if (['queued', 'batched', 'processing', 'completed', 'cancelled', 'sent_to_print'].includes(status)) {
-    return status as JobStatus;
-  }
-  
   return 'queued';
 };

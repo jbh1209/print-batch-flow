@@ -1,8 +1,7 @@
 
-import { ExistingTableName, LaminationType as BaseLaminationType } from './baseTypes';
+import { ExistingTableName } from './baseTypes';
 
-// Use a specific name for re-export to avoid ambiguity
-export type LaminationType = BaseLaminationType;
+export type LaminationType = 'none' | 'gloss' | 'matt' | 'soft_touch';
 
 export interface ProductConfig {
   productType: string;

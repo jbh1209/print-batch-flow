@@ -2,8 +2,9 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Layers, CreditCard, Mail, FileText, Box } from "lucide-react";
+import { Layers, CreditCard, Mail, FileText, Box, ClipboardList, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Separator } from "@/components/ui/separator";
 
 const Index = () => {
   const productTypes = [
@@ -11,25 +12,33 @@ const Index = () => {
       name: "Business Cards",
       icon: <CreditCard className="h-6 w-6 mb-2" />,
       description: "Manage business card batches and jobs",
-      link: "/batches/business-cards"
+      batchesLink: "/batches/business-cards",
+      jobsLink: "/batches/business-cards/jobs",
+      createJobLink: "/batches/business-cards/jobs/new"
     },
     {
       name: "Postcards",
       icon: <Mail className="h-6 w-6 mb-2" />,
       description: "Create and manage postcard print batches",
-      link: "/batches/postcards"
+      batchesLink: "/batches/postcards",
+      jobsLink: "/batches/postcards/jobs",
+      createJobLink: "/batches/postcards/jobs/new"
     },
     {
       name: "Flyers",
       icon: <FileText className="h-6 w-6 mb-2" />,
       description: "Organize flyer production batches",
-      link: "/batches/flyers"
+      batchesLink: "/batches/flyers",
+      jobsLink: "/batches/flyers/jobs",
+      createJobLink: "/batches/flyers/jobs/new"
     },
     {
       name: "Product Boxes",
       icon: <Box className="h-6 w-6 mb-2" />,
       description: "Manage product box printing",
-      link: "/batches/boxes"
+      batchesLink: "/batches/boxes",
+      jobsLink: "/batches/boxes/jobs",
+      createJobLink: "/batches/boxes/jobs/new"
     }
   ];
 
@@ -41,10 +50,10 @@ const Index = () => {
         
         <div className="flex justify-center gap-4">
           <Button asChild size="lg">
-            <Link to="/batches/all">View All Batches</Link>
+            <Link to="/batches">View All Batches</Link>
           </Button>
           <Button asChild variant="outline" size="lg">
-            <Link to="/batches/business-cards/jobs/new">Create New Job</Link>
+            <Link to="/all-jobs">View All Jobs</Link>
           </Button>
         </div>
       </div>
@@ -57,26 +66,66 @@ const Index = () => {
               <CardTitle>{product.name}</CardTitle>
               <CardDescription>{product.description}</CardDescription>
             </CardHeader>
-            <CardFooter className="bg-gray-50 p-4 flex justify-center">
-              <Button variant="ghost" asChild>
-                <Link to={product.link}>Manage {product.name}</Link>
+            <CardContent className="pt-0 pb-3 flex flex-col gap-2">
+              <Button variant="default" asChild size="sm" className="w-full">
+                <Link to={product.jobsLink} className="flex items-center justify-center gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  View Jobs
+                </Link>
+              </Button>
+              <Button variant="outline" asChild size="sm" className="w-full">
+                <Link to={product.batchesLink} className="flex items-center justify-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  Manage Batches
+                </Link>
+              </Button>
+            </CardContent>
+            <CardFooter className="bg-gray-50 p-3 flex justify-center">
+              <Button variant="ghost" size="sm" asChild className="w-full">
+                <Link to={product.createJobLink} className="flex items-center justify-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create New Job
+                </Link>
               </Button>
             </CardFooter>
           </Card>
         ))}
       </div>
 
-      <div className="mt-12 text-center">
+      <Separator className="my-8" />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Batches</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              Recent Batches
+            </CardTitle>
             <CardDescription>View and manage all your production batches</CardDescription>
           </CardHeader>
           <CardContent className="pb-6">
             <Button asChild>
-              <Link to="/batches/all" className="flex items-center gap-2">
+              <Link to="/batches" className="flex items-center gap-2">
                 <Layers className="h-5 w-5" />
                 View All Batches
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              Print Jobs
+            </CardTitle>
+            <CardDescription>Manage all your print jobs across product types</CardDescription>
+          </CardHeader>
+          <CardContent className="pb-6">
+            <Button asChild>
+              <Link to="/all-jobs" className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                View All Jobs
               </Link>
             </Button>
           </CardContent>

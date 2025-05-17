@@ -2,12 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { BaseJob, ProductConfig, LaminationType, JobStatus } from '@/config/types/baseTypes';
+import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
 import { useGenericBatches } from './useGenericBatches';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
 import { isExistingTable } from '@/utils/database/tableValidation';
-import { toast } from 'sonner';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -21,6 +20,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   // Fetch all jobs for this product type
   const fetchJobs = async () => {
+    if (!user) {
+      console.log('No authenticated user for jobs fetching');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -36,9 +41,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      console.log('Fetching all jobs from table:', config.tableName);
+      console.log('Fetching jobs for table:', config.tableName);
       
-      // Remove user_id filter to allow all users to see all jobs
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
@@ -48,18 +53,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       console.log('Jobs data received:', data?.length || 0, 'records');
       
-      // Ensure all jobs have required fields
-      if (data && Array.isArray(data)) {
-        const processedJobs = data.map(job => ({
-          ...job,
-          uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
-        }));
-        
-        // Use explicit type casting to avoid excessive type instantiation
-        setJobs(processedJobs as unknown as T[]);
-      } else {
-        setJobs([] as unknown as T[]);
-      }
+      // Use explicit type casting to avoid excessive type instantiation
+      setJobs((data || []) as unknown as T[]);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
@@ -69,7 +64,11 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   };
 
   useEffect(() => {
-    fetchJobs();
+    if (user) {
+      fetchJobs();
+    } else {
+      setIsLoading(false);
+    }
   }, [user]);
 
   // Handle job deletion with local state update
@@ -118,11 +117,6 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   ) => {
     try {
-      if (selectedJobs.length === 0) {
-        toast.error("No jobs selected for batch creation");
-        return null;
-      }
-      
       // Fixed: Ensure laminationType is properly converted to LaminationType type
       const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
       
@@ -137,9 +131,10 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         laminationType: typedLaminationType // Include laminationType in the config object
       };
       
-      // Pass only the selected jobs and combined config to the wrapper function
+      // Fixed: Pass only the selected jobs and combined config to the wrapper function
+      // The wrapper function in useGenericBatches expects only 2 arguments
       const batch = await createBatchWithSelectedJobs(
-        selectedJobs, // Jobs now match the expected type
+        selectedJobs as BaseJob[], // Cast to BaseJob[] to match the expected type
         batchConfig
       );
       
@@ -147,7 +142,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         setJobs(prevJobs => 
           prevJobs.map(job => 
             selectedJobs.some(selectedJob => selectedJob.id === job.id)
-              ? { ...job, status: 'batched' as JobStatus, batch_id: batch.id } as T
+              ? { ...job, status: 'batched', batch_id: batch.id } as T
               : job
           )
         );

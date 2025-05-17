@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,11 +9,14 @@ import EmptyState from "./EmptyState";
 import DueDateIndicator from "./DueDateIndicator";
 import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
-import { JobStatus, LaminationType } from "@/config/types/baseTypes";
+
+export type JobStatus = "queued" | "batched" | "completed" | "cancelled";
+export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
 
 export interface Job {
   id: string;
   name: string;
+  job_number: string;
   file_name: string;
   quantity: number;
   lamination_type: LaminationType;
@@ -151,7 +155,7 @@ const JobsTable = ({
                 disabled={!canSelect}
               />
             </TableCell>
-            <TableCell>{job.name || 'Unnamed Job'}</TableCell>
+            <TableCell>{job.job_number || job.name || 'Unnamed Job'}</TableCell>
             <TableCell>
               <span 
                 className="text-blue-600 hover:underline cursor-pointer" 

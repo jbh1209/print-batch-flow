@@ -14,7 +14,7 @@ import { BatchStatus } from "@/config/types/baseTypes";
 interface BatchStatusUpdateProps {
   batchId: string;
   currentStatus: BatchStatus;
-  onStatusUpdate?: () => void;
+  onStatusUpdate: () => void;
 }
 
 const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStatusUpdateProps) => {
@@ -28,9 +28,7 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
       if (error) throw error;
 
       toast.success(`Batch marked as ${newStatus.replace('_', ' ')}`);
-      if (onStatusUpdate) {
-        onStatusUpdate();
-      }
+      onStatusUpdate();
     } catch (error) {
       console.error('Error updating batch status:', error);
       toast.error('Failed to update batch status');

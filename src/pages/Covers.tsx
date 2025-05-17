@@ -56,8 +56,8 @@ const Covers = () => {
       >
         <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="jobs" onClick={() => navigate("/batches/covers/jobs")}>Jobs</TabsTrigger>
-          <TabsTrigger value="batches" onClick={() => navigate("/batches/covers/batches")}>Batches</TabsTrigger>
+          <TabsTrigger value="jobs" onClick={() => navigate(config.routes.jobsPath)}>Jobs</TabsTrigger>
+          <TabsTrigger value="batches" onClick={() => navigate(config.routes.batchesPath)}>Batches</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-6">

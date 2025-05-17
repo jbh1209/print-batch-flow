@@ -24,22 +24,23 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface JobData {
-  name: string;
-  quantity: number;
-  double_sided: boolean;
-  lamination_type: "none" | "gloss" | "matt" | "soft_touch"; // Fixed: properly typed to match enum
-  paper_type: string;
-  due_date: string;
-}
-
 interface JobEditFormProps {
-  jobData: JobData | null;
-  isSaving: boolean;
+  initialData: {
+    name: string;
+    quantity: number;
+    doubleSided: boolean;
+    laminationType: "none" | "gloss" | "matt" | "soft_touch";
+    paperType: string;
+    dueDate: Date;
+    fileUrl?: string;
+    fileName?: string;
+  };
+  isSubmitting: boolean;
+  success: boolean;
   onSubmit: (data: FormValues, file: File | null) => Promise<boolean>;
 }
 
-const JobEditForm = ({ jobData, isSaving, onSubmit }: JobEditFormProps) => {
+const JobEditForm = ({ initialData, isSubmitting, success, onSubmit }: JobEditFormProps) => {
   const navigate = useNavigate();
   
   const { selectedFile, setSelectedFile, handleFileChange } = useFileUpload({
@@ -50,20 +51,17 @@ const JobEditForm = ({ jobData, isSaving, onSubmit }: JobEditFormProps) => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: jobData?.name || "",
-      quantity: jobData?.quantity || 100,
-      doubleSided: jobData?.double_sided || false,
-      laminationType: jobData?.lamination_type || "none",
-      paperType: jobData?.paper_type || "350gsm Matt",
-      dueDate: jobData?.due_date ? new Date(jobData.due_date) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      name: initialData.name || "",
+      quantity: initialData.quantity || 100,
+      doubleSided: initialData.doubleSided || false,
+      laminationType: initialData.laminationType || "none",
+      paperType: initialData.paperType || "350gsm Matt",
+      dueDate: initialData.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
 
   const handleFormSubmit = async (data: FormValues) => {
-    const success = await onSubmit(data, selectedFile);
-    if (success) {
-      navigate("/batches/business-cards/jobs");
-    }
+    await onSubmit(data, selectedFile);
   };
 
   return (
@@ -81,7 +79,7 @@ const JobEditForm = ({ jobData, isSaving, onSubmit }: JobEditFormProps) => {
         />
 
         <FormActions 
-          isSubmitting={isSaving}
+          isSubmitting={isSubmitting}
           submitLabel="Save Changes" 
           cancelPath="/batches/business-cards/jobs"
           onCancel={() => navigate("/batches/business-cards/jobs")}

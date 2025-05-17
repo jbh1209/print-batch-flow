@@ -91,7 +91,7 @@ export const FlyerJobsTable = () => {
   }
 
   if (jobs.length === 0) {
-    return <FlyerJobsEmptyState />;
+    return <FlyerJobsEmptyState productType="Flyers" />;
   }
 
   // Count selectable jobs

@@ -1,9 +1,8 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
-import { ProductConfig } from "@/config/productTypes";
-import { BatchStatus } from "@/config/types/baseTypes";
+import { ProductConfig, BatchStatus } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -11,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
-import { ensureValidLaminationType, ensureValidJobStatus } from "@/utils/typeAdapters";
 
 interface GenericBatchDetailsProps {
   batchId: string;
@@ -74,19 +72,14 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs to match the Job interface with all required properties
+  // Convert related jobs to match the Job interface, ensuring job_number is included
   const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
     id: job.id,
     name: job.name || '',
     quantity: job.quantity,
-    status: ensureValidJobStatus(job.status), // Ensure status is a valid JobStatus
+    status: job.status,
     pdf_url: job.pdf_url || null,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`, // Ensure job_number is always provided
-    due_date: job.due_date || new Date().toISOString(), // Ensure due_date is always provided
-    file_name: job.file_name || job.name || '', // Ensure file_name is always provided
-    lamination_type: ensureValidLaminationType(job.lamination_type), // Ensure compatibility with LaminationType
-    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(), // Provide default for uploaded_at
-    user_id: job.user_id || '' // Provide a default for user_id
+    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
   }));
 
   return (
