@@ -5,9 +5,12 @@
 import { BatchStatus, JobStatus as BaseJobStatus, BaseJob, BaseBatch } from './types/baseTypes';
 import { LaminationType as ConfigLaminationType } from './types/productConfigTypes';
 
-// Re-export with unique names
-export { BatchStatus, BaseJobStatus, BaseJob, BaseBatch };
-export { ConfigLaminationType };
+// Re-export with unique names using 'export type' for TypeScript modules
+export type { BatchStatus, BaseJobStatus, BaseJob, BaseBatch };
+export type { ConfigLaminationType };
+
+// Export ExistingTableName to fix errors in other modules
+export type { ExistingTableName } from './types/baseTypes';
 
 // Additional exports
 export * from './types/productConfigTypes';

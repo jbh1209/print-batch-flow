@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,9 +8,7 @@ import EmptyState from "./EmptyState";
 import DueDateIndicator from "./DueDateIndicator";
 import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
-
-export type JobStatus = "queued" | "batched" | "completed" | "cancelled";
-export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
+import { JobStatus, LaminationType } from "@/config/types/baseTypes";
 
 export interface Job {
   id: string;

@@ -8,8 +8,9 @@ import { FlyerBatchOverview } from "../flyers/FlyerBatchOverview";
 import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
-import { BaseJob, LaminationType, JobStatus } from "@/config/types/baseTypes";
+import { BaseJob } from "@/config/types/baseTypes";
 import { ensureValidLaminationType, ensureValidJobStatus } from "@/utils/typeAdapters";
+import { convertToJobType } from "@/utils/typeAdapters";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -71,15 +72,18 @@ const BatchDetailsContent = ({
   // Convert Job[] to BaseJob[] for FlyerBatchOverview - ensuring all required fields are present
   const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
     return jobs.map(job => ({
-      ...job,
+      id: job.id,
+      name: job.name,
+      quantity: job.quantity,
+      status: ensureValidJobStatus(job.status),
+      pdf_url: job.pdf_url,
       job_number: job.job_number,
       due_date: job.due_date,
       file_name: job.file_name,
       user_id: job.user_id || "",
       created_at: job.created_at || new Date().toISOString(),
       lamination_type: ensureValidLaminationType(job.lamination_type),
-      status: ensureValidJobStatus(job.status),
-      uploaded_at: job.uploaded_at || new Date().toISOString()
+      uploaded_at: job.uploaded_at
     })) as BaseJob[];
   };
   

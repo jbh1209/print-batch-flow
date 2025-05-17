@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
 import { useAuth } from './useAuth';
 import { useFlyerBatchFix } from './flyers/useFlyerBatchFix';
+import { JobStatus } from '@/config/types/baseTypes';
+import { ensureValidJobStatus } from '@/utils/typeAdapters';
 
 export const useFlyerJobs = () => {
   const { user } = useAuth();
@@ -37,7 +39,9 @@ export const useFlyerJobs = () => {
       // Ensure all jobs have required fields, especially uploaded_at
       const processedJobs = (data || []).map(job => ({
         ...job,
-        uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
+        uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
+        // Ensure status is a valid JobStatus
+        status: ensureValidJobStatus(job.status)
       }));
       
       setJobs(processedJobs as FlyerJob[]);
@@ -60,7 +64,7 @@ export const useFlyerJobs = () => {
       const newJob = {
         ...jobData,
         user_id: user.id,
-        status: 'queued' as const,
+        status: 'queued' as JobStatus,
         uploaded_at: jobData.uploaded_at || new Date().toISOString() // Ensure uploaded_at field exists
       };
 
@@ -72,10 +76,15 @@ export const useFlyerJobs = () => {
 
       if (error) throw error;
       
-      // Add the new job to the state
-      setJobs(prev => [data as FlyerJob, ...prev]);
+      // Add the new job to the state with proper status handling
+      const processedJob = {
+        ...data,
+        status: ensureValidJobStatus(data.status)
+      };
       
-      return data;
+      setJobs(prev => [processedJob as FlyerJob, ...prev]);
+      
+      return processedJob;
     } catch (err) {
       console.error('Error creating flyer job:', err);
       toast.error('Failed to create flyer job');
@@ -115,7 +124,7 @@ export const useFlyerJobs = () => {
         .from('flyer_jobs')
         .update({
           batch_id: batchId,
-          status: batchId ? 'batched' : 'queued'
+          status: batchId ? 'batched' as JobStatus : 'queued' as JobStatus
         })
         .eq('id', jobId);
 
@@ -127,7 +136,7 @@ export const useFlyerJobs = () => {
           return {
             ...job,
             batch_id: batchId,
-            status: batchId ? 'batched' : 'queued'
+            status: batchId ? 'batched' as JobStatus : 'queued' as JobStatus
           };
         }
         return job;
@@ -140,7 +149,7 @@ export const useFlyerJobs = () => {
     }
   };
 
-  const updateJobStatus = async (jobId: string, status: FlyerJob['status']) => {
+  const updateJobStatus = async (jobId: string, status: JobStatus) => {
     if (!user) throw new Error("User not authenticated");
 
     try {

@@ -85,3 +85,6 @@ export interface BaseJob {
   uploaded_at: string; // Required field
   user_id?: string;    // User ID field
 }
+
+// Export ProductConfig from baseTypes as well to resolve import issues
+export type { ProductConfig } from '../types/productConfigTypes';

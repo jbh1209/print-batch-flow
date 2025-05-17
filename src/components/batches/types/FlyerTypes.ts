@@ -38,8 +38,8 @@ export interface FlyerJob {
   quantity: number;
   due_date: string;
   batch_id: string | null;
-  // Update the status type to include "sent_to_print"
-  status: JobStatus | "queued" | "batched" | "completed" | "cancelled" | "sent_to_print";
+  // Update the status type to include all JobStatus values from baseTypes
+  status: JobStatus;
   pdf_url: string;
   file_name: string;
   user_id: string;
