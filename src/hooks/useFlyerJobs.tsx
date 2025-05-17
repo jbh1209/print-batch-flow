@@ -4,12 +4,14 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
 import { useAuth } from './useAuth';
+import { useFlyerBatchFix } from './flyers/useFlyerBatchFix';
 
 export const useFlyerJobs = () => {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<FlyerJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreatingBatch, setIsCreatingBatch] = useState(false);
 
   const fetchJobs = useCallback(async () => {
     setIsLoading(true);
@@ -164,6 +166,38 @@ export const useFlyerJobs = () => {
     }
   };
 
+  // Add the batch fix functionality
+  const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useFlyerBatchFix(fetchJobs);
+
+  // Add a createBatch function
+  const createBatch = async (selectedJobs: FlyerJob[], batchProperties: any) => {
+    if (!user) throw new Error("User not authenticated");
+    setIsCreatingBatch(true);
+
+    try {
+      // Implementation would go here
+      console.log("Creating batch with jobs:", selectedJobs);
+      console.log("Batch properties:", batchProperties);
+      
+      // Example implementation (placeholder)
+      const batch = {
+        name: `Flyer Batch ${new Date().toISOString().slice(0, 10)}`,
+        status: 'pending',
+        created_by: user.id,
+        ...batchProperties
+      };
+
+      // In a real implementation, this would insert the batch and update the jobs
+      
+      setIsCreatingBatch(false);
+      return batch;
+    } catch (err) {
+      console.error('Error creating batch:', err);
+      setIsCreatingBatch(false);
+      throw err;
+    }
+  };
+
   return {
     jobs,
     isLoading,
@@ -172,6 +206,10 @@ export const useFlyerJobs = () => {
     createJob,
     deleteJob,
     updateJobBatchId,
-    updateJobStatus
+    updateJobStatus,
+    fixBatchedJobsWithoutBatch,
+    isFixingBatchedJobs,
+    createBatch,
+    isCreatingBatch
   };
 };

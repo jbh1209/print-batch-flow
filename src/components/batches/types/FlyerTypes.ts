@@ -1,8 +1,8 @@
 
-import { BatchStatus, LaminationType } from "@/config/types/baseTypes";
+import { BatchStatus, LaminationType, JobStatus } from "@/config/types/baseTypes";
 
 // Import directly from baseTypes instead of productTypes
-export type { BatchStatus, LaminationType };
+export type { BatchStatus, LaminationType, JobStatus };
 
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";
@@ -39,7 +39,7 @@ export interface FlyerJob {
   due_date: string;
   batch_id: string | null;
   // Update the status type to include "sent_to_print"
-  status: "queued" | "batched" | "completed" | "cancelled" | "sent_to_print";
+  status: JobStatus | "queued" | "batched" | "completed" | "cancelled" | "sent_to_print";
   pdf_url: string;
   file_name: string;
   user_id: string;

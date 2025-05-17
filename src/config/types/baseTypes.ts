@@ -26,6 +26,15 @@ export type BatchStatus =
   | 'sent_to_print'
   | 'cancelled';
 
+// Job status type that includes all possible job statuses
+export type JobStatus = 
+  | 'queued'
+  | 'batched'
+  | 'processing'
+  | 'completed'
+  | 'cancelled'
+  | 'sent_to_print';
+
 // Unified lamination type for all products
 export type LaminationType = 
   | 'none'
@@ -57,7 +66,7 @@ export interface BaseBatch {
 export interface BaseJob {
   id: string;
   name: string;
-  status: string;
+  status: JobStatus | string;
   quantity: number;
   due_date: string;
   created_at?: string;

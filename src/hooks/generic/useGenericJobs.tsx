@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
+import { BaseJob, ProductConfig, LaminationType, JobStatus } from '@/config/types/baseTypes';
 import { useGenericBatches } from './useGenericBatches';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
@@ -139,7 +139,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       
       // Pass only the selected jobs and combined config to the wrapper function
       const batch = await createBatchWithSelectedJobs(
-        selectedJobs as BaseJob[], // Cast to BaseJob[] to match the expected type
+        selectedJobs, // Jobs now match the expected type
         batchConfig
       );
       
@@ -147,7 +147,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         setJobs(prevJobs => 
           prevJobs.map(job => 
             selectedJobs.some(selectedJob => selectedJob.id === job.id)
-              ? { ...job, status: 'batched', batch_id: batch.id } as T
+              ? { ...job, status: 'batched' as JobStatus, batch_id: batch.id } as T
               : job
           )
         );

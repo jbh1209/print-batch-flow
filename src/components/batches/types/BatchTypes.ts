@@ -1,5 +1,5 @@
 
-import { BaseBatch, BatchStatus, LaminationType } from "@/config/types/baseTypes";
+import { BaseBatch, BatchStatus, LaminationType, JobStatus } from "@/config/types/baseTypes";
 
 export interface BatchSummary extends BaseBatch {
   product_type: string;
@@ -17,7 +17,7 @@ export interface Job {
   id: string;
   name: string;
   quantity: number;
-  status: string;
+  status: JobStatus | string;
   pdf_url: string | null;
   job_number: string;  // Explicitly required, not optional
   size?: string;

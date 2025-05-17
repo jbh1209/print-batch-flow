@@ -1,8 +1,9 @@
 
 import { Badge } from "@/components/ui/badge";
+import { JobStatus } from "@/config/types/baseTypes";
 
 interface JobStatusBadgeProps {
-  status: string;
+  status: JobStatus | string;
 }
 
 const JobStatusBadge = ({ status }: JobStatusBadgeProps) => {
@@ -12,6 +13,8 @@ const JobStatusBadge = ({ status }: JobStatusBadgeProps) => {
         return "bg-yellow-100 text-yellow-800 border-yellow-200";
       case "batched":
         return "bg-blue-100 text-blue-800 border-blue-200";
+      case "processing":
+        return "bg-indigo-100 text-indigo-800 border-indigo-200";
       case "completed":
         return "bg-green-100 text-green-800 border-green-200";
       case "cancelled":

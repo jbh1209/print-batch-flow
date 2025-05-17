@@ -1,5 +1,5 @@
 
-import { BaseJob, BaseBatch, BatchStatus, LaminationType } from "@/config/types/baseTypes";
+import { BaseJob, BaseBatch, BatchStatus, LaminationType, JobStatus } from "@/config/types/baseTypes";
 import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
 
 /**
@@ -78,4 +78,17 @@ export const ensureValidLaminationType = (type: string | null | undefined): Lami
   }
   
   return 'none';
+};
+
+/**
+ * Ensures the job status is compatible with our JobStatus type
+ */
+export const ensureValidJobStatus = (status: string | null | undefined): JobStatus => {
+  if (!status) return 'queued';
+  
+  if (['queued', 'batched', 'processing', 'completed', 'cancelled', 'sent_to_print'].includes(status)) {
+    return status as JobStatus;
+  }
+  
+  return 'queued';
 };
