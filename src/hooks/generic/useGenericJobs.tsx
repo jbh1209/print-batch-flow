@@ -20,12 +20,6 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   // Fetch all jobs for this product type
   const fetchJobs = async () => {
-    if (!user) {
-      console.log('No authenticated user for jobs fetching');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
@@ -41,21 +35,26 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      console.log('Fetching jobs for user:', user.id, 'from table:', config.tableName);
+      console.log('Fetching all jobs from table:', config.tableName);
       
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Remove user_id filter to allow all users to see all jobs
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 
       console.log('Jobs data received:', data?.length || 0, 'records');
       
+      // Ensure all jobs have required fields
+      const processedJobs = (data || []).map(job => ({
+        ...job,
+        uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
+      }));
+      
       // Use explicit type casting to avoid excessive type instantiation
-      setJobs((data || []) as unknown as T[]);
+      setJobs(processedJobs as unknown as T[]);
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
@@ -65,11 +64,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchJobs();
-    } else {
-      setIsLoading(false);
-    }
+    fetchJobs();
   }, [user]);
 
   // Handle job deletion with local state update

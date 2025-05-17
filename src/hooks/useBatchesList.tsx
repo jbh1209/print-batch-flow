@@ -44,6 +44,7 @@ export const useBatchesList = () => {
       
       console.log("Fetching all batches");
       
+      // Remove created_by filter to allow all users to see all batches
       const { data, error } = await supabase
         .from("batches")
         .select("*")

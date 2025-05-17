@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import { AuthProvider } from './hooks/useAuth';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminProtectedRoute from './components/AdminProtectedRoute';
 import BusinessCards from './pages/BusinessCards';
 import BusinessCardJobs from './pages/BusinessCardJobs';
 import FlyerJobsPage from './pages/generic/FlyerJobsPage';
@@ -142,9 +143,9 @@ const App = () => {
             <Route path="/batches/stickers/batches" element={<StickerBatchesPage />} />
             <Route path="/batches/stickers/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs["Stickers"]} />} />
 
-            {/* Administration Routes */}
-            <Route path="/users" element={<Users />} />
-            <Route path="/settings" element={<Settings />} />
+            {/* Administration Routes - Protect with AdminProtectedRoute */}
+            <Route path="/users" element={<AdminProtectedRoute><Users /></AdminProtectedRoute>} />
+            <Route path="/settings" element={<AdminProtectedRoute><Settings /></AdminProtectedRoute>} />
             
             {/* Handle 404 Not Found */}
             <Route path="*" element={<NotFound />} />

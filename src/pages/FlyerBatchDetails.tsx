@@ -47,7 +47,13 @@ const FlyerBatchDetails = () => {
           
         if (error) throw error;
         
-        setRelatedJobs(data || []);
+        // Ensure all FlyerJob objects have the required uploaded_at field
+        const jobsWithUploadedAt = (data || []).map(job => ({
+          ...job,
+          uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
+        })) as FlyerJob[];
+        
+        setRelatedJobs(jobsWithUploadedAt);
       } catch (err) {
         console.error('Error fetching related jobs:', err);
       } finally {
@@ -82,7 +88,7 @@ const FlyerBatchDetails = () => {
     size: job.size,
     due_date: job.due_date,
     lamination_type: 'none' as LaminationType,
-    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(), // Use either uploaded_at or created_at
+    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
     user_id: job.user_id
   }));
 

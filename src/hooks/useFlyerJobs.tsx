@@ -16,19 +16,14 @@ export function useFlyerJobs() {
   const { deleteJob, createJob, createBatchWithSelectedJobs, isCreatingBatch } = useFlyerJobOperations();
   
   const fetchJobs = async () => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
 
+      // Remove the user_id filter to show all jobs
       const { data, error: fetchError } = await supabase
         .from('flyer_jobs')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -49,7 +44,8 @@ export function useFlyerJobs() {
         file_name: job.file_name,
         user_id: job.user_id,
         created_at: job.created_at,
-        updated_at: job.updated_at
+        updated_at: job.updated_at,
+        uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString() // Add the uploaded_at field
       }));
       
       setJobs(typedJobs);

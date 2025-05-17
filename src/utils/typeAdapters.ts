@@ -1,3 +1,4 @@
+
 import { BaseJob, BaseBatch, BatchStatus } from "@/config/types/baseTypes";
 import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
 import { LaminationType } from "@/components/business-cards/JobsTable";
@@ -16,7 +17,8 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     due_date: baseJob.due_date || new Date().toISOString(), // Ensure due_date is always provided
     file_name: baseJob.file_name || baseJob.name || '', // Ensure file_name is always provided
     lamination_type: (baseJob.lamination_type as LaminationType) || 'none', // Ensure lamination_type is always provided and cast to LaminationType
-    uploaded_at: baseJob.uploaded_at || new Date().toISOString() // Add the required uploaded_at field
+    uploaded_at: baseJob.uploaded_at || baseJob.created_at || new Date().toISOString(), // Handle uploaded_at
+    user_id: baseJob.user_id || '' // Handle user_id with default
   };
 };
 

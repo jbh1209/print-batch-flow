@@ -58,7 +58,7 @@ export interface BaseJob {
   lamination_type?: string;
   paper_type?: string;
   paper_weight?: string;
-  pdf_url?: string;
+  pdf_url?: string | null;
   file_name?: string;
   batch_id?: string | null;
   job_number?: string;
@@ -66,4 +66,6 @@ export interface BaseJob {
   sides?: string;
   stock_type?: string; 
   single_sided?: boolean;
+  uploaded_at: string; // Added this field as required
+  user_id?: string;    // Added this field
 }
