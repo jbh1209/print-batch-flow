@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,18 +12,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cleanupAuthState } from '@/services/auth/authService';
-
-// Check if we're in Lovable preview mode
-const isLovablePreview = 
-  typeof window !== 'undefined' && 
-  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
-
 interface LocationState {
   from?: {
     pathname: string;
   };
 }
-
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,14 +37,6 @@ const Auth = () => {
   // Get the location state for redirect after login
   const state = location.state as LocationState;
   const from = state?.from?.pathname || '/';
-
-  // In preview mode, offer a direct entry button
-  const handlePreviewEntry = () => {
-    if (isLovablePreview) {
-      navigate('/');
-    }
-  };
-
   useEffect(() => {
     // Redirect if already logged in
     if (user && !authLoading) {
@@ -66,18 +50,10 @@ const Auth = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
-    
-    // In preview mode, just redirect to the main page
-    if (isLovablePreview) {
-      navigate('/', { replace: true });
-      return;
-    }
-    
     if (!loginEmail || !loginPassword) {
       setErrorMessage('Please enter both email and password');
       return;
     }
-    
     setIsLoading(true);
     try {
       // Clean up any existing auth state
@@ -111,13 +87,6 @@ const Auth = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
-    
-    // In preview mode, just redirect to the main page
-    if (isLovablePreview) {
-      navigate('/', { replace: true });
-      return;
-    }
-    
     if (!signupEmail || !signupPassword) {
       setErrorMessage('Please enter email and password');
       return;
@@ -166,7 +135,6 @@ const Auth = () => {
         <Spinner size={40} />
       </div>;
   }
-  
   return <div className="flex justify-center items-center min-h-screen bg-gray-50 bg-cover bg-center bg-no-repeat" style={{
     backgroundImage: "url('/HPIndigo12000DigitalPressImage_LR.jpg')",
     backgroundSize: 'cover'
@@ -176,105 +144,81 @@ const Auth = () => {
           <CardHeader className="space-y-1 bg-batchflow-secondary">
             <CardTitle className="text-2xl font-bold text-center">BatchFlow</CardTitle>
             <CardDescription className="text-center text-white">
-              {isLovablePreview 
-                ? 'Preview Mode Active' 
-                : 'Sign in to your account or create a new one'}
+              Sign in to your account or create a new one
             </CardDescription>
           </CardHeader>
           
-          {isLovablePreview && (
-            <div className="p-4">
-              <Alert className="bg-blue-50 border-blue-200">
-                <AlertCircle className="h-4 w-4 text-blue-500" />
-                <AlertDescription className="text-blue-700">
-                  You're in preview mode. Click below to enter the application.
-                </AlertDescription>
-              </Alert>
-              <Button 
-                className="w-full mt-4" 
-                onClick={handlePreviewEntry}
-              >
-                Enter Application Preview
-              </Button>
+          <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
+            <div className="px-6">
+              <TabsList className="grid grid-cols-2 w-full">
+                <TabsTrigger value="login" className="bg-rose-600 hover:bg-rose-500 text-white">Login</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              </TabsList>
             </div>
-          )}
-          
-          {!isLovablePreview && (
-            <>
-              <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
-                <div className="px-6">
-                  <TabsList className="grid grid-cols-2 w-full">
-                    <TabsTrigger value="login" className="bg-rose-600 hover:bg-rose-500 text-white">Login</TabsTrigger>
-                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
-                  </TabsList>
-                </div>
-                
-                {errorMessage && <div className="px-6 pt-4">
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{errorMessage}</AlertDescription>
-                    </Alert>
-                  </div>}
-                
-                <TabsContent value="login">
-                  <form onSubmit={handleLogin}>
-                    <CardContent className="space-y-4 pt-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="login-email">Email</Label>
-                        <Input id="login-email" type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="Enter your email" required className="bg-white/50 backdrop-blur-sm" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="login-password">Password</Label>
-                        <Input id="login-password" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="Enter your password" required className="bg-white/50 backdrop-blur-sm" />
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? <>
-                            <Spinner size={16} className="mr-2" /> 
-                            Signing in...
-                          </> : "Sign In"}
-                      </Button>
-                    </CardFooter>
-                  </form>
-                </TabsContent>
-                
-                <TabsContent value="signup">
-                  <form onSubmit={handleSignup}>
-                    <CardContent className="space-y-4 pt-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="full-name">Full Name</Label>
-                        <Input id="full-name" type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Enter your full name" className="bg-white/50 backdrop-blur-sm" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-email">Email</Label>
-                        <Input id="signup-email" type="email" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} placeholder="Enter your email" required className="bg-white/50 backdrop-blur-sm" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-password">Password</Label>
-                        <Input id="signup-password" type="password" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} placeholder="Create a password" required className="bg-white/50 backdrop-blur-sm" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-confirm-password">Confirm Password</Label>
-                        <Input id="signup-confirm-password" type="password" value={signupConfirmPassword} onChange={e => setSignupConfirmPassword(e.target.value)} placeholder="Confirm your password" required className="bg-white/50 backdrop-blur-sm" />
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? <>
-                            <Spinner size={16} className="mr-2" /> 
-                            Creating account...
-                          </> : "Create Account"}
-                      </Button>
-                    </CardFooter>
-                  </form>
-                </TabsContent>
-              </Tabs>
-            </>
-          )}
+            
+            {errorMessage && <div className="px-6 pt-4">
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{errorMessage}</AlertDescription>
+                </Alert>
+              </div>}
+            
+            <TabsContent value="login">
+              <form onSubmit={handleLogin}>
+                <CardContent className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input id="login-email" type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="Enter your email" required className="bg-white/50 backdrop-blur-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password">Password</Label>
+                    <Input id="login-password" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="Enter your password" required className="bg-white/50 backdrop-blur-sm" />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? <>
+                        <Spinner size={16} className="mr-2" /> 
+                        Signing in...
+                      </> : "Sign In"}
+                  </Button>
+                </CardFooter>
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="signup">
+              <form onSubmit={handleSignup}>
+                <CardContent className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="full-name">Full Name</Label>
+                    <Input id="full-name" type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Enter your full name" className="bg-white/50 backdrop-blur-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">Email</Label>
+                    <Input id="signup-email" type="email" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} placeholder="Enter your email" required className="bg-white/50 backdrop-blur-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Password</Label>
+                    <Input id="signup-password" type="password" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} placeholder="Create a password" required className="bg-white/50 backdrop-blur-sm" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+                    <Input id="signup-confirm-password" type="password" value={signupConfirmPassword} onChange={e => setSignupConfirmPassword(e.target.value)} placeholder="Confirm your password" required className="bg-white/50 backdrop-blur-sm" />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? <>
+                        <Spinner size={16} className="mr-2" /> 
+                        Creating account...
+                      </> : "Create Account"}
+                  </Button>
+                </CardFooter>
+              </form>
+            </TabsContent>
+          </Tabs>
         </Card>
       </div>
     </div>;
 };
-
 export default Auth;

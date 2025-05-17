@@ -6,11 +6,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
-// Check if we're in Lovable preview mode
-const isLovablePreview = 
-  typeof window !== 'undefined' && 
-  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
-
 interface ProtectedRouteProps {
   children: ReactNode;
   requireAdmin?: boolean;
@@ -49,7 +44,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     }
     
     // Only show admin-required message if user is trying to access admin-only route
-    if (user && requireAdmin && !isAdmin && !isLovablePreview) {
+    if (user && requireAdmin && !isAdmin) {
       toast.error('You need administrator privileges to access this page');
     }
   }, [user, requireAdmin, isAdmin, isLoading]);
@@ -61,11 +56,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
         <Spinner size={40} />
       </div>
     );
-  }
-
-  // Skip authentication checks in preview mode
-  if (isLovablePreview) {
-    return <>{children}</>;
   }
 
   // Explicitly log authentication state for debugging
