@@ -12,7 +12,9 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     quantity: baseJob.quantity,
     status: baseJob.status,
     pdf_url: baseJob.pdf_url || null,
-    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}` // Ensure job_number is always provided
+    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}`, // Ensure job_number is always provided
+    due_date: baseJob.due_date || new Date().toISOString(), // Ensure due_date is always provided
+    file_name: baseJob.file_name || baseJob.name || '' // Ensure file_name is always provided
   };
 };
 

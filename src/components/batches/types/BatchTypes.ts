@@ -28,7 +28,7 @@ export interface Job {
   paper_type?: string;
   paper_weight?: string;
   lamination_type?: string;
-  file_name?: string;
+  file_name: string;  // Changed from optional to required
   created_at?: string;
   updated_at?: string;
   batch_id?: string | null;

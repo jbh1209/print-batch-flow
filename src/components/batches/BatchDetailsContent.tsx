@@ -59,14 +59,13 @@ const BatchDetailsContent = ({
     }
   };
   
-  // Convert Job[] to BaseJob[] for FlyerBatchOverview - ensure job_number is passed directly
+  // Convert Job[] to BaseJob[] for FlyerBatchOverview - ensuring all required fields are present
   const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
     return jobs.map(job => ({
       ...job,
-      // Directly copy job_number as is - no fallbacks
       job_number: job.job_number,
-      due_date: job.due_date || new Date().toISOString(),
-      file_name: job.file_name || "",
+      due_date: job.due_date,
+      file_name: job.file_name,
       user_id: job.user_id || "",
       created_at: job.created_at || new Date().toISOString(),
     })) as BaseJob[];

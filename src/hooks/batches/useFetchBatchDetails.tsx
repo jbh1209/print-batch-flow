@@ -94,11 +94,12 @@ export function useFetchBatchDetails({
           status: job.status,
           pdf_url: job.pdf_url,
           job_number: job.job_number,
-          file_name: job.file_name,
+          file_name: job.file_name || job.name, // Ensure file_name is never empty
           double_sided: job.double_sided,
           lamination_type: job.lamination_type,
           due_date: job.due_date,
-          uploaded_at: job.uploaded_at
+          uploaded_at: job.uploaded_at,
+          paper_type: job.paper_type
         }));
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
@@ -117,7 +118,7 @@ export function useFetchBatchDetails({
           status: job.status,
           pdf_url: job.pdf_url,
           job_number: job.job_number,
-          file_name: job.file_name,
+          file_name: job.file_name || job.name, // Ensure file_name is never empty
           paper_type: job.paper_type,
           paper_weight: job.paper_weight,
           size: job.size,
