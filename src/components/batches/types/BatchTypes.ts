@@ -27,12 +27,12 @@ export interface Job {
   double_sided?: boolean;
   paper_type?: string;
   paper_weight?: string;
-  lamination_type?: LaminationType | string;  // Modified to support both types
-  file_name: string;  // Changed from optional to required
+  lamination_type: LaminationType | string;  // Made required and support both types
+  file_name: string;  // Required
   created_at?: string;
   updated_at?: string;
   batch_id?: string | null;
   due_date: string;
-  uploaded_at: string;  // Added as required
+  uploaded_at: string;  // Made required
   user_id?: string;
 }

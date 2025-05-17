@@ -84,9 +84,8 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     due_date: job.due_date || new Date().toISOString(), // Ensure due_date is always provided
     file_name: job.file_name || job.name || '', // Ensure file_name is always provided
     lamination_type: (job.lamination_type || 'none') as LaminationType, // Ensure compatibility with LaminationType
-    uploaded_at: job.uploaded_at || new Date().toISOString(), // Ensure uploaded_at is always provided
-    user_id: job.user_id,
-    created_at: job.created_at
+    uploaded_at: job.uploaded_at || new Date().toISOString(), // Add uploaded_at field
+    user_id: job.user_id || '' // Provide a default for user_id
   }));
 
   return (

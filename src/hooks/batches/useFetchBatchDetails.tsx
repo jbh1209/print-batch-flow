@@ -110,7 +110,7 @@ export function useFetchBatchDetails({
         
         if (jobsError) throw jobsError;
         
-        // Map jobs for flyers with lamination_type set to none
+        // Map jobs for flyers with lamination_type set to none and add uploaded_at
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
@@ -125,7 +125,8 @@ export function useFetchBatchDetails({
           due_date: job.due_date,
           lamination_type: 'none' as LaminationType, // Set a default value
           user_id: job.user_id,
-          created_at: job.created_at
+          created_at: job.created_at,
+          uploaded_at: job.created_at || new Date().toISOString() // Use created_at as uploaded_at if available
         }));
       }
       
