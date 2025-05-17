@@ -27,7 +27,7 @@ export interface Job {
   double_sided?: boolean;
   paper_type?: string;
   paper_weight?: string;
-  lamination_type?: string;
+  lamination_type?: LaminationType | string;  // Modified to support both types
   file_name: string;  // Changed from optional to required
   created_at?: string;
   updated_at?: string;

@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { LaminationType } from "@/components/business-cards/JobsTable";
 
 interface UseFetchBatchDetailsProps {
   batchId: string;
@@ -86,7 +87,7 @@ export function useFetchBatchDetails({
         
         if (jobsError) throw jobsError;
         
-        // Map complete job data
+        // Map complete job data with correct typing for lamination_type
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
@@ -96,7 +97,7 @@ export function useFetchBatchDetails({
           job_number: job.job_number,
           file_name: job.file_name || job.name, // Ensure file_name is never empty
           double_sided: job.double_sided,
-          lamination_type: job.lamination_type,
+          lamination_type: job.lamination_type as LaminationType, // Cast to LaminationType
           due_date: job.due_date,
           uploaded_at: job.uploaded_at,
           paper_type: job.paper_type
@@ -110,7 +111,7 @@ export function useFetchBatchDetails({
         
         if (jobsError) throw jobsError;
         
-        // Map jobs for flyers
+        // Map jobs for flyers with lamination_type set to none
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
@@ -122,7 +123,8 @@ export function useFetchBatchDetails({
           paper_type: job.paper_type,
           paper_weight: job.paper_weight,
           size: job.size,
-          due_date: job.due_date
+          due_date: job.due_date,
+          lamination_type: 'none' as LaminationType // Set a default value
         }));
       }
       
