@@ -8,6 +8,7 @@ import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { ProductConfig, BaseBatch } from "@/config/productTypes";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
 import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
+import { BatchDeleteConfirmation } from "./batch-list/BatchDeleteConfirmation";
 
 interface GenericBatchesPageProps {
   config: ProductConfig;
@@ -18,6 +19,10 @@ interface GenericBatchesPageProps {
     fetchBatches: () => Promise<void>;
     handleViewPDF: (url: string) => void;
     handleViewBatchDetails: (batchId: string) => void;
+    batchToDelete: string | null;
+    isDeleting: boolean;
+    handleDeleteBatch: () => Promise<void>;
+    setBatchToDelete: (batchId: string | null) => void;
   };
 }
 
@@ -36,7 +41,11 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
     error,
     fetchBatches,
     handleViewPDF,
-    handleViewBatchDetails
+    handleViewBatchDetails,
+    batchToDelete,
+    isDeleting,
+    handleDeleteBatch,
+    setBatchToDelete
   } = batchesHookFn();
 
   console.log(`${config.productType} batches loaded:`, batches.length);
@@ -83,7 +92,15 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
         onRefresh={fetchBatches}
         onViewPDF={handleViewPDF}
         onViewDetails={handleViewBatchDetails}
-        onDeleteBatch={(id) => console.log('Delete batch', id)}
+        onDeleteBatch={setBatchToDelete}
+      />
+      
+      {/* Delete Confirmation Dialog */}
+      <BatchDeleteConfirmation
+        batchToDelete={batchToDelete}
+        isDeleting={isDeleting}
+        onCancel={() => setBatchToDelete(null)}
+        onDelete={handleDeleteBatch}
       />
     </div>
   );

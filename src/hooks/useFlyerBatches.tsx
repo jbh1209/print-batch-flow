@@ -125,10 +125,10 @@ export function useFlyerBatches(batchId: string | null = null) {
       
       console.log("Batch deleted successfully");
       
-      toast.success("Batch deleted and its jobs returned to queue");
+      // Update local state to remove the deleted batch
+      setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchToDelete));
       
-      // Refresh batch list
-      fetchBatches();
+      toast.success("Batch deleted and its jobs returned to queue");
     } catch (error) {
       console.error("Error deleting batch:", error);
       toast.error("Failed to delete batch. Please try again.");
