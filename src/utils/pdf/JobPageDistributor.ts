@@ -50,7 +50,7 @@ export function calculateJobPageDistribution(
       totalQuantity: job.quantity,
       slotsNeeded,
       quantityPerSlot,
-      isDoubleSided: job.double_sided
+      isDoubleSided: !!job.double_sided
     });
     
     console.log(`Job "${job.name}" (${job.id}): ${job.quantity} cards → ${slotsNeeded} slots with ${quantityPerSlot} cards per slot`);

@@ -51,7 +51,7 @@ export async function processJobPdfs(
         jobName: job.name,
         frontPages: [],
         backPages: [],
-        isDoubleSided: job.double_sided
+        isDoubleSided: !!job.double_sided
       };
       
       // Extract front and back pages
@@ -113,7 +113,7 @@ export async function processJobPdfs(
         jobName: job.name,
         frontPages: new Array(allocation.slotsNeeded).fill(errorPdfBytes),
         backPages: job.double_sided ? new Array(allocation.slotsNeeded).fill(errorPdfBytes) : [],
-        isDoubleSided: job.double_sided,
+        isDoubleSided: !!job.double_sided,
         error: errorMessage
       });
     }

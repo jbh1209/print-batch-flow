@@ -77,40 +77,51 @@ export function useFetchBatchDetails({
       let jobsData: Job[] = [];
       
       if (productType === "Business Cards") {
+        // Expanded query to include ALL necessary fields for business card jobs
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number")
+          .select("id, name, quantity, status, pdf_url, job_number, file_name, double_sided, lamination_type, uploaded_at, paper_type, due_date")
           .eq("batch_id", batchId)
           .order("name");
         
         if (jobsError) throw jobsError;
         
-        // Map jobs to include job_number
+        // Map complete job data
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
           quantity: job.quantity,
           status: job.status,
           pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+          job_number: job.job_number,
+          file_name: job.file_name,
+          double_sided: job.double_sided,
+          lamination_type: job.lamination_type,
+          due_date: job.due_date,
+          uploaded_at: job.uploaded_at
         }));
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number")
+          .select("id, name, quantity, status, pdf_url, job_number, file_name, paper_type, paper_weight, size, due_date")
           .eq("batch_id", batchId)
           .order("name");
         
         if (jobsError) throw jobsError;
         
-        // Map jobs to include job_number
+        // Map jobs for flyers
         jobsData = (jobs || []).map(job => ({
           id: job.id,
           name: job.name,
           quantity: job.quantity,
           status: job.status,
           pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+          job_number: job.job_number,
+          file_name: job.file_name,
+          paper_type: job.paper_type,
+          paper_weight: job.paper_weight,
+          size: job.size,
+          due_date: job.due_date
         }));
       }
       
