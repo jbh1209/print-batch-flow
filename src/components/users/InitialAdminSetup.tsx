@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { addAdminRole } from "@/services/user/userRoleService";
 
 export function InitialAdminSetup() {
   const [email, setEmail] = useState("");
@@ -39,14 +40,9 @@ export function InitialAdminSetup() {
       if (error) throw error;
       
       if (data.user) {
-        // Step 2: Use RPC to add admin role
+        // Step 2: Add admin role using the updated function
         const adminUserId = data.user.id;
-        
-        const { error: roleError } = await supabase.rpc('add_admin_role', { 
-          admin_user_id: adminUserId 
-        });
-          
-        if (roleError) throw roleError;
+        await addAdminRole(adminUserId);
         
         toast.success('Admin account created successfully!');
         toast.info('Signing in with your new admin account...');

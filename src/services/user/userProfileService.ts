@@ -6,7 +6,7 @@ import { UserFormData } from '@/types/user-types';
  * User profile management functions
  */
 
-// Update user profile - Using secure functions
+// Update user profile - Using direct database operations instead of RPC
 export async function updateUserProfile(userId: string, userData: UserFormData): Promise<void> {
   try {
     if (!userId) {
@@ -19,10 +19,13 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
     if (userData.full_name !== undefined) {
       console.log(`Updating user ${userId} name to "${userData.full_name}"`);
       
-      const { error } = await supabase.rpc('update_user_profile_admin', {
-        _user_id: userId,
-        _full_name: userData.full_name
-      });
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ 
+          id: userId, 
+          full_name: userData.full_name,
+          updated_at: new Date().toISOString()
+        });
       
       if (error) {
         console.error('Error updating profile:', error);
@@ -34,10 +37,15 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
     if (userData.role) {
       console.log(`Updating user ${userId} role to "${userData.role}"`);
       
-      const { error } = await supabase.rpc('set_user_role_admin', {
-        _target_user_id: userId,
-        _new_role: userData.role
-      });
+      const { error } = await supabase
+        .from('user_roles')
+        .upsert({ 
+          user_id: userId, 
+          role: userData.role,
+          updated_at: new Date().toISOString()
+        }, { 
+          onConflict: 'user_id' 
+        });
       
       if (error) {
         console.error('Error updating user role:', error);

@@ -11,10 +11,16 @@ export async function addAdminRole(userId: string): Promise<void> {
   try {
     console.log('Setting admin role for user:', userId);
     
-    const { error } = await supabase.rpc('set_user_role_admin', {
-      _target_user_id: userId, 
-      _new_role: 'admin'
-    });
+    // Use direct SQL query instead of RPC call
+    const { error } = await supabase
+      .from('user_roles')
+      .upsert({ 
+        user_id: userId, 
+        role: 'admin',
+        updated_at: new Date().toISOString()
+      }, { 
+        onConflict: 'user_id' 
+      });
     
     if (error) {
       console.error('Error setting admin role:', error);
@@ -26,15 +32,20 @@ export async function addAdminRole(userId: string): Promise<void> {
   }
 }
 
-// Update user role - using secure function
+// Update user role - using SQL query instead of function
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   try {
     console.log(`Updating user ${userId} role to ${role}`);
     
-    const { error } = await supabase.rpc('set_user_role_admin', {
-      _target_user_id: userId,
-      _new_role: role
-    });
+    const { error } = await supabase
+      .from('user_roles')
+      .upsert({ 
+        user_id: userId, 
+        role: role,
+        updated_at: new Date().toISOString()
+      }, { 
+        onConflict: 'user_id' 
+      });
     
     if (error) {
       console.error('Error updating role:', error);
@@ -51,9 +62,10 @@ export async function revokeUserAccess(userId: string): Promise<void> {
   try {
     console.log(`Revoking access for user ${userId}`);
     
-    const { error } = await supabase.rpc('revoke_user_role', {
-      target_user_id: userId
-    });
+    const { error } = await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId);
     
     if (error) {
       console.error('Error revoking user access:', error);
