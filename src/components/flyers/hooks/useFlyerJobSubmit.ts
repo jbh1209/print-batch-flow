@@ -87,6 +87,8 @@ export const useFlyerJobSubmit = () => {
         toast.success("Flyer job updated successfully");
       } else {
         // We're creating a new job
+        const currentTime = new Date().toISOString();
+        
         await createJob({
           name: data.name,
           job_number: data.job_number,
@@ -96,7 +98,8 @@ export const useFlyerJobSubmit = () => {
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
           pdf_url: pdfUrl!,
-          file_name: fileName!
+          file_name: fileName!,
+          uploaded_at: currentTime // Add the required uploaded_at field
         });
 
         toast.success("Flyer job created successfully");

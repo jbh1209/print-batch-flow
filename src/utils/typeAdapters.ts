@@ -1,7 +1,6 @@
 
-import { BaseJob, BaseBatch, BatchStatus } from "@/config/types/baseTypes";
+import { BaseJob, BaseBatch, BatchStatus, LaminationType } from "@/config/types/baseTypes";
 import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
-import { LaminationType } from "@/components/business-cards/JobsTable";
 
 /**
  * Converts a BaseJob to a Job type
@@ -66,4 +65,17 @@ export const ensureValidBatchStatus = (status: string): BatchStatus => {
   
   // Default to 'queued' if it's an invalid status
   return 'queued';
+};
+
+/**
+ * Ensures the lamination type is compatible with our LaminationType type
+ */
+export const ensureValidLaminationType = (type: string | null | undefined): LaminationType => {
+  if (!type) return 'none';
+  
+  if (['none', 'gloss', 'matt', 'soft_touch'].includes(type)) {
+    return type as LaminationType;
+  }
+  
+  return 'none';
 };

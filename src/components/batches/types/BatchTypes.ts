@@ -1,6 +1,5 @@
 
-import { BaseBatch, BatchStatus } from "@/config/types/baseTypes";
-import { LaminationType, JobStatus } from "@/components/business-cards/JobsTable";
+import { BaseBatch, BatchStatus, LaminationType } from "@/config/types/baseTypes";
 
 export interface BatchSummary extends BaseBatch {
   product_type: string;
@@ -27,12 +26,12 @@ export interface Job {
   double_sided?: boolean;
   paper_type?: string;
   paper_weight?: string;
-  lamination_type: LaminationType | string;  // Made required and support both types
+  lamination_type: LaminationType | string;  // Support both types
   file_name: string;  // Required
   created_at?: string;
   updated_at?: string;
   batch_id?: string | null;
   due_date: string;
-  uploaded_at: string;  // Made required
+  uploaded_at: string;  // Required
   user_id?: string;
 }

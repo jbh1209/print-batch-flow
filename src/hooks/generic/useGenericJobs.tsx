@@ -7,6 +7,7 @@ import { useGenericBatches } from './useGenericBatches';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
 import { isExistingTable } from '@/utils/database/tableValidation';
+import { toast } from 'sonner';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -48,13 +49,17 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       console.log('Jobs data received:', data?.length || 0, 'records');
       
       // Ensure all jobs have required fields
-      const processedJobs = (data || []).map(job => ({
-        ...job,
-        uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
-      }));
-      
-      // Use explicit type casting to avoid excessive type instantiation
-      setJobs(processedJobs as unknown as T[]);
+      if (data && Array.isArray(data)) {
+        const processedJobs = data.map(job => ({
+          ...job,
+          uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
+        }));
+        
+        // Use explicit type casting to avoid excessive type instantiation
+        setJobs(processedJobs as unknown as T[]);
+      } else {
+        setJobs([] as unknown as T[]);
+      }
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
@@ -113,6 +118,11 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   ) => {
     try {
+      if (selectedJobs.length === 0) {
+        toast.error("No jobs selected for batch creation");
+        return null;
+      }
+      
       // Fixed: Ensure laminationType is properly converted to LaminationType type
       const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
       
@@ -127,8 +137,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         laminationType: typedLaminationType // Include laminationType in the config object
       };
       
-      // Fixed: Pass only the selected jobs and combined config to the wrapper function
-      // The wrapper function in useGenericBatches expects only 2 arguments
+      // Pass only the selected jobs and combined config to the wrapper function
       const batch = await createBatchWithSelectedJobs(
         selectedJobs as BaseJob[], // Cast to BaseJob[] to match the expected type
         batchConfig

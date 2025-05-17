@@ -1,135 +1,177 @@
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
-import { useFlyerJobOperations } from './flyers/useFlyerJobOperations';
-import { useFlyerBatchFix } from './flyers/useFlyerBatchFix';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { FlyerJob } from '@/components/batches/types/FlyerTypes';
+import { useAuth } from './useAuth';
 
-export function useFlyerJobs() {
+export const useFlyerJobs = () => {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<FlyerJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const { deleteJob, createJob, createBatchWithSelectedJobs, isCreatingBatch } = useFlyerJobOperations();
-  
-  const fetchJobs = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
 
-      // Remove the user_id filter to show all jobs
-      const { data, error: fetchError } = await supabase
+  const fetchJobs = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (!user) {
+        console.log("No authenticated user found");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Fetching all flyer jobs");
+      
+      // Remove user_id filter to allow all users to see all jobs
+      const { data, error } = await supabase
         .from('flyer_jobs')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
+      if (error) throw error;
 
-      // Explicitly cast and ensure type compatibility
-      const typedJobs: FlyerJob[] = (data || []).map(job => ({
-        id: job.id,
-        name: job.name,
-        job_number: job.job_number,
-        size: job.size,
-        paper_weight: job.paper_weight,
-        paper_type: job.paper_type,
-        quantity: job.quantity,
-        due_date: job.due_date,
-        batch_id: job.batch_id,
-        status: job.status,
-        pdf_url: job.pdf_url,
-        file_name: job.file_name,
-        user_id: job.user_id,
-        created_at: job.created_at,
-        updated_at: job.updated_at,
-        uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString() // Add the uploaded_at field
+      // Ensure all jobs have required fields, especially uploaded_at
+      const processedJobs = (data || []).map(job => ({
+        ...job,
+        uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
       }));
       
-      setJobs(typedJobs);
+      setJobs(processedJobs as FlyerJob[]);
     } catch (err) {
       console.error('Error fetching flyer jobs:', err);
-      setError('Failed to load flyer jobs');
+      setError('Failed to fetch flyer jobs.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchJobs();
-  }, [user]);
+  }, [fetchJobs]);
 
-  // Wrap the delete job operation to update local state
-  const handleDeleteJob = async (jobId: string) => {
+  const createJob = async (jobData: Omit<FlyerJob, 'created_at' | 'id' | 'updated_at' | 'status' | 'batch_id' | 'user_id'>) => {
+    if (!user) throw new Error("User not authenticated");
+    
     try {
-      await deleteJob(jobId);
-      // Update the jobs list after deletion
-      setJobs(jobs.filter(job => job.id !== jobId));
-      toast.success("Job deleted successfully");
+      const newJob = {
+        ...jobData,
+        user_id: user.id,
+        status: 'queued' as const,
+        uploaded_at: jobData.uploaded_at || new Date().toISOString() // Ensure uploaded_at field exists
+      };
+
+      const { data, error } = await supabase
+        .from('flyer_jobs')
+        .insert(newJob)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      // Add the new job to the state
+      setJobs(prev => [data as FlyerJob, ...prev]);
+      
+      return data;
+    } catch (err) {
+      console.error('Error creating flyer job:', err);
+      toast.error('Failed to create flyer job');
+      throw err;
+    }
+  };
+
+  const deleteJob = async (jobId: string) => {
+    if (!user) throw new Error("User not authenticated");
+
+    try {
+      const { error } = await supabase
+        .from('flyer_jobs')
+        .delete()
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      // Remove the deleted job from state
+      setJobs(prev => prev.filter(job => job.id !== jobId));
+      
+      toast.success('Job deleted successfully');
       return true;
     } catch (err) {
-      toast.error("Error deleting job");
-      throw err;
+      console.error('Error deleting flyer job:', err);
+      toast.error('Failed to delete job');
+      return false;
     }
   };
 
-  // Wrap the create job operation to update local state
-  const handleCreateJob = async (jobData: Omit<FlyerJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>) => {
+  const updateJobBatchId = async (jobId: string, batchId: string | null) => {
+    if (!user) throw new Error("User not authenticated");
+
     try {
-      const newJob = await createJob(jobData);
-      // Update the jobs list with the new job
-      setJobs(prevJobs => [newJob as FlyerJob, ...prevJobs]);
-      return newJob;
+      // Update the job's batch_id and status in the database
+      const { error } = await supabase
+        .from('flyer_jobs')
+        .update({
+          batch_id: batchId,
+          status: batchId ? 'batched' : 'queued'
+        })
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      // Update the local state to reflect the change
+      setJobs(prev => prev.map(job => {
+        if (job.id === jobId) {
+          return {
+            ...job,
+            batch_id: batchId,
+            status: batchId ? 'batched' : 'queued'
+          };
+        }
+        return job;
+      }));
+
+      return true;
     } catch (err) {
-      throw err;
+      console.error('Error updating job batch ID:', err);
+      return false;
     }
   };
 
-  // Wrap the create batch operation
-  const handleCreateBatch = async (
-    selectedJobs: FlyerJob[],
-    batchProperties: {
-      paperType: string;
-      paperWeight: string;
-      laminationType: LaminationType;
-      printerType: string;
-      sheetSize: string;
-      slaTargetDays: number; // Added slaTargetDays property
-    }
-  ) => {
+  const updateJobStatus = async (jobId: string, status: FlyerJob['status']) => {
+    if (!user) throw new Error("User not authenticated");
+
     try {
-      const batch = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
-      
-      // Update local state to reflect the batched jobs
-      setJobs(prevJobs => 
-        prevJobs.map(job => 
-          selectedJobs.some(selectedJob => selectedJob.id === job.id)
-            ? { ...job, status: 'batched' as const, batch_id: batch.id }
-            : job
-        )
-      );
-      
-      return batch;
+      const { error } = await supabase
+        .from('flyer_jobs')
+        .update({ status })
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      // Update the local state
+      setJobs(prev => prev.map(job => {
+        if (job.id === jobId) {
+          return { ...job, status };
+        }
+        return job;
+      }));
+
+      return true;
     } catch (err) {
-      throw err;
+      console.error('Error updating job status:', err);
+      return false;
     }
   };
-
-  // Initialize the batch fix hook with our fetchJobs method
-  const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useFlyerBatchFix(fetchJobs);
 
   return {
     jobs,
     isLoading,
     error,
     fetchJobs,
-    deleteJob: handleDeleteJob,
-    createJob: handleCreateJob,
-    createBatch: handleCreateBatch,
-    isCreatingBatch,
-    fixBatchedJobsWithoutBatch,
-    isFixingBatchedJobs
+    createJob,
+    deleteJob,
+    updateJobBatchId,
+    updateJobStatus
   };
-}
+};

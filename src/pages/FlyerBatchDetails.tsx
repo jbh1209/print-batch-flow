@@ -13,7 +13,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
 import { Job } from '@/components/batches/types/BatchTypes';
-import { LaminationType } from '@/components/business-cards/JobsTable';
+import { LaminationType } from '@/config/types/baseTypes';
+import { ensureValidLaminationType } from '@/utils/typeAdapters';
 
 const FlyerBatchDetails = () => {
   const { batchId } = useParams(); // Use path parameter instead of query parameter
@@ -87,7 +88,7 @@ const FlyerBatchDetails = () => {
     paper_weight: job.paper_weight,
     size: job.size,
     due_date: job.due_date,
-    lamination_type: 'none' as LaminationType,
+    lamination_type: ensureValidLaminationType('none'),
     uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
     user_id: job.user_id
   }));

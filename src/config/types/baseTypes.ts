@@ -26,6 +26,13 @@ export type BatchStatus =
   | 'sent_to_print'
   | 'cancelled';
 
+// Unified lamination type for all products
+export type LaminationType = 
+  | 'none'
+  | 'gloss'
+  | 'matt'
+  | 'soft_touch';
+
 export interface BaseBatch {
   id: string;
   name: string;
@@ -55,7 +62,7 @@ export interface BaseJob {
   due_date: string;
   created_at?: string;
   updated_at?: string;
-  lamination_type?: string;
+  lamination_type?: LaminationType | string;  // Accept both specific type or string
   paper_type?: string;
   paper_weight?: string;
   pdf_url?: string | null;
@@ -66,6 +73,6 @@ export interface BaseJob {
   sides?: string;
   stock_type?: string; 
   single_sided?: boolean;
-  uploaded_at: string; // Added this field as required
-  user_id?: string;    // Added this field
+  uploaded_at: string; // Required field
+  user_id?: string;    // User ID field
 }

@@ -8,7 +8,8 @@ import { FlyerBatchOverview } from "../flyers/FlyerBatchOverview";
 import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
-import { BaseJob } from "@/config/productTypes";
+import { BaseJob, LaminationType } from "@/config/types/baseTypes";
+import { ensureValidLaminationType } from "@/utils/typeAdapters";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -36,7 +37,7 @@ const BatchDetailsContent = ({
       // Make sure all jobs have the required properties
       const preparedJobs = relatedJobs.map(job => ({
         ...job,
-        lamination_type: job.lamination_type || 'none',
+        lamination_type: ensureValidLaminationType(job.lamination_type),
         uploaded_at: job.uploaded_at || new Date().toISOString()
       }));
       
@@ -75,7 +76,7 @@ const BatchDetailsContent = ({
       file_name: job.file_name,
       user_id: job.user_id || "",
       created_at: job.created_at || new Date().toISOString(),
-      lamination_type: job.lamination_type || 'none',
+      lamination_type: ensureValidLaminationType(job.lamination_type),
       uploaded_at: job.uploaded_at || new Date().toISOString()
     })) as BaseJob[];
   };

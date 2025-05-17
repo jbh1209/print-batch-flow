@@ -1,7 +1,7 @@
 
-import { BatchStatus, LaminationType } from "@/config/productTypes";
+import { BatchStatus, LaminationType } from "@/config/types/baseTypes";
 
-// Import directly from the config file instead of from ./BatchTypes
+// Import directly from baseTypes instead of productTypes
 export type { BatchStatus, LaminationType };
 
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
@@ -17,7 +17,7 @@ export interface FlyerBatch {
   overview_pdf_url: string | null; // Property needed by the UI
   due_date: string;
   created_at: string;
-  lamination_type: LaminationType;
+  lamination_type: LaminationType | string;
   // Add missing properties needed by FlyerBatchDetails.tsx
   paper_type?: string;
   paper_weight?: string;

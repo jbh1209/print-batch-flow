@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
-import { ProductConfig, BatchStatus } from "@/config/productTypes";
+import { ProductConfig } from "@/config/productTypes";
+import { BatchStatus, LaminationType } from "@/config/types/baseTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
-import { LaminationType } from "@/components/business-cards/JobsTable";
+import { ensureValidLaminationType } from "@/utils/typeAdapters";
 
 interface GenericBatchDetailsProps {
   batchId: string;
@@ -83,7 +84,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`, // Ensure job_number is always provided
     due_date: job.due_date || new Date().toISOString(), // Ensure due_date is always provided
     file_name: job.file_name || job.name || '', // Ensure file_name is always provided
-    lamination_type: (job.lamination_type || 'none') as LaminationType, // Ensure compatibility with LaminationType
+    lamination_type: ensureValidLaminationType(job.lamination_type), // Ensure compatibility with LaminationType
     uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(), // Provide default for uploaded_at
     user_id: job.user_id || '' // Provide a default for user_id
   }));
