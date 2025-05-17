@@ -1,5 +1,5 @@
 
-import { Job, LaminationType } from "@/components/batches/types/BatchTypes";
+import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
@@ -15,14 +15,8 @@ import { calculateGridLayout } from "./pdf/gridLayoutHelper";
 import { isBusinessCardJobs, isSleeveJobs } from "./pdf/jobTypeUtils";
 import { drawCompactJobsTable } from "./pdf/jobTableRenderer";
 import { addJobPreviews } from "./pdf/jobPreviewRenderer";
-import { convertToJobType } from "./typeAdapters";
 
-// Function to convert and normalize different job types to Job[] with all required properties
-function normalizeJobsToRequiredFormat<T extends BaseJob>(jobs: T[]): Job[] {
-  return jobs.map(job => convertToJobType(job));
-}
-
-// Updated function that accepts various job types and normalizes them
+// Updated function that accepts BaseJob[] as a valid parameter type
 export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[], batchName: string): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -34,16 +28,13 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   const pageHeight = page.getHeight();
   const margin = 50;
   
-  // Normalize jobs to the required Job type format
-  const normalizedJobs = normalizeJobsToRequiredFormat(jobs);
-  
   // Calculate optimal distribution if jobs are of type Job (business cards)
   let optimization;
-  if (isBusinessCardJobs(normalizedJobs)) {
-    optimization = calculateOptimalDistribution(normalizedJobs);
+  if (isBusinessCardJobs(jobs)) {
+    optimization = calculateOptimalDistribution(jobs);
   } else {
     optimization = { 
-      sheetsRequired: Math.ceil(normalizedJobs.reduce((sum, job) => sum + job.quantity, 0) / 4),
+      sheetsRequired: Math.ceil(jobs.reduce((sum, job) => sum + job.quantity, 0) / 4),
       distribution: null
     };
   }
@@ -52,7 +43,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   drawBatchInfo(
     page, 
     batchName, 
-    normalizedJobs, 
+    jobs, 
     helveticaFont, 
     helveticaBold, 
     margin, 
@@ -60,11 +51,11 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   );
   
   // Draw compact jobs table - adjust position based on job type
-  const tableY = isSleeveJobs(normalizedJobs) 
+  const tableY = isSleeveJobs(jobs) 
     ? pageHeight - margin - 130 // Position lower for sleeve jobs
     : pageHeight - margin - 110; // Default position
     
-  const colWidths = isBusinessCardJobs(normalizedJobs) 
+  const colWidths = isBusinessCardJobs(jobs) 
     ? [150, 80, 70, 80, 100]
     : [150, 60, 60, 100]; // Wider column for stock type
   
@@ -73,7 +64,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   // Draw table header and jobs in a more compact form
   const finalTableY = drawCompactJobsTable(
     page, 
-    normalizedJobs, 
+    jobs, 
     tableY, 
     colStarts, 
     helveticaFont, 
@@ -81,16 +72,16 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     helveticaItalic,
     margin, 
     colWidths,
-    isBusinessCardJobs(normalizedJobs) ? optimization.distribution : null
+    isBusinessCardJobs(jobs) ? optimization.distribution : null
   );
   
   // Calculate grid layout for preview area - starting further down
-  const gridConfig = calculateGridLayout(normalizedJobs.length, pageHeight);
+  const gridConfig = calculateGridLayout(jobs.length, pageHeight);
   
   // Add job previews in grid layout - starting below the jobs table
   await addJobPreviews(
     page,
-    normalizedJobs,
+    jobs,
     gridConfig,
     margin,
     pdfDoc,

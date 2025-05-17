@@ -1,11 +1,8 @@
 
-import { BatchStatus } from "@/config/types/baseTypes";
+import { BatchStatus, LaminationType } from "@/config/productTypes";
 
-// Define LaminationType locally since it doesn't exist in baseTypes.ts
-export type LaminationType = "none" | "gloss" | "matt" | "soft_touch";
-
-// Re-export BatchStatus for convenience
-export type { BatchStatus };
+// Import directly from the config file instead of from ./BatchTypes
+export type { BatchStatus, LaminationType };
 
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";
@@ -17,11 +14,11 @@ export interface FlyerBatch {
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
-  overview_pdf_url: string | null; // Ensure this property is included
+  overview_pdf_url: string | null; // Property needed by the UI
   due_date: string;
   created_at: string;
   lamination_type: LaminationType;
-  // Add missing properties needed by the UI
+  // Add missing properties needed by FlyerBatchDetails.tsx
   paper_type?: string;
   paper_weight?: string;
   sheet_size?: string;
@@ -48,5 +45,4 @@ export interface FlyerJob {
   user_id: string;
   created_at: string;
   updated_at: string;
-  uploaded_at?: string; // Add this field to match Job interface
 }

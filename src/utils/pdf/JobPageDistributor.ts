@@ -1,5 +1,5 @@
 
-import { Job } from "@/components/batches/types/BatchTypes";
+import { Job } from "@/components/business-cards/JobsTable";
 
 interface JobPageAllocation {
   jobId: string;
@@ -44,19 +44,16 @@ export function calculateJobPageDistribution(
       quantityPerSlot = Math.ceil(job.quantity / slotsNeeded);
     }
     
-    // Check if job has double_sided property, default to false if not present
-    const isDoubleSided = job.double_sided ?? false;
-    
     jobAllocations.push({
       jobId: job.id,
       jobName: job.name,
       totalQuantity: job.quantity,
       slotsNeeded,
       quantityPerSlot,
-      isDoubleSided
+      isDoubleSided: job.double_sided
     });
     
-    console.log(`Job "${job.name}" (${job.id}): ${job.quantity} cards → ${slotsNeeded} slots with ${quantityPerSlot} cards per slot, double-sided: ${isDoubleSided}`);
+    console.log(`Job "${job.name}" (${job.id}): ${job.quantity} cards → ${slotsNeeded} slots with ${quantityPerSlot} cards per slot`);
   }
   
   // Optimize allocations to fit within total slots

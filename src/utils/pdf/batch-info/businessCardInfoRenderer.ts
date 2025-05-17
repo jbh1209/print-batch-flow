@@ -1,6 +1,6 @@
 
 import { PDFPage, rgb } from "pdf-lib";
-import { Job } from "@/components/batches/types/BatchTypes";
+import { Job } from "@/components/business-cards/JobsTable";
 
 export function drawBusinessCardInfo(
   page: PDFPage,

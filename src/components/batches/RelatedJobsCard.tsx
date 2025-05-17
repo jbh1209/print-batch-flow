@@ -27,8 +27,7 @@ const RelatedJobsCard = ({ jobs }: RelatedJobsCardProps) => {
     
     try {
       toast.loading(`Opening PDF for ${jobName}...`);
-      // Updated to use correct parameter structure
-      await handlePdfAction(url, 'view');
+      await handlePdfAction(url, 'view', `${jobName}.pdf`);
     } catch (error) {
       console.error(`Error viewing PDF for ${jobName}:`, error);
       toast.error(`Error opening PDF for ${jobName}`);
@@ -43,7 +42,6 @@ const RelatedJobsCard = ({ jobs }: RelatedJobsCardProps) => {
     
     try {
       toast.loading(`Preparing download for ${jobName}...`);
-      // Updated to use correct parameter structure
       await handlePdfAction(url, 'download', `${jobName}.pdf`);
     } catch (error) {
       console.error(`Error downloading PDF for ${jobName}:`, error);

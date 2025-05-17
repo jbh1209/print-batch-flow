@@ -1,39 +1,13 @@
 
 import { PDFDocument } from "pdf-lib";
-import { Job, LaminationType } from "@/components/batches/types/BatchTypes";
+import { Job } from "@/components/batches/types/BatchTypes";
 import { getSignedUrl } from "./signedUrlHelper";
 import { createErrorPdf } from "./emptyPdfGenerator";
 import { toast } from "sonner";
 import { calculateJobPageDistribution } from "./JobPageDistributor";
-import { convertToJobType } from "@/utils/typeAdapters";
 
 // Constants
 const TOTAL_SLOTS_PER_BATCH = 24;
-
-interface JobWithRequiredFields {
-  id: string;
-  name: string;
-  quantity: number;
-  status: string;
-  pdf_url: string | null;
-  job_number: string;
-  double_sided?: boolean;
-  file_name: string;
-  uploaded_at: string;
-  lamination_type: LaminationType;
-  due_date: string;
-}
-
-// Function to ensure job has all required properties
-function ensureRequiredFields(job: Job): JobWithRequiredFields {
-  return {
-    ...job,
-    file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
-    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
-    lamination_type: job.lamination_type || "none",
-    due_date: job.due_date || new Date().toISOString()
-  };
-}
 
 /**
  * Downloads all job PDFs in a batch as a single consolidated file
@@ -42,13 +16,9 @@ function ensureRequiredFields(job: Job): JobWithRequiredFields {
 export async function downloadBatchJobPdfs(jobs: Job[], batchName: string): Promise<void> {
   try {
     toast.loading("Preparing batch job PDFs for download...");
-    console.log(`Starting to download batch job PDFs for ${jobs.length} jobs`);
-    
-    // Ensure all jobs have the required properties
-    const validatedJobs = jobs.map(job => ensureRequiredFields(job));
     
     // Generate consolidated PDF with multiple copies per job based on slot allocation
-    const consolidatedPdf = await generateConsolidatedJobPdfs(validatedJobs);
+    const consolidatedPdf = await generateConsolidatedJobPdfs(jobs);
     
     // Convert PDF to downloadable format
     const pdfBytes = await consolidatedPdf.save();
@@ -64,23 +34,24 @@ export async function downloadBatchJobPdfs(jobs: Job[], batchName: string): Prom
     document.body.removeChild(link);
     
     // Clean up
-    setTimeout(() => URL.revoObjectURL(url), 100);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
     toast.success("Batch job PDFs downloaded successfully");
   } catch (error) {
     console.error("Error downloading batch job PDFs:", error);
-    toast.error(`Failed to download batch job PDFs: ${error instanceof Error ? error.message : "Unknown error"}`);
+    toast.error("Failed to download batch job PDFs");
   }
 }
 
 /**
  * Generates a consolidated PDF containing copies of each job PDF based on slot allocation
  */
-async function generateConsolidatedJobPdfs(jobs: JobWithRequiredFields[]): Promise<PDFDocument> {
+async function generateConsolidatedJobPdfs(jobs: Job[]): Promise<PDFDocument> {
   // Create a new PDF document
   const consolidatedPdf = await PDFDocument.create();
   
-  // Calculate job slot distribution 
+  // Calculate job slot distribution
   const jobDistribution = calculateSlotAllocation(jobs);
+  console.log("Job slot distribution:", jobDistribution);
   
   // Track total slots used to determine if we need to add blank pages
   let totalSlotsUsed = 0;
@@ -117,8 +88,7 @@ async function generateConsolidatedJobPdfs(jobs: JobWithRequiredFields[]): Promi
       const pageCount = jobPdf.getPageCount();
       
       // Determine if this is a single or double-sided job
-      // Default to false if double_sided is not provided (for backward compatibility)
-      const isDoubleSided = job.double_sided ?? (pageCount > 1);
+      const isDoubleSided = pageCount > 1;
       
       // Find this job's slot allocation from our calculation
       const jobAllocation = jobDistribution.find(j => j.jobId === job.id);
@@ -166,7 +136,7 @@ async function generateConsolidatedJobPdfs(jobs: JobWithRequiredFields[]): Promi
       console.error(`Error processing PDF for job ${job.id}:`, error);
       
       // Add error page for this job
-      const errorPdf = await createErrorPdf(job, `Failed to process PDF: ${error}`);
+      const errorPdf = await createErrorPdf(job as any, `Failed to process PDF: ${error}`);
       const [errorPage] = await consolidatedPdf.copyPages(errorPdf, [0]);
       consolidatedPdf.addPage(errorPage);
     }
@@ -221,7 +191,7 @@ async function generateConsolidatedJobPdfs(jobs: JobWithRequiredFields[]): Promi
  * Calculates how many slots should be allocated to each job
  * based on quantity and ensuring the total is 24 slots
  */
-function calculateSlotAllocation(jobs: JobWithRequiredFields[]): Array<{jobId: string, slots: number}> {
+function calculateSlotAllocation(jobs: Job[]): Array<{jobId: string, slots: number}> {
   // Get total quantity across all jobs
   const totalQuantity = jobs.reduce((sum, job) => sum + (job.quantity || 0), 0);
   

@@ -3,14 +3,17 @@ import { CreditCard, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
-export interface JobFormHeaderProps {
-  title: string;
-  description: string;
+interface JobFormHeaderProps {
   isEditing?: boolean;
 }
 
-const JobFormHeader = ({ title, description, isEditing = false }: JobFormHeaderProps) => {
+const JobFormHeader = ({ isEditing = false }: JobFormHeaderProps) => {
   const navigate = useNavigate();
+  
+  const title = isEditing ? "Edit Business Card Job" : "Add New Business Card Job";
+  const subtitle = isEditing 
+    ? "Update the details of your business card job"
+    : "Create a new business card job";
   
   return (
     <div className="flex justify-between items-center mb-6">
@@ -19,7 +22,7 @@ const JobFormHeader = ({ title, description, isEditing = false }: JobFormHeaderP
           <CreditCard className="h-6 w-6 mr-2 text-batchflow-primary" />
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         </div>
-        <p className="text-gray-500 mt-1">{description}</p>
+        <p className="text-gray-500 mt-1">{subtitle}</p>
       </div>
       <Button 
         variant="outline" 

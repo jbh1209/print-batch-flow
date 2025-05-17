@@ -2,32 +2,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { FlyerBatch, LaminationType, BatchStatus } from '@/components/batches/types/FlyerTypes';
+import { FlyerBatch } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { handlePdfAction } from '@/utils/pdfActionUtils';
-
-// Define a type that matches what Supabase returns for batches
-interface SupabaseBatch {
-  id: string;
-  name: string;
-  status: string;
-  sheets_required: number;
-  front_pdf_url: string | null;
-  back_pdf_url: string | null;
-  overview_pdf_url?: string | null; // May or may not exist in the database
-  due_date: string;
-  created_at: string;
-  lamination_type?: string;
-  paper_type?: string;
-  paper_weight?: string;
-  sheet_size?: string;
-  printer_type?: string;
-  created_by: string;
-  updated_at: string;
-  date_created?: string;
-  [key: string]: any; // Allow for any additional properties
-}
 
 export function useFlyerBatches(batchId: string | null = null) {
   const { user } = useAuth();
@@ -45,10 +23,11 @@ export function useFlyerBatches(batchId: string | null = null) {
     setError(null);
 
     try {
-      // Use the "batches" table but filter to include only flyer batches
+      // Use the "batches" table but filter by created_by and include only flyer batches
       let query = supabase
         .from('batches')
         .select('*')
+        .eq('created_by', user.id)
         .filter('name', 'ilike', 'DXB-FL-%'); // Only fetch flyer batches (prefix DXB-FL-)
       
       // If batchId is specified, filter to only show that batch
@@ -62,35 +41,34 @@ export function useFlyerBatches(batchId: string | null = null) {
       if (fetchError) throw fetchError;
 
       // Convert to FlyerBatch type and ensure all required properties exist
-      // Use explicit type assertion for the batch parameter
-      const flyerBatches: FlyerBatch[] = (data || []).map((batch: SupabaseBatch) => ({
-        id: batch.id,
-        name: batch.name,
-        status: (batch.status as BatchStatus) || 'pending',
-        sheets_required: batch.sheets_required,
-        front_pdf_url: batch.front_pdf_url,
-        back_pdf_url: batch.back_pdf_url,
-        // Make sure to use the overview_pdf_url if it exists, or default to null
-        overview_pdf_url: batch.overview_pdf_url || null,
-        due_date: batch.due_date,
-        created_at: batch.created_at,
-        lamination_type: (batch.lamination_type || 'none') as LaminationType,
-        paper_type: batch.paper_type,
-        paper_weight: batch.paper_weight,
-        sheet_size: batch.sheet_size,
-        printer_type: batch.printer_type,
-        created_by: batch.created_by,
-        updated_at: batch.updated_at,
-        date_created: batch.date_created
-      }));
+      const flyerBatches: FlyerBatch[] = (data || []).map(batch => {
+        // Make sure to include overview_pdf_url property
+        return {
+          id: batch.id,
+          name: batch.name,
+          status: batch.status,
+          sheets_required: batch.sheets_required,
+          front_pdf_url: batch.front_pdf_url,
+          back_pdf_url: batch.back_pdf_url,
+          overview_pdf_url: null, // Set to null since it doesn't exist in database yet
+          due_date: batch.due_date,
+          created_at: batch.created_at,
+          lamination_type: batch.lamination_type,
+          paper_type: batch.paper_type,
+          paper_weight: batch.paper_weight,
+          sheet_size: batch.sheet_size,
+          printer_type: batch.printer_type,
+          created_by: batch.created_by,
+          updated_at: batch.updated_at,
+          date_created: batch.date_created
+        } as FlyerBatch;
+      });
       
       setBatches(flyerBatches);
       
       // If we're looking for a specific batch and didn't find it
       if (batchId && (!data || data.length === 0)) {
         toast.error("Batch not found or you don't have permission to view it.");
-        // Navigate back to flyer batches list if the batch is not found
-        navigate("/batches/flyers");
       }
     } catch (err) {
       console.error('Error fetching flyer batches:', err);
@@ -148,16 +126,13 @@ export function useFlyerBatches(batchId: string | null = null) {
       
       console.log("Batch deleted successfully");
       
-      // Update local state to remove the deleted batch
-      setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchToDelete));
-      
       toast.success("Batch deleted and its jobs returned to queue");
       
-      // Important: Navigate to the main flyers page, not the batches subpath
-      navigate("/batches/flyers");
-    } catch (err: any) {
-      console.error("Error deleting batch:", err);
-      toast.error(`Failed to delete batch: ${err.message || "Unknown error"}`);
+      // Refresh batch list
+      fetchBatches();
+    } catch (error) {
+      console.error("Error deleting batch:", error);
+      toast.error("Failed to delete batch. Please try again.");
     } finally {
       setIsDeleting(false);
       setBatchToDelete(null);

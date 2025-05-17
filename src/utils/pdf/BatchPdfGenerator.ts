@@ -1,6 +1,6 @@
 
 import { PDFDocument } from "pdf-lib";
-import { Job } from "@/components/batches/types/BatchTypes";
+import { Job } from "@/components/business-cards/JobsTable";
 import { mmToPoints } from "./pdfUnitHelpers";
 import calculateJobPageDistribution from "./JobPageDistributor";
 import { processJobPdfs } from "./PdfPageProcessor";
@@ -25,17 +25,9 @@ export async function generateBatchImposition(
       throw new Error("No jobs provided for imposition");
     }
     
-    // Ensure all jobs have required properties
-    const validatedJobs = jobs.map(job => ({
-      ...job,
-      // Ensure these properties always have values
-      file_name: job.file_name || `job-${job.id.substring(0, 6)}.pdf`,
-      uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
-    }));
-    
     // Step 1: Calculate job slot distribution
     const TOTAL_SLOTS = 24; // 3x8 grid
-    const jobAllocations = calculateJobPageDistribution(validatedJobs, TOTAL_SLOTS);
+    const jobAllocations = calculateJobPageDistribution(jobs, TOTAL_SLOTS);
     
     // Create map for quantity lookup
     const quantityMap = new Map(
@@ -49,7 +41,7 @@ export async function generateBatchImposition(
       isDoubleSided: job.isDoubleSided
     }));
     
-    const processedJobPages = await processJobPdfs(validatedJobs, slotRequirements);
+    const processedJobPages = await processJobPdfs(jobs, slotRequirements);
     
     // Step 3: Assign processed pages to slots
     let { frontSlots, backSlots } = createImpositionSlots(processedJobPages, quantityMap);

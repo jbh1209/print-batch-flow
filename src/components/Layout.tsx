@@ -1,29 +1,41 @@
 
-import React from 'react';
-import { Outlet } from 'react-router-dom';
-import SearchBar from './SearchBar';
+import { Outlet } from "react-router-dom";
+import Sidebar from "./Sidebar";
+import SearchBar from "./SearchBar";
+import { Bell, HelpCircle, LogOut } from "lucide-react";
+import { Button } from "./ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
-export function Layout() {
+const Layout = () => {
+  const { user, signOut } = useAuth();
+
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <div className="w-64 border-r bg-background">
-        {/* Sidebar content would go here */}
-        <div className="p-4">
-          <h2 className="font-semibold">Application</h2>
-        </div>
-      </div>
+    <div className="flex h-screen bg-batchflow-background">
+      <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6">
+        <header className="bg-white border-b flex items-center justify-between px-6 py-3 h-16">
           <SearchBar />
-        </header>
-        <main className="flex-1 overflow-auto">
-          <div className="container px-6 py-6">
-            <Outlet />
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="icon">
+              <Bell size={20} />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <HelpCircle size={20} />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={signOut}>
+              <LogOut size={20} />
+            </Button>
+            <div className="h-8 w-8 rounded-full bg-sky-400 flex items-center justify-center text-white font-medium">
+              {user?.email?.[0].toUpperCase() || 'U'}
+            </div>
           </div>
+        </header>
+        <main className="flex-1 overflow-auto p-6">
+          <Outlet />
         </main>
       </div>
     </div>
   );
-}
+};
 
 export default Layout;

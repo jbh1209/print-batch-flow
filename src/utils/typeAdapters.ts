@@ -1,6 +1,6 @@
 
 import { BaseJob, BaseBatch, BatchStatus } from "@/config/types/baseTypes";
-import { Job, BatchDetailsType, LaminationType } from "@/components/batches/types/BatchTypes";
+import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
 
 /**
  * Converts a BaseJob to a Job type
@@ -12,22 +12,7 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     quantity: baseJob.quantity,
     status: baseJob.status,
     pdf_url: baseJob.pdf_url || null,
-    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}`, // Ensure job_number is always provided
-    file_name: baseJob.file_name || `job-${baseJob.id.substring(0, 6)}.pdf`, // Add required file_name
-    uploaded_at: baseJob.uploaded_at || baseJob.created_at || new Date().toISOString(), // Add required uploaded_at
-    lamination_type: (baseJob.lamination_type as LaminationType) || "none", // Add required lamination_type
-    due_date: baseJob.due_date || new Date().toISOString(), // Add required due_date with fallback
-    created_at: baseJob.created_at || new Date().toISOString(), // Add consistency for created_at
-    // Include other optional properties
-    double_sided: baseJob.double_sided,
-    size: baseJob.size,
-    sides: baseJob.sides,
-    stock_type: baseJob.stock_type,
-    single_sided: baseJob.single_sided,
-    paper_type: baseJob.paper_type,
-    paper_weight: baseJob.paper_weight,
-    batch_id: baseJob.batch_id,
-    user_id: baseJob.user_id
+    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}` // Ensure job_number is always provided
   };
 };
 

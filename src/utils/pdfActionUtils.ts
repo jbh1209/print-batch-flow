@@ -1,41 +1,42 @@
 
-// Let's check the declaration of handlePdfAction function
 import { toast } from "sonner";
+import { getSignedUrl } from "./pdf/urlUtils";
+import { downloadFile, openInNewTab } from "./pdf/downloadUtils";
+import { handlePdfError } from "./pdf/errorUtils";
 
-type PdfAction = 'view' | 'download';
-
-export const handlePdfAction = async (url: string, action: PdfAction, fileName?: string) => {
+/**
+ * Handles PDF view or download actions
+ */
+export const handlePdfAction = async (
+  url: string | null,
+  action: 'view' | 'download',
+  filename?: string
+): Promise<void> => {
   if (!url) {
-    toast.error("No PDF URL provided");
+    toast.error("PDF URL is not available");
     return;
   }
 
   try {
-    if (action === 'view') {
-      // Open in a new tab
-      window.open(url, '_blank');
-    } else if (action === 'download') {
-      // Create a temporary link and trigger download
-      const link = document.createElement('a');
-      link.href = url;
-      
-      // Use the provided fileName or extract from URL
-      if (fileName) {
-        link.download = fileName;
-      } else {
-        // Extract filename from URL or use a default
-        const urlParts = url.split('/');
-        link.download = urlParts[urlParts.length - 1] || 'document.pdf';
-      }
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    console.log(`Attempting to access PDF at: ${url}`);
     
-    toast.success(`PDF ${action === 'view' ? 'opened' : 'download started'}`);
+    // Get signed URL if needed
+    const isAlreadySigned = url.includes('/sign/');
+    const accessUrl = isAlreadySigned ? url : await getSignedUrl(url);
+    
+    if (!accessUrl) {
+      throw new Error("Could not generate a valid URL for this PDF");
+    }
+
+    console.log(`Access URL generated: ${accessUrl.substring(0, 100)}...`);
+    
+    if (action === 'view') {
+      openInNewTab(accessUrl);
+    } else {
+      const displayFilename = filename || url.split('/').pop() || 'document.pdf';
+      downloadFile(accessUrl, displayFilename);
+    }
   } catch (error) {
-    console.error(`Error ${action === 'view' ? 'viewing' : 'downloading'} PDF:`, error);
-    toast.error(`Failed to ${action} PDF`);
+    handlePdfError(error);
   }
 };

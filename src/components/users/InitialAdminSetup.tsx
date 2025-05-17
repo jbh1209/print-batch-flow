@@ -39,14 +39,14 @@ export function InitialAdminSetup() {
       if (error) throw error;
       
       if (data.user) {
-        // Step 2: Use RPC to add admin role (with proper type assertion)
+        // Step 2: Use RPC to add admin role
         const adminUserId = data.user.id;
         
-        const result = await (supabase.rpc as any)('add_admin_role', { 
+        const { error: roleError } = await supabase.rpc('add_admin_role', { 
           admin_user_id: adminUserId 
         });
           
-        if (result.error) throw result.error;
+        if (roleError) throw roleError;
         
         toast.success('Admin account created successfully!');
         toast.info('Signing in with your new admin account...');

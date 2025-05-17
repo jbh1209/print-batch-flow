@@ -7,7 +7,7 @@ import { useParams, Navigate } from "react-router-dom";
 import FlyerBatchDetails from "./FlyerBatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
-import BatchDeleteDialog from "@/components/batches/DeleteBatchDialog";
+import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 
 const FlyerBatches = () => {
@@ -87,7 +87,6 @@ const FlyerBatches = () => {
       <BatchDeleteDialog 
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
-        batchName={batches.find(b => b.id === batchToDelete)?.name || ""}
         onClose={() => setBatchToDelete(null)}
         onConfirmDelete={handleDeleteBatch}
       />

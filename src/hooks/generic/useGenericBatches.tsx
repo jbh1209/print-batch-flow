@@ -9,8 +9,7 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 
 export function useGenericBatches<T extends BaseJob = BaseJob>(
   config: ProductConfig, 
-  batchId: string | null = null,
-  options = { filterByCurrentUser: false }
+  batchId: string | null = null
 ) {
   // Validate table name before proceeding
   if (!isExistingTable(config.tableName)) {
@@ -21,17 +20,9 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   // Use the table name only after validation
   const validTableName = isExistingTable(config.tableName) ? config.tableName : null;
   
-  // Use our updated useBatchFetching hook with the filterByCurrentUser option
-  const { batches, isLoading, error, fetchBatches } = useBatchFetching(
-    config, 
-    { 
-      filterByCurrentUser: options.filterByCurrentUser,
-      specificBatchId: batchId 
-    }
-  );
-  
+  const { batches, isLoading, error, fetchBatches } = useBatchFetching(config, batchId);
   const { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch } = 
-    useBatchDeletion(validTableName, fetchBatches);
+    useBatchDeletion(validTableName as ExistingTableName, fetchBatches);
   const { handleViewPDF, handleViewBatchDetails } = useBatchNavigation(config.productType);
   const { createBatchWithSelectedJobs, isCreatingBatch } = 
     useBatchCreation(config.productType, validTableName || "");

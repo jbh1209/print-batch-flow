@@ -12,17 +12,16 @@ import {
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { toast } from "sonner";
 import { BatchDetailsType } from "./types/BatchTypes";
+import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
-  productType?: string;
   onDownloadJobPdfs?: () => Promise<void>;
   onDownloadBatchOverviewSheet?: () => Promise<void>;
 }
 
 const BatchActionsCard = ({ 
   batch, 
-  productType = "Generic",
   onDownloadJobPdfs, 
   onDownloadBatchOverviewSheet 
 }: BatchActionsCardProps) => {
@@ -107,25 +106,23 @@ const BatchActionsCard = ({
               size="sm"
               onClick={onDownloadBatchOverviewSheet}
               className="w-full flex items-center justify-center gap-2"
-              disabled={!batch.overview_pdf_url}
             >
               <Download className="h-4 w-4" />
               Download Batch Overview Sheet
             </Button>
           </div>
           
-          {/* Job PDFs Download - Add special styling for Business Cards to highlight its availability */}
+          {/* Job PDFs Download */}
           <div className="space-y-2 border-t border-gray-200 pt-2">
             <h3 className="text-sm font-medium">Job PDFs</h3>
             <Button
-              variant={productType === "Business Cards" ? "default" : "outline"}
+              variant="default"
               size="sm"
               onClick={onDownloadJobPdfs}
-              className={`w-full flex items-center justify-center gap-2 ${productType === "Business Cards" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+              className="w-full flex items-center justify-center gap-2"
             >
               <Download className="h-4 w-4" />
               Download All Job PDFs
-              {productType !== "Business Cards" && <span className="text-xs ml-1">(Business Cards only)</span>}
             </Button>
           </div>
         </div>
@@ -135,3 +132,4 @@ const BatchActionsCard = ({
 };
 
 export default BatchActionsCard;
+

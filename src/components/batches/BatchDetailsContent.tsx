@@ -5,10 +5,10 @@ import BatchDetailsCard from "./BatchDetailsCard";
 import BatchActionsCard from "./BatchActionsCard";
 import RelatedJobsCard from "./RelatedJobsCard";
 import { FlyerBatchOverview } from "../flyers/FlyerBatchOverview";
+import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BaseJob } from "@/config/productTypes";
-import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -33,30 +33,10 @@ const BatchDetailsContent = ({
     }
     
     try {
-      console.log("Attempting to download job PDFs for product type:", productType);
-      console.log("Jobs data available:", relatedJobs.length, "jobs");
-      console.log("First job sample:", relatedJobs[0]);
-      
-      // Special handling for business cards - uses dedicated function
-      if (productType === "Business Cards") {
-        console.log("Using Business Cards specific download function");
-        toast.loading("Preparing Business Card PDFs for download...");
-        
-        // Check if double_sided property exists on jobs
-        const hasRequiredProperties = relatedJobs.every(job => 'double_sided' in job);
-        if (!hasRequiredProperties) {
-          console.warn("Warning: Some jobs are missing the double_sided property needed for PDF generation");
-        }
-        
-        await downloadBatchJobPdfs(relatedJobs, batch.name);
-        toast.success("Business card job PDFs downloaded successfully");
-      } else {
-        // Generic handling for other product types
-        toast.error("PDF download not implemented for this product type yet");
-      }
+      await downloadBatchJobPdfs(relatedJobs, batch.name);
     } catch (error) {
       console.error("Error downloading job PDFs:", error);
-      toast.error(`Failed to download job PDFs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error("Failed to download job PDFs");
     }
   };
 
@@ -83,6 +63,7 @@ const BatchDetailsContent = ({
   const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
     return jobs.map(job => ({
       ...job,
+      // Directly copy job_number as is - no fallbacks
       job_number: job.job_number,
       due_date: job.due_date || new Date().toISOString(),
       file_name: job.file_name || "",
@@ -93,7 +74,7 @@ const BatchDetailsContent = ({
   
   return (
     <>
-      <div className="grid gap-6 md:grid-cols-3 mb-8">
+      <div className="grid gap-6 md:grid-cols-3">
         <BatchDetailsCard 
           batch={batch}
           onDeleteClick={onDeleteClick}
@@ -103,7 +84,6 @@ const BatchDetailsContent = ({
           batch={batch} 
           onDownloadJobPdfs={handleDownloadJobPdfs}
           onDownloadBatchOverviewSheet={handleDownloadBatchOverviewSheet}
-          productType={productType} 
         />
       </div>
 
@@ -111,13 +91,10 @@ const BatchDetailsContent = ({
       {relatedJobs.length > 0 && (
         <>
           <RelatedJobsCard jobs={relatedJobs} />
-          {/* Only show batch overview for Business Cards where it's fully implemented */}
-          {productType === "Business Cards" && (
-            <FlyerBatchOverview 
-              jobs={convertToBaseJobs(relatedJobs)}
-              batchName={batch.name}
-            />
-          )}
+          <FlyerBatchOverview 
+            jobs={convertToBaseJobs(relatedJobs)}
+            batchName={batch.name}
+          />
         </>
       )}
     </>

@@ -4,13 +4,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
 import { ProductConfig, BatchStatus } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
+import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BatchDetailsType, Job, LaminationType } from "@/components/batches/types/BatchTypes";
-import BatchDeleteDialog from "@/components/batches/DeleteBatchDialog";
-import { convertToJobsArray } from "@/utils/typeAdapters";
+import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -84,8 +83,15 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs using our utility function to ensure all fields are present
-  const convertedJobs = convertToJobsArray(relatedJobs);
+  // Convert related jobs to match the Job interface, ensuring job_number is included
+  const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
+    id: job.id,
+    name: job.name || '',
+    quantity: job.quantity,
+    status: job.status,
+    pdf_url: job.pdf_url || null,
+    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+  }));
 
   return (
     <div>
@@ -96,7 +102,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
       
       <BatchDetailsContent
         batch={batchDetailsData}
-        relatedJobs={convertedJobs}
+        relatedJobs={typedRelatedJobs}
         productType={config.productType}
         onDeleteClick={() => setBatchToDelete(batch.id)}
       />
@@ -104,7 +110,6 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
       <BatchDeleteDialog 
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
-        batchName={batch.name || ""}
         onClose={() => setBatchToDelete(null)}
         onConfirmDelete={handleDeleteBatch}
       />

@@ -1,53 +1,28 @@
 
-import React from "react";
-import { productConfigs } from "@/config/productTypes";
 import { useGenericFlyerJobs } from "@/hooks/generic/useGenericFlyerJobs";
+import { productConfigs } from "@/config/productTypes";
 import GenericJobsPage from "@/components/generic/GenericJobsPage";
-import { DebugInfo } from "@/components/ui/debug-info";
-import { generateRenderKey } from "@/utils/cacheUtils";
 
 const FlyerJobsPage = () => {
   const config = productConfigs["Flyers"];
-  const renderKey = generateRenderKey();
   
-  console.log(`[FlyerJobsPage] Rendering with key: ${renderKey}`);
-  
-  // Create a wrapper function that returns the hook result with standardized interface
+  // Create a wrapper function that returns the hook result with type conversion
   const jobsHookWrapper = () => {
     const hookResult = useGenericFlyerJobs();
     
-    console.log(`[FlyerJobsPage] Hook wrapper executed, jobs: ${hookResult.jobs.length}`);
+    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
+    const fixBatchedJobsWrapper = async () => {
+      await hookResult.fixBatchedJobsWithoutBatch();
+      // Return type is void as expected
+    };
     
     return {
-      jobs: hookResult.jobs,
-      isLoading: hookResult.isLoading,
-      error: hookResult.error,
-      deleteJob: hookResult.deleteJob,
-      fetchJobs: hookResult.fetchJobs,
-      createBatch: hookResult.createBatch,
-      isCreatingBatch: hookResult.isCreatingBatch,
-      fixBatchedJobsWithoutBatch: hookResult.fixBatchedJobsWithoutBatch,
-      isFixingBatchedJobs: hookResult.isFixingBatchedJobs
+      ...hookResult,
+      fixBatchedJobsWithoutBatch: fixBatchedJobsWrapper
     };
   };
 
-  // Use key to force re-render of the component tree
-  return (
-    <>
-      <GenericJobsPage 
-        key={renderKey} 
-        config={config} 
-        useJobsHook={jobsHookWrapper} 
-      />
-      <DebugInfo
-        componentName="FlyerJobsPage"
-        extraInfo={{
-          productType: config.productType,
-          renderKey
-        }}
-      />
-    </>
-  );
+  return <GenericJobsPage config={config} useJobsHook={jobsHookWrapper} />;
 };
 
 export default FlyerJobsPage;
