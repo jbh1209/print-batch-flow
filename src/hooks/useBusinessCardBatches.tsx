@@ -41,12 +41,11 @@ export const useBusinessCardBatches = (batchId: string | null) => {
         return;
       }
       
-      console.log("Fetching business card batches for user:", user.id);
+      console.log("Fetching business card batches");
       
       let query = supabase
         .from("batches")
         .select("*")
-        .eq("created_by", user.id)
         .filter('name', 'ilike', 'DXB-BC-%'); // Only fetch business card batches (prefix DXB-BC-)
         
       // If batchId is specified, filter to only show that batch

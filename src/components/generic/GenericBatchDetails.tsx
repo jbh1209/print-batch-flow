@@ -73,7 +73,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs to match the Job interface
+  // Convert related jobs to match the Job interface with all required properties
   const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
     id: job.id,
     name: job.name || '',
@@ -83,7 +83,10 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`, // Ensure job_number is always provided
     due_date: job.due_date || new Date().toISOString(), // Ensure due_date is always provided
     file_name: job.file_name || job.name || '', // Ensure file_name is always provided
-    lamination_type: (job.lamination_type || 'none') as LaminationType // Ensure compatibility with LaminationType
+    lamination_type: (job.lamination_type || 'none') as LaminationType, // Ensure compatibility with LaminationType
+    uploaded_at: job.uploaded_at || new Date().toISOString(), // Ensure uploaded_at is always provided
+    user_id: job.user_id,
+    created_at: job.created_at
   }));
 
   return (

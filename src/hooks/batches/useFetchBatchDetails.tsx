@@ -39,7 +39,6 @@ export function useFetchBatchDetails({
         .from("batches")
         .select("*")
         .eq("id", batchId)
-        .eq("created_by", user.id)
         .single();
       
       if (error) {
@@ -51,7 +50,7 @@ export function useFetchBatchDetails({
         console.log("Batch not found");
         toast({
           title: "Batch not found",
-          description: "The requested batch could not be found or you don't have permission to view it.",
+          description: "The requested batch could not be found.",
           variant: "destructive",
         });
         navigate(backUrl);
@@ -105,7 +104,7 @@ export function useFetchBatchDetails({
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number, file_name, paper_type, paper_weight, size, due_date")
+          .select("id, name, quantity, status, pdf_url, job_number, file_name, paper_type, paper_weight, size, due_date, user_id, created_at")
           .eq("batch_id", batchId)
           .order("name");
         
@@ -124,7 +123,9 @@ export function useFetchBatchDetails({
           paper_weight: job.paper_weight,
           size: job.size,
           due_date: job.due_date,
-          lamination_type: 'none' as LaminationType // Set a default value
+          lamination_type: 'none' as LaminationType, // Set a default value
+          user_id: job.user_id,
+          created_at: job.created_at
         }));
       }
       
