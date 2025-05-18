@@ -7,7 +7,6 @@ import { Plus } from "lucide-react";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { toast } from "sonner";
 import { FlyerJobsTableContainer } from "./FlyerJobsTableContainer";
-import { FlyerBatchCreateDialog } from "./FlyerBatchCreateDialog";
 import { Table } from "@/components/ui/table";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { FlyerJobsEmptyState } from "./components/FlyerJobsEmptyState";
@@ -16,6 +15,7 @@ import { SelectionControls } from "./components/SelectionControls";
 import { BatchFixBanner } from "./components/BatchFixBanner";
 import { JobsTableHeader } from "./components/JobsTableHeader";
 import { FlyerJobsBody } from "./components/FlyerJobsBody";
+import { productConfigs } from "@/config/productTypes";
 
 export const FlyerJobsTable = () => {
   const navigate = useNavigate();
@@ -25,13 +25,14 @@ export const FlyerJobsTable = () => {
     error, 
     fetchJobs, 
     fixBatchedJobsWithoutBatch, 
-    isFixingBatchedJobs 
+    isFixingBatchedJobs,
+    createBatch,
+    isCreatingBatch
   } = useFlyerJobs();
 
   // State for job selection and filtering
   const [selectedJobs, setSelectedJobs] = useState<FlyerJob[]>([]);
   const [filterView, setFilterView] = useState<"all" | "queued" | "batched" | "completed">("all");
-  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   
   // Filter jobs based on current view
   const filteredJobs = filterView === 'all' 
@@ -69,21 +70,56 @@ export const FlyerJobsTable = () => {
     }
   };
 
-  // Handle closing batch dialog
-  const handleBatchDialogClose = () => {
-    setIsBatchDialogOpen(false);
+  const handleCreateBatch = async () => {
+    if (selectedJobs.length === 0) {
+      toast.error("Please select at least one job to create a batch");
+      return;
+    }
+    
+    try {
+      // Get the flyers config for default values
+      const flyersConfig = productConfigs["Flyers"];
+      
+      // Determine common properties from selected jobs
+      const commonPaperType = findCommonProperty(selectedJobs, 'paper_type');
+      const commonPaperWeight = findCommonProperty(selectedJobs, 'paper_weight');
+      
+      // Create a toast to show batch creation progress
+      toast.loading("Creating batch...");
+      
+      // Create the batch with automatically determined properties
+      const batch = await createBatch(selectedJobs, {
+        // Use common properties when available, otherwise use defaults from config
+        paperType: commonPaperType || flyersConfig.availablePaperTypes[0],
+        paperWeight: commonPaperWeight || flyersConfig.availablePaperWeights[0],
+        laminationType: "none",
+        printerType: "HP 12000",
+        sheetSize: "530x750mm",
+        slaTargetDays: flyersConfig.slaTargetDays
+      });
+      
+      // Clear selection and refresh the jobs list
+      setSelectedJobs([]);
+      await fetchJobs();
+      
+      // Show success message with the batch name
+      toast.dismiss();
+      toast.success(`Batch ${batch.name} created with ${selectedJobs.length} jobs`);
+    } catch (error) {
+      console.error("Error creating batch:", error);
+      toast.dismiss();
+      toast.error("Failed to create batch. Please try again.");
+    }
   };
-
-  // Handle successful batch creation
-  const handleBatchSuccess = () => {
-    setIsBatchDialogOpen(false);
-    setSelectedJobs([]);
-    fetchJobs();
-    toast.success("Batch created successfully");
-  };
-
-  const handleCreateBatch = () => {
-    setIsBatchDialogOpen(true);
+  
+  // Helper function to find common property among jobs
+  const findCommonProperty = (jobs: FlyerJob[], property: keyof FlyerJob): string | null => {
+    if (jobs.length === 0) return null;
+    
+    const firstValue = jobs[0][property];
+    const allSame = jobs.every(job => job[property] === firstValue);
+    
+    return allSame ? String(firstValue) : null;
   };
 
   if (isLoading) {
@@ -112,6 +148,7 @@ export const FlyerJobsTable = () => {
           selectedCount={selectedJobs.length}
           totalSelectableCount={selectableJobsCount}
           onCreateBatch={handleCreateBatch}
+          isCreatingBatch={isCreatingBatch}
         />
 
         {/* Fix Orphaned Jobs Button - only show if there are jobs stuck in batched state */}
@@ -138,14 +175,6 @@ export const FlyerJobsTable = () => {
           </Table>
         </FlyerJobsTableContainer>
       </div>
-      
-      {/* Batch Creation Dialog */}
-      <FlyerBatchCreateDialog
-        isOpen={isBatchDialogOpen}
-        onClose={handleBatchDialogClose}
-        onSuccess={handleBatchSuccess}
-        preSelectedJobs={selectedJobs}
-      />
     </>
   );
 };

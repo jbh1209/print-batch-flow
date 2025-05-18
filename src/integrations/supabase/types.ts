@@ -486,6 +486,115 @@ export type Database = {
           },
         ]
       }
+      product_field_options: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          option_value: string
+          product_field_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          option_value: string
+          product_field_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          option_value?: string
+          product_field_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_field_options_product_field_id_fkey"
+            columns: ["product_field_id"]
+            isOneToOne: false
+            referencedRelation: "product_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_fields: {
+        Row: {
+          created_at: string
+          field_name: string
+          field_type: string
+          id: string
+          is_required: boolean
+          product_type_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          field_name: string
+          field_type: string
+          id?: string
+          is_required?: boolean
+          product_type_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          product_type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_fields_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_types: {
+        Row: {
+          color: string
+          created_at: string
+          icon_name: string
+          id: string
+          job_prefix: string
+          name: string
+          slug: string
+          table_name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon_name?: string
+          id?: string
+          job_prefix: string
+          name: string
+          slug: string
+          table_name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon_name?: string
+          id?: string
+          job_prefix?: string
+          name?: string
+          slug?: string
+          table_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -632,21 +741,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -659,11 +768,18 @@ export type Database = {
     Functions: {
       add_admin_role: {
         Args: { admin_user_id: string }
-        Returns: undefined
+        Returns: boolean
       }
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      get_all_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+        }[]
       }
       get_all_users_secure: {
         Args: Record<PropertyKey, never>
@@ -672,17 +788,17 @@ export type Database = {
           email: string
         }[]
       }
-      has_role: {
-        Args: { role: Database["public"]["Enums"]["app_role"] }
-        Returns: boolean
-      }
-      is_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      is_admin_secure: {
-        Args: { _user_id: string }
-        Returns: boolean
+      get_all_users_with_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+          full_name: string
+          avatar_url: string
+          role: string
+          created_at: string
+          last_sign_in_at: string
+        }[]
       }
       is_admin_secure_fixed: {
         Args: { _user_id: string }
@@ -690,26 +806,22 @@ export type Database = {
       }
       revoke_user_role: {
         Args: { target_user_id: string }
-        Returns: undefined
+        Returns: boolean
       }
       set_user_role: {
-        Args: {
-          target_user_id: string
-          new_role: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: undefined
+        Args: { target_user_id: string; new_role: string }
+        Returns: boolean
       }
       set_user_role_admin: {
         Args: { _target_user_id: string; _new_role: string }
-        Returns: undefined
+        Returns: boolean
       }
       update_user_profile_admin: {
         Args: { _user_id: string; _full_name: string }
-        Returns: undefined
+        Returns: boolean
       }
     }
     Enums: {
-      app_role: "admin" | "user"
       batch_status:
         | "pending"
         | "processing"
@@ -837,7 +949,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
       batch_status: [
         "pending",
         "processing",

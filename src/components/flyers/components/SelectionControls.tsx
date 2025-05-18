@@ -5,14 +5,16 @@ interface SelectionControlsProps {
   selectedCount: number;
   totalSelectableCount: number;
   onCreateBatch: () => void;
+  isCreatingBatch?: boolean;
 }
 
 export const SelectionControls = ({
   selectedCount,
   totalSelectableCount,
   onCreateBatch,
+  isCreatingBatch = false,
 }: SelectionControlsProps) => {
-  const batchButtonDisabled = selectedCount === 0;
+  const batchButtonDisabled = selectedCount === 0 || isCreatingBatch;
   
   return (
     <div className="flex justify-between items-center p-4 border-b">
@@ -23,7 +25,7 @@ export const SelectionControls = ({
         onClick={onCreateBatch} 
         disabled={batchButtonDisabled}
       >
-        Create Batch
+        {isCreatingBatch ? "Creating Batch..." : "Create Batch"}
       </Button>
     </div>
   );

@@ -1,8 +1,10 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
+import { productConfigs } from '@/config/productTypes';
 
 export function useFlyerJobOperations() {
   const { user } = useAuth();
@@ -72,7 +74,7 @@ export function useFlyerJobOperations() {
       const { data, error } = await supabase
         .from('batches')
         .select('name')
-        .ilike('DXB-FL-%', 'DXB-FL-%');
+        .ilike('name', 'DXB-FL-%');
       
       if (error) throw error;
       
@@ -98,7 +100,7 @@ export function useFlyerJobOperations() {
     }
   };
 
-  // New method to create a batch with selected jobs
+  // Streamlined method to create a batch with selected jobs
   const createBatchWithSelectedJobs = async (
     selectedJobs: FlyerJob[], 
     batchProperties: BatchProperties
@@ -153,7 +155,6 @@ export function useFlyerJobOperations() {
       
       if (updateError) throw updateError;
       
-      toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
       return batchData;
       
     } catch (err) {
