@@ -1,27 +1,12 @@
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { cleanupAuthState } from '@/services/auth/authService';
 import { toast } from 'sonner';
-
-// Define types
-interface UserProfile {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-}
-
-interface AuthContextType {
-  user: SupabaseUser | null;
-  profile: UserProfile | null;
-  session: Session | null;
-  isAdmin: boolean;
-  isLoading: boolean;
-  signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
-  refreshSession: () => Promise<Session | null>;
-}
+import { AuthContextType } from '@/types/auth-types';
+import { useAuthState } from '@/hooks/useAuthState';
+import { useProfileManagement } from '@/hooks/useProfileManagement';
+import { cleanupAuthState } from '@/services/auth/authService';
 
 // Create context with default values
 const AuthContext = createContext<AuthContextType>({
@@ -36,54 +21,15 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Fetch user profile with retry
-  const fetchProfile = async (userId: string) => {
-    if (!userId) return null;
-    
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return null;
-      }
-      
-      return data as UserProfile;
-    } catch (error) {
-      console.error('Error in fetchProfile:', error);
-      return null;
-    }
-  };
-
-  // Check if user is admin
-  const checkAdmin = async (userId: string) => {
-    if (!userId) return false;
-    
-    try {
-      const { data, error } = await supabase
-        .rpc('is_admin_secure_fixed', { _user_id: userId });
-      
-      if (error) {
-        console.error('Error checking admin status:', error);
-        return false;
-      }
-      
-      return !!data;
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      return false;
-    }
-  };
+  const {
+    user, setUser,
+    profile, setProfile,
+    session, setSession,
+    isAdmin, setIsAdmin,
+    isLoading, setIsLoading
+  } = useAuthState();
+  
+  const { fetchProfile, checkAdmin } = useProfileManagement();
 
   // Sign out function
   const handleSignOut = async () => {
