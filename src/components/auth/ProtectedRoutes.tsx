@@ -35,8 +35,9 @@ export const ProtectedRoutes: React.FC = () => {
 
   return (
     <Routes>
+      {/* Public routes */}
       <Route path="/auth" element={user ? <Navigate to="/dashboard" /> : <Auth />} />
-      
+
       {/* Protected routes wrapped in Layout */}
       <Route element={user ? <Layout /> : <Navigate to="/auth" />}>
         {/* Dashboard */}
