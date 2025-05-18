@@ -9,7 +9,7 @@ import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BaseJob } from "@/config/productTypes";
-import { LaminationType } from "@/components/business-cards/JobsTable";
+import { LaminationType, JobStatus } from "@/components/business-cards/JobsTable";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -39,7 +39,9 @@ const BatchDetailsContent = ({
         ...job,
         lamination_type: (job.lamination_type || 'none') as LaminationType,
         // Add a default value for uploaded_at if it's missing
-        uploaded_at: job.uploaded_at || new Date().toISOString()
+        uploaded_at: job.uploaded_at || new Date().toISOString(),
+        // Ensure status is treated as JobStatus
+        status: job.status as JobStatus
       }));
       
       await downloadBatchJobPdfs(businessCardJobs, batch.name);
@@ -77,6 +79,7 @@ const BatchDetailsContent = ({
       file_name: job.file_name,
       user_id: job.user_id || "",
       created_at: job.created_at || new Date().toISOString(),
+      status: job.status,
       lamination_type: job.lamination_type || 'none'
     })) as BaseJob[];
   };

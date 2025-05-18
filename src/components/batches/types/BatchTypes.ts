@@ -18,7 +18,7 @@ export interface Job {
   id: string;
   name: string;
   quantity: number;
-  status: string;
+  status: string | JobStatus;  // Modified to accept both string and JobStatus
   pdf_url: string | null;
   job_number: string;  // Explicitly required, not optional
   size?: string;

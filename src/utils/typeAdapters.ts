@@ -1,7 +1,7 @@
 
 import { BaseJob, BaseBatch, BatchStatus } from "@/config/types/baseTypes";
 import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
-import { LaminationType } from "@/components/business-cards/JobsTable";
+import { LaminationType, JobStatus } from "@/components/business-cards/JobsTable";
 
 /**
  * Converts a BaseJob to a Job type
@@ -11,7 +11,7 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     id: baseJob.id,
     name: baseJob.name || '',  // Ensure name is not undefined
     quantity: baseJob.quantity,
-    status: baseJob.status,
+    status: baseJob.status as JobStatus | string, // Cast to JobStatus or string
     pdf_url: baseJob.pdf_url || null,
     job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}`, // Ensure job_number is always provided
     due_date: baseJob.due_date || new Date().toISOString(), // Ensure due_date is always provided
