@@ -2,7 +2,7 @@
 import { ProductConfig } from '../types/productConfigTypes';
 
 export const businessCardsConfig: ProductConfig = {
-  productType: "BusinessCards",
+  productType: "Business Cards",
   tableName: "business_card_jobs",
   jobNumberPrefix: "BC",
   availablePaperTypes: ["350gsm Matt", "350gsm Silk", "400gsm Matt", "400gsm Silk"],
