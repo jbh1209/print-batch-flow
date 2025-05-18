@@ -1,5 +1,5 @@
 
-import { BaseJob, BaseBatch, BatchStatus, JobStatus, LaminationType } from "@/config/types/baseTypes";
+import { BaseJob, BaseBatch, BatchStatus } from "@/config/types/baseTypes";
 import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
 
 /**
@@ -10,13 +10,9 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     id: baseJob.id,
     name: baseJob.name || '',  // Ensure name is not undefined
     quantity: baseJob.quantity,
-    status: baseJob.status as JobStatus | string, // Cast to JobStatus or string
+    status: baseJob.status,
     pdf_url: baseJob.pdf_url || null,
-    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}`, // Ensure job_number is always provided
-    due_date: baseJob.due_date || new Date().toISOString(), // Ensure due_date is always provided
-    file_name: baseJob.file_name || baseJob.name || '', // Ensure file_name is always provided
-    lamination_type: (baseJob.lamination_type as LaminationType) || 'none', // Ensure lamination_type is always provided and cast to LaminationType
-    user_id: baseJob.user_id // Include user_id
+    job_number: baseJob.job_number || `JOB-${baseJob.id.substring(0, 6)}` // Ensure job_number is always provided
   };
 };
 
@@ -31,9 +27,6 @@ export const convertToJobsArray = (baseJobs: BaseJob[]): Job[] => {
  * Converts a BaseBatch to a BatchDetailsType
  */
 export const convertToBatchDetailsType = (batch: BaseBatch): BatchDetailsType => {
-  // Ensure lamination_type is properly cast to LaminationType
-  const laminationType = batch.lamination_type as LaminationType;
-  
   return {
     id: batch.id,
     name: batch.name,
@@ -44,7 +37,7 @@ export const convertToBatchDetailsType = (batch: BaseBatch): BatchDetailsType =>
     overview_pdf_url: batch.overview_pdf_url,
     due_date: batch.due_date,
     created_at: batch.created_at,
-    lamination_type: laminationType,
+    lamination_type: batch.lamination_type,
     paper_type: batch.paper_type,
     paper_weight: batch.paper_weight,
     sides: batch.sides,

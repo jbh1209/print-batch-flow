@@ -1,5 +1,5 @@
 
-import { ProductConfig } from "../types/baseTypes";
+import { ProductConfig } from "../types/productConfigTypes";
 
 export const postersConfig: ProductConfig = {
   productType: "Posters",
@@ -10,8 +10,6 @@ export const postersConfig: ProductConfig = {
   availableSizes: ["A3", "A2", "A1", "A0"],
   availableLaminationTypes: ["none", "gloss", "matt"],
   availableSidesTypes: ["single", "double"],
-  availablePrinterTypes: ["HP 12000", "Indigo 7000"],
-  availableSheetSizes: ["530x750mm", "364x515mm"],
   hasLamination: true,
   hasPaperType: true,
   hasPaperWeight: true,
@@ -19,13 +17,13 @@ export const postersConfig: ProductConfig = {
   hasSides: true,
   slaTargetDays: 3,
   routes: {
-    indexPath: "/posters",
-    jobsPath: "/posters/jobs",
-    newJobPath: "/posters/jobs/new",
+    indexPath: "/batches/posters",
+    jobsPath: "/batches/posters/jobs",
+    newJobPath: "/batches/posters/jobs/new",
     batchesPath: "/batches/posters/batches",
-    basePath: "/posters",
-    jobDetailPath: (id: string) => `/posters/jobs/${id}`,
-    jobEditPath: (id: string) => `/posters/jobs/${id}/edit`,
+    basePath: "/batches/posters",
+    jobDetailPath: (id: string) => `/batches/posters/jobs/${id}`,
+    jobEditPath: (id: string) => `/batches/posters/jobs/${id}/edit`,
   },
   ui: {
     icon: "image-square",

@@ -1,5 +1,5 @@
 
-import { ProductConfig } from '../types/baseTypes';
+import { ProductConfig } from '../types/productConfigTypes';
 
 export const flyersConfig: ProductConfig = {
   productType: "Flyers",
@@ -8,8 +8,6 @@ export const flyersConfig: ProductConfig = {
   availableSizes: ["A6", "A5", "A4", "DL"],
   availablePaperTypes: ["Gloss", "Silk", "Uncoated"],
   availablePaperWeights: ["115gsm", "130gsm", "170gsm", "250gsm", "300gsm", "350gsm"],
-  availablePrinterTypes: ["HP 12000", "Indigo 7000"],
-  availableSheetSizes: ["530x750mm", "364x515mm"],
   hasSize: true,
   hasPaperType: true,
   hasPaperWeight: true,

@@ -1,13 +1,11 @@
 
-import { ProductConfig } from '../types/baseTypes';
+import { ProductConfig } from '../types/productConfigTypes';
 
 export const boxesConfig: ProductConfig = {
   productType: "Boxes",
   tableName: "box_jobs",
   jobNumberPrefix: "PB",
   availablePaperTypes: ["Premium", "Standard"],
-  availablePrinterTypes: ["HP 12000", "Indigo 7000"],
-  availableSheetSizes: ["530x750mm", "364x515mm"],
   hasPaperType: true,
   slaTargetDays: 5,
   routes: {

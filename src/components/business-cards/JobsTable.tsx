@@ -16,6 +16,7 @@ export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
 export interface Job {
   id: string;
   name: string;
+  job_number: string;
   file_name: string;
   quantity: number;
   lamination_type: LaminationType;
@@ -154,7 +155,7 @@ const JobsTable = ({
                 disabled={!canSelect}
               />
             </TableCell>
-            <TableCell>{job.name || 'Unnamed Job'}</TableCell>
+            <TableCell>{job.job_number || job.name || 'Unnamed Job'}</TableCell>
             <TableCell>
               <span 
                 className="text-blue-600 hover:underline cursor-pointer" 

@@ -1,262 +1,186 @@
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { formatDate, formatRelativeTime } from '@/utils/dateUtils';
-import { useToast } from '@/hooks/use-toast';
-import { BaseJob, ProductConfig } from '@/config/productTypes';
+import { supabase } from '@/integrations/supabase/client';
+import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
+import { useGenericBatches } from './useGenericBatches';
+import { useJobOperations } from './useJobOperations';
+import { useBatchFixes } from './useBatchFixes';
+import { isExistingTable } from '@/utils/database/tableValidation';
 
-// Define a consistent interface for hook parameters
-export interface UseGenericJobsProps {
-  productConfig: ProductConfig;
-}
-
-/**
- * Hook for managing generic job operations
- * @param config ProductConfig or UseGenericJobsProps with productConfig property
- * @param initialJobId Optional initial job ID to select
- * @returns Generic job operations and state
- */
-export const useGenericJobs = <T extends BaseJob = BaseJob>(
-  config: ProductConfig | UseGenericJobsProps,
-  initialJobId?: string
-) => {
-  // Handle both ways of passing the config
-  const productConfig = 'productConfig' in config ? config.productConfig : config;
-  
-  const [jobs, setJobs] = useState<BaseJob[]>([]);
-  const [selectedJob, setSelectedJob] = useState<BaseJob | null>(null);
+export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
+  const { user } = useAuth();
+  const [jobs, setJobs] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
-  const [isCreatingBatch, setIsCreatingBatch] = useState(false);
-  const { user } = useAuth();
-  const { toast } = useToast();
+  
+  const { createBatchWithSelectedJobs, isCreatingBatch } = useGenericBatches<T>(config);
+  const { deleteJob, createJob, updateJob, getJobById } = useJobOperations(config.tableName, user?.id);
+  const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useBatchFixes(config.tableName, user?.id);
 
-  // Fetch jobs from the database
-  const fetchJobs = useCallback(async () => {
-    if (!user) return;
-    
-    setIsLoading(true);
-    setError(null);
-    
+  // Fetch all jobs for this product type
+  const fetchJobs = async () => {
+    if (!user) {
+      console.log('No authenticated user for jobs fetching');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      if (!productConfig.tableName) {
-        throw new Error('Table name is not defined in product config');
+      setIsLoading(true);
+      setError(null);
+
+      if (!config.tableName) {
+        throw new Error(`Invalid table name for ${config.productType}`);
       }
       
-      const { data, error } = await supabase
-        .from(productConfig.tableName)
+      if (!isExistingTable(config.tableName)) {
+        console.log(`Table ${config.tableName} doesn't exist yet, skipping fetch`);
+        setJobs([] as T[]);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Fetching jobs for table:', config.tableName);
+      
+      // Use 'as any' to bypass TypeScript's type checking for the table name
+      const { data, error: fetchError } = await supabase
+        .from(config.tableName as any)
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      console.log('Jobs data received:', data?.length || 0, 'records');
       
-      if (error) throw error;
-      
-      // Type assertion to ensure the data matches BaseJob[]
-      setJobs(data as BaseJob[] || []);
-      
-      // If initialJobId is provided, set the selected job
-      if (initialJobId && data) {
-        const job = data.find(j => j.id === initialJobId);
-        if (job) {
-          setSelectedJob(job as BaseJob);
-        }
-      }
-    } catch (err: any) {
-      console.error('Error fetching jobs:', err);
-      setError(err.message || 'Failed to fetch jobs');
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch jobs. Please try again.',
-        variant: 'destructive',
-      });
+      // Use explicit type casting to avoid excessive type instantiation
+      setJobs((data || []) as unknown as T[]);
+    } catch (err) {
+      console.error(`Error fetching ${config.productType} jobs:`, err);
+      setError(`Failed to load ${config.productType.toLowerCase()} jobs`);
     } finally {
       setIsLoading(false);
     }
-  }, [user, productConfig.tableName, initialJobId, toast]);
-
-  // Delete a job
-  const deleteJob = async (id: string): Promise<boolean> => {
-    if (!user) return false;
-    
-    try {
-      if (!productConfig.tableName) {
-        throw new Error('Table name is not defined in product config');
-      }
-      
-      const { error } = await supabase
-        .from(productConfig.tableName)
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      // Update the jobs list
-      setJobs(jobs.filter(job => job.id !== id));
-      
-      toast({
-        title: 'Success',
-        description: 'Job deleted successfully',
-      });
-      
-      return true;
-    } catch (err: any) {
-      console.error('Error deleting job:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete job. Please try again.',
-        variant: 'destructive',
-      });
-      return false;
-    }
   };
 
-  // Fix batched jobs without batch
-  const fixBatchedJobsWithoutBatch = async (): Promise<number | void> => {
-    if (!user) return;
-    
-    setIsFixingBatchedJobs(true);
-    
-    try {
-      if (!productConfig.tableName) {
-        throw new Error('Table name is not defined in product config');
-      }
-      
-      // Find all jobs with status 'batched' but no batch_id
-      const { data, error } = await supabase
-        .from(productConfig.tableName)
-        .select('*')
-        .eq('status', 'batched')
-        .is('batch_id', null);
-        
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        // Reset these jobs to 'queued' status
-        const { error: updateError } = await supabase
-          .from(productConfig.tableName)
-          .update({ status: 'queued' })
-          .in('id', data.map(job => job.id));
-          
-        if (updateError) throw updateError;
-        
-        toast({
-          title: 'Jobs Fixed',
-          description: `${data.length} batched jobs without batch ID were reset to queued status.`,
-        });
-        
-        // Refresh the jobs list
-        await fetchJobs();
-        
-        // Return the number of fixed jobs
-        return data.length;
-      } else {
-        toast({
-          title: 'No Issues Found',
-          description: 'All batched jobs have valid batch IDs.',
-        });
-        return 0;
-      }
-    } catch (err: any) {
-      console.error('Error fixing batched jobs:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to fix batched jobs. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsFixingBatchedJobs(false);
-    }
-  };
-
-  // Create a batch with selected jobs
-  const createBatch = async (selectedJobs: BaseJob[], batchProperties: any): Promise<any> => {
-    setIsCreatingBatch(true);
-    try {
-      // Placeholder for batch creation logic
-      // This would typically call an API or service function
-      console.log('Creating batch with jobs:', selectedJobs);
-      console.log('Batch properties:', batchProperties);
-
-      // You would implement real batch creation logic here
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      toast({
-        title: 'Success',
-        description: 'Batch created successfully',
-      });
-      
-      // Refresh jobs after creating the batch
-      await fetchJobs();
-      
-      return { success: true, batchId: Date.now().toString() };
-    } catch (err: any) {
-      console.error('Error creating batch:', err);
-      toast({
-        title: 'Error', 
-        description: 'Failed to create batch. Please try again.',
-        variant: 'destructive',
-      });
-      return null;
-    } finally {
-      setIsCreatingBatch(false);
-    }
-  };
-
-  // Get a job by ID
-  const getJobById = async (id: string): Promise<BaseJob | null> => {
-    if (!user) return null;
-    
-    try {
-      if (!productConfig.tableName) {
-        throw new Error('Table name is not defined in product config');
-      }
-      
-      const { data, error } = await supabase
-        .from(productConfig.tableName)
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (error) throw error;
-      
-      return data as BaseJob;
-    } catch (err) {
-      console.error('Error fetching job:', err);
-      return null;
-    }
-  };
-
-  // Format job data for display
-  const formatJobData = (job: BaseJob) => {
-    return {
-      ...job,
-      formattedDueDate: formatDate(job.due_date),
-      formattedCreatedAt: formatDate(job.created_at),
-      relativeTime: formatRelativeTime(job.due_date)
-    };
-  };
-
-  // Load jobs on component mount
   useEffect(() => {
     if (user) {
       fetchJobs();
+    } else {
+      setIsLoading(false);
     }
-  }, [user, fetchJobs]);
+  }, [user]);
+
+  // Handle job deletion with local state update
+  const handleDeleteJob = async (jobId: string) => {
+    const success = await deleteJob(jobId);
+    if (success) {
+      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+    }
+    return success;
+  };
+
+  // Handle job creation with local state update
+  const handleCreateJob = async (
+    jobData: Omit<T, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>
+  ) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    const newJob = await createJob<T>(jobData, user.id);
+    setJobs(prevJobs => [newJob, ...prevJobs]);
+    return newJob;
+  };
+
+  // Handle job update with local state update
+  const handleUpdateJob = async (jobId: string, jobData: Partial<T>) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    const updatedJob = await updateJob<T>(jobId, jobData, user.id);
+    setJobs(prevJobs => 
+      prevJobs.map(job => job.id === jobId ? { ...job, ...updatedJob } : job)
+    );
+    return updatedJob;
+  };
+
+  // Handle batch creation with local state update
+  const handleCreateBatch = async (
+    selectedJobs: T[],
+    batchProperties: {
+      paperType?: string;
+      paperWeight?: string;
+      laminationType?: LaminationType;
+      printerType?: string;
+      sheetSize?: string;
+      slaTargetDays?: number;
+    }
+  ) => {
+    try {
+      // Fixed: Ensure laminationType is properly converted to LaminationType type
+      const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
+      
+      // Create a configuration object that combines the product config with the batch properties
+      const batchConfig = {
+        ...config,
+        paperType: batchProperties.paperType,
+        paperWeight: batchProperties.paperWeight,
+        printerType: batchProperties.printerType,
+        sheetSize: batchProperties.sheetSize,
+        slaTargetDays: batchProperties.slaTargetDays !== undefined ? batchProperties.slaTargetDays : config.slaTargetDays,
+        laminationType: typedLaminationType // Include laminationType in the config object
+      };
+      
+      // Fixed: Pass only the selected jobs and combined config to the wrapper function
+      // The wrapper function in useGenericBatches expects only 2 arguments
+      const batch = await createBatchWithSelectedJobs(
+        selectedJobs as BaseJob[], // Cast to BaseJob[] to match the expected type
+        batchConfig
+      );
+      
+      if (batch) {
+        setJobs(prevJobs => 
+          prevJobs.map(job => 
+            selectedJobs.some(selectedJob => selectedJob.id === job.id)
+              ? { ...job, status: 'batched', batch_id: batch.id } as T
+              : job
+          )
+        );
+      }
+      
+      return batch;
+    } catch (err) {
+      console.error('Error creating batch:', err);
+      throw err;
+    }
+  };
+
+  // Handle batch fixes with state refresh
+  const handleFixBatchedJobs = async () => {
+    if (!user) {
+      console.log('No authenticated user for fixing batched jobs');
+      return 0;
+    }
+    
+    const fixedCount = await fixBatchedJobsWithoutBatch();
+    if (fixedCount) {
+      await fetchJobs();
+    }
+    return fixedCount;
+  };
 
   return {
     jobs,
-    selectedJob,
-    setSelectedJob,
     isLoading,
     error,
     fetchJobs,
-    deleteJob,
+    deleteJob: handleDeleteJob,
+    createJob: handleCreateJob,
+    updateJob: handleUpdateJob,
     getJobById,
-    formatJobData,
-    fixBatchedJobsWithoutBatch,
-    isFixingBatchedJobs,
-    createBatch,
-    isCreatingBatch
+    createBatch: handleCreateBatch,
+    isCreatingBatch,
+    fixBatchedJobsWithoutBatch: handleFixBatchedJobs,
+    isFixingBatchedJobs
   };
-};
+}

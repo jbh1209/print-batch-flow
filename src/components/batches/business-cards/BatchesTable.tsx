@@ -1,232 +1,136 @@
 
-import React, { useState, useEffect } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { BatchWithJobs } from '../types/BusinessCardTypes';
-import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Edit, Eye, Trash2 } from 'lucide-react';
-import { deleteBatch } from '@/integrations/supabase/batches';
-import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton"
-import { formatDate } from "@/utils/dateUtils";
+import React from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { calculateJobUrgency, getBatchUrgencyColor, getBatchUrgencyIcon } from '@/utils/dateCalculations';
-import { productConfigs } from '@/config/productTypes';
+import { Button } from "@/components/ui/button";
+import { Eye, File, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { UrgencyLevel, calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
+import { BaseBatch } from "@/config/productTypes";
 
 interface BatchesTableProps {
-  batches: BatchWithJobs[] | null;
-  isLoading: boolean;
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-  onRefresh: () => void;
+  batches: BaseBatch[];
+  isLoading?: boolean;
+  onViewDetails: (batchId: string) => void;
+  onViewPDF?: (pdfUrl: string) => void;
+  onDeleteBatch?: (batchId: string) => void;
 }
 
 const BatchesTable: React.FC<BatchesTableProps> = ({
   batches,
-  isLoading,
-  currentPage,
-  totalPages,
-  onPageChange,
-  onRefresh,
+  isLoading = false,
+  onViewDetails,
+  onViewPDF,
+  onDeleteBatch,
 }) => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  // Calculate urgency level for a date
+  const calculateUrgencyLevel = (dueDate: string): UrgencyLevel => {
+    return calculateJobUrgency(dueDate);
+  };
 
-  const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleDeleteBatch = async (batchId: string) => {
-    if (window.confirm("Are you sure you want to delete this batch?")) {
-      setIsDeleting(true);
-      setDeletingBatchId(batchId);
-      try {
-        await deleteBatch(batchId);
-        toast({
-          title: "Batch deleted successfully.",
-        });
-        onRefresh(); // Refresh batches
-      } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Error deleting batch.",
-          description: error.message,
-        });
-      } finally {
-        setIsDeleting(false);
-        setDeletingBatchId(null);
-      }
+  // Format date to display format
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    try {
+      return format(new Date(dateString), "MMM dd, yyyy");
+    } catch (e) {
+      return "Invalid Date";
     }
   };
 
-  const getStatusColor = (status: string) => {
+  // Get status badge styling
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "processing":
-        return "bg-blue-100 text-blue-800";
       case "completed":
-        return "bg-green-100 text-green-800";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
+        return <Badge className="bg-green-500">Completed</Badge>;
+      case "processing":
+        return <Badge className="bg-blue-500">Processing</Badge>;
+      case "pending":
+        return <Badge variant="outline" className="border-amber-500 text-amber-500">Pending</Badge>;
+      case "sent_to_print":
+        return <Badge className="bg-purple-500">Sent to Print</Badge>;
       default:
-        return "bg-gray-100 text-gray-800";
+        return <Badge>Unknown</Badge>;
     }
   };
+
+  if (isLoading) {
+    return (
+      <TableRow>
+        <TableCell colSpan={6} className="h-24 text-center">
+          <div className="flex justify-center items-center space-x-2">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+            <span>Loading batches...</span>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (batches.length === 0) {
+    return (
+      <TableRow>
+        <TableCell colSpan={6} className="h-24 text-center">
+          <p className="text-gray-500">No batches found</p>
+        </TableCell>
+      </TableRow>
+    );
+  }
 
   return (
-    <div className="w-full">
-      <Table>
-        <TableCaption>
-          List of all business card batches.
-        </TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[100px]">Batch #</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Sheets Required</TableHead>
-            <TableHead>Due Date</TableHead>
-            <TableHead>Created At</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading ? (
-            // Skeleton loading rows
-            [...Array(5)].map((_, i) => (
-              <TableRow key={`skeleton-${i}`}>
-                <TableCell className="font-medium"><Skeleton /></TableCell>
-                <TableCell><Skeleton /></TableCell>
-                <TableCell><Skeleton /></TableCell>
-                <TableCell><Skeleton /></TableCell>
-                <TableCell><Skeleton /></TableCell>
-                <TableCell><Skeleton /></TableCell>
-                <TableCell className="text-right"><Skeleton /></TableCell>
-              </TableRow>
-            ))
-          ) : batches && batches.length > 0 ? (
-            // Data rows
-            batches.map((batch) => {
-              const urgency = calculateJobUrgency(batch.due_date, productConfigs["BusinessCards"]);
-              return (
-                <TableRow key={batch.id}>
-                  <TableCell className="font-medium">{batch.id.substring(0, 8)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {batch.name}
-                      {urgency && (
-                        <Badge variant="outline" className={`gap-1 text-xs ${getBatchUrgencyColor(urgency)}`}>
-                          {/* Using Lucide icon directly instead of relying on data-lucide attribute */}
-                          {getBatchUrgencyIcon(urgency) && React.createElement(getBatchUrgencyIcon(urgency), { className: "w-3 h-3" })}
-                          {urgency}
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(batch.status)}`}>
-                      {batch.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{batch.sheets_required}</TableCell>
-                  <TableCell>{formatDate(batch.due_date)}</TableCell>
-                  <TableCell>{formatDate(batch.created_at)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-4">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/batches/business-cards/${batch.id}`);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/batches/business-cards/${batch.id}/edit`);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={isDeleting && deletingBatchId === batch.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteBatch(batch.id);
-                        }}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      >
-                        {isDeleting && deletingBatchId === batch.id ? (
-                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          ) : (
-            // Empty state
-            <TableRow>
-              <TableCell colSpan={7} className="text-center">
-                No batches found.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-        <TableFooter>
-          <TableRow>
-            <TableCell colSpan={7}>
-              <div className="flex items-center justify-between">
+    <>
+      {batches.map((batch) => {
+        const urgency = calculateUrgencyLevel(batch.due_date);
+        const bgClass = getUrgencyBackgroundClass(urgency);
+
+        return (
+          <TableRow key={batch.id} className={bgClass}>
+            <TableCell className="font-medium">{batch.name}</TableCell>
+            <TableCell>{batch.sheets_required}</TableCell>
+            <TableCell>{formatDate(batch.due_date)}</TableCell>
+            <TableCell>
+              <Badge variant="outline">
+                {batch.lamination_type === "none"
+                  ? "None"
+                  : batch.lamination_type.charAt(0).toUpperCase() +
+                    batch.lamination_type.slice(1)}
+              </Badge>
+            </TableCell>
+            <TableCell>{getStatusBadge(batch.status)}</TableCell>
+            <TableCell className="text-right">
+              <div className="flex justify-end items-center space-x-2">
                 <Button
-                  onClick={() => onPageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
+                  onClick={() => onViewDetails(batch.id)}
                 >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Previous
+                  <Eye size={16} />
                 </Button>
-                <span className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  onClick={() => onPageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  variant="outline"
-                  size="sm"
-                >
-                  Next
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+                {batch.front_pdf_url && onViewPDF && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewPDF(batch.front_pdf_url)}
+                  >
+                    <File size={16} />
+                  </Button>
+                )}
+                {onDeleteBatch && batch.status !== "completed" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => onDeleteBatch(batch.id)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                )}
               </div>
             </TableCell>
           </TableRow>
-        </TableFooter>
-      </Table>
-    </div>
+        );
+      })}
+    </>
   );
 };
 

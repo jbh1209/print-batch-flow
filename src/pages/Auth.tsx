@@ -1,159 +1,69 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
-import { AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-
-// Helper function to clean up auth state
-const cleanupAuthState = () => {
-  // Remove standard auth tokens
-  localStorage.removeItem('supabase.auth.token');
-  // Remove all Supabase auth keys from localStorage
-  Object.keys(localStorage).forEach((key) => {
-    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-      localStorage.removeItem(key);
-    }
-  });
-  // Remove from sessionStorage if in use
-  Object.keys(sessionStorage || {}).forEach((key) => {
-    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-      sessionStorage.removeItem(key);
-    }
-  });
-};
+import { Spinner } from '@/components/ui/spinner';
+import AuthForm from '@/components/auth/AuthForm';
+import { useAuthPage } from '@/hooks/auth/useAuthPage';
 
 const Auth = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user, isLoading } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  
-  // Get the intended destination from the URL parameters
-  const from = location.state?.from?.pathname || '/';
+  const {
+    loginEmail,
+    setLoginEmail,
+    loginPassword,
+    setLoginPassword,
+    signupEmail,
+    setSignupEmail,
+    signupPassword,
+    setSignupPassword,
+    signupConfirmPassword,
+    setSignupConfirmPassword,
+    fullName,
+    setFullName,
+    isLoading,
+    errorMessage,
+    handleLogin,
+    handleSignup,
+    handlePreviewEntry,
+    isLovablePreview,
+    authLoading
+  } = useAuthPage();
 
-  useEffect(() => {
-    // Only redirect if authentication is confirmed (not just loading)
-    if (user && !isLoading) {
-      // Use a timeout to avoid potential race conditions
-      const redirectTimer = setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 100);
-      
-      return () => clearTimeout(redirectTimer);
-    }
-  }, [user, isLoading, navigate, from]);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    
-    if (!email || !password) {
-      setErrorMessage('Please enter both email and password');
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      // First clean up any existing auth state
-      cleanupAuthState();
-      
-      // Attempt to sign out globally to ensure clean state
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (signOutError) {
-        console.log("Sign out before login failed, continuing anyway:", signOutError);
-        // Continue despite sign out errors
-      }
-      
-      // Now attempt login with clean state
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) throw error;
-      
-      toast.success("Login successful!");
-      
-      // Let the useEffect handle navigation to prevent race conditions
-    } catch (error: any) {
-      console.error("Auth error:", error);
-      setErrorMessage(error.message || 'Error signing in');
-      toast.error(`Error signing in: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // If we're still determining auth state, show a minimal loading indicator
-  if (isLoading) {
+  // While checking auth status
+  if (authLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-batchflow-primary mx-auto"></div>
-          <p className="mt-2">Checking authentication...</p>
-        </div>
+      <div className="flex justify-center items-center min-h-screen">
+        <Spinner size={40} />
       </div>
     );
   }
-
+  
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Login</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
-          </CardHeader>
-          <form onSubmit={handleLogin}>
-            <CardContent className="space-y-4">
-              {errorMessage && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{errorMessage}</AlertDescription>
-                </Alert>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+    <div 
+      className="flex justify-center items-center min-h-screen bg-gray-50 bg-cover bg-center bg-no-repeat" 
+      style={{
+        backgroundImage: "url('/HPIndigo12000DigitalPressImage_LR.jpg')",
+        backgroundSize: 'cover'
+      }}
+    >
+      <div className="w-full max-w-md px-4 z-10">
+        <AuthForm 
+          handlePreviewEntry={handlePreviewEntry}
+          isLovablePreview={isLovablePreview}
+          errorMessage={errorMessage}
+          isLoading={isLoading}
+          handleLogin={handleLogin}
+          handleSignup={handleSignup}
+          loginEmail={loginEmail}
+          setLoginEmail={setLoginEmail}
+          loginPassword={loginPassword}
+          setLoginPassword={setLoginPassword}
+          signupEmail={signupEmail}
+          setSignupEmail={setSignupEmail}
+          signupPassword={signupPassword}
+          setSignupPassword={setSignupPassword}
+          signupConfirmPassword={signupConfirmPassword}
+          setSignupConfirmPassword={setSignupConfirmPassword}
+          fullName={fullName}
+          setFullName={setFullName}
+        />
       </div>
     </div>
   );

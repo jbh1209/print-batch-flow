@@ -10,16 +10,15 @@ const FlyerJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericFlyerJobs();
     
+    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
+    const fixBatchedJobsWrapper = async () => {
+      await hookResult.fixBatchedJobsWithoutBatch();
+      // Return type is void as expected
+    };
+    
     return {
-      jobs: hookResult.jobs,
-      isLoading: hookResult.isLoading,
-      error: hookResult.error,
-      deleteJob: hookResult.deleteJob,
-      fetchJobs: hookResult.fetchJobs,
-      createBatch: hookResult.createBatch,
-      isCreatingBatch: hookResult.isCreatingBatch,
-      fixBatchedJobsWithoutBatch: hookResult.fixBatchedJobsWithoutBatch,
-      isFixingBatchedJobs: hookResult.isFixingBatchedJobs
+      ...hookResult,
+      fixBatchedJobsWithoutBatch: fixBatchedJobsWrapper
     };
   };
 

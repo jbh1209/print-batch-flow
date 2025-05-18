@@ -1,29 +1,20 @@
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Table, 
-  TableHeader, 
-  TableBody, 
-  TableHead, 
-  TableRow, 
-  TableCell 
-} from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { Eye, FilePenLine, MoreHorizontal, Trash2, FileUp } from "lucide-react";
-import JobStatusBadge from '@/components/JobStatusBadge';
-import { format } from 'date-fns';
-import { BaseJob, ProductConfig } from '@/config/productTypes';
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { ProductConfig, BaseJob } from "@/config/productTypes";
+import { Table, TableHeader, TableRow, TableHead, TableBody } from "@/components/ui/table";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { FlyerJobsEmptyState } from "@/components/flyers/components/FlyerJobsEmptyState";
+import GenericJobsTableBody from "./GenericJobsTableBody";
+import { SelectionControls } from "@/components/flyers/components/SelectionControls";
+import { BatchFixBanner } from "@/components/flyers/components/BatchFixBanner";
+import { GenericBatchCreateDialog } from "./GenericBatchCreateDialog";
+import { Plus } from "lucide-react";
 
 interface GenericJobsTableProps {
+  config: ProductConfig;
   jobs: BaseJob[];
   isLoading: boolean;
   error: string | null;
@@ -31,13 +22,14 @@ interface GenericJobsTableProps {
   fetchJobs: () => Promise<void>;
   createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
   isCreatingBatch: boolean;
-  fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
+  fixBatchedJobsWithoutBatch: () => Promise<number | void>;
   isFixingBatchedJobs?: boolean;
-  config: ProductConfig;
-  onViewJob?: (jobId: string) => void; // Add this prop
+  onEditJob?: (jobId: string) => void;
+  onViewJob?: (jobId: string) => void;
 }
 
-const GenericJobsTable = ({
+const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
+  config,
   jobs,
   isLoading,
   error,
@@ -47,197 +39,166 @@ const GenericJobsTable = ({
   isCreatingBatch,
   fixBatchedJobsWithoutBatch,
   isFixingBatchedJobs,
-  config
-}: GenericJobsTableProps) => {
+  onEditJob,
+  onViewJob,
+}) => {
   const navigate = useNavigate();
-  const [jobToDelete, setJobToDelete] = useState<string | null>(null);
-  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedJobs, setSelectedJobs] = useState<BaseJob[]>([]);
-  
-  // Filter to only show queued jobs that can be selected for batching
-  const queuedJobs = jobs.filter(job => job.status === 'queued');
-  
-  // Update selected jobs when selection changes
-  useEffect(() => {
-    const selected = jobs.filter(job => selectedJobIds.includes(job.id));
-    setSelectedJobs(selected);
-  }, [selectedJobIds, jobs]);
-  
-  const handleViewJob = (id: string) => {
-    navigate(config.routes.jobDetailPath(id));
-  };
-  
-  const handleEditJob = (id: string) => {
-    navigate(config.routes.jobEditPath(id));
-  };
-  
-  const confirmDelete = async () => {
-    if (!jobToDelete) return;
-    
-    try {
-      setIsDeleting(true);
-      await deleteJob(jobToDelete);
-    } finally {
-      setIsDeleting(false);
-      setJobToDelete(null);
-    }
-  };
-  
-  const handleSelectJob = (jobId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedJobIds((prev) => [...prev, jobId]);
+  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
+  const [showBatchDialog, setShowBatchDialog] = useState(false);
+
+  // Handle selecting all jobs
+  const handleSelectAllJobs = (isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedJobs(jobs.filter(job => job.status === 'queued').map(job => job.id));
     } else {
-      setSelectedJobIds((prev) => prev.filter((id) => id !== jobId));
+      setSelectedJobs([]);
     }
   };
-  
-  const handleSelectAllJobs = (checked: boolean) => {
-    if (checked) {
-      setSelectedJobIds(queuedJobs.map((job) => job.id));
+
+  // Handle selecting individual job
+  const handleSelectJob = (jobId: string, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedJobs(prev => [...prev, jobId]);
     } else {
-      setSelectedJobIds([]);
+      setSelectedJobs(prev => prev.filter(id => id !== jobId));
     }
   };
-  
-  const handleBatchSelected = () => {
-    const selectedJobs = jobs.filter(job => selectedJobIds.includes(job.id));
-    createBatch(selectedJobs, {});
+
+  // Get selected job objects
+  const getSelectedJobObjects = () => {
+    return jobs.filter(job => selectedJobs.includes(job.id));
   };
-  
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <p>Loading jobs...</p>
-      </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
-        <p>Error: {error}</p>
-      </div>
-    );
-  }
-  
+
+  // Handle job edit
+  const handleEditJob = (jobId: string) => {
+    if (onEditJob) {
+      onEditJob(jobId);
+    }
+  };
+
+  // Handle job view
+  const handleViewJob = (jobId: string) => {
+    if (onViewJob) {
+      onViewJob(jobId);
+    }
+  };
+
+  // Handle job deletion
+  const handleDeleteJob = async (jobId: string) => {
+    const confirmed = window.confirm("Are you sure you want to delete this job? This action cannot be undone.");
+    if (confirmed) {
+      const success = await deleteJob(jobId);
+      if (success) {
+        setSelectedJobs(prev => prev.filter(id => id !== jobId));
+        toast.success("Job deleted successfully");
+      }
+    }
+  };
+
+  // Handle create batch
+  const handleCreateBatch = () => {
+    setShowBatchDialog(true);
+  };
+
+  // Handle batch dialog close
+  const handleBatchDialogClose = () => {
+    setShowBatchDialog(false);
+  };
+
+  // Handle batch success
+  const handleBatchSuccess = () => {
+    setShowBatchDialog(false);
+    setSelectedJobs([]);
+    fetchJobs();
+    toast.success(`Batch created successfully with ${selectedJobs.length} jobs`);
+  };
+
+  // Check if all queued jobs are selected
+  const areAllQueuedJobsSelected = () => {
+    const queuedJobs = jobs.filter(job => job.status === 'queued');
+    return queuedJobs.length > 0 && queuedJobs.every(job => selectedJobs.includes(job.id));
+  };
+
+  // Count queued jobs
+  const countQueuedJobs = () => jobs.filter(job => job.status === 'queued').length;
+
+  // Count batched jobs (for orphaned jobs banner)
+  const countBatchedJobs = () => jobs.filter(job => job.status === 'batched').length;
+
+  // If there are no jobs, show empty state
   if (jobs.length === 0) {
-    return (
-      <div className="text-center py-8 bg-gray-50 rounded-lg">
-        <h3 className="text-lg font-medium">No jobs found</h3>
-        <p className="text-gray-500 mt-2">Create a new job to get started.</p>
-      </div>
-    );
+    return <FlyerJobsEmptyState productType={config.productType} />;
   }
-  
+
   return (
-    <div>
-      {queuedJobs.length > 0 && (
-        <div className="mb-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Checkbox 
-              checked={selectedJobIds.length === queuedJobs.length && queuedJobs.length > 0}
-              onCheckedChange={handleSelectAllJobs}
-            />
-            <span className="ml-2">
-              {selectedJobIds.length} of {queuedJobs.length} jobs selected
-            </span>
-          </div>
-          
-          {selectedJobIds.length > 0 && (
-            <Button onClick={handleBatchSelected}>
-              <FileUp className="mr-2 h-4 w-4" />
-              Batch Selected ({selectedJobIds.length})
-            </Button>
-          )}
-        </div>
+    <div className="bg-white rounded-lg border shadow">
+      {/* Selection controls - shows selected job count and batch button */}
+      <SelectionControls 
+        selectedCount={selectedJobs.length}
+        totalSelectableCount={countQueuedJobs()}
+        onCreateBatch={handleCreateBatch}
+      />
+
+      {/* Fix Orphaned Jobs Banner - only show if there are jobs stuck in batched state */}
+      {countBatchedJobs() > 0 && (
+        <BatchFixBanner 
+          onFixJobs={fixBatchedJobsWithoutBatch}
+          isFixingBatchedJobs={isFixingBatchedJobs || false}
+        />
       )}
       
-      <div className="rounded-md border">
+      {/* Jobs Table */}
+      <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[40px]"></TableHead>
+              <TableHead className="w-12"></TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Job Number</TableHead>
+              <TableHead>Job #</TableHead>
               {config.hasSize && <TableHead>Size</TableHead>}
-              {config.hasPaperType && <TableHead>Paper Type</TableHead>}
+              {config.productType === "Sleeves" ? 
+                <TableHead>Stock Type</TableHead> : 
+                <TableHead>Paper</TableHead>
+              }
               <TableHead>Quantity</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead>Due Date</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {jobs.map((job) => (
-              <TableRow key={job.id}>
-                <TableCell>
-                  {job.status === 'queued' && (
-                    <Checkbox 
-                      checked={selectedJobIds.includes(job.id)}
-                      onCheckedChange={(checked) => handleSelectJob(job.id, !!checked)}
-                    />
-                  )}
-                </TableCell>
-                <TableCell>{job.name}</TableCell>
-                <TableCell>{job.job_number}</TableCell>
-                {config.hasSize && <TableCell>{job.size || 'N/A'}</TableCell>}
-                {config.hasPaperType && <TableCell>{job.paper_type || 'N/A'}</TableCell>}
-                <TableCell>{job.quantity}</TableCell>
-                <TableCell>
-                  <JobStatusBadge status={job.status} />
-                </TableCell>
-                <TableCell>{format(new Date(job.due_date), 'MMM dd, yyyy')}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleViewJob(job.id)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleEditJob(job.id)}>
-                        <FilePenLine className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => setJobToDelete(job.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
+
+          <GenericJobsTableBody 
+            jobs={jobs}
+            config={config}
+            selectedJobs={selectedJobs}
+            onSelectJob={handleSelectJob}
+            onDeleteJob={handleDeleteJob}
+            onEditJob={handleEditJob}
+            onViewJob={handleViewJob}
+          />
         </Table>
       </div>
-      
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!jobToDelete} onOpenChange={(open) => !open && setJobToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this job?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              job and all its data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting}>
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
+      {/* Batch Creation Dialog */}
+      <GenericBatchCreateDialog
+        config={config}
+        isOpen={showBatchDialog}
+        onClose={handleBatchDialogClose}
+        onSuccess={handleBatchSuccess}
+        preSelectedJobs={getSelectedJobObjects()}
+        createBatch={createBatch}
+        isCreatingBatch={isCreatingBatch}
+      />
+
+      {/* Add button for adding new jobs */}
+      <div className="p-4 border-t flex justify-end">
+        <Button 
+          onClick={() => navigate(config.routes.newJobPath)}
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Add New {config.productType} Job
+        </Button>
+      </div>
     </div>
   );
 };

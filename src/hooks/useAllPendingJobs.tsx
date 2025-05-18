@@ -5,12 +5,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from "sonner";
 import { productConfigs, BaseJob, ProductConfig } from '@/config/productTypes';
 import { isExistingTable } from "@/utils/database/tableValidation";
-import { calculateJobUrgency } from "@/utils/dateCalculations";
+import { calculateJobUrgency, UrgencyLevel } from "@/utils/dateCalculations";
 
 // Extended job type that includes product type information
 export interface ExtendedJob extends BaseJob {
   productConfig: ProductConfig;
-  urgency: "critical" | "high" | "medium" | "low";
+  urgency: UrgencyLevel;
 }
 
 export const useAllPendingJobs = () => {
@@ -29,7 +29,7 @@ export const useAllPendingJobs = () => {
         return [];
       }
 
-      console.log(`Fetching ${config.productType} jobs`);
+      console.log(`Fetching ${config.productType} jobs with queued status`);
 
       // Using any type to work around TypeScript limitations with dynamic table names
       const { data, error } = await supabase

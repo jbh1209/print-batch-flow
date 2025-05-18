@@ -1,35 +1,49 @@
 
-// Basic user role type using string literals instead of complex enums
+/**
+ * User Types with Enhanced Security
+ * 
+ * This module contains the core types for user management with strict validation
+ * to ensure consistent security across development and production environments.
+ */
+
+// Form data for creating/updating users
+export interface UserFormData {
+  email: string;
+  password?: string;
+  full_name?: string;
+  role?: 'admin' | 'user';
+}
+
+// Strictly typed user roles
 export type UserRole = 'admin' | 'user';
 
-// User profile type
-export interface UserProfile {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-}
-
-// Simple user interface - making email optional to match Supabase's User type
-export interface User {
-  id: string;
-  email?: string; // Changed from required to optional
-}
-
-// User with role information
+// Complete user type with role information (for authenticated contexts)
 export interface UserWithRole {
   id: string;
-  email: string | null; // Allow null to be more flexible
+  email: string;
   full_name: string | null;
-  avatar_url: string | null;
   role: UserRole;
-  created_at?: string;
+  created_at: string;
+  last_sign_in_at?: string;
+  avatar_url?: string | null;
 }
 
-// Form data for creating or updating users
-export interface UserFormData {
-  email?: string;
-  full_name?: string;
-  password?: string;
-  confirmPassword?: string;
-  role?: UserRole;
-}
+// Basic user type (for unauthenticated contexts)
+export type User = {
+  id: string;
+  email: string;
+  full_name?: string | null;
+};
+
+// Define validation functions
+export const isValidUserRole = (role: unknown): role is UserRole => {
+  return typeof role === 'string' && (role === 'admin' || role === 'user');
+};
+
+export const validateUserRole = (role: unknown): UserRole => {
+  if (!isValidUserRole(role)) {
+    console.warn(`Invalid role value detected: "${role}", defaulting to "user"`);
+    return 'user';
+  }
+  return role;
+};

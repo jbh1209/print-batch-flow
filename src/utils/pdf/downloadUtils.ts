@@ -1,30 +1,35 @@
 
 /**
- * Opens a URL in a new browser tab
- * @param url The URL to open
+ * Utility functions for handling PDF downloads and viewing
+ */
+
+/**
+ * Opens the provided URL in a new browser tab
+ * @param url URL to open in new tab
  */
 export const openInNewTab = (url: string): void => {
   const newWindow = window.open(url, '_blank');
-  if (newWindow) newWindow.opener = null;
+  if (!newWindow) {
+    console.error('Failed to open new tab. This might be due to popup blocking.');
+  }
 };
 
 /**
- * Downloads a file from a URL
- * @param url The URL of the file to download
- * @param filename Optional filename for the downloaded file
+ * Initiates a file download for the provided URL
+ * @param url URL of the file to download
+ * @param filename Suggested filename for the download
  */
-export const downloadFile = (url: string, filename?: string): void => {
-  // Create an anchor element
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  
-  // Set download attribute if filename is provided
-  if (filename) {
-    anchor.download = filename;
+export const downloadFile = (url: string, filename: string): void => {
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Error initiating download:', error);
+    openInNewTab(url); // Fallback to opening in new tab
   }
-  
-  // Append to the document, click, and remove
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
 };

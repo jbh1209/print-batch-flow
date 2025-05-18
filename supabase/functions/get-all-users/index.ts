@@ -1,137 +1,236 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 
+// Enhanced CORS headers with proper security
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-requested-with, accept",
+  "Access-Control-Max-Age": "86400" // 24 hours cache for preflight requests
+};
+
+// Helper function to generate detailed error responses
+const createErrorResponse = (status: number, message: string, details?: any) => {
+  return new Response(
+    JSON.stringify({ 
+      error: message, 
+      details: details,
+      timestamp: new Date().toISOString(),
+    }),
+    { 
+      status, 
+      headers: { 
+        ...corsHeaders, 
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store" 
+      } 
+    }
+  );
+};
+
+// Enhanced preview mode detection for edge functions
+const isPreviewMode = (url: string, headers: Headers): boolean => {
+  // Check URL patterns associated with preview environments
+  const urlCheck = url.includes('lovable.dev') || 
+                  url.includes('gpteng.co') || 
+                  url.includes('localhost');
+  
+  // Check headers that might indicate preview environments
+  const headerCheck = headers.get('x-lovable-preview') === 'true' || 
+                     headers.get('origin')?.includes('lovable.dev') || 
+                     headers.get('origin')?.includes('gpteng.co');
+  
+  return urlCheck || headerCheck;
+};
+
+// Secure role validation
+const validateRole = (role: any): string => {
+  if (role === 'admin' || role === 'user') {
+    return role;
+  }
+  // Default to 'user' for any invalid role values
+  console.log(`Invalid role value detected: "${role}", defaulting to "user"`);
+  return 'user';
 };
 
 serve(async (req) => {
-  console.log('Edge function: get-all-users called');
-  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-
+  
+  console.log("Starting get-all-users function");
+  
   try {
-    // Create Supabase client with admin privileges
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    console.log('Supabase client created');
-
-    // Get the user's JWT from the request headers
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.log('No authorization header');
-      return new Response(JSON.stringify({ error: 'No authorization header' }), { 
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
-    }
-
-    // Verify the user is authenticated
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !user) {
-      console.log('Unauthorized user', userError);
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
-    }
-
-    // Try to use our new secure function first
-    try {
-      console.log('Checking if user is admin using is_admin_secure');
-      const { data: isAdminSecure, error: adminSecureError } = await supabase.rpc('is_admin_secure', { _user_id: user.id });
-      
-      if (adminSecureError) {
-        console.log('Error using is_admin_secure, falling back to is_admin:', adminSecureError);
-        // Fall back to regular is_admin if the secure function fails
-        const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin', { _user_id: user.id });
-        
-        if (adminError || !isAdmin) {
-          console.log('Admin check failed:', adminError || 'Not admin');
-          return new Response(JSON.stringify({ error: 'Admin access required' }), { 
-            status: 403,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          });
+    // Check if in preview mode and return mock data if needed
+    if (isPreviewMode(req.url, req.headers)) {
+      console.log("Preview mode detected, returning mock data");
+      const mockUsers = [
+        {
+          id: "preview-admin-1",
+          email: "admin@example.com",
+          created_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString(),
+          role: "admin", 
+          full_name: "Preview Admin",
+          avatar_url: null
+        },
+        {
+          id: "preview-user-1",
+          email: "user@example.com",
+          created_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString(),
+          role: "user",
+          full_name: "Regular User",
+          avatar_url: null
+        },
+        {
+          id: "preview-user-2",
+          email: "dev@example.com",
+          created_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString(),
+          role: "user",
+          full_name: "Developer User",
+          avatar_url: null
         }
-      } else if (!isAdminSecure) {
-        console.log('User is not admin according to is_admin_secure');
-        return new Response(JSON.stringify({ error: 'Admin access required' }), { 
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-    } catch (error) {
-      console.error('Error in admin check:', error);
-      return new Response(JSON.stringify({ error: 'Error checking admin status' }), { 
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
-    }
-
-    console.log('Admin verified, fetching all users');
-    
-    // Try our new secure function to get users first
-    try {
-      console.log('Trying to use get_all_users_secure function');
-      const { data: secureUsers, error: secureError } = await supabase.rpc('get_all_users_secure');
+      ];
       
-      if (!secureError && secureUsers && secureUsers.length > 0) {
-        console.log(`Found ${secureUsers.length} users with secure function`);
-        return new Response(JSON.stringify(secureUsers), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      } else {
-        console.log('Secure function failed or returned no users, falling back to admin.listUsers');
-      }
-    } catch (error) {
-      console.log('Error using secure function, falling back:', error);
-    }
-    
-    // Fall back to auth.admin.listUsers method
-    const { data: authUsers, error } = await supabase.auth.admin.listUsers();
-    
-    if (error) {
-      console.log('Error fetching users:', error);
-      return new Response(JSON.stringify({ error: error.message }), { 
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
-    }
-
-    console.log(`Found ${authUsers.users.length} users in auth`);
-    
-    if (!authUsers.users || authUsers.users.length === 0) {
-      console.log('No users found in auth');
-      return new Response(JSON.stringify([]), {
+      return new Response(JSON.stringify(mockUsers), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
-
-    // Transform the response to include only id and email
-    const simplifiedUsers = authUsers.users.map(user => ({
-      id: user.id,
-      email: user.email || 'No email'
-    }));
-
-    console.log('Users transformed:', simplifiedUsers);
-
-    return new Response(JSON.stringify(simplifiedUsers), { 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    });
     
-  } catch (error) {
-    console.error('Edge function error:', error);
-    return new Response(JSON.stringify({ error: error.message }), { 
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    // Get auth token from request and validate it
+    const authHeader = req.headers.get('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return createErrorResponse(401, 'Authentication required: Missing or invalid authorization header');
+    }
+    
+    // Extract the JWT token
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create Supabase client with the user's JWT
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
+    );
+    
+    // Verify the token by getting the user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser(token);
+    
+    if (userError || !user) {
+      return createErrorResponse(401, 'Authentication failed: Invalid or expired token', userError?.message);
+    }
+    
+    console.log(`User ${user.id} authenticated successfully`);
+    
+    // Use the RPC function to get all users with roles
+    const { data, error } = await supabaseClient.rpc('get_all_users_with_roles');
+    
+    if (error) {
+      console.error("Error calling get_all_users_with_roles:", error);
+      
+      // Fallback to separate queries if RPC fails
+      console.log("Falling back to separate queries");
+      
+      // Get user profiles
+      const { data: profiles, error: profilesError } = await supabaseClient
+        .from('profiles')
+        .select('id, full_name, avatar_url');
+      
+      if (profilesError) {
+        return createErrorResponse(500, 'Error fetching user profiles', profilesError.message);
+      }
+      
+      // Get user roles
+      const { data: roles, error: rolesError } = await supabaseClient
+        .from('user_roles')
+        .select('user_id, role');
+      
+      if (rolesError) {
+        return createErrorResponse(500, 'Error fetching user roles', rolesError.message);
+      }
+      
+      // Create a map of user IDs to roles
+      const roleMap = new Map();
+      roles.forEach((r: any) => {
+        roleMap.set(r.user_id, r.role);
+      });
+      
+      // Get auth users (requires admin client)
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          }
+        }
+      );
+      
+      // Call a secure function to get user emails
+      const { data: authUsers, error: authError } = await adminClient.rpc('get_all_users_secure');
+      
+      if (authError) {
+        return createErrorResponse(500, 'Error fetching user emails', authError.message);
+      }
+      
+      // Create a map of user IDs to emails
+      const emailMap = new Map();
+      authUsers.forEach((au: any) => {
+        emailMap.set(au.id, au.email);
+      });
+      
+      // Combine all the data
+      const combinedUsers = profiles.map((profile: any) => {
+        const role = validateRole(roleMap.get(profile.id));
+        const email = emailMap.get(profile.id) || '';
+        
+        return {
+          id: profile.id,
+          email,
+          role,
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+          created_at: new Date().toISOString(), // Fallback since we don't have this data
+          last_sign_in_at: null
+        };
+      });
+      
+      return new Response(JSON.stringify(combinedUsers), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+    
+    // If we got the data from the RPC function
+    console.log(`Successfully retrieved ${data.length} users`);
+    
+    // Validate role values before sending
+    const validatedUsers = data.map((user: any) => ({
+      ...user,
+      role: validateRole(user.role)
+    }));
+    
+    return new Response(JSON.stringify(validatedUsers), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
+  } catch (error) {
+    console.error('Unhandled error in get-all-users function:', error);
+    return createErrorResponse(500, 'Server error', error.message);
   }
 });

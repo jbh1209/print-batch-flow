@@ -42,13 +42,9 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
   console.log(`${config.productType} batches loaded:`, batches.length);
 
   // Convert BaseBatch[] to BatchSummary[] by adding the product_type property
-  // Ensure all required fields are present, setting defaults for required fields
   const batchSummaries: BatchSummary[] = batches.map(batch => ({
     ...batch,
     product_type: config.productType,
-    overview_pdf_url: batch.overview_pdf_url || null,
-    front_pdf_url: batch.front_pdf_url || null,
-    back_pdf_url: batch.back_pdf_url || null,
   }));
 
   return (
@@ -57,6 +53,15 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{config.ui.title || config.productType} Batches</h1>
           <p className="text-gray-500">View and manage all {(config.ui.title || config.productType).toLowerCase()} batches</p>
+        </div>
+        <div>
+          <Button 
+            variant="outline" 
+            className="mr-2"
+            onClick={fetchBatches}
+          >
+            Refresh Batches
+          </Button>
         </div>
       </div>
 

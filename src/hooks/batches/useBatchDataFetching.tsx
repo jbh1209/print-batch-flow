@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { BaseBatch, BaseJob, ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableValidation";
 
@@ -14,6 +14,7 @@ interface UseBatchDataFetchingProps {
 
 export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFetchingProps) {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [batch, setBatch] = useState<BaseBatch | null>(null);
   const [relatedJobs, setRelatedJobs] = useState<BaseJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +38,7 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
         .from("batches")
         .select("*")
         .eq("id", batchId)
+        .eq("created_by", userId)
         .single();
       
       if (error) {
@@ -46,7 +48,11 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
       
       if (!data) {
         console.log("Batch not found");
-        toast.error("Batch not found");
+        toast({
+          title: "Batch not found",
+          description: "The requested batch could not be found or you don't have permission to view it.",
+          variant: "destructive",
+        });
         navigate(config.routes.batchesPath);
         return;
       }
@@ -116,7 +122,11 @@ export function useBatchDataFetching({ batchId, config, userId }: UseBatchDataFe
     } catch (error) {
       console.error("Error fetching batch details:", error);
       setError("Failed to load batch details");
-      toast.error("Failed to load batch details. Please try again.");
+      toast({
+        title: "Error loading batch",
+        description: "Failed to load batch details. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
