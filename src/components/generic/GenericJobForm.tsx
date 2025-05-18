@@ -45,9 +45,9 @@ export const GenericJobForm = ({
     job_number: initialData.job_number,
     quantity: initialData.quantity,
     due_date: new Date(initialData.due_date),
-    ...(initialData.size && { size: initialData.size }),
-    ...(initialData.paper_type && { paper_type: initialData.paper_type }),
-    ...(initialData.paper_weight && { paper_weight: initialData.paper_weight })
+    ...(initialData.size !== undefined && { size: initialData.size }),
+    ...(initialData.paper_type !== undefined && { paper_type: initialData.paper_type }),
+    ...(initialData.paper_weight !== undefined && { paper_weight: initialData.paper_weight })
   } : getDefaultFormValues(config);
 
   const form = useForm<GenericJobFormValues>({

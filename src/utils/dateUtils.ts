@@ -1,39 +1,100 @@
 
-import { format, formatDistance } from 'date-fns';
+import { format, formatDistance, formatRelative, isValid } from 'date-fns';
 
 /**
- * Format a date string into a readable format
+ * Format a date string to a readable format
+ * @param dateString The date string to format
+ * @param formatStr Optional format string, defaults to 'MMM dd, yyyy'
+ * @returns Formatted date string
  */
-export const formatDate = (
-  dateString: string | null | undefined, 
-  options: Intl.DateTimeFormatOptions = { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
-  }
-): string => {
-  if (!dateString) return 'N/A';
-  
+export const formatDate = (dateString: string, formatStr: string = 'MMM dd, yyyy'): string => {
   try {
     const date = new Date(dateString);
-    return format(date, 'MMM d, yyyy');
+    if (!isValid(date)) {
+      return 'Invalid date';
+    }
+    return format(date, formatStr);
   } catch (error) {
     console.error('Error formatting date:', error);
-    return 'Invalid date';
+    return 'Error';
   }
 };
 
 /**
- * Format a date string into a relative time format (e.g., "2 days ago")
+ * Format a date string as a relative time (e.g., "2 days ago", "in 3 days")
+ * @param dateString The date string to format
+ * @returns Relative time string
  */
-export const formatRelativeTime = (dateString: string | null | undefined): string => {
-  if (!dateString) return '';
-  
+export const formatRelativeTime = (dateString: string): string => {
   try {
     const date = new Date(dateString);
-    return formatDistance(date, new Date(), { addSuffix: true });
+    if (!isValid(date)) {
+      return 'Invalid date';
+    }
+    
+    const now = new Date();
+    
+    // Check if the date is in the past
+    const isPast = date < now;
+    
+    // Get the relative time
+    const relativeTime = formatDistance(date, now, { addSuffix: true });
+    
+    // Add a style class based on urgency for past dates
+    if (isPast) {
+      return relativeTime;
+    } else {
+      return relativeTime;
+    }
   } catch (error) {
     console.error('Error formatting relative time:', error);
-    return '';
+    return 'Error';
+  }
+};
+
+/**
+ * Calculate days remaining until a given date
+ * @param dateString The target date string
+ * @returns Number of days remaining (negative if in the past)
+ */
+export const getDaysRemaining = (dateString: string): number => {
+  try {
+    const targetDate = new Date(dateString);
+    if (!isValid(targetDate)) {
+      return 0;
+    }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day
+    
+    const timeDiff = targetDate.getTime() - today.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    return daysDiff;
+  } catch (error) {
+    console.error('Error calculating days remaining:', error);
+    return 0;
+  }
+};
+
+/**
+ * Check if a date is overdue (in the past)
+ * @param dateString The date string to check
+ * @returns True if the date is in the past, false otherwise
+ */
+export const isOverdue = (dateString: string): boolean => {
+  try {
+    const date = new Date(dateString);
+    if (!isValid(date)) {
+      return false;
+    }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day
+    
+    return date < today;
+  } catch (error) {
+    console.error('Error checking if date is overdue:', error);
+    return false;
   }
 };

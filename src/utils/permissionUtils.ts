@@ -1,42 +1,58 @@
-import { useAuth } from "@/hooks/useAuth";
+
+import { User } from '@supabase/supabase-js';
 
 /**
- * Checks if the current user can modify a record
- * @param recordUserId The user ID of the record owner
- * @returns boolean indicating if the user can modify the record
+ * Check if the current user is allowed to modify a record
+ * @param recordOwnerId The user ID of the record's owner
+ * @param currentUserId The ID of the current user
+ * @returns True if the user can modify the record, false otherwise
  */
-export const canModifyRecord = (recordUserId: string | undefined, currentUserId: string | undefined): boolean => {
-  // If no record user ID is provided, deny access
-  if (!recordUserId) return false;
+export const canModifyRecord = (recordOwnerId: string | undefined, currentUserId: string | undefined): boolean => {
+  // If record owner is missing, default to not allowing modifications
+  if (recordOwnerId === undefined || recordOwnerId === null) {
+    return false;
+  }
   
-  // If no current user ID is provided, deny access
-  if (!currentUserId) return false;
+  // If current user is missing, they can't modify anything
+  if (currentUserId === undefined || currentUserId === null) {
+    return false;
+  }
+
+  // Check if user is the owner of the record
+  const isOwner = recordOwnerId === currentUserId;
   
-  // Check if the current user is the owner of the record
-  return recordUserId === currentUserId;
+  // For now, only owners can modify their records
+  // Later we can add admin checks here if needed
+  return isOwner;
 };
 
 /**
- * A React hook that provides permission checking functions
+ * Checks if the user is an admin based on their role
+ * This is a placeholder - implement properly when role management is added
+ * @param user The user to check 
+ * @returns True if the user is an admin, false otherwise
  */
-export const usePermissions = () => {
-  const { user, isAdmin } = useAuth();
-  
-  /**
-   * Checks if the current user can modify a record
-   * @param recordUserId The user ID of the record owner
-   * @returns boolean indicating if the user can modify the record
-   */
-  const canModify = (recordUserId: string | undefined): boolean => {
-    // Admins can modify any record
-    if (isAdmin) return true;
-    
-    // Otherwise, only the owner can modify
-    return canModifyRecord(recordUserId, user?.id);
-  };
-  
-  return {
-    canModify,
-    isAdmin
-  };
+export const isAdmin = (user: User | null): boolean => {
+  // In the future, this would check user.app_metadata.role or similar
+  // For now, just return false as there's no role implementation yet
+  return false;
+};
+
+/**
+ * Determines if a user can perform batch operations
+ * @param user The current user
+ * @returns True if the user can perform batch operations
+ */
+export const canPerformBatchOperations = (user: User | null): boolean => {
+  // All authenticated users can perform batch operations for now
+  return !!user;
+};
+
+/**
+ * Determines if a user can access admin features
+ * @param user The current user
+ * @returns True if the user can access admin features
+ */
+export const canAccessAdminFeatures = (user: User | null): boolean => {
+  return isAdmin(user);
 };

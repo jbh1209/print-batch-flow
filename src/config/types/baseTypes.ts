@@ -37,7 +37,13 @@ export interface BaseJob {
   user_id: string;
   pdf_url: string | null;
   file_name: string;
-  lamination_type?: string;
+  lamination_type?: LaminationType | string;
+  // Additional fields that may be present in some job types
+  size?: string;
+  paper_type?: string;
+  paper_weight?: string;
+  sides?: string;
+  stock_type?: string;
 }
 
 export type JobStatus = 'queued' | 'batched' | 'processing' | 'completed' | 'cancelled';
@@ -48,11 +54,19 @@ export interface BaseBatch {
   status: BatchStatus;
   due_date: string;
   sheets_required: number;
-  lamination_type: LaminationType;
+  lamination_type: LaminationType | string;
   created_at: string;
   front_pdf_url?: string | null;
   back_pdf_url?: string | null;
   overview_pdf_url?: string | null;
+  created_by?: string;
+  updated_at?: string;
+  date_created?: string;
+  sheet_size?: string;
+  printer_type?: string;
+  paper_type?: string;
+  paper_weight?: string;
+  sides?: string;
 }
 
 export interface ProductConfig {

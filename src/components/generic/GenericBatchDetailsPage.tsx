@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { LaminationType } from "@/config/types/baseTypes";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -83,16 +84,17 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs to match the Job interface, ensuring job_number is included
+  // Convert related jobs to match the Job interface, ensuring all required fields
   const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
     id: job.id,
     name: job.name || '',
     quantity: job.quantity,
     status: job.status,
     pdf_url: job.pdf_url || null,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`, // Ensure job_number is always provided
-    due_date: job.due_date || new Date().toISOString(), // Ensure due_date is always provided
-    file_name: job.file_name || job.name || '' // Ensure file_name is always provided
+    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`,
+    due_date: job.due_date || new Date().toISOString(),
+    file_name: job.file_name || job.name || '',
+    user_id: job.user_id || ''  // Ensure user_id is included
   }));
 
   return (

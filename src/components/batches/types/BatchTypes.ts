@@ -8,9 +8,10 @@ export interface BatchSummary extends BaseBatch {
   front_pdf_url: string | null;
   back_pdf_url: string | null;
   created_at: string;
+  created_by?: string;
 }
 
-export interface BatchDetailsType extends BaseBatch {
+export interface BatchDetailsType extends Omit<BaseBatch, 'lamination_type'> {
   // Additional properties specific to batch details
   id: string;
   name: string;

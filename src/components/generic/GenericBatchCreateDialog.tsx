@@ -53,11 +53,11 @@ export function GenericBatchCreateDialog({
         // For stickers, pre-check values from the first job
         if (config.productType === "Stickers" && preSelectedJobs[0]) {
           const firstJob = preSelectedJobs[0];
-          if (firstJob.paper_type) {
+          if (firstJob.paper_type !== undefined) {
             console.log("Setting paper type from job:", firstJob.paper_type);
             setPaperType(firstJob.paper_type);
           }
-          if (firstJob.lamination_type) {
+          if (firstJob.lamination_type !== undefined) {
             console.log("Setting lamination type from job:", firstJob.lamination_type);
             setLaminationType(firstJob.lamination_type as LaminationType);
           }

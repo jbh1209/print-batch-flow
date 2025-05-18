@@ -67,7 +67,8 @@ const BatchesTable = ({
   return (
     <>
       {batches.map(batch => {
-        const canModify = canModifyRecord(batch.created_by, user?.id);
+        // Make sure to handle potential undefined created_by
+        const canModify = canModifyRecord(batch.created_by || "", user?.id);
         
         return (
           <TableRow 
