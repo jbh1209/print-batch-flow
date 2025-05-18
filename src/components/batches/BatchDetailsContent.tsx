@@ -34,10 +34,12 @@ const BatchDetailsContent = ({
     }
     
     try {
-      // Convert our Job type to match what downloadBatchJobPdfs expects
+      // Ensure all jobs have the required properties by mapping them explicitly
       const businessCardJobs = relatedJobs.map(job => ({
         ...job,
-        lamination_type: (job.lamination_type || 'none') as LaminationType
+        lamination_type: (job.lamination_type || 'none') as LaminationType,
+        // Add a default value for uploaded_at if it's missing
+        uploaded_at: job.uploaded_at || new Date().toISOString()
       }));
       
       await downloadBatchJobPdfs(businessCardJobs, batch.name);

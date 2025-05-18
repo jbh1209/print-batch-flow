@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -17,8 +16,9 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
         console.log('Successfully retrieved users with secure RPC function');
         // Map to our expected format
         const userList = await Promise.all(secureUsers.map(async (user) => {
+          // Use the correct function name is_admin_secure_fixed
           const { data: isAdmin } = await supabase
-            .rpc('is_admin_secure', { _user_id: user.id });
+            .rpc('is_admin_secure_fixed', { _user_id: user.id });
           
           // Get profile information
           const { data: profile } = await supabase
@@ -87,22 +87,22 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     if ((!profiles || profiles.length === 0) && authUsers.length > 0) {
       console.log('No profiles found but auth users exist, creating minimal records');
       for (const authUser of authUsers) {
-        // Check if the user is an admin
-        const { data: isAdmin, error: adminError } = await supabase
-          .rpc('is_admin_secure', { _user_id: authUser.id });
+        // Check if the user has admin role directly from the database
+        const { data: userRole, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
           
-        if (adminError) {
-          console.error('Error checking admin status for', authUser.id, ':', adminError);
-          // Fall back to regular is_admin if secure fails
-          const { data: isAdminFallback } = await supabase
-            .rpc('is_admin', { _user_id: authUser.id });
+        if (roleError) {
+          console.error('Error checking admin status for', authUser.id, ':', roleError);
           
           userList.push({
             id: authUser.id,
             email: authUser.email || 'No email',
             full_name: null,
             avatar_url: null,
-            role: (isAdminFallback ? 'admin' : 'user') as UserRole,
+            role: 'user' as UserRole,  // Default to user if check fails
             created_at: null
           });
         } else {
@@ -111,7 +111,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
             email: authUser.email || 'No email',
             full_name: null,
             avatar_url: null,
-            role: (isAdmin ? 'admin' : 'user') as UserRole,
+            role: (userRole?.role === 'admin' ? 'admin' : 'user') as UserRole,
             created_at: null
           });
         }
@@ -125,15 +125,15 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     for (const profile of profiles || []) {
       console.log(`Processing profile ${profile.id}`);
       
-      // Check if the user is an admin using our security definer function
-      const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_admin_secure', { _user_id: profile.id });
+      // Check if the user is an admin by querying the user_roles table directly
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', profile.id)
+        .maybeSingle();
         
-      if (adminError) {
-        console.error('Error checking admin status for', profile.id, ':', adminError);
-        // Fall back to standard is_admin function
-        const { data: isAdminFallback } = await supabase
-          .rpc('is_admin', { _user_id: profile.id });
+      if (roleError) {
+        console.error('Error checking admin status for', profile.id, ':', roleError);
         
         // Get the email from our map or use a placeholder
         const email = usersMap[profile.id] || 'Email not available';
@@ -143,7 +143,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
           email: email,
           full_name: profile.full_name || 'No Name',
           avatar_url: profile.avatar_url,
-          role: (isAdminFallback ? 'admin' : 'user') as UserRole,
+          role: 'user' as UserRole,  // Default to user if check fails
           created_at: profile.created_at
         });
       } else {
@@ -155,7 +155,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
           email: email,
           full_name: profile.full_name || 'No Name',
           avatar_url: profile.avatar_url,
-          role: (isAdmin ? 'admin' : 'user') as UserRole,
+          role: (userRole?.role === 'admin' ? 'admin' : 'user') as UserRole,
           created_at: profile.created_at
         });
       }

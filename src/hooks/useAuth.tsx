@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserProfile, UserRole } from '@/types/user-types';
@@ -76,10 +75,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       if (!userId) return false;
       
-      // Try secure function first
+      // Try secure function first - using the correct function name is_admin_secure_fixed
       try {
         const { data: isAdminSecure, error: secureError } = await supabase
-          .rpc('is_admin_secure', { _user_id: userId });
+          .rpc('is_admin_secure_fixed', { _user_id: userId });
         
         if (!secureError) {
           return !!isAdminSecure;
@@ -90,16 +89,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Error in secure admin check:', error);
       }
       
-      // Fall back to standard function
+      // Direct database query as a fallback
       const { data, error } = await supabase
-        .rpc('is_admin', { _user_id: userId });
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
       
       if (error) {
         console.error('Error checking admin status:', error);
         return false;
       }
 
-      return !!data;
+      return data?.role === 'admin';
     } catch (error) {
       console.error('Error in checkIsAdmin:', error);
       return false;
