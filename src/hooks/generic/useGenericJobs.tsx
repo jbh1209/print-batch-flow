@@ -7,6 +7,7 @@ import { useGenericBatches } from './useGenericBatches';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
 import { isExistingTable } from '@/utils/database/tableValidation';
+import { toast } from 'sonner'; // Import toast from sonner
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -73,18 +74,23 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   // Handle job deletion with local state update
   const handleDeleteJob = async (jobId: string) => {
-    // Only allow users to delete their own jobs
-    const job = await getJobById(jobId);
-    if (job && job.user_id !== user?.id) {
-      toast.error("You can only delete your own jobs");
+    try {
+      // Only allow users to delete their own jobs
+      const job = await getJobById(jobId, user?.id || '');
+      if (job && job.user_id !== user?.id) {
+        toast.error("You can only delete your own jobs");
+        return false;
+      }
+      
+      const success = await deleteJob(jobId);
+      if (success) {
+        setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+      }
+      return success;
+    } catch (err) {
+      console.error('Error deleting job:', err);
       return false;
     }
-    
-    const success = await deleteJob(jobId);
-    if (success) {
-      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
-    }
-    return success;
   };
 
   // Handle job creation with local state update
@@ -105,18 +111,23 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       throw new Error('User not authenticated');
     }
     
-    // Only allow users to update their own jobs
-    const job = await getJobById(jobId);
-    if (job && job.user_id !== user.id) {
-      toast.error("You can only update your own jobs");
-      throw new Error("Permission denied: You can only update your own jobs");
+    try {
+      // Only allow users to update their own jobs
+      const job = await getJobById(jobId, user.id);
+      if (job && job.user_id !== user.id) {
+        toast.error("You can only update your own jobs");
+        throw new Error("Permission denied: You can only update your own jobs");
+      }
+      
+      const updatedJob = await updateJob<T>(jobId, jobData, user.id);
+      setJobs(prevJobs => 
+        prevJobs.map(job => job.id === jobId ? { ...job, ...updatedJob } : job)
+      );
+      return updatedJob;
+    } catch (err) {
+      console.error('Error updating job:', err);
+      throw err;
     }
-    
-    const updatedJob = await updateJob<T>(jobId, jobData, user.id);
-    setJobs(prevJobs => 
-      prevJobs.map(job => job.id === jobId ? { ...job, ...updatedJob } : job)
-    );
-    return updatedJob;
   };
 
   // Handle batch creation with local state update

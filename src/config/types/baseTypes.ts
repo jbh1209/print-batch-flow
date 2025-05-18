@@ -1,69 +1,60 @@
-
-/**
- * This file contains base types for the system
- */
-
-// Type for existing database tables
-export type ExistingTableName = 
-  | 'flyer_jobs'
-  | 'postcard_jobs' 
-  | 'business_card_jobs'
-  | 'poster_jobs'
-  | 'sleeve_jobs'
-  | 'box_jobs'
-  | 'cover_jobs'
-  | 'sticker_jobs'
-  | 'batches'
-  | 'profiles'
-  | 'user_roles';
-
-// Status types for jobs and batches
-export type BatchStatus = 
+export type BatchStatus =
   | 'pending'
-  | 'queued' 
-  | 'processing' 
-  | 'completed' 
+  | 'queued'
+  | 'processing'
   | 'sent_to_print'
+  | 'completed'
   | 'cancelled';
 
-export interface BaseBatch {
-  id: string;
-  name: string;
-  status: BatchStatus;
-  sheets_required: number;
-  front_pdf_url: string | null;
-  back_pdf_url: string | null;
-  overview_pdf_url: string | null;
-  due_date: string;
-  created_at: string;
-  lamination_type?: string;
-  paper_type?: string;
-  paper_weight?: string;
-  sides?: string;
-  created_by?: string;
-  updated_at?: string;
-  date_created?: string;
-  sheet_size?: string;
-  printer_type?: string;
-}
+export type TableName =
+  | 'business_card_jobs'
+  | 'flyer_jobs'
+  | 'postcard_jobs'
+  | 'box_jobs'
+  | 'sticker_jobs'
+  | 'cover_jobs'
+  | 'poster_jobs'
+  | 'sleeve_jobs';
 
+export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
+
+/**
+ * Base properties that all job types share
+ */
 export interface BaseJob {
   id: string;
   name: string;
-  status: string;
+  job_number: string;
+  status: JobStatus;
   quantity: number;
   due_date: string;
-  created_at?: string;
+  created_at: string;
   updated_at?: string;
-  lamination_type?: string;
-  paper_type?: string;
-  paper_weight?: string;
-  pdf_url?: string;
-  file_name?: string;
   batch_id?: string | null;
-  job_number?: string;
-  size?: string;
-  sides?: string;
-  stock_type?: string; 
-  single_sided?: boolean;
+  user_id: string;  // Added this missing field
+  pdf_url: string | null;
+  file_name: string;
+  lamination_type?: string;
+}
+
+export interface ProductConfig {
+  productType: string;
+  tableName?: TableName;
+  ui: {
+    title: string;
+    newItemTitle: string;
+    editItemTitle: string;
+    description: string;
+  };
+  routes: {
+    basePath: string;
+    newJobPath: string;
+    jobDetailPath?: (id: string) => string;
+  };
+  availablePaperTypes: string[];
+  availablePaperWeights: string[];
+  availableLaminationTypes: LaminationType[];
+  availablePrinterTypes: string[];
+  availableSheetSizes: string[];
+  slaTargetDays: number;
 }

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job, LaminationType } from "@/components/business-cards/JobsTable";
 import { useJobOperations } from "./business-cards/useJobOperations";
 
 export const useBusinessCardJobs = () => {
@@ -43,8 +43,9 @@ export const useBusinessCardJobs = () => {
         query = query.eq('status', filterView);
       }
       
+      // Use the laminationFilter as is without type casting
       if (laminationFilter) {
-        query = query.eq('lamination_type', laminationFilter);
+        query = query.eq('lamination_type', laminationFilter as LaminationType);
       }
       
       const { data, error: fetchError } = await query
