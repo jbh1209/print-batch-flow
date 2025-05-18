@@ -80,10 +80,11 @@ const BatchesWrapper: React.FC<BatchesWrapperProps> = ({
   }
 
   // Convert BatchSummary[] to BatchWithJobs[] for compatibility with BatchesTable
-  // Make sure to properly cast lamination_type to LaminationType
+  // Make sure to add required properties for BatchWithJobs
   const batchesWithEmptyJobs: BatchWithJobs[] = paginatedBatches.map(batch => ({
     ...batch,
     lamination_type: batch.lamination_type as LaminationType,
+    created_by: batch.created_by || 'unknown', // Ensure created_by is always provided
     jobs: [] // Add empty jobs array to satisfy BatchWithJobs type
   }));
 

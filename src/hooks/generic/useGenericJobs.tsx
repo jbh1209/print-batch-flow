@@ -6,9 +6,19 @@ import { formatDate, formatRelativeTime } from '@/utils/dateUtils';
 import { useToast } from '@/hooks/use-toast';
 import { BaseJob, ProductConfig } from '@/config/productTypes';
 
-// Let's fix the parameter handling to be more flexible
+// Define a consistent interface for hook parameters
+export interface UseGenericJobsProps {
+  productConfig: ProductConfig;
+}
+
+/**
+ * Hook for managing generic job operations
+ * @param config ProductConfig or UseGenericJobsProps with productConfig property
+ * @param initialJobId Optional initial job ID to select
+ * @returns Generic job operations and state
+ */
 export const useGenericJobs = <T extends BaseJob = BaseJob>(
-  config: ProductConfig | { productConfig: ProductConfig },
+  config: ProductConfig | UseGenericJobsProps,
   initialJobId?: string
 ) => {
   // Handle both ways of passing the config
@@ -24,7 +34,7 @@ export const useGenericJobs = <T extends BaseJob = BaseJob>(
   const { toast } = useToast();
 
   // Fetch jobs from the database
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     if (!user) return;
     
     setIsLoading(true);
@@ -63,7 +73,7 @@ export const useGenericJobs = <T extends BaseJob = BaseJob>(
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, productConfig.tableName, initialJobId, toast]);
 
   // Delete a job
   const deleteJob = async (id: string): Promise<boolean> => {
@@ -232,7 +242,7 @@ export const useGenericJobs = <T extends BaseJob = BaseJob>(
     if (user) {
       fetchJobs();
     }
-  }, [user]);
+  }, [user, fetchJobs]);
 
   return {
     jobs,

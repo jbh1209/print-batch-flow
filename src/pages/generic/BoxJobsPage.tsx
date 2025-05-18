@@ -10,12 +10,18 @@ const BoxJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
     
-    // Return the hook result with all required properties
     return {
-      ...hookResult,
+      jobs: hookResult.jobs,
+      isLoading: hookResult.isLoading,
+      error: hookResult.error,
+      deleteJob: hookResult.deleteJob,
+      fetchJobs: hookResult.fetchJobs,
+      createBatch: hookResult.createBatch,
+      isCreatingBatch: hookResult.isCreatingBatch,
       fixBatchedJobsWithoutBatch: async () => {
         return await hookResult.fixBatchedJobsWithoutBatch();
-      }
+      },
+      isFixingBatchedJobs: hookResult.isFixingBatchedJobs
     };
   };
 

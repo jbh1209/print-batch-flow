@@ -1,193 +1,240 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Download } from 'lucide-react';
-import { useAuth } from "@/hooks/useAuth";
-import { canModifyRecord } from "@/utils/permissionUtils";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Link } from "react-router-dom";
-import { formatDate } from "@/utils/dateUtils";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
-import { ProductConfig, BaseJob } from '@/config/productTypes';
+import { ChevronLeft, Download, Pencil, Trash } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useGenericJobs } from '@/hooks/generic/useGenericJobs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { BaseJob } from '@/config/types/baseTypes';
 
 interface GenericJobDetailsPageProps {
-  config: ProductConfig;
+  productConfig: any;
+  backUrl: string;
+  editUrlGenerator: (id: string) => string;
 }
 
-const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config }) => {
+const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
+  productConfig,
+  backUrl,
+  editUrlGenerator,
+}) => {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  
-  // Create a custom hook instance
-  const { jobs, isLoading, error, deleteJob, fetchJobs } = useGenericJobs({ 
-    productConfig: config, 
-    initialJobId: jobId 
-  });
-  
   const [job, setJob] = useState<BaseJob | null>(null);
-  const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const { toast } = useToast();
+  
+  // Pass the config as an object with productConfig property for consistency
+  const { 
+    getJobById, 
+    deleteJob, 
+    isLoading, 
+    error 
+  } = useGenericJobs({ productConfig }, jobId);
 
   useEffect(() => {
-    // Find the job in the jobs array when it's loaded
-    if (jobId && jobs.length > 0) {
-      const foundJob = jobs.find(j => j.id === jobId);
-      if (foundJob) {
-        setJob(foundJob);
+    const loadJob = async () => {
+      if (jobId) {
+        const jobData = await getJobById(jobId);
+        setJob(jobData);
       }
-    }
-  }, [jobs, jobId]);
+    };
+    
+    loadJob();
+  }, [jobId, getJobById]);
 
-  useEffect(() => {
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to load job. Please try again.",
-      });
+  const handleDelete = async () => {
+    if (!jobId) return;
+    
+    const confirmed = window.confirm('Are you sure you want to delete this job?');
+    if (!confirmed) return;
+    
+    const success = await deleteJob(jobId);
+    if (success) {
+      navigate(backUrl);
     }
-  }, [error, toast]);
+  };
 
-  if (isLoading || !jobId) {
-    return <div>Loading...</div>;
+  const handleDownload = () => {
+    if (job?.pdf_url) {
+      window.open(job.pdf_url, '_blank');
+    }
+  };
+
+  const handleEdit = () => {
+    if (jobId) {
+      navigate(editUrlGenerator(jobId));
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex justify-between items-center mb-6">
+          <Button variant="ghost" onClick={() => navigate(backUrl)}>
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Back to Jobs
+          </Button>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-pulse text-lg">Loading job details...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex justify-between items-center mb-6">
+          <Button variant="ghost" onClick={() => navigate(backUrl)}>
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Back to Jobs
+          </Button>
+        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
   if (!job) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>Not found</AlertTitle>
-        <AlertDescription>
-          This job could not be found.
-        </AlertDescription>
-      </Alert>
+      <div className="container mx-auto py-8">
+        <div className="flex justify-between items-center mb-6">
+          <Button variant="ghost" onClick={() => navigate(backUrl)}>
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Back to Jobs
+          </Button>
+        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Not Found</AlertTitle>
+          <AlertDescription>The requested job could not be found.</AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
-  const canModify = canModifyRecord(job.user_id, user?.id);
-
-  const handleDelete = async () => {
-    const success = await deleteJob(jobId);
-    if (success) {
-      toast({
-        title: "Success",
-        description: "Job deleted successfully.",
-      });
-      navigate(config.routes.jobsPath || config.routes.basePath);
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to delete job. Please try again.",
-      });
-    }
-  };
-
   return (
     <div className="container mx-auto py-8">
-      <div className="mb-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">{job.name}</h1>
-        <div>
-          <Link to={config.routes.jobsPath || config.routes.basePath}>
-            <Button variant="secondary" className="mr-2">
-              Back to Jobs
-            </Button>
-          </Link>
-          {canModify && (
-            <Link to={config.routes.jobEditPath ? config.routes.jobEditPath(jobId) : '#'}>
-              <Button variant="outline" className="mr-2">
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </Button>
-            </Link>
-          )}
-          {job.pdf_url && (
-            <Button variant="outline" asChild>
-              <a href={job.pdf_url} target="_blank" rel="noopener noreferrer">
-                <Download className="mr-2 h-4 w-4" />
-                Download PDF
-              </a>
-            </Button>
-          )}
+      <div className="flex justify-between items-center mb-6">
+        <Button variant="ghost" onClick={() => navigate(backUrl)}>
+          <ChevronLeft className="mr-2 h-4 w-4" />
+          Back to Jobs
+        </Button>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={handleDownload} disabled={!job.pdf_url}>
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
+          <Button variant="outline" onClick={handleEdit}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit
+          </Button>
+          <Button variant="destructive" onClick={handleDelete}>
+            <Trash className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Job Details</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <div className="bg-white shadow rounded-lg p-6">
+        <h1 className="text-2xl font-bold mb-4">{job.name}</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h2 className="text-lg font-semibold mb-2">Job Details</h2>
             <div className="space-y-2">
-              <div>
-                <span className="text-gray-700 font-medium">Job Number:</span>
-                <p>{job.job_number}</p>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Job Number:</span>
+                <span className="font-medium">{job.job_number}</span>
               </div>
-              <div>
-                <span className="text-gray-700 font-medium">Status:</span>
-                <p>{job.status}</p>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Status:</span>
+                <span className="font-medium capitalize">{job.status}</span>
               </div>
-              <div>
-                <span className="text-gray-700 font-medium">Quantity:</span>
-                <p>{job.quantity}</p>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Quantity:</span>
+                <span className="font-medium">{job.quantity}</span>
               </div>
-              <div>
-                <span className="text-gray-700 font-medium">Due Date:</span>
-                <p>{formatDate(job.due_date)}</p>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Due Date:</span>
+                <span className="font-medium">
+                  {new Date(job.due_date).toLocaleDateString()}
+                </span>
               </div>
-              <div>
-                <span className="text-gray-700 font-medium">Created At:</span>
-                <p>{formatDate(job.created_at)}</p>
+              {job.batch_id && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Batch ID:</span>
+                  <span className="font-medium">{job.batch_id}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div>
+            <h2 className="text-lg font-semibold mb-2">Additional Information</h2>
+            <div className="space-y-2">
+              {job.size && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Size:</span>
+                  <span className="font-medium">{job.size}</span>
+                </div>
+              )}
+              {job.paper_type && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Paper Type:</span>
+                  <span className="font-medium">{job.paper_type}</span>
+                </div>
+              )}
+              {job.paper_weight && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Paper Weight:</span>
+                  <span className="font-medium">{job.paper_weight}</span>
+                </div>
+              )}
+              {job.lamination_type && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Lamination:</span>
+                  <span className="font-medium capitalize">{job.lamination_type}</span>
+                </div>
+              )}
+              {job.sides && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Sides:</span>
+                  <span className="font-medium capitalize">{job.sides}</span>
+                </div>
+              )}
+              {job.stock_type && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Stock Type:</span>
+                  <span className="font-medium">{job.stock_type}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {job.pdf_url && (
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold mb-2">PDF Preview</h2>
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="flex justify-between items-center">
+                <span className="truncate max-w-md">{job.file_name}</span>
+                <Button variant="outline" size="sm" onClick={handleDownload}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="flex justify-center">
-            {canModify ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Job
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete this job from our servers.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            ) : (
-              <p>You do not have permission to modify this job.</p>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        )}
+        
+        <div className="mt-6 text-sm text-gray-500">
+          <div>Created: {new Date(job.created_at).toLocaleString()}</div>
+          {job.updated_at && (
+            <div>Last Updated: {new Date(job.updated_at).toLocaleString()}</div>
+          )}
+        </div>
       </div>
     </div>
   );

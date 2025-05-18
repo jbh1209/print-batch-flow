@@ -10,8 +10,17 @@ const FlyerJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericFlyerJobs();
     
-    // Return all required properties
-    return hookResult;
+    return {
+      jobs: hookResult.jobs,
+      isLoading: hookResult.isLoading,
+      error: hookResult.error,
+      deleteJob: hookResult.deleteJob,
+      fetchJobs: hookResult.fetchJobs,
+      createBatch: hookResult.createBatch,
+      isCreatingBatch: hookResult.isCreatingBatch,
+      fixBatchedJobsWithoutBatch: hookResult.fixBatchedJobsWithoutBatch,
+      isFixingBatchedJobs: hookResult.isFixingBatchedJobs
+    };
   };
 
   return <GenericJobsPage config={config} useJobsHook={jobsHookWrapper} />;
