@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,18 +31,27 @@ const cleanupAuthState = () => {
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  
+  // Get the intended destination from the URL parameters
+  const from = location.state?.from?.pathname || '/';
 
   useEffect(() => {
-    // Redirect if user is already logged in
-    if (user) {
-      navigate('/');
+    // Only redirect if authentication is confirmed (not just loading)
+    if (user && !isLoading) {
+      // Use a timeout to avoid potential race conditions
+      const redirectTimer = setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 100);
+      
+      return () => clearTimeout(redirectTimer);
     }
-  }, [user, navigate]);
+  }, [user, isLoading, navigate, from]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,8 +85,7 @@ const Auth = () => {
       
       toast.success("Login successful!");
       
-      // Force a page reload to ensure clean state
-      window.location.href = '/';
+      // Let the useEffect handle navigation to prevent race conditions
     } catch (error: any) {
       console.error("Auth error:", error);
       setErrorMessage(error.message || 'Error signing in');
@@ -86,6 +94,18 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  // If we're still determining auth state, show a minimal loading indicator
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-batchflow-primary mx-auto"></div>
+          <p className="mt-2">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-50">
