@@ -1,94 +1,61 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { ProductConfig, BaseJob, JobStatus } from "@/config/productTypes";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDate } from "@/utils/dateUtils";
-import { Badge } from "@/components/ui/badge";
+import { Pencil, Trash2, Download } from 'lucide-react';
+import { useAuth } from "@/hooks/useAuth";
 import { canModifyRecord } from "@/utils/permissionUtils";
-import { Edit, ArrowLeft } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Link } from "react-router-dom";
+import { formatDate } from "@/utils/dateUtils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast"
+import { ProductConfig, BaseJob } from '@/config/productTypes';
 
 interface GenericJobDetailsPageProps {
   config: ProductConfig;
+  useJob: (id: string) => { job: BaseJob | undefined, isLoading: boolean, error: any, onDelete: (id: string) => Promise<boolean> };
 }
 
-const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config }) => {
-  const { jobId } = useParams<{ jobId: string }>();
+const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config, useJob }) => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [job, setJob] = useState<BaseJob | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { job, isLoading, error, onDelete } = useJob(id!);
+  const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const { toast } = useToast()
 
   useEffect(() => {
-    const fetchJobDetails = async () => {
-      if (!jobId) {
-        setError("Job ID is missing.");
-        setIsLoading(false);
-        return;
-      }
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load job. Please try again.",
+      })
+    }
+  }, [error, toast]);
 
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const { data, error } = await supabase
-          .from(config.tableName as string)
-          .select("*")
-          .eq("id", jobId)
-          .single();
-
-        if (error) {
-          console.error("Error fetching job details:", error);
-          setError("Failed to load job details.");
-          return;
-        }
-
-        if (!data) {
-          setError("Job not found.");
-          return;
-        }
-
-        setJob(data as BaseJob);
-      } catch (err) {
-        console.error("Error fetching job details:", err);
-        setError("Failed to load job details.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchJobDetails();
-  }, [jobId, config.tableName]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary border-t-transparent"></div>
-      </div>
-    );
+  if (isLoading || !id) {
+    return <div>Loading...</div>;
   }
 
-  if (error || !job) {
+  if (!job) {
     return (
-      <Alert variant="destructive" className="mb-6">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Job Not Found</AlertTitle>
+      <Alert variant="destructive">
+        <AlertTitle>Not found</AlertTitle>
         <AlertDescription>
-          {error || "The requested job could not be found."}
-          <div className="mt-2">
-            <Button
-              variant="outline"
-              onClick={() => navigate(config.routes.jobsPath || "/")}
-            >
-              Back to Jobs
-            </Button>
-          </div>
+          This job could not be found.
         </AlertDescription>
       </Alert>
     );
@@ -96,81 +63,115 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
 
   const canModify = canModifyRecord(job.user_id, user?.id);
 
-  const handleEdit = () => {
-    navigate(config.routes.jobEditPath ? config.routes.jobEditPath(job.id) : `/jobs/${job.id}/edit`);
+  const handleDelete = async () => {
+    const success = await onDelete(id!);
+    if (success) {
+      toast({
+        title: "Success",
+        description: "Job deleted successfully.",
+      })
+      navigate(config.routes.jobsPath || config.routes.basePath);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete job. Please try again.",
+      })
+    }
   };
 
-  const status = job.status as JobStatus;
-
   return (
-    <div>
-      <div className="flex items-center mb-6">
-        <Button
-          variant="outline"
-          size="sm"
-          className="mr-4"
-          onClick={() => navigate(config.routes.jobsPath || "/")}
-        >
-          <ArrowLeft size={16} className="mr-1" /> Back to Jobs
-        </Button>
-        <h2 className="text-xl font-semibold">
-          {config.ui.jobFormTitle} Details
-        </h2>
-      </div>
-
-      <div className="max-w-2xl bg-white p-6 rounded-lg shadow">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold">{job.name}</h3>
-          <div className="text-sm text-gray-500">{job.job_number}</div>
-          {!canModify && (
-            <Badge variant="outline" className="mt-1 text-xs">
-              Read-only
-            </Badge>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <strong>Status:</strong>
-            <Badge variant="secondary">{status}</Badge>
-          </div>
-          <div>
-            <strong>Quantity:</strong> {job.quantity}
-          </div>
-          <div>
-            <strong>Due Date:</strong> {formatDate(job.due_date)}
-          </div>
-          <div>
-            <strong>Created At:</strong> {formatDate(job.created_at)}
-          </div>
-          {job.paper_type && (
-            <div>
-              <strong>Paper Type:</strong> {job.paper_type}
-            </div>
-          )}
-          {job.paper_weight && (
-            <div>
-              <strong>Paper Weight:</strong> {job.paper_weight}
-            </div>
-          )}
-          {job.size && (
-            <div>
-              <strong>Size:</strong> {job.size}
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-between">
-          <Button variant="outline" onClick={() => navigate(job.pdf_url || "")} disabled={!job.pdf_url}>
-            View PDF
-          </Button>
+    <div className="container mx-auto py-8">
+      <div className="mb-4 flex justify-between items-center">
+        <h1 className="text-2xl font-bold">{job.name}</h1>
+        <div>
+          <Link to={config.routes.jobsPath || config.routes.basePath}>
+            <Button variant="secondary" className="mr-2">
+              Back to Jobs
+            </Button>
+          </Link>
           {canModify && (
-            <Button onClick={handleEdit}>
-              <Edit size={16} className="mr-2" />
-              Edit Job
+            <Link to={config.routes.jobEditPath ? config.routes.jobEditPath(id!) : '#'}>
+              <Button variant="outline" className="mr-2">
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            </Link>
+          )}
+          {job.pdf_url && (
+            <Button variant="outline" asChild>
+              <a href={job.pdf_url} target="_blank" rel="noopener noreferrer">
+                <Download className="mr-2 h-4 w-4" />
+                Download PDF
+              </a>
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Job Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div>
+                <span className="text-gray-700 font-medium">Job Number:</span>
+                <p>{job.job_number}</p>
+              </div>
+              <div>
+                <span className="text-gray-700 font-medium">Status:</span>
+                <p>{job.status}</p>
+              </div>
+              <div>
+                <span className="text-gray-700 font-medium">Quantity:</span>
+                <p>{job.quantity}</p>
+              </div>
+              <div>
+                <span className="text-gray-700 font-medium">Due Date:</span>
+                <p>{formatDate(job.due_date)}</p>
+              </div>
+              <div>
+                <span className="text-gray-700 font-medium">Created At:</span>
+                <p>{formatDate(job.created_at)}</p>
+              </div>
+              {/* Add more job details here based on your job object */}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            {canModify ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Job
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete this job from our servers.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <p>You do not have permission to modify this job.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

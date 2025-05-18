@@ -1,26 +1,14 @@
+
 import { format, formatDistance, formatRelative, isValid } from 'date-fns';
 
 /**
  * Format a date string to a readable format
  * @param dateString The date string to format
- * @param formatStr Optional format string, defaults to 'MMM dd, yyyy'
+ * @param formatStrOrOptions Format string or Intl.DateTimeFormatOptions
  * @returns Formatted date string
  */
-export const formatDate = (dateString: string, formatStr: string = 'MMM dd, yyyy'): string => {
-  try {
-    const date = new Date(dateString);
-    if (!isValid(date)) {
-      return 'Invalid date';
-    }
-    return format(date, formatStr);
-  } catch (error) {
-    console.error('Error formatting date:', error);
-    return 'Error';
-  }
-};
-
-// Add overload for object format options
 export function formatDate(dateString: string, options: Intl.DateTimeFormatOptions): string;
+export function formatDate(dateString: string, formatStr?: string): string;
 export function formatDate(dateString: string, formatStrOrOptions: string | Intl.DateTimeFormatOptions = 'MMM dd, yyyy'): string {
   try {
     const date = new Date(dateString);

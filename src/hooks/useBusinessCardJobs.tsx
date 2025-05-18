@@ -1,149 +1,107 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { BusinessCardJob } from '@/components/batches/types/BusinessCardTypes';
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from './useAuth';
+import { Job } from '@/components/business-cards/JobsTable';
+import { convertToJobType } from '@/utils/typeAdapters';
 
-export function useBusinessCardJobs() {
-  const { user } = useAuth();
-  const [jobs, setJobs] = useState<BusinessCardJob[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export const useBusinessCardJobs = () => {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { user } = useAuth();
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
     if (!user) {
-      console.log('No authenticated user for business card jobs fetching');
+      console.log('User not logged in.');
       setIsLoading(false);
       return;
     }
 
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
+      const { data, error } = await supabase
         .from('business_card_jobs')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
-
-      setJobs(data || []);
+      if (error) {
+        console.error('Supabase error:', error);
+        setError(error.message);
+      } else if (data) {
+        const convertedJobs = data.map(job => convertToJobType(job));
+        setJobs(convertedJobs);
+      }
     } catch (err) {
-      console.error('Error fetching business card jobs:', err);
-      setError('Failed to load business card jobs');
+      console.error('Error fetching jobs:', err);
+      setError('Failed to load jobs.');
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchJobs();
-    } else {
       setIsLoading(false);
     }
   }, [user]);
 
-  const deleteJob = async (jobId: string) => {
-    try {
-      const { error: deleteError } = await supabase
-        .from('business_card_jobs')
-        .delete()
-        .eq('id', jobId);
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
-      if (deleteError) throw deleteError;
-
-      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
-    } catch (err) {
-      console.error('Error deleting job:', err);
-    }
-  };
-
-  const createJob = async (jobData: Omit<BusinessCardJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status'>) => {
+  const addJob = async () => {
     if (!user) {
-      throw new Error('User not authenticated');
+      console.error('User not logged in.');
+      return;
     }
 
     try {
       const { data, error } = await supabase
         .from('business_card_jobs')
         .insert({
-          ...jobData,
           user_id: user.id,
           status: 'queued',
           created_at: new Date().toISOString(),
+          name: 'New Job',
+          job_number: `BC-${Date.now().toString().slice(-6)}`,
+          file_name: 'No file',
+          pdf_url: '',
+          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          quantity: 0,
+          lamination_type: 'none'
         })
         .select()
         .single();
 
       if (error) {
-        throw error;
+        console.error('Supabase error:', error);
+        setError(error.message);
+      } else if (data) {
+        const newJob = convertToJobType(data);
+        setJobs(prevJobs => [newJob, ...prevJobs]);
       }
-
-      setJobs(prevJobs => [data, ...prevJobs]);
-      return data;
     } catch (err) {
-      console.error('Error creating job:', err);
-      throw err;
+      console.error('Error adding job:', err);
+      setError('Failed to add job.');
     }
   };
 
-  const updateJob = async (jobId: string, jobData: Partial<BusinessCardJob>) => {
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
+  const deleteJob = async (jobId: string) => {
     try {
-      // Fetch the existing job to check the user_id
-      const { data: existingJob, error: fetchError } = await supabase
+      const { error } = await supabase
         .from('business_card_jobs')
-        .select('user_id')
-        .eq('id', jobId)
-        .single();
-      
-      if (fetchError) {
-        throw fetchError;
-      }
-      
-      if (!existingJob) {
-        throw new Error('Job not found');
-      }
-      
-      if (existingJob.user_id !== user.id) {
-        toast({
-          title: "You can only update your own jobs",
-          description: "Permission denied",
-          variant: "destructive",
-        });
-        throw new Error("Permission denied: You can only update your own jobs");
-      }
-
-      const { data: job, error } = await supabase
-        .from('business_card_jobs')
-        .update(jobData)
-        .eq('id', jobId)
-        .select()
-        .single();
+        .delete()
+        .eq('id', jobId);
 
       if (error) {
-        throw error;
+        console.error('Supabase error:', error);
+        setError(error.message);
+        return false;
+      } else {
+        setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+        return true;
       }
-      
-      // Fix the specific error by adding user_id to the interface or ensuring it exists
-      const jobToUpdate = {
-        ...job,
-        user_id: job.user_id || user.id // Add this to ensure user_id exists
-      };
-
-      setJobs(prevJobs =>
-        prevJobs.map(j => j.id === jobId ? { ...j, ...jobToUpdate } : j)
-      );
-      return job;
     } catch (err) {
-      console.error('Error updating job:', err);
-      throw err;
+      console.error('Error deleting job:', err);
+      setError('Failed to delete job.');
+      return false;
     }
   };
 
@@ -152,8 +110,7 @@ export function useBusinessCardJobs() {
     isLoading,
     error,
     fetchJobs,
+    addJob,
     deleteJob,
-    createJob,
-    updateJob,
   };
-}
+};
