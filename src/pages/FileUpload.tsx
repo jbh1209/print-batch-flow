@@ -151,7 +151,7 @@ const FileUpload = () => {
               <h3 className="text-md font-medium">Instructions:</h3>
               <ol className="list-decimal pl-4 mt-2 space-y-1 text-sm">
                 <li>Go to your deployed version in the browser</li>
-                <li>Open the browser's developer tools (F12 or right-click > Inspect)</li>
+                <li>Open the browser's developer tools (F12 or right-click {'>'} Inspect)</li>
                 <li>Navigate to the Sources tab</li>
                 <li>Find your project's source files (usually under a folder with your project name)</li>
                 <li>Right-click on each TypeScript file and save it locally</li>
