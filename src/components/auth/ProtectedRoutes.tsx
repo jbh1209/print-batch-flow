@@ -73,21 +73,51 @@ export const ProtectedRoutes: React.FC = () => {
         
         {/* Postcards */}
         <Route path="/batches/postcards/*" element={<Postcards />} />
+        <Route path="/batches/postcards/jobs" element={<Postcards />} />
+        <Route path="/batches/postcards/batches" element={<Postcards />} />
+        <Route path="/batches/postcards/jobs/new" element={<Postcards />} />
+        <Route path="/batches/postcards/jobs/:jobId" element={<Postcards />} />
+        <Route path="/batches/postcards/jobs/:jobId/edit" element={<Postcards />} />
         
         {/* Posters */}
         <Route path="/batches/posters/*" element={<Posters />} />
+        <Route path="/batches/posters/jobs" element={<Posters />} />
+        <Route path="/batches/posters/batches" element={<Posters />} />
+        <Route path="/batches/posters/jobs/new" element={<Posters />} />
+        <Route path="/batches/posters/jobs/:jobId" element={<Posters />} />
+        <Route path="/batches/posters/jobs/:jobId/edit" element={<Posters />} />
         
         {/* Covers */}
         <Route path="/batches/covers/*" element={<Covers />} />
+        <Route path="/batches/covers/jobs" element={<Covers />} />
+        <Route path="/batches/covers/batches" element={<Covers />} />
+        <Route path="/batches/covers/jobs/new" element={<Covers />} />
+        <Route path="/batches/covers/jobs/:jobId" element={<Covers />} />
+        <Route path="/batches/covers/jobs/:jobId/edit" element={<Covers />} />
         
         {/* Stickers */}
         <Route path="/batches/stickers/*" element={<Stickers />} />
+        <Route path="/batches/stickers/jobs" element={<Stickers />} />
+        <Route path="/batches/stickers/batches" element={<Stickers />} />
+        <Route path="/batches/stickers/jobs/new" element={<Stickers />} />
+        <Route path="/batches/stickers/jobs/:jobId" element={<Stickers />} />
+        <Route path="/batches/stickers/jobs/:jobId/edit" element={<Stickers />} />
         
         {/* Sleeves */}
         <Route path="/batches/sleeves/*" element={<Sleeves />} />
+        <Route path="/batches/sleeves/jobs" element={<Sleeves />} />
+        <Route path="/batches/sleeves/batches" element={<Sleeves />} />
+        <Route path="/batches/sleeves/jobs/new" element={<Sleeves />} />
+        <Route path="/batches/sleeves/jobs/:jobId" element={<Sleeves />} />
+        <Route path="/batches/sleeves/jobs/:jobId/edit" element={<Sleeves />} />
         
         {/* Boxes */}
         <Route path="/batches/boxes/*" element={<Boxes />} />
+        <Route path="/batches/boxes/jobs" element={<Boxes />} />
+        <Route path="/batches/boxes/batches" element={<Boxes />} />
+        <Route path="/batches/boxes/jobs/new" element={<Boxes />} />
+        <Route path="/batches/boxes/jobs/:jobId" element={<Boxes />} />
+        <Route path="/batches/boxes/jobs/:jobId/edit" element={<Boxes />} />
       </Route>
       
       {/* Catch all route - 404 */}
