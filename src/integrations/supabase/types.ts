@@ -766,10 +766,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_admin_role: {
-        Args: { admin_user_id: string }
-        Returns: boolean
-      }
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -802,22 +798,6 @@ export type Database = {
       }
       is_admin_secure_fixed: {
         Args: { _user_id: string }
-        Returns: boolean
-      }
-      revoke_user_role: {
-        Args: { target_user_id: string }
-        Returns: boolean
-      }
-      set_user_role: {
-        Args: { target_user_id: string; new_role: string }
-        Returns: boolean
-      }
-      set_user_role_admin: {
-        Args: { _target_user_id: string; _new_role: string }
-        Returns: boolean
-      }
-      update_user_profile_admin: {
-        Args: { _user_id: string; _full_name: string }
         Returns: boolean
       }
     }

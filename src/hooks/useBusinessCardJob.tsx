@@ -5,9 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 type JobData = {
-  id: string;
   name: string;
-  job_number?: string;
   quantity: number;
   double_sided: boolean;
   lamination_type: "none" | "gloss" | "matt" | "soft_touch";
@@ -15,7 +13,6 @@ type JobData = {
   due_date: string;
   pdf_url?: string;
   file_name?: string;
-  status?: string;
 };
 
 export function useBusinessCardJob(jobId: string | undefined) {
@@ -28,21 +25,20 @@ export function useBusinessCardJob(jobId: string | undefined) {
   // Fetch job data
   useEffect(() => {
     const fetchJobData = async () => {
-      if (!jobId) return;
+      if (!jobId || !user) return;
       
       try {
-        console.log(`Fetching business card job with ID: ${jobId}`);
-        
         const { data, error } = await supabase
           .from("business_card_jobs")
           .select("*")
           .eq("id", jobId)
+          .eq("user_id", user.id)
           .single();
           
         if (error) throw error;
         
         if (!data) {
-          setError("Job not found.");
+          setError("Job not found or you don't have permission to view it.");
           return;
         }
         
@@ -56,9 +52,9 @@ export function useBusinessCardJob(jobId: string | undefined) {
     };
     
     fetchJobData();
-  }, [jobId]);
+  }, [jobId, user]);
 
-  const updateJob = async (formData: any, selectedFile: File | null): Promise<boolean> => {
+  const updateJob = async (formData: any, selectedFile: File | null) => {
     if (!user) {
       toast.error("Authentication error", {
         description: "You must be logged in to update jobs"
@@ -80,7 +76,7 @@ export function useBusinessCardJob(jobId: string | undefined) {
       
       // If a new file was selected, upload it
       if (selectedFile) {
-        const filePath = `${user.id}/${Date.now()}-${selectedFile.name}`;
+        const filePath = `${user.id}/${selectedFile.name}`;
         
         const { error: uploadError } = await supabase.storage
           .from("pdf_files")
@@ -123,7 +119,8 @@ export function useBusinessCardJob(jobId: string | undefined) {
       const { error: updateError } = await supabase
         .from("business_card_jobs")
         .update(updateData)
-        .eq("id", jobId);
+        .eq("id", jobId)
+        .eq("user_id", user.id);
 
       if (updateError) {
         throw new Error(updateError.message);

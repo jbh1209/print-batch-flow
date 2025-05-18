@@ -1,99 +1,143 @@
 
-import { Menu, Eye, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
+import { MoreHorizontal, Pencil, Trash2, Eye, Download } from "lucide-react";
+import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface JobActionsProps {
   jobId: string;
   pdfUrl: string;
-  onJobDeleted: () => void;
+  onJobDeleted?: () => void;
 }
 
 const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleViewDetails = () => {
-    navigate(`/batches/business-cards/jobs/${jobId}`);
+  const handleViewJob = (jobId: string, pdfUrl: string) => {
+    handlePdfAction(pdfUrl, 'view');
   };
 
-  const handleEditJob = () => {
-    navigate(`/batches/business-cards/jobs/${jobId}/edit`);
+  const handleEditJob = (jobId: string) => {
+    navigate(`/batches/business-cards/jobs/edit/${jobId}`);
   };
 
-  const handleViewPDF = () => {
-    if (pdfUrl) {
-      window.open(pdfUrl, '_blank');
-    } else {
-      toast.error('No PDF available for this job');
-    }
+  const handleDownloadPdf = () => {
+    handlePdfAction(pdfUrl, 'download');
   };
 
   const handleDeleteJob = async () => {
-    const confirm = window.confirm('Are you sure you want to delete this job?');
-    if (!confirm) return;
-    
     setIsDeleting(true);
-    
     try {
       const { error } = await supabase
-        .from('business_card_jobs')
+        .from("business_card_jobs")
         .delete()
-        .eq('id', jobId);
-        
-      if (error) throw error;
-      
-      toast.success('Job deleted successfully');
-      onJobDeleted();
+        .eq("id", jobId);
+
+      if (error) {
+        throw error;
+      }
+
+      sonnerToast.success("Job deleted successfully");
+      if (onJobDeleted) {
+        onJobDeleted();
+      }
     } catch (error) {
-      console.error('Error deleting job:', error);
-      toast.error('Failed to delete job');
+      console.error("Error deleting job:", error);
+      toast({
+        title: "Error deleting job",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive"
+      });
     } finally {
       setIsDeleting(false);
+      setShowDeleteDialog(false);
     }
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Menu size={16} />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleViewDetails}>
-          <Eye size={16} className="mr-2" />
-          View Details
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleEditJob}>
-          <Pencil size={16} className="mr-2" />
-          Edit Job
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleViewPDF} disabled={!pdfUrl}>
-          <Eye size={16} className="mr-2" />
-          View PDF
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem 
-          onClick={handleDeleteJob}
-          disabled={isDeleting}
-          className="text-red-600 focus:bg-red-50 focus:text-red-600"
-        >
-          <Trash2 size={16} className="mr-2" />
-          Delete Job
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm">
+            <MoreHorizontal size={16} />
+            <span className="sr-only">Actions</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => handleViewJob(jobId, pdfUrl)} className="flex items-center gap-2">
+            <Eye size={16} />
+            <span>View PDF</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleEditJob(jobId)} className="flex items-center gap-2">
+            <Pencil size={16} />
+            <span>Edit</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDownloadPdf} className="flex items-center gap-2">
+            <Download size={16} />
+            <span>Download PDF</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            onClick={() => setShowDeleteDialog(true)}
+            className="flex items-center gap-2 text-red-600 focus:text-red-600"
+          >
+            <Trash2 size={16} />
+            <span>Delete</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this 
+              business card job and remove the files from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteJob} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isDeleting ? (
+                <>
+                  <span className="animate-spin mr-2">○</span>
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

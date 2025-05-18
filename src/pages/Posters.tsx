@@ -56,8 +56,8 @@ const Posters = () => {
       >
         <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="jobs" onClick={() => navigate(config.routes.jobsPath)}>Jobs</TabsTrigger>
-          <TabsTrigger value="batches" onClick={() => navigate(config.routes.batchesPath)}>Batches</TabsTrigger>
+          <TabsTrigger value="jobs" onClick={() => navigate("/batches/posters/jobs")}>Jobs</TabsTrigger>
+          <TabsTrigger value="batches" onClick={() => navigate("/batches/posters/batches")}>Batches</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-6">
@@ -78,7 +78,7 @@ const Posters = () => {
                 className="w-full mt-4"
                 onClick={() => {
                   setActiveTab("jobs");
-                  navigate(config.routes.jobsPath);
+                  navigate("/batches/posters/jobs");
                 }}
               >
                 View All Jobs
@@ -101,7 +101,7 @@ const Posters = () => {
                 className="w-full mt-4"
                 onClick={() => {
                   setActiveTab("batches");
-                  navigate(config.routes.batchesPath);
+                  navigate("/batches/posters/batches");
                 }}
               >
                 View All Batches
@@ -115,7 +115,7 @@ const Posters = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate(config.routes.newJobPath)}
+                onClick={() => navigate("/batches/posters/jobs/new")}
               >
                 Add New Job
               </Button>

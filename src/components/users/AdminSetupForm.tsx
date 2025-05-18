@@ -1,162 +1,110 @@
 
 import { useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Spinner } from "@/components/ui/spinner";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/useAuth";
 import { useUserManagement } from "@/contexts/UserManagementContext";
-import { toast } from "sonner";
 
-const formSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-  confirmPassword: z.string(),
-  full_name: z.string().optional(),
-  role: z.enum(["admin"]),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
-
-export const AdminSetupForm = () => {
-  const { createUser } = useUserManagement();
+export function AdminSetupForm() {
+  const { user } = useAuth();
+  const { addAdminRole } = useUserManagement();
+  const [userId, setUserId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      confirmPassword: "",
-      full_name: "",
-      role: "admin",
-    },
+  // Auto-fill the user ID when the component mounts and user is available
+  useState(() => {
+    if (user?.id) {
+      setUserId(user.id);
+    }
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const handleSetAsAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+    
+    if (!userId.trim()) {
+      setErrorMessage("Please enter a valid user ID");
+      return;
+    }
+    
     setIsSubmitting(true);
+    
     try {
-      const userData = {
-        email: values.email,
-        password: values.password,
-        full_name: values.full_name || undefined,
-        role: values.role,
-      };
-      
-      await createUser(userData);
-      form.reset();
-      toast.success("Admin user created successfully");
-    } catch (err: any) {
-      toast.error(`Failed to create admin user: ${err.message}`);
+      await addAdminRole(userId);
+      setSuccessMessage("Admin role successfully assigned!");
+    } catch (error: any) {
+      setErrorMessage(error.message || "Failed to set admin role");
     } finally {
       setIsSubmitting(false);
     }
   };
-
+  
   return (
-    <Card>
+    <Card className="w-full max-w-lg mx-auto">
       <CardHeader>
-        <CardTitle>Set Up Administrator</CardTitle>
+        <CardTitle>Initial Admin Setup</CardTitle>
         <CardDescription>
-          No administrators have been configured yet. Please set up your first admin user.
+          No administrators are currently configured. Set up the first administrator account.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter email address" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+      <form onSubmit={handleSetAsAdmin}>
+        <CardContent>
+          <div className="space-y-4">
+            {errorMessage && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
             
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="Enter password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {successMessage && (
+              <Alert className="bg-green-50 border-green-200 text-green-800">
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>{successMessage}</AlertDescription>
+              </Alert>
+            )}
             
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="Confirm password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="full_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full Name (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter full name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role</FormLabel>
-                  <Select
-                    defaultValue="admin"
-                    onValueChange={field.onChange}
-                    disabled
+            <div className="space-y-2">
+              <label htmlFor="userId" className="text-sm font-medium">
+                User ID
+              </label>
+              <Input
+                id="userId"
+                placeholder="Enter user ID"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+              />
+              {user && (
+                <p className="text-sm text-gray-500">
+                  Your user ID: <span className="font-mono">{user.id}</span>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    className="text-xs ml-2 h-auto p-1" 
+                    onClick={() => setUserId(user.id)}
                   >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
+                    Use my ID
+                  </Button>
+                </p>
               )}
-            />
-            
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? <Spinner size={16} className="mr-2" /> : null}
-              Create Admin User
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
+              <p className="text-sm text-gray-500 mt-2">
+                To make yourself an admin, use your own user ID shown above.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button type="submit" disabled={isSubmitting} className="w-full">
+            {isSubmitting ? "Setting up admin..." : "Set as Administrator"}
+          </Button>
+        </CardFooter>
+      </form>
     </Card>
   );
-};
+}

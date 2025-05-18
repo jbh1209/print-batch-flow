@@ -40,17 +40,6 @@ const PostcardJobsPage = () => {
     }
   };
 
-  const handleEditJob = (jobId: string) => {
-    console.log("Navigating to job edit:", jobId);
-    if (config.routes.jobEditPath) {
-      const path = config.routes.jobEditPath(jobId);
-      console.log("Navigation path:", path);
-      navigate(path);
-    } else {
-      console.error("No jobEditPath route defined in config");
-    }
-  };
-
   const handleSelectionChange = (jobs: any[]) => {
     setSelectedJobs(jobs);
   };
@@ -94,8 +83,7 @@ const PostcardJobsPage = () => {
         }}
         isFixingBatchedJobs={isFixingBatchedJobs}
         config={config}
-        onViewJob={handleViewJob}
-        onEditJob={handleEditJob}
+        onViewJob={handleViewJob} // This function is now properly implemented
       />
 
       <GenericBatchCreateDialog

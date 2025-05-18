@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { LaminationType } from "@/components/business-cards/JobsTable";
 
 interface GenericBatchDetailsProps {
   batchId: string;
@@ -72,14 +73,17 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     status: batch.status as BatchStatus
   };
 
-  // Convert related jobs to match the Job interface, ensuring job_number is included
+  // Convert related jobs to match the Job interface
   const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
     id: job.id,
     name: job.name || '',
     quantity: job.quantity,
     status: job.status,
     pdf_url: job.pdf_url || null,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
+    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}`, // Ensure job_number is always provided
+    due_date: job.due_date || new Date().toISOString(), // Ensure due_date is always provided
+    file_name: job.file_name || job.name || '', // Ensure file_name is always provided
+    lamination_type: (job.lamination_type || 'none') as LaminationType // Ensure compatibility with LaminationType
   }));
 
   return (

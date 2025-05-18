@@ -23,10 +23,11 @@ export function useFlyerBatches(batchId: string | null = null) {
     setError(null);
 
     try {
-      // Use the "batches" table but filter to include only flyer batches
+      // Use the "batches" table but filter by created_by and include only flyer batches
       let query = supabase
         .from('batches')
         .select('*')
+        .eq('created_by', user.id)
         .filter('name', 'ilike', 'DXB-FL-%'); // Only fetch flyer batches (prefix DXB-FL-)
       
       // If batchId is specified, filter to only show that batch
@@ -125,10 +126,10 @@ export function useFlyerBatches(batchId: string | null = null) {
       
       console.log("Batch deleted successfully");
       
-      // Update local state to remove the deleted batch
-      setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchToDelete));
-      
       toast.success("Batch deleted and its jobs returned to queue");
+      
+      // Refresh batch list
+      fetchBatches();
     } catch (error) {
       console.error("Error deleting batch:", error);
       toast.error("Failed to delete batch. Please try again.");

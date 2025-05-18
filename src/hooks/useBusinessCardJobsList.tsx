@@ -7,7 +7,6 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { useJobFilters } from "./business-cards/useJobFilters";
 import { useJobSelection } from "./business-cards/useJobSelection";
 import { useBatchCleanup } from "./business-cards/useBatchCleanup";
-import { toast as sonnerToast } from "sonner";
 
 export const useBusinessCardJobsList = () => {
   const { toast } = useToast();
@@ -43,12 +42,19 @@ export const useBusinessCardJobsList = () => {
     setError(null);
     
     try {
-      console.log("Fetching all business card jobs");
+      if (!user) {
+        console.log("No authenticated user found for jobs");
+        setIsLoading(false);
+        return;
+      }
       
-      // Remove user_id filter to allow seeing all jobs (assuming that's what we want)
+      console.log("Fetching business card jobs for user:", user.id);
+      
       let query = supabase
         .from('business_card_jobs')
-        .select('*');
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
       
       if (filterView !== 'all') {
         query = query.eq('status', filterView);
@@ -58,27 +64,19 @@ export const useBusinessCardJobsList = () => {
         query = query.eq('lamination_type', laminationFilter);
       }
       
-      // Order by most recent first
-      query = query.order('created_at', { ascending: false });
-      
       const { data, error: fetchError } = await query;
       
       if (fetchError) throw fetchError;
       
       console.log("Business card jobs data received:", data?.length || 0, "records");
       
-      if (data && data.length > 0) {
-        sonnerToast.success(`Found ${data.length} jobs`);
-      } else {
-        sonnerToast.info("No jobs found. You can create a new job.");
-      }
-      
       setJobs(data || []);
       
       // Second query to get all job counts for filters
       const { data: allJobs, error: countError } = await supabase
         .from('business_card_jobs')
-        .select('status');
+        .select('status')
+        .eq('user_id', user.id);
       
       if (countError) throw countError;
       
@@ -98,7 +96,6 @@ export const useBusinessCardJobsList = () => {
         description: "There was a problem loading your jobs.",
         variant: "destructive",
       });
-      sonnerToast.error("Failed to load jobs. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -124,8 +121,6 @@ export const useBusinessCardJobsList = () => {
         description: "The job was successfully deleted.",
       });
       
-      sonnerToast.success("Job deleted successfully");
-      
       return true;
     } catch (error) {
       console.error('Error deleting job:', error);
@@ -134,14 +129,13 @@ export const useBusinessCardJobsList = () => {
         description: "There was a problem deleting the job.",
         variant: "destructive",
       });
-      sonnerToast.error("Failed to delete job. Please try again.");
       return false;
     }
   };
 
   useEffect(() => {
     fetchJobs();
-  }, [filterView, laminationFilter]);
+  }, [user, filterView, laminationFilter]);
   
   useEffect(() => {
     if (user) {

@@ -22,7 +22,7 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   
   const { batches, isLoading, error, fetchBatches } = useBatchFetching(config, batchId);
   const { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch } = 
-    useBatchDeletion(validTableName, fetchBatches);
+    useBatchDeletion(validTableName as ExistingTableName, fetchBatches);
   const { handleViewPDF, handleViewBatchDetails } = useBatchNavigation(config.productType);
   const { createBatchWithSelectedJobs, isCreatingBatch } = 
     useBatchCreation(config.productType, validTableName || "");

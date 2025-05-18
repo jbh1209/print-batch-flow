@@ -9,7 +9,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Edit, Trash2, AlertTriangle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,14 +32,9 @@ interface UserTableProps {
 }
 
 export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
-  const formatDate = (dateString?: string) => {
+  const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleDateString();
-    } catch (e) {
-      console.error('Invalid date format:', dateString);
-      return 'Invalid date';
-    }
+    return new Date(dateString).toLocaleDateString();
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -58,7 +53,7 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
       onEdit(user);
     } catch (error: any) {
       console.error("Error editing user:", error);
-      toast.error(`Error editing user: ${error.message || 'Unknown error'}`);
+      toast.error(`Error editing user: ${error.message}`);
     }
   };
 
@@ -67,13 +62,13 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
       onDelete(userId);
     } catch (error: any) {
       console.error("Error deleting user:", error);
-      toast.error(`Error deleting user: ${error.message || 'Unknown error'}`);
+      toast.error(`Error deleting user: ${error.message}`);
     }
   };
 
   console.log('UserTable rendering with users:', users);
 
-  // Check if users is valid array and has items
+  // Check if users is valid and has items
   const hasUsers = Array.isArray(users) && users.length > 0;
 
   return (
@@ -96,14 +91,6 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                   <AlertTriangle className="h-8 w-8 text-amber-500" />
                   <p>No users found</p>
                   <p className="text-sm text-muted-foreground">This could be due to missing user data or permission issues</p>
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => window.location.reload()}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" /> Refresh Page
-                  </Button>
                 </div>
               </TableCell>
             </TableRow>
@@ -113,9 +100,9 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                 <TableCell>
                   <div className="font-medium">{user.full_name || 'No Name'}</div>
                 </TableCell>
-                <TableCell>{user.email || 'No Email'}</TableCell>
+                <TableCell>{user.email}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={getRoleBadgeColor(user.role || 'user')}>
+                  <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
                     {user.role || 'user'}
                   </Badge>
                 </TableCell>

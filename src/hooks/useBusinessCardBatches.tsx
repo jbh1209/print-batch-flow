@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LaminationType } from "@/components/business-cards/JobsTable";
-import { BatchStatus } from "@/config/productTypes";
+import { BatchStatus } from "@/config/productTypes"; // Import from config instead
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 
 interface Batch {
@@ -17,7 +17,7 @@ interface Batch {
   back_pdf_url: string | null;
   due_date: string;
   created_at: string;
-  status: BatchStatus;
+  status: BatchStatus; // Now using our shared BatchStatus type
 }
 
 export const useBusinessCardBatches = (batchId: string | null) => {
@@ -41,11 +41,12 @@ export const useBusinessCardBatches = (batchId: string | null) => {
         return;
       }
       
-      console.log("Fetching all business card batches");
+      console.log("Fetching business card batches for user:", user.id);
       
       let query = supabase
         .from("batches")
         .select("*")
+        .eq("created_by", user.id)
         .filter('name', 'ilike', 'DXB-BC-%'); // Only fetch business card batches (prefix DXB-BC-)
         
       // If batchId is specified, filter to only show that batch
@@ -145,8 +146,7 @@ export const useBusinessCardBatches = (batchId: string | null) => {
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    // Update to use path parameter instead of query parameter
-    navigate(`/batches/business-cards/batches/${batchId}`);
+    navigate(`/batches/business-cards/batches?batchId=${batchId}`);
   };
 
   useEffect(() => {

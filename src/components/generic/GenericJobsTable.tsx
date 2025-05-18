@@ -1,16 +1,29 @@
 
-import React, { useState } from "react";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Table, 
+  TableHeader, 
+  TableBody, 
+  TableHead, 
+  TableRow, 
+  TableCell 
+} from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
-import { ProductConfig, BaseJob } from "@/config/productTypes";
-import { Table, TableHeader, TableRow, TableHead, TableBody } from "@/components/ui/table";
-import { useFileUpload } from "@/hooks/useFileUpload";
-import { FlyerJobsEmptyState } from "@/components/flyers/components/FlyerJobsEmptyState";
-import GenericJobsTableBody from "./GenericJobsTableBody";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { Eye, FilePenLine, MoreHorizontal, Trash2, FileUp } from "lucide-react";
+import JobStatusBadge from '@/components/JobStatusBadge';
+import { format } from 'date-fns';
+import { BaseJob, ProductConfig } from '@/config/productTypes';
 
 interface GenericJobsTableProps {
-  config: ProductConfig;
   jobs: BaseJob[];
   isLoading: boolean;
   error: string | null;
@@ -18,14 +31,13 @@ interface GenericJobsTableProps {
   fetchJobs: () => Promise<void>;
   createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
   isCreatingBatch: boolean;
-  fixBatchedJobsWithoutBatch: () => Promise<number | void>;
+  fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
   isFixingBatchedJobs?: boolean;
-  onEditJob?: (jobId: string) => void;
-  onViewJob?: (jobId: string) => void;
+  config: ProductConfig;
+  onViewJob?: (jobId: string) => void; // Add this prop
 }
 
-const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
-  config,
+const GenericJobsTable = ({
   jobs,
   isLoading,
   error,
@@ -35,106 +47,197 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
   isCreatingBatch,
   fixBatchedJobsWithoutBatch,
   isFixingBatchedJobs,
-  onEditJob,
-  onViewJob,
-}) => {
+  config
+}: GenericJobsTableProps) => {
   const navigate = useNavigate();
-  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
-  const [showBatchDialog, setShowBatchDialog] = useState(false);
-
-  // Handle selecting all jobs
-  const handleSelectAllJobs = (isSelected: boolean) => {
-    if (isSelected) {
-      setSelectedJobs(jobs.filter(job => job.status === 'queued').map(job => job.id));
+  const [jobToDelete, setJobToDelete] = useState<string | null>(null);
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedJobs, setSelectedJobs] = useState<BaseJob[]>([]);
+  
+  // Filter to only show queued jobs that can be selected for batching
+  const queuedJobs = jobs.filter(job => job.status === 'queued');
+  
+  // Update selected jobs when selection changes
+  useEffect(() => {
+    const selected = jobs.filter(job => selectedJobIds.includes(job.id));
+    setSelectedJobs(selected);
+  }, [selectedJobIds, jobs]);
+  
+  const handleViewJob = (id: string) => {
+    navigate(config.routes.jobDetailPath(id));
+  };
+  
+  const handleEditJob = (id: string) => {
+    navigate(config.routes.jobEditPath(id));
+  };
+  
+  const confirmDelete = async () => {
+    if (!jobToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      await deleteJob(jobToDelete);
+    } finally {
+      setIsDeleting(false);
+      setJobToDelete(null);
+    }
+  };
+  
+  const handleSelectJob = (jobId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedJobIds((prev) => [...prev, jobId]);
     } else {
-      setSelectedJobs([]);
+      setSelectedJobIds((prev) => prev.filter((id) => id !== jobId));
     }
   };
-
-  // Handle selecting individual job
-  const handleSelectJob = (jobId: string, isSelected: boolean) => {
-    if (isSelected) {
-      setSelectedJobs(prev => [...prev, jobId]);
+  
+  const handleSelectAllJobs = (checked: boolean) => {
+    if (checked) {
+      setSelectedJobIds(queuedJobs.map((job) => job.id));
     } else {
-      setSelectedJobs(prev => prev.filter(id => id !== jobId));
+      setSelectedJobIds([]);
     }
   };
-
-  // Get selected job objects
-  const getSelectedJobObjects = () => {
-    return jobs.filter(job => selectedJobs.includes(job.id));
+  
+  const handleBatchSelected = () => {
+    const selectedJobs = jobs.filter(job => selectedJobIds.includes(job.id));
+    createBatch(selectedJobs, {});
   };
-
-  // Handle job edit
-  const handleEditJob = (jobId: string) => {
-    if (onEditJob) {
-      onEditJob(jobId);
-    }
-  };
-
-  // Handle job view
-  const handleViewJob = (jobId: string) => {
-    if (onViewJob) {
-      onViewJob(jobId);
-    }
-  };
-
-  // Handle job deletion
-  const handleDeleteJob = async (jobId: string) => {
-    const confirmed = window.confirm("Are you sure you want to delete this job? This action cannot be undone.");
-    if (confirmed) {
-      const success = await deleteJob(jobId);
-      if (success) {
-        setSelectedJobs(prev => prev.filter(id => id !== jobId));
-        toast.success("Job deleted successfully");
-      }
-    }
-  };
-
-  // Check if all queued jobs are selected
-  const areAllQueuedJobsSelected = () => {
-    const queuedJobs = jobs.filter(job => job.status === 'queued');
-    return queuedJobs.length > 0 && queuedJobs.every(job => selectedJobs.includes(job.id));
-  };
-
-  // Count queued jobs
-  const countQueuedJobs = () => jobs.filter(job => job.status === 'queued').length;
-
-  // If there are no jobs, show empty state
-  if (jobs.length === 0) {
-    return <FlyerJobsEmptyState productType={config.productType} />;
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <p>Loading jobs...</p>
+      </div>
+    );
   }
-
+  
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
+        <p>Error: {error}</p>
+      </div>
+    );
+  }
+  
+  if (jobs.length === 0) {
+    return (
+      <div className="text-center py-8 bg-gray-50 rounded-lg">
+        <h3 className="text-lg font-medium">No jobs found</h3>
+        <p className="text-gray-500 mt-2">Create a new job to get started.</p>
+      </div>
+    );
+  }
+  
   return (
     <div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-12"></TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Job #</TableHead>
-            {config.hasSize && <TableHead>Size</TableHead>}
-            {config.productType === "Sleeves" ? 
-              <TableHead>Stock Type</TableHead> : 
-              <TableHead>Paper</TableHead>
-            }
-            <TableHead>Quantity</TableHead>
-            <TableHead>Due Date</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-
-        <GenericJobsTableBody 
-          jobs={jobs}
-          config={config}
-          selectedJobs={selectedJobs}
-          onSelectJob={handleSelectJob}
-          onDeleteJob={handleDeleteJob}
-          onEditJob={handleEditJob}
-          onViewJob={handleViewJob}
-        />
-      </Table>
+      {queuedJobs.length > 0 && (
+        <div className="mb-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <Checkbox 
+              checked={selectedJobIds.length === queuedJobs.length && queuedJobs.length > 0}
+              onCheckedChange={handleSelectAllJobs}
+            />
+            <span className="ml-2">
+              {selectedJobIds.length} of {queuedJobs.length} jobs selected
+            </span>
+          </div>
+          
+          {selectedJobIds.length > 0 && (
+            <Button onClick={handleBatchSelected}>
+              <FileUp className="mr-2 h-4 w-4" />
+              Batch Selected ({selectedJobIds.length})
+            </Button>
+          )}
+        </div>
+      )}
+      
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[40px]"></TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Job Number</TableHead>
+              {config.hasSize && <TableHead>Size</TableHead>}
+              {config.hasPaperType && <TableHead>Paper Type</TableHead>}
+              <TableHead>Quantity</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {jobs.map((job) => (
+              <TableRow key={job.id}>
+                <TableCell>
+                  {job.status === 'queued' && (
+                    <Checkbox 
+                      checked={selectedJobIds.includes(job.id)}
+                      onCheckedChange={(checked) => handleSelectJob(job.id, !!checked)}
+                    />
+                  )}
+                </TableCell>
+                <TableCell>{job.name}</TableCell>
+                <TableCell>{job.job_number}</TableCell>
+                {config.hasSize && <TableCell>{job.size || 'N/A'}</TableCell>}
+                {config.hasPaperType && <TableCell>{job.paper_type || 'N/A'}</TableCell>}
+                <TableCell>{job.quantity}</TableCell>
+                <TableCell>
+                  <JobStatusBadge status={job.status} />
+                </TableCell>
+                <TableCell>{format(new Date(job.due_date), 'MMM dd, yyyy')}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleViewJob(job.id)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEditJob(job.id)}>
+                        <FilePenLine className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => setJobToDelete(job.id)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!jobToDelete} onOpenChange={(open) => !open && setJobToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this job?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              job and all its data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

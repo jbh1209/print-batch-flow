@@ -1,5 +1,5 @@
 
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useFlyerBatches } from '@/hooks/useFlyerBatches';
 import { FlyerBatchOverview } from '@/components/flyers/FlyerBatchOverview';
 import FlyerBatchLoading from '@/components/flyers/batch-details/FlyerBatchLoading';
@@ -12,11 +12,9 @@ import RelatedJobsCard from '@/components/batches/RelatedJobsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
-import { toast } from 'sonner';
 
 const FlyerBatchDetails = () => {
-  const { batchId } = useParams();
-  const navigate = useNavigate();
+  const { batchId } = useParams(); // Use path parameter instead of query parameter
   const [relatedJobs, setRelatedJobs] = useState<FlyerJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   
@@ -28,21 +26,9 @@ const FlyerBatchDetails = () => {
     isDeleting,
     handleDeleteBatch,
     setBatchToDelete
-  } = useFlyerBatches(batchId || null);
+  } = useFlyerBatches(batchId);
 
   const batch = batches[0];
-  
-  // Custom delete handler that navigates back after deletion
-  const handleDeleteWithRedirect = async () => {
-    try {
-      await handleDeleteBatch();
-      // Navigate back to batches list on successful deletion
-      navigate('/batches/flyers/batches');
-      toast.success("Batch deleted successfully");
-    } catch (error) {
-      console.error("Error during batch deletion:", error);
-    }
-  };
 
   // Fetch related jobs for the current batch
   useEffect(() => {
@@ -111,7 +97,7 @@ const FlyerBatchDetails = () => {
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
         onClose={() => setBatchToDelete(null)}
-        onConfirm={handleDeleteWithRedirect}
+        onConfirm={handleDeleteBatch}
       />
     </div>
   );

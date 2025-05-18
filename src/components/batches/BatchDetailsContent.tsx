@@ -9,6 +9,7 @@ import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BaseJob } from "@/config/productTypes";
+import { LaminationType } from "@/components/business-cards/JobsTable";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -33,7 +34,13 @@ const BatchDetailsContent = ({
     }
     
     try {
-      await downloadBatchJobPdfs(relatedJobs, batch.name);
+      // Convert our Job type to match what downloadBatchJobPdfs expects
+      const businessCardJobs = relatedJobs.map(job => ({
+        ...job,
+        lamination_type: (job.lamination_type || 'none') as LaminationType
+      }));
+      
+      await downloadBatchJobPdfs(businessCardJobs, batch.name);
     } catch (error) {
       console.error("Error downloading job PDFs:", error);
       toast.error("Failed to download job PDFs");
@@ -59,16 +66,16 @@ const BatchDetailsContent = ({
     }
   };
   
-  // Convert Job[] to BaseJob[] for FlyerBatchOverview - ensure job_number is passed directly
+  // Convert Job[] to BaseJob[] for FlyerBatchOverview - ensuring all required fields are present
   const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
     return jobs.map(job => ({
       ...job,
-      // Directly copy job_number as is - no fallbacks
       job_number: job.job_number,
-      due_date: job.due_date || new Date().toISOString(),
-      file_name: job.file_name || "",
+      due_date: job.due_date,
+      file_name: job.file_name,
       user_id: job.user_id || "",
       created_at: job.created_at || new Date().toISOString(),
+      lamination_type: job.lamination_type || 'none'
     })) as BaseJob[];
   };
   

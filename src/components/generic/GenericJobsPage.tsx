@@ -2,10 +2,9 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Loader2, AlertCircle } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
 import GenericJobsTable from "./GenericJobsTable";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface GenericJobsPageProps {
   config: ProductConfig;
@@ -17,7 +16,7 @@ interface GenericJobsPageProps {
     fetchJobs: () => Promise<void>;
     createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
     isCreatingBatch: boolean;
-    fixBatchedJobsWithoutBatch: () => Promise<number | void>;
+    fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
     isFixingBatchedJobs?: boolean;
   };
 }
@@ -35,49 +34,6 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
     fixBatchedJobsWithoutBatch,
     isFixingBatchedJobs
   } = useJobsHook();
-
-  // Error state handling
-  const renderErrorState = () => {
-    return (
-      <Alert variant="destructive" className="mb-6">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error loading jobs</AlertTitle>
-        <AlertDescription>
-          {error}
-          <div className="mt-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={fetchJobs}
-            >
-              Try Again
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert>
-    );
-  };
-
-  // Loading state handling
-  const renderLoadingState = () => {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="h-12 w-12 animate-spin text-gray-300 mb-4" />
-        <h3 className="font-medium text-lg mb-1">Loading jobs...</h3>
-        <p className="text-sm text-gray-400">Please wait while we fetch your data</p>
-      </div>
-    );
-  };
-
-  // Handle edit job action
-  const handleEditJob = (jobId: string) => {
-    navigate(config.routes.jobEditPath(jobId));
-  };
-
-  // Handle view job action
-  const handleViewJob = (jobId: string) => {
-    navigate(config.routes.jobDetailPath(jobId));
-  };
 
   return (
     <div>
@@ -105,27 +61,19 @@ const GenericJobsPage: React.FC<GenericJobsPageProps> = ({ config, useJobsHook }
         </div>
       </div>
       
-      {error && renderErrorState()}
-      
       <div className="mt-4">
-        {isLoading ? (
-          renderLoadingState()
-        ) : (
-          <GenericJobsTable 
-            config={config}
-            jobs={jobs}
-            isLoading={isLoading}
-            error={error}
-            deleteJob={deleteJob}
-            fetchJobs={fetchJobs}
-            createBatch={createBatch}
-            isCreatingBatch={isCreatingBatch}
-            fixBatchedJobsWithoutBatch={fixBatchedJobsWithoutBatch}
-            isFixingBatchedJobs={isFixingBatchedJobs}
-            onEditJob={handleEditJob}
-            onViewJob={handleViewJob}
-          />
-        )}
+        <GenericJobsTable 
+          config={config}
+          jobs={jobs}
+          isLoading={isLoading}
+          error={error}
+          deleteJob={deleteJob}
+          fetchJobs={fetchJobs}
+          createBatch={createBatch}
+          isCreatingBatch={isCreatingBatch}
+          fixBatchedJobsWithoutBatch={fixBatchedJobsWithoutBatch}
+          isFixingBatchedJobs={isFixingBatchedJobs}
+        />
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 
-export const AccessRestricted = () => {
+export function AccessRestrictedMessage() {
   return (
     <Card>
       <CardContent className="p-6 text-center">
@@ -10,4 +10,4 @@ export const AccessRestricted = () => {
       </CardContent>
     </Card>
   );
-};
+}

@@ -1,135 +1,179 @@
 
 import React from "react";
-import { format } from "date-fns";
-import { FileText, Pencil, Trash2 } from "lucide-react";
-import { TableCell, TableRow, TableBody } from "@/components/ui/table";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { BaseJob, ProductConfig } from "@/config/productTypes";
+import { Eye, Trash2, FileText } from "lucide-react";
 import JobStatusBadge from "@/components/JobStatusBadge";
-import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
+import { ProductConfig, BaseJob } from "@/config/productTypes";
 
 interface GenericJobsTableBodyProps {
   jobs: BaseJob[];
-  config: ProductConfig;
+  isLoading: boolean;
+  error: string | null;
   selectedJobs: string[];
   onSelectJob: (jobId: string, isSelected: boolean) => void;
-  onDeleteJob: (jobId: string) => void;
-  onEditJob: (jobId: string) => void;
-  onViewJob?: (jobId: string) => void; // Adding this prop
+  onDeleteJob: (jobId: string) => Promise<void>;
+  onViewJob?: (jobId: string) => void;
+  config: ProductConfig;
 }
 
 const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
   jobs,
-  config,
+  isLoading,
+  error,
   selectedJobs,
   onSelectJob,
   onDeleteJob,
-  onEditJob,
-  onViewJob
+  onViewJob,
+  config
 }) => {
-  // Get row background class based on urgency and status
-  const getRowBackgroundClass = (job: BaseJob) => {
-    if (selectedJobs.includes(job.id)) return "bg-primary/5";
-    
-    // Status-based coloring
-    switch (job.status) {
-      case 'completed': return 'bg-green-50';
-      case 'batched': return 'bg-blue-50';
-      case 'cancelled': return 'bg-red-50';
-    }
-    
-    // If status doesn't determine color, use urgency
-    const urgency = calculateJobUrgency(job.due_date, config);
-    return getUrgencyBackgroundClass(urgency);
-  };
-
-  // Format date string
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), "dd MMM yyyy");
+      return format(new Date(dateString), "MMM dd, yyyy");
     } catch (error) {
-      return "Invalid date";
+      return dateString;
     }
   };
 
-  // Handle view job action
-  const handleViewJob = (jobId: string) => {
-    if (onViewJob) {
-      onViewJob(jobId);
-    }
+  const isJobSelectable = (job: BaseJob) => {
+    return job.status === "queued";
   };
+
+  if (isLoading) {
+    return (
+      <TableRow>
+        <TableCell colSpan={9} className="h-24 text-center">
+          <div className="flex justify-center items-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (error) {
+    return (
+      <TableRow>
+        <TableCell colSpan={9} className="h-24 text-center">
+          <div className="flex flex-col items-center justify-center h-full">
+            <p className="text-red-500">{error}</p>
+            <Button variant="outline" size="sm" className="mt-2">
+              Retry
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (jobs.length === 0) {
+    return (
+      <TableRow>
+        <TableCell colSpan={9} className="h-24 text-center">
+          <div className="flex flex-col items-center justify-center h-full">
+            <p className="text-gray-500">No jobs found</p>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
 
   return (
-    <TableBody>
-      {jobs.map(job => (
-        <TableRow key={job.id} className={getRowBackgroundClass(job)}>
-          <TableCell>
-            <Checkbox 
-              checked={selectedJobs.includes(job.id)} 
-              onCheckedChange={(checked) => onSelectJob(job.id, checked === true)}
-              disabled={job.status !== "queued"} 
-            />
-          </TableCell>
-          <TableCell className="font-medium">{job.name || "Untitled"}</TableCell>
-          <TableCell>{job.job_number}</TableCell>
-          {config.hasSize && <TableCell>{job.size || "N/A"}</TableCell>}
-          <TableCell>
-            {config.productType === "Sleeves" ? job.stock_type : 
-              <>
-                {job.paper_weight && `${job.paper_weight} `}
-                {job.paper_type || "Standard"}
-                {job.lamination_type && job.lamination_type !== "none" && (
-                  <Badge variant="outline" className="ml-2">
-                    {job.lamination_type.replace("_", " ")}
-                  </Badge>
-                )}
-              </>
-            }
-          </TableCell>
-          <TableCell>{job.quantity}</TableCell>
-          <TableCell>{formatDate(job.due_date)}</TableCell>
-          <TableCell>
-            <JobStatusBadge status={job.status} />
-          </TableCell>
-          <TableCell>
-            <div className="flex gap-2 justify-end">
-              <Button
-                size="icon"
-                variant="ghost"
-                title="View Job Details"
-                onClick={() => handleViewJob(job.id)}
+    <>
+      {jobs.map((job) => {
+        const isSelected = selectedJobs.includes(job.id);
+        const canSelect = isJobSelectable(job);
+
+        return (
+          <TableRow key={job.id} className={isSelected ? "bg-primary/5" : undefined}>
+            <TableCell>
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => onSelectJob(job.id, checked === true)}
+                disabled={!canSelect}
+              />
+            </TableCell>
+            <TableCell 
+              className="font-medium cursor-pointer hover:text-primary"
+              onClick={() => onViewJob && onViewJob(job.id)}
+            >
+              {job.name}
+            </TableCell>
+            <TableCell>
+              <span
+                className="text-blue-600 hover:underline cursor-pointer"
+                onClick={() => {
+                  if (job.pdf_url) {
+                    window.open(job.pdf_url, "_blank");
+                  }
+                }}
               >
-                <FileText size={16} />
-              </Button>
-              
-              {job.status === "queued" && (
-                <>
+                {job.file_name}
+              </span>
+            </TableCell>
+            <TableCell>{job.quantity}</TableCell>
+            {config.hasSize && <TableCell>{job.size || "-"}</TableCell>}
+            {config.hasPaperType && <TableCell>{job.paper_type || "-"}</TableCell>}
+            {(job.lamination_type !== undefined) && (
+              <TableCell>
+                {job.lamination_type === "none"
+                  ? "None"
+                  : job.lamination_type.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+              </TableCell>
+            )}
+            <TableCell>
+              <div className="flex items-center">
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  new Date(job.due_date) < new Date() 
+                    ? "bg-red-500" 
+                    : new Date(job.due_date) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) 
+                      ? "bg-yellow-500" 
+                      : "bg-green-500"
+                }`}></div>
+                {formatDate(job.due_date)}
+              </div>
+            </TableCell>
+            <TableCell>{formatDate(job.created_at)}</TableCell>
+            <TableCell>
+              <JobStatusBadge status={job.status} />
+            </TableCell>
+            <TableCell>
+              <div className="flex space-x-2 justify-end">
+                {onViewJob && (
                   <Button
                     size="icon"
                     variant="ghost"
-                    title="Edit Job"
-                    onClick={() => onEditJob(job.id)}
+                    onClick={() => onViewJob(job.id)}
+                    title="View Job Details"
                   >
-                    <Pencil size={16} />
+                    <Eye className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Delete Job"
-                    onClick={() => onDeleteJob(job.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 size={16} />
-                  </Button>
-                </>
-              )}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
+                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => job.pdf_url && window.open(job.pdf_url, "_blank")}
+                  title="View PDF"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onDeleteJob(job.id)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  title="Delete Job"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </TableCell>
+          </TableRow>
+        );
+      })}
+    </>
   );
 };
 
