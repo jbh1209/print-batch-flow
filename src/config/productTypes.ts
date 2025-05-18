@@ -17,9 +17,9 @@ import { boxesConfig } from './products/boxes';
 import { ProductConfig } from './types/productConfigTypes';
 import { ExistingTableName } from './types/baseTypes';
 
-// Export product configs dictionary
+// Export product configs dictionary with consistent key naming
 export const productConfigs: Record<string, ProductConfig> = {
-  "BusinessCards": businessCardsConfig,
+  "Business Cards": businessCardsConfig,
   "Flyers": flyersConfig,
   "Postcards": postcardsConfig,
   "Sleeves": sleevesConfig,

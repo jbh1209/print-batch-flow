@@ -6,7 +6,7 @@ import { GenericJobForm } from '@/components/generic/GenericJobForm';
 
 const BusinessCardJobNewPage = () => {
   const navigate = useNavigate();
-  const config = productConfigs["BusinessCards"];
+  const config = productConfigs["Business Cards"];
 
   return (
     <GenericJobForm 

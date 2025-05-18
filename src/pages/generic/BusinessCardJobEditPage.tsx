@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 const BusinessCardJobEditPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
-  const config = productConfigs["BusinessCards"];
+  const config = productConfigs["Business Cards"];
 
   // Fetch job data first before rendering the form
   const { data: jobData, isLoading } = useQuery({
