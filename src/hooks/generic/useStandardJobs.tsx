@@ -141,18 +141,26 @@ export function useStandardJobs<T extends BaseJob = BaseJob>(
     }
   };
   
-  const getJobById = async (jobId: string) => {
+  // Fix the getJobById function to properly handle generic types
+  const getJobById = async (jobId: string): Promise<T | null> => {
     try {
       const job = await baseGetJobById(jobId, user?.id || '');
       if (!job) return null;
       
-      if (validateData && !ensureValidJobsArray([job]).length) {
-        console.error("Invalid job data received:", job);
-        toast.error("Retrieved job data is invalid");
-        return null;
+      if (validateData) {
+        // Make sure the job data is valid before returning it
+        const validatedJobs = ensureValidJobsArray([job]);
+        if (validatedJobs.length === 0) {
+          console.error("Invalid job data received:", job);
+          toast.error("Retrieved job data is invalid");
+          return null;
+        }
+        // Since we know this is a job of type T, we can safely cast it
+        return job as T;
       }
       
-      return job;
+      // If validation is disabled, just return the job as is
+      return job as T;
     } catch (err) {
       console.error("Error getting job by ID:", err);
       toast.error(`Failed to load job details: ${err instanceof Error ? err.message : String(err)}`);
