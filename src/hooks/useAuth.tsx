@@ -29,6 +29,20 @@ const AuthContext = createContext<AuthContextType>({
   checkIsAdmin: async () => false,
 });
 
+// Helper function to clean up auth state
+const cleanupAuthState = () => {
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      localStorage.removeItem(key);
+    }
+  });
+  Object.keys(sessionStorage || {}).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      sessionStorage.removeItem(key);
+    }
+  });
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -106,30 +120,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let isSubscribed = true;
-    
+
     // Set up auth state listener FIRST to avoid missing events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, newSession) => {
         if (!isSubscribed) return;
-        
-        setSession(session);
-        
+
+        // Update session state
+        setSession(newSession);
+
         // Convert Supabase user to our User type
-        if (session?.user) {
+        if (newSession?.user) {
           const userObj: User = {
-            id: session.user.id,
-            email: session.user.email || undefined
+            id: newSession.user.id,
+            email: newSession.user.email || undefined
           };
           setUser(userObj);
-          
-          // Fetch profile if we have a user - use setTimeout to avoid recursive RLS issues
+
+          // Using setTimeout to avoid recursive RLS issues
           setTimeout(async () => {
             if (!isSubscribed) return;
             
-            const profile = await fetchProfile(session.user.id);
-            setProfile(profile);
-            await updateAdminStatus(session.user.id);
-            setLoading(false);
+            try {
+              const profile = await fetchProfile(newSession.user!.id);
+              setProfile(profile);
+              await updateAdminStatus(newSession.user!.id);
+              setLoading(false);
+            } catch (error) {
+              console.error("Error loading user data:", error);
+              setLoading(false);
+            }
           }, 0);
         } else {
           setUser(null);
@@ -141,26 +161,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session: currentSession }, error }) => {
+      if (error) {
+        console.error("Error getting session:", error);
+        setLoading(false);
+        return;
+      }
+
       if (!isSubscribed) return;
       
-      setSession(session);
+      setSession(currentSession);
       
       // Fetch profile if we have a user
-      if (session?.user) {
+      if (currentSession?.user) {
         // Convert Supabase user to our User type
         const userObj: User = {
-          id: session.user.id,
-          email: session.user.email || undefined
+          id: currentSession.user.id,
+          email: currentSession.user.email || undefined
         };
         setUser(userObj);
         
-        const profile = await fetchProfile(session.user.id);
-        setProfile(profile);
-        await updateAdminStatus(session.user.id);
+        // Using setTimeout to avoid potential recursive RLS issues
+        setTimeout(async () => {
+          if (!isSubscribed) return;
+          
+          try {
+            const profile = await fetchProfile(currentSession.user!.id);
+            setProfile(profile);
+            await updateAdminStatus(currentSession.user!.id);
+          } catch (error) {
+            console.error("Error loading user data:", error);
+          } finally {
+            setLoading(false);
+          }
+        }, 0);
       } else {
         setUser(null);
+        setProfile(null);
+        setIsAdmin(false);
+        setLoading(false);
       }
+    }).catch(error => {
+      console.error("Error in getSession:", error);
       setLoading(false);
     });
 
@@ -172,9 +214,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // Clean up auth state first
+      cleanupAuthState();
+      
+      // Attempt global sign out
+      await supabase.auth.signOut({ scope: 'global' });
+      
+      // Force page reload for a clean state
+      window.location.href = '/auth';
     } catch (error) {
       console.error('Error signing out:', error);
+      
+      // If normal signout fails, clean up and force reload as fallback
+      cleanupAuthState();
+      window.location.href = '/auth';
     }
   };
 

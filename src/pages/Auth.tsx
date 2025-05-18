@@ -11,6 +11,24 @@ import { toast } from 'sonner';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// Helper function to clean up auth state
+const cleanupAuthState = () => {
+  // Remove standard auth tokens
+  localStorage.removeItem('supabase.auth.token');
+  // Remove all Supabase auth keys from localStorage
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      localStorage.removeItem(key);
+    }
+  });
+  // Remove from sessionStorage if in use
+  Object.keys(sessionStorage || {}).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      sessionStorage.removeItem(key);
+    }
+  });
+};
+
 const Auth = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -37,6 +55,18 @@ const Auth = () => {
     
     setLoading(true);
     try {
+      // First clean up any existing auth state
+      cleanupAuthState();
+      
+      // Attempt to sign out globally to ensure clean state
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (signOutError) {
+        console.log("Sign out before login failed, continuing anyway:", signOutError);
+        // Continue despite sign out errors
+      }
+      
+      // Now attempt login with clean state
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -45,7 +75,9 @@ const Auth = () => {
       if (error) throw error;
       
       toast.success("Login successful!");
-      navigate('/');
+      
+      // Force a page reload to ensure clean state
+      window.location.href = '/';
     } catch (error: any) {
       console.error("Auth error:", error);
       setErrorMessage(error.message || 'Error signing in');
