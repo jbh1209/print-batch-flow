@@ -1,7 +1,7 @@
 
 import { BaseJob, BaseBatch, BatchStatus } from "@/config/types/baseTypes";
 import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
-import { LaminationType, JobStatus } from "@/components/business-cards/JobsTable";
+import { LaminationType, JobStatus } from "@/config/types/baseTypes";
 
 /**
  * Converts a BaseJob to a Job type

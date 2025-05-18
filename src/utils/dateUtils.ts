@@ -4,19 +4,20 @@ import { format, formatDistance, formatRelative, isValid } from 'date-fns';
 /**
  * Format a date string to a readable format
  * @param dateString The date string to format
- * @param formatStrOrOptions Format string or Intl.DateTimeFormatOptions
+ * @param formatStrOrOptions Optional format string or Intl.DateTimeFormatOptions
  * @returns Formatted date string
  */
-export function formatDate(dateString: string, options: Intl.DateTimeFormatOptions): string;
-export function formatDate(dateString: string, formatStr?: string): string;
-export function formatDate(dateString: string, formatStrOrOptions: string | Intl.DateTimeFormatOptions = 'MMM dd, yyyy'): string {
+export function formatDate(dateString: string, formatStrOrOptions?: string | Intl.DateTimeFormatOptions): string {
   try {
     const date = new Date(dateString);
     if (!isValid(date)) {
       return 'Invalid date';
     }
     
-    if (typeof formatStrOrOptions === 'string') {
+    if (typeof formatStrOrOptions === 'undefined') {
+      // Default format
+      return format(date, 'MMM dd, yyyy');
+    } else if (typeof formatStrOrOptions === 'string') {
       return format(date, formatStrOrOptions);
     } else {
       return new Intl.DateTimeFormat('en-US', formatStrOrOptions).format(date);
@@ -47,12 +48,7 @@ export const formatRelativeTime = (dateString: string): string => {
     // Get the relative time
     const relativeTime = formatDistance(date, now, { addSuffix: true });
     
-    // Add a style class based on urgency for past dates
-    if (isPast) {
-      return relativeTime;
-    } else {
-      return relativeTime;
-    }
+    return relativeTime;
   } catch (error) {
     console.error('Error formatting relative time:', error);
     return 'Error';

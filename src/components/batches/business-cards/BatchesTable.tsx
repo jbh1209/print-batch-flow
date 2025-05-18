@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Table,
@@ -14,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Edit, Eye, Trash2 } from 'lucide-react';
 import { deleteBatch } from '@/integrations/supabase/batches';
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatDate } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
@@ -125,8 +126,8 @@ const BatchesTable: React.FC<BatchesTableProps> = ({
                       {batch.name}
                       {urgency && (
                         <Badge variant="outline" className={`gap-1 text-xs ${getBatchUrgencyColor(urgency)}`}>
-                          {/* @ts-expect-error */}
-                          <i data-lucide={getBatchUrgencyIcon(urgency)} className="w-3 h-3">{getBatchUrgencyIcon(urgency)}</i>
+                          {/* Using Lucide icon directly instead of relying on data-lucide attribute */}
+                          {getBatchUrgencyIcon(urgency) && React.createElement(getBatchUrgencyIcon(urgency), { className: "w-3 h-3" })}
                           {urgency}
                         </Badge>
                       )}

@@ -1,103 +1,107 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import BatchesTable from "./BatchesTable";
-import EmptyState from "@/components/business-cards/EmptyState";
-import { BatchSummary } from "@/components/batches/types/BatchTypes";
+
+import React from 'react';
+import { BatchSummary } from '@/components/batches/types/BatchTypes';
+import { BatchWithJobs } from '../types/BusinessCardTypes';
+import BatchesTable from './BatchesTable';
+import BatchesPagination from '../BatchesPagination';
+import { useEffect, useState } from 'react';
+import BatchesLoading from '../BatchesLoading';
+import BatchesEmpty from '../BatchesEmpty';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface BatchesWrapperProps {
   batches: BatchSummary[];
   isLoading: boolean;
-  error?: string | null;
+  error: string | null;
   onRefresh: () => void;
   onViewPDF: (url: string | null) => void;
-  onDeleteBatch: (batchId: string) => void;
-  onViewDetails?: (batchId: string) => void; // Add this line to support viewing batch details
+  onDeleteBatch: (id: string) => void;
+  onViewDetails: (id: string) => void;
 }
 
-const BatchesWrapper = ({
+const BatchesWrapper: React.FC<BatchesWrapperProps> = ({
   batches,
   isLoading,
   error,
   onRefresh,
   onViewPDF,
   onDeleteBatch,
-  onViewDetails
-}: BatchesWrapperProps) => {
-  const navigate = useNavigate();
-  
+  onViewDetails,
+}) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const batchesPerPage = 10;
+  const [paginatedBatches, setPaginatedBatches] = useState<BatchSummary[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+
+  useEffect(() => {
+    if (batches) {
+      const totalPages = Math.ceil(batches.length / batchesPerPage);
+      setTotalPages(totalPages || 1);
+
+      const startIndex = (currentPage - 1) * batchesPerPage;
+      const endIndex = startIndex + batchesPerPage;
+      setPaginatedBatches(batches.slice(startIndex, endIndex));
+    } else {
+      setPaginatedBatches([]);
+      setTotalPages(1);
+    }
+  }, [batches, currentPage, batchesPerPage]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
   if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg border shadow p-8">
-        <EmptyState type="loading" entityName="batches" />
-      </div>
-    );
+    return <BatchesLoading />;
   }
-  
+
   if (error) {
     return (
-      <div className="bg-white rounded-lg border shadow p-8">
-        <EmptyState 
-          type="error" 
-          entityName="batches" 
-          errorMessage={error}
-          onRetry={onRefresh} 
-        />
-      </div>
+      <Alert variant="destructive" className="mb-6">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Error loading batches</AlertTitle>
+        <AlertDescription>
+          {error}
+          <div className="mt-2">
+            <Button variant="outline" size="sm" onClick={onRefresh}>
+              Try Again
+            </Button>
+          </div>
+        </AlertDescription>
+      </Alert>
     );
   }
-  
-  if (batches.length === 0) {
-    return (
-      <div className="bg-white rounded-lg border shadow p-8">
-        <EmptyState 
-          type="empty" 
-          entityName="batches"
-        />
-      </div>
-    );
-  }
-  
-  return (
-    <div className="bg-white rounded-lg border shadow mb-8">
-      <div className="border-b p-4 flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
-          {batches.length} {batches.length === 1 ? 'batch' : 'batches'} found
-        </div>
-        <Button onClick={onRefresh} variant="outline" size="sm">Refresh</Button>
-      </div>
 
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Sheets</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <BatchesTable
-              batches={batches}
-              isLoading={false}
-              onViewPDF={onViewPDF}
-              onDeleteBatch={onDeleteBatch}
-              onViewDetails={onViewDetails} // Pass the onViewDetails prop to BatchesTable
-            />
-          </TableBody>
-        </Table>
-      </div>
-    </div>
+  if (!batches || batches.length === 0) {
+    return <BatchesEmpty />;
+  }
+
+  // Convert BatchSummary[] to BatchWithJobs[] for compatibility with BatchesTable
+  const batchesWithEmptyJobs: BatchWithJobs[] = paginatedBatches.map(batch => ({
+    ...batch,
+    jobs: [] // Add empty jobs array to satisfy BatchWithJobs type
+  }));
+
+  return (
+    <>
+      <BatchesTable
+        batches={batchesWithEmptyJobs}
+        isLoading={isLoading}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+        onRefresh={onRefresh}
+      />
+      {totalPages > 1 && (
+        <BatchesPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+        />
+      )}
+    </>
   );
 };
 

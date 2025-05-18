@@ -2,12 +2,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { Job } from '@/components/business-cards/JobsTable';
+import { BusinessCardJob } from '@/components/batches/types/BusinessCardTypes';
 import { convertToJobType } from '@/utils/typeAdapters';
 import { useToast } from '@/hooks/use-toast';
 
 export const useBusinessCardJobs = () => {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<BusinessCardJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
@@ -34,7 +34,8 @@ export const useBusinessCardJobs = () => {
         console.error('Supabase error:', error);
         setError(error.message);
       } else if (data) {
-        const convertedJobs = data.map(job => convertToJobType(job));
+        // Convert from BaseJob to BusinessCardJob
+        const convertedJobs = data as BusinessCardJob[];
         setJobs(convertedJobs);
       }
     } catch (err: any) {
@@ -68,7 +69,10 @@ export const useBusinessCardJobs = () => {
           pdf_url: '',
           due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           quantity: 0,
-          lamination_type: 'none'
+          lamination_type: 'none',
+          double_sided: false,
+          uploaded_at: new Date().toISOString(),
+          paper_type: '350gsm Matt'
         })
         .select()
         .single();
@@ -77,7 +81,7 @@ export const useBusinessCardJobs = () => {
         console.error('Supabase error:', error);
         setError(error.message);
       } else if (data) {
-        const newJob = convertToJobType(data);
+        const newJob = data as BusinessCardJob;
         setJobs(prevJobs => [newJob, ...prevJobs]);
       }
     } catch (err: any) {

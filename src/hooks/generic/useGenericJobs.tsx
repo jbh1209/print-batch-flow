@@ -1,12 +1,12 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { BaseJob, ProductConfig } from '@/config/productTypes';
 import { formatDate, formatRelativeTime } from '@/utils/dateUtils';
 import { useToast } from '@/hooks/use-toast';
+import { BaseJob, ProductConfig } from '@/config/productTypes';
 
-interface UseGenericJobsProps {
+export interface UseGenericJobsProps {
   productConfig: ProductConfig;
   initialJobId?: string;
 }
@@ -97,6 +97,56 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
     }
   };
 
+  // Fix batched jobs without batch
+  const fixBatchedJobsWithoutBatch = async (): Promise<void> => {
+    if (!user) return;
+    
+    try {
+      if (!productConfig.tableName) {
+        throw new Error('Table name is not defined in product config');
+      }
+      
+      // Find all jobs with status 'batched' but no batch_id
+      const { data, error } = await supabase
+        .from(productConfig.tableName)
+        .select('*')
+        .eq('status', 'batched')
+        .is('batch_id', null);
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Reset these jobs to 'queued' status
+        const { error: updateError } = await supabase
+          .from(productConfig.tableName)
+          .update({ status: 'queued' })
+          .in('id', data.map(job => job.id));
+          
+        if (updateError) throw updateError;
+        
+        toast({
+          title: 'Jobs Fixed',
+          description: `${data.length} batched jobs without batch ID were reset to queued status.`,
+        });
+        
+        // Refresh the jobs list
+        await fetchJobs();
+      } else {
+        toast({
+          title: 'No Issues Found',
+          description: 'All batched jobs have valid batch IDs.',
+        });
+      }
+    } catch (err: any) {
+      console.error('Error fixing batched jobs:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to fix batched jobs. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Get a job by ID
   const getJobById = async (id: string): Promise<BaseJob | null> => {
     if (!user) return null;
@@ -147,6 +197,7 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
     fetchJobs,
     deleteJob,
     getJobById,
-    formatJobData
+    formatJobData,
+    fixBatchedJobsWithoutBatch
   };
 };

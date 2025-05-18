@@ -33,33 +33,25 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  // Create a custom hook for the job details based on useGenericJobs
-  const useJob = (id: string) => {
-    const { jobs, isLoading, error, deleteJob, fetchJobs } = useGenericJobs({ 
-      productConfig: config, 
-      initialJobId: id 
-    });
-    
-    const [job, setJob] = useState<BaseJob | null>(null);
-    
-    useEffect(() => {
-      const found = jobs.find(j => j.id === id);
-      if (found) {
-        setJob(found);
-      }
-    }, [jobs, id]);
-    
-    return {
-      job,
-      isLoading,
-      error,
-      onDelete: deleteJob
-    };
-  };
+  // Create a custom hook instance
+  const { jobs, isLoading, error, deleteJob, fetchJobs } = useGenericJobs({ 
+    productConfig: config, 
+    initialJobId: jobId 
+  });
   
-  const { job, isLoading, error, onDelete } = useJob(jobId || '');
+  const [job, setJob] = useState<BaseJob | null>(null);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Find the job in the jobs array when it's loaded
+    if (jobId && jobs.length > 0) {
+      const foundJob = jobs.find(j => j.id === jobId);
+      if (foundJob) {
+        setJob(foundJob);
+      }
+    }
+  }, [jobs, jobId]);
 
   useEffect(() => {
     if (error) {
@@ -89,7 +81,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
   const canModify = canModifyRecord(job.user_id, user?.id);
 
   const handleDelete = async () => {
-    const success = await onDelete(jobId);
+    const success = await deleteJob(jobId);
     if (success) {
       toast({
         title: "Success",
@@ -161,7 +153,6 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                 <span className="text-gray-700 font-medium">Created At:</span>
                 <p>{formatDate(job.created_at)}</p>
               </div>
-              {/* Add more job details here based on your job object */}
             </div>
           </CardContent>
         </Card>
