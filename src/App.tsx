@@ -22,6 +22,7 @@ import AllBatches from './pages/AllBatches';
 import { productConfigs } from './config/productTypes';
 import BatchDetailsPage from './pages/BatchDetailsPage';
 import GenericJobDetailsPage from './pages/generic/GenericJobDetailsPage';
+import FileUpload from './pages/FileUpload';
 
 // Import product type overview pages
 import Flyers from './pages/Flyers';
@@ -71,6 +72,9 @@ const App = () => {
           }>
             <Route index element={<Index />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            
+            {/* New File Upload Page */}
+            <Route path="/upload" element={<FileUpload />} />
             
             {/* All Jobs Page */}
             <Route path="/all-jobs" element={<AllJobsPage />} />

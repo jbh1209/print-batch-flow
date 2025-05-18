@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -13,7 +14,8 @@ import {
   Settings, 
   ChevronLeft,
   Mail,
-  ClipboardList
+  ClipboardList,
+  Upload
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -86,6 +88,12 @@ const Sidebar = () => {
             icon={<Layers size={20} />} 
             label={collapsed ? "" : "All Batches"} 
             isActive={location.pathname === "/batches" || location.pathname.startsWith("/batches/all")} 
+          />
+          <NavItem 
+            to="/upload" 
+            icon={<Upload size={20} />} 
+            label={collapsed ? "" : "File Uploader"} 
+            isActive={location.pathname === "/upload"} 
           />
           
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Batch Types</div>}

@@ -42,9 +42,6 @@ export const formatRelativeTime = (dateString: string): string => {
     
     const now = new Date();
     
-    // Check if the date is in the past
-    const isPast = date < now;
-    
     // Get the relative time
     const relativeTime = formatDistance(date, now, { addSuffix: true });
     

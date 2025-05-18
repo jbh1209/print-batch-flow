@@ -20,6 +20,9 @@ export const deleteBatch = async (batchId: string): Promise<void> => {
     
     if (jobsError) {
       console.error("Error resetting jobs in batch:", jobsError);
+      toast.error("Failed to reset jobs in batch", {
+        description: jobsError.message
+      });
       throw jobsError;
     }
     
@@ -31,8 +34,13 @@ export const deleteBatch = async (batchId: string): Promise<void> => {
     
     if (deleteError) {
       console.error("Error deleting batch:", deleteError);
+      toast.error("Failed to delete batch", {
+        description: deleteError.message
+      });
       throw deleteError;
     }
+    
+    toast.success("Batch deleted successfully");
   } catch (error: any) {
     console.error("Error deleting batch:", error);
     throw new Error(`Failed to delete batch: ${error.message}`);

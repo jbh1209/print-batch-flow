@@ -3,15 +3,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { BusinessCardJob } from '@/components/batches/types/BusinessCardTypes';
-import { convertToJobType } from '@/utils/typeAdapters';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from "sonner";
 
 export const useBusinessCardJobs = () => {
   const [jobs, setJobs] = useState<BusinessCardJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const fetchJobs = useCallback(async () => {
     setIsLoading(true);
@@ -80,13 +78,20 @@ export const useBusinessCardJobs = () => {
       if (error) {
         console.error('Supabase error:', error);
         setError(error.message);
+        toast.error("Failed to add job", {
+          description: error.message
+        });
       } else if (data) {
         const newJob = data as BusinessCardJob;
         setJobs(prevJobs => [newJob, ...prevJobs]);
+        toast.success("New job added successfully");
       }
     } catch (err: any) {
       console.error('Error adding job:', err);
       setError('Failed to add job.');
+      toast.error("Failed to add job", {
+        description: err.message
+      });
     }
   };
 
@@ -100,14 +105,21 @@ export const useBusinessCardJobs = () => {
       if (error) {
         console.error('Supabase error:', error);
         setError(error.message);
+        toast.error("Failed to delete job", {
+          description: error.message
+        });
         return false;
       } else {
         setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+        toast.success("Job deleted successfully");
         return true;
       }
     } catch (err: any) {
       console.error('Error deleting job:', err);
       setError('Failed to delete job.');
+      toast.error("Failed to delete job", {
+        description: err.message
+      });
       return false;
     }
   };

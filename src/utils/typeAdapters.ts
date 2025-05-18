@@ -1,7 +1,6 @@
 
-import { BaseJob, BaseBatch, BatchStatus } from "@/config/types/baseTypes";
+import { BaseJob, BaseBatch, BatchStatus, JobStatus, LaminationType } from "@/config/types/baseTypes";
 import { Job, BatchDetailsType } from "@/components/batches/types/BatchTypes";
-import { LaminationType, JobStatus } from "@/config/types/baseTypes";
 
 /**
  * Converts a BaseJob to a Job type
@@ -32,6 +31,9 @@ export const convertToJobsArray = (baseJobs: BaseJob[]): Job[] => {
  * Converts a BaseBatch to a BatchDetailsType
  */
 export const convertToBatchDetailsType = (batch: BaseBatch): BatchDetailsType => {
+  // Ensure lamination_type is properly cast to LaminationType
+  const laminationType = batch.lamination_type as LaminationType;
+  
   return {
     id: batch.id,
     name: batch.name,
@@ -42,7 +44,7 @@ export const convertToBatchDetailsType = (batch: BaseBatch): BatchDetailsType =>
     overview_pdf_url: batch.overview_pdf_url,
     due_date: batch.due_date,
     created_at: batch.created_at,
-    lamination_type: batch.lamination_type,
+    lamination_type: laminationType,
     paper_type: batch.paper_type,
     paper_weight: batch.paper_weight,
     sides: batch.sides,

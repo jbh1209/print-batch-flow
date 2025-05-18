@@ -1,22 +1,24 @@
 
 import { toast } from "sonner";
 
+/**
+ * Handles PDF-related errors
+ * @param error The error to handle
+ */
 export const handlePdfError = (error: unknown): void => {
-  console.error("Error accessing PDF:", error);
+  console.error('PDF operation error:', error);
+  
+  // Determine the error message to show
+  let errorMessage = 'Error processing PDF';
   
   if (error instanceof Error) {
-    console.error("Error details:", error.message);
-    
-    if (error.message.includes('invalid source image') || error.message.includes('422')) {
-      toast.error("PDF format error: The system couldn't process this file");
-    } else if (error.message.includes('permission') || error.message.includes('403')) {
-      toast.error("Permission denied: You may need to log in again to access this file");
-    } else {
-      toast.error(`PDF access error: ${error.message}`);
-    }
-  } else {
-    toast.error("Failed to access PDF. Please ensure you're logged in.");
+    errorMessage = error.message || errorMessage;
+  } else if (typeof error === 'string') {
+    errorMessage = error;
   }
   
-  toast.info("If problems persist, try refreshing the page or logging out and back in");
+  // Show toast notification
+  toast.error("PDF Error", {
+    description: errorMessage
+  });
 };
