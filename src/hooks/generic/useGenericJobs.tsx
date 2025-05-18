@@ -41,13 +41,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      console.log('Fetching jobs for user:', user.id, 'from table:', config.tableName);
+      console.log('Fetching all jobs from table:', config.tableName);
       
       // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -74,6 +73,13 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   // Handle job deletion with local state update
   const handleDeleteJob = async (jobId: string) => {
+    // Only allow users to delete their own jobs
+    const job = await getJobById(jobId);
+    if (job && job.user_id !== user?.id) {
+      toast.error("You can only delete your own jobs");
+      return false;
+    }
+    
     const success = await deleteJob(jobId);
     if (success) {
       setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
@@ -98,6 +104,14 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     if (!user) {
       throw new Error('User not authenticated');
     }
+    
+    // Only allow users to update their own jobs
+    const job = await getJobById(jobId);
+    if (job && job.user_id !== user.id) {
+      toast.error("You can only update your own jobs");
+      throw new Error("Permission denied: You can only update your own jobs");
+    }
+    
     const updatedJob = await updateJob<T>(jobId, jobData, user.id);
     setJobs(prevJobs => 
       prevJobs.map(job => job.id === jobId ? { ...job, ...updatedJob } : job)
@@ -118,6 +132,13 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   ) => {
     try {
+      // Check if user is trying to batch jobs they don't own
+      const unauthorizedJobs = selectedJobs.filter(job => job.user_id !== user?.id);
+      if (unauthorizedJobs.length > 0) {
+        toast.error("You can only batch your own jobs");
+        throw new Error("Permission denied: You can only batch your own jobs");
+      }
+      
       // Fixed: Ensure laminationType is properly converted to LaminationType type
       const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
       

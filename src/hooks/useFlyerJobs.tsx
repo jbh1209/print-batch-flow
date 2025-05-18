@@ -28,7 +28,6 @@ export function useFlyerJobs() {
       const { data, error: fetchError } = await supabase
         .from('flyer_jobs')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -65,9 +64,16 @@ export function useFlyerJobs() {
     fetchJobs();
   }, [user]);
 
-  // Wrap the delete job operation to update local state
+  // Wrap the delete job operation to update local state and check permissions
   const handleDeleteJob = async (jobId: string) => {
     try {
+      // Check if the user is trying to delete someone else's job
+      const jobToDelete = jobs.find(job => job.id === jobId);
+      if (jobToDelete && jobToDelete.user_id !== user?.id) {
+        toast.error("You can only delete your own jobs");
+        return false;
+      }
+      
       await deleteJob(jobId);
       // Update the jobs list after deletion
       setJobs(jobs.filter(job => job.id !== jobId));
@@ -91,7 +97,7 @@ export function useFlyerJobs() {
     }
   };
 
-  // Wrap the create batch operation
+  // Wrap the create batch operation with permission check
   const handleCreateBatch = async (
     selectedJobs: FlyerJob[],
     batchProperties: {
@@ -100,10 +106,17 @@ export function useFlyerJobs() {
       laminationType: LaminationType;
       printerType: string;
       sheetSize: string;
-      slaTargetDays: number; // Added slaTargetDays property
+      slaTargetDays: number;
     }
   ) => {
     try {
+      // Check if user is trying to batch jobs they don't own
+      const unauthorizedJobs = selectedJobs.filter(job => job.user_id !== user?.id);
+      if (unauthorizedJobs.length > 0) {
+        toast.error("You can only batch your own jobs");
+        throw new Error("Permission denied: You can only batch your own jobs");
+      }
+      
       const batch = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
       
       // Update local state to reflect the batched jobs

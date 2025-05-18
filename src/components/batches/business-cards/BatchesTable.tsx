@@ -1,13 +1,14 @@
 
 import React from "react";
-import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Eye, Trash2, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Edit, Eye, FileText, Trash2 } from "lucide-react";
+import { formatRelativeTime, formatDate } from "@/utils/dateUtils";
+import { Badge } from "@/components/ui/badge";
+import { BatchStatus } from "@/config/types/baseTypes";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
-import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
-import { UrgencyLevel, calculateJobUrgency } from "@/utils/dateCalculations";
-import { productConfigs } from "@/config/productTypes";
+import { useAuth } from "@/hooks/useAuth";
+import { canModifyRecord } from "@/utils/permissionUtils";
 
 interface BatchesTableProps {
   batches: BatchSummary[];
@@ -17,144 +18,116 @@ interface BatchesTableProps {
   onViewDetails?: (batchId: string) => void;
 }
 
-const BatchesTable = ({
-  batches,
-  isLoading,
-  onViewPDF,
+const BatchesTable = ({ 
+  batches, 
+  isLoading, 
+  onViewPDF, 
   onDeleteBatch,
   onViewDetails
 }: BatchesTableProps) => {
-  if (isLoading) {
-    return <TableRow>
-      <TableCell colSpan={7} className="text-center py-8">Loading batches...</TableCell>
-    </TableRow>;
-  }
+  const { user } = useAuth();
 
-  // Helper function to determine batch urgency level
-  const getBatchUrgency = (dueDate: string, productType: string): UrgencyLevel => {
-    const config = productConfigs[productType] || productConfigs["BusinessCards"];
-    return calculateJobUrgency(dueDate, config);
-  };
-
-  // Get row background color based on batch status and urgency
-  const getRowBackgroundColor = (status: string, urgencyLevel: UrgencyLevel) => {
-    // Status-based coloring (higher priority)
+  const getBatchStatusBadge = (status: BatchStatus) => {
     switch (status) {
-      case 'completed':
-        return 'bg-green-50 border-l-4 border-l-green-500';
-      case 'sent_to_print':
-        return 'bg-blue-50 border-l-4 border-l-blue-500';
+      case 'pending':
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
+      case 'queued':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Queued</Badge>;
       case 'processing':
-        return 'bg-amber-50 border-l-4 border-l-amber-500';
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Processing</Badge>;
+      case 'sent_to_print':
+        return <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">Sent to Print</Badge>;
+      case 'completed':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Completed</Badge>;
       case 'cancelled':
-        return 'bg-red-50 border-l-4 border-l-red-500';
-    }
-    
-    // Urgency-based coloring (lower priority)
-    switch (urgencyLevel) {
-      case 'critical':
-        return 'bg-red-50 border-l-4 border-l-red-500';
-      case 'high':
-        return 'bg-amber-50 border-l-4 border-l-amber-500';
-      case 'medium':
-        return 'bg-yellow-50 border-l-4 border-l-yellow-500';
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Cancelled</Badge>;
       default:
-        return '';
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  // Sort batches - completed and sent_to_print at the bottom
-  const sortedBatches = [...batches].sort((a, b) => {
-    const completedStatuses = ['completed', 'sent_to_print'];
-    const aIsCompleted = completedStatuses.includes(a.status);
-    const bIsCompleted = completedStatuses.includes(b.status);
-    
-    if (aIsCompleted && !bIsCompleted) return 1;
-    if (!aIsCompleted && bIsCompleted) return -1;
-    
-    // If both have same completion status, sort by due date (most urgent first)
-    const aUrgency = getBatchUrgency(a.due_date, a.product_type);
-    const bUrgency = getBatchUrgency(b.due_date, b.product_type);
-    
-    const urgencyOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3 };
-    return urgencyOrder[aUrgency] - urgencyOrder[bUrgency];
-  });
+  const handleViewPDF = (e: React.MouseEvent, url: string | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onViewPDF(url);
+  };
+  
+  const handleDelete = (e: React.MouseEvent, batchId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDeleteBatch(batchId);
+  };
+
+  const handleViewDetails = (batchId: string) => {
+    if (onViewDetails) {
+      onViewDetails(batchId);
+    }
+  };
 
   return (
     <>
-      {sortedBatches.map((batch) => {
-        const urgencyLevel = getBatchUrgency(batch.due_date, batch.product_type);
+      {batches.map(batch => {
+        const canModify = canModifyRecord(batch.created_by, user?.id);
         
         return (
           <TableRow 
             key={batch.id} 
-            className={getRowBackgroundColor(batch.status, urgencyLevel)}
+            className="hover:bg-slate-50 cursor-pointer"
+            onClick={() => handleViewDetails(batch.id)}
           >
             <TableCell>
-              <div className="flex items-center space-x-2">
-                <BatchUrgencyIndicator 
-                  urgencyLevel={urgencyLevel}
-                  earliestDueDate={batch.due_date}
-                  productType={batch.product_type}
-                />
-                <span>{batch.name}</span>
-              </div>
+              <div className="font-medium">{batch.name}</div>
+              <div className="text-xs text-slate-500">{batch.product_type}</div>
+              {!canModify && (
+                <Badge variant="outline" className="mt-1 text-xs">
+                  Read-only
+                </Badge>
+              )}
             </TableCell>
             <TableCell>
-              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                batch.status === 'completed'
-                  ? 'bg-green-100 text-green-800'
-                  : batch.status === 'processing'
-                  ? 'bg-blue-100 text-blue-800'
-                  : batch.status === 'sent_to_print'
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : batch.status === 'cancelled'
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-gray-100 text-gray-800'
-              }`}>
-                {batch.status.charAt(0).toUpperCase() + batch.status.slice(1).replace('_', ' ')}
-              </span>
+              {getBatchStatusBadge(batch.status as BatchStatus)}
             </TableCell>
             <TableCell>{batch.sheets_required}</TableCell>
             <TableCell>
-              <div className="flex items-center space-x-2">
-                {format(new Date(batch.due_date), 'MMM d, yyyy')}
-              </div>
+              <div>{formatDate(batch.due_date)}</div>
+              <div className="text-xs text-slate-500">{formatRelativeTime(batch.due_date)}</div>
             </TableCell>
             <TableCell>
-              {batch.created_at && format(new Date(batch.created_at), 'MMM d, yyyy')}
+              <div>{formatDate(batch.created_at)}</div>
+              <div className="text-xs text-slate-500">{formatRelativeTime(batch.created_at)}</div>
             </TableCell>
-            <TableCell className="text-right space-x-2">
-              {batch.front_pdf_url && (
+            <TableCell className="text-right">
+              <div className="flex justify-end space-x-1">
+                {batch.front_pdf_url && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => handleViewPDF(e, batch.front_pdf_url)}
+                    title="View Front PDF"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onViewPDF(batch.front_pdf_url)}
-                  title="View PDF"
-                >
-                  <FileText className="h-4 w-4" />
-                </Button>
-              )}
-              
-              {onViewDetails && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onViewDetails(batch.id)}
-                  title="View Details"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleViewDetails(batch.id)}
+                  title="View Batch Details"
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
-              )}
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onDeleteBatch(batch.id)}
-                title="Delete Batch"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+                {canModify && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => handleDelete(e, batch.id)}
+                    title="Delete Batch"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </TableCell>
           </TableRow>
         );
