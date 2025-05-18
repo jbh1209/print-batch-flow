@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Download, Pencil, Trash } from 'lucide-react';
@@ -5,15 +6,16 @@ import { Button } from '@/components/ui/button';
 import { useGenericJobs } from '@/hooks/generic/useGenericJobs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { BaseJob } from '@/config/types/baseTypes';
+import { ProductConfig } from '@/config/productTypes';
 
-interface GenericJobDetailsPageProps {
-  productConfig: any;
-  backUrl: string;
-  editUrlGenerator: (id: string) => string;
+export interface GenericJobDetailsPageProps {
+  config: ProductConfig;
+  backUrl?: string;
+  editUrlGenerator?: (id: string) => string;
 }
 
 const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
-  productConfig,
+  config,
   backUrl,
   editUrlGenerator,
 }) => {
@@ -21,13 +23,20 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
   const navigate = useNavigate();
   const [job, setJob] = useState<BaseJob | null>(null);
   
-  // Pass the config as an object with productConfig property for consistency
+  // Use config from props
   const { 
     getJobById, 
     deleteJob, 
     isLoading, 
     error 
-  } = useGenericJobs({ productConfig }, jobId);
+  } = useGenericJobs(config, jobId);
+
+  // Set default backUrl if not provided
+  const effectiveBackUrl = backUrl || config.routes.jobsPath;
+  
+  // Create default edit URL generator if not provided
+  const effectiveEditUrlGenerator = editUrlGenerator || 
+    ((id: string) => `${config.routes.editJobPath}/${id}`);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -48,7 +57,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
     
     const success = await deleteJob(jobId);
     if (success) {
-      navigate(backUrl);
+      navigate(effectiveBackUrl);
     }
   };
 
@@ -60,7 +69,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
 
   const handleEdit = () => {
     if (jobId) {
-      navigate(editUrlGenerator(jobId));
+      navigate(effectiveEditUrlGenerator(jobId));
     }
   };
 
@@ -68,7 +77,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
     return (
       <div className="container mx-auto py-8">
         <div className="flex justify-between items-center mb-6">
-          <Button variant="ghost" onClick={() => navigate(backUrl)}>
+          <Button variant="ghost" onClick={() => navigate(effectiveBackUrl)}>
             <ChevronLeft className="mr-2 h-4 w-4" />
             Back to Jobs
           </Button>
@@ -84,7 +93,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
     return (
       <div className="container mx-auto py-8">
         <div className="flex justify-between items-center mb-6">
-          <Button variant="ghost" onClick={() => navigate(backUrl)}>
+          <Button variant="ghost" onClick={() => navigate(effectiveBackUrl)}>
             <ChevronLeft className="mr-2 h-4 w-4" />
             Back to Jobs
           </Button>
@@ -101,7 +110,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
     return (
       <div className="container mx-auto py-8">
         <div className="flex justify-between items-center mb-6">
-          <Button variant="ghost" onClick={() => navigate(backUrl)}>
+          <Button variant="ghost" onClick={() => navigate(effectiveBackUrl)}>
             <ChevronLeft className="mr-2 h-4 w-4" />
             Back to Jobs
           </Button>
@@ -117,7 +126,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
-        <Button variant="ghost" onClick={() => navigate(backUrl)}>
+        <Button variant="ghost" onClick={() => navigate(effectiveBackUrl)}>
           <ChevronLeft className="mr-2 h-4 w-4" />
           Back to Jobs
         </Button>
