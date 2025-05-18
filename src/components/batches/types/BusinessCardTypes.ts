@@ -24,3 +24,7 @@ export interface BusinessCardBatch {
   sheet_size?: string;
   printer_type?: string;
 }
+
+export interface BatchWithJobs extends BusinessCardBatch {
+  jobs: BusinessCardJob[];
+}

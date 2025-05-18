@@ -1,14 +1,17 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { Job } from '@/components/business-cards/JobsTable';
 import { convertToJobType } from '@/utils/typeAdapters';
+import { useToast } from '@/hooks/use-toast';
 
 export const useBusinessCardJobs = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const fetchJobs = useCallback(async () => {
     setIsLoading(true);
@@ -34,7 +37,7 @@ export const useBusinessCardJobs = () => {
         const convertedJobs = data.map(job => convertToJobType(job));
         setJobs(convertedJobs);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching jobs:', err);
       setError('Failed to load jobs.');
     } finally {
@@ -77,7 +80,7 @@ export const useBusinessCardJobs = () => {
         const newJob = convertToJobType(data);
         setJobs(prevJobs => [newJob, ...prevJobs]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding job:', err);
       setError('Failed to add job.');
     }
@@ -98,7 +101,7 @@ export const useBusinessCardJobs = () => {
         setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
         return true;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting job:', err);
       setError('Failed to delete job.');
       return false;

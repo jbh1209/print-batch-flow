@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { BaseJob, ProductConfig } from '@/config/productTypes';
 import { formatDate, formatRelativeTime } from '@/utils/dateUtils';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 interface UseGenericJobsProps {
   productConfig: ProductConfig;
@@ -26,20 +27,25 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
     setError(null);
     
     try {
+      if (!productConfig.tableName) {
+        throw new Error('Table name is not defined in product config');
+      }
+      
       const { data, error } = await supabase
-        .from(productConfig.tableName || '')
+        .from(productConfig.tableName)
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      setJobs(data || []);
+      // Type assertion to ensure the data matches BaseJob[]
+      setJobs(data as BaseJob[] || []);
       
       // If initialJobId is provided, set the selected job
       if (initialJobId && data) {
         const job = data.find(j => j.id === initialJobId);
         if (job) {
-          setSelectedJob(job);
+          setSelectedJob(job as BaseJob);
         }
       }
     } catch (err: any) {
@@ -60,8 +66,12 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
     if (!user) return false;
     
     try {
+      if (!productConfig.tableName) {
+        throw new Error('Table name is not defined in product config');
+      }
+      
       const { error } = await supabase
-        .from(productConfig.tableName || '')
+        .from(productConfig.tableName)
         .delete()
         .eq('id', id);
       
@@ -92,15 +102,19 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
     if (!user) return null;
     
     try {
+      if (!productConfig.tableName) {
+        throw new Error('Table name is not defined in product config');
+      }
+      
       const { data, error } = await supabase
-        .from(productConfig.tableName || '')
+        .from(productConfig.tableName)
         .select('*')
         .eq('id', id)
         .single();
       
       if (error) throw error;
       
-      return data;
+      return data as BaseJob;
     } catch (err) {
       console.error('Error fetching job:', err);
       return null;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Download } from 'lucide-react';
 import { useAuth } from "@/hooks/useAuth";
 import { canModifyRecord } from "@/utils/permissionUtils";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import { formatDate } from "@/utils/dateUtils";
 import {
@@ -18,23 +19,47 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { toast } from "@/components/ui/use-toast"
-import { useToast } from "@/components/ui/use-toast"
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import { ProductConfig, BaseJob } from '@/config/productTypes';
+import { useGenericJobs } from '@/hooks/generic/useGenericJobs';
 
 interface GenericJobDetailsPageProps {
   config: ProductConfig;
-  useJob: (id: string) => { job: BaseJob | undefined, isLoading: boolean, error: any, onDelete: (id: string) => Promise<boolean> };
 }
 
-const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config, useJob }) => {
-  const { id } = useParams<{ id: string }>();
+const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config }) => {
+  const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { job, isLoading, error, onDelete } = useJob(id!);
+  
+  // Create a custom hook for the job details based on useGenericJobs
+  const useJob = (id: string) => {
+    const { jobs, isLoading, error, deleteJob, fetchJobs } = useGenericJobs({ 
+      productConfig: config, 
+      initialJobId: id 
+    });
+    
+    const [job, setJob] = useState<BaseJob | null>(null);
+    
+    useEffect(() => {
+      const found = jobs.find(j => j.id === id);
+      if (found) {
+        setJob(found);
+      }
+    }, [jobs, id]);
+    
+    return {
+      job,
+      isLoading,
+      error,
+      onDelete: deleteJob
+    };
+  };
+  
+  const { job, isLoading, error, onDelete } = useJob(jobId || '');
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const { toast } = useToast()
+  const { toast } = useToast();
 
   useEffect(() => {
     if (error) {
@@ -42,11 +67,11 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config, u
         variant: "destructive",
         title: "Error",
         description: "Failed to load job. Please try again.",
-      })
+      });
     }
   }, [error, toast]);
 
-  if (isLoading || !id) {
+  if (isLoading || !jobId) {
     return <div>Loading...</div>;
   }
 
@@ -64,19 +89,19 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config, u
   const canModify = canModifyRecord(job.user_id, user?.id);
 
   const handleDelete = async () => {
-    const success = await onDelete(id!);
+    const success = await onDelete(jobId);
     if (success) {
       toast({
         title: "Success",
         description: "Job deleted successfully.",
-      })
+      });
       navigate(config.routes.jobsPath || config.routes.basePath);
     } else {
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to delete job. Please try again.",
-      })
+      });
     }
   };
 
@@ -91,7 +116,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config, u
             </Button>
           </Link>
           {canModify && (
-            <Link to={config.routes.jobEditPath ? config.routes.jobEditPath(id!) : '#'}>
+            <Link to={config.routes.jobEditPath ? config.routes.jobEditPath(jobId) : '#'}>
               <Button variant="outline" className="mr-2">
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit

@@ -17,7 +17,7 @@ export const convertToJobType = (baseJob: BaseJob): Job => {
     due_date: baseJob.due_date || new Date().toISOString(), // Ensure due_date is always provided
     file_name: baseJob.file_name || baseJob.name || '', // Ensure file_name is always provided
     lamination_type: (baseJob.lamination_type as LaminationType) || 'none', // Ensure lamination_type is always provided and cast to LaminationType
-    user_id: baseJob.user_id // Ensure user_id is included
+    user_id: baseJob.user_id // Include user_id
   };
 };
 
