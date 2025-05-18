@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { productConfigs } from '@/config/productTypes';
-import { GenericJobDetailsPage } from '@/pages/generic/GenericJobDetailsPage';
+import GenericJobDetailsPage from '@/pages/generic/GenericJobDetailsPage';
 
 const BusinessCardJobDetailsPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
