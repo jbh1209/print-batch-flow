@@ -1,31 +1,23 @@
+
 import React from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { productConfigs } from "@/config/productTypes";
 
-interface GenericJobDetailsPageProps {
-  productType: string;
-}
-
-const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ productType }) => {
+const BusinessCardJobDetailsPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   
-  // Get the config for this product type to get routes and display name
-  const config = productConfigs[productType];
-  
   const goBack = () => {
-    navigate(`/batches/${config.productType.toLowerCase().replace(' ', '-')}/jobs`);
+    navigate("/batches/business-cards/jobs");
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{productType} Job Details</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Business Card Job Details</h1>
           <p className="text-gray-500 mt-1">View details for job ID: {jobId}</p>
         </div>
         <Button
@@ -40,9 +32,9 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ productTy
 
       <Card>
         <CardContent className="p-6">
-          <p>Viewing job details for {productType} job ID: {jobId}</p>
+          <p>Viewing job details for Business Card job ID: {jobId}</p>
           
-          {/* This is a placeholder. In a real implementation, we would fetch and display job details */}
+          {/* This is a placeholder. In a real implementation, we would render BusinessCardJobDetail */}
           <div className="mt-4 grid gap-4">
             <div>
               <h3 className="font-medium">Job Details</h3>
@@ -52,7 +44,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ productTy
             <div className="flex gap-2 mt-4">
               <Button 
                 variant="outline" 
-                onClick={() => navigate(`/batches/${config.productType.toLowerCase().replace(' ', '-')}/jobs/${jobId}/edit`)}
+                onClick={() => navigate(`/batches/business-cards/jobs/${jobId}/edit`)}
               >
                 Edit Job
               </Button>
@@ -64,4 +56,4 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ productTy
   );
 };
 
-export default GenericJobDetailsPage;
+export default BusinessCardJobDetailsPage;
