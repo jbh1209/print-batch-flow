@@ -41,6 +41,7 @@ import BoxJobsPage from "@/pages/generic/BoxJobsPage";
 import BoxBatchesPage from "@/pages/generic/BoxBatchesPage";
 import BoxJobNewPage from "@/pages/generic/BoxJobNewPage";
 import BoxJobEditPage from "@/pages/generic/BoxJobEditPage";
+import GenericJobDetailsPage from "@/pages/generic/GenericJobDetailsPage";
 
 // Import the placeholder pages that will contain the overview
 import Flyers from "@/pages/Flyers";
@@ -161,4 +162,3 @@ export const ProtectedRoutes: React.FC = () => {
     </Routes>
   );
 };
-
