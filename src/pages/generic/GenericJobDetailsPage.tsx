@@ -34,9 +34,9 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({
   // Set default backUrl if not provided
   const effectiveBackUrl = backUrl || config.routes.jobsPath;
   
-  // Create default edit URL generator if not provided
+  // Create default edit URL generator if not provided - Fixed property name here
   const effectiveEditUrlGenerator = editUrlGenerator || 
-    ((id: string) => `${config.routes.editJobPath}/${id}`);
+    ((id: string) => `${config.routes.jobEditPath}/${id}`);
 
   useEffect(() => {
     const loadJob = async () => {
