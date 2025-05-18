@@ -10,6 +10,7 @@ import BatchesEmpty from '../BatchesEmpty';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LaminationType } from '@/config/types/baseTypes';
 
 interface BatchesWrapperProps {
   batches: BatchSummary[];
@@ -79,8 +80,10 @@ const BatchesWrapper: React.FC<BatchesWrapperProps> = ({
   }
 
   // Convert BatchSummary[] to BatchWithJobs[] for compatibility with BatchesTable
+  // Make sure to properly cast lamination_type to LaminationType
   const batchesWithEmptyJobs: BatchWithJobs[] = paginatedBatches.map(batch => ({
     ...batch,
+    lamination_type: batch.lamination_type as LaminationType,
     jobs: [] // Add empty jobs array to satisfy BatchWithJobs type
   }));
 

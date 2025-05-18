@@ -40,41 +40,7 @@ const StickerJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
     
-    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
-    const fixBatchedJobsWrapper = async () => {
-      await hookResult.fixBatchedJobsWithoutBatch();
-      // Return type is void as expected
-    };
-    
-    // Add a specialized wrapper for createBatch to handle sticker-specific logic
-    const createBatchWrapper = async (selectedJobs, batchProperties) => {
-      console.log("Creating sticker batch with properties:", batchProperties);
-      console.log("Selected jobs:", selectedJobs);
-      
-      try {
-        // Make sure lamination type is properly set for stickers
-        const enhancedProperties = {
-          ...batchProperties,
-          laminationType: batchProperties.laminationType || "none",
-          // Ensure the product type is correctly set
-          productType: "Stickers"
-        };
-        
-        const result = await hookResult.createBatch(selectedJobs, enhancedProperties);
-        console.log("Sticker batch creation result:", result);
-        return result;
-      } catch (err) {
-        console.error("Error in sticker batch creation:", err);
-        toast.error("Failed to create sticker batch");
-        throw err;
-      }
-    };
-    
-    return {
-      ...hookResult,
-      fixBatchedJobsWithoutBatch: fixBatchedJobsWrapper,
-      createBatch: createBatchWrapper
-    };
+    return hookResult;
   };
 
   return <GenericJobsPage config={config} useJobsHook={jobsHookWrapper} />;

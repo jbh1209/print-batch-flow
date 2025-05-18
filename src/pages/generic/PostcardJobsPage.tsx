@@ -18,6 +18,7 @@ const PostcardJobsPage = () => {
     deleteJob,
     createBatch,
     isCreatingBatch,
+    fetchJobs,
     fixBatchedJobsWithoutBatch,
     isFixingBatchedJobs
   } = useGenericJobs(config);
@@ -74,16 +75,13 @@ const PostcardJobsPage = () => {
         isLoading={isLoading}
         error={error}
         deleteJob={deleteJob}
-        fetchJobs={async () => {}}
+        fetchJobs={fetchJobs}
         createBatch={createBatch}
         isCreatingBatch={isCreatingBatch}
-        fixBatchedJobsWithoutBatch={async () => { 
-          // Convert the return value to void by wrapping the original function
-          await fixBatchedJobsWithoutBatch();
-        }}
+        fixBatchedJobsWithoutBatch={fixBatchedJobsWithoutBatch}
         isFixingBatchedJobs={isFixingBatchedJobs}
         config={config}
-        onViewJob={handleViewJob} // This function is now properly implemented
+        onViewJob={handleViewJob}
       />
 
       <GenericBatchCreateDialog

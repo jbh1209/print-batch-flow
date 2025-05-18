@@ -10,16 +10,8 @@ const SleeveJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
     
-    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
-    const fixBatchedJobsWrapper = async () => {
-      await hookResult.fixBatchedJobsWithoutBatch();
-      // Return type is void as expected
-    };
-    
-    return {
-      ...hookResult,
-      fixBatchedJobsWithoutBatch: fixBatchedJobsWrapper
-    };
+    // Return the hook result with all required properties
+    return hookResult;
   };
 
   return <GenericJobsPage config={config} useJobsHook={jobsHookWrapper} />;

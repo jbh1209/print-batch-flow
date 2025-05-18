@@ -10,15 +10,12 @@ const BoxJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
     
-    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
-    const fixBatchedJobsWrapper = async () => {
-      return await hookResult.fixBatchedJobsWithoutBatch();
-      // No need to force void return type - we now accept number | void
-    };
-    
+    // Return the hook result with all required properties
     return {
       ...hookResult,
-      fixBatchedJobsWithoutBatch: fixBatchedJobsWrapper
+      fixBatchedJobsWithoutBatch: async () => {
+        return await hookResult.fixBatchedJobsWithoutBatch();
+      }
     };
   };
 

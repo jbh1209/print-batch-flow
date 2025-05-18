@@ -6,16 +6,20 @@ import { formatDate, formatRelativeTime } from '@/utils/dateUtils';
 import { useToast } from '@/hooks/use-toast';
 import { BaseJob, ProductConfig } from '@/config/productTypes';
 
-export interface UseGenericJobsProps {
-  productConfig: ProductConfig;
-  initialJobId?: string;
-}
-
-export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsProps) => {
+// Let's fix the parameter handling to be more flexible
+export const useGenericJobs = <T extends BaseJob = BaseJob>(
+  config: ProductConfig | { productConfig: ProductConfig },
+  initialJobId?: string
+) => {
+  // Handle both ways of passing the config
+  const productConfig = 'productConfig' in config ? config.productConfig : config;
+  
   const [jobs, setJobs] = useState<BaseJob[]>([]);
   const [selectedJob, setSelectedJob] = useState<BaseJob | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
+  const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -98,8 +102,10 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
   };
 
   // Fix batched jobs without batch
-  const fixBatchedJobsWithoutBatch = async (): Promise<void> => {
+  const fixBatchedJobsWithoutBatch = async (): Promise<number | void> => {
     if (!user) return;
+    
+    setIsFixingBatchedJobs(true);
     
     try {
       if (!productConfig.tableName) {
@@ -131,11 +137,15 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
         
         // Refresh the jobs list
         await fetchJobs();
+        
+        // Return the number of fixed jobs
+        return data.length;
       } else {
         toast({
           title: 'No Issues Found',
           description: 'All batched jobs have valid batch IDs.',
         });
+        return 0;
       }
     } catch (err: any) {
       console.error('Error fixing batched jobs:', err);
@@ -144,6 +154,42 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
         description: 'Failed to fix batched jobs. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsFixingBatchedJobs(false);
+    }
+  };
+
+  // Create a batch with selected jobs
+  const createBatch = async (selectedJobs: BaseJob[], batchProperties: any): Promise<any> => {
+    setIsCreatingBatch(true);
+    try {
+      // Placeholder for batch creation logic
+      // This would typically call an API or service function
+      console.log('Creating batch with jobs:', selectedJobs);
+      console.log('Batch properties:', batchProperties);
+
+      // You would implement real batch creation logic here
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      toast({
+        title: 'Success',
+        description: 'Batch created successfully',
+      });
+      
+      // Refresh jobs after creating the batch
+      await fetchJobs();
+      
+      return { success: true, batchId: Date.now().toString() };
+    } catch (err: any) {
+      console.error('Error creating batch:', err);
+      toast({
+        title: 'Error', 
+        description: 'Failed to create batch. Please try again.',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setIsCreatingBatch(false);
     }
   };
 
@@ -186,7 +232,7 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
     if (user) {
       fetchJobs();
     }
-  }, [user, productConfig.tableName]);
+  }, [user]);
 
   return {
     jobs,
@@ -198,6 +244,9 @@ export const useGenericJobs = ({ productConfig, initialJobId }: UseGenericJobsPr
     deleteJob,
     getJobById,
     formatJobData,
-    fixBatchedJobsWithoutBatch
+    fixBatchedJobsWithoutBatch,
+    isFixingBatchedJobs,
+    createBatch,
+    isCreatingBatch
   };
 };

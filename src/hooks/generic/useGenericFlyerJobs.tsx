@@ -7,8 +7,8 @@ import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 export function useGenericFlyerJobs() {
   const config = productConfigs["Flyers"];
   
-  // Use explicit typing and ensure compatibility
-  const genericJobs = useGenericJobs<BaseJob>(config);
+  // Use the hook without explicitly specifying generic type
+  const genericJobs = useGenericJobs(config);
   
   // Return the generic jobs hook with the right type
   return genericJobs;
