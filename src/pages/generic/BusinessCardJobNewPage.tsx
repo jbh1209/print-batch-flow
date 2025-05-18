@@ -12,7 +12,6 @@ const BusinessCardJobNewPage = () => {
     <GenericJobForm 
       config={config}
       mode="create"
-      onSuccess={() => navigate('/batches/business-cards/jobs')}
     />
   );
 };
