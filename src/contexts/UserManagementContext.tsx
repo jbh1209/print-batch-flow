@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { supabase, adminClient } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserFormData, UserWithRole } from '@/types/user-types';
+import { updateUserRole, revokeUserAccess, addAdminRole } from '@/services/user/userRoleService';
+import { updateUserProfile } from '@/services/user/userProfileService';
 
 interface UserManagementContextType {
   users: UserWithRole[];
@@ -136,24 +138,17 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
 
     try {
-      // Update the user role if specified
-      if (userData.role) {
-        const { error: roleError } = await supabase.rpc('set_user_role_admin', {
-          _target_user_id: userId,
-          _new_role: userData.role
-        });
-        
-        if (roleError) throw roleError;
-      }
-      
       // Update user profile if full_name provided
       if (userData.full_name) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ full_name: userData.full_name })
-          .eq('id', userId);
-          
-        if (profileError) throw profileError;
+        await updateUserProfile(userId, {
+          full_name: userData.full_name,
+          email: '',  // Not updating email
+        });
+      }
+      
+      // Update the user role if specified
+      if (userData.role) {
+        await updateUserRole(userId, userData.role);
       }
       
       // Refresh the user list
@@ -171,12 +166,8 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     }
 
     try {
-      // Admin users can delete other users through the admin API
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(
-        userId
-      );
-      
-      if (deleteError) throw deleteError;
+      // Revoke user access
+      await revokeUserAccess(userId);
       
       // Refresh the user list
       await fetchUsers();
@@ -187,19 +178,13 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
   };
 
   // Add admin role to a user
-  const addAdminRole = async (userId: string): Promise<void> => {
+  const addAdminRoleToUser = async (userId: string): Promise<void> => {
     if (!session?.access_token) {
       throw new Error("Authentication session expired. Please sign in again.");
     }
     
     try {
-      const { error } = await supabase.rpc('set_user_role_admin', {
-        _target_user_id: userId,
-        _new_role: 'admin'
-      });
-      
-      if (error) throw error;
-      
+      await addAdminRole(userId);
       toast.success('Admin role granted successfully');
     } catch (error: any) {
       console.error('Error setting admin role:', error);
@@ -222,7 +207,7 @@ export const UserManagementProvider = ({ children }: { children: ReactNode }) =>
     createUser,
     updateUser,
     deleteUser,
-    addAdminRole
+    addAdminRole: addAdminRoleToUser
   };
 
   return (

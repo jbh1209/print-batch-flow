@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { updateUserRole, revokeUserAccess, addAdminRole } from '@/services/user/userRoleService';
+import { updateUserProfile } from '@/services/user/userProfileService';
 
 /**
  * Hook for user management operations
@@ -19,13 +21,19 @@ export function useUserManagement() {
   const checkAdminExists = useCallback(async () => {
     try {
       setError(null);
-      const { data, error } = await supabase.rpc('any_admin_exists');
+      
+      // Direct table query to check if admin exists
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('role', 'admin')
+        .limit(1);
       
       if (error) {
         throw error;
       }
       
-      const exists = !!data;
+      const exists = Array.isArray(data) && data.length > 0;
       setAnyAdminExists(exists);
       return exists;
     } catch (error: any) {
@@ -145,26 +153,17 @@ export function useUserManagement() {
         throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
+      // Update user profile if full_name is provided
       if (userData.full_name !== undefined) {
-        const { error } = await supabase.rpc('update_user_profile_admin', {
-          _user_id: userId,
-          _full_name: userData.full_name
+        await updateUserProfile(userId, {
+          full_name: userData.full_name,
+          email: '',  // Not updating email
         });
-        
-        if (error) {
-          throw error;
-        }
       }
       
+      // Update user role if provided
       if (userData.role) {
-        const { error } = await supabase.rpc('set_user_role_admin', {
-          _target_user_id: userId,
-          _new_role: userData.role
-        });
-        
-        if (error) {
-          throw error;
-        }
+        await updateUserRole(userId, userData.role);
       }
       
       toast.success('User updated successfully');
@@ -187,13 +186,8 @@ export function useUserManagement() {
         throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
-      const { error } = await supabase.rpc('revoke_user_role', {
-        target_user_id: userId
-      });
-      
-      if (error) {
-        throw error;
-      }
+      // Use the service function to revoke user access
+      await revokeUserAccess(userId);
       
       toast.success('User access revoked successfully');
       fetchUsers();
@@ -205,7 +199,7 @@ export function useUserManagement() {
   }, [fetchUsers, session]);
 
   // Add admin role to a user
-  const addAdminRole = useCallback(async (userId: string) => {
+  const addAdminRoleToUser = useCallback(async (userId: string) => {
     try {
       if (!userId) {
         throw new Error('Invalid user ID');
@@ -215,14 +209,8 @@ export function useUserManagement() {
         throw new Error('Authentication token missing or expired. Please sign in again.');
       }
       
-      const { error } = await supabase.rpc('set_user_role_admin', {
-        _target_user_id: userId,
-        _new_role: 'admin'
-      });
-      
-      if (error) {
-        throw error;
-      }
+      // Use the service function to add admin role
+      await addAdminRole(userId);
       
       setAnyAdminExists(true);
       toast.success('Admin role successfully assigned');
@@ -244,6 +232,6 @@ export function useUserManagement() {
     updateUser,
     deleteUser,
     checkAdminExists,
-    addAdminRole,
+    addAdminRole: addAdminRoleToUser,
   };
 }
