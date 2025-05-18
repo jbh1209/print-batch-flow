@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Users from "@/pages/Users";
+import Layout from "@/components/Layout";
 
 export const ProtectedRoutes: React.FC = () => {
   const { user } = useAuth();
@@ -12,9 +13,13 @@ export const ProtectedRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/auth" element={user ? <Navigate to="/dashboard" /> : <Auth />} />
-      <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/auth" />} />
-      <Route path="/users" element={user ? <Users /> : <Navigate to="/auth" />} />
-      <Route path="/" element={<Navigate to="/dashboard" />} />
+      
+      {/* Protected routes wrapped in Layout */}
+      <Route element={user ? <Layout /> : <Navigate to="/auth" />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/users" element={<Users />} />
+        <Route path="/" element={<Navigate to="/dashboard" />} />
+      </Route>
     </Routes>
   );
 };
