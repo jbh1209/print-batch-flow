@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { productConfigs } from '@/config/productTypes';
 import { GenericJobForm } from '@/components/generic/GenericJobForm';
@@ -10,6 +10,14 @@ const BusinessCardJobEditPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const config = productConfigs["Business Cards"];
+  
+  // Add debugging to check if config is available
+  useEffect(() => {
+    console.log("BusinessCardJobEditPage rendering with config:", config);
+    if (!config) {
+      console.error("Config not found for Business Cards");
+    }
+  }, [config]);
 
   // Fetch job data first before rendering the form
   const { data: jobData, isLoading } = useQuery({
@@ -27,6 +35,10 @@ const BusinessCardJobEditPage = () => {
       return data;
     },
   });
+
+  if (!config) {
+    return <div className="p-8">Error: Product config not found</div>;
+  }
 
   if (isLoading) {
     return <div className="p-8">Loading job details...</div>;

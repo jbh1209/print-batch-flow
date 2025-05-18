@@ -1,59 +1,27 @@
 
-import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import React, { useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { productConfigs } from '@/config/productTypes';
+import { GenericJobDetailsPage } from '@/pages/generic/GenericJobDetailsPage';
 
 const BusinessCardJobDetailsPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
-  const navigate = useNavigate();
-  
-  const goBack = () => {
-    navigate("/batches/business-cards/jobs");
-  };
+  const config = productConfigs["Business Cards"];
 
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Business Card Job Details</h1>
-          <p className="text-gray-500 mt-1">View details for job ID: {jobId}</p>
-        </div>
-        <Button
-          variant="outline"
-          className="flex items-center gap-1"
-          onClick={goBack}
-        >
-          <ArrowLeft size={16} />
-          Back to Jobs
-        </Button>
-      </div>
+  // Add debugging to check if config is available
+  useEffect(() => {
+    console.log("BusinessCardJobDetailsPage rendering with config:", config);
+    if (!config) {
+      console.error("Config not found for Business Cards");
+    }
+    console.log("JobId:", jobId);
+  }, [config, jobId]);
 
-      <Card>
-        <CardContent className="p-6">
-          <p>Viewing job details for Business Card job ID: {jobId}</p>
-          
-          {/* This is a placeholder. In a real implementation, we would render BusinessCardJobDetail */}
-          <div className="mt-4 grid gap-4">
-            <div>
-              <h3 className="font-medium">Job Details</h3>
-              <p className="text-sm text-gray-500">Details would be displayed here based on job ID</p>
-            </div>
-            
-            <div className="flex gap-2 mt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => navigate(`/batches/business-cards/jobs/${jobId}/edit`)}
-              >
-                Edit Job
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  if (!config) {
+    return <div className="p-8">Error: Product config not found</div>;
+  }
+
+  return <GenericJobDetailsPage productType="Business Cards" />;
 };
 
 export default BusinessCardJobDetailsPage;
