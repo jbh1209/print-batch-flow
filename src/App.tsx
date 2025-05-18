@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { UserManagementProvider } from "@/contexts/UserManagementContext";
 import { ProtectedRoutes } from "@/components/auth/ProtectedRoutes";
+import { Toaster } from "sonner";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Router>
           <UserManagementProvider>
             <ProtectedRoutes />
+            <Toaster position="top-right" closeButton />
           </UserManagementProvider>
         </Router>
       </AuthProvider>

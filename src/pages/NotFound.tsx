@@ -1,3 +1,4 @@
+
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -5,10 +6,12 @@ import { AlertCircle, Home, ArrowLeft, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { productConfigs } from "@/config/productTypes";
+import { useAuth } from "@/contexts/AuthContext";
 
 const NotFound = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [suggestedPath, setSuggestedPath] = useState<string | null>(null);
 
   useEffect(() => {
@@ -158,7 +161,7 @@ const NotFound = () => {
   };
 
   const goHome = () => {
-    navigate("/");
+    navigate(user ? "/" : "/auth");
   };
 
   const goToSuggested = () => {
