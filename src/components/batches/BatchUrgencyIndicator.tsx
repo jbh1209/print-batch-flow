@@ -1,10 +1,9 @@
 
-import React from 'react';
-import { format, isAfter } from 'date-fns';
-import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
-import { UrgencyLevel, getBatchUrgencyColor, getBatchUrgencyIcon } from '@/utils/dateCalculations';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { productConfigs } from '@/config/productTypes';
+import React from "react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { productConfigs } from "@/config/productTypes";
+import { UrgencyLevel, getBatchUrgencyColor, getBatchUrgencyIcon } from "@/utils/dateCalculations";
+import { CircleCheck, CircleAlert, CircleX, Circle } from "lucide-react";
 
 interface BatchUrgencyIndicatorProps {
   urgencyLevel: UrgencyLevel;
@@ -12,58 +11,68 @@ interface BatchUrgencyIndicatorProps {
   productType: string;
 }
 
-const BatchUrgencyIndicator: React.FC<BatchUrgencyIndicatorProps> = ({
-  urgencyLevel,
-  earliestDueDate,
-  productType
-}) => {
-  // Get the SLA for this product type
+const BatchUrgencyIndicator = ({ urgencyLevel, earliestDueDate, productType }: BatchUrgencyIndicatorProps) => {
+  const colorClass = getBatchUrgencyColor(urgencyLevel);
+  const iconType = getBatchUrgencyIcon(urgencyLevel);
+  const dueDate = new Date(earliestDueDate);
+  const today = new Date();
+  const daysUntilDue = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // Safely get SLA setting with a fallback
   const config = productConfigs[productType] || productConfigs["BusinessCards"];
-  const sla = config.slaTargetDays || 3;
+  const slaTargetDays = config?.slaTargetDays || 3;
   
-  // Format the date for display
-  const formattedDate = format(new Date(earliestDueDate), 'MMM dd, yyyy');
-  
-  // Get the icon based on urgency
-  const getIcon = () => {
+  const getTooltipText = () => {
     switch (urgencyLevel) {
-      case 'critical':
-        return <CircleX className="h-5 w-5 text-red-500" />;
-      case 'high':
-        return <CircleAlert className="h-5 w-5 text-amber-500" />;
-      case 'medium':
-        return <CircleAlert className="h-5 w-5 text-yellow-500" />;
-      default: // low
-        return <CircleCheck className="h-5 w-5 text-green-500" />;
+      case "critical":
+        return daysUntilDue < 0 
+          ? `Overdue by ${Math.abs(daysUntilDue)} days` 
+          : "Critical - Due immediately";
+      case "high":
+        return "High priority - Due very soon";
+      case "medium":
+        return "Medium priority - Due soon";
+      case "low":
+        return "On track";
+      default:
+        return "Unknown status";
     }
   };
-
-  // Get tooltip message based on urgency
-  const getTooltipMessage = () => {
-    const isPastDue = isAfter(new Date(), new Date(earliestDueDate));
-    
-    switch (urgencyLevel) {
-      case 'critical':
-        return isPastDue 
-          ? `Past due (${formattedDate})` 
-          : `Due today (${formattedDate})`;
-      case 'high':
-        return `Due within ${sla} days (${formattedDate})`;
-      case 'medium':
-        return `Due within ${sla * 2} days (${formattedDate})`;
-      default: // low
-        return `Due ${formattedDate}`;
+  
+  const renderIcon = () => {
+    switch (iconType) {
+      case "circle-check":
+        return <CircleCheck className={`h-5 w-5 ${colorClass}`} />;
+      case "circle-alert":
+        return <CircleAlert className={`h-5 w-5 ${colorClass}`} />;
+      case "circle-x":
+        return <CircleX className={`h-5 w-5 ${colorClass}`} />;
+      default:
+        return <Circle className={`h-5 w-5 ${colorClass}`} />;
     }
   };
-
+  
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="cursor-help">{getIcon()}</span>
+        <TooltipTrigger className="flex items-center">
+          {renderIcon()}
         </TooltipTrigger>
         <TooltipContent>
-          <p>{getTooltipMessage()}</p>
+          <p className="font-medium">
+            {getTooltipText()}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Due: {dueDate.toLocaleDateString()} 
+            {daysUntilDue >= 0 ? (
+              <span> ({daysUntilDue} days remaining)</span>
+            ) : (
+              <span> ({Math.abs(daysUntilDue)} days ago)</span>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            SLA Target: {slaTargetDays} days
+          </p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

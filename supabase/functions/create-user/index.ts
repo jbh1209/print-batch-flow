@@ -2,40 +2,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
 
-// Enhanced CORS headers for security
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-requested-with, accept",
-  "Access-Control-Max-Age": "86400" // 24 hours cache for preflight requests
-};
-
-// Helper function to generate detailed error responses
-const createErrorResponse = (status: number, message: string, details?: any) => {
-  return new Response(
-    JSON.stringify({ 
-      error: message, 
-      details: details,
-      timestamp: new Date().toISOString(),
-    }),
-    { 
-      status, 
-      headers: { 
-        ...corsHeaders, 
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store" 
-      } 
-    }
-  );
-};
-
-// Validate role to ensure it's one of the allowed values
-const validateRole = (role: any): string => {
-  if (role === 'admin' || role === 'user') {
-    return role;
-  }
-  console.log(`Invalid role value detected: "${role}", defaulting to "user"`);
-  return 'user';
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
@@ -45,119 +14,118 @@ serve(async (req) => {
   }
   
   try {
-    // Get auth token from request and validate it
+    // Get auth token from request
     const authHeader = req.headers.get('Authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return createErrorResponse(401, 'Missing or invalid authorization header');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     
-    // Extract the JWT token
-    const token = authHeader.replace('Bearer ', '');
-    
-    // Create user client to verify identity and permissions
-    const userClient = createClient(
+    // Create supabase client with auth token
+    const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
         global: {
           headers: { Authorization: authHeader },
         },
       }
     );
     
-    // Verify admin status
+    // Verify the user is authenticated and admin
     const {
       data: { user },
       error: userError,
-    } = await userClient.auth.getUser(token);
+    } = await supabaseClient.auth.getUser();
     
     if (userError || !user) {
-      return createErrorResponse(401, 'Authentication failed', userError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Not authenticated', details: userError?.message }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     
-    // Verify admin status
-    const { data: isAdmin, error: adminError } = await userClient.rpc('is_admin_secure_fixed', { 
-      _user_id: user.id 
-    });
+    // Check if the user is an admin
+    const { data: isAdmin, error: adminCheckError } = await supabaseClient.rpc(
+      'is_admin_secure_fixed',
+      { _user_id: user.id }
+    );
     
-    if (adminError) {
-      return createErrorResponse(500, 'Error verifying admin status', adminError.message);
+    if (adminCheckError) {
+      return new Response(
+        JSON.stringify({ error: 'Error checking admin status', details: adminCheckError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     
     if (!isAdmin) {
-      return createErrorResponse(403, 'Access denied: admin privileges required');
+      return new Response(
+        JSON.stringify({ error: 'Access denied: admin privileges required' }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     
     // Parse request body
-    const requestData = await req.json();
-    const { email, password, full_name, role: requestedRole } = requestData;
-    
-    if (!email || !password) {
-      return createErrorResponse(400, 'Email and password are required');
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body' }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     
-    // Validate and normalize role
-    const role = validateRole(requestedRole);
+    const { email, password, full_name, role } = body;
     
-    // Create admin client using service role
-    const adminClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        },
-      }
-    );
+    if (!email || !password) {
+      return new Response(
+        JSON.stringify({ error: 'Email and password are required' }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     
-    // Create the user
-    const { data: userData, error: createError } = await adminClient.auth.admin.createUser({
+    // Create the user with admin privileges
+    const { data: adminAuthResponse, error: createUserError } = await supabaseClient.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name }
+      user_metadata: { full_name },
     });
     
-    if (createError) {
-      return createErrorResponse(500, 'Error creating user', createError.message);
+    if (createUserError) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to create user', details: createUserError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     
-    if (!userData.user) {
-      return createErrorResponse(500, 'No user returned after creation');
-    }
+    const newUserId = adminAuthResponse.user.id;
     
-    // Set user role
-    const { error: roleError } = await adminClient.rpc('set_user_role_admin', {
-      _target_user_id: userData.user.id,
-      _new_role: role
-    });
-    
-    if (roleError) {
-      console.error("Error setting role:", roleError);
-      // Continue anyway since the user is created
+    // Set custom role if provided
+    if (role && (role === 'admin' || role === 'user')) {
+      const { error: roleError } = await supabaseClient.rpc('set_user_role_admin', {
+        _target_user_id: newUserId,
+        _new_role: role
+      });
+      
+      if (roleError) {
+        console.error('Error setting user role:', roleError);
+        // We continue even if this fails since the user is created
+      }
     }
     
     return new Response(
-      JSON.stringify({ 
-        message: 'User created successfully',
-        userId: userData.user.id
-      }),
-      { 
-        status: 200, 
-        headers: { 
-          ...corsHeaders, 
-          "Content-Type": "application/json"
-        } 
-      }
+      JSON.stringify({ success: true, user: adminAuthResponse.user }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error('Error in create-user function:', error);
-    return createErrorResponse(500, 'Server error', error.message);
+    return new Response(
+      JSON.stringify({ error: 'Server error', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

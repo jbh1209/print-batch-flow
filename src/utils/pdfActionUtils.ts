@@ -1,17 +1,16 @@
 
 import { toast } from "sonner";
+import { getSignedUrl } from "./pdf/urlUtils";
 import { downloadFile, openInNewTab } from "./pdf/downloadUtils";
 import { handlePdfError } from "./pdf/errorUtils";
-import { secureGetPdfUrl, logPdfAccess } from "./pdf/securityUtils";
 
 /**
- * Handles PDF view or download actions with enhanced security
+ * Handles PDF view or download actions
  */
 export const handlePdfAction = async (
   url: string | null,
   action: 'view' | 'download',
-  filename?: string,
-  jobUserId?: string
+  filename?: string
 ): Promise<void> => {
   if (!url) {
     toast.error("PDF URL is not available");
@@ -19,17 +18,17 @@ export const handlePdfAction = async (
   }
 
   try {
-    console.log(`Attempting secure access to PDF: ${action}`);
+    console.log(`Attempting to access PDF at: ${url}`);
     
-    // Get secured and validated URL
-    const accessUrl = await secureGetPdfUrl(url, jobUserId);
+    // Get signed URL if needed
+    const isAlreadySigned = url.includes('/sign/');
+    const accessUrl = isAlreadySigned ? url : await getSignedUrl(url);
     
     if (!accessUrl) {
-      throw new Error("Could not securely access this PDF");
+      throw new Error("Could not generate a valid URL for this PDF");
     }
 
-    // Log access for security auditing
-    logPdfAccess(url, action);
+    console.log(`Access URL generated: ${accessUrl.substring(0, 100)}...`);
     
     if (action === 'view') {
       openInNewTab(accessUrl);

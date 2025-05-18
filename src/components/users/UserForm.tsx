@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DialogFooter } from "@/components/ui/dialog";
 import { AlertCircle } from "lucide-react";
 import { UserFormData } from "@/types/user-types";
-import { Spinner } from "@/components/ui/spinner";
 
 interface UserFormProps {
   initialData?: UserFormData;
@@ -163,7 +162,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
 
         <DialogFooter>
           <Button type="submit" disabled={isProcessing}>
-            {isProcessing ? <><Spinner size={16} className="mr-2" /> Processing...</> : isEditing ? "Update User" : "Create User"}
+            {isProcessing ? "Processing..." : isEditing ? "Update User" : "Create User"}
           </Button>
         </DialogFooter>
       </form>

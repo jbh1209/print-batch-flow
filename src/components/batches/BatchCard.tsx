@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
-import { calculateJobUrgency, getUrgencyBackgroundClass, UrgencyLevel } from "@/utils/dateCalculations";
+import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
 
 interface BatchSummary {

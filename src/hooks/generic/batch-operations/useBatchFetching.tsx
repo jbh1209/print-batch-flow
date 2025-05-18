@@ -6,15 +6,7 @@ import { BaseBatch, ProductConfig } from "@/config/productTypes";
 import { toast } from "sonner";
 import { getProductTypeCode, extractProductCodeFromBatchName } from "@/utils/batch/productTypeCodes";
 
-interface BatchFetchingOptions {
-  filterByCurrentUser?: boolean;
-}
-
-export function useBatchFetching(
-  config: ProductConfig, 
-  batchId: string | null = null,
-  options: BatchFetchingOptions = { filterByCurrentUser: false }
-) {
+export function useBatchFetching(config: ProductConfig, batchId: string | null = null) {
   const { user } = useAuth();
   const [batches, setBatches] = useState<BaseBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,7 +19,7 @@ export function useBatchFetching(
       return;
     }
 
-    console.log('Fetching batches for product type:', config.productType, 'filterByCurrentUser:', options.filterByCurrentUser);
+    console.log('Fetching batches for user:', user.id, 'product type:', config.productType);
     
     setIsLoading(true);
     setError(null);
@@ -36,35 +28,25 @@ export function useBatchFetching(
       // Start building the query
       let query = supabase
         .from('batches')
-        .select('*');
-      
-      // Only filter by user ID if explicitly requested
-      if (options.filterByCurrentUser) {
-        query = query.eq('created_by', user.id);
-        console.log('Filtering batches by current user:', user.id);
-      }
+        .select('*')
+        .eq('created_by', user.id);
       
       // Get product code from the standardized utility function
       const productCode = getProductTypeCode(config.productType);
       
-      if (productCode && !batchId) {
+      if (productCode) {
         console.log(`Using product code ${productCode} for ${config.productType} batches`);
         
-        // Use proper Supabase filter syntax for OR conditions
-        query = query.or([
-          `name.ilike.%DXB-${productCode}-%`, 
-          `name.ilike.%-${productCode}-%`, 
-          `name.ilike.%${productCode}%`
-        ].join(','));
-        
-        console.log(`Using filter: "${[
-          `name.ilike.%DXB-${productCode}-%`, 
-          `name.ilike.%-${productCode}-%`, 
-          `name.ilike.%${productCode}%`
-        ].join(',')}"`);
-      } else if (batchId) {
-        query = query.eq("id", batchId);
-        console.log(`Fetching specific batch by ID: ${batchId}`);
+        // Use proper Supabase OR filter syntax
+        // This uses the .or() method with an array of filter conditions
+        if (batchId) {
+          query = query.eq("id", batchId);
+        } else {
+          // Filter by any of these patterns
+          query = query.or(`name.ilike.%DXB-${productCode}-%,name.ilike.%-${productCode}-%,name.ilike.%${productCode}%`);
+          
+          console.log(`Using OR filter: name.ilike.%DXB-${productCode}-%,name.ilike.%-${productCode}-%,name.ilike.%${productCode}%`);
+        }
       } else {
         console.warn(`No product code found for ${config.productType} - fetching all batches`);
       }
@@ -88,25 +70,18 @@ export function useBatchFetching(
           const { data: allData } = await supabase
             .from('batches')
             .select('*')
+            .eq('created_by', user.id)
             .order('created_at', { ascending: false });
             
           if (allData && allData.length > 0) {
             console.log('All batches:', allData.length);
             console.log('All batch names:', allData.map(b => b.name).join(', '));
             
-            // Improved fallback filtering logic
+            // Filter manually by trying to extract product code from batch name
             const filteredBatches = allData.filter(batch => {
-              if (!batch.name) return false;
-              
-              // More robust pattern matching for batch names
-              const batchNameLower = batch.name.toLowerCase();
-              const productTypeLower = config.productType.toLowerCase();
-              const codeMatches = extractProductCodeFromBatchName(batch.name) === productCode;
-              const nameContainsProductType = batchNameLower.includes(productTypeLower);
-              const nameContainsCode = batchNameLower.includes(productCode?.toLowerCase() || '');
-              
-              const matched = codeMatches || nameContainsProductType || nameContainsCode;
-              console.log(`Batch ${batch.name}: matched=${matched} (code match: ${codeMatches}, name match: ${nameContainsProductType}, code in name: ${nameContainsCode})`);
+              const extractedCode = extractProductCodeFromBatchName(batch.name);
+              const matched = extractedCode === productCode;
+              console.log(`Batch ${batch.name}: extracted code=${extractedCode}, product code=${productCode}, matched=${matched}`);
               return matched;
             });
             
@@ -120,8 +95,6 @@ export function useBatchFetching(
               })));
               setIsLoading(false);
               return;
-            } else {
-              console.warn('No batches found after manual filtering - this is likely an issue with batch naming patterns or product types');
             }
           }
         }

@@ -1,148 +1,103 @@
 
 import { supabase, adminClient } from '@/integrations/supabase/client';
-import { UserWithRole, validateUserRole } from '@/types/user-types';
-import { isPreviewMode } from '@/services/previewService';
-
-// Simple in-memory cache for user data with expiration
-let userCache: UserWithRole[] | null = null;
-let lastCacheTime: number = 0;
-const CACHE_EXPIRY_MS = 60000; // 1 minute
+import { UserWithRole } from '@/types/user-types';
+import { toast } from 'sonner';
 
 /**
- * Clear user data cache to force a fresh fetch
+ * User fetching functions - Enhanced with retry logic, proper error handling, and connection robustness
  */
-export const invalidateUserCache = (): void => {
-  userCache = null;
-  lastCacheTime = 0;
-  console.log('User cache invalidated');
-};
 
-/**
- * Securely fetch all users with proper validation and authorization checks
- * @returns Promise resolving to array of users with roles
- */
-export const fetchUsers = async (): Promise<UserWithRole[]> => {
-  // Return cached data if valid
-  const now = Date.now();
-  if (userCache && (now - lastCacheTime < CACHE_EXPIRY_MS)) {
-    console.log('Returning cached users data');
-    return userCache;
-  }
-  
-  // In preview mode, return mock data
-  if (isPreviewMode()) {
-    console.log("Preview mode detected, returning mock users data");
-    const mockUsers: UserWithRole[] = [
-      {
-        id: "preview-admin-1",
-        email: "admin@example.com",
-        created_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        role: "admin", 
-        full_name: "Preview Admin",
-        avatar_url: null
-      },
-      {
-        id: "preview-user-1",
-        email: "user@example.com",
-        created_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        role: "user",
-        full_name: "Regular User",
-        avatar_url: null
-      },
-      {
-        id: "preview-user-2",
-        email: "dev@example.com",
-        created_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        role: "user",
-        full_name: "Developer User",
-        avatar_url: null
-      }
-    ];
-    
-    // Update cache
-    userCache = mockUsers;
-    lastCacheTime = now;
-    
-    return mockUsers;
-  }
-  
-  // Get current session to ensure fresh token
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError || !sessionData.session?.access_token) {
-    throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
-  }
-  
+// Fetch all users with their roles
+export async function fetchUsers(retryCount = 0, maxRetries = 3): Promise<UserWithRole[]> {
   try {
-    // Approach 1: Direct edge function call with enhanced security headers
-    console.log('Fetching users data via edge function');
-    const response = await fetch(`https://kgizusgqexmlfcqfjopk.supabase.co/functions/v1/get-all-users`, {
+    console.log(`Fetching users using Edge Function (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    
+    // Get current session to ensure we have a fresh token
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !sessionData.session?.access_token) {
+      console.error('Session error:', sessionError || 'No access token available');
+      throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
+    }
+    
+    // Call the edge function using the HTTP-only client with explicit auth header
+    console.log('Making HTTP request to edge function with valid token');
+    const { data, error } = await adminClient.functions.invoke('get-all-users', {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${sessionData.session.access_token}`,
-        'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
-      },
-      // Add timeout for the fetch request
-      signal: AbortSignal.timeout(8000)
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!Array.isArray(data)) {
-      throw new Error("Invalid response format from edge function");
-    }
-    
-    // Ensure role values are valid by mapping them to the allowed types
-    const typedUsers = data.map((user: any) => ({
-      ...user,
-      role: validateUserRole(user.role)
-    }));
-    
-    // Update cache
-    userCache = typedUsers;
-    lastCacheTime = now;
-    
-    return typedUsers;
-  } catch (fetchError) {
-    console.error("Direct fetch error:", fetchError);
-    
-    // Approach 2: Fall back to Supabase functions API
-    console.log('Falling back to functions API');
-    const { data, error: functionError } = await adminClient.functions.invoke('get-all-users', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
+        // Explicitly request JSON response
+        'Accept': 'application/json'
       }
     });
     
-    if (functionError) throw functionError;
+    if (error) {
+      console.error('Edge function error:', error);
+      console.error('Error details:', JSON.stringify(error));
+      
+      // Handle network connection errors specifically
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        toast.error('Network connection error. Please check your internet connection and try again.');
+        throw new Error('Network connection error: Unable to reach the server. Please check your connection.');
+      }
+      
+      // Handle authentication errors specifically
+      if (error.status === 401) {
+        throw new Error('Authentication error: Your session has expired. Please log out and log back in.');
+      } else if (error.status === 403) {
+        throw new Error('Access denied: You need admin privileges to view user data.');
+      } 
+      
+      // If we haven't reached max retries, attempt retry with exponential backoff
+      if (retryCount < maxRetries) {
+        const backoffTime = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.log(`Retrying user fetch in ${backoffTime}ms...`);
+        
+        // Wait for backoff time
+        await new Promise(resolve => setTimeout(resolve, backoffTime));
+        
+        // Try refreshing the session before retry
+        try {
+          const { data: refreshData } = await supabase.auth.refreshSession();
+          if (refreshData?.session) {
+            console.log('Session refreshed before retry');
+          } else {
+            console.log('Session refresh returned no session, retrying anyway');
+          }
+        } catch (refreshError) {
+          console.log('Session refresh failed, retrying anyway');
+        }
+        
+        // Retry the request
+        return fetchUsers(retryCount + 1, maxRetries);
+      }
+      
+      throw new Error(`Failed to fetch users: ${error.message || 'Unknown error. Please try again later.'}`);
+    }
     
     if (!data || !Array.isArray(data)) {
-      throw new Error("Invalid data format received from functions API");
+      console.error('Invalid response from edge function:', data);
+      throw new Error('Invalid server response: Expected a list of users. Please try refreshing the page.');
     }
     
-    // Ensure role values are valid
-    const typedUsers = data.map((user: any) => ({
-      ...user,
-      role: validateUserRole(user.role)
-    }));
+    console.log(`Successfully fetched ${data.length} users`);
+    return data as UserWithRole[];
+  } catch (error: any) {
+    console.error('Error in fetchUsers:', error);
     
-    // Update cache
-    userCache = typedUsers;
-    lastCacheTime = now;
+    // Handle specific connection errors
+    if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+      toast.error('Connection error: Please check your network and try again');
+      throw new Error('Connection error: Unable to communicate with the server.');
+    }
     
-    return typedUsers;
+    // Check if the error is about authorization
+    if (error.message?.includes('Authentication') || 
+        error.message?.includes('expired') || 
+        error.message?.includes('session')) {
+      throw new Error('Your session has expired. Please sign out and sign in again.');
+    }
+    throw error;
   }
-};
+}

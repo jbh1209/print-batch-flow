@@ -3,32 +3,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Session } from '@supabase/supabase-js';
 
-// List of known admin emails for emergency access
-const KNOWN_ADMIN_EMAILS = [
-  "james@impressweb.co.za",
-  "studio@impressweb.co.za"
-];
-
-// Check if we're in Lovable preview mode
-export const isLovablePreview = 
-  typeof window !== 'undefined' && 
-  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
-
 /**
  * Clean up all auth state in localStorage and sessionStorage
  * This helps prevent auth limbo states
  */
 export const cleanupAuthState = () => {
   try {
-    console.log('Cleaning up auth state');
-    
     // Remove standard auth tokens
     localStorage.removeItem('supabase.auth.token');
     
     // Remove all Supabase auth keys from localStorage
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-        console.log(`Removing auth key from localStorage: ${key}`);
         localStorage.removeItem(key);
       }
     });
@@ -37,13 +23,10 @@ export const cleanupAuthState = () => {
     if (typeof sessionStorage !== 'undefined') {
       Object.keys(sessionStorage).forEach((key) => {
         if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-          console.log(`Removing auth key from sessionStorage: ${key}`);
           sessionStorage.removeItem(key);
         }
       });
     }
-    
-    console.log('Auth state cleanup completed');
   } catch (error) {
     console.error('Error cleaning up auth state:', error);
   }
@@ -54,14 +37,11 @@ export const cleanupAuthState = () => {
  */
 export const signOut = async (): Promise<void> => {
   try {
-    console.log('Signing out user');
-    
     // Clean up auth state first
     cleanupAuthState();
     
     // Attempt global sign out
     await supabase.auth.signOut({ scope: 'global' });
-    console.log('Supabase signOut completed');
     
     // Force page reload for a clean state
     window.location.href = '/auth';
@@ -79,8 +59,6 @@ export const signOut = async (): Promise<void> => {
  */
 export const signIn = async (email: string, password: string): Promise<void> => {
   try {
-    console.log('Attempting to sign in user:', email);
-    
     // Clean up existing state first
     cleanupAuthState();
     
@@ -90,12 +68,8 @@ export const signIn = async (email: string, password: string): Promise<void> => 
       password,
     });
     
-    if (error) {
-      console.error('Sign in error:', error);
-      throw error;
-    }
+    if (error) throw error;
     
-    console.log('Sign in successful for user:', data?.user?.id);
     // Success - the auth listener will handle the redirect
   } catch (error: any) {
     console.error('Sign in error:', error);
@@ -108,8 +82,6 @@ export const signIn = async (email: string, password: string): Promise<void> => 
  */
 export const signUp = async (email: string, password: string, userData?: { full_name?: string }): Promise<void> => {
   try {
-    console.log('Attempting to sign up new user:', email);
-    
     // Clean up existing state first
     cleanupAuthState();
     
@@ -123,12 +95,8 @@ export const signUp = async (email: string, password: string, userData?: { full_
       }
     });
     
-    if (error) {
-      console.error('Sign up error:', error);
-      throw error;
-    }
+    if (error) throw error;
     
-    console.log('Sign up successful for user:', data?.user?.id);
     // Success - the auth listener will handle the rest
   } catch (error: any) {
     console.error('Sign up error:', error);
@@ -151,62 +119,22 @@ export const getSession = async () => {
 };
 
 /**
- * Robust admin check with multiple fallback strategies
- * This helps ensure admin access continues to work even if one check method fails
+ * Check if current user has admin role
  */
-export const checkIsAdmin = async (userId: string, userEmail?: string | null): Promise<boolean> => {
-  // Skip checks in preview mode
-  if (isLovablePreview) {
-    console.log('Preview mode detected, user granted admin status automatically');
-    return true;
-  }
-  
+export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   if (!userId) return false;
-  console.log('Checking admin status for user:', userId);
   
   try {
-    // Strategy 1: Check using secure fixed RPC function (primary method)
-    const { data: rpcData, error: rpcError } = await supabase.rpc('is_admin_secure_fixed', { _user_id: userId });
+    const { data, error } = await supabase.rpc('is_admin_secure_fixed', { _user_id: userId });
     
-    if (!rpcError && rpcData === true) {
-      console.log('Admin status confirmed via RPC function');
-      return true;
+    if (error) {
+      console.error('Error checking admin status:', error);
+      return false;
     }
     
-    if (rpcError) {
-      console.warn('RPC admin check failed:', rpcError);
-    }
-    
-    // Strategy 2: Direct DB query to user_roles table
-    const { data: roleData, error: roleError } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .maybeSingle();
-    
-    if (!roleError && roleData) {
-      console.log('Admin status confirmed via direct query');
-      return true;
-    }
-    
-    // Strategy 3: Emergency fallback - check against known admin emails
-    if (userEmail && KNOWN_ADMIN_EMAILS.includes(userEmail.toLowerCase())) {
-      console.log('Admin status confirmed via known admin email list');
-      return true;
-    }
-    
-    console.log('User is not an admin');
-    return false;
+    return !!data;
   } catch (error) {
     console.error('Error checking admin status:', error);
-    
-    // Last resort emergency fallback - check against known admin emails
-    if (userEmail && KNOWN_ADMIN_EMAILS.includes(userEmail.toLowerCase())) {
-      console.log('Admin status granted via emergency fallback');
-      return true;
-    }
-    
     return false;
   }
 };
@@ -216,7 +144,6 @@ export const checkIsAdmin = async (userId: string, userEmail?: string | null): P
  */
 export const refreshToken = async (): Promise<Session | null> => {
   try {
-    console.log('Attempting to refresh authentication token');
     const { data, error } = await supabase.auth.refreshSession();
     
     if (error) {
@@ -224,7 +151,6 @@ export const refreshToken = async (): Promise<Session | null> => {
       return null;
     }
     
-    console.log('Token refreshed successfully');
     return data.session;
   } catch (error) {
     console.error('Error refreshing token:', error);
