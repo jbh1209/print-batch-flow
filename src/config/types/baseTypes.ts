@@ -46,7 +46,7 @@ export interface BaseJob {
   stock_type?: string;
 }
 
-export type JobStatus = 'queued' | 'batched' | 'processing' | 'completed' | 'cancelled';
+export type JobStatus = 'queued' | 'batched' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
 
 export interface BaseBatch {
   id: string;

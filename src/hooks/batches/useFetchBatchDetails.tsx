@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -81,7 +80,7 @@ export function useFetchBatchDetails({
         // Expanded query to include ALL necessary fields for business card jobs
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number, file_name, double_sided, lamination_type, uploaded_at, paper_type, due_date")
+          .select("id, name, quantity, status, pdf_url, job_number, file_name, double_sided, lamination_type, uploaded_at, paper_type, due_date, user_id")
           .eq("batch_id", batchId)
           .order("name");
         
@@ -100,12 +99,13 @@ export function useFetchBatchDetails({
           lamination_type: job.lamination_type as LaminationType, // Cast to LaminationType
           due_date: job.due_date,
           uploaded_at: job.uploaded_at,
-          paper_type: job.paper_type
+          paper_type: job.paper_type,
+          user_id: job.user_id || user.id // Add user_id, fallback to current user if missing
         }));
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number, file_name, paper_type, paper_weight, size, due_date")
+          .select("id, name, quantity, status, pdf_url, job_number, file_name, paper_type, paper_weight, size, due_date, user_id")
           .eq("batch_id", batchId)
           .order("name");
         
@@ -124,7 +124,8 @@ export function useFetchBatchDetails({
           paper_weight: job.paper_weight,
           size: job.size,
           due_date: job.due_date,
-          lamination_type: 'none' as LaminationType // Set a default value
+          lamination_type: 'none' as LaminationType, // Set a default value
+          user_id: job.user_id || user.id // Add user_id, fallback to current user if missing
         }));
       }
       

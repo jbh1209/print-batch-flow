@@ -1,4 +1,3 @@
-
 import { format, formatDistance, formatRelative, isValid } from 'date-fns';
 
 /**
@@ -19,6 +18,26 @@ export const formatDate = (dateString: string, formatStr: string = 'MMM dd, yyyy
     return 'Error';
   }
 };
+
+// Add overload for object format options
+export function formatDate(dateString: string, options: Intl.DateTimeFormatOptions): string;
+export function formatDate(dateString: string, formatStrOrOptions: string | Intl.DateTimeFormatOptions = 'MMM dd, yyyy'): string {
+  try {
+    const date = new Date(dateString);
+    if (!isValid(date)) {
+      return 'Invalid date';
+    }
+    
+    if (typeof formatStrOrOptions === 'string') {
+      return format(date, formatStrOrOptions);
+    } else {
+      return new Intl.DateTimeFormat('en-US', formatStrOrOptions).format(date);
+    }
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Error';
+  }
+}
 
 /**
  * Format a date string as a relative time (e.g., "2 days ago", "in 3 days")

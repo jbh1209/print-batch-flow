@@ -1,128 +1,159 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { BusinessCardJob } from '@/components/batches/types/BusinessCardTypes';
+import { useToast } from "@/hooks/use-toast";
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { toast } from "sonner";
-import { Job, LaminationType } from "@/components/business-cards/JobsTable";
-import { useJobOperations } from "./business-cards/useJobOperations";
-
-export const useBusinessCardJobs = () => {
+export function useBusinessCardJobs() {
   const { user } = useAuth();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [jobs, setJobs] = useState<BusinessCardJob[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterView, setFilterView] = useState<"all" | "queued" | "batched" | "completed">("all");
-  const [laminationFilter, setLaminationFilter] = useState<string>("");
-  const [filterCounts, setFilterCounts] = useState({
-    all: 0,
-    queued: 0,
-    batched: 0,
-    completed: 0
-  });
-  
-  const { deleteJob } = useJobOperations(user?.id);
+  const { toast } = useToast();
 
   const fetchJobs = async () => {
-    setIsLoading(true);
-    setError(null);
-    
+    if (!user) {
+      console.log('No authenticated user for business card jobs fetching');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      if (!user) {
-        console.log("No authenticated user found for jobs");
-        setIsLoading(false);
-        return;
-      }
-      
-      console.log("Fetching all business card jobs");
-      
-      let query = supabase
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
         .from('business_card_jobs')
-        .select('*');
-      
-      if (filterView !== 'all') {
-        query = query.eq('status', filterView);
-      }
-      
-      // Convert laminationFilter to LaminationType or handle as string
-      if (laminationFilter) {
-        const typedLaminationType = laminationFilter as LaminationType;
-        query = query.eq('lamination_type', typedLaminationType);
-      }
-      
-      const { data, error: fetchError } = await query
+        .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (fetchError) throw fetchError;
-      
-      console.log("Business card jobs data received:", data?.length || 0, "records");
-      
+
       setJobs(data || []);
-      
-      // Second query to get all job counts for filters
-      const { data: allJobs, error: countError } = await supabase
-        .from('business_card_jobs')
-        .select('status');
-      
-      if (countError) throw countError;
-      
-      setFilterCounts({
-        all: allJobs?.length || 0,
-        queued: allJobs?.filter(job => job.status === 'queued').length || 0,
-        batched: allJobs?.filter(job => job.status === 'batched').length || 0,
-        completed: allJobs?.filter(job => job.status === 'completed').length || 0
-      });
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-      setError("Failed to load jobs data");
-      toast.error("Error fetching jobs", {
-        description: "There was a problem loading your jobs."
-      });
+    } catch (err) {
+      console.error('Error fetching business card jobs:', err);
+      setError('Failed to load business card jobs');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeleteJob = async (jobId: string): Promise<boolean> => {
+  useEffect(() => {
+    if (user) {
+      fetchJobs();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  const deleteJob = async (jobId: string) => {
     try {
-      // Check if the user is trying to delete someone else's job
-      const jobToDelete = jobs.find(job => job.id === jobId);
-      if (jobToDelete && jobToDelete.user_id !== user?.id) {
-        toast.error("You can only delete your own jobs");
-        return false;
-      }
-      
-      const success = await deleteJob(jobId);
-      
-      if (success) {
-        // Remove the job from state
-        setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
-        toast.success("Job deleted successfully");
-      }
-      
-      return success;
-    } catch (error) {
-      console.error('Error deleting job:', error);
-      toast.error("Error deleting job", {
-        description: "There was a problem deleting the job."
-      });
-      return false;
+      const { error: deleteError } = await supabase
+        .from('business_card_jobs')
+        .delete()
+        .eq('id', jobId);
+
+      if (deleteError) throw deleteError;
+
+      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+    } catch (err) {
+      console.error('Error deleting job:', err);
     }
   };
 
-  useEffect(() => {
-    fetchJobs();
-  }, [user, filterView, laminationFilter]);
+  const createJob = async (jobData: Omit<BusinessCardJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status'>) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('business_card_jobs')
+        .insert({
+          ...jobData,
+          user_id: user.id,
+          status: 'queued',
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setJobs(prevJobs => [data, ...prevJobs]);
+      return data;
+    } catch (err) {
+      console.error('Error creating job:', err);
+      throw err;
+    }
+  };
+
+  const updateJob = async (jobId: string, jobData: Partial<BusinessCardJob>) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    try {
+      // Fetch the existing job to check the user_id
+      const { data: existingJob, error: fetchError } = await supabase
+        .from('business_card_jobs')
+        .select('user_id')
+        .eq('id', jobId)
+        .single();
+      
+      if (fetchError) {
+        throw fetchError;
+      }
+      
+      if (!existingJob) {
+        throw new Error('Job not found');
+      }
+      
+      if (existingJob.user_id !== user.id) {
+        toast({
+          title: "You can only update your own jobs",
+          description: "Permission denied",
+          variant: "destructive",
+        });
+        throw new Error("Permission denied: You can only update your own jobs");
+      }
+
+      const { data: job, error } = await supabase
+        .from('business_card_jobs')
+        .update(jobData)
+        .eq('id', jobId)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+      
+      // Fix the specific error by adding user_id to the interface or ensuring it exists
+      const jobToUpdate = {
+        ...job,
+        user_id: job.user_id || user.id // Add this to ensure user_id exists
+      };
+
+      setJobs(prevJobs =>
+        prevJobs.map(j => j.id === jobId ? { ...j, ...jobToUpdate } : j)
+      );
+      return job;
+    } catch (err) {
+      console.error('Error updating job:', err);
+      throw err;
+    }
+  };
 
   return {
     jobs,
     isLoading,
     error,
-    filterView,
-    filterCounts,
-    laminationFilter,
-    setFilterView,
-    setLaminationFilter,
     fetchJobs,
-    deleteJob: handleDeleteJob
+    deleteJob,
+    createJob,
+    updateJob,
   };
-};
+}

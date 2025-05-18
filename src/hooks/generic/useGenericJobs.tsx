@@ -78,7 +78,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       // Only allow users to delete their own jobs
       const job = await getJobById(jobId);
       if (job && job.user_id !== user?.id) {
-        toast.error("You can only delete your own jobs");
+        toast.error("You can only delete your own jobs", {
+          description: "Permission denied"
+        });
         return false;
       }
       
@@ -115,7 +117,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       // Only allow users to update their own jobs
       const job = await getJobById(jobId);
       if (job && job.user_id !== user.id) {
-        toast.error("You can only update your own jobs");
+        toast.error("You can only update your own jobs", {
+          description: "Permission denied"
+        });
         throw new Error("Permission denied: You can only update your own jobs");
       }
       
@@ -146,7 +150,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       // Check if user is trying to batch jobs they don't own
       const unauthorizedJobs = selectedJobs.filter(job => 'user_id' in job && job.user_id !== user?.id);
       if (unauthorizedJobs.length > 0) {
-        toast.error("You can only batch your own jobs");
+        toast.error("You can only batch your own jobs", {
+          description: "Permission denied"
+        });
         throw new Error("Permission denied: You can only batch your own jobs");
       }
       

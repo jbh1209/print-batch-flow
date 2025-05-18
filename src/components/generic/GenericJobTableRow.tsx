@@ -102,11 +102,7 @@ const GenericJobTableRow: React.FC<GenericJobTableRowProps> = ({
       <TableCell>{job.quantity}</TableCell>
       <TableCell>{formatDate(job.due_date)}</TableCell>
       <TableCell>
-        {formatDate(job.created_at, {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })}
+        {formatDate(job.created_at || new Date().toISOString())}
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end">
