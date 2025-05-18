@@ -1,5 +1,5 @@
 
-import { ProductConfig } from "../types/productConfigTypes";
+import { ProductConfig } from "../types/baseTypes";
 
 export const postersConfig: ProductConfig = {
   productType: "Posters",
@@ -10,6 +10,8 @@ export const postersConfig: ProductConfig = {
   availableSizes: ["A3", "A2", "A1", "A0"],
   availableLaminationTypes: ["none", "gloss", "matt"],
   availableSidesTypes: ["single", "double"],
+  availablePrinterTypes: ["HP 12000", "Indigo 7000"],
+  availableSheetSizes: ["530x750mm", "364x515mm"],
   hasLamination: true,
   hasPaperType: true,
   hasPaperWeight: true,

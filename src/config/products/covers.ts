@@ -1,5 +1,5 @@
 
-import { ProductConfig } from "../types/productConfigTypes";
+import { ProductConfig } from "../types/baseTypes";
 
 export const coversConfig: ProductConfig = {
   productType: "Covers",
@@ -8,6 +8,8 @@ export const coversConfig: ProductConfig = {
   availablePaperTypes: ["Matt", "Gloss", "Premium"],
   availablePaperWeights: ["250gsm", "350gsm", "400gsm"],
   availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"],
+  availablePrinterTypes: ["HP 12000", "Indigo 7000"],
+  availableSheetSizes: ["530x750mm", "364x515mm"],
   hasLamination: true,
   hasPaperType: true,
   hasPaperWeight: true,

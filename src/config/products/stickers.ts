@@ -1,5 +1,5 @@
 
-import { ProductConfig } from '../types/productConfigTypes';
+import { ProductConfig } from '../types/baseTypes';
 
 export const stickersConfig: ProductConfig = {
   productType: "Stickers",
@@ -7,6 +7,8 @@ export const stickersConfig: ProductConfig = {
   jobNumberPrefix: "STK",
   availablePaperTypes: ["Paper", "Vinyl"],
   availableLaminationTypes: ["none", "matt", "gloss"],
+  availablePrinterTypes: ["HP 12000", "Indigo 7000"],
+  availableSheetSizes: ["530x750mm", "364x515mm"],
   hasPaperType: true,
   hasLamination: true,
   slaTargetDays: 3,

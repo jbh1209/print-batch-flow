@@ -76,7 +76,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const handleDeleteJob = async (jobId: string) => {
     try {
       // Only allow users to delete their own jobs
-      const job = await getJobById(jobId, user?.id || '');
+      const job = await getJobById(jobId);
       if (job && job.user_id !== user?.id) {
         toast.error("You can only delete your own jobs");
         return false;
@@ -113,13 +113,13 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     
     try {
       // Only allow users to update their own jobs
-      const job = await getJobById(jobId, user.id);
+      const job = await getJobById(jobId);
       if (job && job.user_id !== user.id) {
         toast.error("You can only update your own jobs");
         throw new Error("Permission denied: You can only update your own jobs");
       }
       
-      const updatedJob = await updateJob<T>(jobId, jobData, user.id);
+      const updatedJob = await updateJob<T>(jobId, jobData);
       setJobs(prevJobs => 
         prevJobs.map(job => job.id === jobId ? { ...job, ...updatedJob } : job)
       );
@@ -144,7 +144,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   ) => {
     try {
       // Check if user is trying to batch jobs they don't own
-      const unauthorizedJobs = selectedJobs.filter(job => job.user_id !== user?.id);
+      const unauthorizedJobs = selectedJobs.filter(job => 'user_id' in job && job.user_id !== user?.id);
       if (unauthorizedJobs.length > 0) {
         toast.error("You can only batch your own jobs");
         throw new Error("Permission denied: You can only batch your own jobs");
@@ -164,8 +164,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         laminationType: typedLaminationType // Include laminationType in the config object
       };
       
-      // Fixed: Pass only the selected jobs and combined config to the wrapper function
-      // The wrapper function in useGenericBatches expects only 2 arguments
+      // Pass only the selected jobs and combined config to the wrapper function
       const batch = await createBatchWithSelectedJobs(
         selectedJobs as BaseJob[], // Cast to BaseJob[] to match the expected type
         batchConfig

@@ -1,5 +1,5 @@
 
-import { ProductConfig } from '../types/productConfigTypes';
+import { ProductConfig } from '../types/baseTypes';
 
 export const businessCardsConfig: ProductConfig = {
   productType: "BusinessCards",
@@ -7,6 +7,8 @@ export const businessCardsConfig: ProductConfig = {
   jobNumberPrefix: "BC",
   availablePaperTypes: ["350gsm Matt", "350gsm Silk", "400gsm Matt", "400gsm Silk"],
   availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"],
+  availablePrinterTypes: ["HP 12000", "Indigo 7000"],
+  availableSheetSizes: ["530x750mm", "364x515mm"],
   hasPaperType: true,
   hasLamination: true,
   slaTargetDays: 3,

@@ -1,11 +1,13 @@
 
-import { ProductConfig } from '../types/productConfigTypes';
+import { ProductConfig } from '../types/baseTypes';
 
 export const sleevesConfig: ProductConfig = {
   productType: "Sleeves",
   tableName: "sleeve_jobs",
   jobNumberPrefix: "SL",
   availablePaperTypes: ["Kraft", "White"],
+  availablePrinterTypes: ["HP 12000", "Indigo 7000"],
+  availableSheetSizes: ["530x750mm", "364x515mm"],
   hasPaperType: true,
   slaTargetDays: 5,
   routes: {

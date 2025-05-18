@@ -1,3 +1,4 @@
+
 export type BatchStatus =
   | 'pending'
   | 'queued'
@@ -16,6 +17,8 @@ export type TableName =
   | 'poster_jobs'
   | 'sleeve_jobs';
 
+export type ExistingTableName = TableName;
+
 export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
 
 /**
@@ -31,10 +34,25 @@ export interface BaseJob {
   created_at: string;
   updated_at?: string;
   batch_id?: string | null;
-  user_id: string;  // Added this missing field
+  user_id: string;
   pdf_url: string | null;
   file_name: string;
   lamination_type?: string;
+}
+
+export type JobStatus = 'queued' | 'batched' | 'processing' | 'completed' | 'cancelled';
+
+export interface BaseBatch {
+  id: string;
+  name: string;
+  status: BatchStatus;
+  due_date: string;
+  sheets_required: number;
+  lamination_type: LaminationType;
+  created_at: string;
+  front_pdf_url?: string | null;
+  back_pdf_url?: string | null;
+  overview_pdf_url?: string | null;
 }
 
 export interface ProductConfig {
@@ -42,19 +60,37 @@ export interface ProductConfig {
   tableName?: TableName;
   ui: {
     title: string;
-    newItemTitle: string;
-    editItemTitle: string;
-    description: string;
+    newItemTitle?: string;
+    editItemTitle?: string;
+    description?: string;
+    jobFormTitle?: string;
+    batchFormTitle?: string;
+    icon?: string;
+    color?: string;
   };
   routes: {
     basePath: string;
     newJobPath: string;
+    jobsPath?: string;
+    batchesPath?: string;
+    indexPath?: string;
     jobDetailPath?: (id: string) => string;
+    jobEditPath?: (id: string) => string;
   };
-  availablePaperTypes: string[];
-  availablePaperWeights: string[];
-  availableLaminationTypes: LaminationType[];
-  availablePrinterTypes: string[];
-  availableSheetSizes: string[];
+  jobNumberPrefix?: string;
+  availablePaperTypes?: string[];
+  availablePaperWeights?: string[];
+  availableLaminationTypes?: LaminationType[];
+  availablePrinterTypes?: string[];
+  availableSheetSizes?: string[];
+  availableSizes?: string[];
+  availableSidesTypes?: string[];
+  availableUVVarnishTypes?: string[];
+  hasPaperType?: boolean;
+  hasPaperWeight?: boolean;
+  hasLamination?: boolean;
+  hasSize?: boolean;
+  hasSides?: boolean;
+  hasUVVarnish?: boolean;
   slaTargetDays: number;
 }

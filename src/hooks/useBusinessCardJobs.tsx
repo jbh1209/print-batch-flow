@@ -43,9 +43,10 @@ export const useBusinessCardJobs = () => {
         query = query.eq('status', filterView);
       }
       
-      // Use the laminationFilter as is without type casting
+      // Convert laminationFilter to LaminationType or handle as string
       if (laminationFilter) {
-        query = query.eq('lamination_type', laminationFilter as LaminationType);
+        const typedLaminationType = laminationFilter as LaminationType;
+        query = query.eq('lamination_type', typedLaminationType);
       }
       
       const { data, error: fetchError } = await query
