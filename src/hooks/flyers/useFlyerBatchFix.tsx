@@ -20,10 +20,10 @@ export function useFlyerBatchFix(onJobsUpdated: () => Promise<void>) {
       console.log("Finding orphaned batched jobs");
       
       // Find all jobs that are marked as batched but have no batch_id
+      // Removed user_id filter to allow fixing all orphaned jobs
       const { data: orphanedJobs, error: findError } = await supabase
         .from('flyer_jobs')
         .select('id')
-        .eq('user_id', user.id)
         .eq('status', 'batched')
         .is('batch_id', null);
       

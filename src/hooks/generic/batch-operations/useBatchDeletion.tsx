@@ -21,6 +21,7 @@ export function useBatchDeletion(tableName: string | undefined, onSuccess: () =>
       }
       
       // Reset jobs in the batch (update their status and batch_id)
+      // Removed user_id filter to allow all users to reset any job in any batch
       const { error: jobsError } = await supabase
         .from(tableName as any)
         .update({ 
@@ -35,6 +36,7 @@ export function useBatchDeletion(tableName: string | undefined, onSuccess: () =>
       }
       
       // Then delete the batch from the batches table
+      // Removed created_by filter to allow all users to delete any batch
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()

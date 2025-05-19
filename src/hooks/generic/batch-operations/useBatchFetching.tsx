@@ -19,7 +19,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       return;
     }
 
-    console.log('Fetching batches for user:', user.id, 'product type:', config.productType);
+    console.log('Fetching batches for product type:', config.productType);
     
     setIsLoading(true);
     setError(null);
@@ -27,8 +27,8 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
     try {
       let query = supabase
         .from('batches')
-        .select('*')
-        .eq('created_by', user.id);
+        .select('*');
+        // Removed created_by filter to allow all users to see all batches
       
       // Get product code from the standardized utility function
       const productCode = getProductTypeCode(config.productType);

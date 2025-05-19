@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -19,12 +18,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Removed userId filter to allow all users to delete any job
       const { error } = await supabase
         .from(tableName as any)
         .delete()
-        .eq('id', jobId)
-        .eq('user_id', userId);
+        .eq('id', jobId);
 
       if (error) throw error;
       
@@ -52,7 +50,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       
       const newJob = {
         ...jobData,
-        user_id: userId,
+        user_id: userId, // Keep user_id assignment to track who created the job
         status: 'queued' as JobStatus
       };
 
@@ -87,12 +85,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Remove userId filter to allow all users to update any job
       const { data, error } = await supabase
         .from(tableName as any)
         .update(jobData)
         .eq('id', jobId)
-        .eq('user_id', userId)
         .select()
         .single();
 
@@ -116,12 +113,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Remove userId filter to allow all users to view any job
       const { data, error } = await supabase
         .from(tableName as any)
         .select('*')
         .eq('id', jobId)
-        .eq('user_id', userId)
         .single();
 
       if (error) throw error;

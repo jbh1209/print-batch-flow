@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,11 +22,11 @@ export function useFlyerBatches(batchId: string | null = null) {
     setError(null);
 
     try {
-      // Use the "batches" table but filter by created_by and include only flyer batches
+      // Use the "batches" table but filter only to include flyer batches
       let query = supabase
         .from('batches')
         .select('*')
-        .eq('created_by', user.id)
+        // Removed created_by filter to allow all users to see all flyer batches
         .filter('name', 'ilike', 'DXB-FL-%'); // Only fetch flyer batches (prefix DXB-FL-)
       
       // If batchId is specified, filter to only show that batch
@@ -100,6 +99,7 @@ export function useFlyerBatches(batchId: string | null = null) {
       console.log("Deleting batch:", batchToDelete);
       
       // First reset all jobs in this batch back to queued
+      // Removed user_id filter to allow all users to reset jobs in any batch
       const { error: jobsError } = await supabase
         .from("flyer_jobs")
         .update({ 
@@ -114,6 +114,7 @@ export function useFlyerBatches(batchId: string | null = null) {
       }
       
       // Then delete the batch
+      // Removed created_by filter to allow all users to delete any batch
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()

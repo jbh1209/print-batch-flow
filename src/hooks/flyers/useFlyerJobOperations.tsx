@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,11 +11,11 @@ export function useFlyerJobOperations() {
 
   const deleteJob = async (jobId: string) => {
     try {
+      // Removed user_id filter to allow all users to delete any flyer job
       const { error } = await supabase
         .from('flyer_jobs')
         .delete()
-        .eq('id', jobId)
-        .eq('user_id', user?.id);
+        .eq('id', jobId);
 
       if (error) throw error;
 
@@ -132,9 +133,9 @@ export function useFlyerJobOperations() {
           printer_type: batchProperties.printerType,
           sheet_size: batchProperties.sheetSize,
           sheets_required: sheetsRequired,
-          created_by: user.id,
+          created_by: user.id, // Keep track of who created the batch
           status: 'pending',
-          sla_target_days: batchProperties.slaTargetDays // Add the SLA target days to database
+          sla_target_days: batchProperties.slaTargetDays
         })
         .select()
         .single();

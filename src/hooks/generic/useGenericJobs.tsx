@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,13 +40,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      console.log('Fetching jobs for user:', user.id, 'from table:', config.tableName);
+      console.log('Fetching jobs for product:', config.productType, 'from table:', config.tableName);
       
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Removed user_id filter to allow all users to see all jobs
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;

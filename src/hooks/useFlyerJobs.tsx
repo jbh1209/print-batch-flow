@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { useFlyerJobOperations } from './flyers/useFlyerJobOperations';
-import { useFlyerBatchFix } from './flyers/useFlyerBatchFix';
+import { useFlyerBatchFix } from './flyerBatchFix';
 import { toast } from 'sonner';
 
 export function useFlyerJobs() {
@@ -25,10 +24,10 @@ export function useFlyerJobs() {
       setIsLoading(true);
       setError(null);
 
+      // Removed user_id filter to allow all users to see all flyer jobs
       const { data, error: fetchError } = await supabase
         .from('flyer_jobs')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
