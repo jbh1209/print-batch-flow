@@ -84,8 +84,8 @@ export const FlyerJobsTable = () => {
       const commonPaperType = findCommonProperty(selectedJobs, 'paper_type');
       const commonPaperWeight = findCommonProperty(selectedJobs, 'paper_weight');
       
-      // Create a toast to show batch creation progress
-      toast.loading("Creating batch...");
+      // Show creating batch toast
+      toast.loading("Creating batch with " + selectedJobs.length + " jobs...");
       
       // Create the batch with automatically determined properties
       const batch = await createBatch(selectedJobs, {
@@ -102,9 +102,12 @@ export const FlyerJobsTable = () => {
       setSelectedJobs([]);
       await fetchJobs();
       
-      // Show success message with the batch name
+      // Dismiss loading toast and show success message with the batch name
       toast.dismiss();
       toast.success(`Batch ${batch.name} created with ${selectedJobs.length} jobs`);
+      
+      // Navigate to the newly created batch details
+      navigate(`/batches/flyers/batches/${batch.id}`);
     } catch (error) {
       console.error("Error creating batch:", error);
       toast.dismiss();

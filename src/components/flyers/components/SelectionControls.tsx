@@ -1,5 +1,6 @@
 
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 interface SelectionControlsProps {
   selectedCount: number;
@@ -25,7 +26,14 @@ export const SelectionControls = ({
         onClick={onCreateBatch} 
         disabled={batchButtonDisabled}
       >
-        {isCreatingBatch ? "Creating Batch..." : "Create Batch"}
+        {isCreatingBatch ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Creating Batch...
+          </>
+        ) : (
+          "Create Batch"
+        )}
       </Button>
     </div>
   );
