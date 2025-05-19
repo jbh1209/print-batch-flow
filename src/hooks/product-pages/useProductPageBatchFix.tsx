@@ -5,19 +5,18 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { PRODUCT_PAGES_TABLE } from "@/components/product-pages/types/ProductPageTypes";
 
-// Define proper interfaces to avoid type recursion issues
+// Define concrete non-recursive interfaces
 interface OrphanedProductPageJob {
   id: string;
 }
 
-// Define properly typed interfaces for Supabase results
-interface SupabaseQueryResult<T> {
-  data: T[] | null;
+// Use simple, concrete types instead of generics to avoid recursion
+interface ProductPageQueryResult {
+  data: OrphanedProductPageJob[] | null;
   error: Error | null;
 }
 
-// Define update result interface
-interface SupabaseUpdateResult {
+interface ProductPageUpdateResult {
   error: Error | null;
 }
 
@@ -37,36 +36,37 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Finding orphaned batched jobs in ${PRODUCT_PAGES_TABLE}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      const queryResult = await supabase
+      const result = await supabase
         .from(PRODUCT_PAGES_TABLE)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      // Safely cast the result to our interface
-      const typedResult = queryResult as unknown as SupabaseQueryResult<OrphanedProductPageJob>;
-      const orphanedJobs = typedResult.data || [];
-      const findError = typedResult.error;
+      // Use concrete type to avoid recursion
+      const queryResult = result as unknown as ProductPageQueryResult;
+      const orphanedJobs = queryResult.data || [];
+      const findError = queryResult.error;
       
       if (findError) throw findError;
       
       console.log(`Found ${orphanedJobs.length} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
       if (orphanedJobs.length > 0) {
-        // Create a properly typed array of job IDs
+        // Create array of job IDs
         const jobIds = orphanedJobs.map(job => job.id);
         
-        // Define a properly typed update object to solve the 'never' type error
-        const updateData = { status: 'queued' as const };
+        // Explicitly type the update data object to avoid 'never' type errors
+        type UpdateData = { status: 'queued' };
+        const updateData: UpdateData = { status: 'queued' };
         
-        const updateResult = await supabase
+        const update = await supabase
           .from(PRODUCT_PAGES_TABLE)
           .update(updateData)
           .in('id', jobIds);
         
-        // Safely cast the update result
-        const typedUpdateResult = updateResult as unknown as SupabaseUpdateResult;
-        const updateError = typedUpdateResult.error;
+        // Use concrete type for update result
+        const updateResult = update as unknown as ProductPageUpdateResult;
+        const updateError = updateResult.error;
         
         if (updateError) throw updateError;
         

@@ -5,18 +5,18 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { TableName } from "@/config/productTypes";
 
-// Define explicit interfaces to avoid recursive type instantiation
+// Define explicit non-recursive interfaces
 interface OrphanedJob {
   id: string;
 }
 
-// Define concrete response types from Supabase to avoid circular references
-interface SupabaseQueryResponse {
+// Use simple, concrete types instead of generics to avoid recursion
+interface BatchFixQueryResult {
   data: OrphanedJob[] | null;
   error: Error | null;
 }
 
-interface SupabaseUpdateResponse {
+interface BatchFixUpdateResult {
   error: Error | null;
 }
 
@@ -41,16 +41,16 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Finding orphaned batched jobs in ${tableName}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      const queryResult = await supabase
+      const result = await supabase
         .from(tableName)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      // Type assertion with our non-recursive interface
-      const typedResult = queryResult as unknown as SupabaseQueryResponse;
-      const orphanedJobs = typedResult.data || [];
-      const findError = typedResult.error;
+      // Use our concrete type instead of a generic to avoid recursion
+      const queryResult = result as unknown as BatchFixQueryResult;
+      const orphanedJobs = queryResult.data || [];
+      const findError = queryResult.error;
       
       if (findError) throw findError;
       
@@ -61,14 +61,14 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         const jobIds = orphanedJobs.map(job => job.id);
         
         // Reset these jobs to queued status
-        const updateResult = await supabase
+        const update = await supabase
           .from(tableName)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
-        // Type assertion with our non-recursive interface
-        const typedUpdateResult = updateResult as unknown as SupabaseUpdateResponse;
-        const updateError = typedUpdateResult.error;
+        // Use our concrete type for update result
+        const updateResult = update as unknown as BatchFixUpdateResult;
+        const updateError = updateResult.error;
         
         if (updateError) throw updateError;
         
