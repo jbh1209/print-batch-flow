@@ -20,7 +20,8 @@ const existingTables = [
   'sticker_jobs',
   'batches',
   'profiles',
-  'user_roles'
+  'user_roles',
+  'product_pages' // Added product_pages table
 ];
 
 /**

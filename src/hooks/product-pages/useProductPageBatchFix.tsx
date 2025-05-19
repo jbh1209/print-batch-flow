@@ -5,6 +5,16 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { PRODUCT_PAGES_TABLE } from "@/components/product-pages/types/ProductPageTypes";
 
+/**
+ * Interface for job records with ID
+ */
+interface JobId {
+  id: string;
+}
+
+/**
+ * Hook for fixing orphaned product page jobs
+ */
 export function useProductPageBatchFix(onFixComplete?: () => void) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
@@ -21,7 +31,7 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Finding orphaned batched jobs in ${PRODUCT_PAGES_TABLE}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      const { data: orphanedJobs, error: findError } = await supabase
+      const { data, error: findError } = await supabase
         .from(PRODUCT_PAGES_TABLE)
         .select('id')
         .eq('status', 'batched')
@@ -29,18 +39,21 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       
       if (findError) throw findError;
       
-      // Handle the case where data might be null
-      const jobsToUpdate = orphanedJobs || [];
+      // Safely cast data to JobId interface
+      const jobsToUpdate = (data || []) as JobId[];
       console.log(`Found ${jobsToUpdate.length} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
       if (jobsToUpdate.length > 0) {
         // Create array of job IDs
         const jobIds = jobsToUpdate.map(job => job.id);
         
+        // Define the update operation with explicit type
+        const updateData = { status: 'queued' as const };
+        
         // Reset these jobs to queued status
         const { error: updateError } = await supabase
           .from(PRODUCT_PAGES_TABLE)
-          .update({ status: 'queued' })
+          .update(updateData)
           .in('id', jobIds);
         
         if (updateError) throw updateError;

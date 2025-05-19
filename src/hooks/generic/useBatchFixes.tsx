@@ -5,11 +5,16 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { TableName } from "@/config/productTypes";
 
-// Define a minimal type for job IDs only
-type JobWithId = {
+/**
+ * Interface for job records with ID
+ */
+interface JobId {
   id: string;
-};
+}
 
+/**
+ * Hook to fix orphaned batched jobs (jobs with batch status but no batch ID)
+ */
 export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
@@ -31,7 +36,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Finding orphaned batched jobs in ${tableName}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      const { data: orphanedJobs, error: findError } = await supabase
+      // We explicitly type the result as having an id property
+      const { data, error: findError } = await supabase
         .from(tableName)
         .select('id')
         .eq('status', 'batched')
@@ -39,8 +45,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (findError) throw findError;
       
-      // Handle the case where data might be null
-      const jobsToUpdate = orphanedJobs || [];
+      // Safely cast data to the JobId interface
+      const jobsToUpdate = (data || []) as JobId[];
       console.log(`Found ${jobsToUpdate.length} orphaned jobs in ${tableName}`);
       
       if (jobsToUpdate.length > 0) {
