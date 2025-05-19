@@ -123,20 +123,8 @@ export function useFlyerJobOperations() {
       const batchNumber = await generateFlyerBatchNumber();
       
       // Create the batch with properly typed fields
-      // Use explicitity typed object to match the database requirements
-      const batchDataToInsert: {
-        name: string;
-        paper_type: string;
-        paper_weight: string;
-        lamination_type: LaminationType;
-        due_date: string;
-        printer_type: string;
-        sheet_size: string;
-        sheets_required: number;
-        created_by: string;
-        status: BatchStatus;
-        sla_target_days: number;
-      } = {
+      // Explicitly type the status field as a string literal to match the database schema
+      const batchDataToInsert = {
         name: batchNumber,
         paper_type: batchProperties.paperType,
         paper_weight: batchProperties.paperWeight,
@@ -146,7 +134,7 @@ export function useFlyerJobOperations() {
         sheet_size: batchProperties.sheetSize,
         sheets_required: sheetsRequired,
         created_by: user.id,
-        status: 'pending' as BatchStatus,
+        status: 'pending' as const, // Use string literal type
         sla_target_days: batchProperties.slaTargetDays
       };
       

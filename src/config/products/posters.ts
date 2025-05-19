@@ -8,7 +8,7 @@ export const postersConfig: ProductConfig = {
   availablePaperTypes: ["Matt", "Gloss"],
   availablePaperWeights: ["130gsm", "170gsm", "250gsm"],
   availableSizes: ["A3", "A2", "A1", "A0"],
-  availableLaminationTypes: ["none", "gloss", "matte"],
+  availableLaminationTypes: ["none", "gloss", "matt"],
   availableSidesTypes: ["single", "double"],
   hasLamination: true,
   hasPaperType: true,

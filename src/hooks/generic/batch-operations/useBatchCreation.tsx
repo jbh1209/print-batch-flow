@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { BaseJob, BatchStatus, ProductConfig, ExistingTableName } from "@/config/productTypes";
+import { BaseJob, ProductConfig, ExistingTableName } from "@/config/productTypes";
 import { LaminationType } from "@/config/types/productConfigTypes";
 import { useAuth } from "@/hooks/useAuth";
 import { generateBatchName } from "@/utils/batch/batchNameGenerator";
@@ -72,23 +72,14 @@ export function useBatchCreation(productType: string, tableName: string) {
         slaTarget
       });
       
-      // Create batch data object with explicit strict typing for database compatibility
-      const batchData: {
-        name: string;
-        sheets_required: number;
-        due_date: string;
-        lamination_type: LaminationType; 
-        paper_type?: string;
-        status: BatchStatus;
-        created_by: string;
-        sla_target_days: number;
-      } = {
+      // Create batch data object with correct status type
+      const batchData = {
         name: batchName,
         sheets_required: sheetsRequired,
         due_date: earliestDueDate.toISOString(),
         lamination_type: laminationType, // Now properly typed as LaminationType
         paper_type: paperType,
-        status: 'pending' as BatchStatus,
+        status: 'pending' as const, // Use string literal type instead of BatchStatus
         created_by: user.id,
         sla_target_days: slaTarget
       };

@@ -30,12 +30,12 @@ export function useBatchFixes(tableName: string, userId?: string): BatchFixOpera
     try {
       console.log(`Checking for jobs with status 'batched' but no batch_id in ${tableName}`);
       
-      // Use the validated table name as ExistingTableName
-      const validTableName = tableName as ExistingTableName;
+      // Type assertion to avoid deep instantiation issues
+      const safeTableName = tableName as string;
       
       // First, fetch all jobs with status 'batched' but NULL batch_id
       const { data: jobsWithoutBatch, error: fetchError } = await supabase
-        .from(validTableName)
+        .from(safeTableName)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
@@ -60,7 +60,7 @@ export function useBatchFixes(tableName: string, userId?: string): BatchFixOpera
       
       // Update these jobs to have status 'queued' instead
       const { error: updateError } = await supabase
-        .from(validTableName)
+        .from(safeTableName)
         .update({ status: 'queued' })
         .in('id', jobIds);
       

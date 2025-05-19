@@ -53,6 +53,16 @@ const PostcardJobsPage = () => {
     setIsBatchDialogOpen(false);
   };
 
+  // Create a wrapper function that returns a number as required by the interface
+  const fixBatchedJobsWrapper = async (): Promise<number> => {
+    try {
+      return await fixBatchedJobsWithoutBatch(); // This already returns a number
+    } catch (error) {
+      console.error("Error fixing batched jobs:", error);
+      return 0; // Return 0 on error
+    }
+  };
+
   return (
     <div className="container mx-auto py-4">
       <div className="flex justify-between items-center mb-6">
@@ -77,13 +87,10 @@ const PostcardJobsPage = () => {
         fetchJobs={async () => {}}
         createBatch={createBatch}
         isCreatingBatch={isCreatingBatch}
-        fixBatchedJobsWithoutBatch={async () => { 
-          // Convert the return value to void by wrapping the original function
-          await fixBatchedJobsWithoutBatch();
-        }}
+        fixBatchedJobsWithoutBatch={fixBatchedJobsWrapper}
         isFixingBatchedJobs={isFixingBatchedJobs}
         config={config}
-        onViewJob={handleViewJob} // This function is now properly implemented
+        onViewJob={handleViewJob}
       />
 
       <GenericBatchCreateDialog
