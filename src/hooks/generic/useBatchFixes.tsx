@@ -30,13 +30,13 @@ export function useBatchFixes(tableName: string, userId?: string): BatchFixOpera
     try {
       console.log(`Checking for jobs with status 'batched' but no batch_id in ${tableName}`);
       
-      // Use type assertion with AS const to allow the compiler to narrow the type
-      // This satisfies the Supabase client's type constraints
-      const validTableName = tableName as ExistingTableName;
+      // Cast table name to ExistingTableName type after validation
+      // Use type assertion directly to avoid deep instantiation
+      const validTable = tableName as ExistingTableName;
       
       // First, fetch all jobs with status 'batched' but NULL batch_id
       const { data: jobsWithoutBatch, error: fetchError } = await supabase
-        .from(validTableName)
+        .from(validTable)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
@@ -61,7 +61,7 @@ export function useBatchFixes(tableName: string, userId?: string): BatchFixOpera
       
       // Update these jobs to have status 'queued' instead
       const { error: updateError } = await supabase
-        .from(validTableName)
+        .from(validTable)
         .update({ status: 'queued' })
         .in('id', jobIds);
       
