@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { BaseJob, ProductConfig, LaminationType, ExistingTableName, BatchStatus } from "@/config/productTypes";
+import { BaseJob, BatchStatus, ProductConfig, ExistingTableName } from "@/config/productTypes";
+import { LaminationType } from "@/config/types/productConfigTypes";
 import { useAuth } from "@/hooks/useAuth";
 import { generateBatchName } from "@/utils/batch/batchNameGenerator";
 import { validateTableConfig } from "@/utils/batch/tableValidator";
@@ -69,12 +70,12 @@ export function useBatchCreation(productType: string, tableName: string) {
         slaTarget
       });
       
-      // Create batch data object with explicit type casting
+      // Create batch data object with explicit casting for compatibility with database
       const batchData = {
         name: batchName,
         sheets_required: sheetsRequired,
         due_date: earliestDueDate.toISOString(),
-        lamination_type: laminationType,
+        lamination_type: laminationType as string, // Cast to string for database compatibility
         paper_type: paperType,
         status: 'pending' as BatchStatus,
         created_by: user.id,

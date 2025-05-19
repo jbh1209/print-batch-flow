@@ -74,7 +74,7 @@ export function useFlyerJobOperations() {
       const { data, error } = await supabase
         .from('batches')
         .select('name')
-        .ilike('DXB-FL-%', 'DXB-FL-%');
+        .ilike('name', 'DXB-FL-%');
       
       if (error) throw error;
       
@@ -122,8 +122,9 @@ export function useFlyerJobOperations() {
       // Generate batch name with standardized format
       const batchNumber = await generateFlyerBatchNumber();
       
-      // Create the batch with proper type casting
-      const batchData = {
+      // Create the batch with properly typed fields
+      // Cast the lamination_type to string to match database expectations
+      const batchDataToInsert = {
         name: batchNumber,
         paper_type: batchProperties.paperType,
         paper_weight: batchProperties.paperWeight,
@@ -137,20 +138,26 @@ export function useFlyerJobOperations() {
         sla_target_days: batchProperties.slaTargetDays
       };
       
-      const { data: batchData, error: batchError } = await supabase
+      // Insert the batch and retrieve the created record
+      const { data: createdBatch, error: batchError } = await supabase
         .from('batches')
-        .insert(batchData)
+        .insert(batchDataToInsert)
         .select()
         .single();
         
       if (batchError) throw batchError;
+      
+      // Ensure we have a batch ID before updating jobs
+      if (!createdBatch || !createdBatch.id) {
+        throw new Error('Failed to create batch: No batch ID returned');
+      }
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
       const { error: updateError } = await supabase
         .from('flyer_jobs')
         .update({ 
-          batch_id: batchData.id,
+          batch_id: createdBatch.id,
           status: 'batched' 
         })
         .in('id', jobIds);
@@ -158,7 +165,7 @@ export function useFlyerJobOperations() {
       if (updateError) throw updateError;
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
-      return batchData;
+      return createdBatch;
       
     } catch (err) {
       console.error('Error creating batch:', err);

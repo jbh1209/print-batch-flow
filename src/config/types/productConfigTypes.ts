@@ -1,6 +1,11 @@
 
+/**
+ * This file defines the core types for product configuration used throughout the application
+ */
+
 import { ExistingTableName } from './baseTypes';
 
+// Updated to use underscore for consistency with database
 export type LaminationType = 'none' | 'gloss' | 'matte' | 'soft_touch';
 
 export interface ProductConfig {

@@ -69,7 +69,13 @@ export function BatchSettingsPanel({
         {/* Lamination */}
         <div className="space-y-2 mb-4">
           <Label>Lamination</Label>
-          <RadioGroup value={laminationType} onValueChange={value => setLaminationType(value as LaminationType)}>
+          <RadioGroup 
+            value={laminationType} 
+            onValueChange={(value) => {
+              // Ensure the value is of type LaminationType
+              setLaminationType(value as LaminationType);
+            }}
+          >
             {availableLaminationTypes.map(type => (
               <div key={type} className="flex items-center space-x-2">
                 <RadioGroupItem value={type} id={`lamination-${type}`} />

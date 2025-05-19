@@ -10,10 +10,11 @@ const FlyerJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericFlyerJobs();
     
-    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
-    const fixBatchedJobsWrapper = async () => {
+    // Create a wrapper for fixBatchedJobsWithoutBatch that returns a number to match expected return type
+    const fixBatchedJobsWrapper = async (): Promise<number> => {
       await hookResult.fixBatchedJobsWithoutBatch();
-      // Return type is void as expected
+      // Return 0 to indicate that the operation has completed
+      return 0;
     };
     
     return {

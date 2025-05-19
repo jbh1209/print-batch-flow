@@ -66,7 +66,7 @@ export interface BaseBatch {
 export interface BaseJob {
   id: string;
   name: string;
-  status: string;
+  status: JobStatus | string;
   quantity: number;
   due_date: string;
   created_at?: string;
