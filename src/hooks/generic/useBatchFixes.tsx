@@ -10,14 +10,13 @@ interface OrphanedJob {
   id: string;
 }
 
-// Define interfaces for Supabase responses
-interface SupabaseQueryResult<T> {
-  data: T[] | null;
+// Define concrete response types from Supabase to avoid circular references
+interface SupabaseQueryResponse {
+  data: OrphanedJob[] | null;
   error: Error | null;
 }
 
-// Define update result interface separate from query result
-interface SupabaseUpdateResult {
+interface SupabaseUpdateResponse {
   error: Error | null;
 }
 
@@ -48,8 +47,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      // Type assertion with properly defined interface
-      const typedResult = queryResult as unknown as SupabaseQueryResult<OrphanedJob>;
+      // Type assertion with our non-recursive interface
+      const typedResult = queryResult as unknown as SupabaseQueryResponse;
       const orphanedJobs = typedResult.data || [];
       const findError = typedResult.error;
       
@@ -67,8 +66,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
           .update({ status: 'queued' })
           .in('id', jobIds);
         
-        // Type assertion with properly defined interface
-        const typedUpdateResult = updateResult as unknown as SupabaseUpdateResult;
+        // Type assertion with our non-recursive interface
+        const typedUpdateResult = updateResult as unknown as SupabaseUpdateResponse;
         const updateError = typedUpdateResult.error;
         
         if (updateError) throw updateError;

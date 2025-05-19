@@ -56,7 +56,7 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
         // Create a properly typed array of job IDs
         const jobIds = orphanedJobs.map(job => job.id);
         
-        // Use a correctly typed update object to avoid 'never' type issues
+        // Define a properly typed update object to solve the 'never' type error
         const updateData = { status: 'queued' as const };
         
         const updateResult = await supabase
