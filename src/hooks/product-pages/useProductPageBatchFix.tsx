@@ -5,21 +5,6 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { PRODUCT_PAGES_TABLE } from "@/components/product-pages/types/ProductPageTypes";
 
-// Define concrete non-recursive interfaces
-interface OrphanedProductPageJob {
-  id: string;
-}
-
-// Use simple, concrete types for Supabase results
-interface ProductPageQueryResult {
-  data: OrphanedProductPageJob[] | null;
-  error: Error | null;
-}
-
-interface ProductPageUpdateResult {
-  error: Error | null;
-}
-
 export function useProductPageBatchFix(onFixComplete?: () => void) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
@@ -36,40 +21,31 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Finding orphaned batched jobs in ${PRODUCT_PAGES_TABLE}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      const result = await supabase
+      const { data: orphanedJobs, error: findError } = await supabase
         .from(PRODUCT_PAGES_TABLE)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      // Use concrete type to avoid recursion
-      const queryResult = result as unknown as ProductPageQueryResult;
-      const orphanedJobs = queryResult.data || [];
-      const findError = queryResult.error;
-      
       if (findError) throw findError;
       
-      console.log(`Found ${orphanedJobs.length} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
+      // Handle the case where data might be null
+      const jobsToUpdate = orphanedJobs || [];
+      console.log(`Found ${jobsToUpdate.length} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
-      if (orphanedJobs.length > 0) {
+      if (jobsToUpdate.length > 0) {
         // Create array of job IDs
-        const jobIds = orphanedJobs.map(job => job.id);
+        const jobIds = jobsToUpdate.map(job => job.id);
         
-        // Use a properly typed update object
-        const updateData = { status: 'queued' } as const;
-        
-        const update = await supabase
+        // Reset these jobs to queued status
+        const { error: updateError } = await supabase
           .from(PRODUCT_PAGES_TABLE)
-          .update(updateData)
+          .update({ status: 'queued' })
           .in('id', jobIds);
-        
-        // Use concrete type for update result
-        const updateResult = update as unknown as ProductPageUpdateResult;
-        const updateError = updateResult.error;
         
         if (updateError) throw updateError;
         
-        fixedCount = orphanedJobs.length;
+        fixedCount = jobsToUpdate.length;
         console.log(`Reset ${fixedCount} jobs to queued status`);
         
         toast.success(`Reset ${fixedCount} orphaned jobs back to queued status`);

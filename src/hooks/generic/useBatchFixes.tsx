@@ -5,20 +5,10 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { TableName } from "@/config/productTypes";
 
-// Define concrete types with no recursion
-interface OrphanedJob {
+// Define a minimal type for job IDs only
+type JobWithId = {
   id: string;
-}
-
-// Use explicit type definitions for Supabase responses
-interface SupabaseQueryResult {
-  data: OrphanedJob[] | null;
-  error: Error | null;
-}
-
-interface SupabaseUpdateResult {
-  error: Error | null;
-}
+};
 
 export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
@@ -41,38 +31,31 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Finding orphaned batched jobs in ${tableName}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      const result = await supabase
+      const { data: orphanedJobs, error: findError } = await supabase
         .from(tableName)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      // Use our concrete type for the result
-      const queryResult = result as unknown as SupabaseQueryResult;
-      const orphanedJobs = queryResult.data || [];
-      const findError = queryResult.error;
-      
       if (findError) throw findError;
       
-      console.log(`Found ${orphanedJobs.length} orphaned jobs in ${tableName}`);
+      // Handle the case where data might be null
+      const jobsToUpdate = orphanedJobs || [];
+      console.log(`Found ${jobsToUpdate.length} orphaned jobs in ${tableName}`);
       
-      if (orphanedJobs.length > 0) {
+      if (jobsToUpdate.length > 0) {
         // Create an array of job IDs
-        const jobIds = orphanedJobs.map(job => job.id);
+        const jobIds = jobsToUpdate.map(job => job.id);
         
         // Reset these jobs to queued status
-        const update = await supabase
+        const { error: updateError } = await supabase
           .from(tableName)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
-        // Use our concrete type for update result
-        const updateResult = update as unknown as SupabaseUpdateResult;
-        const updateError = updateResult.error;
-        
         if (updateError) throw updateError;
         
-        fixedCount = orphanedJobs.length;
+        fixedCount = jobsToUpdate.length;
         console.log(`Reset ${fixedCount} jobs to queued status`);
         
         toast.success(`Reset ${fixedCount} orphaned jobs back to queued status`);
