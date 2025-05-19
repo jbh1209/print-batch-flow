@@ -47,7 +47,7 @@ export const GenericJobFormFields = ({
     switch (type) {
       case "none": return "None";
       case "gloss": return "Gloss";
-      case "matte": return "Matte";
+      case "matt": return "Matt";
       case "soft_touch": return "Soft Touch";
       default: return type;
     }
