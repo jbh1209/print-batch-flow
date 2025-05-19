@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -39,7 +40,9 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
 }) => {
   const navigate = useNavigate();
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
-  
+  const [showBatchDialog, setShowBatchDialog] = useState(false);
+
+  // Handle selecting all jobs
   const handleSelectAllJobs = (isSelected: boolean) => {
     if (isSelected) {
       setSelectedJobs(jobs.filter(job => job.status === 'queued').map(job => job.id));
@@ -48,6 +51,7 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
     }
   };
 
+  // Handle selecting individual job
   const handleSelectJob = (jobId: string, isSelected: boolean) => {
     if (isSelected) {
       setSelectedJobs(prev => [...prev, jobId]);
@@ -56,22 +60,26 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
     }
   };
 
+  // Get selected job objects
   const getSelectedJobObjects = () => {
     return jobs.filter(job => selectedJobs.includes(job.id));
   };
 
+  // Handle job edit
   const handleEditJob = (jobId: string) => {
     if (onEditJob) {
       onEditJob(jobId);
     }
   };
 
+  // Handle job view
   const handleViewJob = (jobId: string) => {
     if (onViewJob) {
       onViewJob(jobId);
     }
   };
 
+  // Handle job deletion
   const handleDeleteJob = async (jobId: string) => {
     const confirmed = window.confirm("Are you sure you want to delete this job? This action cannot be undone.");
     if (confirmed) {
@@ -83,13 +91,16 @@ const GenericJobsTable: React.FC<GenericJobsTableProps> = ({
     }
   };
 
+  // Check if all queued jobs are selected
   const areAllQueuedJobsSelected = () => {
     const queuedJobs = jobs.filter(job => job.status === 'queued');
     return queuedJobs.length > 0 && queuedJobs.every(job => selectedJobs.includes(job.id));
   };
 
+  // Count queued jobs
   const countQueuedJobs = () => jobs.filter(job => job.status === 'queued').length;
 
+  // If there are no jobs, show empty state
   if (jobs.length === 0) {
     return <FlyerJobsEmptyState productType={config.productType} />;
   }

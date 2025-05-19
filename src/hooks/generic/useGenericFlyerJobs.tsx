@@ -1,14 +1,15 @@
 
 import { useGenericJobs } from "./useGenericJobs";
 import { productConfigs, BaseJob } from "@/config/productTypes";
+import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 
-/**
- * This hook is here for backward compatibility but is not
- * used by the main FlyerJobs component. The direct implementation
- * in useFlyerJobs.tsx is used instead.
- */
+// This hook extends useGenericJobs to handle flyer-specific data
 export function useGenericFlyerJobs() {
   const config = productConfigs["Flyers"];
+  
+  // Use explicit typing and ensure compatibility
   const genericJobs = useGenericJobs<BaseJob>(config);
+  
+  // Return the generic jobs hook with the right type
   return genericJobs;
 }

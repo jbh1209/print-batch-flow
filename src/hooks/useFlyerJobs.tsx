@@ -90,7 +90,7 @@ export function useFlyerJobs() {
     }
   };
 
-  // Simplified batch creation function with automated property determination
+  // Wrap the create batch operation
   const handleCreateBatch = async (
     selectedJobs: FlyerJob[],
     batchProperties: {

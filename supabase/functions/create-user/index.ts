@@ -14,9 +14,12 @@ serve(async (req) => {
   }
   
   try {
+    console.log("Starting create-user function");
+    
     // Get auth token from request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error("Authorization header missing");
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -34,18 +37,22 @@ serve(async (req) => {
       }
     );
     
-    // Verify the user is authenticated and admin
+    // Verify the user is authenticated
+    console.log("Verifying user authentication");
     const {
       data: { user },
       error: userError,
     } = await supabaseClient.auth.getUser();
     
     if (userError || !user) {
+      console.error("Authentication error:", userError || "No user found");
       return new Response(
-        JSON.stringify({ error: 'Not authenticated', details: userError?.message }),
+        JSON.stringify({ error: 'Not authenticated', details: userError?.message || "No user found" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("User authenticated, checking admin status");
     
     // Check if the user is an admin
     const { data: isAdmin, error: adminCheckError } = await supabaseClient.rpc(
@@ -54,6 +61,7 @@ serve(async (req) => {
     );
     
     if (adminCheckError) {
+      console.error("Admin check error:", adminCheckError);
       return new Response(
         JSON.stringify({ error: 'Error checking admin status', details: adminCheckError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -61,17 +69,22 @@ serve(async (req) => {
     }
     
     if (!isAdmin) {
+      console.error("User is not an admin:", user.id);
       return new Response(
         JSON.stringify({ error: 'Access denied: admin privileges required' }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
+    console.log("Admin status confirmed, proceeding to create user");
+    
     // Parse request body
     let body;
     try {
       body = await req.json();
+      console.log("Request body parsed successfully");
     } catch (error) {
+      console.error("Body parsing error:", error);
       return new Response(
         JSON.stringify({ error: 'Invalid request body' }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -87,6 +100,8 @@ serve(async (req) => {
       );
     }
     
+    console.log(`Creating user with email: ${email}, name: ${full_name}, role: ${role}`);
+    
     // Create the user with admin privileges
     const { data: adminAuthResponse, error: createUserError } = await supabaseClient.auth.admin.createUser({
       email,
@@ -96,6 +111,16 @@ serve(async (req) => {
     });
     
     if (createUserError) {
+      console.error("User creation error:", createUserError);
+      
+      // Check for duplicate email error
+      if (createUserError.message?.includes('already registered')) {
+        return new Response(
+          JSON.stringify({ error: 'This email is already registered', details: createUserError.message }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ error: 'Failed to create user', details: createUserError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -103,23 +128,47 @@ serve(async (req) => {
     }
     
     const newUserId = adminAuthResponse.user.id;
+    console.log(`User created successfully with ID: ${newUserId}`);
+    
+    // Create profile entry manually to ensure it exists
+    const { error: profileError } = await supabaseClient
+      .from('profiles')
+      .upsert({ 
+        id: newUserId, 
+        full_name: full_name,
+        updated_at: new Date().toISOString()
+      });
+      
+    if (profileError) {
+      console.error("Profile creation error:", profileError);
+      // Log but don't fail the request - user is still created
+    } else {
+      console.log("User profile created successfully");
+    }
     
     // Set custom role if provided
     if (role && (role === 'admin' || role === 'user')) {
+      console.log(`Setting user role to ${role}`);
       const { error: roleError } = await supabaseClient.rpc('set_user_role_admin', {
         _target_user_id: newUserId,
         _new_role: role
       });
       
       if (roleError) {
-        console.error('Error setting user role:', roleError);
-        // We continue even if this fails since the user is created
+        console.error("Role setting error:", roleError);
+        // Log but don't fail the request - user is still created with default role
+      } else {
+        console.log("User role set successfully");
       }
     }
     
     return new Response(
-      JSON.stringify({ success: true, user: adminAuthResponse.user }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ 
+        success: true, 
+        user: adminAuthResponse.user,
+        message: "User created successfully" 
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error('Error in create-user function:', error);

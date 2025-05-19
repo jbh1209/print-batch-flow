@@ -6,6 +6,11 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://kgizusgqexmlfcqfjopk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnaXp1c2dxZXhtbGZjcWZqb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NTQwNzAsImV4cCI6MjA2MDEzMDA3MH0.NA2wRme-L8Z15my7n8u-BCQtO4Nw2opfsX0KSLYcs-I";
 
+// Check if we're in Lovable preview mode
+const isLovablePreview = 
+  typeof window !== 'undefined' && 
+  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -18,15 +23,15 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     flowType: 'pkce'
   },
   global: {
-    // Disable WebSockets globally to ensure HTTP is used for all operations
+    // Use HTTP fetch for all operations to avoid WebSocket issues in preview
     fetch: function(url, options) {
       return fetch(url, options);
     }
   },
   realtime: {
-    // Disable realtime features to prevent WebSocket connection issues
+    // Disable realtime features in preview mode to prevent WebSocket connection issues
     params: {
-      eventsPerSecond: 0
+      eventsPerSecond: isLovablePreview ? 0 : 10
     }
   }
 });
@@ -41,7 +46,7 @@ export const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISH
     flowType: 'pkce'
   },
   realtime: {
-    // Disable realtime connections by setting low parameters
+    // Disable realtime connections completely
     params: {
       eventsPerSecond: 0
     }

@@ -3,9 +3,11 @@ import { useState, useEffect } from "react";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { toast } from "sonner";
 import { FlyerJobsTableContainer } from "./FlyerJobsTableContainer";
+import { FlyerBatchCreateDialog } from "./FlyerBatchCreateDialog";
 import { Table } from "@/components/ui/table";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { FlyerJobsEmptyState } from "./components/FlyerJobsEmptyState";
@@ -14,7 +16,6 @@ import { SelectionControls } from "./components/SelectionControls";
 import { BatchFixBanner } from "./components/BatchFixBanner";
 import { JobsTableHeader } from "./components/JobsTableHeader";
 import { FlyerJobsBody } from "./components/FlyerJobsBody";
-import { useFlyerJobsBatchDirect } from "@/hooks/useFlyerJobsBatchDirect";
 
 export const FlyerJobsTable = () => {
   const navigate = useNavigate();
@@ -24,15 +25,13 @@ export const FlyerJobsTable = () => {
     error, 
     fetchJobs, 
     fixBatchedJobsWithoutBatch, 
-    isFixingBatchedJobs,
+    isFixingBatchedJobs 
   } = useFlyerJobs();
-
-  // Use the direct batch creation hook
-  const { createBatchDirect, isCreatingBatch } = useFlyerJobsBatchDirect();
 
   // State for job selection and filtering
   const [selectedJobs, setSelectedJobs] = useState<FlyerJob[]>([]);
   const [filterView, setFilterView] = useState<"all" | "queued" | "batched" | "completed">("all");
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   
   // Filter jobs based on current view
   const filteredJobs = filterView === 'all' 
@@ -70,15 +69,21 @@ export const FlyerJobsTable = () => {
     }
   };
 
-  // The direct batch creation handler
-  const handleCreateBatch = async () => {
-    try {
-      await createBatchDirect(selectedJobs);
-      // Clear selection after batch creation
-      setSelectedJobs([]);
-    } catch (error) {
-      console.error("Error in handleCreateBatch:", error);
-    }
+  // Handle closing batch dialog
+  const handleBatchDialogClose = () => {
+    setIsBatchDialogOpen(false);
+  };
+
+  // Handle successful batch creation
+  const handleBatchSuccess = () => {
+    setIsBatchDialogOpen(false);
+    setSelectedJobs([]);
+    fetchJobs();
+    toast.success("Batch created successfully");
+  };
+
+  const handleCreateBatch = () => {
+    setIsBatchDialogOpen(true);
   };
 
   if (isLoading) {
@@ -107,7 +112,6 @@ export const FlyerJobsTable = () => {
           selectedCount={selectedJobs.length}
           totalSelectableCount={selectableJobsCount}
           onCreateBatch={handleCreateBatch}
-          isCreatingBatch={isCreatingBatch}
         />
 
         {/* Fix Orphaned Jobs Button - only show if there are jobs stuck in batched state */}
@@ -134,6 +138,14 @@ export const FlyerJobsTable = () => {
           </Table>
         </FlyerJobsTableContainer>
       </div>
+      
+      {/* Batch Creation Dialog */}
+      <FlyerBatchCreateDialog
+        isOpen={isBatchDialogOpen}
+        onClose={handleBatchDialogClose}
+        onSuccess={handleBatchSuccess}
+        preSelectedJobs={selectedJobs}
+      />
     </>
   );
 };

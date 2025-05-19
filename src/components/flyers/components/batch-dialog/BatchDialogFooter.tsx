@@ -1,5 +1,4 @@
 
-import React from 'react';
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 
@@ -10,22 +9,22 @@ interface BatchDialogFooterProps {
   isCreateDisabled: boolean;
 }
 
-export const BatchDialogFooter: React.FC<BatchDialogFooterProps> = ({
+export const BatchDialogFooter = ({
   onClose,
   onCreateBatch,
   isCreatingBatch,
-  isCreateDisabled
-}) => {
+  isCreateDisabled,
+}: BatchDialogFooterProps) => {
   return (
-    <DialogFooter className="pt-4 border-t mt-4">
-      <Button variant="outline" onClick={onClose} disabled={isCreatingBatch}>
+    <DialogFooter className="gap-2 sm:gap-0">
+      <Button variant="outline" onClick={onClose}>
         Cancel
       </Button>
       <Button 
         onClick={onCreateBatch} 
         disabled={isCreateDisabled || isCreatingBatch}
       >
-        {isCreatingBatch ? "Creating..." : "Create Batch"}
+        {isCreatingBatch ? "Creating Batch..." : "Create Batch"}
       </Button>
     </DialogFooter>
   );

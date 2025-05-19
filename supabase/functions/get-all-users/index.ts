@@ -75,12 +75,21 @@ serve(async (req) => {
     
     console.log("User authenticated:", user.id);
     
-    // Check if the user is an admin
+    // Check if the user is an admin - add a timeout to prevent potential deadlocks
     console.log("Checking admin status");
-    const { data: isAdmin, error: adminCheckError } = await userClient.rpc(
-      'is_admin_secure_fixed',
-      { _user_id: user.id }
-    );
+    const adminCheckPromise = userClient.rpc('is_admin_secure_fixed', { _user_id: user.id });
+    
+    // Add a timeout to the admin check
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Admin check timeout')), 5000);
+    });
+    
+    const { data: isAdmin, error: adminCheckError } = await Promise.race([
+      adminCheckPromise, 
+      timeoutPromise.then(() => {
+        throw new Error('Admin check timed out');
+      })
+    ]);
     
     if (adminCheckError) {
       console.error("Admin check error:", adminCheckError);
@@ -172,11 +181,18 @@ serve(async (req) => {
       };
     });
     
-    console.log("Combined users prepared:", combinedUsers.length);
+    console.log("Combined users prepared, returning data:", combinedUsers.length);
     
     return new Response(
       JSON.stringify(combinedUsers),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { 
+        status: 200, 
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate"
+        } 
+      }
     );
   } catch (error) {
     console.error('Error in get-all-users function:', error);

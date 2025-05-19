@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { CODE_TO_PRODUCT_TYPE, extractProductCodeFromBatchName } from "@/utils/batch/productTypeCodes";
+import { CODE_TO_PRODUCT_TYPE, extractProductCodeFromBatchName, PRODUCT_TYPE_CODES } from "@/utils/batch/productTypeCodes";
 
 interface BatchSummary {
   id: string;
@@ -33,6 +33,7 @@ export const useBatchesList = () => {
       
       console.log("Fetching all batches (team view)");
       
+      // Remove the user ID filter to get all batches regardless of who created them
       const { data, error } = await supabase
         .from("batches")
         .select("*")
@@ -61,11 +62,17 @@ export const useBatchesList = () => {
           } else {
             console.warn(`Could not extract product code from batch name: ${batch.name}`);
             
-            // Try simple substring matching as a fallback
-            for (const [code, type] of Object.entries(CODE_TO_PRODUCT_TYPE)) {
-              if (batch.name.includes(code)) {
+            // Enhanced fallback detection logic
+            for (const [type, code] of Object.entries(PRODUCT_TYPE_CODES)) {
+              if (batch.name.toLowerCase().includes(type.toLowerCase())) {
                 productType = type;
-                console.log(`Fallback detection: Batch ${batch.name} contains code ${code}, detected as: ${productType}`);
+                console.log(`Fallback type detection: Batch ${batch.name} contains "${type}", detected as: ${productType}`);
+                break;
+              }
+              
+              if (batch.name.toLowerCase().includes(code.toLowerCase())) {
+                productType = CODE_TO_PRODUCT_TYPE[code] || type;
+                console.log(`Fallback code detection: Batch ${batch.name} contains code ${code}, detected as: ${productType}`);
                 break;
               }
             }

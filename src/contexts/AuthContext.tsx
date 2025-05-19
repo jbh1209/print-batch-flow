@@ -23,6 +23,11 @@ interface AuthContextType {
   refreshSession: () => Promise<Session | null>;
 }
 
+// Check if we're in Lovable preview mode
+const isLovablePreview = 
+  typeof window !== 'undefined' && 
+  (window.location.hostname.includes('gpteng.co') || window.location.hostname.includes('lovable.dev'));
+
 // Create context with default values
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -156,6 +161,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Set up auth state listener
   useEffect(() => {
     let isMounted = true;
+
+    // For preview mode, set a mock session to allow navigation
+    if (isLovablePreview) {
+      console.log('Preview mode detected, using mock authentication');
+      setIsLoading(false);
+      
+      // Only if in preview - create a mock user for easier navigation
+      // This will not persist or affect real authentication
+      const mockUser = {
+        id: 'preview-user',
+        email: 'preview@example.com',
+        role: 'authenticated',
+      } as SupabaseUser;
+      
+      const mockProfile = {
+        id: 'preview-user',
+        full_name: 'Preview User',
+        avatar_url: null,
+      };
+
+      // Set mock data for preview
+      setUser(mockUser);
+      setProfile(mockProfile);
+      setIsAdmin(true);
+      return;
+    }
     
     // Set up auth state listener FIRST to avoid missing events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
