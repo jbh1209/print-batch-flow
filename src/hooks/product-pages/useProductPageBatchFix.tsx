@@ -51,7 +51,7 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
           .from(PRODUCT_PAGES_TABLE)
           .update({ 
             status: 'queued' 
-          })
+          } as any) // Use type assertion to bypass TypeScript strictness
           .in('id', jobIds);
         
         if (updateError) throw updateError;
