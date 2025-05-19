@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
@@ -39,9 +40,9 @@ import SleeveJobsPage from '@/pages/generic/SleeveJobsPage';
 import SleeveJobNewPage from '@/pages/generic/SleeveJobNewPage';
 import SleeveJobEditPage from '@/pages/generic/SleeveJobEditPage';
 import StickerBatchesPage from '@/pages/generic/StickerBatchesPage';
-import StickerJobsPage from '@/pages/StickerJobsPage';
-import StickerJobNewPage from '@/pages/StickerJobNewPage';
-import StickerJobEditPage from '@/pages/StickerJobEditPage';
+import StickerJobsPage from '@/pages/generic/StickerJobsPage';
+import StickerJobNewPage from '@/pages/generic/StickerJobNewPage';
+import StickerJobEditPage from '@/pages/generic/StickerJobEditPage';
 import CoverBatchesPage from '@/pages/generic/CoverBatchesPage';
 import CoverJobsPage from '@/pages/generic/CoverJobsPage';
 import CoverJobNewPage from '@/pages/generic/CoverJobNewPage';
