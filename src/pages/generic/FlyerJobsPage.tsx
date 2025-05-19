@@ -1,14 +1,11 @@
 
-import { useGenericFlyerJobs } from "@/hooks/generic/useGenericFlyerJobs";
-import { productConfigs } from "@/config/productTypes";
-import { FlyerJobsTable } from "@/components/flyers/FlyerJobsTable";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
+import { FlyerJobsTable } from "@/components/flyers/FlyerJobsTable";
 
 const FlyerJobsPage = () => {
   const navigate = useNavigate();
-  const config = productConfigs["Flyers"];
   
   return (
     <div>

@@ -39,9 +39,9 @@ import SleeveJobsPage from '@/pages/generic/SleeveJobsPage';
 import SleeveJobNewPage from '@/pages/generic/SleeveJobNewPage';
 import SleeveJobEditPage from '@/pages/generic/SleeveJobEditPage';
 import StickerBatchesPage from '@/pages/generic/StickerBatchesPage';
-import StickerJobsPage from '@/pages/generic/StickerJobsPage';
-import StickerJobNewPage from '@/pages/generic/StickerJobNewPage';
-import StickerJobEditPage from '@/pages/generic/StickerJobEditPage';
+import StickerJobsPage from '@/pages/StickerJobsPage';
+import StickerJobNewPage from '@/pages/StickerJobNewPage';
+import StickerJobEditPage from '@/pages/StickerJobEditPage';
 import CoverBatchesPage from '@/pages/generic/CoverBatchesPage';
 import CoverJobsPage from '@/pages/generic/CoverJobsPage';
 import CoverJobNewPage from '@/pages/generic/CoverJobNewPage';
@@ -105,11 +105,11 @@ function App() {
                   <Route path="jobs/:id/edit" element={<BusinessCardJobEdit />} />
                 </Route>
                 
-                {/* Flyers Routes - UPDATED to use the specific FlyerJobs component */}
+                {/* Flyers Routes - Using direct component FlyerJobs for jobs page */}
                 <Route path="batches/flyers">
                   <Route index element={<FlyerBatches />} />
                   <Route path="batches/:batchId" element={<FlyerBatchDetailsPage />} />
-                  <Route path="jobs" element={<FlyerJobs />} />  {/* Using direct FlyerJobs component */}
+                  <Route path="jobs" element={<FlyerJobs />} />
                   <Route path="jobs/new" element={<FlyerJobNew />} />
                   <Route path="jobs/:id" element={<FlyerJobDetail />} />
                   <Route path="jobs/:jobId/edit" element={<FlyerJobEdit />} />

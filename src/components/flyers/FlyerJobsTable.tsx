@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { toast } from "sonner";
 import { FlyerJobsTableContainer } from "./FlyerJobsTableContainer";
@@ -15,7 +14,7 @@ import { SelectionControls } from "./components/SelectionControls";
 import { BatchFixBanner } from "./components/BatchFixBanner";
 import { JobsTableHeader } from "./components/JobsTableHeader";
 import { FlyerJobsBody } from "./components/FlyerJobsBody";
-import { productConfigs } from "@/config/productTypes";
+import { useFlyerJobsBatchDirect } from "@/hooks/useFlyerJobsBatchDirect";
 
 export const FlyerJobsTable = () => {
   const navigate = useNavigate();
@@ -26,9 +25,10 @@ export const FlyerJobsTable = () => {
     fetchJobs, 
     fixBatchedJobsWithoutBatch, 
     isFixingBatchedJobs,
-    createBatch,
-    isCreatingBatch
   } = useFlyerJobs();
+
+  // Use the direct batch creation hook
+  const { createBatchDirect, isCreatingBatch } = useFlyerJobsBatchDirect();
 
   // State for job selection and filtering
   const [selectedJobs, setSelectedJobs] = useState<FlyerJob[]>([]);
@@ -70,59 +70,15 @@ export const FlyerJobsTable = () => {
     }
   };
 
+  // The direct batch creation handler
   const handleCreateBatch = async () => {
-    if (selectedJobs.length === 0) {
-      toast.error("Please select at least one job to create a batch");
-      return;
-    }
-    
     try {
-      // Get the flyers config for default values
-      const flyersConfig = productConfigs["Flyers"];
-      
-      // Determine common properties from selected jobs
-      const commonPaperType = findCommonProperty(selectedJobs, 'paper_type');
-      const commonPaperWeight = findCommonProperty(selectedJobs, 'paper_weight');
-      
-      // Show creating batch toast
-      toast.loading("Creating batch with " + selectedJobs.length + " jobs...");
-      
-      // Create the batch with automatically determined properties
-      const batch = await createBatch(selectedJobs, {
-        // Use common properties when available, otherwise use defaults from config
-        paperType: commonPaperType || flyersConfig.availablePaperTypes[0],
-        paperWeight: commonPaperWeight || flyersConfig.availablePaperWeights[0],
-        laminationType: "none",
-        printerType: "HP 12000",
-        sheetSize: "530x750mm",
-        slaTargetDays: flyersConfig.slaTargetDays
-      });
-      
-      // Clear selection and refresh the jobs list
+      await createBatchDirect(selectedJobs);
+      // Clear selection after batch creation
       setSelectedJobs([]);
-      await fetchJobs();
-      
-      // Dismiss loading toast and show success message with the batch name
-      toast.dismiss();
-      toast.success(`Batch ${batch.name} created with ${selectedJobs.length} jobs`);
-      
-      // Navigate to the newly created batch details
-      navigate(`/batches/flyers/batches/${batch.id}`);
     } catch (error) {
-      console.error("Error creating batch:", error);
-      toast.dismiss();
-      toast.error("Failed to create batch. Please try again.");
+      console.error("Error in handleCreateBatch:", error);
     }
-  };
-  
-  // Helper function to find common property among jobs
-  const findCommonProperty = (jobs: FlyerJob[], property: keyof FlyerJob): string | null => {
-    if (jobs.length === 0) return null;
-    
-    const firstValue = jobs[0][property];
-    const allSame = jobs.every(job => job[property] === firstValue);
-    
-    return allSame ? String(firstValue) : null;
   };
 
   if (isLoading) {
