@@ -52,10 +52,11 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         
         console.log("Batch data received:", batchData);
         
-        // Convert the batchData to BaseBatch, adding the overview_pdf_url property
+        // Convert the batchData to BaseBatch, setting the overview_pdf_url from back_pdf_url
+        // This is the key fix to use back_pdf_url as the overview PDF for business cards
         const batchWithOverview: BaseBatch = {
           ...batchData,
-          overview_pdf_url: null // Adding the missing property with null value
+          overview_pdf_url: batchData.back_pdf_url // Use back_pdf_url as overview_pdf_url
         };
         
         setBatch(batchWithOverview);
