@@ -10,6 +10,12 @@ interface OrphanedJob {
   id: string;
 }
 
+// Define specific return type for the Supabase query to prevent recursion
+interface QueryResult {
+  data: OrphanedJob[] | null;
+  error: Error | null;
+}
+
 export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
@@ -31,8 +37,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Finding orphaned batched jobs in ${tableName}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      // Removed user_id filter to allow all users to fix orphaned jobs
-      const { data: orphanedJobs, error: findError } = await supabase
+      // Explicitly type the query result to prevent recursive type issues
+      const { data: orphanedJobs, error: findError }: QueryResult = await supabase
         .from(tableName)
         .select('id')
         .eq('status', 'batched')
@@ -44,8 +50,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Explicitly type the orphaned jobs to prevent recursive type issues
-        const typedJobs = orphanedJobs as OrphanedJob[];
-        const jobIds = typedJobs.map(job => job.id);
+        const jobIds = orphanedJobs.map(job => job.id);
         
         // Reset these jobs to queued status
         const { error: updateError } = await supabase

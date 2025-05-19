@@ -10,6 +10,12 @@ interface OrphanedProductPageJob {
   id: string;
 }
 
+// Define specific return type for the Supabase query to prevent recursion
+interface ProductPageQueryResult {
+  data: OrphanedProductPageJob[] | null;
+  error: Error | null;
+}
+
 export function useProductPageBatchFix(onFixComplete?: () => void) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
@@ -26,7 +32,7 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Finding orphaned batched jobs in ${PRODUCT_PAGES_TABLE}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      const { data: orphanedJobs, error: findError } = await supabase
+      const { data: orphanedJobs, error: findError }: ProductPageQueryResult = await supabase
         .from(PRODUCT_PAGES_TABLE)
         .select('id')
         .eq('status', 'batched')
@@ -37,11 +43,8 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Explicitly type the orphaned jobs to prevent type errors
-        const typedJobs = orphanedJobs as OrphanedProductPageJob[];
-        
         // Create a properly typed array of job IDs
-        const jobIds = typedJobs.map(job => job.id);
+        const jobIds = orphanedJobs.map(job => job.id);
         
         // Reset these jobs to queued status
         const { error: updateError } = await supabase
