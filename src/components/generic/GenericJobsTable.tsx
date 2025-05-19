@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -21,7 +20,8 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Eye, FilePenLine, MoreHorizontal, Trash2, FileUp } from "lucide-react";
 import JobStatusBadge from '@/components/JobStatusBadge';
 import { format } from 'date-fns';
-import { BaseJob, ProductConfig, BatchFixOperationResult } from '@/config/productTypes';
+import { BaseJob, ProductConfig } from '@/config/productTypes';
+import type { BatchFixOperationResult } from '@/config/types/baseTypes';
 
 interface GenericJobsTableProps {
   jobs: BaseJob[];

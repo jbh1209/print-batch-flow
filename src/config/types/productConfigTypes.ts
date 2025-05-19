@@ -1,7 +1,7 @@
 
 import { ExistingTableName } from './baseTypes';
 
-export type LaminationType = 'none' | 'gloss' | 'matt' | 'soft_touch';
+export type LaminationType = 'none' | 'gloss' | 'matte' | 'soft_touch';
 
 export interface ProductConfig {
   productType: string;
@@ -11,14 +11,14 @@ export interface ProductConfig {
   availablePaperWeights?: string[];
   availableSizes?: string[];
   availableLaminationTypes?: LaminationType[];
-  availableSidesTypes?: string[]; // Add this property
-  availableUVVarnishTypes?: string[]; // Add this property
+  availableSidesTypes?: string[]; 
+  availableUVVarnishTypes?: string[]; 
   hasLamination?: boolean;
   hasPaperType?: boolean;
   hasPaperWeight?: boolean;
   hasSize?: boolean;
-  hasSides?: boolean; // Add this property
-  hasUVVarnish?: boolean; // Add this property
+  hasSides?: boolean;
+  hasUVVarnish?: boolean;
   slaTargetDays: number;
   routes: {
     indexPath: string;
@@ -34,6 +34,8 @@ export interface ProductConfig {
     color: string;
     jobFormTitle: string;
     title: string;
+    createTitle?: string;
+    editTitle?: string;
     batchFormTitle: string;
   };
 }

@@ -6,7 +6,7 @@ export const businessCardsConfig: ProductConfig = {
   tableName: "business_card_jobs",
   jobNumberPrefix: "BC",
   availablePaperTypes: ["350gsm Matt", "350gsm Silk", "400gsm Matt", "400gsm Silk"],
-  availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"],
+  availableLaminationTypes: ["none", "gloss", "matte", "soft_touch"], // Changed 'matt' to 'matte'
   hasPaperType: true,
   hasLamination: true,
   slaTargetDays: 3,
