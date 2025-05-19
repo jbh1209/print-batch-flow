@@ -34,11 +34,11 @@ export function useFetchBatchDetails({
     try {
       console.log(`Fetching batch details for batch ID: ${batchId}`);
       
-      // Remove the user filter to allow viewing any batch
       const { data, error } = await supabase
         .from("batches")
         .select("*")
         .eq("id", batchId)
+        .eq("created_by", user.id)
         .single();
       
       if (error) {
@@ -50,7 +50,7 @@ export function useFetchBatchDetails({
         console.log("Batch not found");
         toast({
           title: "Batch not found",
-          description: "The requested batch could not be found.",
+          description: "The requested batch could not be found or you don't have permission to view it.",
           variant: "destructive",
         });
         navigate(backUrl);
@@ -77,7 +77,6 @@ export function useFetchBatchDetails({
       let jobsData: Job[] = [];
       
       if (productType === "Business Cards") {
-        // Remove user filter from job queries as well
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
           .select("id, name, quantity, status, pdf_url, job_number")
@@ -96,7 +95,6 @@ export function useFetchBatchDetails({
           job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
         }));
       } else if (productType === "Flyers") {
-        // Remove user filter from job queries
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
           .select("id, name, quantity, status, pdf_url, job_number")

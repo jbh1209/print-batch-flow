@@ -241,7 +241,6 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
-          uv_varnish: string
         }
         Insert: {
           batch_id?: string | null
@@ -260,7 +259,6 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id: string
-          uv_varnish?: string
         }
         Update: {
           batch_id?: string | null
@@ -279,7 +277,6 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
-          uv_varnish?: string
         }
         Relationships: [
           {
@@ -684,10 +681,6 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
-      is_admin_secure_fixed: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
       revoke_user_role: {
         Args: { target_user_id: string }
         Returns: undefined
@@ -697,14 +690,6 @@ export type Database = {
           target_user_id: string
           new_role: Database["public"]["Enums"]["app_role"]
         }
-        Returns: undefined
-      }
-      set_user_role_admin: {
-        Args: { _target_user_id: string; _new_role: string }
-        Returns: undefined
-      }
-      update_user_profile_admin: {
-        Args: { _user_id: string; _full_name: string }
         Returns: undefined
       }
     }

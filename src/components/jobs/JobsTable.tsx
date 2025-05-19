@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { format } from 'date-fns';
+import { format, isPast } from 'date-fns';
 import { ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from "@/components/ui/badge";
@@ -24,32 +24,14 @@ const JobsTable: React.FC<JobsTableProps> = ({
   const navigate = useNavigate();
 
   const handleNavigateToJob = (job: ExtendedJob) => {
-    if (!job.productConfig?.routes) {
-      console.error("Cannot navigate: job routes not defined for", job.productConfig?.productType);
+    if (!job.productConfig?.routes?.jobDetailPath) {
+      console.error("Cannot navigate: job detail path not defined for", job.productConfig?.productType);
       return;
     }
     
-    // For business cards, use the JobDetail component
-    if (job.productConfig.productType === "BusinessCards") {
-      const path = `/batches/business-cards/jobs/${job.id}`;
-      console.log("Navigating to business card job:", path);
-      navigate(path);
-      return;
-    }
-    
-    // For other product types, check if there's an explicit jobDetailPath function
-    if (job.productConfig.routes.jobDetailPath) {
-      const detailPath = job.productConfig.routes.jobDetailPath(job.id);
-      console.log("Navigating to job detail:", detailPath);
-      navigate(detailPath);
-      return;
-    }
-    
-    // Fallback to a generic path format
-    const productPath = job.productConfig.productType.toLowerCase().replace(/\s+/g, '-');
-    const path = `/batches/${productPath}/jobs/${job.id}`;
-    console.log("Navigating to job using fallback path:", path);
-    navigate(path);
+    const detailPath = job.productConfig.routes.jobDetailPath(job.id);
+    console.log("Navigating to:", detailPath);
+    navigate(detailPath);
   };
 
   // Function to determine row background color based on status and urgency
@@ -117,7 +99,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
                     {job.productConfig.productType}
                   </Badge>
                 </TableCell>
-                <TableCell>{job.name || job.job_number}</TableCell>
+                <TableCell>{job.name}</TableCell>
                 <TableCell>{job.quantity}</TableCell>
                 <TableCell>{format(new Date(job.due_date), 'MMM dd, yyyy')}</TableCell>
                 <TableCell>

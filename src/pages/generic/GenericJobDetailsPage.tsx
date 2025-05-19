@@ -1,244 +1,349 @@
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle, ArrowLeft, FileText, Printer, ExternalLink, Pencil } from 'lucide-react';
-import { ProductConfig, BaseJob } from '@/config/productTypes';
-import { format } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import JobStatusBadge from '@/components/JobStatusBadge';
+import React, { useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, FileText, AlertCircle, Calendar, Package } from "lucide-react";
+import { ProductConfig, BaseJob } from "@/config/productTypes";
+import { format } from "date-fns";
+import { isExistingTable } from "@/utils/database/tableValidation";
+import { toast } from "sonner";
 
 interface GenericJobDetailsPageProps {
   config: ProductConfig;
 }
 
 const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config }) => {
-  const { id } = useParams<{ id: string }>();
+  const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
-  const [job, setJob] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
 
+  console.log(`Rendering GenericJobDetailsPage for ${config.productType} with jobId:`, jobId);
+  console.log(`Table name being used: ${config.tableName}`);
+  
   useEffect(() => {
-    const fetchJobDetails = async () => {
-      if (!id || !config.tableName) {
-        setError('Invalid job ID or table name');
-        setIsLoading(false);
-        return;
+    if (!jobId) {
+      console.error("No job ID provided in URL params");
+      toast.error("No job ID provided");
+      navigate(config.routes.jobsPath);
+    }
+  }, [jobId, navigate, config.routes.jobsPath]);
+  
+  const { data: job, isLoading, error } = useQuery({
+    queryKey: [`${config.productType.toLowerCase()}-job-${jobId}`],
+    queryFn: async () => {
+      if (!jobId) {
+        console.error("No jobId provided");
+        toast.error("No job ID provided");
+        return null;
       }
-
+      
+      // Check if the table name exists in the database
+      if (!isExistingTable(config.tableName)) {
+        console.error(`Table ${config.tableName} does not exist in the database`);
+        toast.error(`Database table for ${config.productType} does not exist`);
+        throw new Error(`Table ${config.tableName} does not exist in the database`);
+      }
+      
       try {
-        console.log(`Fetching job ${id} from table ${config.tableName}`);
-        const { data, error: fetchError } = await supabase
-          .from(config.tableName)
+        console.log(`Fetching job details for ${config.productType} jobId:`, jobId);
+        console.log(`Using table: ${config.tableName}`);
+        
+        // Using any as a workaround for the type error
+        const { data, error } = await supabase
+          .from(config.tableName as any)
           .select('*')
-          .eq('id', id)
-          .single();
-
-        if (fetchError) {
-          console.error('Error fetching job:', fetchError);
-          setError('Failed to load job details');
-          setIsLoading(false);
-          return;
+          .eq('id', jobId)
+          .maybeSingle();
+          
+        if (error) {
+          console.error('Error fetching job details:', error);
+          throw error;
         }
-
-        console.log('Job data:', data);
-        setJob(data);
+        
+        // Ensure we have a valid job object before returning it
+        if (!data) {
+          console.error('No job data returned');
+          throw new Error('Job not found');
+        }
+        
+        console.log(`Job data received for ${config.productType}:`, data);
+        
+        // Type assertion after we've verified it's an object with job data
+        return data as unknown as BaseJob;
       } catch (err) {
-        console.error('Exception fetching job details:', err);
-        setError('An unexpected error occurred');
-      } finally {
-        setIsLoading(false);
+        console.error('Error fetching job details:', err);
+        throw err;
       }
-    };
-
-    fetchJobDetails();
-  }, [id, config.tableName]);
-
-  const handleBack = () => {
-    navigate(config.routes.jobsPath);
-  };
-
-  const handleEdit = () => {
-    if (id && config.routes.jobEditPath) {
-      navigate(config.routes.jobEditPath(id));
-    }
-  };
-
-  const handleViewPdf = () => {
-    if (job?.pdf_url) {
-      window.open(job.pdf_url, '_blank');
-    } else {
-      toast.error('No PDF available for this job');
-    }
-  };
+    },
+    retry: 1,
+    staleTime: 30000
+  });
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 text-lg">Loading job details...</span>
+      <div className="container mx-auto py-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-bold">Loading Job Details...</h2>
+            <p className="text-gray-500">Please wait while we fetch the job information</p>
+          </div>
+        </div>
+        <div className="bg-white shadow rounded-lg p-8 flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+        </div>
       </div>
     );
   }
 
   if (error || !job) {
     return (
-      <div className="max-w-4xl mx-auto py-8">
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-          <div className="flex">
-            <AlertCircle className="h-5 w-5 text-red-500 mr-3 flex-shrink-0" />
-            <div>
-              <h3 className="text-red-800 font-medium">Job not found</h3>
-              <p className="text-red-700 mt-1 text-sm">{error || 'The requested job could not be found or has been deleted.'}</p>
-              <Button variant="outline" size="sm" onClick={handleBack} className="mt-3">
-                Back to Jobs
-              </Button>
-            </div>
+      <div className="container mx-auto py-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-bold">Job Not Found</h2>
+            <p className="text-gray-500">The requested job could not be found</p>
           </div>
+          <Button 
+            variant="outline"
+            onClick={() => navigate(config.routes.jobsPath)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Jobs
+          </Button>
         </div>
+        
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error ? `Error loading job details: ${(error as Error).message}` : "Job not found"}
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "MMM dd, yyyy");
+    } catch {
+      return dateString;
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto py-8">
+    <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleBack}
-            className="mr-3"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{job.name}</h1>
-            <p className="text-gray-500">
-              Job #{job.job_number} • {config.productType}
-            </p>
-          </div>
+        <div>
+          <h2 className="text-2xl font-bold">{job?.name}</h2>
+          <p className="text-gray-500">Job #{job?.job_number}</p>
         </div>
-        <div className="flex space-x-2">
-          {job.status === 'queued' && (
-            <Button variant="outline" onClick={handleEdit}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit Job
-            </Button>
-          )}
-          {job.pdf_url && (
-            <Button onClick={handleViewPdf}>
-              <FileText className="h-4 w-4 mr-2" />
-              View PDF
-            </Button>
-          )}
-        </div>
+        <Button 
+          variant="outline"
+          onClick={() => navigate(config.routes.jobsPath)}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Jobs
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Job Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
-              <div className="border-b pb-2 sm:border-b-0">
-                <dt className="text-sm text-gray-500">Status</dt>
-                <dd><JobStatusBadge status={job.status} /></dd>
-              </div>
-              
-              <div className="border-b pb-2 sm:border-b-0">
-                <dt className="text-sm text-gray-500">Quantity</dt>
-                <dd className="font-medium">{job.quantity}</dd>
-              </div>
-              
-              {job.size && (
-                <div className="border-b pb-2 sm:border-b-0">
-                  <dt className="text-sm text-gray-500">Size</dt>
-                  <dd className="font-medium">{job.size}</dd>
-                </div>
-              )}
-              
-              {job.paper_type && (
-                <div className="border-b pb-2 sm:border-b-0">
-                  <dt className="text-sm text-gray-500">Paper Type</dt>
-                  <dd className="font-medium">{job.paper_type}</dd>
-                </div>
-              )}
-              
-              {job.paper_weight && (
-                <div className="border-b pb-2 sm:border-b-0">
-                  <dt className="text-sm text-gray-500">Paper Weight</dt>
-                  <dd className="font-medium">{job.paper_weight}</dd>
-                </div>
-              )}
-              
-              {job.lamination_type && (
-                <div className="border-b pb-2 sm:border-b-0">
-                  <dt className="text-sm text-gray-500">Lamination</dt>
-                  <dd className="font-medium">
-                    {job.lamination_type === 'none' ? 'None' : job.lamination_type}
-                  </dd>
-                </div>
-              )}
-              
-              {job.sides && (
-                <div className="border-b pb-2 sm:border-b-0">
-                  <dt className="text-sm text-gray-500">Sides</dt>
-                  <dd className="font-medium">
-                    {job.sides === 'single' ? 'Single-sided' : 'Double-sided'}
-                  </dd>
-                </div>
-              )}
-              
-              <div className="border-b pb-2 sm:border-b-0">
-                <dt className="text-sm text-gray-500">Due Date</dt>
-                <dd className="font-medium">
-                  {job.due_date ? format(new Date(job.due_date), 'dd MMM yyyy') : 'Not set'}
-                </dd>
-              </div>
-              
-              <div className="border-b pb-2 sm:border-b-0">
-                <dt className="text-sm text-gray-500">Created</dt>
-                <dd className="font-medium">
-                  {job.created_at ? format(new Date(job.created_at), 'dd MMM yyyy') : 'Unknown'}
-                </dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">File Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {job.file_name ? (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Job Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Filename</p>
-                  <p className="text-sm font-medium truncate">{job.file_name}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Job Name</p>
+                    <p className="text-lg font-medium">{job?.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Job Number</p>
+                    <p className="text-lg font-medium">{job?.job_number}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Status</p>
+                    <div className="mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                        ${job?.status === 'queued' ? 'bg-blue-100 text-blue-800' : 
+                          job?.status === 'batched' ? 'bg-yellow-100 text-yellow-800' :
+                          job?.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          job?.status === 'error' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'}`}>
+                        {job?.status?.charAt(0).toUpperCase() + job?.status?.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Due Date</p>
+                    <div className="flex items-center mt-1">
+                      <Calendar className="mr-2 h-4 w-4 text-gray-500" />
+                      <p>{job?.due_date ? formatDate(job.due_date) : 'No date set'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Quantity</p>
+                    <p className="text-lg font-medium">{job?.quantity}</p>
+                  </div>
+                  {job?.size && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Size</p>
+                      <p className="text-lg font-medium">{job.size}</p>
+                    </div>
+                  )}
+                  {job?.paper_type && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Paper Type</p>
+                      <p className="text-lg font-medium">{job.paper_type}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                  {job?.paper_weight && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Paper Weight</p>
+                      <p className="text-lg font-medium">{job.paper_weight}</p>
+                    </div>
+                  )}
+                  {job?.lamination_type && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Lamination</p>
+                      <p className="text-lg font-medium">
+                        {job.lamination_type === 'none' ? 'None' : 
+                          job.lamination_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </p>
+                    </div>
+                  )}
+                  {job?.sides && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Sides</p>
+                      <p className="text-lg font-medium">
+                        {job.sides === 'single' ? 'Single sided' : 'Double sided'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {job?.pdf_url && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Preview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gray-100 p-4 rounded-md mb-4">
+                  <div className="flex items-center">
+                    <FileText className="h-6 w-6 mr-2 text-blue-600" />
+                    <span className="text-sm font-medium">{job.file_name}</span>
+                  </div>
                 </div>
                 
-                {job.pdf_url && (
-                  <Button 
-                    variant="outline" 
-                    className="w-full" 
-                    onClick={handleViewPdf}
+                <div className="text-center">
+                  <Button
+                    onClick={() => window.open(job.pdf_url, '_blank')}
+                    className="flex items-center justify-center mx-auto"
                   >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open PDF
+                    <FileText className="mr-2 h-4 w-4" />
+                    View PDF
                   </Button>
-                )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="md:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Package className="mr-2 h-5 w-5" />
+                Batch Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {job?.batch_id ? (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Batch ID</p>
+                    <p className="text-sm font-mono bg-gray-100 p-1 rounded">{job.batch_id}</p>
+                  </div>
+                  <div className="pt-2">
+                    <Button 
+                      className="w-full"
+                      variant="outline"
+                      onClick={() => navigate(`${config.routes.batchesPath}/${job.batch_id}`)}
+                    >
+                      View Batch Details
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-gray-500 mb-3">This job is not part of any batch yet.</p>
+                  {job?.status === 'queued' && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => navigate(config.routes.jobsPath)}
+                    >
+                      Go to Jobs Page to Batch
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => job?.pdf_url && window.open(job.pdf_url, '_blank')}
+                  disabled={!job?.pdf_url}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  View PDF
+                </Button>
+                
+                <Button 
+                  variant="destructive" 
+                  className="w-full justify-start"
+                >
+                  <AlertCircle className="mr-2 h-4 w-4" />
+                  Cancel Job
+                </Button>
               </div>
-            ) : (
-              <p className="text-sm text-gray-500">No file attached</p>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

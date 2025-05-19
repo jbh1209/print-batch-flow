@@ -54,15 +54,6 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
           <h1 className="text-2xl font-bold tracking-tight">{config.ui.title || config.productType} Batches</h1>
           <p className="text-gray-500">View and manage all {(config.ui.title || config.productType).toLowerCase()} batches</p>
         </div>
-        <div>
-          <Button 
-            variant="outline" 
-            className="mr-2"
-            onClick={fetchBatches}
-          >
-            Refresh Batches
-          </Button>
-        </div>
       </div>
 
       {/* Error message if there's an issue fetching data */}

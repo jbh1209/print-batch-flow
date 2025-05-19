@@ -1,22 +1,20 @@
 
-import React from "react";
-import { FileQuestion } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
-interface FlyerJobsEmptyStateProps {
-  productType: string;
-}
-
-export const FlyerJobsEmptyState: React.FC<FlyerJobsEmptyStateProps> = ({ productType }) => {
+export const FlyerJobsEmptyState = () => {
+  const navigate = useNavigate();
+  
   return (
-    <div className="text-center py-12">
-      <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-        <FileQuestion className="h-6 w-6 text-gray-400" />
-      </div>
-      <h3 className="font-medium text-lg mb-2">No {productType} Jobs Yet</h3>
-      <p className="text-gray-500 max-w-md mx-auto">
-        You haven't created any {productType.toLowerCase()} jobs yet. 
-        Create your first job to get started.
-      </p>
+    <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg border border-dashed border-gray-300 p-8">
+      <FileText className="h-12 w-12 text-gray-400 mb-4" />
+      <h3 className="text-lg font-medium text-gray-900 mb-1">No flyer jobs found</h3>
+      <p className="text-gray-500 text-center mb-4">Get started by creating your first flyer job.</p>
+      <Button onClick={() => navigate("/batches/flyers/jobs/new")}>
+        <Plus className="mr-2 h-4 w-4" />
+        Create New Job
+      </Button>
     </div>
   );
 };

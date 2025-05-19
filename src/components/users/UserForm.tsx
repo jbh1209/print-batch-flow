@@ -10,13 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DialogFooter } from "@/components/ui/dialog";
 import { AlertCircle } from "lucide-react";
 import { UserFormData } from "@/types/user-types";
-import { Spinner } from "@/components/ui/spinner";
 
 interface UserFormProps {
   initialData?: UserFormData;
   onSubmit: (data: UserFormData) => void;
   isEditing?: boolean;
-  isProcessing?: boolean;
 }
 
 // Define form schema based on whether we're editing or creating
@@ -39,7 +37,8 @@ const editUserSchema = z.object({
   role: z.string().default("user")
 });
 
-export function UserForm({ initialData, onSubmit, isEditing = false, isProcessing = false }: UserFormProps) {
+export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
   
   const formSchema = isEditing ? editUserSchema : createUserSchema;
@@ -55,12 +54,15 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
   });
 
   const handleSubmit = async (data: any) => {
+    setIsSubmitting(true);
     setServerError("");
     
     try {
       await onSubmit(data);
     } catch (error: any) {
       setServerError(error.message || "An unexpected error occurred");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -162,8 +164,8 @@ export function UserForm({ initialData, onSubmit, isEditing = false, isProcessin
         )}
 
         <DialogFooter>
-          <Button type="submit" disabled={isProcessing}>
-            {isProcessing ? <><Spinner size={16} className="mr-2" /> Processing...</> : isEditing ? "Update User" : "Create User"}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Processing..." : isEditing ? "Update User" : "Create User"}
           </Button>
         </DialogFooter>
       </form>

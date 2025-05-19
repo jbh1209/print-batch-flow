@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { CODE_TO_PRODUCT_TYPE, extractProductCodeFromBatchName, PRODUCT_TYPE_CODES } from "@/utils/batch/productTypeCodes";
 
 interface BatchSummary {
   id: string;
@@ -13,6 +12,18 @@ interface BatchSummary {
   product_type: string;
   sheets_required: number;
 }
+
+// Standardized mapping between batch prefix codes and product types
+const BATCH_PREFIX_TO_PRODUCT_TYPE = {
+  'BC': "Business Cards",
+  'FL': "Flyers",
+  'PC': "Postcards",
+  'PB': "Boxes",
+  'STK': "Stickers",
+  'COV': "Covers",
+  'POS': "Posters",
+  'SL': "Sleeves"
+};
 
 export const useBatchesList = () => {
   const { user } = useAuth();
@@ -31,12 +42,12 @@ export const useBatchesList = () => {
         return;
       }
       
-      console.log("Fetching all batches (team view)");
+      console.log("Fetching batches for user:", user.id);
       
-      // Remove the user ID filter to get all batches regardless of who created them
       const { data, error } = await supabase
         .from("batches")
         .select("*")
+        .eq("created_by", user.id)
         .order("created_at", { ascending: false });
       
       if (error) {
@@ -45,37 +56,17 @@ export const useBatchesList = () => {
       }
       
       console.log("Batches data received:", data?.length || 0, "records");
-      if (data && data.length > 0) {
-        console.log("Sample batch names:", data.slice(0, 5).map(b => b.name).join(', '));
-      }
       
       // Process batch data to determine product type from standardized batch name
       const processedBatches = data?.map(batch => {
-        // Extract product type from batch name using helper function
+        // Extract product type from standardized batch name format: DXB-BC-00001
         let productType = "Unknown";
-        
         if (batch.name) {
-          const code = extractProductCodeFromBatchName(batch.name);
-          if (code) {
-            productType = CODE_TO_PRODUCT_TYPE[code] || "Unknown";
-            console.log(`Batch ${batch.name} with code ${code} detected as: ${productType}`);
-          } else {
-            console.warn(`Could not extract product code from batch name: ${batch.name}`);
-            
-            // Enhanced fallback detection logic
-            for (const [type, code] of Object.entries(PRODUCT_TYPE_CODES)) {
-              if (batch.name.toLowerCase().includes(type.toLowerCase())) {
-                productType = type;
-                console.log(`Fallback type detection: Batch ${batch.name} contains "${type}", detected as: ${productType}`);
-                break;
-              }
-              
-              if (batch.name.toLowerCase().includes(code.toLowerCase())) {
-                productType = CODE_TO_PRODUCT_TYPE[code] || type;
-                console.log(`Fallback code detection: Batch ${batch.name} contains code ${code}, detected as: ${productType}`);
-                break;
-              }
-            }
+          // Regex to match DXB-XX-##### format
+          const match = batch.name.match(/DXB-([A-Z]+)-\d+/);
+          if (match && match[1]) {
+            const code = match[1];
+            productType = BATCH_PREFIX_TO_PRODUCT_TYPE[code] || "Unknown";
           }
         }
         
@@ -110,8 +101,7 @@ export const useBatchesList = () => {
       case "Postcards": return "/batches/postcards/batches";
       case "Product Boxes": 
       case "Boxes": return "/batches/boxes/batches";
-      case "Stickers": 
-      case "Zund Stickers": return "/batches/stickers/batches";
+      case "Stickers": return "/batches/stickers/batches";
       case "Covers": return "/batches/covers/batches";
       case "Posters": return "/batches/posters/batches";
       case "Sleeves": 
