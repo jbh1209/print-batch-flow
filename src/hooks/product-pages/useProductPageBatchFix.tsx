@@ -32,8 +32,12 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Create a properly typed array of job IDs - ensure it's not an empty array
-        const jobIds = orphanedJobs.map(job => job.id as string);
+        // Define explicit type for orphaned jobs to avoid TS errors
+        interface JobWithId { id: string }
+        const typedJobs = orphanedJobs as JobWithId[];
+        
+        // Create a properly typed array of job IDs
+        const jobIds = typedJobs.map(job => job.id);
         
         // Reset these jobs to queued status
         const { error: updateError } = await supabase
