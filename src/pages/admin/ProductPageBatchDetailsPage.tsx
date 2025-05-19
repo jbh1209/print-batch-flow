@@ -52,7 +52,14 @@ export default function ProductPageBatchDetailsPage() {
         if (jobsError) throw jobsError;
 
         setBatch(batchData);
-        setJobs(jobsData);
+        
+        // Transform the jobsData to have properly typed custom_fields
+        const typedJobs = (jobsData || []).map(job => ({
+          ...job,
+          custom_fields: job.custom_fields as Record<string, any>
+        })) as ProductPageJob[];
+        
+        setJobs(typedJobs);
       } catch (err) {
         console.error("Error fetching batch details:", err);
         setError("Failed to load batch details");

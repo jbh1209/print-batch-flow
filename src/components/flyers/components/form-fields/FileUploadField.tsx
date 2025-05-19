@@ -1,42 +1,45 @@
+import React from 'react';
+import {
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormDescription,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
-import { useFormContext } from "react-hook-form";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import FileUpload from "@/components/business-cards/FileUpload";
-
-interface FileUploadFieldProps {
+export interface FileUploadFieldProps {
   selectedFile: File | null;
   setSelectedFile: (file: File | null) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  isEdit?: boolean;
+  required?: boolean; // Make this optional with a ? mark
 }
 
-export const FileUploadField = ({
+export const FileUploadField: React.FC<FileUploadFieldProps> = ({
   selectedFile,
   setSelectedFile,
   handleFileChange,
-  isEdit = false
-}: FileUploadFieldProps) => {
-  const { control } = useFormContext();
-
+  required
+}) => {
   return (
     <FormField
-      control={control}
       name="file"
-      render={({ field }) => (
+      render={() => (
         <FormItem>
-          <FormLabel>Upload PDF{isEdit ? '' : '*'}</FormLabel>
+          <FormLabel>
+            PDF Upload {required ? '*' : ''}
+          </FormLabel>
           <FormControl>
-            <FileUpload
-              control={control}
-              selectedFile={selectedFile}
-              setSelectedFile={setSelectedFile}
-              handleFileChange={handleFileChange}
-              isRequired={!isEdit}
-              helpText={isEdit 
-                ? "Upload a new PDF file to replace the current one (Optional)" 
-                : "Upload a PDF file of your flyer design (Max: 10MB)"}
+            <Input
+              type="file"
+              accept="application/pdf"
+              onChange={handleFileChange}
             />
           </FormControl>
+          <FormDescription>
+            Upload a PDF file.
+          </FormDescription>
           <FormMessage />
         </FormItem>
       )}

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -145,7 +144,6 @@ export function useProductPageJobs() {
     }
   };
 
-  // Create batch with selected jobs
   const createBatchWithSelectedJobs = async (
     selectedJobs: ProductPageJob[],
     batchProperties: {
@@ -168,7 +166,7 @@ export function useProductPageJobs() {
       const jobNumbers = selectedJobs.map(job => job.job_number).join(', ');
       const batchName = `PPG-${new Date().toISOString().split('T')[0]}-${jobNumbers.substring(0, 30)}`;
 
-      // Insert the batch record
+      // Insert the batch record with all required fields
       const { data: batch, error: batchError } = await supabase
         .from('batches')
         .insert({

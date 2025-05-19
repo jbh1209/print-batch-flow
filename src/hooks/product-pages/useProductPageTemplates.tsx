@@ -69,9 +69,13 @@ export function useProductPageTemplates() {
         created_by: user.id
       };
 
+      // Convert fields to JSON before sending to Supabase
       const { data, error } = await supabase
         .from(PRODUCT_PAGE_TEMPLATES_TABLE)
-        .insert([newTemplate])
+        .insert([{
+          ...newTemplate,
+          fields: JSON.parse(JSON.stringify(newTemplate.fields)) // Convert to JSON compatible format
+        }])
         .select()
         .single();
 
@@ -106,16 +110,17 @@ export function useProductPageTemplates() {
     try {
       setIsSaving(true);
       
-      const updatedTemplate = {
+      // Convert fields to JSON before sending to Supabase
+      const updatedTemplateData = {
         name: templateData.name,
         description: templateData.description || '',
-        fields: templateData.fields,
+        fields: JSON.parse(JSON.stringify(templateData.fields)), // Convert to JSON compatible format
         updated_at: new Date().toISOString()
       };
 
       const { error } = await supabase
         .from(PRODUCT_PAGE_TEMPLATES_TABLE)
-        .update(updatedTemplate)
+        .update(updatedTemplateData)
         .eq('id', templateId);
 
       if (error) throw error;
@@ -125,7 +130,11 @@ export function useProductPageTemplates() {
       setTemplates(prevTemplates => 
         prevTemplates.map(template => 
           template.id === templateId 
-            ? { ...template, ...updatedTemplate } 
+            ? { 
+                ...template, 
+                ...templateData,
+                updated_at: updatedTemplateData.updated_at
+              } 
             : template
         )
       );

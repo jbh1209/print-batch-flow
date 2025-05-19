@@ -7,6 +7,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProductPageBatchDetails from "./ProductPageBatchDetailsPage";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
+import { BatchStatus } from "@/components/batches/types/BatchTypes";
 
 export default function ProductPagesBatchesPage() {
   const [searchParams] = useSearchParams();
@@ -26,7 +27,7 @@ export default function ProductPagesBatchesPage() {
     id: batch.id,
     name: batch.name,
     due_date: batch.due_date,
-    status: batch.status,
+    status: batch.status as BatchStatus, // Explicitly cast to BatchStatus
     product_type: "Product Pages",
     sheets_required: batch.sheets_required,
     lamination_type: "none",

@@ -33,12 +33,14 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Create a properly typed array of job IDs
-        const jobIds = orphanedJobs.map(job => job.id);
+        const jobIds = orphanedJobs.map(job => job.id as string);
         
         // Reset these jobs to queued status
         const { error: updateError } = await supabase
           .from(PRODUCT_PAGES_TABLE)
-          .update({ status: 'queued' })
+          .update({ 
+            status: 'queued' 
+          })
           .in('id', jobIds);
         
         if (updateError) throw updateError;

@@ -38,8 +38,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${tableName}`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Create a properly typed array of job IDs
-        const jobIds = orphanedJobs.map(job => job.id);
+        // Create a properly typed array of job IDs - use type assertion to prevent recursion
+        const jobIds = orphanedJobs.map(job => job.id as string);
         
         // Reset these jobs to queued status
         const { error: updateError } = await supabase
