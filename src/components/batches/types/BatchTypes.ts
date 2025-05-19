@@ -10,7 +10,10 @@ export interface BatchSummary extends BaseBatch {
 }
 
 export interface BatchDetailsType extends BaseBatch {
-  // Additional properties specific to batch details
+  overview_pdf_url: string | null;
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
+  created_at: string;
 }
 
 export interface Job {

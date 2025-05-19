@@ -6,6 +6,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
 
+// Define the raw batch data structure to match what's returned from Supabase
+interface RawBatchData {
+  id: string;
+  name: string;
+  lamination_type: string;
+  sheets_required: number;
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
+  overview_pdf_url?: string | null; // Mark as optional since it might not exist in some records
+  due_date: string;
+  created_at: string;
+  status: string;
+  [key: string]: any; // Allow for other fields that might exist
+}
+
 interface UseFetchBatchDetailsProps {
   batchId: string;
   productType: string;
@@ -59,18 +74,21 @@ export function useFetchBatchDetails({
       
       console.log("Batch details received:", data?.id);
       
-      // Create the batch object with all properties, handling the possibility that overview_pdf_url may not exist
+      // Cast the raw data to our RawBatchData interface
+      const rawBatchData = data as RawBatchData;
+      
+      // Create the batch object with all properties, properly handling optional fields
       const batchData: BatchDetailsType = {
-        id: data.id,
-        name: data.name,
-        lamination_type: data.lamination_type,
-        sheets_required: data.sheets_required,
-        front_pdf_url: data.front_pdf_url,
-        back_pdf_url: data.back_pdf_url,
-        overview_pdf_url: data.overview_pdf_url || null, // Handle safely if field doesn't exist
-        due_date: data.due_date,
-        created_at: data.created_at,
-        status: data.status,
+        id: rawBatchData.id,
+        name: rawBatchData.name,
+        lamination_type: rawBatchData.lamination_type,
+        sheets_required: rawBatchData.sheets_required,
+        front_pdf_url: rawBatchData.front_pdf_url,
+        back_pdf_url: rawBatchData.back_pdf_url,
+        overview_pdf_url: rawBatchData.overview_pdf_url || null,
+        due_date: rawBatchData.due_date,
+        created_at: rawBatchData.created_at,
+        status: rawBatchData.status,
       };
       
       setBatch(batchData);

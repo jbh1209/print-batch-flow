@@ -5,19 +5,19 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { PRODUCT_PAGES_TABLE } from "@/components/product-pages/types/ProductPageTypes";
 
-// Define a basic interface for jobs with id property
+// Define proper interfaces to avoid type recursion issues
 interface OrphanedProductPageJob {
   id: string;
 }
 
-// Define specific return type for the Supabase query to prevent recursion
-interface ProductPageQueryResult {
-  data: OrphanedProductPageJob[] | null;
+// Define properly typed interfaces for Supabase results
+interface SupabaseQueryResult<T> {
+  data: T[] | null;
   error: Error | null;
 }
 
-// Define an interface for update result
-interface UpdateResult {
+// Define update result interface
+interface SupabaseUpdateResult {
   error: Error | null;
 }
 
@@ -37,13 +37,16 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Finding orphaned batched jobs in ${PRODUCT_PAGES_TABLE}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      const result: ProductPageQueryResult = await supabase
+      const queryResult = await supabase
         .from(PRODUCT_PAGES_TABLE)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
-        
-      const { data: orphanedJobs, error: findError } = result;
+      
+      // Safely cast the result to our interface
+      const result = queryResult as unknown as SupabaseQueryResult<OrphanedProductPageJob>;
+      const orphanedJobs = result.data;
+      const findError = result.error;
       
       if (findError) throw findError;
       
@@ -53,14 +56,18 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
         // Create a properly typed array of job IDs
         const jobIds = orphanedJobs.map(job => job.id);
         
-        // Reset these jobs to queued status using explicit typing and type assertion
-        // to avoid TypeScript errors with the specific table schema
-        const updateResult: UpdateResult = await supabase
+        // Reset these jobs to queued status
+        // First create the update data with proper typing
+        const updateData: Record<string, unknown> = { status: 'queued' };
+        
+        const updateQueryResult = await supabase
           .from(PRODUCT_PAGES_TABLE)
-          .update({ status: 'queued' } as any) // Type assertion needed due to table-specific types
+          .update(updateData)
           .in('id', jobIds);
-          
-        const { error: updateError } = updateResult;
+        
+        // Safely cast the update result
+        const updateResult = updateQueryResult as unknown as SupabaseUpdateResult;
+        const updateError = updateResult.error;
         
         if (updateError) throw updateError;
         
