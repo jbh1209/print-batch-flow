@@ -3,7 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText } from "lucide-react";
-import { ProductConfig, BaseJob } from "@/config/productTypes";
+import { ProductConfig, BaseJob, BatchFixOperationResult } from "@/config/productTypes";
 import GenericJobsTable from "./GenericJobsTable";
 
 interface GenericJobsPageProps {
@@ -16,7 +16,7 @@ interface GenericJobsPageProps {
     fetchJobs: () => Promise<void>;
     createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
     isCreatingBatch: boolean;
-    fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
+    fixBatchedJobsWithoutBatch: () => Promise<number>;
     isFixingBatchedJobs?: boolean;
   };
 }

@@ -21,7 +21,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Eye, FilePenLine, MoreHorizontal, Trash2, FileUp } from "lucide-react";
 import JobStatusBadge from '@/components/JobStatusBadge';
 import { format } from 'date-fns';
-import { BaseJob, ProductConfig } from '@/config/productTypes';
+import { BaseJob, ProductConfig, BatchFixOperationResult } from '@/config/productTypes';
 
 interface GenericJobsTableProps {
   jobs: BaseJob[];
@@ -31,10 +31,10 @@ interface GenericJobsTableProps {
   fetchJobs: () => Promise<void>;
   createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
   isCreatingBatch: boolean;
-  fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
+  fixBatchedJobsWithoutBatch: () => Promise<number>;
   isFixingBatchedJobs?: boolean;
   config: ProductConfig;
-  onViewJob?: (jobId: string) => void; // Add this prop
+  onViewJob?: (jobId: string) => void; 
 }
 
 const GenericJobsTable = ({

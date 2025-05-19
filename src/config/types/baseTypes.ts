@@ -27,6 +27,14 @@ export type BatchStatus =
   | 'sent_to_print'
   | 'cancelled';
 
+/**
+ * Type definition for batch fix operation results
+ */
+export interface BatchFixOperationResult {
+  fixBatchedJobsWithoutBatch: () => Promise<number>;
+  isFixingBatchedJobs: boolean;
+}
+
 export interface BaseBatch {
   id: string;
   name: string;

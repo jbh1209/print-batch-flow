@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { TableName } from "@/config/productTypes";
+import { BatchFixOperationResult } from "@/config/types/baseTypes";
 
 /**
  * Interface for job records with ID
@@ -15,10 +16,10 @@ interface JobId {
 /**
  * Hook to fix orphaned batched jobs (jobs with batch status but no batch ID)
  */
-export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined) {
+export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined): BatchFixOperationResult {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
-  const fixBatchedJobsWithoutBatch = async () => {
+  const fixBatchedJobsWithoutBatch = async (): Promise<number> => {
     if (!tableName) {
       console.log("No table name specified for batch fix");
       return 0;
@@ -45,7 +46,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       if (findError) throw findError;
       
       // Use a simple array with type assertion instead of complex type inference
-      const jobsToUpdate = Array.isArray(data) ? data : [];
+      const jobsToUpdate = Array.isArray(data) ? data as JobId[] : [];
       const jobIds = jobsToUpdate.map(job => job.id);
       
       console.log(`Found ${jobsToUpdate.length} orphaned jobs in ${tableName}`);
