@@ -7,7 +7,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProductPageBatchDetails from "./ProductPageBatchDetailsPage";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
-import { BatchStatus } from "@/components/batches/types/BatchTypes";
+import { BatchStatus } from "@/config/types/baseTypes";
 
 export default function ProductPagesBatchesPage() {
   const [searchParams] = useSearchParams();

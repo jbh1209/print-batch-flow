@@ -32,7 +32,7 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Create a properly typed array of job IDs
+        // Create a properly typed array of job IDs - ensure it's not an empty array
         const jobIds = orphanedJobs.map(job => job.id as string);
         
         // Reset these jobs to queued status

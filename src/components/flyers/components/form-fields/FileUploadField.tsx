@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   FormField,
@@ -13,14 +14,16 @@ export interface FileUploadFieldProps {
   selectedFile: File | null;
   setSelectedFile: (file: File | null) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  required?: boolean; // Make this optional with a ? mark
+  required?: boolean;
+  isEdit?: boolean; // Add the isEdit prop
 }
 
 export const FileUploadField: React.FC<FileUploadFieldProps> = ({
   selectedFile,
   setSelectedFile,
   handleFileChange,
-  required
+  required,
+  isEdit = false // Default to false for backward compatibility
 }) => {
   return (
     <FormField
@@ -38,7 +41,9 @@ export const FileUploadField: React.FC<FileUploadFieldProps> = ({
             />
           </FormControl>
           <FormDescription>
-            Upload a PDF file.
+            {isEdit 
+              ? "Upload a new PDF file or leave empty to keep the existing one." 
+              : "Upload a PDF file."}
           </FormDescription>
           <FormMessage />
         </FormItem>
