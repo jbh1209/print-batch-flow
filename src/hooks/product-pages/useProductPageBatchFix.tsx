@@ -39,21 +39,17 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       
       if (findError) throw findError;
       
-      // Safely cast data to JobId interface
-      const jobsToUpdate = (data || []) as JobId[];
+      // Use a simple array with type assertion instead of complex type inference
+      const jobsToUpdate = Array.isArray(data) ? data : [];
+      const jobIds = jobsToUpdate.map(job => job.id);
+      
       console.log(`Found ${jobsToUpdate.length} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
       if (jobsToUpdate.length > 0) {
-        // Create array of job IDs
-        const jobIds = jobsToUpdate.map(job => job.id);
-        
-        // Define the update operation with explicit type
-        const updateData = { status: 'queued' as const };
-        
-        // Reset these jobs to queued status
+        // Reset these jobs to queued status using a simple string instead of complex typing
         const { error: updateError } = await supabase
           .from(PRODUCT_PAGES_TABLE)
-          .update(updateData)
+          .update({ status: 'queued' })
           .in('id', jobIds);
         
         if (updateError) throw updateError;

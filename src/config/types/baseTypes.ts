@@ -15,7 +15,8 @@ export type ExistingTableName =
   | 'sticker_jobs'
   | 'batches'
   | 'profiles'
-  | 'user_roles';
+  | 'user_roles'
+  | 'product_pages';
 
 // Status types for jobs and batches
 export type BatchStatus = 

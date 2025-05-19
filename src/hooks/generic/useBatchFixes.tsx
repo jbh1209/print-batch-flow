@@ -36,7 +36,6 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Finding orphaned batched jobs in ${tableName}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      // We explicitly type the result as having an id property
       const { data, error: findError } = await supabase
         .from(tableName)
         .select('id')
@@ -45,14 +44,13 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       
       if (findError) throw findError;
       
-      // Safely cast data to the JobId interface
-      const jobsToUpdate = (data || []) as JobId[];
+      // Use a simple array with type assertion instead of complex type inference
+      const jobsToUpdate = Array.isArray(data) ? data : [];
+      const jobIds = jobsToUpdate.map(job => job.id);
+      
       console.log(`Found ${jobsToUpdate.length} orphaned jobs in ${tableName}`);
       
       if (jobsToUpdate.length > 0) {
-        // Create an array of job IDs
-        const jobIds = jobsToUpdate.map(job => job.id);
-        
         // Reset these jobs to queued status
         const { error: updateError } = await supabase
           .from(tableName)
