@@ -44,30 +44,29 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
         .is('batch_id', null);
       
       // Safely cast the result to our interface
-      const result = queryResult as unknown as SupabaseQueryResult<OrphanedProductPageJob>;
-      const orphanedJobs = result.data;
-      const findError = result.error;
+      const typedResult = queryResult as unknown as SupabaseQueryResult<OrphanedProductPageJob>;
+      const orphanedJobs = typedResult.data || [];
+      const findError = typedResult.error;
       
       if (findError) throw findError;
       
-      console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
+      console.log(`Found ${orphanedJobs.length} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
-      if (orphanedJobs && orphanedJobs.length > 0) {
+      if (orphanedJobs.length > 0) {
         // Create a properly typed array of job IDs
         const jobIds = orphanedJobs.map(job => job.id);
         
-        // Reset these jobs to queued status
-        // First create the update data with proper typing
-        const updateData: Record<string, unknown> = { status: 'queued' };
+        // Use a correctly typed update object to avoid 'never' type issues
+        const updateData = { status: 'queued' as const };
         
-        const updateQueryResult = await supabase
+        const updateResult = await supabase
           .from(PRODUCT_PAGES_TABLE)
           .update(updateData)
           .in('id', jobIds);
         
         // Safely cast the update result
-        const updateResult = updateQueryResult as unknown as SupabaseUpdateResult;
-        const updateError = updateResult.error;
+        const typedUpdateResult = updateResult as unknown as SupabaseUpdateResult;
+        const updateError = typedUpdateResult.error;
         
         if (updateError) throw updateError;
         

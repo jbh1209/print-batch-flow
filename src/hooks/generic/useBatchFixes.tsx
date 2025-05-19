@@ -10,13 +10,13 @@ interface OrphanedJob {
   id: string;
 }
 
-// Define proper interfaces for Supabase query results
-interface SupabaseQueryData<T> {
+// Define interfaces for Supabase responses
+interface SupabaseQueryResult<T> {
   data: T[] | null;
   error: Error | null;
 }
 
-// Define update result interface
+// Define update result interface separate from query result
 interface SupabaseUpdateResult {
   error: Error | null;
 }
@@ -42,36 +42,34 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Finding orphaned batched jobs in ${tableName}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      // Use properly typed interfaces to avoid recursive type issues
       const queryResult = await supabase
         .from(tableName)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      // Safely cast the result to our properly defined interface
-      const result = queryResult as unknown as SupabaseQueryData<OrphanedJob>;
-      const orphanedJobs = result.data;
-      const findError = result.error;
+      // Type assertion with properly defined interface
+      const typedResult = queryResult as unknown as SupabaseQueryResult<OrphanedJob>;
+      const orphanedJobs = typedResult.data || [];
+      const findError = typedResult.error;
       
       if (findError) throw findError;
       
-      console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${tableName}`);
+      console.log(`Found ${orphanedJobs.length} orphaned jobs in ${tableName}`);
       
-      if (orphanedJobs && orphanedJobs.length > 0) {
+      if (orphanedJobs.length > 0) {
         // Create an array of job IDs
         const jobIds = orphanedJobs.map(job => job.id);
         
         // Reset these jobs to queued status
-        // Use properly typed interfaces to avoid recursive type issues
-        const updateQueryResult = await supabase
+        const updateResult = await supabase
           .from(tableName)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
-        // Safely cast the update result
-        const updateResult = updateQueryResult as unknown as SupabaseUpdateResult;
-        const updateError = updateResult.error;
+        // Type assertion with properly defined interface
+        const typedUpdateResult = updateResult as unknown as SupabaseUpdateResult;
+        const updateError = typedUpdateResult.error;
         
         if (updateError) throw updateError;
         

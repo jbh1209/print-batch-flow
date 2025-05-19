@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { ensureValidBatchStatus } from "@/utils/typeAdapters";
 
 // Define the raw batch data structure to match what's returned from Supabase
 interface RawBatchData {
@@ -88,7 +89,7 @@ export function useFetchBatchDetails({
         overview_pdf_url: rawBatchData.overview_pdf_url || null,
         due_date: rawBatchData.due_date,
         created_at: rawBatchData.created_at,
-        status: rawBatchData.status,
+        status: ensureValidBatchStatus(rawBatchData.status),
       };
       
       setBatch(batchData);
