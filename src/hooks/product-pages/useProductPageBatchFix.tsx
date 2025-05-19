@@ -3,19 +3,14 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
-import { TableName } from "@/config/productTypes";
+import { PRODUCT_PAGES_TABLE } from "@/components/product-pages/types/ProductPageTypes";
 
-export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined) {
+export function useProductPageBatchFix(onFixComplete?: () => void) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
   const fixBatchedJobsWithoutBatch = async () => {
-    if (!tableName) {
-      console.log("No table name specified for batch fix");
-      return 0;
-    }
-    
-    if (!isExistingTable(tableName)) {
-      console.log(`Table ${tableName} doesn't exist yet, skipping batch fix`);
+    if (!isExistingTable(PRODUCT_PAGES_TABLE)) {
+      console.log(`Table ${PRODUCT_PAGES_TABLE} doesn't exist yet, skipping batch fix`);
       return 0;
     }
     
@@ -23,19 +18,18 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
     let fixedCount = 0;
     
     try {
-      console.log(`Finding orphaned batched jobs in ${tableName}`);
+      console.log(`Finding orphaned batched jobs in ${PRODUCT_PAGES_TABLE}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      // Removed user_id filter to allow all users to fix orphaned jobs
       const { data: orphanedJobs, error: findError } = await supabase
-        .from(tableName)
+        .from(PRODUCT_PAGES_TABLE)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
       
       if (findError) throw findError;
       
-      console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${tableName}`);
+      console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
         // Create a properly typed array of job IDs
@@ -43,7 +37,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         
         // Reset these jobs to queued status
         const { error: updateError } = await supabase
-          .from(tableName)
+          .from(PRODUCT_PAGES_TABLE)
           .update({ status: 'queued' })
           .in('id', jobIds);
         
@@ -55,9 +49,14 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         toast.success(`Reset ${fixedCount} orphaned jobs back to queued status`);
       }
       
+      // Call the callback function if provided
+      if (onFixComplete) {
+        onFixComplete();
+      }
+      
       return fixedCount;
     } catch (error) {
-      console.error(`Error fixing batched jobs in ${tableName}:`, error);
+      console.error(`Error fixing batched jobs in ${PRODUCT_PAGES_TABLE}:`, error);
       toast.error(`Failed to reset jobs with missing batch references`);
       return 0;
     } finally {

@@ -559,6 +559,102 @@ export type Database = {
           },
         ]
       }
+      product_page_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          fields: Json
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          fields: Json
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          fields?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      product_pages: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          custom_fields: Json
+          due_date: string
+          file_name: string | null
+          id: string
+          job_number: string
+          name: string
+          pdf_url: string | null
+          quantity: number
+          status: Database["public"]["Enums"]["page_status"]
+          template_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          custom_fields?: Json
+          due_date: string
+          file_name?: string | null
+          id?: string
+          job_number: string
+          name: string
+          pdf_url?: string | null
+          quantity?: number
+          status?: Database["public"]["Enums"]["page_status"]
+          template_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          custom_fields?: Json
+          due_date?: string
+          file_name?: string | null
+          id?: string
+          job_number?: string
+          name?: string
+          pdf_url?: string | null
+          quantity?: number
+          status?: Database["public"]["Enums"]["page_status"]
+          template_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_pages_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_pages_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "product_page_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_types: {
         Row: {
           color: string
@@ -831,6 +927,12 @@ export type Database = {
       flyer_size: "A5" | "A4" | "DL" | "A3"
       job_status: "queued" | "batched" | "completed" | "cancelled"
       lamination_type: "gloss" | "matt" | "soft_touch" | "none"
+      page_status:
+        | "queued"
+        | "batched"
+        | "completed"
+        | "cancelled"
+        | "sent_to_print"
       paper_type: "Matt" | "Gloss"
       printer_type: "HP 12000" | "HP 7900"
       sheet_size: "455x640mm" | "530x750mm" | "320x455mm"
@@ -959,6 +1061,13 @@ export const Constants = {
       flyer_size: ["A5", "A4", "DL", "A3"],
       job_status: ["queued", "batched", "completed", "cancelled"],
       lamination_type: ["gloss", "matt", "soft_touch", "none"],
+      page_status: [
+        "queued",
+        "batched",
+        "completed",
+        "cancelled",
+        "sent_to_print",
+      ],
       paper_type: ["Matt", "Gloss"],
       printer_type: ["HP 12000", "HP 7900"],
       sheet_size: ["455x640mm", "530x750mm", "320x455mm"],
