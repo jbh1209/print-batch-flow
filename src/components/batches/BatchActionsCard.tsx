@@ -105,6 +105,7 @@ const BatchActionsCard = ({
               variant="default"
               size="sm"
               onClick={onDownloadBatchOverviewSheet}
+              disabled={!batch.overview_pdf_url}
               className="w-full flex items-center justify-center gap-2"
             >
               <Download className="h-4 w-4" />
@@ -132,4 +133,3 @@ const BatchActionsCard = ({
 };
 
 export default BatchActionsCard;
-

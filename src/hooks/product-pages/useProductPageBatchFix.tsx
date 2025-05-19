@@ -16,6 +16,11 @@ interface ProductPageQueryResult {
   error: Error | null;
 }
 
+// Define an interface for update result
+interface UpdateResult {
+  error: Error | null;
+}
+
 export function useProductPageBatchFix(onFixComplete?: () => void) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
@@ -46,12 +51,10 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
         // Create a properly typed array of job IDs
         const jobIds = orphanedJobs.map(job => job.id);
         
-        // Reset these jobs to queued status
-        const { error: updateError } = await supabase
+        // Reset these jobs to queued status using explicit typing
+        const { error: updateError }: UpdateResult = await supabase
           .from(PRODUCT_PAGES_TABLE)
-          .update({ 
-            status: 'queued' 
-          } as any) // Use type assertion to bypass TypeScript strictness
+          .update({ status: 'queued' })
           .in('id', jobIds);
         
         if (updateError) throw updateError;

@@ -5,14 +5,18 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { TableName } from "@/config/productTypes";
 
-// Define a basic interface for jobs with id property to avoid type recursion
+// Define interfaces to avoid excessively deep type instantiation
 interface OrphanedJob {
   id: string;
 }
 
-// Define specific return type for the Supabase query to prevent recursion
 interface QueryResult {
   data: OrphanedJob[] | null;
+  error: Error | null;
+}
+
+// Define an interface for update result to avoid type issues
+interface UpdateResult {
   error: Error | null;
 }
 
@@ -53,7 +57,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         const jobIds = orphanedJobs.map(job => job.id);
         
         // Reset these jobs to queued status
-        const { error: updateError } = await supabase
+        const { error: updateError }: UpdateResult = await supabase
           .from(tableName)
           .update({ status: 'queued' })
           .in('id', jobIds);
