@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
+import { BatchStatus } from '@/config/types/baseTypes';
 
 export function useFlyerJobOperations() {
   const { user } = useAuth();
@@ -121,22 +122,24 @@ export function useFlyerJobOperations() {
       // Generate batch name with standardized format
       const batchNumber = await generateFlyerBatchNumber();
       
-      // Create the batch
+      // Create the batch with proper type casting
+      const batchData = {
+        name: batchNumber,
+        paper_type: batchProperties.paperType,
+        paper_weight: batchProperties.paperWeight,
+        lamination_type: batchProperties.laminationType as string,
+        due_date: new Date().toISOString(),
+        printer_type: batchProperties.printerType,
+        sheet_size: batchProperties.sheetSize,
+        sheets_required: sheetsRequired,
+        created_by: user.id,
+        status: 'pending' as BatchStatus,
+        sla_target_days: batchProperties.slaTargetDays
+      };
+      
       const { data: batchData, error: batchError } = await supabase
         .from('batches')
-        .insert({
-          name: batchNumber,
-          paper_type: batchProperties.paperType,
-          paper_weight: batchProperties.paperWeight,
-          lamination_type: batchProperties.laminationType,
-          due_date: new Date().toISOString(), // Default to current date
-          printer_type: batchProperties.printerType,
-          sheet_size: batchProperties.sheetSize,
-          sheets_required: sheetsRequired,
-          created_by: user.id, // Keep track of who created the batch
-          status: 'pending',
-          sla_target_days: batchProperties.slaTargetDays
-        })
+        .insert(batchData)
         .select()
         .single();
         

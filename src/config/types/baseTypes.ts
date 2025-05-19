@@ -27,6 +27,13 @@ export type BatchStatus =
   | 'sent_to_print'
   | 'cancelled';
 
+export type JobStatus = 
+  | 'queued'
+  | 'batched'
+  | 'processing'
+  | 'completed'
+  | 'cancelled';
+
 /**
  * Type definition for batch fix operation results
  */

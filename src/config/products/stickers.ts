@@ -6,7 +6,7 @@ export const stickersConfig: ProductConfig = {
   tableName: "sticker_jobs",
   jobNumberPrefix: "STK",
   availablePaperTypes: ["Paper", "Vinyl"],
-  availableLaminationTypes: ["none", "matt", "gloss"],
+  availableLaminationTypes: ["none", "matte", "gloss"],
   hasPaperType: true,
   hasLamination: true,
   slaTargetDays: 3,

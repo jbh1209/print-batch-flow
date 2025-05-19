@@ -1,9 +1,8 @@
 
-// Only updating the problematic code section where 'matt' is used
 import { useState } from 'react';
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { LaminationType } from '@/config/productTypes';
+import { LaminationType } from '@/config/types/productConfigTypes';
 
 interface BatchSettingsPanelProps {
   paperType: string;
@@ -16,6 +15,9 @@ interface BatchSettingsPanelProps {
   setPrinterType: (value: string) => void;
   sheetSize: string;
   setSheetSize: (value: string) => void;
+  availablePaperTypes?: string[];
+  availableLaminationTypes?: LaminationType[];
+  availablePaperWeights?: string[];
 }
 
 export function BatchSettingsPanel({
@@ -28,7 +30,10 @@ export function BatchSettingsPanel({
   printerType,
   setPrinterType,
   sheetSize,
-  setSheetSize
+  setSheetSize,
+  availablePaperTypes = ["Gloss", "Silk"],
+  availablePaperWeights = ["130gsm", "170gsm", "250gsm"],
+  availableLaminationTypes = ["none", "gloss", "matte", "soft_touch"]
 }: BatchSettingsPanelProps) {
   return (
     <div className="space-y-6">
@@ -39,14 +44,12 @@ export function BatchSettingsPanel({
         <div className="space-y-2 mb-4">
           <Label>Paper Type</Label>
           <RadioGroup value={paperType} onValueChange={setPaperType}>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Gloss" id="gloss" />
-              <Label htmlFor="gloss">Gloss</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Silk" id="silk" />
-              <Label htmlFor="silk">Silk</Label>
-            </div>
+            {availablePaperTypes.map(type => (
+              <div key={type} className="flex items-center space-x-2">
+                <RadioGroupItem value={type} id={`paper-${type}`} />
+                <Label htmlFor={`paper-${type}`}>{type}</Label>
+              </div>
+            ))}
           </RadioGroup>
         </div>
         
@@ -54,37 +57,30 @@ export function BatchSettingsPanel({
         <div className="space-y-2 mb-4">
           <Label>Paper Weight</Label>
           <RadioGroup value={paperWeight} onValueChange={setPaperWeight}>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="130gsm" id="130gsm" />
-              <Label htmlFor="130gsm">130gsm</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="170gsm" id="170gsm" />
-              <Label htmlFor="170gsm">170gsm</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="250gsm" id="250gsm" />
-              <Label htmlFor="250gsm">250gsm</Label>
-            </div>
+            {availablePaperWeights.map(weight => (
+              <div key={weight} className="flex items-center space-x-2">
+                <RadioGroupItem value={weight} id={`weight-${weight}`} />
+                <Label htmlFor={`weight-${weight}`}>{weight}</Label>
+              </div>
+            ))}
           </RadioGroup>
         </div>
         
         {/* Lamination */}
         <div className="space-y-2 mb-4">
           <Label>Lamination</Label>
-          <RadioGroup value={laminationType} onValueChange={setLaminationType}>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="none" id="no-lamination" />
-              <Label htmlFor="no-lamination">None</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="gloss" id="gloss-lamination" />
-              <Label htmlFor="gloss-lamination">Gloss</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="matte" id="matte-lamination" /> {/* Changed from 'matt' to 'matte' */}
-              <Label htmlFor="matte-lamination">Matte</Label>
-            </div>
+          <RadioGroup value={laminationType} onValueChange={value => setLaminationType(value as LaminationType)}>
+            {availableLaminationTypes.map(type => (
+              <div key={type} className="flex items-center space-x-2">
+                <RadioGroupItem value={type} id={`lamination-${type}`} />
+                <Label htmlFor={`lamination-${type}`}>
+                  {type === "none" ? "None" : 
+                   type === "matte" ? "Matte" : 
+                   type === "gloss" ? "Gloss" : 
+                   type === "soft_touch" ? "Soft Touch" : type}
+                </Label>
+              </div>
+            ))}
           </RadioGroup>
         </div>
         

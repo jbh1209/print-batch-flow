@@ -184,7 +184,7 @@ export function GenericBatchCreateDialog({
               sheetSize={sheetSize}
               setSheetSize={setSheetSize}
               availablePaperTypes={config.availablePaperTypes || ["Paper"]}
-              availableLaminationTypes={(config.availableLaminationTypes || ["none"]) as LaminationType[]}
+              availableLaminationTypes={config.availableLaminationTypes || ["none"]}
               availablePaperWeights={config.availablePaperWeights || ["standard"]}
             />
             

@@ -7,7 +7,7 @@ export const coversConfig: ProductConfig = {
   jobNumberPrefix: "COV",
   availablePaperTypes: ["Matt", "Gloss", "Premium"],
   availablePaperWeights: ["250gsm", "350gsm", "400gsm"],
-  availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"],
+  availableLaminationTypes: ["none", "gloss", "matte", "soft_touch"],
   hasLamination: true,
   hasPaperType: true,
   hasPaperWeight: true,

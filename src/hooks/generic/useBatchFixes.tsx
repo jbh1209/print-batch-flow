@@ -1,75 +1,70 @@
 
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { isExistingTable } from "@/utils/database/tableValidation";
-import { toast } from "sonner";
-import { TableName } from "@/config/productTypes";
-import { BatchFixOperationResult } from "@/config/types/baseTypes";
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { BatchFixOperationResult } from '@/config/types/baseTypes';
 
-/**
- * Interface for job records with ID
- */
+// Simple interface for job IDs to avoid deep type instantiation
 interface JobId {
   id: string;
 }
 
-/**
- * Hook to fix orphaned batched jobs (jobs with batch status but no batch ID)
- */
-export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined): BatchFixOperationResult {
+export function useBatchFixes(tableName: string, userId?: string): BatchFixOperationResult {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
   const fixBatchedJobsWithoutBatch = async (): Promise<number> => {
     if (!tableName) {
-      console.log("No table name specified for batch fix");
-      return 0;
-    }
-    
-    if (!isExistingTable(tableName)) {
-      console.log(`Table ${tableName} doesn't exist yet, skipping batch fix`);
+      toast.error("Table name is required");
       return 0;
     }
     
     setIsFixingBatchedJobs(true);
-    let fixedCount = 0;
     
     try {
-      console.log(`Finding orphaned batched jobs in ${tableName}`);
+      console.log(`Checking for jobs with status 'batched' but no batch_id in ${tableName}`);
       
-      // Find all jobs that are marked as batched but have no batch_id
-      const { data, error: findError } = await supabase
+      // First, fetch all jobs with status 'batched' but NULL batch_id
+      const { data: jobsWithoutBatch, error: fetchError } = await supabase
         .from(tableName)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      if (findError) throw findError;
-      
-      // Use a simple array with type assertion instead of complex type inference
-      const jobsToUpdate = Array.isArray(data) ? data as JobId[] : [];
-      const jobIds = jobsToUpdate.map(job => job.id);
-      
-      console.log(`Found ${jobsToUpdate.length} orphaned jobs in ${tableName}`);
-      
-      if (jobsToUpdate.length > 0) {
-        // Reset these jobs to queued status
-        const { error: updateError } = await supabase
-          .from(tableName)
-          .update({ status: 'queued' })
-          .in('id', jobIds);
-        
-        if (updateError) throw updateError;
-        
-        fixedCount = jobsToUpdate.length;
-        console.log(`Reset ${fixedCount} jobs to queued status`);
-        
-        toast.success(`Reset ${fixedCount} orphaned jobs back to queued status`);
+      if (fetchError) {
+        console.error('Error fetching batched jobs without batch_id:', fetchError);
+        toast.error(`Error checking for jobs: ${fetchError.message}`);
+        return 0;
       }
       
-      return fixedCount;
-    } catch (error) {
-      console.error(`Error fixing batched jobs in ${tableName}:`, error);
-      toast.error(`Failed to reset jobs with missing batch references`);
+      // If no problematic jobs found, return early
+      if (!jobsWithoutBatch || jobsWithoutBatch.length === 0) {
+        console.log(`No batched jobs without batch_id found in ${tableName}`);
+        toast.success('No issues found with batched jobs');
+        return 0;
+      }
+      
+      console.log(`Found ${jobsWithoutBatch.length} jobs with status 'batched' but no batch_id`);
+      
+      // Get the IDs of the problematic jobs
+      const jobIds = (jobsWithoutBatch as JobId[]).map(job => job.id);
+      
+      // Update these jobs to have status 'queued' instead
+      const { error: updateError } = await supabase
+        .from(tableName)
+        .update({ status: 'queued' })
+        .in('id', jobIds);
+      
+      if (updateError) {
+        console.error('Error fixing batched jobs:', updateError);
+        toast.error(`Error fixing jobs: ${updateError.message}`);
+        return 0;
+      }
+      
+      toast.success(`Fixed ${jobsWithoutBatch.length} jobs with incorrect batch status`);
+      return jobsWithoutBatch.length;
+    } catch (err) {
+      console.error('Error in fixBatchedJobsWithoutBatch:', err);
+      toast.error('An error occurred while fixing batched jobs');
       return 0;
     } finally {
       setIsFixingBatchedJobs(false);
