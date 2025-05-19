@@ -5,6 +5,11 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { TableName } from "@/config/productTypes";
 
+// Define a basic interface for jobs with id property to avoid type recursion
+interface OrphanedJob {
+  id: string;
+}
+
 export function useBatchFixes(tableName: TableName | undefined, userId: string | undefined) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
@@ -38,10 +43,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${tableName}`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Use a type assertion to resolve excessive recursion
-        // This explicitly tells TypeScript what we expect the structure to be
-        interface IdObject { id: string }
-        const typedJobs = orphanedJobs as IdObject[];
+        // Explicitly type the orphaned jobs to prevent recursive type issues
+        const typedJobs = orphanedJobs as OrphanedJob[];
         const jobIds = typedJobs.map(job => job.id);
         
         // Reset these jobs to queued status

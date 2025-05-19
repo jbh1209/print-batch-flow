@@ -5,6 +5,11 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { PRODUCT_PAGES_TABLE } from "@/components/product-pages/types/ProductPageTypes";
 
+// Define a basic interface for jobs with id property
+interface OrphanedProductPageJob {
+  id: string;
+}
+
 export function useProductPageBatchFix(onFixComplete?: () => void) {
   const [isFixingBatchedJobs, setIsFixingBatchedJobs] = useState(false);
 
@@ -32,9 +37,8 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${PRODUCT_PAGES_TABLE}`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Define explicit type for orphaned jobs to avoid TS errors
-        interface JobWithId { id: string }
-        const typedJobs = orphanedJobs as JobWithId[];
+        // Explicitly type the orphaned jobs to prevent type errors
+        const typedJobs = orphanedJobs as OrphanedProductPageJob[];
         
         // Create a properly typed array of job IDs
         const jobIds = typedJobs.map(job => job.id);
