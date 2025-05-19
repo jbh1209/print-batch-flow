@@ -61,7 +61,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       
       // Check if user is admin
       const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_admin_secure', { _user_id: userId });
+        .rpc('is_admin_secure_fixed', { _user_id: userId });
       
       if (adminError) {
         console.error('Error checking admin status:', adminError);

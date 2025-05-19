@@ -1,6 +1,4 @@
 
-// Update this file to remove user_id filters when fixing batched jobs
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isExistingTable } from "@/utils/database/tableValidation";

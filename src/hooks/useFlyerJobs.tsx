@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { useFlyerJobOperations } from './flyers/useFlyerJobOperations';
-import { useFlyerBatchFix } from './flyerBatchFix';
+import { useFlyerBatchFix } from './flyers/useFlyerBatchFix';
 import { toast } from 'sonner';
 
 export function useFlyerJobs() {
