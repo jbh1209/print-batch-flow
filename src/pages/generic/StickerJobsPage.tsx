@@ -41,16 +41,9 @@ const StickerJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
     
-    // Create a wrapper for fixBatchedJobsWithoutBatch that returns a number as expected
+    // Ensure fixBatchedJobsWithoutBatch returns a number as expected
     const fixBatchedJobsWrapper = async (): Promise<number> => {
-      try {
-        const result = await hookResult.fixBatchedJobsWithoutBatch();
-        // Return the number of fixed jobs (or 0 if undefined or void)
-        return typeof result === 'number' ? result : 0;
-      } catch (err) {
-        console.error("Error fixing batched jobs:", err);
-        return 0;
-      }
+      return await hookResult.fixBatchedJobsWithoutBatch();
     };
     
     // Add a specialized wrapper for createBatch to handle sticker-specific logic

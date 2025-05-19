@@ -5,8 +5,8 @@ import { toast } from 'sonner';
 import { BatchFixOperationResult, ExistingTableName } from '@/config/types/baseTypes';
 import { isExistingTable } from '@/utils/database/tableValidation';
 
-// Simple interface for job IDs to avoid deep type instantiation
-interface JobId {
+// Define a simple interface for job records to avoid complex type instantiation
+interface JobRecord {
   id: string;
 }
 
@@ -19,7 +19,7 @@ export function useBatchFixes(tableName: string, userId?: string): BatchFixOpera
       return 0;
     }
     
-    // Validate tableName - only use it if it's a valid table
+    // Validate tableName before using it with Supabase
     if (!isExistingTable(tableName)) {
       toast.error(`Invalid table name: ${tableName}`);
       return 0;
@@ -30,13 +30,13 @@ export function useBatchFixes(tableName: string, userId?: string): BatchFixOpera
     try {
       console.log(`Checking for jobs with status 'batched' but no batch_id in ${tableName}`);
       
-      // Cast table name to ExistingTableName type after validation
-      // Use type assertion directly to avoid deep instantiation
-      const validTable = tableName as ExistingTableName;
+      // Safely use the table name after validation - avoid complex type logic
+      // This prevents excessive type instantiation
+      const table = tableName;
       
       // First, fetch all jobs with status 'batched' but NULL batch_id
       const { data: jobsWithoutBatch, error: fetchError } = await supabase
-        .from(validTable)
+        .from(table)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
@@ -56,12 +56,12 @@ export function useBatchFixes(tableName: string, userId?: string): BatchFixOpera
       
       console.log(`Found ${jobsWithoutBatch.length} jobs with status 'batched' but no batch_id`);
       
-      // Get the IDs of the problematic jobs
-      const jobIds = (jobsWithoutBatch as JobId[]).map(job => job.id);
+      // Get the IDs of the problematic jobs - use simple typing
+      const jobIds = jobsWithoutBatch.map((job: JobRecord) => job.id);
       
       // Update these jobs to have status 'queued' instead
       const { error: updateError } = await supabase
-        .from(validTable)
+        .from(table)
         .update({ status: 'queued' })
         .in('id', jobIds);
       
