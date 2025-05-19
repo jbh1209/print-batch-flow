@@ -33,7 +33,7 @@ export function BatchSettingsPanel({
   setSheetSize,
   availablePaperTypes = ["Gloss", "Silk"],
   availablePaperWeights = ["130gsm", "170gsm", "250gsm"],
-  availableLaminationTypes = ["none", "gloss", "matte", "soft_touch"]
+  availableLaminationTypes = ["none", "gloss", "matt", "soft_touch"]
 }: BatchSettingsPanelProps) {
   return (
     <div className="space-y-6">
@@ -81,7 +81,7 @@ export function BatchSettingsPanel({
                 <RadioGroupItem value={type} id={`lamination-${type}`} />
                 <Label htmlFor={`lamination-${type}`}>
                   {type === "none" ? "None" : 
-                   type === "matte" ? "Matte" : 
+                   type === "matt" ? "Matt" : 
                    type === "gloss" ? "Gloss" : 
                    type === "soft_touch" ? "Soft Touch" : type}
                 </Label>

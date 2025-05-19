@@ -5,8 +5,8 @@
 
 import { ExistingTableName } from './baseTypes';
 
-// Updated to use underscore for consistency with database
-export type LaminationType = 'none' | 'gloss' | 'matte' | 'soft_touch';
+// Updated to use "matt" instead of "matte" to match database
+export type LaminationType = 'none' | 'gloss' | 'matt' | 'soft_touch';
 
 export interface ProductConfig {
   productType: string;

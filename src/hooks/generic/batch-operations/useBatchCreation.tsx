@@ -13,6 +13,7 @@ import {
   extractCommonJobProperties,
   createBatchDataObject
 } from "@/utils/batch/batchDataProcessor";
+import { isExistingTable } from "@/utils/database/tableValidation";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -35,7 +36,8 @@ export function useBatchCreation(productType: string, tableName: string) {
     }
 
     // Validate tableName before proceeding
-    if (!validateTableConfig(tableName, productType)) {
+    if (!validateTableConfig(tableName, productType) || !isExistingTable(tableName)) {
+      toast.error(`Invalid table configuration: ${tableName}`);
       return null;
     }
 
@@ -70,12 +72,21 @@ export function useBatchCreation(productType: string, tableName: string) {
         slaTarget
       });
       
-      // Create batch data object with explicit casting for compatibility with database
-      const batchData = {
+      // Create batch data object with explicit strict typing for database compatibility
+      const batchData: {
+        name: string;
+        sheets_required: number;
+        due_date: string;
+        lamination_type: LaminationType; 
+        paper_type?: string;
+        status: BatchStatus;
+        created_by: string;
+        sla_target_days: number;
+      } = {
         name: batchName,
         sheets_required: sheetsRequired,
         due_date: earliestDueDate.toISOString(),
-        lamination_type: laminationType as string, // Cast to string for database compatibility
+        lamination_type: laminationType, // Now properly typed as LaminationType
         paper_type: paperType,
         status: 'pending' as BatchStatus,
         created_by: user.id,

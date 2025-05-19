@@ -12,9 +12,15 @@ const FlyerJobsPage = () => {
     
     // Create a wrapper for fixBatchedJobsWithoutBatch that returns a number to match expected return type
     const fixBatchedJobsWrapper = async (): Promise<number> => {
-      await hookResult.fixBatchedJobsWithoutBatch();
-      // Return 0 to indicate that the operation has completed
-      return 0;
+      try {
+        const result = await hookResult.fixBatchedJobsWithoutBatch();
+        // If the original function returns void, return 0 to satisfy the type requirements
+        return typeof result === 'number' ? result : 0;
+      } catch (error) {
+        console.error('Error in fixBatchedJobsWrapper:', error);
+        // Return 0 if there's an error to maintain the contract
+        return 0;
+      }
     };
     
     return {
