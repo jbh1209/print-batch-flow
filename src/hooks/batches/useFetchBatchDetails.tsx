@@ -59,6 +59,7 @@ export function useFetchBatchDetails({
       
       console.log("Batch details received:", data?.id);
       
+      // Create the batch object with all properties, handling the possibility that overview_pdf_url may not exist
       const batchData: BatchDetailsType = {
         id: data.id,
         name: data.name,
@@ -66,7 +67,7 @@ export function useFetchBatchDetails({
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        overview_pdf_url: data.overview_pdf_url, // FIXED: This was incorrectly using back_pdf_url
+        overview_pdf_url: data.overview_pdf_url || null, // Handle safely if field doesn't exist
         due_date: data.due_date,
         created_at: data.created_at,
         status: data.status,

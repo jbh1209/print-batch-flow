@@ -5,17 +5,18 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { TableName } from "@/config/productTypes";
 
-// Define interfaces to avoid excessively deep type instantiation
+// Define explicit interfaces to avoid recursive type instantiation
 interface OrphanedJob {
   id: string;
 }
 
+// Define specific interfaces for Supabase query results to avoid type recursion
 interface QueryResult {
   data: OrphanedJob[] | null;
   error: Error | null;
 }
 
-// Define an interface for update result to avoid type issues
+// Separate interface for update results
 interface UpdateResult {
   error: Error | null;
 }
@@ -41,26 +42,31 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
       console.log(`Finding orphaned batched jobs in ${tableName}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      // Explicitly type the query result to prevent recursive type issues
-      const { data: orphanedJobs, error: findError }: QueryResult = await supabase
+      // Use explicit typing to prevent recursive type issues
+      const result: QueryResult = await supabase
         .from(tableName)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
+      
+      const { data: orphanedJobs, error: findError } = result;
       
       if (findError) throw findError;
       
       console.log(`Found ${orphanedJobs?.length || 0} orphaned jobs in ${tableName}`);
       
       if (orphanedJobs && orphanedJobs.length > 0) {
-        // Explicitly type the orphaned jobs to prevent recursive type issues
+        // Create an array of job IDs
         const jobIds = orphanedJobs.map(job => job.id);
         
         // Reset these jobs to queued status
-        const { error: updateError }: UpdateResult = await supabase
+        // Use explicit typing to prevent type errors
+        const updateResult: UpdateResult = await supabase
           .from(tableName)
           .update({ status: 'queued' })
           .in('id', jobIds);
+        
+        const { error: updateError } = updateResult;
         
         if (updateError) throw updateError;
         

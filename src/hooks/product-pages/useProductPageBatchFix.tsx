@@ -37,11 +37,13 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
       console.log(`Finding orphaned batched jobs in ${PRODUCT_PAGES_TABLE}`);
       
       // Find all jobs that are marked as batched but have no batch_id
-      const { data: orphanedJobs, error: findError }: ProductPageQueryResult = await supabase
+      const result: ProductPageQueryResult = await supabase
         .from(PRODUCT_PAGES_TABLE)
         .select('id')
         .eq('status', 'batched')
         .is('batch_id', null);
+        
+      const { data: orphanedJobs, error: findError } = result;
       
       if (findError) throw findError;
       
@@ -51,11 +53,14 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
         // Create a properly typed array of job IDs
         const jobIds = orphanedJobs.map(job => job.id);
         
-        // Reset these jobs to queued status using explicit typing
-        const { error: updateError }: UpdateResult = await supabase
+        // Reset these jobs to queued status using explicit typing and type assertion
+        // to avoid TypeScript errors with the specific table schema
+        const updateResult: UpdateResult = await supabase
           .from(PRODUCT_PAGES_TABLE)
-          .update({ status: 'queued' })
+          .update({ status: 'queued' } as any) // Type assertion needed due to table-specific types
           .in('id', jobIds);
+          
+        const { error: updateError } = updateResult;
         
         if (updateError) throw updateError;
         
