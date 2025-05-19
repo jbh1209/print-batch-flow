@@ -11,7 +11,7 @@ import { useFileUpload } from "@/hooks/useFileUpload";
 import { ProductPageFormFields } from "./components/ProductPageFormFields";
 import { useProductPageJobs } from "@/hooks/product-pages/useProductPageJobs";
 import { useProductPageTemplates } from "@/hooks/product-pages/useProductPageTemplates";
-import { FieldDefinition, ProductPageJob } from "./types/ProductPageTypes";
+import { FieldDefinition, ProductPageJob, ProductPageFormValues } from "./types/ProductPageTypes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -131,7 +131,18 @@ export const ProductPageJobForm = ({ mode = 'create', initialData }: ProductPage
 
   const onSubmit = async (data: FormValues) => {
     try {
-      const result = await createJob(data, selectedFile);
+      // Convert to ProductPageFormValues before calling createJob
+      const jobData: ProductPageFormValues = {
+        name: data.name,
+        job_number: data.job_number,
+        template_id: data.template_id,
+        quantity: data.quantity,
+        due_date: data.due_date,
+        custom_fields: data.custom_fields,
+        file: selectedFile || undefined
+      };
+      
+      const result = await createJob(jobData, selectedFile);
       if (result) {
         toast.success("Job created successfully");
         navigate("/admin/product-pages/jobs");

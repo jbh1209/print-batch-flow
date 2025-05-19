@@ -37,7 +37,13 @@ export function useProductPageTemplates() {
 
       if (fetchError) throw fetchError;
 
-      setTemplates(data || []);
+      // Transform the JSON fields to typed FieldDefinition arrays
+      const typedTemplates = (data || []).map(template => ({
+        ...template,
+        fields: template.fields as unknown as FieldDefinition[]
+      })) as ProductPageTemplate[];
+
+      setTemplates(typedTemplates);
     } catch (err) {
       console.error('Error fetching product page templates:', err);
       setError('Failed to load templates');
@@ -72,8 +78,15 @@ export function useProductPageTemplates() {
       if (error) throw error;
 
       toast.success('Template created successfully');
-      setTemplates(prevTemplates => [data, ...prevTemplates]);
-      return data;
+      
+      // Ensure proper typing for the template
+      const typedTemplate = {
+        ...data,
+        fields: data.fields as unknown as FieldDefinition[]
+      } as ProductPageTemplate;
+      
+      setTemplates(prevTemplates => [typedTemplate, ...prevTemplates]);
+      return typedTemplate;
     } catch (err) {
       console.error('Error creating template:', err);
       toast.error('Failed to create template');

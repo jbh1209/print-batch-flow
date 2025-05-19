@@ -35,7 +35,10 @@ export function useProductPageJobs() {
 
       if (fetchError) throw fetchError;
 
-      setJobs(data || []);
+      setJobs(data?.map(item => ({
+        ...item,
+        custom_fields: item.custom_fields as Record<string, any>,
+      })) || []);
     } catch (err) {
       console.error('Error fetching product page jobs:', err);
       setError('Failed to load product page jobs');
@@ -105,7 +108,14 @@ export function useProductPageJobs() {
       if (error) throw error;
       
       toast.success('Product page job created successfully');
-      setJobs(prevJobs => [data, ...prevJobs]);
+      
+      // Ensure the job with proper custom_fields typing is added
+      const typedJob = {
+        ...data,
+        custom_fields: data.custom_fields as Record<string, any>
+      } as ProductPageJob;
+      
+      setJobs(prevJobs => [typedJob, ...prevJobs]);
       return data;
     } catch (err) {
       console.error('Error creating product page job:', err);
@@ -171,7 +181,8 @@ export function useProductPageJobs() {
           paper_weight: batchProperties.paperWeight,
           printer_type: batchProperties.printerType,
           sheet_size: batchProperties.sheetSize,
-          sla_target_days: batchProperties.slaTargetDays
+          sla_target_days: batchProperties.slaTargetDays,
+          lamination_type: 'none' // Add required field with default value
         })
         .select()
         .single();

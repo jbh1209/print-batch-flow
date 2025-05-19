@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import {
@@ -318,7 +317,7 @@ export function ProductPageFormFields({
           selectedFile={selectedFile}
           setSelectedFile={setSelectedFile}
           handleFileChange={handleFileChange}
-          isRequired={true}
+          required={true}
         />
       )}
 
