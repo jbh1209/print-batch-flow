@@ -5,18 +5,18 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
 import { TableName } from "@/config/productTypes";
 
-// Define explicit non-recursive interfaces
+// Define concrete types with no recursion
 interface OrphanedJob {
   id: string;
 }
 
-// Use simple, concrete types instead of generics to avoid recursion
-interface BatchFixQueryResult {
+// Use explicit type definitions for Supabase responses
+interface SupabaseQueryResult {
   data: OrphanedJob[] | null;
   error: Error | null;
 }
 
-interface BatchFixUpdateResult {
+interface SupabaseUpdateResult {
   error: Error | null;
 }
 
@@ -47,8 +47,8 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
         .eq('status', 'batched')
         .is('batch_id', null);
       
-      // Use our concrete type instead of a generic to avoid recursion
-      const queryResult = result as unknown as BatchFixQueryResult;
+      // Use our concrete type for the result
+      const queryResult = result as unknown as SupabaseQueryResult;
       const orphanedJobs = queryResult.data || [];
       const findError = queryResult.error;
       
@@ -67,7 +67,7 @@ export function useBatchFixes(tableName: TableName | undefined, userId: string |
           .in('id', jobIds);
         
         // Use our concrete type for update result
-        const updateResult = update as unknown as BatchFixUpdateResult;
+        const updateResult = update as unknown as SupabaseUpdateResult;
         const updateError = updateResult.error;
         
         if (updateError) throw updateError;

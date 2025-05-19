@@ -10,7 +10,7 @@ interface OrphanedProductPageJob {
   id: string;
 }
 
-// Use simple, concrete types instead of generics to avoid recursion
+// Use simple, concrete types for Supabase results
 interface ProductPageQueryResult {
   data: OrphanedProductPageJob[] | null;
   error: Error | null;
@@ -55,9 +55,8 @@ export function useProductPageBatchFix(onFixComplete?: () => void) {
         // Create array of job IDs
         const jobIds = orphanedJobs.map(job => job.id);
         
-        // Explicitly type the update data object to avoid 'never' type errors
-        type UpdateData = { status: 'queued' };
-        const updateData: UpdateData = { status: 'queued' };
+        // Use a properly typed update object
+        const updateData = { status: 'queued' } as const;
         
         const update = await supabase
           .from(PRODUCT_PAGES_TABLE)
