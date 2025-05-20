@@ -23,12 +23,13 @@ export function useFlyerBatches(batchId: string | null = null) {
     setError(null);
 
     try {
-      // Use the "batches" table but filter by created_by and include only flyer batches
+      // Use the "batches" table but filter only by flyer batches
       let query = supabase
         .from('batches')
         .select('*')
-        .eq('created_by', user.id)
         .filter('name', 'ilike', 'DXB-FL-%'); // Only fetch flyer batches (prefix DXB-FL-)
+      
+      // Remove created_by filter to allow seeing all batches
       
       // If batchId is specified, filter to only show that batch
       if (batchId) {

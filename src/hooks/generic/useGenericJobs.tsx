@@ -41,13 +41,13 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      console.log('Fetching jobs for user:', user.id, 'from table:', config.tableName);
+      console.log('Fetching jobs from table:', config.tableName);
       
+      // Remove user_id filter to allow seeing all jobs (assuming that's what we want)
       // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
