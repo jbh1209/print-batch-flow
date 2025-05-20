@@ -141,12 +141,17 @@ export function useBatchCreation(productType: string, tableName: string) {
         // Type guard: only proceed if updatedJobs is an array (not an error)
         if (Array.isArray(updatedJobs)) {
           // Only check for unlinked jobs if updatedJobs is a valid array
-          const unlinkedJobs = updatedJobs.filter(job => 
-            job !== null && 
-            typeof job === 'object' && 
-            'batch_id' in job && 
-            job.batch_id !== batch.id
-          );
+          const unlinkedJobs = updatedJobs.filter(job => {
+            // Added null check for job before accessing its properties
+            if (job === null) return false;
+            
+            return (
+              typeof job === 'object' && 
+              'batch_id' in job && 
+              job.batch_id !== batch.id
+            );
+          });
+          
           if (unlinkedJobs.length > 0) {
             console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
           }
