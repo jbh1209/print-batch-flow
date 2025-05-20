@@ -148,15 +148,21 @@ export function useBatchCreation(productType: string, tableName: string) {
         const updatedJobs: LinkedJobResult[] = [];
         
         if (updatedJobsData && Array.isArray(updatedJobsData)) {
-          updatedJobsData.forEach(item => {
-            // Add additional type guard to ensure item is not null before accessing properties
-            if (item && typeof item === 'object' && 'id' in item) {
-              // Now TypeScript knows item is not null inside this block
-              const safeItem = item as {id: string, batch_id?: string | null};
-              updatedJobs.push({
-                id: safeItem.id,
-                batch_id: safeItem.batch_id || null
-              });
+          updatedJobsData.forEach((item) => {
+            // Ensure item is not null and has the expected properties
+            if (item !== null && typeof item === 'object') {
+              // Explicitly check if id exists as a property
+              if ('id' in item && item.id !== undefined) {
+                // Safe to access properties
+                const id = String(item.id);
+                // Use optional chaining for batch_id to handle undefined case
+                const batchId = item.batch_id !== undefined ? String(item.batch_id) : null;
+                
+                updatedJobs.push({
+                  id: id,
+                  batch_id: batchId
+                });
+              }
             }
           });
           
