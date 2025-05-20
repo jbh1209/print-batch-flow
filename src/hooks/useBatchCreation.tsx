@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Job, LaminationType } from "@/components/business-cards/JobsTable";
 import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
+import { isExistingTable } from "@/utils/database/tableValidation";
 
 // Standardized product type codes for batch naming
 const PRODUCT_TYPE_CODES = {
@@ -85,6 +86,17 @@ export function useBatchCreation() {
 
     setIsCreatingBatch(true);
     try {
+      // Determine the correct table name based on product type
+      // For business cards, we know the table name is "business_card_jobs"
+      const tableName = "business_card_jobs";
+      
+      // Verify the table exists in our database before proceeding
+      if (!isExistingTable(tableName)) {
+        throw new Error(`Invalid table name: ${tableName}`);
+      }
+      
+      console.log(`Creating batch for product with table: ${tableName}`);
+      
       // Group jobs by lamination type for consistency
       const laminationType = selectedJobs[0].lamination_type;
       
@@ -128,19 +140,46 @@ export function useBatchCreation() {
         throw new Error(`Failed to create batch record: ${batchError.message}`);
       }
       
-      // Update all selected jobs to link them to the batch and change status
-      const batchId = batchData.id;
-      const updatePromises = selectedJobs.map(job => 
-        supabase
-          .from("business_card_jobs")
-          .update({ 
-            batch_id: batchId,
-            status: "batched"
-          })
-          .eq("id", job.id)
-      );
+      if (!batchData) {
+        throw new Error(`Failed to create batch: No batch data returned`);
+      }
       
-      await Promise.all(updatePromises);
+      console.log("Batch created successfully:", batchData);
+      
+      // Get all job IDs for bulk update
+      const jobIds = selectedJobs.map(job => job.id);
+      console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch ID ${batchData.id}`);
+      
+      // Update all selected jobs to link them to the batch
+      const { error: updateJobsError } = await supabase
+        .from(tableName)
+        .update({ 
+          batch_id: batchData.id,
+          status: "batched"
+        })
+        .in("id", jobIds);
+      
+      if (updateJobsError) {
+        console.error("Error updating jobs with batch ID:", updateJobsError);
+        // Try to roll back batch creation since job update failed
+        await supabase.from("batches").delete().eq("id", batchData.id);
+        throw new Error(`Failed to update jobs with batch ID: ${updateJobsError.message}`);
+      }
+      
+      // Verify jobs were correctly updated with batch ID
+      const { data: updatedJobs, error: verifyError } = await supabase
+        .from(tableName)
+        .select("id, batch_id")
+        .in("id", jobIds);
+      
+      if (verifyError) {
+        console.error("Error verifying job updates:", verifyError);
+      } else {
+        const unlinkedJobs = updatedJobs?.filter(job => job.batch_id !== batchData.id);
+        if (unlinkedJobs && unlinkedJobs.length > 0) {
+          console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
+        }
+      }
       
       sonnerToast.success("Batch created successfully", {
         description: `Created batch ${name} with ${selectedJobs.length} jobs`

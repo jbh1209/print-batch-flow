@@ -12,6 +12,7 @@ import {
   extractCommonJobProperties,
   createBatchDataObject
 } from "@/utils/batch/batchDataProcessor";
+import { isExistingTable } from "@/utils/database/tableValidation";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -35,6 +36,12 @@ export function useBatchCreation(productType: string, tableName: string) {
 
     // Validate tableName before proceeding
     if (!validateTableConfig(tableName, productType)) {
+      return null;
+    }
+
+    // Verify the table exists in our database before proceeding
+    if (!isExistingTable(tableName)) {
+      toast.error(`Invalid table name: ${tableName}`);
       return null;
     }
 
@@ -104,11 +111,11 @@ export function useBatchCreation(productType: string, tableName: string) {
       console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
       
       // Use a validated table name that we confirmed is an existing table
-      const validatedTableName = tableName as ExistingTableName;
+      const validatedTableName = tableName;
       
       // Update the jobs with the batch ID
       const { error: updateError } = await supabase
-        .from(validatedTableName)
+        .from(validatedTableName as any)
         .update({
           status: "batched",
           batch_id: batch.id
@@ -120,6 +127,21 @@ export function useBatchCreation(productType: string, tableName: string) {
         // Try to delete the batch since jobs update failed
         await supabase.from("batches").delete().eq("id", batch.id);
         throw updateError;
+      }
+      
+      // Verify jobs were correctly updated with batch ID
+      const { data: updatedJobs, error: verifyError } = await supabase
+        .from(validatedTableName as any)
+        .select("id, batch_id")
+        .in("id", jobIds);
+      
+      if (verifyError) {
+        console.error("Error verifying job updates:", verifyError);
+      } else {
+        const unlinkedJobs = updatedJobs?.filter(job => job.batch_id !== batch.id);
+        if (unlinkedJobs && unlinkedJobs.length > 0) {
+          console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
+        }
       }
       
       toast.success(`Batch created with ${selectedJobs.length} jobs`);
