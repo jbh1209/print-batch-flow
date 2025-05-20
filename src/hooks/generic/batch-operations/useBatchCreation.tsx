@@ -49,13 +49,10 @@ export function useBatchCreation(productType: string, tableName: string) {
       console.log(`Creating batch with ${selectedJobs.length} jobs for product type: ${productType} using table: ${tableName}`);
       console.log("First job:", selectedJobs[0]);
       
-      // Check if bucket exists - don't try to create it if it already exists
+      // Check if bucket exists before trying to create it
+      // This helps prevent RLS policy violations
       const bucketExists = await checkBucketExists("pdf_files");
-      if (!bucketExists) {
-        console.log("pdf_files bucket doesn't exist, it will be created during PDF upload");
-      } else {
-        console.log("pdf_files bucket already exists, will use existing bucket");
-      }
+      console.log("pdf_files bucket exists:", bucketExists);
       
       // Calculate sheets required
       const sheetsRequired = calculateSheetsRequired(selectedJobs);
@@ -161,8 +158,14 @@ export function useBatchCreation(productType: string, tableName: string) {
       if (checkError) {
         console.error("Error checking updated jobs:", checkError);
       } else {
-        const linkedJobs = updatedJobs.filter(job => job.batch_id === batch.id);
-        console.log(`Successfully linked ${linkedJobs.length} of ${jobIds.length} jobs to batch ${batch.id}`);
+        // Fixed error: Check if updatedJobs is defined before accessing properties
+        // Only process the linked jobs if we have data returned
+        if (updatedJobs) {
+          const linkedJobs = updatedJobs.filter(job => job.batch_id === batch.id);
+          console.log(`Successfully linked ${linkedJobs.length} of ${jobIds.length} jobs to batch ${batch.id}`);
+        } else {
+          console.warn("No updated jobs returned from query");
+        }
       }
       
       toast.success(`Batch created with ${selectedJobs.length} jobs`);
