@@ -167,9 +167,10 @@ export function useBatchCreation(productType: string, tableName: string) {
           // the object structure
           updatedJobs.forEach(jobItem => {
             // Skip null/undefined items
-            if (!jobItem) return;
+            if (jobItem === null || jobItem === undefined) return;
             
             // Now we can safely check the properties since we know jobItem exists
+            // Use a non-null assertion after our explicit check
             if (typeof jobItem === 'object' && 
                 'batch_id' in jobItem && 
                 jobItem.batch_id === batch.id) {
