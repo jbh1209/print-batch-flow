@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,6 +25,14 @@ interface JobDatabaseItem {
   id: string | number;
   batch_id?: string | number | null;
   [key: string]: any; // Allow other properties
+}
+
+// Helper function to determine if an object is a valid job database item
+function isValidJobItem(item: unknown): item is JobDatabaseItem {
+  if (!item || typeof item !== 'object') return false;
+  
+  // Check if item has an id property
+  return 'id' in item && item.id !== undefined && item.id !== null;
 }
 
 export function useBatchCreation(productType: string, tableName: string) {
@@ -156,24 +165,20 @@ export function useBatchCreation(productType: string, tableName: string) {
         if (updatedJobsData && Array.isArray(updatedJobsData)) {
           // Type guard: First ensure updatedJobsData is an array
           updatedJobsData.forEach((rawItem) => {
-            // Skip null items entirely
+            // Skip null or error items entirely
             if (rawItem === null) {
               return;
             }
             
-            // Since we've verified rawItem is not null, we can now type-assert it
-            // TypeScript now knows rawItem is not null in this scope
-            const item = rawItem as JobDatabaseItem;
-            
-            // Now check for required property existence
-            if ('id' in item && item.id !== undefined) {
+            // Use our helper function to verify this is a valid job item
+            if (isValidJobItem(rawItem)) {
               // Convert id to string (handles both string and number types)
-              const id = String(item.id);
+              const id = String(rawItem.id);
               
               // Handle batch_id which might be undefined or null
               let batchId: string | null = null;
-              if ('batch_id' in item && item.batch_id !== undefined && item.batch_id !== null) {
-                batchId = String(item.batch_id);
+              if ('batch_id' in rawItem && rawItem.batch_id !== undefined && rawItem.batch_id !== null) {
+                batchId = String(rawItem.batch_id);
               }
               
               // Now we can safely push to our result array
