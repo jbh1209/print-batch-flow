@@ -166,19 +166,21 @@ export function useBatchCreation(productType: string, tableName: string) {
           // Make a safer loop that doesn't try to access properties until we've verified
           // the object structure
           updatedJobs.forEach(job => {
-            // Skip null/undefined items with type guard
-            if (!job) return;
+            // Skip null/undefined items
+            if (job === null || job === undefined) return;
             
-            // Make sure the job is not an error object before casting
+            // Create a type-safe reference to the job
+            const safeJob = job;
+            
+            // Make sure the job is not an error object before accessing properties
             if (
-              typeof job === 'object' && 
-              !('error' in job) && 
-              'id' in job && 
-              'batch_id' in job
+              typeof safeJob === 'object' && 
+              !('error' in safeJob) && 
+              'id' in safeJob && 
+              'batch_id' in safeJob
             ) {
-              // Now we can safely check if this job was linked to our batch
-              // TypeScript now knows this object has the required structure
-              if (job.batch_id === batch.id) {
+              // Now TypeScript knows this object has the required structure
+              if (safeJob.batch_id === batch.id) {
                 linkedCount++;
               }
             }
