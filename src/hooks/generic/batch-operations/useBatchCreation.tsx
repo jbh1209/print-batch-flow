@@ -158,13 +158,17 @@ export function useBatchCreation(productType: string, tableName: string) {
       if (checkError) {
         console.error("Error checking updated jobs:", checkError);
       } else {
-        // Fixed error: Check if updatedJobs is defined before accessing properties
-        // Only process the linked jobs if we have data returned
-        if (updatedJobs) {
-          const linkedJobs = updatedJobs.filter(job => job.batch_id === batch.id);
+        // Fixed error: Correctly type check the updatedJobs array
+        // TypeScript error fix: Check if updatedJobs exists and is an array first
+        if (updatedJobs && Array.isArray(updatedJobs)) {
+          // Now we can safely filter because we've confirmed it's an array
+          // and TypeScript knows each item will have the expected structure
+          const linkedJobs = updatedJobs.filter(job => 
+            job && typeof job === 'object' && 'batch_id' in job && job.batch_id === batch.id
+          );
           console.log(`Successfully linked ${linkedJobs.length} of ${jobIds.length} jobs to batch ${batch.id}`);
         } else {
-          console.warn("No updated jobs returned from query");
+          console.warn("No updated jobs returned from query or result is not an array");
         }
       }
       
