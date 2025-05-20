@@ -164,7 +164,11 @@ export function useBatchCreation(productType: string, tableName: string) {
           // Now we can safely filter because we've confirmed it's an array
           // and TypeScript knows each item will have the expected structure
           const linkedJobs = updatedJobs.filter(job => 
-            job && typeof job === 'object' && 'batch_id' in job && job.batch_id === batch.id
+            job !== null && 
+            job !== undefined && 
+            typeof job === 'object' && 
+            'batch_id' in job && 
+            job.batch_id === batch.id
           );
           console.log(`Successfully linked ${linkedJobs.length} of ${jobIds.length} jobs to batch ${batch.id}`);
         } else {
