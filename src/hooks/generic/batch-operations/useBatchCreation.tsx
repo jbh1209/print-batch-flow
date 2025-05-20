@@ -161,15 +161,17 @@ export function useBatchCreation(productType: string, tableName: string) {
         // Fixed error: Correctly type check the updatedJobs array
         // TypeScript error fix: Check if updatedJobs exists and is an array first
         if (updatedJobs && Array.isArray(updatedJobs)) {
-          // Now we can safely filter because we've confirmed it's an array
-          // and TypeScript knows each item will have the expected structure
-          const linkedJobs = updatedJobs.filter(job => 
-            job !== null && 
-            job !== undefined && 
-            typeof job === 'object' && 
-            'batch_id' in job && 
-            job.batch_id === batch.id
-          );
+          // Create a new array with only valid job objects to avoid null checking in the filter
+          const safeJobs = updatedJobs.filter((job): job is {id: string, batch_id: string} => {
+            return job !== null && 
+                   job !== undefined && 
+                   typeof job === 'object' && 
+                   'batch_id' in job;
+          });
+          
+          // Now we can safely check batch_id without TypeScript errors
+          const linkedJobs = safeJobs.filter(job => job.batch_id === batch.id);
+          
           console.log(`Successfully linked ${linkedJobs.length} of ${jobIds.length} jobs to batch ${batch.id}`);
         } else {
           console.warn("No updated jobs returned from query or result is not an array");
