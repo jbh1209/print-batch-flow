@@ -12,7 +12,18 @@ interface UseGenericBatchDetailsProps {
   config: ProductConfig;
 }
 
-export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetailsProps) {
+interface BatchDetailsResult {
+  batch: BaseBatch | null;
+  relatedJobs: BaseJob[];
+  isLoading: boolean;
+  error: string | null;
+  batchToDelete: string | null;
+  isDeleting: boolean;
+  setBatchToDelete: (id: string | null) => void;
+  handleDeleteBatch: () => Promise<void>;
+}
+
+export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetailsProps): BatchDetailsResult {
   const navigate = useNavigate();
   const [batch, setBatch] = useState<BaseBatch | null>(null);
   const [relatedJobs, setRelatedJobs] = useState<BaseJob[]>([]);
@@ -58,7 +69,9 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
           // Ensure all PDF URL fields are available, even if they're null
           front_pdf_url: batchData.front_pdf_url || null,
           back_pdf_url: batchData.back_pdf_url || null,
-          overview_pdf_url: batchData.overview_pdf_url || batchData.back_pdf_url || null
+          // The overview_pdf_url isn't in the database schema but is expected by the UI components
+          // We'll add it here, using back_pdf_url as the fallback
+          overview_pdf_url: batchData.back_pdf_url || null
         };
         
         setBatch(batchWithURLs);
