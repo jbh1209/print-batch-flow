@@ -15,6 +15,7 @@ import {
 } from "@/utils/batch/batchDataProcessor";
 import { isExistingTable } from "@/utils/database/tableValidation";
 import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
+import { checkBucketExists } from "@/utils/pdf/urlUtils";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -47,6 +48,14 @@ export function useBatchCreation(productType: string, tableName: string) {
     try {
       console.log(`Creating batch with ${selectedJobs.length} jobs for product type: ${productType} using table: ${tableName}`);
       console.log("First job:", selectedJobs[0]);
+      
+      // Check if bucket exists - don't try to create it if it already exists
+      const bucketExists = await checkBucketExists("pdf_files");
+      if (!bucketExists) {
+        console.log("pdf_files bucket doesn't exist, it will be created during PDF upload");
+      } else {
+        console.log("pdf_files bucket already exists, will use existing bucket");
+      }
       
       // Calculate sheets required
       const sheetsRequired = calculateSheetsRequired(selectedJobs);
@@ -141,6 +150,19 @@ export function useBatchCreation(productType: string, tableName: string) {
         // Try to delete the batch since jobs update failed
         await supabase.from("batches").delete().eq("id", batch.id);
         throw updateError;
+      }
+      
+      // Double check that jobs were updated
+      const { data: updatedJobs, error: checkError } = await supabase
+        .from(validatedTableName)
+        .select("id, batch_id")
+        .in("id", jobIds);
+        
+      if (checkError) {
+        console.error("Error checking updated jobs:", checkError);
+      } else {
+        const linkedJobs = updatedJobs.filter(job => job.batch_id === batch.id);
+        console.log(`Successfully linked ${linkedJobs.length} of ${jobIds.length} jobs to batch ${batch.id}`);
       }
       
       toast.success(`Batch created with ${selectedJobs.length} jobs`);

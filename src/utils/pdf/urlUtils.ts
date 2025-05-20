@@ -63,6 +63,19 @@ export const extractStoragePaths = (url: string) => {
 };
 
 /**
+ * Checks if a bucket exists in Supabase storage
+ */
+export const checkBucketExists = async (bucketName: string): Promise<boolean> => {
+  try {
+    const { data: buckets } = await supabase.storage.listBuckets();
+    return buckets ? buckets.some(bucket => bucket.name === bucketName) : false;
+  } catch (error) {
+    console.error(`Error checking if bucket ${bucketName} exists:`, error);
+    return false;
+  }
+};
+
+/**
  * Gets a signed URL for accessing a PDF
  */
 export const getSignedUrl = async (url: string | null, expiresIn = 3600): Promise<string | null> => {

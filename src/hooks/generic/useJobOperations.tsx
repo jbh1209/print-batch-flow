@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -18,7 +19,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Removed userId filter to allow all users to delete any job
+      // Allow any user to delete any job
       const { error } = await supabase
         .from(tableName as any)
         .delete()
@@ -50,7 +51,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       
       const newJob = {
         ...jobData,
-        user_id: userId, // Keep user_id assignment to track who created the job
+        user_id: userId, // Still track who created the job
         status: 'queued' as JobStatus
       };
 
@@ -85,7 +86,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Remove userId filter to allow all users to update any job
+      // Allow any user to update any job - remove user filtering
       const { data, error } = await supabase
         .from(tableName as any)
         .update(jobData)
@@ -113,7 +114,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Remove userId filter to allow all users to view any job
+      // Allow any user to view any job - remove user filtering
       const { data, error } = await supabase
         .from(tableName as any)
         .select('*')

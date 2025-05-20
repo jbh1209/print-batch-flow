@@ -1,9 +1,9 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Job } from "@/components/business-cards/JobsTable";
 import { BaseJob } from "@/config/productTypes";
 import { generateBatchOverview } from "./batchGeneration";
 import { generateImpositionSheet } from "./batchImposition";
+import { checkBucketExists } from "./pdf/urlUtils";
 
 /**
  * Handles generation and upload of batch PDFs
@@ -29,11 +29,36 @@ export async function generateAndUploadBatchPDFs(
     const impositionSheetPDF = await generateImpositionSheet(selectedJobs, name);
     console.log("Successfully generated imposition sheet PDF");
     
-    // First check for bucket access and create it with public access if needed
-    await ensurePublicBucket("pdf_files");
+    // First check for bucket existence and handle appropriately
+    const bucketName = "pdf_files";
+    const bucketExists = await checkBucketExists(bucketName);
+    
+    if (!bucketExists) {
+      console.log(`Bucket '${bucketName}' doesn't exist, creating it...`);
+      try {
+        // Create the bucket with public access
+        const { error: createError } = await supabase.storage.createBucket(bucketName, { 
+          public: true,
+          fileSizeLimit: 52428800 // 50MB
+        });
+        
+        if (createError) {
+          console.error(`Failed to create bucket '${bucketName}':`, createError);
+          throw createError;
+        }
+        
+        console.log(`Successfully created public bucket '${bucketName}'`);
+      } catch (bucketError) {
+        console.error(`Error creating bucket '${bucketName}':`, bucketError);
+        // Continue anyway - the bucket might exist but we don't have permission to check
+        console.log("Continuing with upload operation despite bucket creation error");
+      }
+    } else {
+      console.log(`Bucket '${bucketName}' already exists`);
+    }
     
     // Set file paths for uploads with clear naming convention
-    // Keep userId as the first folder for RLS policy to work
+    // Keep userId as part of the path for organization purposes
     const timestamp = Date.now();
     const overviewFilePath = `${userId}/${timestamp}-overview-${name}.pdf`;
     const impositionFilePath = `${userId}/${timestamp}-imposition-${name}.pdf`;
@@ -42,7 +67,7 @@ export async function generateAndUploadBatchPDFs(
     
     // First check if the file already exists
     const { data: existingOverview } = await supabase.storage
-      .from("pdf_files")
+      .from(bucketName)
       .list(`${userId}`, {
         search: `${timestamp}-overview-${name}.pdf`
       });
@@ -50,7 +75,7 @@ export async function generateAndUploadBatchPDFs(
     if (existingOverview && existingOverview.length > 0) {
       console.log("Found existing overview file, removing it first");
       await supabase.storage
-        .from("pdf_files")
+        .from(bucketName)
         .remove([overviewFilePath]);
     }
     
@@ -62,7 +87,7 @@ export async function generateAndUploadBatchPDFs(
       try {
         // Upload batch overview
         const { error: overviewError } = await supabase.storage
-          .from("pdf_files")
+          .from(bucketName)
           .upload(overviewFilePath, batchOverviewPDF, {
             contentType: "application/pdf",
             cacheControl: "no-cache",
@@ -82,7 +107,7 @@ export async function generateAndUploadBatchPDFs(
         
         // Get URL for batch overview
         const { data: overviewUrlData } = supabase.storage
-          .from("pdf_files")
+          .from(bucketName)
           .getPublicUrl(overviewFilePath);
           
         if (!overviewUrlData?.publicUrl) {
@@ -107,7 +132,7 @@ export async function generateAndUploadBatchPDFs(
     
     // Check if imposition file exists
     const { data: existingImposition } = await supabase.storage
-      .from("pdf_files")
+      .from(bucketName)
       .list(`${userId}`, {
         search: `${timestamp}-imposition-${name}.pdf`
       });
@@ -115,7 +140,7 @@ export async function generateAndUploadBatchPDFs(
     if (existingImposition && existingImposition.length > 0) {
       console.log("Found existing imposition file, removing it first");
       await supabase.storage
-        .from("pdf_files")
+        .from(bucketName)
         .remove([impositionFilePath]);
     }
     
@@ -127,7 +152,7 @@ export async function generateAndUploadBatchPDFs(
       try {
         // Upload imposition sheet
         const { error: impositionError } = await supabase.storage
-          .from("pdf_files")
+          .from(bucketName)
           .upload(impositionFilePath, impositionSheetPDF, {
             contentType: "application/pdf",
             cacheControl: "no-cache", // Prevent caching issues
@@ -147,7 +172,7 @@ export async function generateAndUploadBatchPDFs(
         
         // Get URL for imposition sheet
         const { data: impositionUrlData } = supabase.storage
-          .from("pdf_files")
+          .from(bucketName)
           .getPublicUrl(impositionFilePath);
           
         if (!impositionUrlData?.publicUrl) {
@@ -179,64 +204,5 @@ export async function generateAndUploadBatchPDFs(
   } catch (error) {
     console.error("Error in generateAndUploadBatchPDFs:", error);
     throw error;
-  }
-}
-
-// Separate function to ensure bucket exists and is public
-async function ensurePublicBucket(bucketName: string) {
-  try {
-    // First check if bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
-    
-    let bucketExists = false;
-    if (buckets) {
-      bucketExists = buckets.some(bucket => bucket.name === bucketName);
-    }
-    
-    if (!bucketExists) {
-      console.log(`Bucket '${bucketName}' doesn't exist yet, creating it...`);
-      
-      // Create the bucket with public access
-      const { error: createError } = await supabase.storage.createBucket(bucketName, { 
-        public: true,
-        fileSizeLimit: 52428800 // 50MB
-      });
-      
-      if (createError) {
-        console.error(`Failed to create bucket '${bucketName}':`, createError);
-        return false;
-      }
-      
-      console.log(`Successfully created public bucket '${bucketName}'`);
-      return true;
-    }
-    
-    console.log(`Bucket '${bucketName}' already exists`);
-    
-    // Get bucket details
-    const { data: bucketData, error: getBucketError } = await supabase.storage.getBucket(bucketName);
-    
-    // If bucket exists but isn't public, update it
-    if (bucketData && !bucketData.public) {
-      console.log(`Bucket '${bucketName}' exists but is not public, updating...`);
-      
-      const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
-        public: true
-      });
-      
-      if (updateError) {
-        console.error(`Failed to update bucket '${bucketName}' to public:`, updateError);
-        return false;
-      }
-      
-      console.log(`Successfully updated bucket '${bucketName}' to be public`);
-    } else {
-      console.log(`Bucket '${bucketName}' already exists and is public`);
-    }
-    
-    return true;
-  } catch (error) {
-    console.error(`Error ensuring public bucket '${bucketName}':`, error);
-    return false;
   }
 }

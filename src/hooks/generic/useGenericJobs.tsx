@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,7 +43,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       console.log('Fetching jobs for product:', config.productType, 'from table:', config.tableName);
       
-      // Removed user_id filter to allow all users to see all jobs
+      // Remove user_id filter to allow all users to see all jobs
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')

@@ -140,7 +140,16 @@ export function useBatchCreation() {
           .eq("id", job.id)
       );
       
-      await Promise.all(updatePromises);
+      console.log(`Updating ${selectedJobs.length} jobs to link them to batch ${batchId}`);
+      
+      const updateResults = await Promise.all(updatePromises);
+      
+      // Check for any errors in the updates
+      const updateErrors = updateResults.filter(result => result.error);
+      if (updateErrors.length > 0) {
+        console.error("Errors updating jobs with batch ID:", updateErrors);
+        throw new Error(`Failed to update ${updateErrors.length} jobs with batch ID`);
+      }
       
       sonnerToast.success("Batch created successfully", {
         description: `Created batch ${name} with ${selectedJobs.length} jobs`

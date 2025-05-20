@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,12 +48,12 @@ export const useBusinessCardJobsList = () => {
         return;
       }
       
-      console.log("Fetching business card jobs for user:", user.id);
+      console.log("Fetching all business card jobs");
       
       let query = supabase
         .from('business_card_jobs')
         .select('*')
-        // Removed user_id filter to allow all users to see all jobs
+        // No user_id filter - allow seeing all jobs
         .order('created_at', { ascending: false });
       
       if (filterView !== 'all') {
@@ -75,7 +76,7 @@ export const useBusinessCardJobsList = () => {
       const { data: allJobs, error: countError } = await supabase
         .from('business_card_jobs')
         .select('status')
-        // Removed user_id filter to allow all users to see all jobs' counts
+        // No user_id filter - allow counting all jobs
         
       if (countError) throw countError;
       
@@ -106,7 +107,6 @@ export const useBusinessCardJobsList = () => {
         .from('business_card_jobs')
         .delete()
         .eq('id', jobId);
-        // Removed user_id filter to allow all users to delete any job
       
       if (deleteError) throw deleteError;
       

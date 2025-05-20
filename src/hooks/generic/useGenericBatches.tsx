@@ -20,6 +20,7 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   // Use the table name only after validation
   const validTableName = isExistingTable(config.tableName) ? config.tableName : null;
   
+  // Pass batchId to useBatchFetching without filtering by user
   const { batches, isLoading, error, fetchBatches } = useBatchFetching(config, batchId);
   const { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch } = 
     useBatchDeletion(validTableName as ExistingTableName, fetchBatches);
