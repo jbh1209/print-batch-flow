@@ -1,32 +1,40 @@
 
-import { ExistingTableName } from '@/config/types/baseTypes';
+// Define the valid table names type
+export type ValidTableName = 
+  | "flyer_jobs" 
+  | "postcard_jobs" 
+  | "business_card_jobs" 
+  | "poster_jobs" 
+  | "sleeve_jobs" 
+  | "box_jobs" 
+  | "cover_jobs" 
+  | "sticker_jobs" 
+  | "batches" 
+  | "profiles" 
+  | "user_roles";
 
-/**
- * Type for table names that exist in our database schema
- */
-export type ValidTableName = ExistingTableName;
-
-/**
- * List of existing tables in the database
- */
-const existingTables = [
-  'flyer_jobs',
-  'postcard_jobs', 
-  'business_card_jobs',
-  'poster_jobs',
-  'sleeve_jobs',
-  'box_jobs',
-  'cover_jobs',
-  'sticker_jobs',
-  'batches',
-  'profiles',
-  'user_roles',
-  'product_pages' // Added product_pages table
+// List of valid table names for runtime checking
+export const validTableNames: ValidTableName[] = [
+  "flyer_jobs",
+  "postcard_jobs", 
+  "business_card_jobs",
+  "poster_jobs",
+  "sleeve_jobs",
+  "box_jobs",
+  "cover_jobs",
+  "sticker_jobs",
+  "batches", 
+  "profiles", 
+  "user_roles"
 ];
 
-/**
- * Validates if the table name exists in our database schema
- */
-export function isExistingTable(tableName: string): tableName is ValidTableName {
-  return existingTables.includes(tableName);
-}
+// Function to check if a table name is valid
+export const isExistingTable = (tableName: string | undefined): tableName is ValidTableName => {
+  if (!tableName) {
+    console.error("tableName is undefined or empty");
+    return false;
+  }
+
+  // Check if the tableName is in our list of existing tables
+  return validTableNames.includes(tableName as ValidTableName);
+};

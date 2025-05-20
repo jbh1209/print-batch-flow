@@ -7,8 +7,6 @@ import GenericJobsTable from "@/components/generic/GenericJobsTable";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
 import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';
 import { productConfigs } from '@/config/productTypes';
-import { toast } from 'sonner';
-import { BatchCreationResult } from "@/hooks/generic/batch-operations/types/batchCreationTypes";
 
 const PostcardJobsPage = () => {
   const navigate = useNavigate();
@@ -32,13 +30,8 @@ const PostcardJobsPage = () => {
   };
 
   const handleViewJob = (jobId: string) => {
-    console.log("Navigating to job details:", jobId);
     if (config.routes.jobDetailPath) {
-      const path = config.routes.jobDetailPath(jobId);
-      console.log("Navigation path:", path);
-      navigate(path);
-    } else {
-      console.error("No jobDetailPath route defined in config");
+      navigate(config.routes.jobDetailPath(jobId));
     }
   };
 
@@ -53,16 +46,6 @@ const PostcardJobsPage = () => {
 
   const handleBatchCreated = () => {
     setIsBatchDialogOpen(false);
-  };
-
-  // Create a wrapper function that returns a number as required by the interface
-  const fixBatchedJobsWrapper = async (): Promise<number> => {
-    try {
-      return await fixBatchedJobsWithoutBatch(); // This already returns a number
-    } catch (error) {
-      console.error("Error fixing batched jobs:", error);
-      return 0; // Return 0 on error
-    }
   };
 
   return (
@@ -89,10 +72,13 @@ const PostcardJobsPage = () => {
         fetchJobs={async () => {}}
         createBatch={createBatch}
         isCreatingBatch={isCreatingBatch}
-        fixBatchedJobsWithoutBatch={fixBatchedJobsWrapper}
+        fixBatchedJobsWithoutBatch={async () => { 
+          // Convert the return value to void by wrapping the original function
+          await fixBatchedJobsWithoutBatch();
+        }}
         isFixingBatchedJobs={isFixingBatchedJobs}
         config={config}
-        onViewJob={handleViewJob}
+        onViewJob={handleViewJob} // This is now properly typed
       />
 
       <GenericBatchCreateDialog

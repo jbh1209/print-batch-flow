@@ -5,7 +5,6 @@ import GenericJobsPage from "@/components/generic/GenericJobsPage";
 import { useEffect } from "react";
 import { isExistingTable } from "@/utils/database/tableValidation";
 import { toast } from "sonner";
-import { BaseJob } from "@/config/types/baseTypes";
 
 const StickerJobsPage = () => {
   const config = productConfigs["Stickers"];
@@ -41,13 +40,14 @@ const StickerJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
     
-    // Ensure fixBatchedJobsWithoutBatch returns a number as expected
-    const fixBatchedJobsWrapper = async (): Promise<number> => {
-      return await hookResult.fixBatchedJobsWithoutBatch();
+    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
+    const fixBatchedJobsWrapper = async () => {
+      await hookResult.fixBatchedJobsWithoutBatch();
+      // Return type is void as expected
     };
     
     // Add a specialized wrapper for createBatch to handle sticker-specific logic
-    const createBatchWrapper = async (selectedJobs: BaseJob[], batchProperties: any): Promise<any> => {
+    const createBatchWrapper = async (selectedJobs, batchProperties) => {
       console.log("Creating sticker batch with properties:", batchProperties);
       console.log("Selected jobs:", selectedJobs);
       

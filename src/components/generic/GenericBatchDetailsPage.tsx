@@ -9,7 +9,7 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { BatchDetailsType } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -37,9 +37,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
   useEffect(() => {
     console.log("GenericBatchDetailsPage - Batch ID:", batchId);
     console.log("GenericBatchDetailsPage - Product Type:", config.productType);
-    console.log("GenericBatchDetailsPage - Batch:", batch);
-    console.log("GenericBatchDetailsPage - Related Jobs:", relatedJobs);
-  }, [batchId, config, batch, relatedJobs]);
+  }, [batchId, config]);
 
   if (isLoading) {
     return (
@@ -69,12 +67,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     );
   }
 
-  console.log("GenericBatchDetailsPage - Rendering batch details for:", batch.name);
-  console.log("GenericBatchDetailsPage - PDF URLs:", {
-    front: batch.front_pdf_url,
-    back: batch.back_pdf_url,
-    overview: batch.overview_pdf_url
-  });
+  console.log("Rendering batch details for:", batch.name, "with related jobs:", relatedJobs.length);
 
   // Convert batch to BatchDetailsType to satisfy the component props
   const batchDetailsData: BatchDetailsType = {
@@ -84,21 +77,11 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     sheets_required: batch.sheets_required,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
-    overview_pdf_url: batch.overview_pdf_url || batch.back_pdf_url,
+    overview_pdf_url: batch.overview_pdf_url || null,
     due_date: batch.due_date,
     created_at: batch.created_at,
     status: batch.status as BatchStatus
   };
-
-  // Convert related jobs to match the Job interface, ensuring job_number is included
-  const typedRelatedJobs: Job[] = relatedJobs.map(job => ({
-    id: job.id,
-    name: job.name || '',
-    quantity: job.quantity || 0,
-    status: job.status,
-    pdf_url: job.pdf_url || null,
-    job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
-  }));
 
   return (
     <div>
@@ -109,10 +92,9 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
       
       <BatchDetailsContent
         batch={batchDetailsData}
-        relatedJobs={typedRelatedJobs}
+        relatedJobs={relatedJobs}
         productType={config.productType}
         onDeleteClick={() => setBatchToDelete(batch.id)}
-        onRefresh={() => window.location.reload()}
       />
 
       <BatchDeleteDialog 

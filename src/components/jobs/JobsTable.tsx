@@ -34,16 +34,6 @@ const JobsTable: React.FC<JobsTableProps> = ({
     navigate(detailPath);
   };
 
-  // Function to determine row background color based on status and urgency
-  const getRowBackgroundColor = (job: ExtendedJob) => {
-    // First priority: status-based coloring
-    if (job.status === "completed") return "bg-green-50";
-    if (job.status === "cancelled") return "bg-red-50";
-    
-    // Second priority: urgency-based coloring
-    return getUrgencyBackgroundClass(job.urgency);
-  };
-
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -81,7 +71,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
             jobs.map((job) => (
               <TableRow 
                 key={`${job.productConfig.tableName}-${job.id}`}
-                className={getRowBackgroundColor(job)}
+                className={getUrgencyBackgroundClass(job.urgency)}
                 onClick={() => handleNavigateToJob(job)}
                 style={{ 
                   cursor: 'pointer',

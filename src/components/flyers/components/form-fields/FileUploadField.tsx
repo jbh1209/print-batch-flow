@@ -1,50 +1,42 @@
 
-import React from 'react';
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormDescription,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { useFormContext } from "react-hook-form";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import FileUpload from "@/components/business-cards/FileUpload";
 
-export interface FileUploadFieldProps {
+interface FileUploadFieldProps {
   selectedFile: File | null;
   setSelectedFile: (file: File | null) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  required?: boolean;
-  isEdit?: boolean; // Add the isEdit prop
+  isEdit?: boolean;
 }
 
-export const FileUploadField: React.FC<FileUploadFieldProps> = ({
+export const FileUploadField = ({
   selectedFile,
   setSelectedFile,
   handleFileChange,
-  required,
-  isEdit = false // Default to false for backward compatibility
-}) => {
+  isEdit = false
+}: FileUploadFieldProps) => {
+  const { control } = useFormContext();
+
   return (
     <FormField
+      control={control}
       name="file"
-      render={() => (
+      render={({ field }) => (
         <FormItem>
-          <FormLabel>
-            PDF Upload {required ? '*' : ''}
-          </FormLabel>
+          <FormLabel>Upload PDF{isEdit ? '' : '*'}</FormLabel>
           <FormControl>
-            <Input
-              type="file"
-              accept="application/pdf"
-              onChange={handleFileChange}
+            <FileUpload
+              control={control}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              handleFileChange={handleFileChange}
+              isRequired={!isEdit}
+              helpText={isEdit 
+                ? "Upload a new PDF file to replace the current one (Optional)" 
+                : "Upload a PDF file of your flyer design (Max: 10MB)"}
             />
           </FormControl>
-          <FormDescription>
-            {isEdit 
-              ? "Upload a new PDF file or leave empty to keep the existing one." 
-              : "Upload a PDF file."}
-          </FormDescription>
           <FormMessage />
         </FormItem>
       )}

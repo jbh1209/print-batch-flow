@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { ProductConfig, BaseBatch, BaseJob } from "@/config/productTypes";
 import { toast } from "sonner";
-import { isExistingTable } from "@/utils/database/tableValidation";
+import { ValidTableName, isExistingTable } from "@/utils/database/tableValidation";
 import { useBatchDeletion } from "./batch-operations/useBatchDeletion";
 
 interface UseGenericBatchDetailsProps {
@@ -12,18 +12,7 @@ interface UseGenericBatchDetailsProps {
   config: ProductConfig;
 }
 
-interface BatchDetailsResult {
-  batch: BaseBatch | null;
-  relatedJobs: BaseJob[];
-  isLoading: boolean;
-  error: string | null;
-  batchToDelete: string | null;
-  isDeleting: boolean;
-  setBatchToDelete: (id: string | null) => void;
-  handleDeleteBatch: () => Promise<void>;
-}
-
-export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetailsProps): BatchDetailsResult {
+export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetailsProps) {
   const navigate = useNavigate();
   const [batch, setBatch] = useState<BaseBatch | null>(null);
   const [relatedJobs, setRelatedJobs] = useState<BaseJob[]>([]);
@@ -42,8 +31,6 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       setError(null);
       
       try {
-        console.log(`Fetching batch details for batch ID: ${batchId} and table: ${config.tableName}`);
-        
         // Fetch batch details
         const { data: batchData, error: batchError } = await supabase
           .from("batches")
@@ -51,55 +38,33 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
           .eq("id", batchId)
           .single();
         
-        if (batchError) {
-          console.error("Error fetching batch:", batchError);
-          throw batchError;
-        }
+        if (batchError) throw batchError;
         
         if (!batchData) {
           setError("Batch not found");
           return;
         }
         
-        console.log("Batch data received:", batchData);
-        console.log("PDF URLs in batch:", {
-          front_pdf_url: batchData.front_pdf_url,
-          back_pdf_url: batchData.back_pdf_url
-        });
-        
-        // Convert the batchData to BaseBatch, ensuring all PDF URLs are properly mapped
-        const batchWithURLs: BaseBatch = {
+        // Convert the batchData to BaseBatch, adding the overview_pdf_url property
+        const batchWithOverview: BaseBatch = {
           ...batchData,
-          // Ensure all PDF URL fields are available, even if they're null
-          front_pdf_url: batchData.front_pdf_url || null,
-          back_pdf_url: batchData.back_pdf_url || null,
-          // The overview_pdf_url isn't in the database schema but is expected by the UI components
-          // We'll add it here, using back_pdf_url as the fallback
-          overview_pdf_url: batchData.back_pdf_url || null
+          overview_pdf_url: null // Adding the missing property with null value
         };
         
-        setBatch(batchWithURLs);
+        setBatch(batchWithOverview);
         
         // Fetch associated jobs if there's a valid table name
-        if (config.tableName && isExistingTable(config.tableName)) {
-          console.log(`Fetching related jobs from table: ${config.tableName} for batch: ${batchId}`);
-          
+        if (isExistingTable(config.tableName)) {
           const { data: jobsData, error: jobsError } = await supabase
             .from(config.tableName as any)
             .select("*")
             .eq("batch_id", batchId);
           
-          if (jobsError) {
-            console.error("Error fetching related jobs:", jobsError);
-            throw jobsError;
-          }
+          if (jobsError) throw jobsError;
           
-          console.log(`Found ${jobsData?.length || 0} related jobs`);
-          
-          // Type assertion as BaseJob[] to fix TypeScript's excessive depth error
+          // We need to use a type assertion here to fix the TypeScript error
+          // First cast to unknown, then to BaseJob[] to avoid TypeScript's excessive depth error
           setRelatedJobs(jobsData ? (jobsData as unknown as BaseJob[]) : []);
-        } else {
-          console.warn(`Invalid table name: ${config.tableName}`);
         }
       } catch (err) {
         console.error("Error fetching batch details:", err);

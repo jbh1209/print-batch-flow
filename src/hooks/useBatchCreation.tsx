@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Job, LaminationType } from "@/components/business-cards/JobsTable";
 import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
-import { BatchCreationResult } from "@/hooks/generic/batch-operations/types/batchCreationTypes";
 
 // Standardized product type codes for batch naming
 const PRODUCT_TYPE_CODES = {
@@ -65,14 +64,14 @@ export function useBatchCreation() {
     }
   };
 
-  const createBatch = async (selectedJobs: Job[], customBatchName?: string): Promise<BatchCreationResult> => {
+  const createBatch = async (selectedJobs: Job[], customBatchName?: string) => {
     if (!user) {
       toast({
         title: "Authentication error",
         description: "You must be logged in to create batches",
         variant: "destructive",
       });
-      return { success: false, batchId: null, error: "Authentication required", jobsUpdated: 0 };
+      return false;
     }
 
     if (selectedJobs.length === 0) {
@@ -81,7 +80,7 @@ export function useBatchCreation() {
         description: "Please select at least one job to batch",
         variant: "destructive",
       });
-      return { success: false, batchId: null, error: "No jobs selected", jobsUpdated: 0 };
+      return false;
     }
 
     setIsCreatingBatch(true);
@@ -141,48 +140,13 @@ export function useBatchCreation() {
           .eq("id", job.id)
       );
       
-      console.log(`Updating ${selectedJobs.length} jobs to link them to batch ${batchId}`);
-      
-      const updateResults = await Promise.all(updatePromises);
-      
-      // Check for any errors in the updates
-      const updateErrors = updateResults.filter(result => result.error);
-      if (updateErrors.length > 0) {
-        console.error("Errors updating jobs with batch ID:", updateErrors);
-        const jobsUpdated = selectedJobs.length - updateErrors.length;
-        
-        if (jobsUpdated === 0) {
-          // If no jobs were updated, attempt to rollback by deleting the batch
-          const { error: deleteError } = await supabase
-            .from("batches")
-            .delete()
-            .eq("id", batchId);
-            
-          if (deleteError) {
-            console.error("Error rolling back batch creation:", deleteError);
-          }
-          
-          throw new Error(`Failed to update any jobs with batch ID`);
-        }
-        
-        sonnerToast.warning(`Created batch ${name} but only linked ${jobsUpdated} of ${selectedJobs.length} jobs`);
-        return {
-          success: true,
-          batchId: batchId, 
-          jobsUpdated: jobsUpdated,
-          error: `Failed to update ${updateErrors.length} jobs with batch ID`
-        };
-      }
+      await Promise.all(updatePromises);
       
       sonnerToast.success("Batch created successfully", {
         description: `Created batch ${name} with ${selectedJobs.length} jobs`
       });
       
-      return {
-        success: true,
-        batchId: batchId,
-        jobsUpdated: selectedJobs.length
-      };
+      return true;
     } catch (error) {
       console.error("Error creating batch:", error);
       toast({
@@ -190,12 +154,7 @@ export function useBatchCreation() {
         description: error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
       });
-      return { 
-        success: false, 
-        batchId: null, 
-        error: error instanceof Error ? error.message : "Unknown error",
-        jobsUpdated: 0 
-      };
+      return false;
     } finally {
       setIsCreatingBatch(false);
     }

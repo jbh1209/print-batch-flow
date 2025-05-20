@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
 import { SleeveJobFormValues } from "@/lib/schema/sleeveJobFormSchema";
 import { ProductConfig } from "@/config/productTypes";
-import { isExistingTable } from "@/utils/database/tableValidation";
+import { isExistingTable } from "@/utils/database/tableUtils";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,14 +77,10 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         // We're updating an existing job
         const updateData: any = {
           name: data.name,
+          job_number: data.job_number,
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
         };
-
-        // Add job_number if it exists in the data
-        if ('job_number' in data && data.job_number) {
-          updateData.job_number = data.job_number;
-        }
         
         // Add product-specific fields
         if (config.productType === "Sleeves") {
@@ -121,6 +117,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         // We're creating a new job
         const newJobData: any = {
           name: data.name,
+          job_number: data.job_number,
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
           pdf_url: pdfUrl!,
@@ -128,11 +125,6 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           user_id: user?.id,
           status: 'queued'
         };
-
-        // Add job_number if it exists in the data
-        if ('job_number' in data && data.job_number) {
-          newJobData.job_number = data.job_number;
-        }
         
         // Add product-specific fields
         if (config.productType === "Sleeves") {

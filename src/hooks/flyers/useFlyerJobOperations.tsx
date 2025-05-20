@@ -1,10 +1,8 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
-import { BatchStatus } from '@/config/types/baseTypes';
 
 export function useFlyerJobOperations() {
   const { user } = useAuth();
@@ -12,11 +10,11 @@ export function useFlyerJobOperations() {
 
   const deleteJob = async (jobId: string) => {
     try {
-      // Removed user_id filter to allow all users to delete any flyer job
       const { error } = await supabase
         .from('flyer_jobs')
         .delete()
-        .eq('id', jobId);
+        .eq('id', jobId)
+        .eq('user_id', user?.id);
 
       if (error) throw error;
 
@@ -74,7 +72,7 @@ export function useFlyerJobOperations() {
       const { data, error } = await supabase
         .from('batches')
         .select('name')
-        .ilike('name', 'DXB-FL-%');
+        .ilike('DXB-FL-%', 'DXB-FL-%');
       
       if (error) throw error;
       
@@ -122,42 +120,33 @@ export function useFlyerJobOperations() {
       // Generate batch name with standardized format
       const batchNumber = await generateFlyerBatchNumber();
       
-      // Create the batch with properly typed fields
-      // Explicitly type the status field as a string literal to match the database schema
-      const batchDataToInsert = {
-        name: batchNumber,
-        paper_type: batchProperties.paperType,
-        paper_weight: batchProperties.paperWeight,
-        lamination_type: batchProperties.laminationType,
-        due_date: new Date().toISOString(),
-        printer_type: batchProperties.printerType,
-        sheet_size: batchProperties.sheetSize,
-        sheets_required: sheetsRequired,
-        created_by: user.id,
-        status: 'pending' as const, // Use string literal type
-        sla_target_days: batchProperties.slaTargetDays
-      };
-      
-      // Insert the batch and retrieve the created record
-      const { data: createdBatch, error: batchError } = await supabase
+      // Create the batch
+      const { data: batchData, error: batchError } = await supabase
         .from('batches')
-        .insert(batchDataToInsert)
+        .insert({
+          name: batchNumber,
+          paper_type: batchProperties.paperType,
+          paper_weight: batchProperties.paperWeight,
+          lamination_type: batchProperties.laminationType,
+          due_date: new Date().toISOString(), // Default to current date
+          printer_type: batchProperties.printerType,
+          sheet_size: batchProperties.sheetSize,
+          sheets_required: sheetsRequired,
+          created_by: user.id,
+          status: 'pending',
+          sla_target_days: batchProperties.slaTargetDays // Add the SLA target days to database
+        })
         .select()
         .single();
         
       if (batchError) throw batchError;
-      
-      // Ensure we have a batch ID before updating jobs
-      if (!createdBatch || !createdBatch.id) {
-        throw new Error('Failed to create batch: No batch ID returned');
-      }
       
       // Update all selected jobs to be part of this batch
       const jobIds = selectedJobs.map(job => job.id);
       const { error: updateError } = await supabase
         .from('flyer_jobs')
         .update({ 
-          batch_id: createdBatch.id,
+          batch_id: batchData.id,
           status: 'batched' 
         })
         .in('id', jobIds);
@@ -165,7 +154,7 @@ export function useFlyerJobOperations() {
       if (updateError) throw updateError;
       
       toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
-      return createdBatch;
+      return batchData;
       
     } catch (err) {
       console.error('Error creating batch:', err);

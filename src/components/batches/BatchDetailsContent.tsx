@@ -1,5 +1,4 @@
-
-import React, { useEffect } from "react";
+import React from "react";
 import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
 import BatchActionsCard from "./BatchActionsCard";
@@ -26,17 +25,6 @@ const BatchDetailsContent = ({
   onRefresh
 }: BatchDetailsContentProps) => {
   
-  useEffect(() => {
-    // Log the batch and job data when the component mounts to help debug
-    console.log('BatchDetailsContent - Batch data:', batch);
-    console.log('BatchDetailsContent - PDF URLs:', {
-      front: batch.front_pdf_url,
-      back: batch.back_pdf_url,
-      overview: batch.overview_pdf_url
-    });
-    console.log('BatchDetailsContent - Related jobs:', relatedJobs);
-  }, [batch, relatedJobs]);
-  
   const handleDownloadJobPdfs = async () => {
     if (relatedJobs.length === 0) {
       toast.error("No jobs available to download");
@@ -44,9 +32,6 @@ const BatchDetailsContent = ({
     }
     
     try {
-      console.log(`Attempting to download PDFs for ${relatedJobs.length} jobs`);
-      console.log('Job data being passed to downloadBatchJobPdfs:', relatedJobs);
-      
       await downloadBatchJobPdfs(relatedJobs, batch.name);
     } catch (error) {
       console.error("Error downloading job PDFs:", error);
@@ -56,11 +41,10 @@ const BatchDetailsContent = ({
 
   const handleDownloadBatchOverviewSheet = async () => {
     try {
-      // Check if batch overview PDF URL exists, with fallback to back_pdf_url
-      const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
+      // Check if batch overview PDF URL exists
+      const overviewPdfUrl = batch.overview_pdf_url;
       
       if (!overviewPdfUrl) {
-        console.error("No overview PDF URL available");
         toast.error("No batch overview sheet available");
         return;
       }
@@ -74,16 +58,15 @@ const BatchDetailsContent = ({
     }
   };
   
-  // Convert Job[] to BaseJob[] for FlyerBatchOverview - ensure job_number is passed directly
+  // Convert Job[] to BaseJob[] for FlyerBatchOverview
   const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
     return jobs.map(job => ({
       ...job,
-      // Directly copy job_number as is - no fallbacks
-      job_number: job.job_number,
-      due_date: job.due_date || new Date().toISOString(),
-      file_name: job.file_name || "",
-      user_id: job.user_id || "",
-      created_at: job.created_at || new Date().toISOString(),
+      job_number: job.name, // Use name as job_number
+      due_date: new Date().toISOString(), // Default due_date
+      file_name: job.name, // Use name as file_name
+      user_id: "", // Default user_id
+      created_at: new Date().toISOString(), // Default created_at
     })) as BaseJob[];
   };
   

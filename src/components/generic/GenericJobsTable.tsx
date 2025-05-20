@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -21,7 +22,6 @@ import { Eye, FilePenLine, MoreHorizontal, Trash2, FileUp } from "lucide-react";
 import JobStatusBadge from '@/components/JobStatusBadge';
 import { format } from 'date-fns';
 import { BaseJob, ProductConfig } from '@/config/productTypes';
-import type { BatchFixOperationResult } from '@/config/types/baseTypes';
 
 interface GenericJobsTableProps {
   jobs: BaseJob[];
@@ -31,10 +31,10 @@ interface GenericJobsTableProps {
   fetchJobs: () => Promise<void>;
   createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
   isCreatingBatch: boolean;
-  fixBatchedJobsWithoutBatch: () => Promise<number>;
+  fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
   isFixingBatchedJobs?: boolean;
   config: ProductConfig;
-  onViewJob?: (jobId: string) => void; 
+  onViewJob?: (jobId: string) => void; // Add this prop
 }
 
 const GenericJobsTable = ({

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { BatchStatus } from "@/config/types/baseTypes";
+import { BatchStatus } from "@/config/productTypes";
 
 interface BatchStatusUpdateProps {
   batchId: string;
@@ -18,7 +18,7 @@ interface BatchStatusUpdateProps {
 }
 
 const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStatusUpdateProps) => {
-  const updateBatchStatus = async (newStatus: "completed" | "sent_to_print") => {
+  const updateBatchStatus = async (newStatus: BatchStatus) => {
     try {
       const { error } = await supabase
         .from('batches')

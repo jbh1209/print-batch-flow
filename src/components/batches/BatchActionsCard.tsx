@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { toast } from "sonner";
 import { BatchDetailsType } from "./types/BatchTypes";
+import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
@@ -24,17 +25,6 @@ const BatchActionsCard = ({
   onDownloadJobPdfs, 
   onDownloadBatchOverviewSheet 
 }: BatchActionsCardProps) => {
-  
-  useEffect(() => {
-    // Log the batch data when the component mounts to help debug
-    console.log('BatchActionsCard - Batch data:', batch);
-    console.log('BatchActionsCard - PDF URLs:', {
-      front: batch.front_pdf_url,
-      back: batch.back_pdf_url,
-      overview: batch.overview_pdf_url
-    });
-  }, [batch]);
-  
   const handleDownloadFrontPdf = async () => {
     if (!batch.front_pdf_url) {
       toast.error("No front PDF available for this batch");
@@ -42,7 +32,6 @@ const BatchActionsCard = ({
     }
     
     try {
-      console.log(`Downloading front PDF from URL: ${batch.front_pdf_url}`);
       toast.loading("Downloading batch front PDF...");
       await handlePdfAction(batch.front_pdf_url, 'download', `${batch.name}-front.pdf`);
     } catch (error) {
@@ -52,46 +41,17 @@ const BatchActionsCard = ({
   };
 
   const handleDownloadBackPdf = async () => {
-    // Use back_pdf_url as primary, fall back to overview_pdf_url for backward compatibility
-    const backPdfUrl = batch.back_pdf_url || batch.overview_pdf_url;
-    
-    if (!backPdfUrl) {
+    if (!batch.back_pdf_url) {
       toast.error("No back PDF available for this batch");
       return;
     }
     
     try {
-      console.log(`Downloading back PDF from URL: ${backPdfUrl}`);
       toast.loading("Downloading batch back PDF...");
-      await handlePdfAction(backPdfUrl, 'download', `${batch.name}-back.pdf`);
+      await handlePdfAction(batch.back_pdf_url, 'download', `${batch.name}-back.pdf`);
     } catch (error) {
       console.error(`Error downloading back PDF for batch ${batch.id}:`, error);
       toast.error("Error downloading batch back PDF");
-    }
-  };
-
-  // Check if any PDF URL is available - needed for overview sheet download button state
-  const hasOverviewPdf = !!(batch.overview_pdf_url || batch.back_pdf_url);
-  
-  const handleOverviewPdfDownload = async () => {
-    if (onDownloadBatchOverviewSheet) {
-      await onDownloadBatchOverviewSheet();
-    } else {
-      // Fallback direct download if no custom handler is provided
-      const overviewUrl = batch.overview_pdf_url || batch.back_pdf_url;
-      if (!overviewUrl) {
-        toast.error("No overview PDF available for this batch");
-        return;
-      }
-      
-      try {
-        console.log(`Downloading overview PDF from URL: ${overviewUrl}`);
-        toast.loading("Downloading batch overview PDF...");
-        await handlePdfAction(overviewUrl, 'download', `${batch.name}-overview.pdf`);
-      } catch (error) {
-        console.error(`Error downloading overview PDF for batch ${batch.id}:`, error);
-        toast.error("Error downloading batch overview PDF");
-      }
     }
   };
 
@@ -121,7 +81,7 @@ const BatchActionsCard = ({
           </div>
           
           {/* Back PDF Download (if back PDF exists) */}
-          {(batch.back_pdf_url || batch.overview_pdf_url) && (
+          {batch.back_pdf_url && (
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Back PDF</h3>
               <div className="flex gap-2">
@@ -144,8 +104,7 @@ const BatchActionsCard = ({
             <Button
               variant="default"
               size="sm"
-              onClick={handleOverviewPdfDownload}
-              disabled={!hasOverviewPdf}
+              onClick={onDownloadBatchOverviewSheet}
               className="w-full flex items-center justify-center gap-2"
             >
               <Download className="h-4 w-4" />
@@ -173,3 +132,4 @@ const BatchActionsCard = ({
 };
 
 export default BatchActionsCard;
+

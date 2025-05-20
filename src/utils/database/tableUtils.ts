@@ -1,10 +1,20 @@
 
-import { ValidTableName, isExistingTable } from './tableValidation';
-import { ExistingTableName } from '@/config/productTypes';
+import { TableName, ExistingTableName } from "@/config/productTypes";
 
-// Re-export the validation function and types from tableValidation
-export { isExistingTable };
-export type { ValidTableName };  // Use "export type" for re-exporting types
-
-// This file is now simplified to just export the re-exports
-// and delegate to the main tableValidation.ts file for actual validation
+export const isExistingTable = (tableName: TableName): tableName is ExistingTableName => {
+  const existingTables: ExistingTableName[] = [
+    "flyer_jobs",
+    "postcard_jobs", 
+    "business_card_jobs",
+    "poster_jobs",
+    "sleeve_jobs",
+    "box_jobs",
+    "cover_jobs",
+    "sticker_jobs",
+    "batches", 
+    "profiles", 
+    "user_roles"
+  ];
+  
+  return existingTables.includes(tableName as ExistingTableName);
+};

@@ -10,14 +10,10 @@ const SleeveJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
     
-    // Create a wrapper for fixBatchedJobsWithoutBatch that returns a number as expected
-    const fixBatchedJobsWrapper = async (): Promise<number> => {
-      try {
-        return await hookResult.fixBatchedJobsWithoutBatch();
-      } catch (error) {
-        console.error("Error fixing batched jobs:", error);
-        return 0; // Return 0 on error
-      }
+    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
+    const fixBatchedJobsWrapper = async () => {
+      await hookResult.fixBatchedJobsWithoutBatch();
+      // Return type is void as expected
     };
     
     return {

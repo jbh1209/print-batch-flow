@@ -1,37 +1,14 @@
 
-// Follow Deno's ES module conventions
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Create a Supabase client with the Deno runtime
-function createSupabaseClient(req: Request) {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    throw new Error('Missing Authorization header');
-  }
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
-
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-    auth: {
-      persistSession: false,
-    },
-  });
-}
-
 serve(async (req) => {
-  console.log("Edge function: get-all-users called");
+  console.log('Edge function: get-all-users called');
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -39,59 +16,122 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createSupabaseClient(req);
-    console.log("Supabase client created");
-    
-    // Check if user is admin first
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    // Create Supabase client with admin privileges
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('Supabase client created');
+
+    // Get the user's JWT from the request headers
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.log('No authorization header');
+      return new Response(JSON.stringify({ error: 'No authorization header' }), { 
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
+
+    // Verify the user is authenticated
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
-    // Check if requester is admin using secure function
-    console.log("Checking if user is admin using is_admin_secure");
-    const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin_secure', { _user_id: user.id });
-    
-    if (adminError || !isAdmin) {
-      console.log("User is not admin according to is_admin_secure");
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    if (userError || !user) {
+      console.log('Unauthorized user', userError);
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
-    
-    // Fetch all users
-    const { data: allUsers, error: userError } = await supabase.auth.admin.listUsers();
-    
-    if (userError) {
-      console.error("Error fetching users:", userError);
-      return new Response(JSON.stringify({ error: userError.message }), {
+
+    // Try to use our new secure function first
+    try {
+      console.log('Checking if user is admin using is_admin_secure');
+      const { data: isAdminSecure, error: adminSecureError } = await supabase.rpc('is_admin_secure', { _user_id: user.id });
+      
+      if (adminSecureError) {
+        console.log('Error using is_admin_secure, falling back to is_admin:', adminSecureError);
+        // Fall back to regular is_admin if the secure function fails
+        const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin', { _user_id: user.id });
+        
+        if (adminError || !isAdmin) {
+          console.log('Admin check failed:', adminError || 'Not admin');
+          return new Response(JSON.stringify({ error: 'Admin access required' }), { 
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" } 
+          });
+        }
+      } else if (!isAdminSecure) {
+        console.log('User is not admin according to is_admin_secure');
+        return new Response(JSON.stringify({ error: 'Admin access required' }), { 
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        });
+      }
+    } catch (error) {
+      console.error('Error in admin check:', error);
+      return new Response(JSON.stringify({ error: 'Error checking admin status' }), { 
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
+
+    console.log('Admin verified, fetching all users');
     
-    // Map to just return user IDs and emails
-    const usersData = allUsers.users.map(user => ({
+    // Try our new secure function to get users first
+    try {
+      console.log('Trying to use get_all_users_secure function');
+      const { data: secureUsers, error: secureError } = await supabase.rpc('get_all_users_secure');
+      
+      if (!secureError && secureUsers && secureUsers.length > 0) {
+        console.log(`Found ${secureUsers.length} users with secure function`);
+        return new Response(JSON.stringify(secureUsers), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } else {
+        console.log('Secure function failed or returned no users, falling back to admin.listUsers');
+      }
+    } catch (error) {
+      console.log('Error using secure function, falling back:', error);
+    }
+    
+    // Fall back to auth.admin.listUsers method
+    const { data: authUsers, error } = await supabase.auth.admin.listUsers();
+    
+    if (error) {
+      console.log('Error fetching users:', error);
+      return new Response(JSON.stringify({ error: error.message }), { 
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
+    console.log(`Found ${authUsers.users.length} users in auth`);
+    
+    if (!authUsers.users || authUsers.users.length === 0) {
+      console.log('No users found in auth');
+      return new Response(JSON.stringify([]), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // Transform the response to include only id and email
+    const simplifiedUsers = authUsers.users.map(user => ({
       id: user.id,
-      email: user.email,
+      email: user.email || 'No email'
     }));
-    
-    return new Response(JSON.stringify(usersData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+
+    console.log('Users transformed:', simplifiedUsers);
+
+    return new Response(JSON.stringify(simplifiedUsers), { 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
     
   } catch (error) {
-    console.error("Edge function error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Edge function error:', error);
+    return new Response(JSON.stringify({ error: error.message }), { 
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
   }
 });

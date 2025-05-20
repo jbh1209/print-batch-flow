@@ -1,8 +1,7 @@
 
-import { useState } from 'react';
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { LaminationType } from '@/config/types/productConfigTypes';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LaminationType } from "@/config/productTypes";
 
 interface BatchSettingsPanelProps {
   paperType: string;
@@ -16,8 +15,8 @@ interface BatchSettingsPanelProps {
   sheetSize: string;
   setSheetSize: (value: string) => void;
   availablePaperTypes?: string[];
-  availableLaminationTypes?: LaminationType[];
   availablePaperWeights?: string[];
+  availableLaminationTypes?: LaminationType[];
 }
 
 export function BatchSettingsPanel({
@@ -31,94 +30,115 @@ export function BatchSettingsPanel({
   setPrinterType,
   sheetSize,
   setSheetSize,
-  availablePaperTypes = ["Gloss", "Silk"],
-  availablePaperWeights = ["130gsm", "170gsm", "250gsm"],
-  availableLaminationTypes = ["none", "gloss", "matt", "soft_touch"]
+  availablePaperTypes = ["Gloss", "Silk", "Uncoated"],
+  availableLaminationTypes = ["none", "matt", "gloss"],
+  availablePaperWeights = ["170gsm", "250gsm", "350gsm"]
 }: BatchSettingsPanelProps) {
+  // Function to format lamination type for display
+  const formatLaminationType = (type: string): string => {
+    switch(type) {
+      case "none": return "None";
+      case "matt": return "Matt";
+      case "gloss": return "Gloss";
+      case "soft_touch": return "Soft Touch";
+      default: return type.charAt(0).toUpperCase() + type.slice(1);
+    }
+  };
+  
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium mb-4">Batch Settings</h3>
-        
-        {/* Paper Type */}
-        <div className="space-y-2 mb-4">
-          <Label>Paper Type</Label>
-          <RadioGroup value={paperType} onValueChange={setPaperType}>
-            {availablePaperTypes.map(type => (
-              <div key={type} className="flex items-center space-x-2">
-                <RadioGroupItem value={type} id={`paper-${type}`} />
-                <Label htmlFor={`paper-${type}`}>{type}</Label>
-              </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Set the properties for this batch
+        </p>
+      </div>
+      
+      {/* Paper Type Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="paperType">Paper Type</Label>
+        <Select value={paperType} onValueChange={setPaperType}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select paper type" />
+          </SelectTrigger>
+          <SelectContent>
+            {availablePaperTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
             ))}
-          </RadioGroup>
-        </div>
-        
-        {/* Paper Weight */}
-        <div className="space-y-2 mb-4">
-          <Label>Paper Weight</Label>
-          <RadioGroup value={paperWeight} onValueChange={setPaperWeight}>
-            {availablePaperWeights.map(weight => (
-              <div key={weight} className="flex items-center space-x-2">
-                <RadioGroupItem value={weight} id={`weight-${weight}`} />
-                <Label htmlFor={`weight-${weight}`}>{weight}</Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </div>
-        
-        {/* Lamination */}
-        <div className="space-y-2 mb-4">
-          <Label>Lamination</Label>
-          <RadioGroup 
-            value={laminationType} 
-            onValueChange={(value) => {
-              // Ensure the value is of type LaminationType
-              setLaminationType(value as LaminationType);
-            }}
-          >
-            {availableLaminationTypes.map(type => (
-              <div key={type} className="flex items-center space-x-2">
-                <RadioGroupItem value={type} id={`lamination-${type}`} />
-                <Label htmlFor={`lamination-${type}`}>
-                  {type === "none" ? "None" : 
-                   type === "matt" ? "Matt" : 
-                   type === "gloss" ? "Gloss" : 
-                   type === "soft_touch" ? "Soft Touch" : type}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </div>
-        
-        {/* Printer Type */}
-        <div className="space-y-2 mb-4">
-          <Label>Printer</Label>
-          <RadioGroup value={printerType} onValueChange={setPrinterType}>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="HP 12000" id="hp12000" />
-              <Label htmlFor="hp12000">HP 12000</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Indigo 7800" id="indigo7800" />
-              <Label htmlFor="indigo7800">Indigo 7800</Label>
-            </div>
-          </RadioGroup>
-        </div>
-        
-        {/* Sheet Size */}
+          </SelectContent>
+        </Select>
+      </div>
+      
+      {/* Paper Weight Selection - only show if there are available options */}
+      {availablePaperWeights && availablePaperWeights.length > 0 && (
         <div className="space-y-2">
-          <Label>Sheet Size</Label>
-          <RadioGroup value={sheetSize} onValueChange={setSheetSize}>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="530x750mm" id="530x750" />
-              <Label htmlFor="530x750">530 x 750 mm</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="364x520mm" id="364x520" />
-              <Label htmlFor="364x520">364 x 520 mm</Label>
-            </div>
-          </RadioGroup>
+          <Label htmlFor="paperWeight">Paper Weight</Label>
+          <Select value={paperWeight} onValueChange={setPaperWeight}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select paper weight" />
+            </SelectTrigger>
+            <SelectContent>
+              {availablePaperWeights.map((weight) => (
+                <SelectItem key={weight} value={weight}>
+                  {weight}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+      )}
+      
+      {/* Lamination Type Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="laminationType">Lamination</Label>
+        <Select 
+          value={laminationType} 
+          onValueChange={(value) => setLaminationType(value as LaminationType)}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select lamination type" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableLaminationTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {formatLaminationType(type)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      
+      {/* Printer Type Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="printerType">Printer</Label>
+        <Select value={printerType} onValueChange={setPrinterType}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select printer" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="HP 12000">HP 12000</SelectItem>
+            <SelectItem value="Zund">Zund</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      {/* Sheet Size Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="sheetSize">Sheet Size</Label>
+        <Select value={sheetSize} onValueChange={setSheetSize}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select sheet size" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="530x750mm">530x750mm</SelectItem>
+            <SelectItem value="297x420mm">297x420mm (A3)</SelectItem>
+            <SelectItem value="320x450mm">320x450mm</SelectItem>
+            <SelectItem value="Custom">Custom</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );

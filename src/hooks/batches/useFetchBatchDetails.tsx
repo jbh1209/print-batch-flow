@@ -5,22 +5,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
-import { ensureValidBatchStatus } from "@/utils/typeAdapters";
-
-// Define the raw batch data structure to match what's returned from Supabase
-interface RawBatchData {
-  id: string;
-  name: string;
-  lamination_type: string;
-  sheets_required: number;
-  front_pdf_url: string | null;
-  back_pdf_url: string | null;
-  overview_pdf_url?: string | null; // Mark as optional since it might not exist in some records
-  due_date: string;
-  created_at: string;
-  status: string;
-  [key: string]: any; // Allow for other fields that might exist
-}
 
 interface UseFetchBatchDetailsProps {
   batchId: string;
@@ -75,21 +59,17 @@ export function useFetchBatchDetails({
       
       console.log("Batch details received:", data?.id);
       
-      // Cast the raw data to our RawBatchData interface
-      const rawBatchData = data as RawBatchData;
-      
-      // Create the batch object with all properties, properly handling optional fields
       const batchData: BatchDetailsType = {
-        id: rawBatchData.id,
-        name: rawBatchData.name,
-        lamination_type: rawBatchData.lamination_type,
-        sheets_required: rawBatchData.sheets_required,
-        front_pdf_url: rawBatchData.front_pdf_url,
-        back_pdf_url: rawBatchData.back_pdf_url,
-        overview_pdf_url: rawBatchData.overview_pdf_url || null,
-        due_date: rawBatchData.due_date,
-        created_at: rawBatchData.created_at,
-        status: ensureValidBatchStatus(rawBatchData.status),
+        id: data.id,
+        name: data.name,
+        lamination_type: data.lamination_type,
+        sheets_required: data.sheets_required,
+        front_pdf_url: data.front_pdf_url,
+        back_pdf_url: data.back_pdf_url,
+        overview_pdf_url: data.back_pdf_url,
+        due_date: data.due_date,
+        created_at: data.created_at,
+        status: data.status,
       };
       
       setBatch(batchData);
@@ -99,39 +79,21 @@ export function useFetchBatchDetails({
       if (productType === "Business Cards") {
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number")
+          .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
         
         if (jobsError) throw jobsError;
-        
-        // Map jobs to include job_number
-        jobsData = (jobs || []).map(job => ({
-          id: job.id,
-          name: job.name,
-          quantity: job.quantity,
-          status: job.status,
-          pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
-        }));
+        jobsData = jobs || [];
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url, job_number")
+          .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
         
         if (jobsError) throw jobsError;
-        
-        // Map jobs to include job_number
-        jobsData = (jobs || []).map(job => ({
-          id: job.id,
-          name: job.name,
-          quantity: job.quantity,
-          status: job.status,
-          pdf_url: job.pdf_url,
-          job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
-        }));
+        jobsData = jobs || [];
       }
       
       setRelatedJobs(jobsData);

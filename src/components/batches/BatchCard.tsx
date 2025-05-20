@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
-import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
+import { calculateJobUrgency } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
 
 interface BatchSummary {
@@ -33,12 +33,11 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
   };
   
   // Get urgency level for the batch
-  const config = productConfigs[batch.product_type] || productConfigs["BusinessCards"];
+  const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
   const urgencyLevel = calculateJobUrgency(batch.due_date, config);
 
-  // Get card background color based on status and urgency
+  // Get card background color based on status
   const getCardBackgroundColor = () => {
-    // Status-based coloring (higher priority)
     switch (batch.status) {
       case 'completed':
         return 'bg-green-50 border-green-300 border-l-4';
@@ -48,16 +47,6 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
         return 'bg-amber-50 border-amber-300 border-l-4';
       case 'cancelled':
         return 'bg-red-50 border-red-300 border-l-4';
-    }
-    
-    // Urgency-based coloring (lower priority)
-    switch (urgencyLevel) {
-      case 'critical':
-        return 'bg-red-50 border-red-300 border-l-4';
-      case 'high':
-        return 'bg-amber-50 border-amber-300 border-l-4';
-      case 'medium':
-        return 'bg-yellow-50 border-yellow-300 border-l-4';
       default:
         return 'bg-white';
     }

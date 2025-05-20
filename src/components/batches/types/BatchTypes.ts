@@ -1,19 +1,41 @@
 
-import { BaseBatch, BatchStatus } from "@/config/types/baseTypes";
+import { BatchStatus, LaminationType } from "@/config/productTypes";
 
-export interface BatchSummary extends BaseBatch {
-  product_type: string;
-  overview_pdf_url: string | null;
+// Export these types so they can be imported from other files
+export type { BatchStatus, LaminationType };
+
+export interface BatchDetailsType {
+  id: string;
+  name: string;
+  lamination_type: LaminationType;
+  sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
+  overview_pdf_url: string | null;
+  due_date: string;
   created_at: string;
+  status: BatchStatus;
 }
 
-export interface BatchDetailsType extends BaseBatch {
-  overview_pdf_url: string | null;
-  front_pdf_url: string | null;
-  back_pdf_url: string | null;
-  created_at: string;
+export interface BaseBatch extends BatchDetailsType {
+  created_by: string;
+  paper_type?: string;
+  paper_weight?: string;
+  updated_at: string;
+}
+
+export interface BatchSummary {
+  id: string;
+  name: string;
+  due_date: string;
+  status: string;
+  product_type: string;
+  sheets_required: number;
+  lamination_type?: string;
+  front_pdf_url?: string | null;
+  back_pdf_url?: string | null;
+  overview_pdf_url?: string | null;
+  created_at?: string;
 }
 
 export interface Job {
@@ -21,19 +43,5 @@ export interface Job {
   name: string;
   quantity: number;
   status: string;
-  pdf_url: string | null;
-  job_number: string;  // Explicitly required, not optional
-  size?: string;
-  sides?: string;
-  stock_type?: string;
-  single_sided?: boolean;
-  paper_type?: string;
-  paper_weight?: string;
-  lamination_type?: string;
-  file_name?: string;
-  created_at?: string;
-  updated_at?: string;
-  batch_id?: string | null;
-  due_date?: string;
-  user_id?: string;
+  pdf_url: string;
 }

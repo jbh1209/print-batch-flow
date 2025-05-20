@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Try secure function first
       try {
         const { data: isAdminSecure, error: secureError } = await supabase
-          .rpc('is_admin_secure_fixed', { _user_id: userId });
+          .rpc('is_admin_secure', { _user_id: userId });
         
         if (!secureError) {
           return !!isAdminSecure;
@@ -76,9 +76,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Error in secure admin check:', error);
       }
       
-      // Fall back to standard function using RPC functions that exist
+      // Fall back to standard function
       const { data, error } = await supabase
-        .rpc('any_admin_exists');
+        .rpc('is_admin', { _user_id: userId });
       
       if (error) {
         console.error('Error checking admin status:', error);

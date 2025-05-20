@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
+import { calculateJobUrgency } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
 import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
@@ -26,10 +26,9 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
   emptyMessage,
   emptyDescription
 }) => {
-  // Get row background color based on batch status and urgency
-  const getRowBackgroundColor = (batch: BatchSummary) => {
-    // Status-based coloring (higher priority)
-    switch (batch.status) {
+  // Get row background color based on batch status
+  const getRowBackgroundColor = (status: string) => {
+    switch (status) {
       case 'completed':
         return 'bg-green-50 border-l-4 border-l-green-500';
       case 'sent_to_print':
@@ -38,20 +37,6 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
         return 'bg-amber-50 border-l-4 border-l-amber-500';
       case 'cancelled':
         return 'bg-red-50 border-l-4 border-l-red-500';
-    }
-    
-    // Urgency-based coloring (lower priority)
-    const productType = batch.product_type || "Business Cards";
-    const config = productConfigs[productType] || productConfigs["BusinessCards"];
-    const urgencyLevel = calculateJobUrgency(batch.due_date, config);
-    
-    switch (urgencyLevel) {
-      case 'critical':
-        return 'bg-red-50';
-      case 'high':
-        return 'bg-amber-50';
-      case 'medium':
-        return 'bg-yellow-50';
       default:
         return '';
     }
@@ -83,13 +68,14 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
             // Safely get product config, using default if not found
             const productType = batch.product_type || "Business Cards";
             // Normalize the product type key to match the keys in productConfigs
-            const config = productConfigs[productType] || productConfigs["BusinessCards"];
+            const normalizedProductType = productType.replace(/\s+/g, '') as keyof typeof productConfigs;
+            const config = productConfigs[normalizedProductType] || productConfigs["BusinessCards"];
             const urgencyLevel = calculateJobUrgency(batch.due_date, config);
             
             return (
               <TableRow 
                 key={batch.id} 
-                className={getRowBackgroundColor(batch)}
+                className={getRowBackgroundColor(batch.status)}
               >
                 <TableCell>
                   <div className="flex items-center space-x-2">

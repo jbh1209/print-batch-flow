@@ -6,8 +6,7 @@ import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
 import { useGenericBatches } from './useGenericBatches';
 import { useJobOperations } from './useJobOperations';
 import { useBatchFixes } from './useBatchFixes';
-import { isExistingTable } from '@/utils/database/tableValidation';
-import { BatchCreationResult } from './batch-operations/useBatchCreation';
+import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { user } = useAuth();
@@ -42,12 +41,13 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      console.log('Fetching jobs for product:', config.productType, 'from table:', config.tableName);
+      console.log('Fetching jobs for user:', user.id, 'from table:', config.tableName);
       
-      // Remove user_id filter to allow all users to see all jobs
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -116,9 +116,9 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       sheetSize?: string;
       slaTargetDays?: number;
     }
-  ): Promise<BatchCreationResult> => {
+  ) => {
     try {
-      // Ensure laminationType is properly converted to LaminationType type
+      // Fixed: Ensure laminationType is properly converted to LaminationType type
       const typedLaminationType = batchProperties.laminationType || "none" as LaminationType;
       
       // Create a configuration object that combines the product config with the batch properties
@@ -132,24 +132,24 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         laminationType: typedLaminationType // Include laminationType in the config object
       };
       
-      // Pass only the selected jobs and combined config to the wrapper function
-      const batchResult = await createBatchWithSelectedJobs(
+      // Fixed: Pass only the selected jobs and combined config to the wrapper function
+      // The wrapper function in useGenericBatches expects only 2 arguments
+      const batch = await createBatchWithSelectedJobs(
         selectedJobs as BaseJob[], // Cast to BaseJob[] to match the expected type
         batchConfig
       );
       
-      // Access batchId property from BatchCreationResult instead of directly accessing id
-      if (batchResult.success && batchResult.batchId) {
+      if (batch) {
         setJobs(prevJobs => 
           prevJobs.map(job => 
             selectedJobs.some(selectedJob => selectedJob.id === job.id)
-              ? { ...job, status: 'batched', batch_id: batchResult.batchId } as T
+              ? { ...job, status: 'batched', batch_id: batch.id } as T
               : job
           )
         );
       }
       
-      return batchResult;
+      return batch;
     } catch (err) {
       console.error('Error creating batch:', err);
       throw err;

@@ -10,14 +10,10 @@ const CoverJobsPage = () => {
   const jobsHookWrapper = () => {
     const hookResult = useGenericJobs(config);
     
-    // Create a wrapper for fixBatchedJobsWithoutBatch that consistently returns a number
-    const fixBatchedJobsWrapper = async (): Promise<number> => {
-      try {
-        return await hookResult.fixBatchedJobsWithoutBatch();
-      } catch (error) {
-        console.error("Error fixing batched jobs:", error);
-        return 0; // Return 0 on error
-      }
+    // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
+    const fixBatchedJobsWrapper = async () => {
+      return await hookResult.fixBatchedJobsWithoutBatch();
+      // No need to force void return type - we now accept number | void
     };
     
     return {

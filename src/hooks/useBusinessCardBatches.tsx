@@ -41,12 +41,12 @@ export const useBusinessCardBatches = (batchId: string | null) => {
         return;
       }
       
-      console.log("Fetching all business card batches");
+      console.log("Fetching business card batches for user:", user.id);
       
       let query = supabase
         .from("batches")
         .select("*")
-        // Remove user filter to see all batches
+        .eq("created_by", user.id)
         .filter('name', 'ilike', 'DXB-BC-%'); // Only fetch business card batches (prefix DXB-BC-)
         
       // If batchId is specified, filter to only show that batch
@@ -70,7 +70,7 @@ export const useBusinessCardBatches = (batchId: string | null) => {
         console.log("Requested batch not found:", batchId);
         toast({
           title: "Batch not found",
-          description: "The requested batch could not be found.",
+          description: "The requested batch could not be found or you don't have permission to view it.",
           variant: "destructive",
         });
       }

@@ -7,8 +7,6 @@ import JobStatusBadge from "@/components/JobStatusBadge";
 import JobActions from "./JobActions";
 import EmptyState from "./EmptyState";
 import DueDateIndicator from "./DueDateIndicator";
-import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
-import { productConfigs } from "@/config/productTypes";
 
 export type JobStatus = "queued" | "batched" | "completed" | "cancelled";
 export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
@@ -63,20 +61,6 @@ const JobsTable = ({
   const isJobSelectable = (job: Job) => {
     // Only queued jobs can be selected for batching
     return job.status === "queued";
-  };
-
-  // Get row background color based on status and urgency
-  const getRowBackgroundColor = (job: Job) => {
-    // Status-based coloring
-    switch (job.status) {
-      case 'completed': return 'bg-green-50';
-      case 'cancelled': return 'bg-red-50';
-      case 'batched': return 'bg-blue-50';
-    }
-    
-    // If status doesn't determine color, use urgency
-    const urgency = calculateJobUrgency(job.due_date, productConfigs["BusinessCards"]);
-    return getUrgencyBackgroundClass(urgency);
   };
 
   if (isLoading) {
@@ -143,10 +127,9 @@ const JobsTable = ({
       {jobs.map((job) => {
         const isSelected = selectedJobs.includes(job.id);
         const canSelect = isJobSelectable(job);
-        const rowClass = isSelected ? "bg-primary/5" : getRowBackgroundColor(job);
         
         return (
-          <TableRow key={job.id} className={rowClass}>
+          <TableRow key={job.id} className={isSelected ? "bg-primary/5" : undefined}>
             <TableCell>
               <Checkbox 
                 checked={isSelected} 

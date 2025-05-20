@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, JobStatus, TableName } from '@/config/productTypes';
-import { isExistingTable } from '@/utils/database/tableValidation';
+import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,11 +19,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Allow any user to delete any job
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { error } = await supabase
         .from(tableName as any)
         .delete()
-        .eq('id', jobId);
+        .eq('id', jobId)
+        .eq('user_id', userId);
 
       if (error) throw error;
       
@@ -51,7 +52,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       
       const newJob = {
         ...jobData,
-        user_id: userId, // Still track who created the job
+        user_id: userId,
         status: 'queued' as JobStatus
       };
 
@@ -86,11 +87,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Allow any user to update any job - remove user filtering
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
         .update(jobData)
         .eq('id', jobId)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -114,11 +116,12 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Allow any user to view any job - remove user filtering
+      // Use 'as any' to bypass TypeScript's type checking for the table name
       const { data, error } = await supabase
         .from(tableName as any)
         .select('*')
         .eq('id', jobId)
+        .eq('user_id', userId)
         .single();
 
       if (error) throw error;

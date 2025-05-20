@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText } from "lucide-react";
 import { ProductConfig, BaseJob } from "@/config/productTypes";
-import type { BatchFixOperationResult } from "@/config/types/baseTypes";
 import GenericJobsTable from "./GenericJobsTable";
 
 interface GenericJobsPageProps {
@@ -17,7 +16,7 @@ interface GenericJobsPageProps {
     fetchJobs: () => Promise<void>;
     createBatch: (jobs: BaseJob[], properties: any) => Promise<any>;
     isCreatingBatch: boolean;
-    fixBatchedJobsWithoutBatch: () => Promise<number>;
+    fixBatchedJobsWithoutBatch: () => Promise<number | void>; // Updated return type here
     isFixingBatchedJobs?: boolean;
   };
 }

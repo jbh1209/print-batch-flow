@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -14,12 +13,10 @@ import {
   Settings, 
   ChevronLeft,
   Mail,
-  ClipboardList,
-  FileSpreadsheet
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
 
 interface NavItemProps {
   to: string;
@@ -50,7 +47,6 @@ const NavItem = ({ to, icon, label, isActive, isHeading = false }: NavItemProps)
 const Sidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const { isAdmin } = useAuth();
 
   return (
     <div className={cn(
@@ -147,14 +143,6 @@ const Sidebar = () => {
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Administration</div>}
           {collapsed && <div className="my-4 border-t border-white/10"></div>}
           
-          {isAdmin && (
-            <NavItem 
-              to="/admin/product-pages/templates" 
-              icon={<FileSpreadsheet size={20} />} 
-              label={collapsed ? "" : "Product Pages"} 
-              isActive={location.pathname.includes("/admin/product-pages")} 
-            />
-          )}
           <NavItem 
             to="/users" 
             icon={<Users size={20} />} 

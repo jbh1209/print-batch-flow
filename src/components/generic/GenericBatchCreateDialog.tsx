@@ -87,7 +87,7 @@ export function GenericBatchCreateDialog({
       // Reset lamination type
       if (config.availableLaminationTypes && config.availableLaminationTypes.length > 0) {
         console.log("Setting lamination type to:", config.availableLaminationTypes[0]);
-        setLaminationType(config.availableLaminationTypes[0]);
+        setLaminationType(config.availableLaminationTypes[0] as LaminationType);
       } else {
         setLaminationType("none");
       }

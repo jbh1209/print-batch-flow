@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle } from "lucide-react";
 import AllBatchesHeader from '@/components/batches/AllBatchesHeader';
 import AllBatchesTabs from '@/components/batches/AllBatchesTabs';
-import { BatchSummary } from '@/components/batches/types/BatchTypes';
 
 const AllBatches: React.FC = () => {
   const { batches, isLoading, error, fetchBatches, getBatchUrl } = useBatchesList();
@@ -53,11 +52,11 @@ const AllBatches: React.FC = () => {
   // Separate batches into current and completed
   const currentBatches = batches.filter(
     batch => !['completed', 'sent_to_print'].includes(batch.status)
-  ) as BatchSummary[];
+  );
   
   const completedBatches = batches.filter(
     batch => ['completed', 'sent_to_print'].includes(batch.status)
-  ) as BatchSummary[];
+  );
 
   return (
     <div className="container mx-auto py-6">

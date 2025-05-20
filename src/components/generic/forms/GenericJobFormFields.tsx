@@ -23,7 +23,6 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { ProductConfig } from "@/config/productTypes";
-import { LaminationType } from "@/config/types/productConfigTypes";
 
 interface GenericJobFormFieldsProps {
   config: ProductConfig;
@@ -41,17 +40,6 @@ export const GenericJobFormFields = ({
   isEdit = false
 }: GenericJobFormFieldsProps) => {
   const { control, formState } = useFormContext();
-
-  // Helper to display formatted lamination type name
-  const getLaminationDisplayName = (type: LaminationType): string => {
-    switch (type) {
-      case "none": return "None";
-      case "gloss": return "Gloss";
-      case "matt": return "Matt";
-      case "soft_touch": return "Soft Touch";
-      default: return type;
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -222,7 +210,10 @@ export const GenericJobFormFields = ({
                   <SelectContent>
                     {config.availableLaminationTypes.map((type) => (
                       <SelectItem key={type} value={type}>
-                        {getLaminationDisplayName(type)}
+                        {type === "none" ? "None" : 
+                         type === "matt" ? "Matt" : 
+                         type === "gloss" ? "Gloss" : 
+                         type === "soft_touch" ? "Soft Touch" : type}
                       </SelectItem>
                     ))}
                   </SelectContent>

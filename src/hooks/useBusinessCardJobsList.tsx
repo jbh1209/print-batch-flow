@@ -48,12 +48,12 @@ export const useBusinessCardJobsList = () => {
         return;
       }
       
-      console.log("Fetching all business card jobs");
+      console.log("Fetching business card jobs for user:", user.id);
       
       let query = supabase
         .from('business_card_jobs')
         .select('*')
-        // No user_id filter - allow seeing all jobs
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       
       if (filterView !== 'all') {
@@ -76,8 +76,8 @@ export const useBusinessCardJobsList = () => {
       const { data: allJobs, error: countError } = await supabase
         .from('business_card_jobs')
         .select('status')
-        // No user_id filter - allow counting all jobs
-        
+        .eq('user_id', user.id);
+      
       if (countError) throw countError;
       
       setFilterCounts({

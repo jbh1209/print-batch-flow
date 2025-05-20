@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Job } from "./JobsTable";
 import { useBatchCreation } from "@/hooks/useBatchCreation";
@@ -6,8 +7,6 @@ import BatchButton from "./batch-controls/BatchButton";
 import BatchConfirmDialog from "./batch-controls/BatchConfirmDialog";
 import BatchRecommendation from "./batch-controls/BatchRecommendation";
 import { useBatchHelpers } from "./batch-controls/useBatchHelpers";
-import { toast } from "sonner";
-import { BatchCreationResult } from "@/hooks/generic/batch-operations/types/batchCreationTypes";
 
 interface BatchControlsProps {
   selectedJobs: Job[];
@@ -54,37 +53,11 @@ const BatchControls = ({
   };
 
   const handleConfirmBatch = async () => {
-    try {
-      // Use the auto-generated batch name - no custom name
-      const result = await createBatch(selectedJobs);
-      
-      if (result) {
-        setDialogOpen(false);
-        
-        // Check response type
-        if (typeof result === 'object' && 'success' in result) {
-          const batchResult = result as BatchCreationResult;
-          
-          if (batchResult.success) {
-            if (batchResult.jobsUpdated < selectedJobs.length) {
-              toast.warning(`Batch created but only ${batchResult.jobsUpdated} of ${selectedJobs.length} jobs were added`);
-            } else {
-              toast.success(`Batch created successfully with all ${batchResult.jobsUpdated} jobs`);
-            }
-          } else {
-            toast.error(`Failed to create batch: ${batchResult.error}`);
-          }
-        } else {
-          // Legacy result handling (true/false)
-          toast.success(`Batch created successfully`);
-        }
-        
-        // Refresh the jobs list regardless to show the most current state
-        onBatchComplete();
-      }
-    } catch (err) {
-      console.error("Error creating batch:", err);
-      toast.error(`Failed to create batch: ${err instanceof Error ? err.message : "Unknown error"}`);
+    // Use the auto-generated batch name - no custom name
+    const success = await createBatch(selectedJobs);
+    if (success) {
+      setDialogOpen(false);
+      onBatchComplete();
     }
   };
 

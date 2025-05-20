@@ -3,10 +3,9 @@ import { BaseBatch, ProductConfig, BaseJob, LaminationType, ExistingTableName } 
 import { useBatchFetching } from "./batch-operations/useBatchFetching";
 import { useBatchDeletion } from "./batch-operations/useBatchDeletion";
 import { useBatchNavigation } from "./batch-operations/useBatchNavigation";
-import { useBatchCreation, BatchCreationResult } from "./batch-operations/useBatchCreation";
+import { useBatchCreation } from "./batch-operations/useBatchCreation";
 import { toast } from "sonner";
 import { isExistingTable } from "@/utils/database/tableValidation";
-import { BatchCreationConfig } from "./batch-operations/types/batchCreationTypes";
 
 export function useGenericBatches<T extends BaseJob = BaseJob>(
   config: ProductConfig, 
@@ -21,7 +20,6 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   // Use the table name only after validation
   const validTableName = isExistingTable(config.tableName) ? config.tableName : null;
   
-  // Pass batchId to useBatchFetching without filtering by user
   const { batches, isLoading, error, fetchBatches } = useBatchFetching(config, batchId);
   const { batchToDelete, isDeleting, setBatchToDelete, handleDeleteBatch } = 
     useBatchDeletion(validTableName as ExistingTableName, fetchBatches);
@@ -32,16 +30,21 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   // Wrapper function with the same signature as before to maintain compatibility
   const wrappedCreateBatch = async (
     selectedJobs: BaseJob[], 
-    configOptions: BatchCreationConfig
-  ): Promise<BatchCreationResult> => {
+    configOptions: ProductConfig & { 
+      laminationType?: LaminationType,
+      slaTargetDays?: number,
+      paperType?: string,
+      paperWeight?: string
+    }
+  ) => {
     if (selectedJobs.length === 0) {
       toast.error("No jobs selected for batch creation");
-      return { success: false, batchId: null, error: "No jobs selected", jobsUpdated: 0 };
+      return null;
     }
     
     if (!validTableName) {
       toast.error(`Invalid table configuration for ${config.productType}`);
-      return { success: false, batchId: null, error: `Invalid table configuration for ${config.productType}`, jobsUpdated: 0 };
+      return null;
     }
     
     console.log("Creating batch with jobs:", selectedJobs);
@@ -58,7 +61,7 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
       };
     }
     
-    // Call the underlying function with the extracted parameters and return the BatchCreationResult
+    // Call the underlying function with the extracted parameters
     return createBatchWithSelectedJobs(
       selectedJobs, 
       { ...config, ...configOptions },
