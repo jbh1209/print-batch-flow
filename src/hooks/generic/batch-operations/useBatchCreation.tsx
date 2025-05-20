@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -18,6 +17,13 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 interface LinkedJobResult {
   id: string;
   batch_id: string | null;
+}
+
+// Define shape of database item to help with type safety
+interface JobDatabaseItem {
+  id: string | number;
+  batch_id?: string | number | null;
+  [key: string]: any; // Allow other properties
 }
 
 export function useBatchCreation(productType: string, tableName: string) {
@@ -50,7 +56,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       toast.error(`Invalid table name: ${tableName}`);
       return null;
     }
-
+    
     setIsCreatingBatch(true);
     
     try {
@@ -148,21 +154,33 @@ export function useBatchCreation(productType: string, tableName: string) {
         const updatedJobs: LinkedJobResult[] = [];
         
         if (updatedJobsData && Array.isArray(updatedJobsData)) {
-          updatedJobsData.forEach((item) => {
-            // Ensure item is not null and has the expected properties
-            if (item !== null && typeof item === 'object') {
-              // Explicitly check if id exists as a property
-              if ('id' in item && item.id !== undefined) {
-                // Safe to access properties
-                const id = String(item.id);
-                // Use optional chaining for batch_id to handle undefined case
-                const batchId = item.batch_id !== undefined ? String(item.batch_id) : null;
-                
-                updatedJobs.push({
-                  id: id,
-                  batch_id: batchId
-                });
+          // Type guard: First ensure updatedJobsData is an array
+          updatedJobsData.forEach((rawItem) => {
+            // Skip null items entirely
+            if (rawItem === null) {
+              return;
+            }
+            
+            // Since we've verified rawItem is not null, we can now type-assert it
+            // TypeScript now knows rawItem is not null in this scope
+            const item = rawItem as JobDatabaseItem;
+            
+            // Now check for required property existence
+            if ('id' in item && item.id !== undefined) {
+              // Convert id to string (handles both string and number types)
+              const id = String(item.id);
+              
+              // Handle batch_id which might be undefined or null
+              let batchId: string | null = null;
+              if ('batch_id' in item && item.batch_id !== undefined && item.batch_id !== null) {
+                batchId = String(item.batch_id);
               }
+              
+              // Now we can safely push to our result array
+              updatedJobs.push({
+                id: id,
+                batch_id: batchId
+              });
             }
           });
           
