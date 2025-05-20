@@ -26,12 +26,24 @@ export interface BatchProperties {
 
 /**
  * Configuration for creating a batch
+ * Instead of extending ProductConfig, we'll create a new type that includes all required fields
  */
-export interface BatchCreationConfig extends ProductConfig {
+export interface BatchCreationConfig {
+  productType: string;
+  tableName: string;
+  jobNumberPrefix: string;
+  slaTargetDays: number; // Changed from optional to required to match ProductConfig
   laminationType?: LaminationType;
-  slaTargetDays?: number;
   paperType?: string;
   paperWeight?: string;
+  // Include other optional properties from ProductConfig that might be needed
+  availablePaperTypes?: string[];
+  availablePaperWeights?: string[];
+  availableSizes?: string[];
+  availableLaminationTypes?: LaminationType[];
+  hasLamination?: boolean;
+  hasPaperType?: boolean;
+  hasPaperWeight?: boolean;
 }
 
 /**

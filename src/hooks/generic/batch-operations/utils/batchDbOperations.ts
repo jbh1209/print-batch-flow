@@ -33,7 +33,8 @@ export async function updateJobsWithBatchId(
   tableName: ExistingTableName,
   jobIds: string[],
   batchId: string
-): Promise<{ data: any[], error: any }> {
+): Promise<{ data: any[] | null, error: any }> {
+  // Cast explicitly to avoid deep type instantiation
   return await supabase
     .from(tableName)
     .update({
@@ -41,7 +42,7 @@ export async function updateJobsWithBatchId(
       batch_id: batchId
     })
     .in("id", jobIds)
-    .select('id, batch_id');
+    .select('id, batch_id') as Promise<{ data: any[] | null, error: any }>;
 }
 
 /**
