@@ -6,6 +6,7 @@ import { useBatchNavigation } from "./batch-operations/useBatchNavigation";
 import { useBatchCreation, BatchCreationResult } from "./batch-operations/useBatchCreation";
 import { toast } from "sonner";
 import { isExistingTable } from "@/utils/database/tableValidation";
+import { BatchCreationConfig } from "./batch-operations/types/batchCreationTypes";
 
 export function useGenericBatches<T extends BaseJob = BaseJob>(
   config: ProductConfig, 
@@ -31,12 +32,7 @@ export function useGenericBatches<T extends BaseJob = BaseJob>(
   // Wrapper function with the same signature as before to maintain compatibility
   const wrappedCreateBatch = async (
     selectedJobs: BaseJob[], 
-    configOptions: ProductConfig & { 
-      laminationType?: LaminationType,
-      slaTargetDays?: number,
-      paperType?: string,
-      paperWeight?: string
-    }
+    configOptions: BatchCreationConfig
   ): Promise<BatchCreationResult> => {
     if (selectedJobs.length === 0) {
       toast.error("No jobs selected for batch creation");

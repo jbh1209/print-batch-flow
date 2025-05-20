@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Job } from "./JobsTable";
 import { useBatchCreation } from "@/hooks/useBatchCreation";
@@ -8,7 +7,7 @@ import BatchConfirmDialog from "./batch-controls/BatchConfirmDialog";
 import BatchRecommendation from "./batch-controls/BatchRecommendation";
 import { useBatchHelpers } from "./batch-controls/useBatchHelpers";
 import { toast } from "sonner";
-import { BatchCreationResult } from "@/hooks/generic/batch-operations/useBatchCreation";
+import { BatchCreationResult } from "@/hooks/generic/batch-operations/types/batchCreationTypes";
 
 interface BatchControlsProps {
   selectedJobs: Job[];
@@ -62,7 +61,7 @@ const BatchControls = ({
       if (result) {
         setDialogOpen(false);
         
-        // Check if it's the new BatchCreationResult type
+        // Check response type
         if (typeof result === 'object' && 'success' in result) {
           const batchResult = result as BatchCreationResult;
           

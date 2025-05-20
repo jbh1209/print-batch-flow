@@ -8,7 +8,7 @@ import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
 import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';
 import { productConfigs } from '@/config/productTypes';
 import { toast } from 'sonner';
-import { BatchCreationResult } from "@/hooks/generic/batch-operations/useBatchCreation";
+import { BatchCreationResult } from "@/hooks/generic/batch-operations/types/batchCreationTypes";
 
 const PostcardJobsPage = () => {
   const navigate = useNavigate();

@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Job, LaminationType } from "@/components/business-cards/JobsTable";
 import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
-import { BatchCreationResult } from "@/hooks/generic/batch-operations/useBatchCreation";
+import { BatchCreationResult } from "@/hooks/generic/batch-operations/types/batchCreationTypes";
 
 // Standardized product type codes for batch naming
 const PRODUCT_TYPE_CODES = {
