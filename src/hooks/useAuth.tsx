@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserProfile, UserRole } from '@/types/user-types';
@@ -184,8 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Create a single auth value object
-  const value = {
+  return <AuthContext.Provider value={{
     user,
     session,
     profile,
@@ -195,9 +193,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     isLoading: loading,
     signOut,
     checkIsAdmin
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

@@ -31,7 +31,7 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
       setError(null);
       
       try {
-        // Fetch batch details
+        // Fetch batch details - removed any user_id filter to allow viewing any batch
         const { data: batchData, error: batchError } = await supabase
           .from("batches")
           .select("*")

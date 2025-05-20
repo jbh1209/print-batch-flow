@@ -26,7 +26,7 @@ export function useFetchBatchDetails({
   const [error, setError] = useState<string | null>(null);
 
   const fetchBatchDetails = async () => {
-    if (!user || !batchId) return;
+    if (!batchId) return;
     
     setIsLoading(true);
     setError(null);
@@ -34,11 +34,11 @@ export function useFetchBatchDetails({
     try {
       console.log(`Fetching batch details for batch ID: ${batchId}`);
       
+      // Removed the user_id filter to allow any user to view any batch
       const { data, error } = await supabase
         .from("batches")
         .select("*")
         .eq("id", batchId)
-        .eq("created_by", user.id)
         .single();
       
       if (error) {
@@ -50,7 +50,7 @@ export function useFetchBatchDetails({
         console.log("Batch not found");
         toast({
           title: "Batch not found",
-          description: "The requested batch could not be found or you don't have permission to view it.",
+          description: "The requested batch could not be found.",
           variant: "destructive",
         });
         navigate(backUrl);
@@ -111,13 +111,13 @@ export function useFetchBatchDetails({
   };
 
   useEffect(() => {
-    if (batchId && user) {
+    if (batchId) {
       fetchBatchDetails();
-    } else if (!user) {
-      console.log("No authenticated user for batch details");
+    } else {
+      console.log("No batch ID provided for batch details");
       setIsLoading(false);
     }
-  }, [batchId, user]);
+  }, [batchId]);
 
   return {
     batch,

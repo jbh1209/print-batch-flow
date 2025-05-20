@@ -16,7 +16,7 @@ export const updateJobsWithBatchId = async <T extends BaseJob>(
     const jobIds = selectedJobs.map(job => job.id);
     
     // Update all selected jobs in a single operation
-    // Use type assertion to handle the dynamic table name
+    // Use type assertion with 'as const' to handle the dynamic table name
     const { error } = await supabase
       .from(tableName as any)
       .update({
