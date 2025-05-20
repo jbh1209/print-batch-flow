@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -168,16 +169,18 @@ export function useBatchCreation(productType: string, tableName: string) {
             // Skip null/undefined items with type guard
             if (!job) return;
             
-            // Define a local variable with narrowed type to help TypeScript understand
-            const safeJob = job as { id: string; batch_id: string };
-            
-            // Now we can safely check the properties since we know job exists and isn't null
+            // Make sure the job is not an error object before casting
             if (
-                typeof safeJob === 'object' && 
-                'batch_id' in safeJob && 
-                safeJob.batch_id === batch.id
+              typeof job === 'object' && 
+              !('error' in job) && 
+              'id' in job && 
+              'batch_id' in job
             ) {
-              linkedCount++;
+              // Now we can safely check if this job was linked to our batch
+              // TypeScript now knows this object has the required structure
+              if (job.batch_id === batch.id) {
+                linkedCount++;
+              }
             }
           });
           
