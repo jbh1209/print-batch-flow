@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -16,8 +17,15 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
         console.log('Successfully retrieved users with secure RPC function');
         // Map to our expected format
         const userList = await Promise.all(secureUsers.map(async (user) => {
-          const { data: isAdmin } = await supabase
-            .rpc('is_admin_secure', { _user_id: user.id });
+          // Use a direct query approach instead of RPC
+          const { data: adminRoleData } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('role', 'admin')
+            .maybeSingle();
+          
+          const isAdmin = !!adminRoleData;
           
           // Get profile information
           const { data: profile } = await supabase
@@ -86,25 +94,27 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     if ((!profiles || profiles.length === 0) && authUsers.length > 0) {
       console.log('No profiles found but auth users exist, creating minimal records');
       for (const authUser of authUsers) {
-        // Check if the user is an admin
-        const { data: isAdmin, error: adminError } = await supabase
-          .rpc('is_admin_secure', { _user_id: authUser.id });
+        // Check if the user is an admin using direct query
+        const { data: adminRoleData, error: adminError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', authUser.id)
+          .eq('role', 'admin')
+          .maybeSingle();
           
         if (adminError) {
           console.error('Error checking admin status for', authUser.id, ':', adminError);
-          // Fall back to regular is_admin if secure fails
-          const { data: isAdminFallback } = await supabase
-            .rpc('is_admin', { _user_id: authUser.id });
-          
+          // Fall back to basic check
           userList.push({
             id: authUser.id,
             email: authUser.email || 'No email',
             full_name: null,
             avatar_url: null,
-            role: (isAdminFallback ? 'admin' : 'user') as UserRole, // Cast to UserRole
+            role: 'user' as UserRole, // Default to user role
             created_at: null
           });
         } else {
+          const isAdmin = !!adminRoleData;
           userList.push({
             id: authUser.id,
             email: authUser.email || 'No email',
@@ -124,15 +134,16 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     for (const profile of profiles || []) {
       console.log(`Processing profile ${profile.id}`);
       
-      // Check if the user is an admin using our security definer function
-      const { data: isAdmin, error: adminError } = await supabase
-        .rpc('is_admin_secure', { _user_id: profile.id });
+      // Check if the user is an admin using a direct query
+      const { data: adminRoleData, error: adminError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', profile.id)
+        .eq('role', 'admin')
+        .maybeSingle();
         
       if (adminError) {
         console.error('Error checking admin status for', profile.id, ':', adminError);
-        // Fall back to standard is_admin function
-        const { data: isAdminFallback } = await supabase
-          .rpc('is_admin', { _user_id: profile.id });
         
         // Get the email from our map or use a placeholder
         const email = usersMap[profile.id] || 'Email not available';
@@ -142,10 +153,12 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
           email: email,
           full_name: profile.full_name || 'No Name',
           avatar_url: profile.avatar_url,
-          role: (isAdminFallback ? 'admin' : 'user') as UserRole, // Cast to UserRole
+          role: 'user' as UserRole, // Default to user role
           created_at: profile.created_at
         });
       } else {
+        const isAdmin = !!adminRoleData;
+        
         // Get the email from our map or use a placeholder
         const email = usersMap[profile.id] || 'Email not available';
         

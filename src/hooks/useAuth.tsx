@@ -64,8 +64,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       // Try secure function first
       try {
+        // Use is_admin_secure_fixed which is in the allowed list
         const { data: isAdminSecure, error: secureError } = await supabase
-          .rpc('is_admin_secure', { _user_id: userId });
+          .rpc('is_admin_secure_fixed', { _user_id: userId });
         
         if (!secureError) {
           return !!isAdminSecure;
@@ -76,9 +77,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Error in secure admin check:', error);
       }
       
-      // Fall back to standard function
+      // We need to call the functions directly via SQL since the RPC name is not in the type definition
+      // Use a direct query approach that doesn't rely on RPC function name
       const { data, error } = await supabase
-        .rpc('is_admin', { _user_id: userId });
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
       
       if (error) {
         console.error('Error checking admin status:', error);

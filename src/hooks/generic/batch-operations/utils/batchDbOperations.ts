@@ -16,8 +16,9 @@ export const updateJobsWithBatchId = async <T extends BaseJob>(
     const jobIds = selectedJobs.map(job => job.id);
     
     // Update all selected jobs in a single operation
+    // Use type assertion to handle the dynamic table name
     const { error } = await supabase
-      .from(tableName)
+      .from(tableName as any)
       .update({
         status: 'batched' as BatchStatus,
         batch_id: batchId
@@ -62,7 +63,7 @@ export const createBatchRecord = async (
       created_by: config.userId
     };
 
-    // Create the batch record
+    // Create the batch record - use the literal 'batches' table name
     const { data, error } = await supabase
       .from('batches')
       .insert(batchData)
