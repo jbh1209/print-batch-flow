@@ -104,9 +104,9 @@ export function useBatchCreation(productType: string, tableName: string) {
         name: batchName,
         sheets_required: sheetsRequired,
         due_date: earliestDueDate.toISOString(),
-        lamination_type: laminationType, // Now properly typed as LaminationType
+        lamination_type: laminationType,
         paper_type: paperType,
-        status: 'pending' as const, // Use string literal type instead of BatchStatus
+        status: 'pending' as const, 
         created_by: user.id,
         sla_target_days: slaTarget,
         // Add PDF URLs if they were generated successfully
@@ -140,7 +140,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Use a validated table name that we confirmed is an existing table
       const validatedTableName = tableName as ExistingTableName;
       
-      // IMPROVED: Using a BULK update operation instead of individual updates
+      // Using a BULK update operation instead of individual updates
       // This improves reliability and reduces the chance of partial updates
       const { error: updateError, data: updateData } = await supabase
         .from(validatedTableName)
@@ -154,7 +154,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       if (updateError) {
         console.error("Error updating jobs with batch ID:", updateError);
         
-        // IMPROVED: Try to roll back by deleting the batch since jobs update failed
+        // Try to roll back by deleting the batch since jobs update failed
         const { error: deleteError } = await supabase
           .from("batches")
           .delete()
@@ -169,7 +169,7 @@ export function useBatchCreation(productType: string, tableName: string) {
         throw new Error(`Failed to update jobs with batch ID: ${updateError.message}`);
       }
       
-      // IMPROVED: Verify the update results were successful
+      // Verify the update results were successful
       // This provides an explicit count of how many records were updated
       if (!updateData || !Array.isArray(updateData)) {
         console.warn("No update confirmation data returned");
