@@ -142,7 +142,10 @@ export function useBatchCreation(productType: string, tableName: string) {
         if (Array.isArray(updatedJobs)) {
           // Only check for unlinked jobs if updatedJobs is a valid array
           const unlinkedJobs = updatedJobs.filter(job => 
-            job && typeof job === 'object' && 'batch_id' in job && job.batch_id !== batch.id
+            job !== null && 
+            typeof job === 'object' && 
+            'batch_id' in job && 
+            job.batch_id !== batch.id
           );
           if (unlinkedJobs.length > 0) {
             console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
