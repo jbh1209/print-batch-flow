@@ -163,18 +163,17 @@ export function useBatchCreation(productType: string, tableName: string) {
           // Count jobs that were successfully linked to the batch
           let linkedCount = 0;
           
-          // Use type safe iteration without accessing properties directly in the condition
+          // Make a safer loop that doesn't try to access properties until we've verified
+          // the object structure
           updatedJobs.forEach(jobItem => {
-            if (jobItem) {
-              // First ensure job exists before checking properties
-              const job = jobItem;
-              // Then check if it's an object with the needed properties
-              if (typeof job === 'object' && 
-                  job !== null && 
-                  'batch_id' in job && 
-                  job.batch_id === batch.id) {
-                linkedCount++;
-              }
+            // Skip null/undefined items
+            if (!jobItem) return;
+            
+            // Now we can safely check the properties since we know jobItem exists
+            if (typeof jobItem === 'object' && 
+                'batch_id' in jobItem && 
+                jobItem.batch_id === batch.id) {
+              linkedCount++;
             }
           });
           
