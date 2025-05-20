@@ -133,22 +133,23 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       
       // Fixed: Pass only the selected jobs and combined config to the wrapper function
       // The wrapper function in useGenericBatches expects only 2 arguments
-      const batch = await createBatchWithSelectedJobs(
+      const batchResult = await createBatchWithSelectedJobs(
         selectedJobs as BaseJob[], // Cast to BaseJob[] to match the expected type
         batchConfig
       );
       
-      if (batch) {
+      // Fixed: Access batchId property from BatchCreationResult instead of directly accessing id
+      if (batchResult.success && batchResult.batchId) {
         setJobs(prevJobs => 
           prevJobs.map(job => 
             selectedJobs.some(selectedJob => selectedJob.id === job.id)
-              ? { ...job, status: 'batched', batch_id: batch.id } as T
+              ? { ...job, status: 'batched', batch_id: batchResult.batchId } as T
               : job
           )
         );
       }
       
-      return batch;
+      return batchResult;
     } catch (err) {
       console.error('Error creating batch:', err);
       throw err;
