@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
 import { ProductConfig, BatchStatus } from "@/config/productTypes";
@@ -58,8 +58,15 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     );
   }
   
+  console.log("Rendering batch details for:", batch);
+  console.log("Batch PDF URLs:", {
+    front_pdf_url: batch.front_pdf_url,
+    back_pdf_url: batch.back_pdf_url,
+    overview_pdf_url: batch.overview_pdf_url
+  });
+  
   // Convert batch to BatchDetailsType to satisfy the component props
-  // Properly map the PDF URLs, allowing back_pdf_url to serve as overview_pdf_url
+  // Properly map the PDF URLs, ensuring overview_pdf_url is available
   const batchDetailsData: BatchDetailsType = {
     id: batch.id,
     name: batch.name,
@@ -83,6 +90,8 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     job_number: job.job_number || `JOB-${job.id.substring(0, 6)}` // Ensure job_number is always provided
   }));
 
+  console.log("Typed related jobs:", typedRelatedJobs);
+
   return (
     <div>
       <JobsHeader 
@@ -97,7 +106,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
         onDeleteClick={() => setBatchToDelete(batch.id)}
         onRefresh={() => {
           // Implement refresh functionality if needed
-          // Can be used to refresh the batch after status updates
+          window.location.reload();
         }}
       />
 

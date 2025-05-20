@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
 import BatchActionsCard from "./BatchActionsCard";
@@ -26,6 +26,17 @@ const BatchDetailsContent = ({
   onRefresh
 }: BatchDetailsContentProps) => {
   
+  useEffect(() => {
+    // Log the batch and job data when the component mounts to help debug
+    console.log('BatchDetailsContent - Batch data:', batch);
+    console.log('BatchDetailsContent - PDF URLs:', {
+      front: batch.front_pdf_url,
+      back: batch.back_pdf_url,
+      overview: batch.overview_pdf_url
+    });
+    console.log('BatchDetailsContent - Related jobs:', relatedJobs);
+  }, [batch, relatedJobs]);
+  
   const handleDownloadJobPdfs = async () => {
     if (relatedJobs.length === 0) {
       toast.error("No jobs available to download");
@@ -33,6 +44,9 @@ const BatchDetailsContent = ({
     }
     
     try {
+      console.log(`Attempting to download PDFs for ${relatedJobs.length} jobs`);
+      console.log('Job data being passed to downloadBatchJobPdfs:', relatedJobs);
+      
       await downloadBatchJobPdfs(relatedJobs, batch.name);
     } catch (error) {
       console.error("Error downloading job PDFs:", error);
@@ -46,6 +60,7 @@ const BatchDetailsContent = ({
       const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
       
       if (!overviewPdfUrl) {
+        console.error("No overview PDF URL available");
         toast.error("No batch overview sheet available");
         return;
       }

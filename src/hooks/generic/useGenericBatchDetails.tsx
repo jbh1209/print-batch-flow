@@ -62,6 +62,10 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         }
         
         console.log("Batch data received:", batchData);
+        console.log("PDF URLs in batch:", {
+          front_pdf_url: batchData.front_pdf_url,
+          back_pdf_url: batchData.back_pdf_url
+        });
         
         // Convert the batchData to BaseBatch, ensuring all PDF URLs are properly mapped
         const batchWithURLs: BaseBatch = {
