@@ -14,6 +14,7 @@ import {
   createBatchDataObject
 } from "@/utils/batch/batchDataProcessor";
 import { isExistingTable } from "@/utils/database/tableValidation";
+import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -72,6 +73,19 @@ export function useBatchCreation(productType: string, tableName: string) {
         slaTarget
       });
       
+      // Generate and upload batch PDFs
+      console.log("Generating batch PDFs for selected jobs...");
+      let pdfUrls = { overviewUrl: null, impositionUrl: null };
+      
+      try {
+        pdfUrls = await generateAndUploadBatchPDFs(selectedJobs, batchName, user.id);
+        console.log("Generated batch PDFs:", pdfUrls);
+      } catch (pdfError) {
+        console.error("Error generating batch PDFs:", pdfError);
+        toast.error("Could not generate batch PDFs, but will continue with batch creation");
+        // Continue with batch creation even if PDF generation fails
+      }
+      
       // Create batch data object with correct status type
       const batchData = {
         name: batchName,
@@ -81,7 +95,10 @@ export function useBatchCreation(productType: string, tableName: string) {
         paper_type: paperType,
         status: 'pending' as const, // Use string literal type instead of BatchStatus
         created_by: user.id,
-        sla_target_days: slaTarget
+        sla_target_days: slaTarget,
+        // Add PDF URLs if they were generated successfully
+        front_pdf_url: pdfUrls.impositionUrl || null,
+        back_pdf_url: pdfUrls.overviewUrl || null
       };
       
       // Create the batch record

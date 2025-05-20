@@ -52,13 +52,16 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
         
         console.log("Batch data received:", batchData);
         
-        // Convert the batchData to BaseBatch, adding the overview_pdf_url property
-        const batchWithOverview: BaseBatch = {
+        // Convert the batchData to BaseBatch, ensuring all PDF URLs are properly mapped
+        const batchWithURLs: BaseBatch = {
           ...batchData,
-          overview_pdf_url: null // Adding the missing property with null value
+          // Ensure all PDF URL fields are available, even if they're null
+          front_pdf_url: batchData.front_pdf_url || null,
+          back_pdf_url: batchData.back_pdf_url || null,
+          overview_pdf_url: batchData.overview_pdf_url || batchData.back_pdf_url || null
         };
         
-        setBatch(batchWithOverview);
+        setBatch(batchWithURLs);
         
         // Fetch associated jobs if there's a valid table name
         if (config.tableName && isExistingTable(config.tableName)) {

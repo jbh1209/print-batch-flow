@@ -41,19 +41,25 @@ const BatchActionsCard = ({
   };
 
   const handleDownloadBackPdf = async () => {
-    if (!batch.back_pdf_url) {
+    // Use back_pdf_url as primary, fall back to overview_pdf_url for backward compatibility
+    const backPdfUrl = batch.back_pdf_url || batch.overview_pdf_url;
+    
+    if (!backPdfUrl) {
       toast.error("No back PDF available for this batch");
       return;
     }
     
     try {
       toast.loading("Downloading batch back PDF...");
-      await handlePdfAction(batch.back_pdf_url, 'download', `${batch.name}-back.pdf`);
+      await handlePdfAction(backPdfUrl, 'download', `${batch.name}-back.pdf`);
     } catch (error) {
       console.error(`Error downloading back PDF for batch ${batch.id}:`, error);
       toast.error("Error downloading batch back PDF");
     }
   };
+
+  // Check if any PDF URL is available - needed for overview sheet download button state
+  const hasOverviewPdf = !!(batch.overview_pdf_url || batch.back_pdf_url);
 
   return (
     <Card className="md:col-span-1">
@@ -81,7 +87,7 @@ const BatchActionsCard = ({
           </div>
           
           {/* Back PDF Download (if back PDF exists) */}
-          {batch.back_pdf_url && (
+          {(batch.back_pdf_url || batch.overview_pdf_url) && (
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Back PDF</h3>
               <div className="flex gap-2">
@@ -105,7 +111,7 @@ const BatchActionsCard = ({
               variant="default"
               size="sm"
               onClick={onDownloadBatchOverviewSheet}
-              disabled={!batch.overview_pdf_url}
+              disabled={!hasOverviewPdf}
               className="w-full flex items-center justify-center gap-2"
             >
               <Download className="h-4 w-4" />

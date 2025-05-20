@@ -59,6 +59,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
   }
   
   // Convert batch to BatchDetailsType to satisfy the component props
+  // Properly map the PDF URLs, allowing back_pdf_url to serve as overview_pdf_url
   const batchDetailsData: BatchDetailsType = {
     id: batch.id,
     name: batch.name,
@@ -66,7 +67,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     sheets_required: batch.sheets_required,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
-    overview_pdf_url: batch.overview_pdf_url,
+    overview_pdf_url: batch.overview_pdf_url || batch.back_pdf_url,
     due_date: batch.due_date,
     created_at: batch.created_at,
     status: batch.status as BatchStatus
@@ -94,6 +95,10 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
         relatedJobs={typedRelatedJobs}
         productType={config.productType}
         onDeleteClick={() => setBatchToDelete(batch.id)}
+        onRefresh={() => {
+          // Implement refresh functionality if needed
+          // Can be used to refresh the batch after status updates
+        }}
       />
 
       <BatchDeleteDialog 
