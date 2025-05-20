@@ -163,11 +163,18 @@ export function useBatchCreation(productType: string, tableName: string) {
           // Count jobs that were successfully linked to the batch
           let linkedCount = 0;
           
-          // Safely check each job without TypeScript errors
-          updatedJobs.forEach(job => {
-            // Only process job if it's a valid object with expected properties
-            if (job && typeof job === 'object' && job !== null && 'batch_id' in job && job.batch_id === batch.id) {
-              linkedCount++;
+          // Use type safe iteration without accessing properties directly in the condition
+          updatedJobs.forEach(jobItem => {
+            if (jobItem) {
+              // First ensure job exists before checking properties
+              const job = jobItem;
+              // Then check if it's an object with the needed properties
+              if (typeof job === 'object' && 
+                  job !== null && 
+                  'batch_id' in job && 
+                  job.batch_id === batch.id) {
+                linkedCount++;
+              }
             }
           });
           
