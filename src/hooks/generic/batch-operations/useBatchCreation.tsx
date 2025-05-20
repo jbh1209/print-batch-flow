@@ -149,11 +149,13 @@ export function useBatchCreation(productType: string, tableName: string) {
         
         if (updatedJobsData && Array.isArray(updatedJobsData)) {
           updatedJobsData.forEach(item => {
-            // Only add items that match our expected structure
+            // Add additional type guard to ensure item is not null before accessing properties
             if (item && typeof item === 'object' && 'id' in item) {
+              // Now TypeScript knows item is not null inside this block
+              const safeItem = item as {id: string, batch_id?: string | null};
               updatedJobs.push({
-                id: item.id,
-                batch_id: item.batch_id || null
+                id: safeItem.id,
+                batch_id: safeItem.batch_id || null
               });
             }
           });
