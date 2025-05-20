@@ -14,6 +14,12 @@ import {
 } from "@/utils/batch/batchDataProcessor";
 import { isExistingTable } from "@/utils/database/tableValidation";
 
+// Define interface for linked job result
+interface LinkedJobResult {
+  id: string;
+  batch_id: string | null;
+}
+
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const { user } = useAuth();
@@ -130,20 +136,30 @@ export function useBatchCreation(productType: string, tableName: string) {
       }
       
       // Verify jobs were correctly updated with batch ID
-      const { data: updatedJobs, error: verifyError } = await supabase
+      const { data: updatedJobsData, error: verifyError } = await supabase
         .from(validatedTableName as any)
         .select("id, batch_id")
         .in("id", jobIds);
       
       if (verifyError) {
         console.error("Error verifying job updates:", verifyError);
-      } else if (updatedJobs) {
-        // Type guard: only proceed if updatedJobs is an array (not an error)
-        if (Array.isArray(updatedJobs)) {
-          // Single-line filter with type-safe approach
-          const unlinkedJobs = updatedJobs.filter(job => 
-            job !== null && typeof job === 'object' && 'batch_id' in job && job.batch_id !== batch.id
-          );
+      } else {
+        // Safely transform data to typed array with guaranteed non-null objects
+        const updatedJobs: LinkedJobResult[] = [];
+        
+        if (updatedJobsData && Array.isArray(updatedJobsData)) {
+          updatedJobsData.forEach(item => {
+            // Only add items that match our expected structure
+            if (item && typeof item === 'object' && 'id' in item) {
+              updatedJobs.push({
+                id: item.id,
+                batch_id: item.batch_id || null
+              });
+            }
+          });
+          
+          // Now we have a safely typed array with known structure
+          const unlinkedJobs = updatedJobs.filter(job => job.batch_id !== batch.id);
           
           if (unlinkedJobs.length > 0) {
             console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
