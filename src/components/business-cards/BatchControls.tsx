@@ -7,6 +7,7 @@ import BatchButton from "./batch-controls/BatchButton";
 import BatchConfirmDialog from "./batch-controls/BatchConfirmDialog";
 import BatchRecommendation from "./batch-controls/BatchRecommendation";
 import { useBatchHelpers } from "./batch-controls/useBatchHelpers";
+import { toast } from "sonner";
 
 interface BatchControlsProps {
   selectedJobs: Job[];
@@ -54,9 +55,17 @@ const BatchControls = ({
 
   const handleConfirmBatch = async () => {
     // Use the auto-generated batch name - no custom name
-    const success = await createBatch(selectedJobs);
-    if (success) {
+    const result = await createBatch(selectedJobs);
+    
+    if (result) {
       setDialogOpen(false);
+      
+      // If certain jobs were not linked, show a warning but still consider this a success
+      if (result === true) {
+        toast.success(`Batch created successfully`);
+      }
+      
+      // Refresh the jobs list regardless to show the most current state
       onBatchComplete();
     }
   };

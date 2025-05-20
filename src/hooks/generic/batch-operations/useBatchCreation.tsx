@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -16,6 +17,13 @@ import { isExistingTable } from "@/utils/database/tableValidation";
 import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
 import { checkBucketExists } from "@/utils/pdf/urlUtils";
 
+export interface BatchCreationResult {
+  success: boolean;
+  batchId: string | null;
+  error?: string;
+  jobsUpdated: number;
+}
+
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
   const { user } = useAuth();
@@ -25,21 +33,21 @@ export function useBatchCreation(productType: string, tableName: string) {
     config: ProductConfig,
     laminationType: LaminationType = "none",
     slaTargetDays?: number
-  ) => {
+  ): Promise<BatchCreationResult> => {
     if (!user) {
       toast.error("User must be logged in to create batches");
-      return null;
+      return { success: false, batchId: null, error: "Authentication required", jobsUpdated: 0 };
     }
 
     if (selectedJobs.length === 0) {
       toast.error("No jobs selected for batch creation");
-      return null;
+      return { success: false, batchId: null, error: "No jobs selected", jobsUpdated: 0 };
     }
 
     // Validate tableName before proceeding
     if (!validateTableConfig(tableName, productType) || !isExistingTable(tableName)) {
       toast.error(`Invalid table configuration: ${tableName}`);
-      return null;
+      return { success: false, batchId: null, error: `Invalid table configuration: ${tableName}`, jobsUpdated: 0 };
     }
 
     setIsCreatingBatch(true);
@@ -124,7 +132,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       
       console.log("Batch created successfully:", batch);
       
-      // Update all selected jobs to link them to this batch
+      // Extract all job IDs for the batch update
       const jobIds = selectedJobs.map(job => job.id);
       
       console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
@@ -132,76 +140,110 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Use a validated table name that we confirmed is an existing table
       const validatedTableName = tableName as ExistingTableName;
       
-      // Update the jobs with the batch ID
-      const { error: updateError } = await supabase
+      // IMPROVED: Using a BULK update operation instead of individual updates
+      // This improves reliability and reduces the chance of partial updates
+      const { error: updateError, data: updateData } = await supabase
         .from(validatedTableName)
         .update({
           status: "batched",
           batch_id: batch.id
         })
-        .in("id", jobIds);
+        .in("id", jobIds)
+        .select('id, batch_id'); // Explicitly select fields to verify the update
       
       if (updateError) {
         console.error("Error updating jobs with batch ID:", updateError);
-        // Try to delete the batch since jobs update failed
-        await supabase.from("batches").delete().eq("id", batch.id);
-        throw updateError;
-      }
-      
-      // Double check that jobs were updated
-      const { data: updatedJobs, error: checkError } = await supabase
-        .from(validatedTableName)
-        .select("id, batch_id")
-        .in("id", jobIds);
         
-      if (checkError) {
-        console.error("Error checking updated jobs:", checkError);
-      } else {
-        // Fix TypeScript error with proper type guards
-        if (updatedJobs && Array.isArray(updatedJobs)) {
-          // Count jobs that were successfully linked to the batch
-          let linkedCount = 0;
+        // IMPROVED: Try to roll back by deleting the batch since jobs update failed
+        const { error: deleteError } = await supabase
+          .from("batches")
+          .delete()
+          .eq("id", batch.id);
           
-          // Make a safer loop that doesn't try to access properties until we've verified
-          // the object structure
-          updatedJobs.forEach(job => {
-            // Skip null/undefined items
-            if (job === null || job === undefined) return;
-            
-            // Create a type-safe reference to the job with explicit type annotation
-            // to help TypeScript understand it's not null after our check
-            const safeJob: Record<string, any> = job;
-            
-            // Make sure the job has the properties we need before accessing them
-            if (
-              typeof safeJob === 'object' && 
-              safeJob !== null &&  // Explicit check for null
-              !('error' in safeJob) && 
-              'id' in safeJob && 
-              'batch_id' in safeJob
-            ) {
-              // Now we can safely access these properties
-              const jobId = safeJob.id as string;
-              const batchId = safeJob.batch_id as string;
-              
-              if (batchId === batch.id) {
-                linkedCount++;
-              }
-            }
-          });
-          
-          console.log(`Successfully linked ${linkedCount} of ${jobIds.length} jobs to batch ${batch.id}`);
+        if (deleteError) {
+          console.error("Error rolling back batch creation:", deleteError);
         } else {
-          console.warn("No updated jobs returned from query or result is not an array");
+          console.log("Successfully rolled back batch creation after job update failure");
         }
+        
+        throw new Error(`Failed to update jobs with batch ID: ${updateError.message}`);
       }
       
-      toast.success(`Batch created with ${selectedJobs.length} jobs`);
-      return batch;
+      // IMPROVED: Verify the update results were successful
+      // This provides an explicit count of how many records were updated
+      if (!updateData || !Array.isArray(updateData)) {
+        console.warn("No update confirmation data returned");
+        
+        // Perform a verification query to double check the update status
+        const { data: verificationData, error: verificationError } = await supabase
+          .from(validatedTableName)
+          .select('id, batch_id')
+          .eq('batch_id', batch.id);
+          
+        if (verificationError) {
+          console.error("Error verifying batch job updates:", verificationError);
+          throw new Error(`Failed to verify job updates: ${verificationError.message}`);
+        }
+        
+        // Check if verification found any jobs linked to this batch
+        const updatedJobCount = verificationData?.length || 0;
+        console.log(`Verification found ${updatedJobCount} jobs linked to batch ${batch.id}`);
+        
+        if (updatedJobCount === 0) {
+          // No jobs found linked to this batch - attempt rollback
+          console.error("No jobs were linked to the batch - performing rollback");
+          const { error: deleteError } = await supabase
+            .from("batches")
+            .delete()
+            .eq("id", batch.id);
+            
+          if (deleteError) {
+            console.error("Error rolling back batch creation:", deleteError);
+          }
+          
+          throw new Error("Failed to link any jobs to the batch");
+        }
+        
+        // Some jobs were linked - report success but with warning
+        toast.success(`Batch created with ${updatedJobCount} of ${selectedJobs.length} jobs`);
+        return { 
+          success: true, 
+          batchId: batch.id, 
+          jobsUpdated: updatedJobCount,
+          error: updatedJobCount < selectedJobs.length 
+            ? `Only ${updatedJobCount} of ${selectedJobs.length} jobs were linked to the batch` 
+            : undefined
+        };
+      }
+      
+      // Count successfully updated jobs from the update response
+      const linkedCount = updateData.length;
+      console.log(`Successfully linked ${linkedCount} of ${jobIds.length} jobs to batch ${batch.id}`);
+      
+      // Check if all jobs were linked to the batch
+      if (linkedCount < jobIds.length) {
+        toast.warning(`Only ${linkedCount} of ${jobIds.length} jobs were linked to the batch`);
+      } else {
+        toast.success(`Batch created with all ${selectedJobs.length} jobs`);
+      }
+      
+      return { 
+        success: true, 
+        batchId: batch.id, 
+        jobsUpdated: linkedCount,
+        error: linkedCount < selectedJobs.length 
+          ? `Only ${linkedCount} of ${selectedJobs.length} jobs were linked to the batch` 
+          : undefined
+      };
     } catch (error) {
       console.error("Error in batch creation:", error);
       toast.error("Failed to create batch: " + (error instanceof Error ? error.message : "Unknown error"));
-      return null;
+      return { 
+        success: false, 
+        batchId: null, 
+        error: error instanceof Error ? error.message : "Unknown error",
+        jobsUpdated: 0
+      };
     } finally {
       setIsCreatingBatch(false);
     }
