@@ -138,10 +138,15 @@ export function useBatchCreation(productType: string, tableName: string) {
       if (verifyError) {
         console.error("Error verifying job updates:", verifyError);
       } else if (updatedJobs) {
-        // Only check for unlinked jobs if updatedJobs is not null
-        const unlinkedJobs = updatedJobs.filter(job => job.batch_id !== batch.id);
-        if (unlinkedJobs.length > 0) {
-          console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
+        // Type guard: only proceed if updatedJobs is an array (not an error)
+        if (Array.isArray(updatedJobs)) {
+          // Only check for unlinked jobs if updatedJobs is a valid array
+          const unlinkedJobs = updatedJobs.filter(job => 
+            job && typeof job === 'object' && 'batch_id' in job && job.batch_id !== batch.id
+          );
+          if (unlinkedJobs.length > 0) {
+            console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
+          }
         }
       }
       
