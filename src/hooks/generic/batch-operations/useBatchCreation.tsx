@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -165,15 +164,19 @@ export function useBatchCreation(productType: string, tableName: string) {
           
           // Make a safer loop that doesn't try to access properties until we've verified
           // the object structure
-          updatedJobs.forEach(jobItem => {
-            // Skip null/undefined items
-            if (jobItem === null || jobItem === undefined) return;
+          updatedJobs.forEach(job => {
+            // Skip null/undefined items with type guard
+            if (!job) return;
             
-            // Now we can safely check the properties since we know jobItem exists
-            // Use a non-null assertion after our explicit check
-            if (typeof jobItem === 'object' && 
-                'batch_id' in jobItem && 
-                jobItem.batch_id === batch.id) {
+            // Define a local variable with narrowed type to help TypeScript understand
+            const safeJob = job as { id: string; batch_id: string };
+            
+            // Now we can safely check the properties since we know job exists and isn't null
+            if (
+                typeof safeJob === 'object' && 
+                'batch_id' in safeJob && 
+                safeJob.batch_id === batch.id
+            ) {
               linkedCount++;
             }
           });
