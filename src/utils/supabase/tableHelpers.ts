@@ -13,8 +13,9 @@ export async function safeSelectFromTable(tableName: string, columnName: string,
   }
 
   try {
-    // Use direct query approach to avoid deep type instantiation
-    let query = supabase.from(tableName).select(columnName);
+    // Use direct query approach with "any" type casting to avoid deep type instantiation
+    // This completely bypasses TypeScript's type checking for the Supabase client
+    let query = (supabase.from(tableName as any) as any).select(columnName);
     
     // Apply condition if provided with valid field
     if (condition.field) {
@@ -46,9 +47,9 @@ export async function safeUpdateInTable(tableName: string, updates: Record<strin
   }
 
   try {
-    // Perform update directly to avoid type instantiation issues
-    const result = await supabase
-      .from(tableName)
+    // Use "any" type casting to bypass TypeScript's type checking
+    const result = await (supabase
+      .from(tableName as any) as any)
       .update(updates)
       .in(idField, idValues);
     
