@@ -96,6 +96,7 @@ export function useBatchCreation() {
       }
       
       console.log(`Creating batch for product with table: ${tableName}`);
+      console.log(`Selected jobs for batching:`, selectedJobs.map(job => ({ id: job.id, name: job.name })));
       
       // Group jobs by lamination type for consistency
       const laminationType = selectedJobs[0].lamination_type;
@@ -164,7 +165,7 @@ export function useBatchCreation() {
       console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch ID ${batchData.id}`);
       
       // Update all selected jobs to link them to the batch
-      const { error: updateJobsError } = await supabase
+      const { error: updateJobsError, data: updateResponse } = await supabase
         .from(tableName)
         .update({ 
           batch_id: batchData.id,
@@ -174,9 +175,23 @@ export function useBatchCreation() {
       
       if (updateJobsError) {
         console.error("Error updating jobs with batch ID:", updateJobsError);
+        // Provide more detailed error information
+        const errorDetail = updateJobsError.details || updateJobsError.hint || updateJobsError.message;
+        console.error(`Update error details: ${errorDetail}`);
+        
+        // Log each job ID to help with debugging
+        jobIds.forEach(id => {
+          console.log(`Job ID involved in update: ${id}`);
+        });
+        
         // Try to roll back batch creation since job update failed
-        await supabase.from("batches").delete().eq("id", batchData.id);
-        throw new Error(`Failed to update jobs with batch ID: ${updateJobsError.message}`);
+        const { error: deleteError } = await supabase.from("batches").delete().eq("id", batchData.id);
+        if (deleteError) {
+          console.error("Failed to rollback batch creation:", deleteError);
+        }
+        
+        throw new Error(`Failed to update jobs with batch ID: ${updateJobsError.message}. 
+                        This may be due to permission issues with the selected jobs.`);
       }
       
       // Verify jobs were correctly updated with batch ID
@@ -193,8 +208,12 @@ export function useBatchCreation() {
           const unlinkedJobs = updatedJobs.filter(job => 
             job && typeof job === 'object' && 'batch_id' in job && job.batch_id !== batchData.id
           );
+          
           if (unlinkedJobs.length > 0) {
             console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
+            console.log("Unlinked jobs:", unlinkedJobs);
+          } else {
+            console.log(`All ${updatedJobs.length} jobs successfully linked to batch ${batchData.id}`);
           }
         }
       }

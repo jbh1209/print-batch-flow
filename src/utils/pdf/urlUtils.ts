@@ -49,24 +49,33 @@ export const getSignedUrl = async (url: string | null, expiresIn = 3600): Promis
     }
     
     const paths = extractStoragePaths(url);
-    if (!paths) return url;
-    
-    console.log(`Requesting signed URL for bucket: ${paths.bucket}, file: ${paths.filePath}`);
-    
-    const { data, error } = await supabase.storage
-      .from(paths.bucket)
-      .createSignedUrl(paths.filePath, expiresIn, {
-        download: true,
-      });
-      
-    if (error) {
-      console.error('Error getting signed URL:', error);
-      // Return the original URL as fallback if signing fails
+    if (!paths) {
+      console.warn('Could not extract paths from URL, using original URL:', url);
       return url;
     }
     
-    console.log('Signed URL generated successfully');
-    return data.signedUrl;
+    console.log(`Requesting signed URL for bucket: ${paths.bucket}, file: ${paths.filePath}`);
+    
+    try {
+      const { data, error } = await supabase.storage
+        .from(paths.bucket)
+        .createSignedUrl(paths.filePath, expiresIn, {
+          download: true,
+        });
+        
+      if (error) {
+        console.error('Error getting signed URL:', error);
+        console.error('Error details:', error.message);
+        // Return the original URL as fallback if signing fails
+        return url;
+      }
+      
+      console.log('Signed URL generated successfully');
+      return data.signedUrl;
+    } catch (signError) {
+      console.error('Exception in createSignedUrl:', signError);
+      return url;
+    }
   } catch (error) {
     console.error('Error generating signed URL:', error);
     return url;

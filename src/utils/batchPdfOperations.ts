@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Job } from "@/components/business-cards/JobsTable";
 import { BaseJob } from "@/config/productTypes";
@@ -31,26 +30,19 @@ export async function generateAndUploadBatchPDFs(
     console.log("Successfully generated imposition sheet PDF");
     
     // First verify the bucket exists without trying to create it
-    const { data: buckets } = await supabase.storage.listBuckets();
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      console.error("Error listing buckets:", listError);
+      throw new Error(`Cannot access storage buckets: ${listError.message}`);
+    }
+    
     const bucketExists = buckets?.some(bucket => bucket.name === "pdf_files");
     
     if (!bucketExists) {
-      console.log("Bucket 'pdf_files' doesn't exist. Uploads may fail if you don't have permission to create it.");
-      
-      // Try to create it, but continue even if it fails
-      try {
-        await supabase.storage.createBucket("pdf_files", { 
-          public: true,
-          fileSizeLimit: 52428800 // 50MB
-        });
-        console.log("Successfully created bucket 'pdf_files'");
-      } catch (err) {
-        console.warn("Could not create bucket 'pdf_files', but will try to upload anyway:", err);
-        // We'll continue with the upload even if bucket creation fails
-        // The bucket might exist but the user doesn't have permission to create it
-      }
+      console.warn("Bucket 'pdf_files' doesn't exist. Upload may fail if you don't have permission to create it.");
     } else {
-      console.log("Bucket 'pdf_files' already exists, using it");
+      console.log("Bucket 'pdf_files' exists, will use it for uploads");
     }
     
     // Set file paths for uploads with clear naming convention
@@ -92,6 +84,8 @@ export async function generateAndUploadBatchPDFs(
           
         if (overviewError) {
           console.error("Overview upload error:", overviewError);
+          console.error("Error details:", overviewError.message);
+          
           overviewUploadAttempts++;
           if (overviewUploadAttempts >= 3) {
             throw overviewError;
@@ -157,6 +151,8 @@ export async function generateAndUploadBatchPDFs(
           
         if (impositionError) {
           console.error("Imposition upload error:", impositionError);
+          console.error("Error details:", impositionError.message);
+          
           impositionUploadAttempts++;
           if (impositionUploadAttempts >= 3) {
             throw impositionError;
