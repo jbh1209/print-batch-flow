@@ -32,6 +32,9 @@ const BatchDetailsCard = ({ batch, onDeleteClick, onStatusUpdate }: BatchDetails
   // Determine if this is likely a sleeve batch based on the name
   const isSleeveBatch = batch.name && batch.name.startsWith('DXB-SL-');
 
+  // Ensure batch.status is treated as BatchStatus type
+  const batchStatus: BatchStatus = batch.status as BatchStatus;
+
   return (
     <Card className="md:col-span-2">
       <CardHeader>
@@ -90,7 +93,7 @@ const BatchDetailsCard = ({ batch, onDeleteClick, onStatusUpdate }: BatchDetails
       <CardFooter className="flex justify-between">
         <BatchStatusUpdate 
           batchId={batch.id}
-          currentStatus={batch.status as BatchStatus}
+          currentStatus={batchStatus}
           onStatusUpdate={onStatusUpdate || (() => {})}
         />
         {batch.status !== 'completed' && batch.status !== 'sent_to_print' && (

@@ -78,7 +78,11 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     file_name: job.file_name || "",
     lamination_type: job.lamination_type || "none",
     due_date: job.due_date || new Date().toISOString(),
-    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
+    // Add the missing uploaded_at property
+    uploaded_at: job.created_at || new Date().toISOString(),
+    // Make sure all required Job properties are present
+    updated_at: job.updated_at || new Date().toISOString(),
+    user_id: job.user_id || ""
   }));
 
   return (

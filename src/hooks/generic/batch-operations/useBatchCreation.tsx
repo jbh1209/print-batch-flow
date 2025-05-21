@@ -192,7 +192,7 @@ export function useBatchCreation(productType: string, tableName: string) {
           });
           
           // Now we have a safely typed array with known structure
-          const unlinkedJobs = updatedJobs.filter(job => job.batch_id !== batch.id);
+          const unlinkedJobs = updatedJobs.filter(job => job && job.batch_id !== batch.id);
           
           if (unlinkedJobs.length > 0) {
             console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
@@ -201,21 +201,24 @@ export function useBatchCreation(productType: string, tableName: string) {
             // Try to relink each unlinked job individually
             for (const unlinkedJob of unlinkedJobs) {
               try {
-                const { error: retryError } = await supabase
-                  .from(validatedTableName)
-                  .update({
-                    status: "batched",
-                    batch_id: batch.id
-                  })
-                  .eq("id", unlinkedJob.id);
-                
-                if (retryError) {
-                  console.error(`Failed to relink job ${unlinkedJob.id}:`, retryError);
-                } else {
-                  console.log(`Successfully relinked job ${unlinkedJob.id}`);
+                // Fix null check for job
+                if (unlinkedJob && unlinkedJob.id) {
+                  const { error: retryError } = await supabase
+                    .from(validatedTableName)
+                    .update({
+                      status: "batched",
+                      batch_id: batch.id
+                    })
+                    .eq("id", unlinkedJob.id);
+                  
+                  if (retryError) {
+                    console.error(`Failed to relink job ${unlinkedJob.id}:`, retryError);
+                  } else {
+                    console.log(`Successfully relinked job ${unlinkedJob.id}`);
+                  }
                 }
               } catch (retryError) {
-                console.error(`Exception when trying to relink job ${unlinkedJob.id}:`, retryError);
+                console.error(`Exception when trying to relink job:`, retryError);
               }
             }
             
@@ -223,7 +226,7 @@ export function useBatchCreation(productType: string, tableName: string) {
             const { data: finalCheck, error: finalCheckError } = await supabase
               .from(validatedTableName)
               .select("id, batch_id")
-              .in("id", unlinkedJobs.map(job => job.id));
+              .in("id", unlinkedJobs.map(job => job && job.id).filter(Boolean));
               
             if (finalCheckError) {
               console.error("Error performing final check of batch association:", finalCheckError);

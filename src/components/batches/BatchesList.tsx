@@ -4,7 +4,6 @@ import { BatchSummary } from "./types/BatchTypes";
 import BatchCard from "./BatchCard";
 import EmptyState from "../business-cards/EmptyState";
 
-// Use the extended BatchSummary interface from local types
 interface BatchesListProps {
   batches: BatchSummary[];
   getBatchUrl: (batch: BatchSummary) => string;

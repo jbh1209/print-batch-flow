@@ -50,8 +50,19 @@ const AllBatches: React.FC = () => {
     }
   };
 
-  // Cast batches to our local BatchSummary type to ensure compatibility
-  const typedBatches = batches as unknown as BatchSummary[];
+  // Convert batches to our local BatchSummary type with all required fields
+  const typedBatches: BatchSummary[] = batches.map(batch => ({
+    id: batch.id,
+    name: batch.name,
+    status: batch.status,
+    product_type: batch.product_type,
+    due_date: batch.due_date,
+    created_at: batch.created_at,
+    // Add the required fields that might be missing in the fetched data
+    sheets_required: batch.sheets_required || 0,
+    front_pdf_url: batch.front_pdf_url || null,
+    back_pdf_url: batch.back_pdf_url || null
+  }));
 
   // Separate batches into current and completed
   const currentBatches = typedBatches.filter(
@@ -63,7 +74,7 @@ const AllBatches: React.FC = () => {
   );
 
   // Create a wrapper for getBatchUrl that works with our typed BatchSummary
-  const getTypedBatchUrl = (batch: BatchSummary): string => getBatchUrl(batch as any);
+  const getTypedBatchUrl = (batch: BatchSummary): string => getBatchUrl(batch);
 
   return (
     <div className="container mx-auto py-6">

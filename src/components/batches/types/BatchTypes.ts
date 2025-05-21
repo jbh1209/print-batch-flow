@@ -10,10 +10,11 @@ export interface Job {
   status: string;
   pdf_url: string;
   double_sided?: boolean;
-  // Add fields that are required by BaseJob
-  updated_at?: string;
-  user_id?: string;
+  // Add required fields from BaseJob
+  updated_at: string;
+  user_id: string;
   job_number?: string;
+  created_at?: string;
 }
 
 // Define the valid batch status types
@@ -26,10 +27,10 @@ export interface BatchSummary {
   status: string;
   created_at: string;
   due_date: string;
-  // Add missing properties from errors
-  sheets_required?: number;
-  front_pdf_url?: string | null;
-  back_pdf_url?: string | null;
+  // Make these required to match other interfaces
+  sheets_required: number;
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
 }
 
 export interface BatchDetailsType {
