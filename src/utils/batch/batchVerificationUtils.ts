@@ -5,7 +5,8 @@ import {
   JobDatabaseItem, 
   LinkedJobResult, 
   BatchVerificationResult,
-  VerifyBatchLinksParams
+  VerifyBatchLinksParams,
+  SelectQueryError
 } from "@/hooks/generic/batch-operations/types/batchVerificationTypes";
 
 /**
@@ -18,6 +19,18 @@ export function isValidJobItem(item: unknown): item is JobDatabaseItem {
     'id' in item && 
     item.id !== undefined && 
     item.id !== null
+  );
+}
+
+/**
+ * Helper function to check if an item is an error object
+ */
+export function isQueryError(item: unknown): item is SelectQueryError {
+  return (
+    item !== null &&
+    typeof item === 'object' &&
+    'error' in item && 
+    item.error === true
   );
 }
 
@@ -80,12 +93,12 @@ export async function verifyBatchJobLinks({
       result.success = false;
       return result;
     }
-    
-    // Process valid job items
-    // Use map with type guard filter to create a clean array of valid items
+
+    // Process the data and ensure we only work with valid job items
+    // First filter for valid job items, then map to the correct format
     const validJobItems = updatedJobsData
-      .filter(isValidJobItem)
-      .map(convertToLinkedJobResult);
+      .filter((item): item is JobDatabaseItem => isValidJobItem(item))
+      .map((item: JobDatabaseItem) => convertToLinkedJobResult(item));
       
     // Separate linked and unlinked jobs
     result.linkedJobs = validJobItems.filter(job => job.batch_id === batchId);

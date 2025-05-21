@@ -27,6 +27,16 @@ export interface JobVerificationError {
 }
 
 /**
+ * Possible error format returned from Supabase
+ */
+export interface SelectQueryError {
+  error: true;
+  message?: string;
+  details?: string;
+  hint?: string;
+}
+
+/**
  * Result of verifying batch job links
  */
 export interface BatchVerificationResult {
