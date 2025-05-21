@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { getSignedUrl } from '@/utils/pdf/signedUrlHelper';
+import { getSignedUrl } from '@/utils/pdf/urlUtils';
 
 // Set CDN worker URL
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;

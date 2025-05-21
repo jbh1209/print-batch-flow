@@ -1,7 +1,6 @@
-
 import { PDFDocument } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
-import { getSignedUrl } from "./signedUrlHelper";
+import { getSignedUrl } from "./urlUtils";
 
 // Load a PDF document as raw bytes to avoid reference issues entirely
 export async function loadPdfAsBytes(url: string, jobId: string): Promise<{ buffer: ArrayBuffer, pageCount: number } | null> {
