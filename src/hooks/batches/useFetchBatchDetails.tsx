@@ -66,7 +66,8 @@ export function useFetchBatchDetails({
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        overview_pdf_url: data.back_pdf_url,
+        // Fix: Use back_pdf_url as overview_pdf_url for consistency with working batches
+        overview_pdf_url: data.back_pdf_url, 
         due_date: data.due_date,
         created_at: data.created_at,
         status: data.status,

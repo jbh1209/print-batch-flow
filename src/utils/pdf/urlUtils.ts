@@ -9,7 +9,19 @@ export const extractStoragePaths = (url: string) => {
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split('/');
     
-    // Look for "pdf_files" or other bucket name in the path
+    // Format: /storage/v1/object/public/BUCKET_NAME/FILE_PATH
+    const publicIndex = pathParts.indexOf('public');
+    
+    if (publicIndex !== -1 && publicIndex < pathParts.length - 1) {
+      const bucket = pathParts[publicIndex + 1];
+      const filePath = pathParts.slice(publicIndex + 2).join('/');
+      
+      if (bucket && filePath) {
+        return { bucket, filePath };
+      }
+    }
+    
+    // Legacy format - look for "pdf_files" or other bucket name in the path
     const bucketIndex = pathParts.findIndex(part => 
       part === 'pdf_files' || 
       part === 'batches' || 
@@ -45,8 +57,11 @@ export const getSignedUrl = async (url: string | null, expiresIn = 3600): Promis
   try {
     // If it's already a signed URL, return it as is
     if (url.includes('token=')) {
+      console.log('URL is already signed, returning as is');
       return url;
     }
+    
+    console.log(`Processing URL for signing: ${url.substring(0, 50)}...`);
     
     const paths = extractStoragePaths(url);
     if (!paths) {

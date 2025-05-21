@@ -17,11 +17,19 @@ export const handlePdfAction = async (
     return;
   }
 
+  // Setup a timeout to clear the loading toast if the operation takes too long
+  const timeoutId = setTimeout(() => {
+    toast.dismiss();
+    toast.warning("PDF processing is taking longer than expected", {
+      description: "This might be due to a large file or slow connection"
+    });
+  }, 10000); // 10 second timeout
+  
   try {
     console.log(`Attempting to access PDF at: ${url}`);
     
     // Get signed URL if needed
-    const isAlreadySigned = url.includes('/sign/');
+    const isAlreadySigned = url.includes('token=');
     const accessUrl = isAlreadySigned ? url : await getSignedUrl(url);
     
     if (!accessUrl) {
@@ -30,6 +38,9 @@ export const handlePdfAction = async (
 
     console.log(`Access URL generated: ${accessUrl.substring(0, 100)}...`);
     
+    // Clear the timeout as we've successfully generated the URL
+    clearTimeout(timeoutId);
+    
     if (action === 'view') {
       openInNewTab(accessUrl);
     } else {
@@ -37,6 +48,8 @@ export const handlePdfAction = async (
       downloadFile(accessUrl, displayFilename);
     }
   } catch (error) {
+    // Clear the timeout as we've encountered an error
+    clearTimeout(timeoutId);
     handlePdfError(error);
   }
 };
