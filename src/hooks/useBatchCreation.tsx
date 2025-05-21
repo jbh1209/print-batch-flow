@@ -114,12 +114,25 @@ export function useBatchCreation() {
         return jobDate < earliest ? jobDate : earliest;
       }, new Date(selectedJobs[0].due_date));
       
-      // Generate and upload PDFs - now using the separated utility function
-      const { overviewUrl, impositionUrl } = await generateAndUploadBatchPDFs(
-        selectedJobs,
-        name,
-        user.id
-      );
+      let overviewUrl = "";
+      let impositionUrl = "";
+      
+      // Generate and upload PDFs - using the separated utility function with improved error handling
+      try {
+        const pdfUrls = await generateAndUploadBatchPDFs(
+          selectedJobs,
+          name,
+          user.id
+        );
+        overviewUrl = pdfUrls.overviewUrl;
+        impositionUrl = pdfUrls.impositionUrl;
+      } catch (pdfError) {
+        console.error("Error generating/uploading PDFs:", pdfError);
+        sonnerToast.error("PDF generation failed", {
+          description: "Creating batch without PDFs. You can regenerate them later."
+        });
+        // Continue with batch creation even if PDFs fail
+      }
       
       // Insert batch record into database
       const { error: batchError, data: batchData } = await supabase
@@ -130,8 +143,8 @@ export function useBatchCreation() {
           sheets_required: sheetsRequired,
           due_date: earliestDueDate.toISOString(),
           created_by: user.id,
-          front_pdf_url: impositionUrl,
-          back_pdf_url: overviewUrl
+          front_pdf_url: impositionUrl || null,
+          back_pdf_url: overviewUrl || null
         })
         .select()
         .single();

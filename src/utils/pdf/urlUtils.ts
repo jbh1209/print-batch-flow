@@ -43,6 +43,11 @@ export const getSignedUrl = async (url: string | null, expiresIn = 3600): Promis
   if (!url) return null;
   
   try {
+    // If it's already a signed URL, return it as is
+    if (url.includes('token=')) {
+      return url;
+    }
+    
     const paths = extractStoragePaths(url);
     if (!paths) return url;
     
@@ -56,7 +61,8 @@ export const getSignedUrl = async (url: string | null, expiresIn = 3600): Promis
       
     if (error) {
       console.error('Error getting signed URL:', error);
-      throw error;
+      // Return the original URL as fallback if signing fails
+      return url;
     }
     
     console.log('Signed URL generated successfully');

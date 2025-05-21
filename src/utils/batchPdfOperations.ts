@@ -4,6 +4,7 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { BaseJob } from "@/config/productTypes";
 import { generateBatchOverview } from "./batchGeneration";
 import { generateImpositionSheet } from "./batchImposition";
+import { toast } from "sonner";
 
 /**
  * Handles generation and upload of batch PDFs
@@ -29,8 +30,28 @@ export async function generateAndUploadBatchPDFs(
     const impositionSheetPDF = await generateImpositionSheet(selectedJobs, name);
     console.log("Successfully generated imposition sheet PDF");
     
-    // First check for bucket access and create it with public access if needed
-    await ensurePublicBucket("pdf_files");
+    // First verify the bucket exists without trying to create it
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === "pdf_files");
+    
+    if (!bucketExists) {
+      console.log("Bucket 'pdf_files' doesn't exist. Uploads may fail if you don't have permission to create it.");
+      
+      // Try to create it, but continue even if it fails
+      try {
+        await supabase.storage.createBucket("pdf_files", { 
+          public: true,
+          fileSizeLimit: 52428800 // 50MB
+        });
+        console.log("Successfully created bucket 'pdf_files'");
+      } catch (err) {
+        console.warn("Could not create bucket 'pdf_files', but will try to upload anyway:", err);
+        // We'll continue with the upload even if bucket creation fails
+        // The bucket might exist but the user doesn't have permission to create it
+      }
+    } else {
+      console.log("Bucket 'pdf_files' already exists, using it");
+    }
     
     // Set file paths for uploads with clear naming convention
     // Keep userId as the first folder for RLS policy to work
@@ -182,8 +203,8 @@ export async function generateAndUploadBatchPDFs(
   }
 }
 
-// Separate function to ensure bucket exists and is public
-async function ensurePublicBucket(bucketName: string) {
+// Helper function to check if bucket exists and is public without trying to create/update it
+async function ensurePublicBucket(bucketName: string): Promise<boolean> {
   try {
     // First check if bucket exists
     const { data: buckets } = await supabase.storage.listBuckets();
@@ -194,49 +215,67 @@ async function ensurePublicBucket(bucketName: string) {
     }
     
     if (!bucketExists) {
-      console.log(`Bucket '${bucketName}' doesn't exist yet, creating it...`);
+      console.log(`Bucket '${bucketName}' doesn't exist, attempting to create it...`);
       
-      // Create the bucket with public access
-      const { error: createError } = await supabase.storage.createBucket(bucketName, { 
-        public: true,
-        fileSizeLimit: 52428800 // 50MB
-      });
-      
-      if (createError) {
-        console.error(`Failed to create bucket '${bucketName}':`, createError);
-        return false;
+      try {
+        // Try to create the bucket with public access
+        const { error: createError } = await supabase.storage.createBucket(bucketName, { 
+          public: true,
+          fileSizeLimit: 52428800 // 50MB
+        });
+        
+        if (createError) {
+          console.warn(`Could not create bucket '${bucketName}':`, createError);
+          console.log("Will try to upload anyway, in case bucket already exists but user can't create it");
+          return true; // Return true anyway to try the upload
+        }
+        
+        console.log(`Successfully created public bucket '${bucketName}'`);
+        return true;
+      } catch (error) {
+        console.warn(`Error creating bucket '${bucketName}':`, error);
+        console.log("Will try to upload anyway, in case bucket already exists but user can't create it");
+        return true; // Return true anyway to try the upload
       }
-      
-      console.log(`Successfully created public bucket '${bucketName}'`);
-      return true;
     }
     
     console.log(`Bucket '${bucketName}' already exists`);
     
-    // Get bucket details
-    const { data: bucketData, error: getBucketError } = await supabase.storage.getBucket(bucketName);
-    
-    // If bucket exists but isn't public, update it
-    if (bucketData && !bucketData.public) {
-      console.log(`Bucket '${bucketName}' exists but is not public, updating...`);
+    try {
+      // Get bucket details
+      const { data: bucketData, error: getBucketError } = await supabase.storage.getBucket(bucketName);
       
-      const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
-        public: true
-      });
-      
-      if (updateError) {
-        console.error(`Failed to update bucket '${bucketName}' to public:`, updateError);
-        return false;
+      // If bucket exists but isn't public, try to update it
+      if (bucketData && !bucketData.public) {
+        console.log(`Bucket '${bucketName}' exists but is not public, attempting to update...`);
+        
+        try {
+          const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+            public: true
+          });
+          
+          if (updateError) {
+            console.warn(`Failed to update bucket '${bucketName}' to public:`, updateError);
+            console.log("Will try to upload anyway");
+          } else {
+            console.log(`Successfully updated bucket '${bucketName}' to be public`);
+          }
+        } catch (error) {
+          console.warn(`Error updating bucket '${bucketName}':`, error);
+          console.log("Will try to upload anyway");
+        }
+      } else {
+        console.log(`Bucket '${bucketName}' already exists and is public`);
       }
-      
-      console.log(`Successfully updated bucket '${bucketName}' to be public`);
-    } else {
-      console.log(`Bucket '${bucketName}' already exists and is public`);
+    } catch (error) {
+      console.warn(`Error checking bucket '${bucketName}' publicity:`, error);
+      console.log("Will try to upload anyway");
     }
     
-    return true;
+    return true; // Always return true to try the upload
   } catch (error) {
-    console.error(`Error ensuring public bucket '${bucketName}':`, error);
-    return false;
+    console.warn(`Error ensuring public bucket '${bucketName}':`, error);
+    console.log("Will try to upload anyway");
+    return true; // Always return true to try the upload
   }
 }
