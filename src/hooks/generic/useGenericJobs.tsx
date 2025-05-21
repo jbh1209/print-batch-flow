@@ -18,14 +18,8 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { deleteJob, createJob, updateJob, getJobById } = useJobOperations(config.tableName, user?.id);
   const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useBatchFixes(config.tableName, user?.id);
 
-  // Fetch all jobs for this product type
+  // Fetch all jobs for this product type - removed user filtering
   const fetchJobs = async () => {
-    if (!user) {
-      console.log('No authenticated user for jobs fetching');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
@@ -43,8 +37,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       console.log('Fetching jobs from table:', config.tableName);
       
-      // Remove user_id filter to allow seeing all jobs (assuming that's what we want)
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Removed user_id filter to allow seeing all jobs
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
@@ -65,14 +58,10 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchJobs();
-    } else {
-      setIsLoading(false);
-    }
-  }, [user]);
+    fetchJobs();
+  }, []);
 
-  // Handle job deletion with local state update
+  // Handle job deletion with local state update - removed user ID filter
   const handleDeleteJob = async (jobId: string) => {
     const success = await deleteJob(jobId);
     if (success) {
@@ -93,12 +82,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     return newJob;
   };
 
-  // Handle job update with local state update
+  // Handle job update with local state update - removed user ID filter
   const handleUpdateJob = async (jobId: string, jobData: Partial<T>) => {
     if (!user) {
       throw new Error('User not authenticated');
     }
-    const updatedJob = await updateJob<T>(jobId, jobData, user.id);
+    const updatedJob = await updateJob<T>(jobId, jobData);
     setJobs(prevJobs => 
       prevJobs.map(job => job.id === jobId ? { ...job, ...updatedJob } : job)
     );
@@ -133,7 +122,6 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
       };
       
       // Fixed: Pass only the selected jobs and combined config to the wrapper function
-      // The wrapper function in useGenericBatches expects only 2 arguments
       const batch = await createBatchWithSelectedJobs(
         selectedJobs as BaseJob[], // Cast to BaseJob[] to match the expected type
         batchConfig
@@ -158,11 +146,6 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   // Handle batch fixes with state refresh
   const handleFixBatchedJobs = async () => {
-    if (!user) {
-      console.log('No authenticated user for fixing batched jobs');
-      return 0;
-    }
-    
     const fixedCount = await fixBatchedJobsWithoutBatch();
     if (fixedCount) {
       await fetchJobs();

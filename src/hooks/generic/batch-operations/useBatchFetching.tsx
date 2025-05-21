@@ -13,22 +13,13 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
   const [error, setError] = useState<string | null>(null);
 
   const fetchBatches = async () => {
-    if (!user) {
-      console.log('No authenticated user for batch fetching');
-      setIsLoading(false);
-      return;
-    }
-
-    console.log('Fetching batches for user:', user.id, 'product type:', config.productType);
-    
     setIsLoading(true);
     setError(null);
 
     try {
       let query = supabase
         .from('batches')
-        .select('*')
-        .eq('created_by', user.id);
+        .select('*');
       
       // Get product code from the standardized utility function
       const productCode = getProductTypeCode(config.productType);
@@ -59,7 +50,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
       setBatches(genericBatches);
       
       if (batchId && (!data || data.length === 0)) {
-        toast.error("Batch not found or you don't have permission to view it.");
+        toast.error("Batch not found");
       }
     } catch (err) {
       console.error(`Error fetching ${config.productType} batches:`, err);
@@ -70,12 +61,8 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
   };
 
   useEffect(() => {
-    if (user) {
-      fetchBatches();
-    } else {
-      setIsLoading(false);
-    }
-  }, [user, batchId]);
+    fetchBatches();
+  }, [batchId]);
 
   return { batches, isLoading, error, fetchBatches };
 }

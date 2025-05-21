@@ -27,7 +27,7 @@ interface BatchJobsProcessResult {
 }
 
 /**
- * Links selected jobs to a batch and performs verification
+ * Links selected jobs to a batch and performs verification - updated for all-user access
  */
 export async function processBatchJobs({
   jobIds,
@@ -44,7 +44,7 @@ export async function processBatchJobs({
   
   console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batchId}`);
   
-  // Update the jobs with the batch ID
+  // Update the jobs with the batch ID - no user filtering
   const { error: updateError } = await supabase
     .from(tableName)
     .update({

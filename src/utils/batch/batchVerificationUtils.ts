@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { ExistingTableName } from "@/config/productTypes";
 import { 
@@ -30,7 +31,7 @@ export function isQueryError(item: unknown): item is SelectQueryError {
     item !== null &&
     typeof item === 'object' &&
     'error' in item && 
-    item.error === true
+    (item as any).error === true
   );
 }
 
@@ -52,7 +53,7 @@ export function convertToLinkedJobResult(item: JobDatabaseItem): LinkedJobResult
 }
 
 /**
- * Verifies if jobs were linked to a batch properly
+ * Verifies if jobs were linked to a batch properly - simplified for all-user access
  */
 export async function verifyBatchJobLinks({
   jobIds,
@@ -72,7 +73,7 @@ export async function verifyBatchJobLinks({
   }
   
   try {
-    // Query database to verify job updates
+    // Query database to verify job updates - no user filtering
     const { data: updatedJobsData, error: verifyError } = await supabase
       .from(tableName)
       .select("id, batch_id")
@@ -104,7 +105,7 @@ export async function verifyBatchJobLinks({
         console.warn("Query returned an error item:", item);
         result.errors.push({
           jobId: "data",
-          message: item.message || "Unknown data error"
+          message: (item as SelectQueryError)?.details || "Unknown data error"
         });
       }
     });

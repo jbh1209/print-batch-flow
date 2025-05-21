@@ -9,6 +9,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Modified to remove user_id filter - allow any user to delete any job
   const deleteJob = async (jobId: string) => {
     try {
       if (!tableName) {
@@ -19,12 +20,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Removed user_id filter to allow any user to delete any job
       const { error } = await supabase
         .from(tableName as any)
         .delete()
-        .eq('id', jobId)
-        .eq('user_id', userId);
+        .eq('id', jobId);
 
       if (error) throw error;
       
@@ -52,7 +52,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
       
       const newJob = {
         ...jobData,
-        user_id: userId,
+        user_id: userId, // Still associate the creator's ID 
         status: 'queued' as JobStatus
       };
 
@@ -73,10 +73,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
     }
   };
 
+  // Modified to remove user_id filter - allow any user to update any job
   const updateJob = async <T extends BaseJob>(
     jobId: string,
     jobData: Partial<T>,
-    userId: string
+    userId?: string // Made userId optional
   ) => {
     try {
       if (!tableName) {
@@ -87,12 +88,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Removed user_id filter to allow any user to update any job
       const { data, error } = await supabase
         .from(tableName as any)
         .update(jobData)
         .eq('id', jobId)
-        .eq('user_id', userId)
         .select()
         .single();
 
@@ -106,7 +106,8 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
     }
   };
 
-  const getJobById = async <T extends BaseJob>(jobId: string, userId: string) => {
+  // Modified to remove user_id filter - allow any user to get any job
+  const getJobById = async <T extends BaseJob>(jobId: string, userId?: string) => { // Made userId optional
     try {
       if (!tableName) {
         throw new Error(`Invalid table name`);
@@ -116,12 +117,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Use 'as any' to bypass TypeScript's type checking for the table name
+      // Removed user_id filter to allow any user to get any job
       const { data, error } = await supabase
         .from(tableName as any)
         .select('*')
         .eq('id', jobId)
-        .eq('user_id', userId)
         .single();
 
       if (error) throw error;
