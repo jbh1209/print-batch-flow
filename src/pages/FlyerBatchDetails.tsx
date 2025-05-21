@@ -12,6 +12,7 @@ import RelatedJobsCard from '@/components/batches/RelatedJobsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
+import { Job } from '@/components/batches/types/BatchTypes';
 
 const FlyerBatchDetails = () => {
   const { batchId } = useParams(); // Use path parameter instead of query parameter
@@ -66,6 +67,21 @@ const FlyerBatchDetails = () => {
     return <EmptyBatchState />;
   }
 
+  // Convert FlyerJob[] to Job[] to satisfy component props
+  const convertedJobs: Job[] = relatedJobs.map(job => ({
+    id: job.id,
+    name: job.name,
+    file_name: job.file_name || job.name || "",
+    quantity: job.quantity,
+    lamination_type: "none", // Default for flyers
+    due_date: job.due_date,
+    uploaded_at: job.created_at, // Use created_at as uploaded_at
+    status: job.status,
+    pdf_url: job.pdf_url,
+    user_id: job.user_id,
+    updated_at: job.updated_at
+  }));
+
   return (
     <div>
       <BatchDetailsHeader 
@@ -84,7 +100,7 @@ const FlyerBatchDetails = () => {
       {/* Related Jobs Card and Batch Overview */}
       {relatedJobs && relatedJobs.length > 0 && (
         <>
-          <RelatedJobsCard jobs={relatedJobs} />
+          <RelatedJobsCard jobs={convertedJobs} />
           <FlyerBatchOverview 
             jobs={relatedJobs} 
             batchName={batch.name} 

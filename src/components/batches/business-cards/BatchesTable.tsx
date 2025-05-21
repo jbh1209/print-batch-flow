@@ -101,7 +101,7 @@ const BatchesTable = ({
               {batch.status.charAt(0).toUpperCase() + batch.status.slice(1).replace('_', ' ')}
             </span>
           </TableCell>
-          <TableCell>{batch.sheets_required}</TableCell>
+          <TableCell>{batch.sheets_required || 0}</TableCell>
           <TableCell>
             <div className="flex items-center space-x-2">
               {format(new Date(batch.due_date), 'MMM d, yyyy')}

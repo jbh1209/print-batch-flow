@@ -9,7 +9,7 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BatchDetailsType } from "@/components/batches/types/BatchTypes";
+import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -83,6 +83,15 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     status: batch.status as BatchStatus
   };
 
+  // Convert BaseJob[] to Job[] by adding required properties
+  const jobsWithRequiredProps: Job[] = relatedJobs.map(job => ({
+    ...job,
+    file_name: job.file_name || "",
+    lamination_type: job.lamination_type || "none",
+    due_date: job.due_date || new Date().toISOString(),
+    uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString()
+  }));
+
   return (
     <div>
       <JobsHeader 
@@ -92,7 +101,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
       
       <BatchDetailsContent
         batch={batchDetailsData}
-        relatedJobs={relatedJobs}
+        relatedJobs={jobsWithRequiredProps}
         productType={config.productType}
         onDeleteClick={() => setBatchToDelete(batch.id)}
       />

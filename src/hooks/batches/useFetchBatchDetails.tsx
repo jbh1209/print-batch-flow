@@ -83,7 +83,7 @@ export function useFetchBatchDetails({
         console.log(`Fetching business card jobs for batch ID: ${batchId}`);
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
-          .select("id, name, quantity, status, pdf_url")
+          .select("id, name, quantity, status, pdf_url, file_name, lamination_type, due_date, uploaded_at")
           .eq("batch_id", batchId)
           .order("name");
         
@@ -94,7 +94,7 @@ export function useFetchBatchDetails({
         
         if (jobs && jobs.length > 0) {
           console.log(`Found ${jobs.length} jobs for batch ID: ${batchId}`);
-          jobsData = jobs;
+          jobsData = jobs as Job[];
         } else {
           console.warn(`No jobs found for batch ID: ${batchId}`);
         }
@@ -106,7 +106,17 @@ export function useFetchBatchDetails({
           .order("name");
         
         if (jobsError) throw jobsError;
-        jobsData = jobs || [];
+
+        // Add missing properties to flyer jobs to match Job interface
+        if (jobs) {
+          jobsData = jobs.map(job => ({
+            ...job,
+            file_name: job.name || "",
+            lamination_type: "none", // Default for flyers
+            due_date: new Date().toISOString(),
+            uploaded_at: new Date().toISOString()
+          })) as Job[];
+        }
       }
       
       setRelatedJobs(jobsData);

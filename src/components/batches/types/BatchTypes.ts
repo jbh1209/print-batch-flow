@@ -1,3 +1,4 @@
+
 export interface Job {
   id: string;
   name: string;
@@ -9,7 +10,14 @@ export interface Job {
   status: string;
   pdf_url: string;
   double_sided?: boolean;
+  // Add fields that are required by BaseJob
+  updated_at?: string;
+  user_id?: string;
+  job_number?: string;
 }
+
+// Define the valid batch status types
+export type BatchStatus = 'pending' | 'processing' | 'completed' | 'sent_to_print' | 'cancelled';
 
 export interface BatchSummary {
   id: string;
@@ -18,6 +26,10 @@ export interface BatchSummary {
   status: string;
   created_at: string;
   due_date: string;
+  // Add missing properties from errors
+  sheets_required?: number;
+  front_pdf_url?: string | null;
+  back_pdf_url?: string | null;
 }
 
 export interface BatchDetailsType {
@@ -27,7 +39,7 @@ export interface BatchDetailsType {
   sheets_required: number;
   due_date: string;
   created_at: string;
-  status: string;
+  status: BatchStatus; // Using the defined BatchStatus type
   front_pdf_url?: string | null;
   back_pdf_url?: string | null;
   overview_pdf_url?: string | null; // This is derived from back_pdf_url

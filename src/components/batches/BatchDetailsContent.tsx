@@ -63,16 +63,15 @@ const BatchDetailsContent = ({
     }
   };
   
-  // Convert Job[] to BaseJob[] for FlyerBatchOverview
+  // Convert Job[] to BaseJob[] for FlyerBatchOverview with proper type casting
   const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
+    // Explicitly cast to unknown first, then to BaseJob[] to avoid type errors
     return jobs.map(job => ({
       ...job,
-      job_number: job.name, // Use name as job_number
-      due_date: new Date().toISOString(), // Default due_date
-      file_name: job.name, // Use name as file_name
-      user_id: "", // Default user_id
-      created_at: new Date().toISOString(), // Default created_at
-    })) as BaseJob[];
+      job_number: job.job_number || job.name, // Use job_number if available, otherwise use name
+      updated_at: job.updated_at || new Date().toISOString(), // Add required fields from BaseJob
+      user_id: job.user_id || ""
+    })) as unknown as BaseJob[];
   };
   
   return (

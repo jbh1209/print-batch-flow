@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import JobStatusBadge from "@/components/JobStatusBadge";
-import { BatchDetailsType } from "./types/BatchTypes";
+import { BatchDetailsType, BatchStatus } from "./types/BatchTypes";
 import BatchStatusUpdate from "./BatchStatusUpdate";
 
 interface BatchDetailsCardProps {
@@ -90,7 +90,7 @@ const BatchDetailsCard = ({ batch, onDeleteClick, onStatusUpdate }: BatchDetails
       <CardFooter className="flex justify-between">
         <BatchStatusUpdate 
           batchId={batch.id}
-          currentStatus={batch.status}
+          currentStatus={batch.status as BatchStatus}
           onStatusUpdate={onStatusUpdate || (() => {})}
         />
         {batch.status !== 'completed' && batch.status !== 'sent_to_print' && (

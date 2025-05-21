@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle } from "lucide-react";
 import AllBatchesHeader from '@/components/batches/AllBatchesHeader';
 import AllBatchesTabs from '@/components/batches/AllBatchesTabs';
+import { BatchSummary } from '@/components/batches/types/BatchTypes';
 
 const AllBatches: React.FC = () => {
   const { batches, isLoading, error, fetchBatches, getBatchUrl } = useBatchesList();
@@ -49,14 +50,20 @@ const AllBatches: React.FC = () => {
     }
   };
 
+  // Cast batches to our local BatchSummary type to ensure compatibility
+  const typedBatches = batches as unknown as BatchSummary[];
+
   // Separate batches into current and completed
-  const currentBatches = batches.filter(
+  const currentBatches = typedBatches.filter(
     batch => !['completed', 'sent_to_print'].includes(batch.status)
   );
   
-  const completedBatches = batches.filter(
+  const completedBatches = typedBatches.filter(
     batch => ['completed', 'sent_to_print'].includes(batch.status)
   );
+
+  // Create a wrapper for getBatchUrl that works with our typed BatchSummary
+  const getTypedBatchUrl = (batch: BatchSummary): string => getBatchUrl(batch as any);
 
   return (
     <div className="container mx-auto py-6">
@@ -68,7 +75,7 @@ const AllBatches: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         getBadgeVariant={getBadgeVariant}
-        getBatchUrl={getBatchUrl}
+        getBatchUrl={getTypedBatchUrl}
         handleBatchClick={handleBatchClick}
       />
     </div>

@@ -13,6 +13,9 @@ export type ExistingTableName =
   | "sticker_jobs"
   | "batches";
 
+// Alias for ExistingTableName to match names in the code that need fixing
+export type ValidTableName = ExistingTableName;
+
 /**
  * Check if a table name exists in our database schema
  * @param tableName The table name to check
