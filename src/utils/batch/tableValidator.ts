@@ -1,5 +1,5 @@
 
-import { isExistingTable } from "@/utils/database/tableValidation";
+import { isExistingTable } from "@/utils/database/tableUtils";
 import { toast } from "sonner";
 import { ProductConfig } from "@/config/productTypes";
 

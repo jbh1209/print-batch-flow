@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -11,7 +12,7 @@ import {
   extractCommonJobProperties,
   createBatchDataObject
 } from "@/utils/batch/batchDataProcessor";
-import { isExistingTable } from "@/utils/database/tableValidation";
+import { isExistingTable } from "@/utils/database/tableUtils";
 
 // Define interface for linked job result
 interface LinkedJobResult {
@@ -204,7 +205,7 @@ export function useBatchCreation(productType: string, tableName: string) {
             for (const unlinkedJob of unlinkedJobs) {
               try {
                 // Fix null check for job and add type guard
-                if (unlinkedJob && unlinkedJob.id) {
+                if (unlinkedJob && typeof unlinkedJob === 'object' && unlinkedJob.id) {
                   const { error: retryError } = await supabase
                     .from(validatedTableName)
                     .update({
