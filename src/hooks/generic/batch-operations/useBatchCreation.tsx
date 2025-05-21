@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -265,10 +266,21 @@ export function useBatchCreation(productType: string, tableName: string) {
                       if ('id' in item && item.id !== null && 
                           'batch_id' in item) {
                         // Now we're safe to access the properties and create our safe item
-                        safeItems.push({
-                          id: String(item.id),
-                          batch_id: item.batch_id ? String(item.batch_id) : null
-                        });
+                        const id = item.id !== null ? String(item.id) : "";
+                        let batchId: string | null = null;
+                        
+                        // Extra safety check for batch_id property
+                        if (item.batch_id !== undefined && item.batch_id !== null) {
+                          batchId = String(item.batch_id);
+                        }
+                        
+                        // Only add valid items with non-empty IDs
+                        if (id !== "") {
+                          safeItems.push({
+                            id: id,
+                            batch_id: batchId
+                          });
+                        }
                       }
                     }
                   }
