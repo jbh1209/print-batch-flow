@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -246,7 +245,7 @@ export function useBatchCreation(productType: string, tableName: string) {
               if (finalCheckError) {
                 console.error("Error performing final check of batch association:", finalCheckError);
               } else if (finalCheck) {
-                // Fix: Use a stronger type guard approach
+                // Fix: Use a stronger type guard approach with definitive null checks
                 let stillUnlinked = 0;
                 
                 if (Array.isArray(finalCheck)) {
@@ -255,8 +254,17 @@ export function useBatchCreation(productType: string, tableName: string) {
                   
                   // First filter for valid items and transform to a known structure
                   for (const item of finalCheck) {
-                    if (item && typeof item === 'object' && !('error' in item)) {
-                      if ('id' in item && 'batch_id' in item) {
+                    // Guard against null first
+                    if (item === null || item === undefined) {
+                      continue;
+                    }
+                    
+                    // Now that we know item is not null, check its structure
+                    if (typeof item === 'object' && !('error' in item)) {
+                      // Check for necessary properties before accessing them
+                      if ('id' in item && item.id !== null && 
+                          'batch_id' in item) {
+                        // Now we're safe to access the properties and create our safe item
                         safeItems.push({
                           id: String(item.id),
                           batch_id: item.batch_id ? String(item.batch_id) : null
