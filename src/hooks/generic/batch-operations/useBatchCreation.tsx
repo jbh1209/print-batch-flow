@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -224,12 +225,18 @@ export function useBatchCreation(productType: string, tableName: string) {
               }
             }
             
-            // Fix: This is one of the errors - we need to filter out null job objects before accessing properties
-            // and make sure we only include valid IDs in our array
+            // Fix: Filter our null jobs and ensure we never work with null values
+            // This is the section causing the TypeScript errors (lines 250-251)
             const jobIds = unlinkedJobs
-              .filter(job => job !== null && job !== undefined)
-              .map(job => job.id)
-              .filter(Boolean); // Remove any undefined or null IDs
+              .filter((job): job is LinkedJobResult => {
+                // Type guard function that ensures job is a valid LinkedJobResult
+                return job !== null && 
+                       job !== undefined && 
+                       typeof job === 'object' && 
+                       'id' in job && 
+                       typeof job.id === 'string';
+              })
+              .map(job => job.id); // Now TypeScript knows job.id exists and is a string
               
             if (jobIds.length > 0) {
               const { data: finalCheck, error: finalCheckError } = await supabase
@@ -240,16 +247,17 @@ export function useBatchCreation(productType: string, tableName: string) {
               if (finalCheckError) {
                 console.error("Error performing final check of batch association:", finalCheckError);
               } else if (finalCheck) {
-                // Fix: Strengthen the null check to satisfy TypeScript
+                // Fix: Strengthen the null check with proper type guard
                 const stillUnlinked = Array.isArray(finalCheck) ? 
-                  finalCheck.filter(job => {
+                  finalCheck.filter((job): job is (JobDatabaseItem & { batch_id: string | null }) => {
                     // Explicit type guard to ensure job is not null and has the required property
                     return job !== null && 
                            typeof job === 'object' && 
                            job !== undefined &&
                            'batch_id' in job && // Check that batch_id property exists
-                           job.batch_id !== batch.id;
-                  }).length : 0;
+                           'id' in job; // Also ensure id exists
+                  })
+                  .filter(job => job.batch_id !== batch.id).length : 0;
                 
                 if (stillUnlinked > 0) {
                   toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
