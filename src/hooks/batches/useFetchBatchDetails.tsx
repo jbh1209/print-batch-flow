@@ -58,6 +58,7 @@ export function useFetchBatchDetails({
       }
       
       console.log("Batch details received:", data?.id);
+      console.log("Full batch data:", data);
       
       const batchData: BatchDetailsType = {
         id: data.id,
@@ -66,8 +67,7 @@ export function useFetchBatchDetails({
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        // Fix: Use back_pdf_url as overview_pdf_url for consistency with working batches
-        overview_pdf_url: data.back_pdf_url, 
+        overview_pdf_url: data.overview_pdf_url || data.back_pdf_url, // Use explicit overview_pdf_url or fall back to back_pdf_url
         due_date: data.due_date,
         created_at: data.created_at,
         status: data.status,
@@ -78,14 +78,24 @@ export function useFetchBatchDetails({
       let jobsData: Job[] = [];
       
       if (productType === "Business Cards") {
+        console.log(`Fetching business card jobs for batch ID: ${batchId}`);
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
           .select("id, name, quantity, status, pdf_url")
           .eq("batch_id", batchId)
           .order("name");
         
-        if (jobsError) throw jobsError;
-        jobsData = jobs || [];
+        if (jobsError) {
+          console.error("Error fetching jobs:", jobsError);
+          throw jobsError;
+        }
+        
+        if (jobs && jobs.length > 0) {
+          console.log(`Found ${jobs.length} jobs for batch ID: ${batchId}`);
+          jobsData = jobs;
+        } else {
+          console.warn(`No jobs found for batch ID: ${batchId}`);
+        }
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")

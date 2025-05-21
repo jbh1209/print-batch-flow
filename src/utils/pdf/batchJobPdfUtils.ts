@@ -10,7 +10,9 @@ import { Job } from "@/components/batches/types/BatchTypes";
  */
 export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Promise<void> => {
   if (jobs.length === 0) {
-    toast.error("No jobs available to download");
+    toast.error("No jobs available to download", {
+      description: "This batch doesn't have any linked jobs"
+    });
     return;
   }
 
@@ -28,6 +30,7 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
     // Track the number of jobs with PDFs
     let jobsWithPdfs = 0;
     let jobsWithoutPdfs = 0;
+    let failedJobs = 0;
     
     // Process jobs in chunks to avoid potential memory issues with large batches
     const chunkSize = 5;
@@ -63,14 +66,54 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
             return;
           }
           
-          // Download PDF data
-          const response = await fetch(url);
+          // Download PDF data with timeout and retry logic
+          const maxRetries = 2;
+          let retryCount = 0;
+          let pdfData: Blob | null = null;
           
-          if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+          while (retryCount <= maxRetries && !pdfData) {
+            try {
+              // Set up fetch with timeout
+              const controller = new AbortController();
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Download timed out")), 15000)
+              );
+              
+              const fetchPromise = fetch(url, { signal: controller.signal });
+              
+              // Race fetch against timeout
+              const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+              
+              if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+              }
+              
+              pdfData = await response.blob();
+              
+              if (pdfData.size === 0) {
+                throw new Error("Downloaded PDF is empty");
+              }
+              
+              // If we got here, we have valid PDF data
+              break;
+            } catch (downloadError) {
+              console.error(`Error downloading PDF for job ${job.name} (attempt ${retryCount + 1}):`, downloadError);
+              retryCount++;
+              
+              // If we've exhausted retries, mark this job as failed
+              if (retryCount > maxRetries) {
+                failedJobs++;
+                return;
+              }
+              
+              // Wait before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
           }
           
-          const pdfData = await response.blob();
+          if (!pdfData) {
+            throw new Error("Failed to download PDF after retries");
+          }
           
           // Sanitize filename to remove invalid characters
           const safeName = job.name.replace(/[/\\?%*:|"<>]/g, '-');
@@ -80,7 +123,7 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
           jobsWithPdfs++;
         } catch (error) {
           console.error(`Error processing PDF for job ${job.name}:`, error);
-          jobsWithoutPdfs++;
+          failedJobs++;
         }
       }));
     }
@@ -89,7 +132,10 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
     clearTimeout(timeoutId);
     
     if (jobsWithPdfs === 0) {
-      toast.error("No PDFs could be downloaded", { id: toastId });
+      toast.error("No PDFs could be downloaded", { 
+        id: toastId,
+        description: "None of the jobs had accessible PDF files"
+      });
       return;
     }
     
@@ -101,8 +147,8 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
     saveAs(zipBlob, `${batchName}-job-pdfs.zip`);
     
     // Show summary toast
-    const message = jobsWithoutPdfs > 0 
-      ? `Downloaded ${jobsWithPdfs} PDFs. ${jobsWithoutPdfs} jobs had no PDFs available.`
+    const message = jobsWithoutPdfs > 0 || failedJobs > 0
+      ? `Downloaded ${jobsWithPdfs} PDFs. ${jobsWithoutPdfs} jobs had no PDFs available. ${failedJobs} downloads failed.`
       : `Successfully downloaded all ${jobsWithPdfs} PDFs.`;
     
     toast.success("Download complete", { 

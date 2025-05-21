@@ -127,6 +127,7 @@ export function useBatchCreation() {
         );
         overviewUrl = pdfUrls.overviewUrl;
         impositionUrl = pdfUrls.impositionUrl;
+        console.log("Successfully generated PDFs with URLs:", { overviewUrl, impositionUrl });
       } catch (pdfError) {
         console.error("Error generating/uploading PDFs:", pdfError);
         sonnerToast.error("PDF generation failed", {
@@ -145,7 +146,9 @@ export function useBatchCreation() {
           due_date: earliestDueDate.toISOString(),
           created_by: user.id,
           front_pdf_url: impositionUrl || null,
-          back_pdf_url: overviewUrl || null
+          back_pdf_url: overviewUrl || null,
+          // Important: Set overview_pdf_url to match the back_pdf_url for consistency
+          overview_pdf_url: overviewUrl || null
         })
         .select()
         .single();
@@ -212,6 +215,25 @@ export function useBatchCreation() {
           if (unlinkedJobs.length > 0) {
             console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
             console.log("Unlinked jobs:", unlinkedJobs);
+            
+            // Retry linking jobs one more time
+            for (const unlinkedJob of unlinkedJobs) {
+              if (unlinkedJob && unlinkedJob.id) {
+                const { error: retryError } = await supabase
+                  .from(tableName)
+                  .update({ 
+                    batch_id: batchData.id,
+                    status: "batched"
+                  })
+                  .eq("id", unlinkedJob.id);
+                
+                if (retryError) {
+                  console.error(`Failed to relink job ${unlinkedJob.id}:`, retryError);
+                } else {
+                  console.log(`Successfully relinked job ${unlinkedJob.id}`);
+                }
+              }
+            }
           } else {
             console.log(`All ${updatedJobs.length} jobs successfully linked to batch ${batchData.id}`);
           }

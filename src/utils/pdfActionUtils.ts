@@ -17,9 +17,12 @@ export const handlePdfAction = async (
     return;
   }
 
+  // Show a loading toast that we'll dismiss later
+  const toastId = toast.loading(`${action === 'view' ? 'Opening' : 'Downloading'} PDF...`);
+
   // Setup a timeout to clear the loading toast if the operation takes too long
   const timeoutId = setTimeout(() => {
-    toast.dismiss();
+    toast.dismiss(toastId);
     toast.warning("PDF processing is taking longer than expected", {
       description: "This might be due to a large file or slow connection"
     });
@@ -40,16 +43,20 @@ export const handlePdfAction = async (
     
     // Clear the timeout as we've successfully generated the URL
     clearTimeout(timeoutId);
+    toast.dismiss(toastId);
     
     if (action === 'view') {
       openInNewTab(accessUrl);
+      toast.success("PDF opened in a new tab");
     } else {
       const displayFilename = filename || url.split('/').pop() || 'document.pdf';
       downloadFile(accessUrl, displayFilename);
+      toast.success(`PDF downloaded as ${displayFilename}`);
     }
   } catch (error) {
     // Clear the timeout as we've encountered an error
     clearTimeout(timeoutId);
+    toast.dismiss(toastId);
     handlePdfError(error);
   }
 };

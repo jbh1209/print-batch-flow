@@ -6,10 +6,20 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export const extractStoragePaths = (url: string) => {
   try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
+    // Clean URL - sometimes URLs can have extra spaces or new lines
+    const cleanUrl = url.trim();
+    
+    // Early return if URL is empty or obviously invalid
+    if (!cleanUrl || !cleanUrl.includes('/')) {
+      console.error('Invalid URL provided:', url);
+      return null;
+    }
+    
+    const urlObj = new URL(cleanUrl);
+    const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
     
     // Format: /storage/v1/object/public/BUCKET_NAME/FILE_PATH
+    // Look for 'public' or 'object/public' in the path
     const publicIndex = pathParts.indexOf('public');
     
     if (publicIndex !== -1 && publicIndex < pathParts.length - 1) {
@@ -17,6 +27,7 @@ export const extractStoragePaths = (url: string) => {
       const filePath = pathParts.slice(publicIndex + 2).join('/');
       
       if (bucket && filePath) {
+        console.log(`Extracted bucket: ${bucket}, filePath: ${filePath}`);
         return { bucket, filePath };
       }
     }
@@ -29,7 +40,7 @@ export const extractStoragePaths = (url: string) => {
     );
     
     if (bucketIndex === -1) {
-      console.error('Could not identify bucket in URL:', url);
+      console.error('Could not identify bucket in URL:', cleanUrl);
       return null;
     }
     
@@ -37,10 +48,11 @@ export const extractStoragePaths = (url: string) => {
     const filePath = pathParts.slice(bucketIndex + 1).join('/');
     
     if (!filePath) {
-      console.error('Could not extract file path from URL:', url);
+      console.error('Could not extract file path from URL:', cleanUrl);
       return null;
     }
     
+    console.log(`Extracted bucket: ${bucket}, filePath: ${filePath}`);
     return { bucket, filePath };
   } catch (error) {
     console.error('Error extracting paths from URL:', error);
@@ -81,6 +93,29 @@ export const getSignedUrl = async (url: string | null, expiresIn = 3600): Promis
       if (error) {
         console.error('Error getting signed URL:', error);
         console.error('Error details:', error.message);
+        
+        // If we get a "not found" error, it's possible that the file might be in another bucket
+        if (error.message.includes('not found')) {
+          // Try with another common bucket name as fallback
+          const alternateBucket = paths.bucket === 'pdf_files' ? 'batches' : 'pdf_files';
+          console.log(`Trying alternate bucket: ${alternateBucket}`);
+          
+          const { data: altData, error: altError } = await supabase.storage
+            .from(alternateBucket)
+            .createSignedUrl(paths.filePath, expiresIn, {
+              download: true,
+            });
+            
+          if (altError) {
+            console.error(`Error with alternate bucket ${alternateBucket}:`, altError);
+            // Return the original URL as fallback if signing fails
+            return url;
+          }
+          
+          console.log('Signed URL generated successfully from alternate bucket');
+          return altData.signedUrl;
+        }
+        
         // Return the original URL as fallback if signing fails
         return url;
       }

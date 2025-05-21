@@ -1,3 +1,4 @@
+
 import React from "react";
 import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
@@ -27,7 +28,9 @@ const BatchDetailsContent = ({
   
   const handleDownloadJobPdfs = async () => {
     if (relatedJobs.length === 0) {
-      toast.error("No jobs available to download");
+      toast.error("No jobs available to download", {
+        description: "This batch doesn't have any linked jobs yet"
+      });
       return;
     }
     
@@ -42,10 +45,12 @@ const BatchDetailsContent = ({
   const handleDownloadBatchOverviewSheet = async () => {
     try {
       // Check if batch overview PDF URL exists
-      const overviewPdfUrl = batch.overview_pdf_url;
+      const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
       
       if (!overviewPdfUrl) {
-        toast.error("No batch overview sheet available");
+        toast.error("No batch overview sheet available", {
+          description: "This batch doesn't have an overview PDF generated"
+        });
         return;
       }
 
@@ -86,7 +91,7 @@ const BatchDetailsContent = ({
       </div>
 
       {/* Show Related Jobs for all product types */}
-      {relatedJobs.length > 0 && (
+      {relatedJobs.length > 0 ? (
         <>
           <RelatedJobsCard jobs={relatedJobs} />
           <FlyerBatchOverview 
@@ -94,6 +99,14 @@ const BatchDetailsContent = ({
             batchName={batch.name}
           />
         </>
+      ) : (
+        <div className="mt-6 p-8 bg-gray-50 border border-gray-200 rounded-lg text-center">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Jobs Found</h3>
+          <p className="text-gray-500">
+            This batch doesn't have any jobs linked to it yet. 
+            There might have been an issue during batch creation.
+          </p>
+        </div>
       )}
     </>
   );
