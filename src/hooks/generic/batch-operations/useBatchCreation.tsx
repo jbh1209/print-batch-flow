@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -193,7 +194,7 @@ export function useBatchCreation(productType: string, tableName: string) {
           // Now we have a safely typed array with known structure
           const unlinkedJobs = updatedJobs.filter(job => {
             // Make sure job exists and has proper batch_id before comparison
-            return job && typeof job === 'object' && job.batch_id !== batch.id;
+            return job && job.batch_id !== batch.id;
           });
           
           if (unlinkedJobs.length > 0) {
@@ -202,9 +203,9 @@ export function useBatchCreation(productType: string, tableName: string) {
             
             // Try to relink each unlinked job individually
             for (const unlinkedJob of unlinkedJobs) {
-              try {
-                // Fix null check for job and add type guard
-                if (unlinkedJob && typeof unlinkedJob === 'object' && 'id' in unlinkedJob && unlinkedJob.id) {
+              // Fix: Only try to relink if unlinkedJob is defined and has an id
+              if (unlinkedJob && typeof unlinkedJob === 'object' && 'id' in unlinkedJob && unlinkedJob.id) {
+                try {
                   const { error: retryError } = await supabase
                     .from(validatedTableName)
                     .update({
@@ -218,17 +219,18 @@ export function useBatchCreation(productType: string, tableName: string) {
                   } else {
                     console.log(`Successfully relinked job ${unlinkedJob.id}`);
                   }
+                } catch (retryError) {
+                  console.error(`Exception when trying to relink job:`, retryError);
                 }
-              } catch (retryError) {
-                console.error(`Exception when trying to relink job:`, retryError);
               }
             }
             
-            // Fix the map call to handle null jobs
+            // Fix: This is one of the errors - we need to filter out null job objects before accessing properties
+            // and make sure we only include valid IDs in our array
             const jobIds = unlinkedJobs
-              .filter(job => job !== null && job !== undefined && typeof job === 'object' && 'id' in job)
+              .filter(job => job !== null && job !== undefined)
               .map(job => job.id)
-              .filter(Boolean);
+              .filter(Boolean); // Remove any undefined or null IDs
               
             if (jobIds.length > 0) {
               const { data: finalCheck, error: finalCheckError } = await supabase
@@ -239,10 +241,13 @@ export function useBatchCreation(productType: string, tableName: string) {
               if (finalCheckError) {
                 console.error("Error performing final check of batch association:", finalCheckError);
               } else if (finalCheck) {
-                const stillUnlinked = finalCheck.filter(job => 
-                  job && typeof job === 'object' && 
-                  'batch_id' in job && job.batch_id !== batch.id
-                ).length;
+                // Fix: Properly guard against null - the exact issue causing the error
+                const stillUnlinked = Array.isArray(finalCheck) ? 
+                  finalCheck.filter(job => 
+                    job !== null && 
+                    typeof job === 'object' && 
+                    job.batch_id !== batch.id
+                  ).length : 0;
                 
                 if (stillUnlinked > 0) {
                   toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
