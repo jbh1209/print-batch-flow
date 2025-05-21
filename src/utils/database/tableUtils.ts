@@ -1,7 +1,8 @@
 
 import { TableName, ExistingTableName } from "@/config/productTypes";
 
-export const isExistingTable = (tableName: TableName): tableName is ExistingTableName => {
+// Make the function signature match the one in tableValidation.ts
+export const isExistingTable = (tableName: TableName): boolean => {
   const existingTables: ExistingTableName[] = [
     "flyer_jobs",
     "postcard_jobs", 

@@ -15,7 +15,8 @@ export type ValidTableName =
   | "profiles"
   | "user_roles";
 
-export const isExistingTable = async (tableName: string): Promise<boolean> => {
+// Changed function to return boolean directly instead of Promise<boolean>
+export const isExistingTable = (tableName: string): boolean => {
   try {
     // Use a hardcoded list of known tables instead of querying pg_tables
     const validTables: ValidTableName[] = [

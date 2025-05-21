@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -205,7 +204,7 @@ export function useBatchCreation(productType: string, tableName: string) {
             for (const unlinkedJob of unlinkedJobs) {
               try {
                 // Fix null check for job and add type guard
-                if (unlinkedJob && typeof unlinkedJob === 'object' && unlinkedJob.id) {
+                if (unlinkedJob && typeof unlinkedJob === 'object' && 'id' in unlinkedJob && unlinkedJob.id) {
                   const { error: retryError } = await supabase
                     .from(validatedTableName)
                     .update({
@@ -226,27 +225,30 @@ export function useBatchCreation(productType: string, tableName: string) {
             }
             
             // Fix the map call to handle null jobs
-            const { data: finalCheck, error: finalCheckError } = await supabase
-              .from(validatedTableName)
-              .select("id, batch_id")
-              .in("id", unlinkedJobs
-                .filter(job => job !== null && job !== undefined)
-                .map(job => job ? job.id : "")
-                .filter(Boolean)
-              );
+            const jobIds = unlinkedJobs
+              .filter(job => job !== null && job !== undefined && typeof job === 'object' && 'id' in job)
+              .map(job => job.id)
+              .filter(Boolean);
               
-            if (finalCheckError) {
-              console.error("Error performing final check of batch association:", finalCheckError);
-            } else if (finalCheck) {
-              const stillUnlinked = finalCheck.filter(job => 
-                job && typeof job === 'object' && 
-                'batch_id' in job && job.batch_id !== batch.id
-              ).length;
-              
-              if (stillUnlinked > 0) {
-                toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
-                  description: "Some jobs may need to be manually added to the batch"
-                });
+            if (jobIds.length > 0) {
+              const { data: finalCheck, error: finalCheckError } = await supabase
+                .from(validatedTableName)
+                .select("id, batch_id")
+                .in("id", jobIds);
+                
+              if (finalCheckError) {
+                console.error("Error performing final check of batch association:", finalCheckError);
+              } else if (finalCheck) {
+                const stillUnlinked = finalCheck.filter(job => 
+                  job && typeof job === 'object' && 
+                  'batch_id' in job && job.batch_id !== batch.id
+                ).length;
+                
+                if (stillUnlinked > 0) {
+                  toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
+                    description: "Some jobs may need to be manually added to the batch"
+                  });
+                }
               }
             }
           } else {

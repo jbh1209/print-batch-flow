@@ -5,7 +5,7 @@ import { useBatchDeletion } from "./batch-operations/useBatchDeletion";
 import { useBatchNavigation } from "./batch-operations/useBatchNavigation";
 import { useBatchCreation } from "./batch-operations/useBatchCreation";
 import { toast } from "sonner";
-import { isExistingTable } from "@/utils/database/tableValidation";
+import { isExistingTable } from "@/utils/database/tableUtils";
 
 export function useGenericBatches<T extends BaseJob = BaseJob>(
   config: ProductConfig, 

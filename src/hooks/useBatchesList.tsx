@@ -1,17 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-
-interface BatchSummary {
-  id: string;
-  name: string;
-  due_date: string;
-  status: string;
-  product_type: string;
-  sheets_required: number;
-}
+import { BatchSummary } from "@/components/batches/types/BatchTypes";
 
 // Standardized mapping between batch prefix codes and product types
 const BATCH_PREFIX_TO_PRODUCT_TYPE = {
