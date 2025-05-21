@@ -60,7 +60,7 @@ export function useFetchBatchDetails({
       console.log("Batch details received:", data?.id);
       console.log("Full batch data:", data);
       
-      // Fix: Since overview_pdf_url is not directly in the data object, we need to create it
+      // Create BatchDetailsType object, ensuring overview_pdf_url is properly set
       const batchData: BatchDetailsType = {
         id: data.id,
         name: data.name,
@@ -68,7 +68,8 @@ export function useFetchBatchDetails({
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        overview_pdf_url: data.back_pdf_url, // Use back_pdf_url as overview_pdf_url
+        // Always use back_pdf_url as the overview_pdf_url since that column doesn't exist
+        overview_pdf_url: data.back_pdf_url,
         due_date: data.due_date,
         created_at: data.created_at,
         status: data.status,

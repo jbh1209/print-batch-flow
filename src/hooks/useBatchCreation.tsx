@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
@@ -146,9 +145,7 @@ export function useBatchCreation() {
           due_date: earliestDueDate.toISOString(),
           created_by: user.id,
           front_pdf_url: impositionUrl || null,
-          back_pdf_url: overviewUrl || null,
-          // Important: Set overview_pdf_url to match the back_pdf_url for consistency
-          overview_pdf_url: overviewUrl || null
+          back_pdf_url: overviewUrl || null
         })
         .select()
         .single();
@@ -168,7 +165,7 @@ export function useBatchCreation() {
       console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch ID ${batchData.id}`);
       
       // Update all selected jobs to link them to the batch
-      const { error: updateJobsError, data: updateResponse } = await supabase
+      const { error: updateJobsError } = await supabase
         .from(tableName)
         .update({ 
           batch_id: batchData.id,
@@ -182,19 +179,13 @@ export function useBatchCreation() {
         const errorDetail = updateJobsError.details || updateJobsError.hint || updateJobsError.message;
         console.error(`Update error details: ${errorDetail}`);
         
-        // Log each job ID to help with debugging
-        jobIds.forEach(id => {
-          console.log(`Job ID involved in update: ${id}`);
-        });
-        
         // Try to roll back batch creation since job update failed
         const { error: deleteError } = await supabase.from("batches").delete().eq("id", batchData.id);
         if (deleteError) {
           console.error("Failed to rollback batch creation:", deleteError);
         }
         
-        throw new Error(`Failed to update jobs with batch ID: ${updateJobsError.message}. 
-                        This may be due to permission issues with the selected jobs.`);
+        throw new Error(`Failed to update jobs with batch ID: ${updateJobsError.message}`);
       }
       
       // Verify jobs were correctly updated with batch ID

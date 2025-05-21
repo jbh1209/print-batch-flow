@@ -44,8 +44,8 @@ const BatchDetailsContent = ({
 
   const handleDownloadBatchOverviewSheet = async () => {
     try {
-      // Check if batch overview PDF URL exists
-      const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
+      // Check if batch overview PDF URL exists, prioritize back_pdf_url if overview_pdf_url is missing
+      const overviewPdfUrl = batch.back_pdf_url;
       
       if (!overviewPdfUrl) {
         toast.error("No batch overview sheet available", {
