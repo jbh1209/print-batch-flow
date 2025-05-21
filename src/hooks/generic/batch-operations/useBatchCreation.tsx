@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -227,7 +228,7 @@ export function useBatchCreation(productType: string, tableName: string) {
               .select("id, batch_id")
               .in("id", unlinkedJobs
                 .filter(job => job !== null && job !== undefined)
-                .map(job => job.id)
+                .map(job => job ? job.id : "")
                 .filter(Boolean)
               );
               
