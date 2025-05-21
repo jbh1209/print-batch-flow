@@ -191,7 +191,10 @@ export function useBatchCreation(productType: string, tableName: string) {
           });
           
           // Now we have a safely typed array with known structure
-          const unlinkedJobs = updatedJobs.filter(job => job && job.batch_id !== batch.id);
+          const unlinkedJobs = updatedJobs.filter(job => {
+            // Make sure job exists and has proper batch_id before comparison
+            return job && typeof job === 'object' && job.batch_id !== batch.id;
+          });
           
           if (unlinkedJobs.length > 0) {
             console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
