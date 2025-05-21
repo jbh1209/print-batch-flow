@@ -70,7 +70,7 @@ export function useBatchCreation(productType: string, tableName: string) {
     
     try {
       console.log(`Creating batch with ${selectedJobs.length} jobs for product type: ${productType} using table: ${tableName}`);
-      console.log("First job:", selectedJobs[0]);
+      console.log("Selected job IDs:", selectedJobs.map(job => job.id).join(", "));
       
       // Calculate sheets required
       const sheetsRequired = calculateSheetsRequired(selectedJobs);
@@ -132,11 +132,11 @@ export function useBatchCreation(productType: string, tableName: string) {
       console.log(`Updating ${jobIds.length} jobs in table ${tableName} with batch id ${batch.id}`);
       
       // Use a validated table name that we confirmed is an existing table
-      const validatedTableName = tableName;
+      const validatedTableName = tableName as ExistingTableName;
       
       // Update the jobs with the batch ID
       const { error: updateError } = await supabase
-        .from(validatedTableName as any)
+        .from(validatedTableName)
         .update({
           status: "batched",
           batch_id: batch.id
@@ -145,14 +145,16 @@ export function useBatchCreation(productType: string, tableName: string) {
       
       if (updateError) {
         console.error("Error updating jobs with batch ID:", updateError);
+        console.error("Error details:", updateError.details || updateError.hint || updateError.message);
+        
         // Try to delete the batch since jobs update failed
         await supabase.from("batches").delete().eq("id", batch.id);
-        throw updateError;
+        throw new Error(`Failed to link jobs to batch: ${updateError.message}`);
       }
       
       // Verify jobs were correctly updated with batch ID
       const { data: updatedJobsData, error: verifyError } = await supabase
-        .from(validatedTableName as any)
+        .from(validatedTableName)
         .select("id, batch_id")
         .in("id", jobIds);
       
@@ -194,6 +196,44 @@ export function useBatchCreation(productType: string, tableName: string) {
           
           if (unlinkedJobs.length > 0) {
             console.warn(`Warning: ${unlinkedJobs.length} jobs not correctly linked to batch`);
+            console.log("Unlinked jobs:", unlinkedJobs);
+            
+            // Try to relink each unlinked job individually
+            for (const unlinkedJob of unlinkedJobs) {
+              try {
+                const { error: retryError } = await supabase
+                  .from(validatedTableName)
+                  .update({
+                    status: "batched",
+                    batch_id: batch.id
+                  })
+                  .eq("id", unlinkedJob.id);
+                
+                if (retryError) {
+                  console.error(`Failed to relink job ${unlinkedJob.id}:`, retryError);
+                } else {
+                  console.log(`Successfully relinked job ${unlinkedJob.id}`);
+                }
+              } catch (retryError) {
+                console.error(`Exception when trying to relink job ${unlinkedJob.id}:`, retryError);
+              }
+            }
+            
+            // Check if any jobs still failed to link after retry
+            const { data: finalCheck } = await supabase
+              .from(validatedTableName)
+              .select("id, batch_id")
+              .in("id", unlinkedJobs.map(job => job.id));
+              
+            const stillUnlinked = (finalCheck || []).filter(job => job.batch_id !== batch.id).length;
+            
+            if (stillUnlinked > 0) {
+              toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
+                description: "Some jobs may need to be manually added to the batch"
+              });
+            }
+          } else {
+            console.log(`All ${updatedJobs.length} jobs successfully linked to batch ${batch.id}`);
           }
         }
       }
