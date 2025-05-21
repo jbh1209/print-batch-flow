@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -241,13 +240,16 @@ export function useBatchCreation(productType: string, tableName: string) {
               if (finalCheckError) {
                 console.error("Error performing final check of batch association:", finalCheckError);
               } else if (finalCheck) {
-                // Fix: Properly guard against null - the exact issue causing the error
+                // Fix: Strengthen the null check to satisfy TypeScript
                 const stillUnlinked = Array.isArray(finalCheck) ? 
-                  finalCheck.filter(job => 
-                    job !== null && 
-                    typeof job === 'object' && 
-                    job.batch_id !== batch.id
-                  ).length : 0;
+                  finalCheck.filter(job => {
+                    // Explicit type guard to ensure job is not null and has the required property
+                    return job !== null && 
+                           typeof job === 'object' && 
+                           job !== undefined &&
+                           'batch_id' in job && // Check that batch_id property exists
+                           job.batch_id !== batch.id;
+                  }).length : 0;
                 
                 if (stillUnlinked > 0) {
                   toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
