@@ -201,7 +201,7 @@ export function useBatchCreation(productType: string, tableName: string) {
             // Try to relink each unlinked job individually
             for (const unlinkedJob of unlinkedJobs) {
               try {
-                // Fix null check for job
+                // Fix null check for job and add type guard
                 if (unlinkedJob && unlinkedJob.id) {
                   const { error: retryError } = await supabase
                     .from(validatedTableName)
@@ -226,7 +226,7 @@ export function useBatchCreation(productType: string, tableName: string) {
             const { data: finalCheck, error: finalCheckError } = await supabase
               .from(validatedTableName)
               .select("id, batch_id")
-              .in("id", unlinkedJobs.map(job => job && job.id).filter(Boolean));
+              .in("id", unlinkedJobs.map(job => job ? job.id : "").filter(Boolean));
               
             if (finalCheckError) {
               console.error("Error performing final check of batch association:", finalCheckError);

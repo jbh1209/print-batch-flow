@@ -1,37 +1,24 @@
+import { supabase } from "@/integrations/supabase/client";
 
-/**
- * Type for existing table names to ensure only valid tables are used
- */
-export type ExistingTableName = 
-  | "business_card_jobs"
-  | "flyer_jobs"
-  | "box_jobs"
-  | "postcard_jobs"
-  | "poster_jobs"
-  | "cover_jobs"
-  | "sleeve_jobs"
-  | "sticker_jobs"
-  | "batches";
+export const isExistingTable = async (tableName: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from("pg_tables")
+      .select("tablename")
+      .eq("schemaname", "public")
+      .eq("tablename", tableName);
 
-// Alias for ExistingTableName to match names in the code that need fixing
-export type ValidTableName = ExistingTableName;
+    if (error) {
+      console.error("Error checking table existence:", error);
+      return false;
+    }
 
-/**
- * Check if a table name exists in our database schema
- * @param tableName The table name to check
- * @returns boolean indicating whether the table exists
- */
-export const isExistingTable = (tableName: string): tableName is ExistingTableName => {
-  const validTables: ExistingTableName[] = [
-    "business_card_jobs",
-    "flyer_jobs",
-    "box_jobs",
-    "postcard_jobs",
-    "poster_jobs",
-    "cover_jobs",
-    "sleeve_jobs",
-    "sticker_jobs",
-    "batches"
-  ];
-  return validTables.includes(tableName as ExistingTableName);
+    return data !== null && data.length > 0;
+  } catch (error) {
+    console.error("Error checking table existence:", error);
+    return false;
+  }
 };
+
+// Add this type alias for the ValidTableName
+export type ValidTableName = string;

@@ -27,7 +27,7 @@ export interface BatchSummary {
   status: string;
   created_at: string;
   due_date: string;
-  // Make these required to match other interfaces
+  // Make these required fields
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;

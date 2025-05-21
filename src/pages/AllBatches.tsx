@@ -57,7 +57,7 @@ const AllBatches: React.FC = () => {
     status: batch.status,
     product_type: batch.product_type,
     due_date: batch.due_date,
-    created_at: batch.created_at,
+    created_at: batch.created_at || new Date().toISOString(),
     // Add the required fields that might be missing in the fetched data
     sheets_required: batch.sheets_required || 0,
     front_pdf_url: batch.front_pdf_url || null,
