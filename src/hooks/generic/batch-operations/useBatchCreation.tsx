@@ -225,8 +225,7 @@ export function useBatchCreation(productType: string, tableName: string) {
               }
             }
             
-            // Fix: Filter our null jobs and ensure we never work with null values
-            // This is the section causing the TypeScript errors (lines 250-251)
+            // Fix: Filter out null jobs and ensure we never work with null values
             const jobIds = unlinkedJobs
               .filter((job): job is LinkedJobResult => {
                 // Type guard function that ensures job is a valid LinkedJobResult
@@ -247,17 +246,28 @@ export function useBatchCreation(productType: string, tableName: string) {
               if (finalCheckError) {
                 console.error("Error performing final check of batch association:", finalCheckError);
               } else if (finalCheck) {
-                // Fix: Strengthen the null check with proper type guard
-                const stillUnlinked = Array.isArray(finalCheck) ? 
-                  finalCheck.filter((job): job is (JobDatabaseItem & { batch_id: string | null }) => {
-                    // Explicit type guard to ensure job is not null and has the required property
-                    return job !== null && 
-                           typeof job === 'object' && 
-                           job !== undefined &&
-                           'batch_id' in job && // Check that batch_id property exists
-                           'id' in job; // Also ensure id exists
-                  })
-                  .filter(job => job.batch_id !== batch.id).length : 0;
+                // Fix: Use a stronger type guard approach
+                let stillUnlinked = 0;
+                
+                if (Array.isArray(finalCheck)) {
+                  // Create a safe array of items we know match our expected structure
+                  const safeItems: { id: string, batch_id: string | null }[] = [];
+                  
+                  // First filter for valid items and transform to a known structure
+                  for (const item of finalCheck) {
+                    if (item && typeof item === 'object' && !('error' in item)) {
+                      if ('id' in item && 'batch_id' in item) {
+                        safeItems.push({
+                          id: String(item.id),
+                          batch_id: item.batch_id ? String(item.batch_id) : null
+                        });
+                      }
+                    }
+                  }
+                  
+                  // Now safely count items that don't match the batch
+                  stillUnlinked = safeItems.filter(item => item.batch_id !== batch.id).length;
+                }
                 
                 if (stillUnlinked > 0) {
                   toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
