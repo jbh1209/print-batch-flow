@@ -263,14 +263,12 @@ export function useBatchCreation(productType: string, tableName: string) {
                     // Now that we know item is not null, check its structure
                     if (typeof item === 'object' && !('error' in item)) {
                       // Check for necessary properties before accessing them
-                      if ('id' in item && item.id !== null && 
-                          'batch_id' in item) {
-                        // Now we're safe to access the properties and create our safe item
-                        const id = item.id !== null ? String(item.id) : "";
+                      if ('id' in item && item.id !== null) {
+                        const id = String(item.id);
                         let batchId: string | null = null;
                         
                         // Extra safety check for batch_id property
-                        if (item.batch_id !== undefined && item.batch_id !== null) {
+                        if ('batch_id' in item && item.batch_id !== undefined && item.batch_id !== null) {
                           batchId = String(item.batch_id);
                         }
                         
