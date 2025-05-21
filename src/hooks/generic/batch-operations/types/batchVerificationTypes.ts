@@ -37,6 +37,11 @@ export interface SelectQueryError {
 }
 
 /**
+ * Union type for potential response items from Supabase query
+ */
+export type QueryResultItem = JobDatabaseItem | SelectQueryError;
+
+/**
  * Result of verifying batch job links
  */
 export interface BatchVerificationResult {

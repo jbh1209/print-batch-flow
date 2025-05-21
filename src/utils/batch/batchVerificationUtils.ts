@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { ExistingTableName } from "@/config/productTypes";
 import { 
@@ -6,7 +5,8 @@ import {
   LinkedJobResult, 
   BatchVerificationResult,
   VerifyBatchLinksParams,
-  SelectQueryError
+  SelectQueryError,
+  QueryResultItem
 } from "@/hooks/generic/batch-operations/types/batchVerificationTypes";
 
 /**
@@ -94,15 +94,27 @@ export async function verifyBatchJobLinks({
       return result;
     }
 
-    // Process the data and ensure we only work with valid job items
-    // First filter for valid job items, then map to the correct format
-    const validJobItems = updatedJobsData
-      .filter((item): item is JobDatabaseItem => isValidJobItem(item))
-      .map((item: JobDatabaseItem) => convertToLinkedJobResult(item));
+    // First, filter out any potential error objects and keep only valid job items
+    const validJobItems: JobDatabaseItem[] = [];
+    
+    updatedJobsData.forEach(item => {
+      if (isValidJobItem(item) && !isQueryError(item)) {
+        validJobItems.push(item);
+      } else if (isQueryError(item)) {
+        console.warn("Query returned an error item:", item);
+        result.errors.push({
+          jobId: "data",
+          message: item.message || "Unknown data error"
+        });
+      }
+    });
+    
+    // Now map the valid items to the correct format
+    const typedJobResults: LinkedJobResult[] = validJobItems.map(item => convertToLinkedJobResult(item));
       
     // Separate linked and unlinked jobs
-    result.linkedJobs = validJobItems.filter(job => job.batch_id === batchId);
-    result.unlinkedJobs = validJobItems.filter(job => job.batch_id !== batchId);
+    result.linkedJobs = typedJobResults.filter(job => job.batch_id === batchId);
+    result.unlinkedJobs = typedJobResults.filter(job => job.batch_id !== batchId);
     
     // Update success status based on whether all jobs were linked
     result.success = result.unlinkedJobs.length === 0;
