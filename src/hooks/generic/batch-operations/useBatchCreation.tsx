@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -222,11 +221,15 @@ export function useBatchCreation(productType: string, tableName: string) {
               }
             }
             
-            // Check if any jobs still failed to link after retry
+            // Fix the map call to handle null jobs
             const { data: finalCheck, error: finalCheckError } = await supabase
               .from(validatedTableName)
               .select("id, batch_id")
-              .in("id", unlinkedJobs.map(job => job ? job.id : "").filter(Boolean));
+              .in("id", unlinkedJobs
+                .filter(job => job !== null && job !== undefined)
+                .map(job => job.id)
+                .filter(Boolean)
+              );
               
             if (finalCheckError) {
               console.error("Error performing final check of batch association:", finalCheckError);
