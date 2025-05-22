@@ -1,5 +1,6 @@
 
 import { Job as BusinessCardJob } from "@/components/business-cards/JobsTable";
+import { Job } from "@/components/batches/types/BatchTypes";
 
 interface JobPageAllocation {
   jobId: string;
@@ -44,7 +45,7 @@ export function calculateJobPageDistribution(
       quantityPerSlot = Math.ceil(job.quantity / slotsNeeded);
     }
     
-    // Explicitly log the double_sided value for debugging
+    // Explicitly check for double_sided property
     const isDoubleSided = job.double_sided === true;
     console.log(`Job "${job.name}" (${job.id}): double_sided = ${isDoubleSided ? "YES" : "NO"}`);
     

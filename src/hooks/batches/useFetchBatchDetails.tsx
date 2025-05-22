@@ -95,14 +95,16 @@ export function useFetchBatchDetails({
         if (jobs && jobs.length > 0) {
           console.log(`Found ${jobs.length} jobs for batch ID: ${batchId}`);
           console.log("First job sample:", jobs[0]);
-          jobsData = jobs as Job[];
+          
+          // Explicitly cast jobs as unknown first, then as Job[] to avoid type errors
+          jobsData = (jobs as unknown) as Job[];
         } else {
           console.warn(`No jobs found for batch ID: ${batchId}`);
         }
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url")
+          .select("id, name, quantity, status, pdf_url, file_name")
           .eq("batch_id", batchId)
           .order("name");
         
@@ -110,13 +112,18 @@ export function useFetchBatchDetails({
 
         // Add missing properties to flyer jobs to match Job interface
         if (jobs) {
+          // Explicitly cast jobs with required properties
           jobsData = jobs.map(job => ({
             ...job,
-            file_name: job.name || "",
+            file_name: job.file_name || job.name || "",
             lamination_type: "none", // Default for flyers
-            due_date: new Date().toISOString(),
-            uploaded_at: new Date().toISOString(),
-            double_sided: false // Default for flyers
+            due_date: job.due_date || new Date().toISOString(),
+            uploaded_at: job.created_at || new Date().toISOString(),
+            double_sided: false, // Default for flyers
+            // Add other required fields
+            job_number: job.job_number || job.name || "",
+            updated_at: job.updated_at || new Date().toISOString(),
+            user_id: job.user_id || ""
           })) as Job[];
         }
       }

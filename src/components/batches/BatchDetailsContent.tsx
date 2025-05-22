@@ -87,8 +87,8 @@ const BatchDetailsContent = ({
     return jobs.map(job => ({
       ...job,
       job_number: job.job_number || job.name, // Use job_number if available, otherwise use name
-      updated_at: job.updated_at || new Date().toISOString(), // Add required fields from BaseJob
-      user_id: job.user_id || ""
+      updated_at: job.updated_at || new Date().toISOString(), // Use provided updated_at or default
+      user_id: job.user_id || "" // Use provided user_id or default
     })) as unknown as BaseJob[];
   };
   

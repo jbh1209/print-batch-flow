@@ -12,7 +12,7 @@ import RelatedJobsCard from '@/components/batches/RelatedJobsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
 import { FlyerJob } from '@/components/batches/types/FlyerTypes';
-import { Job } from '@/components/batches/types/BatchTypes';
+import { Job, BatchDetailsType } from '@/components/batches/types/BatchTypes';
 
 const FlyerBatchDetails = () => {
   const { batchId } = useParams(); // Use path parameter instead of query parameter
@@ -79,8 +79,23 @@ const FlyerBatchDetails = () => {
     status: job.status,
     pdf_url: job.pdf_url,
     user_id: job.user_id,
-    updated_at: job.updated_at
+    updated_at: job.updated_at,
+    job_number: job.job_number || job.name
   }));
+
+  // Convert FlyerBatch to BatchDetailsType for compatibility
+  const batchDetails: BatchDetailsType = {
+    id: batch.id,
+    name: batch.name,
+    lamination_type: batch.lamination_type,
+    sheets_required: batch.sheets_required,
+    front_pdf_url: batch.front_pdf_url,
+    back_pdf_url: batch.back_pdf_url,
+    overview_pdf_url: batch.overview_pdf_url || batch.back_pdf_url,
+    due_date: batch.due_date,
+    created_at: batch.created_at,
+    status: batch.status as any // Force casting until we align enums
+  };
 
   return (
     <div>
@@ -91,10 +106,10 @@ const FlyerBatchDetails = () => {
 
       <div className="grid gap-6 md:grid-cols-3">
         <BatchDetailsCard 
-          batch={batch}
+          batch={batchDetails}
           onDeleteClick={() => setBatchToDelete(batch.id)}
         />
-        <BatchActionsCard batch={batch} />
+        <BatchActionsCard batch={batchDetails} />
       </div>
 
       {/* Related Jobs Card and Batch Overview */}
