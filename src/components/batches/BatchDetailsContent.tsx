@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
 import BatchActionsCard from "./BatchActionsCard";
@@ -9,6 +9,9 @@ import { downloadBatchJobPdfs, downloadIndividualBatchJobPdfs } from "@/utils/pd
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BaseJob } from "@/config/productTypes";
+import { generateBatchOverview } from "@/utils/batchGeneration"; 
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface BatchDetailsContentProps {
   batch: BatchDetailsType;
@@ -25,6 +28,91 @@ const BatchDetailsContent = ({
   onDeleteClick,
   onRefresh
 }: BatchDetailsContentProps) => {
+  const { user } = useAuth();
+  const [isGeneratingOverview, setIsGeneratingOverview] = useState(false);
+  
+  // Check if this batch needs an overview PDF generated
+  useEffect(() => {
+    const checkOverviewStatus = async () => {
+      if (!batch.overview_pdf_url) {
+        // Check if the batch is marked as needing an overview PDF
+        const { data, error } = await supabase
+          .from("batches")
+          .select("needs_overview_pdf")
+          .eq("id", batch.id)
+          .single();
+          
+        if (data?.needs_overview_pdf && relatedJobs.length > 0) {
+          // Generate the overview PDF
+          await handleGenerateAndUploadOverview();
+        }
+      }
+    };
+    
+    checkOverviewStatus();
+  }, [batch.id, batch.overview_pdf_url]);
+
+  // Function to generate and upload the overview PDF
+  const handleGenerateAndUploadOverview = async () => {
+    if (!user || relatedJobs.length === 0 || isGeneratingOverview) return;
+    
+    setIsGeneratingOverview(true);
+    toast.loading("Generating batch overview PDF...");
+    
+    try {
+      // Generate the PDF bytes
+      const pdfBytes = await generateBatchOverview(
+        convertToBaseJobs(relatedJobs),
+        batch.name
+      );
+      
+      // Upload to storage
+      const timestamp = Date.now();
+      const filePath = `${user.id}/${timestamp}-overview-${batch.name}.pdf`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("pdf_files")
+        .upload(filePath, pdfBytes, {
+          contentType: "application/pdf",
+          cacheControl: "max-age=31536000", // 1 year cache since this is permanent
+          upsert: true
+        });
+        
+      if (uploadError) throw uploadError;
+      
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from("pdf_files")
+        .getPublicUrl(filePath);
+        
+      if (!urlData?.publicUrl) {
+        throw new Error("Failed to get public URL for batch overview");
+      }
+      
+      // Update the batch record with the overview PDF URL
+      const { error: updateError } = await supabase
+        .from("batches")
+        .update({ 
+          overview_pdf_url: urlData.publicUrl,
+          needs_overview_pdf: false
+        })
+        .eq("id", batch.id);
+        
+      if (updateError) throw updateError;
+      
+      toast.success("Batch overview PDF generated");
+      
+      // Update the parent component if a refresh function is provided
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (error) {
+      console.error("Error generating batch overview:", error);
+      toast.error("Failed to generate batch overview PDF");
+    } finally {
+      setIsGeneratingOverview(false);
+    }
+  };
   
   const handleDownloadJobPdfs = async () => {
     if (relatedJobs.length === 0) {
@@ -66,10 +154,16 @@ const BatchDetailsContent = ({
       const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
       
       if (!overviewPdfUrl) {
-        toast.error("No batch overview sheet available", {
-          description: "This batch doesn't have an overview PDF generated"
-        });
-        return;
+        // If no overview PDF exists yet, try to generate one
+        if (relatedJobs.length > 0) {
+          await handleGenerateAndUploadOverview();
+          return;
+        } else {
+          toast.error("No batch overview sheet available", {
+            description: "This batch doesn't have jobs or an overview PDF"
+          });
+          return;
+        }
       }
 
       console.log("Downloading batch overview sheet:", overviewPdfUrl);
@@ -108,7 +202,6 @@ const BatchDetailsContent = ({
         />
       </div>
 
-      {/* Show Related Jobs for all product types */}
       {relatedJobs.length > 0 ? (
         <>
           <RelatedJobsCard jobs={relatedJobs} />
@@ -117,6 +210,21 @@ const BatchDetailsContent = ({
             batchName={batch.name}
           />
         </>
+      ) : batch.overview_pdf_url ? (
+        <div className="mt-6 p-6 bg-white border rounded-lg shadow-sm">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Batch Overview</h3>
+          <div className="flex flex-col items-center justify-center text-center">
+            <p className="text-gray-500 mb-4">
+              Job details are no longer available, but you can view the batch overview.
+            </p>
+            <button
+              onClick={handleDownloadBatchOverviewSheet}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+            >
+              Download Overview Sheet
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="mt-6 p-8 bg-gray-50 border border-gray-200 rounded-lg text-center">
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Jobs Found</h3>

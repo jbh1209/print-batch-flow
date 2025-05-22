@@ -10,7 +10,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <App />
-      <Toaster position="top-center" richColors />
+      <Toaster position="top-center" richColors duration={4000} />
     </ThemeProvider>
   </React.StrictMode>,
 )
