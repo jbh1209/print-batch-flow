@@ -80,7 +80,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     overview_pdf_url: batch.overview_pdf_url || null,
     due_date: batch.due_date,
     created_at: batch.created_at,
-    status: batch.status // Both are now string-based types
+    status: batch.status
   };
 
   // Convert BaseJob[] to Job[] by adding required properties
@@ -95,8 +95,8 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     job_number: job.job_number || "",
     updated_at: job.updated_at || new Date().toISOString(),
     user_id: job.user_id || "",
-    // Ensure double_sided is a boolean
-    double_sided: typeof job.double_sided === 'boolean' ? job.double_sided : false
+    // Safely access the double_sided property with a fallback
+    double_sided: job.double_sided !== undefined ? job.double_sided : false
   }));
 
   return (

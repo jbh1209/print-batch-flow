@@ -44,6 +44,7 @@ export interface BaseJob {
   sides?: string;
   stock_type?: string;
   single_sided?: boolean;
+  double_sided?: boolean;
   uv_varnish?: UVVarnishType;
 }
 
