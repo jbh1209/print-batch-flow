@@ -1,5 +1,5 @@
 
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job as BusinessCardJob } from "@/components/business-cards/JobsTable";
 
 interface JobPageAllocation {
   jobId: string;
@@ -14,7 +14,7 @@ interface JobPageAllocation {
  * Calculates how many slots each job needs based on quantity and available slots
  */
 export function calculateJobPageDistribution(
-  jobs: Job[],
+  jobs: any[],
   totalAvailableSlots: number
 ): JobPageAllocation[] {
   console.log(`Calculating job distribution for ${jobs.length} jobs with ${totalAvailableSlots} total slots`);
@@ -50,7 +50,7 @@ export function calculateJobPageDistribution(
       totalQuantity: job.quantity,
       slotsNeeded,
       quantityPerSlot,
-      isDoubleSided: job.double_sided
+      isDoubleSided: job.double_sided || false // Set default false if undefined
     });
     
     console.log(`Job "${job.name}" (${job.id}): ${job.quantity} cards → ${slotsNeeded} slots with ${quantityPerSlot} cards per slot`);

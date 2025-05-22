@@ -35,7 +35,7 @@ const BatchDetailsContent = ({
     }
     
     try {
-      // Use the new combined PDF generator
+      // Use the combined PDF generator
       await downloadBatchJobPdfs(relatedJobs, batch.name);
     } catch (error) {
       console.error("Error downloading job PDFs:", error);
@@ -103,6 +103,7 @@ const BatchDetailsContent = ({
         <BatchActionsCard 
           batch={batch} 
           onDownloadJobPdfs={handleDownloadJobPdfs}
+          onDownloadIndividualJobPdfs={handleDownloadIndividualJobPdfs}
           onDownloadBatchOverviewSheet={handleDownloadBatchOverviewSheet}
         />
       </div>

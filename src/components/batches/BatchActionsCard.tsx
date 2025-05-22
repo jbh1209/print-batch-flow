@@ -25,12 +25,14 @@ interface BatchActionsCardProps {
   batch: BatchDetailsType;
   onDownloadJobPdfs?: () => Promise<void>;
   onDownloadBatchOverviewSheet?: () => Promise<void>;
+  onDownloadIndividualJobPdfs?: () => Promise<void>;
 }
 
 const BatchActionsCard = ({ 
   batch, 
   onDownloadJobPdfs, 
-  onDownloadBatchOverviewSheet 
+  onDownloadBatchOverviewSheet,
+  onDownloadIndividualJobPdfs
 }: BatchActionsCardProps) => {
   const handleDownloadFrontPdf = async () => {
     if (!batch.front_pdf_url) {
@@ -141,20 +143,7 @@ const BatchActionsCard = ({
                     Combined PDF (Imposition Format)
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={async () => {
-                      if (batch && batch.id) {
-                        try {
-                          // We're passing an empty function because the actual implementation is in the component
-                          // This is to maintain backward compatibility
-                          if (onDownloadJobPdfs) {
-                            await onDownloadJobPdfs();
-                          }
-                        } catch (error) {
-                          console.error("Error downloading job PDFs:", error);
-                          toast.error("Failed to download job PDFs");
-                        }
-                      }
-                    }}
+                    onClick={onDownloadIndividualJobPdfs}
                   >
                     Individual Job PDFs (ZIP)
                   </DropdownMenuItem>

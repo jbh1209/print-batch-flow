@@ -1,7 +1,8 @@
 
 import { PDFDocument } from "pdf-lib";
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job as BusinessCardJob } from "@/components/business-cards/JobsTable";
 import { BaseJob } from "@/config/productTypes";
+import { Job as BatchJob } from "@/components/batches/types/BatchTypes"; 
 import { calculateJobPageDistribution } from "./JobPageDistributor";
 import { processJobPdfs } from "./PdfPageProcessor";
 import { toast } from "sonner";
@@ -17,11 +18,18 @@ interface BatchJobPdfResult {
 }
 
 /**
+ * Type guard to check if a job is from the BusinessCardJob type
+ */
+function isBusinessCardJob(job: any): job is BusinessCardJob {
+  return typeof job.double_sided !== 'undefined';
+}
+
+/**
  * Generates a combined PDF for all jobs in a batch, with proper page duplication
  * based on quantity and double-sided settings.
  */
 export async function generateBatchJobPdf(
-  jobs: Job[] | BaseJob[],
+  jobs: BusinessCardJob[] | BatchJob[] | BaseJob[],
   batchName: string
 ): Promise<BatchJobPdfResult> {
   console.log(`Generating consolidated PDF for ${jobs.length} jobs in batch ${batchName}`);
@@ -32,9 +40,24 @@ export async function generateBatchJobPdf(
   }
   
   try {
+    // Convert incoming jobs to ensure compatibility with BusinessCardJob format
+    // which is what our PDF processors expect
+    const processableJobs = jobs.map(job => {
+      // Add default double_sided property if it doesn't exist
+      if (typeof job.double_sided === 'undefined') {
+        return {
+          ...job,
+          double_sided: false,
+          // Ensure lamination_type is compatible with expected enum
+          lamination_type: job.lamination_type as any
+        };
+      }
+      return job;
+    }) as BusinessCardJob[];
+    
     // Step 1: Calculate job distribution (how many slots/copies per job)
     const TOTAL_SLOTS = 24; // 3x8 grid standard
-    const jobAllocations = calculateJobPageDistribution(jobs as Job[], TOTAL_SLOTS);
+    const jobAllocations = calculateJobPageDistribution(processableJobs, TOTAL_SLOTS);
     
     // Create map for quantity lookup
     const quantityMap = new Map(
@@ -49,7 +72,7 @@ export async function generateBatchJobPdf(
     }));
     
     // Process the job PDFs to get pages
-    const processedJobPages = await processJobPdfs(jobs as Job[], slotRequirements);
+    const processedJobPages = await processJobPdfs(processableJobs, slotRequirements);
     
     console.log(`Processed ${processedJobPages.length} job PDFs with their page allocations`);
     
@@ -100,7 +123,7 @@ export async function generateBatchJobPdf(
           for (const backPage of jobPages.backPages) {
             // Load page from buffer
             const backDoc = await PDFDocument.load(backPage);
-            const [copyPage] = await finalPdf.copyPages(backDoc, [0]);
+            const [copyPage] = await backDoc.copyPages(backDoc, [0]);
             finalPdf.addPage(copyPage);
             totalPages++;
           }

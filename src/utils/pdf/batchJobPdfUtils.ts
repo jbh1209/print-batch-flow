@@ -22,6 +22,7 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
   
   try {
     // Generate a consolidated PDF with all jobs properly distributed
+    // Pass jobs as-is - the generator function will handle type conversion
     const result = await generateBatchJobPdf(jobs, batchName);
     
     // Create a Blob from the PDF bytes
