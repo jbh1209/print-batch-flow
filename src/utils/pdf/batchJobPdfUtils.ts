@@ -21,6 +21,13 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
   const toastId = toast.loading(`Preparing ${jobs.length} PDFs for batch ${batchName}...`);
   
   try {
+    // Log jobs to debug double_sided property
+    console.log("Jobs being processed:", jobs.map(job => ({
+      id: job.id,
+      name: job.name,
+      double_sided: job.double_sided
+    })));
+    
     // Generate a consolidated PDF with all jobs properly distributed
     // Pass jobs as-is - the generator function will handle type conversion
     const result = await generateBatchJobPdf(jobs, batchName);

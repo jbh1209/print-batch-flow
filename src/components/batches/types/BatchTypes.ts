@@ -1,47 +1,50 @@
-
-export interface Job {
-  id: string;
-  name: string;
-  file_name: string;
-  quantity: number;
-  lamination_type: string;
-  due_date: string;
-  uploaded_at: string;
-  status: string;
-  pdf_url: string;
-  double_sided?: boolean;
-  // Add required fields from BaseJob
-  updated_at: string;
-  user_id: string;
-  job_number?: string;
-  created_at?: string;
-}
-
-// Define the valid batch status types
-export type BatchStatus = 'pending' | 'processing' | 'completed' | 'sent_to_print' | 'cancelled';
-
-export interface BatchSummary {
-  id: string;
-  name: string;
-  product_type: string;
-  status: string;
-  created_at: string;
-  due_date: string;
-  // These fields should be required
-  sheets_required: number;
-  front_pdf_url: string | null;
-  back_pdf_url: string | null;
-}
-
 export interface BatchDetailsType {
   id: string;
   name: string;
   lamination_type: string;
   sheets_required: number;
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
+  overview_pdf_url: string | null;
   due_date: string;
   created_at: string;
-  status: BatchStatus; // Using the defined BatchStatus type
-  front_pdf_url?: string | null;
-  back_pdf_url?: string | null;
-  overview_pdf_url?: string | null; // This is derived from back_pdf_url
+  status: BatchStatus;
+}
+
+export enum JobStatus {
+  PENDING = "PENDING",
+  IN_PROGRESS = "IN_PROGRESS",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  ON_HOLD = "ON_HOLD",
+  QUEUED = "QUEUED",
+  SHIPPED = "SHIPPED",
+  DELIVERED = "DELIVERED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum BatchStatus {
+  PENDING = "PENDING",
+  IN_PROGRESS = "IN_PROGRESS",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  ON_HOLD = "ON_HOLD",
+  QUEUED = "QUEUED",
+  SHIPPED = "SHIPPED",
+  DELIVERED = "DELIVERED",
+  CANCELLED = "CANCELLED",
+}
+
+// Make sure Job type explicitly includes the double_sided property
+export interface Job {
+  id: string;
+  name: string;
+  quantity: number;
+  status: JobStatus;
+  pdf_url: string | null;
+  file_name: string;
+  lamination_type: string;
+  due_date: string;
+  uploaded_at: string;
+  double_sided?: boolean; // Add this explicit property
 }

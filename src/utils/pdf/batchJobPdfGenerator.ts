@@ -40,11 +40,17 @@ export async function generateBatchJobPdf(
   }
   
   try {
+    // Log all jobs to debug double_sided property
+    jobs.forEach((job, index) => {
+      console.log(`Job ${index + 1}: ${job.name} (${job.id}) - Double-sided: ${job.double_sided === true ? 'Yes' : 'No'}`);
+    });
+    
     // Convert incoming jobs to ensure compatibility with BusinessCardJob format
     // which is what our PDF processors expect
     const processableJobs = jobs.map(job => {
       // Add default double_sided property if it doesn't exist
       if (typeof job.double_sided === 'undefined') {
+        console.log(`Job ${job.name} missing double_sided property, defaulting to false`);
         return {
           ...job,
           double_sided: false,
@@ -52,6 +58,7 @@ export async function generateBatchJobPdf(
           lamination_type: job.lamination_type as any
         };
       }
+      console.log(`Job ${job.name} has double_sided = ${job.double_sided}`);
       return job;
     }) as BusinessCardJob[];
     
@@ -84,7 +91,7 @@ export async function generateBatchJobPdf(
     // Add all front pages first
     for (const jobPages of processedJobPages) {
       const frontCopies = Math.max(1, jobPages.frontPages.length);
-      console.log(`Adding ${frontCopies} front page copies for job ${jobPages.jobName}`);
+      console.log(`Adding ${frontCopies} front page copies for job ${jobPages.jobName} (double-sided: ${jobPages.isDoubleSided})`);
       
       try {
         // Add front pages

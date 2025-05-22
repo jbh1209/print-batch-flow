@@ -44,16 +44,20 @@ export function calculateJobPageDistribution(
       quantityPerSlot = Math.ceil(job.quantity / slotsNeeded);
     }
     
+    // Explicitly log the double_sided value for debugging
+    const isDoubleSided = job.double_sided === true;
+    console.log(`Job "${job.name}" (${job.id}): double_sided = ${isDoubleSided ? "YES" : "NO"}`);
+    
     jobAllocations.push({
       jobId: job.id,
       jobName: job.name,
       totalQuantity: job.quantity,
       slotsNeeded,
       quantityPerSlot,
-      isDoubleSided: job.double_sided || false // Set default false if undefined
+      isDoubleSided: isDoubleSided
     });
     
-    console.log(`Job "${job.name}" (${job.id}): ${job.quantity} cards → ${slotsNeeded} slots with ${quantityPerSlot} cards per slot`);
+    console.log(`Job "${job.name}" (${job.id}): ${job.quantity} cards → ${slotsNeeded} slots with ${quantityPerSlot} cards per slot (double-sided: ${isDoubleSided})`);
   }
   
   // Optimize allocations to fit within total slots
