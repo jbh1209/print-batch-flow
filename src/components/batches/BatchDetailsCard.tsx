@@ -13,6 +13,7 @@ import {
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { BatchDetailsType } from "./types/BatchTypes";
 import BatchStatusUpdate from "./BatchStatusUpdate";
+import { BatchStatus } from "@/config/productTypes";
 
 interface BatchDetailsCardProps {
   batch: BatchDetailsType;
@@ -32,8 +33,8 @@ const BatchDetailsCard = ({ batch, onDeleteClick, onStatusUpdate }: BatchDetails
   // Determine if this is likely a sleeve batch based on the name
   const isSleeveBatch = batch.name && batch.name.startsWith('DXB-SL-');
 
-  // Convert BatchStatus to string for comparisons
-  const batchStatus = String(batch.status);
+  // Cast the batch status to BatchStatus type to ensure compatibility
+  const batchStatus: BatchStatus = batch.status as BatchStatus;
   const isCompletedOrSent = batchStatus === "completed" || batchStatus === "sent_to_print";
 
   return (

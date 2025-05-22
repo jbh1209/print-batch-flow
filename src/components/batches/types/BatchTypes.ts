@@ -1,9 +1,10 @@
 
+// Import the BatchStatus and JobStatus types from the config file to maintain consistency
 import { BatchStatus as ConfigBatchStatus, JobStatus as ConfigJobStatus } from "@/config/productTypes";
 
 // Use type alias instead of enum to match config/productTypes.ts
-export type BatchStatus = ConfigBatchStatus | string;
-export type JobStatus = ConfigJobStatus | string;
+export type BatchStatus = ConfigBatchStatus;
+export type JobStatus = ConfigJobStatus;
 
 // Add the missing BatchSummary interface
 export interface BatchSummary {
