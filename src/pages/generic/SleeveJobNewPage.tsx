@@ -1,10 +1,8 @@
 
-import { productConfigs } from "@/config/productTypes";
-import { GenericJobForm } from "@/components/generic/GenericJobForm";
+import { SleeveJobForm } from "@/components/sleeves/SleeveJobForm";
 
 const SleeveJobNewPage = () => {
-  const config = productConfigs["Sleeves"];
-  return <GenericJobForm config={config} mode="create" />;
+  return <SleeveJobForm mode="create" />;
 };
 
 export default SleeveJobNewPage;
