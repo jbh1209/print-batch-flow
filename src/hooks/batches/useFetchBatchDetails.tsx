@@ -72,7 +72,7 @@ export function useFetchBatchDetails({
         overview_pdf_url: data.back_pdf_url,
         due_date: data.due_date,
         created_at: data.created_at,
-        status: data.status as BatchStatus | string, // Cast to the imported type
+        status: data.status as BatchStatus, // Cast to the imported type
       };
       
       setBatch(batchData);
@@ -96,8 +96,12 @@ export function useFetchBatchDetails({
           console.log(`Found ${jobs.length} jobs for batch ID: ${batchId}`);
           console.log("First job sample:", jobs[0]);
           
-          // Cast to Job[] since we know all fields are present
-          jobsData = jobs as unknown as Job[];
+          // Cast to Job[] with proper type assertion
+          jobsData = jobs.map(job => ({
+            ...job,
+            double_sided: typeof job.double_sided === 'boolean' ? job.double_sided : false,
+            status: job.status as JobStatus
+          })) as Job[];
         } else {
           console.warn(`No jobs found for batch ID: ${batchId}`);
         }
@@ -121,7 +125,7 @@ export function useFetchBatchDetails({
             quantity: job.quantity || 0,
             due_date: job.due_date || new Date().toISOString(),
             uploaded_at: job.created_at || new Date().toISOString(),
-            status: job.status || "queued",
+            status: job.status as JobStatus,
             pdf_url: job.pdf_url || null,
             job_number: job.job_number || job.name || "",
             updated_at: job.updated_at || new Date().toISOString(),

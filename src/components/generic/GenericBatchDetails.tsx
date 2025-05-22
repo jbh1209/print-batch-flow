@@ -72,14 +72,14 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     status: batch.status // Both are now string-based types
   };
 
-  // Convert BaseJob[] to Job[] by adding required properties
+  // Convert BaseJob[] to Job[] by adding required properties and ensuring double_sided is boolean
   const jobsWithRequiredProps: Job[] = relatedJobs.map(job => ({
     ...job,
     file_name: job.file_name || "",
     lamination_type: job.lamination_type || "none",
     due_date: job.due_date || new Date().toISOString(),
     uploaded_at: job.created_at || new Date().toISOString(),
-    double_sided: ('double_sided' in job) ? job.double_sided : false,
+    double_sided: typeof job.double_sided === 'boolean' ? job.double_sided : false, // Ensure boolean
     job_number: job.job_number || "",
     updated_at: job.updated_at || new Date().toISOString(),
     user_id: job.user_id || ""

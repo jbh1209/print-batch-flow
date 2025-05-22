@@ -94,7 +94,9 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     // Make sure all required Job properties are present
     job_number: job.job_number || "",
     updated_at: job.updated_at || new Date().toISOString(),
-    user_id: job.user_id || ""
+    user_id: job.user_id || "",
+    // Ensure double_sided is a boolean
+    double_sided: typeof job.double_sided === 'boolean' ? job.double_sided : false
   }));
 
   return (
