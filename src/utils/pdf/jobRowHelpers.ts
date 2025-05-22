@@ -4,6 +4,11 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { format } from "date-fns";
 import { JobDistributionItem } from "../batchOptimizationHelpers";
 
+// Helper function to safely access job number
+const getJobNumber = (job: Job): string => {
+  return 'job_number' in job ? job.job_number : job.name || 'Unknown Job';
+};
+
 // Function to draw a single job row
 export function drawJobRow(
   page: PDFPage,
@@ -18,12 +23,10 @@ export function drawJobRow(
   slotInfo?: { slots: number; quantityPerSlot: number }
 ): PDFPage {
   // Truncate job number if too long
-  let jobNumber = job.job_number;
-  if (jobNumber.length > 30) {
-    jobNumber = jobNumber.substring(0, 27) + "...";
-  }
+  const jobNumber = getJobNumber(job);
+  const displayText = jobNumber.length > 30 ? jobNumber.substring(0, 27) + "..." : jobNumber;
   
-  page.drawText(jobNumber, {
+  page.drawText(displayText, {
     x: colStarts[0],
     y: rowY,
     size: 10,
@@ -145,13 +148,11 @@ export function drawOptimizationInfo(
   const rowHeight = 20;
   distribution.forEach((item, i) => {
     // Use job_number instead of name
-    let jobNumber = item.job.job_number;
-    if (jobNumber.length > 30) {
-      jobNumber = jobNumber.substring(0, 27) + "...";
-    }
+    const jobNumber = getJobNumber(item.job);
+    const displayText = jobNumber.length > 30 ? jobNumber.substring(0, 27) + "..." : jobNumber;
     
     // Draw job number
-    page.drawText(jobNumber, {
+    page.drawText(displayText, {
       x: colStarts[0],
       y,
       size: 10,

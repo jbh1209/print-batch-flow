@@ -6,6 +6,16 @@ import { BaseJob } from "@/config/productTypes";
 import { loadPdfAsBytes } from "./pdfLoaderCore";
 import { isBusinessCardJobs, isSleeveJobs } from "./jobTypeUtils";
 
+// Helper function to safely access job number regardless of job type
+const getJobNumber = (job: Job | FlyerJob | BaseJob): string => {
+  if ('job_number' in job) {
+    return job.job_number;
+  } else {
+    // Fallback to name if job_number is not available (shouldn't happen with proper types)
+    return job.name || 'Unknown Job';
+  }
+};
+
 export async function addJobPreviews(
   page: any,
   jobs: Job[] | FlyerJob[] | BaseJob[],
@@ -69,9 +79,10 @@ export async function addJobPreviews(
       
       // Add job info below preview - using job_number instead of name
       const textSize = isSleeveJobType ? 6 : 7;
-      const jobNumber = job.job_number.substring(0, 20) + (job.job_number.length > 20 ? '...' : '');
-      page.drawText(jobNumber, {
-        x: x + (gridConfig.cellWidth / 2) - (jobNumber.length * 1.8),
+      const jobNumber = getJobNumber(job);
+      const displayText = jobNumber.substring(0, 20) + (jobNumber.length > 20 ? '...' : '');
+      page.drawText(displayText, {
+        x: x + (gridConfig.cellWidth / 2) - (displayText.length * 1.8),
         y: y - gridConfig.cellHeight - 15,
         size: textSize,
         font: helveticaFont

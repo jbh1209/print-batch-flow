@@ -6,6 +6,16 @@ import { format } from "date-fns";
 import { rgb } from "pdf-lib";
 import { isBusinessCardJobs, isFlyerJobs, isSleeveJobs } from "./jobTypeUtils";
 
+// Helper function to safely access job number regardless of job type
+const getJobNumber = (job: Job | FlyerJob | BaseJob): string => {
+  if ('job_number' in job) {
+    return job.job_number;
+  } else {
+    // Fallback to name if job_number is not available (shouldn't happen with proper types)
+    return job.name || 'Unknown Job';
+  }
+};
+
 export function drawTableRows(
   page: any,
   jobs: Job[] | FlyerJob[] | BaseJob[],
@@ -21,8 +31,9 @@ export function drawTableRows(
   
   displayJobs.forEach((job, index) => {
     // Job number (truncate if too long)
-    const jobNumber = job.job_number.length > 18 ? job.job_number.substring(0, 15) + '...' : job.job_number;
-    page.drawText(jobNumber, {
+    const jobNumber = getJobNumber(job);
+    const displayText = jobNumber.length > 18 ? jobNumber.substring(0, 15) + '...' : jobNumber;
+    page.drawText(displayText, {
       x: colStarts[0],
       y,
       size: 9, // Smaller font
