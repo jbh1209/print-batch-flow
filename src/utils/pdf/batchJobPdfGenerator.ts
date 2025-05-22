@@ -88,75 +88,73 @@ export async function generateBatchJobPdf(
     let totalPages = 0;
     let errorCount = 0;
     
-    // Add all front pages first
+    // MODIFIED: Instead of processing all fronts then all backs, we'll process each job's
+    // front and back pages together to create an interleaved pattern
     for (const jobPages of processedJobPages) {
-      const frontCopies = Math.max(1, jobPages.frontPages.length);
-      console.log(`Adding ${frontCopies} front page copies for job ${jobPages.jobName} (double-sided: ${jobPages.isDoubleSided})`);
+      console.log(`Processing pages for job ${jobPages.jobName} (double-sided: ${jobPages.isDoubleSided})`);
       
       try {
-        // Add front pages
-        for (const frontPage of jobPages.frontPages) {
-          // Load page from buffer
-          const frontDoc = await PDFDocument.load(frontPage);
-          const [copyPage] = await finalPdf.copyPages(frontDoc, [0]);
-          finalPdf.addPage(copyPage);
-          totalPages++;
-        }
+        // Get the number of copies needed for this job
+        const frontCopies = jobPages.frontPages.length;
         
-      } catch (error) {
-        console.error(`Error adding front pages for job ${jobPages.jobId}:`, error);
-        errorCount++;
-        
-        // Create an error page if we couldn't add the job pages
-        const errorPage = finalPdf.addPage();
-        const { width, height } = errorPage.getSize();
-        errorPage.drawText(`Error: Failed to process job ${jobPages.jobName}`, {
-          x: 50,
-          y: height - 50,
-          size: 12
-        });
-        totalPages++;
-      }
-    }
-    
-    // Add all back pages (if any)
-    for (const jobPages of processedJobPages) {
-      if (jobPages.isDoubleSided && jobPages.backPages.length > 0) {
-        const backCopies = jobPages.backPages.length;
-        console.log(`Adding ${backCopies} back page copies for job ${jobPages.jobName}`);
-        
-        try {
-          // Add back pages
-          for (const backPage of jobPages.backPages) {
-            // Load page from buffer
-            const backDoc = await PDFDocument.load(backPage);
-            // FIXED: The issue was here - we were incorrectly copying pages from backDoc to backDoc
-            // Instead, we should copy pages from backDoc to finalPdf
-            const [copyPage] = await finalPdf.copyPages(backDoc, [0]);
-            finalPdf.addPage(copyPage);
-            totalPages++;
+        // For each copy of the job
+        for (let i = 0; i < frontCopies; i++) {
+          // Add a front page
+          if (jobPages.frontPages[i]) {
+            try {
+              const frontDoc = await PDFDocument.load(jobPages.frontPages[i]);
+              const [frontCopyPage] = await finalPdf.copyPages(frontDoc, [0]);
+              finalPdf.addPage(frontCopyPage);
+              totalPages++;
+            } catch (frontError) {
+              console.error(`Error adding front page ${i+1} for job ${jobPages.jobId}:`, frontError);
+              errorCount++;
+              
+              // Create an error page if we couldn't add the front page
+              const errorPage = finalPdf.addPage();
+              const { width, height } = errorPage.getSize();
+              errorPage.drawText(`Error: Failed to process front page for job ${jobPages.jobName}`, {
+                x: 50,
+                y: height - 50,
+                size: 12
+              });
+              totalPages++;
+            }
           }
-        } catch (error) {
-          console.error(`Error adding back pages for job ${jobPages.jobId}:`, error);
-          errorCount++;
           
-          // Create an error page if we couldn't add the job pages
-          const errorPage = finalPdf.addPage();
-          const { width, height } = errorPage.getSize();
-          errorPage.drawText(`Error: Failed to process back side for job ${jobPages.jobName}`, {
-            x: 50,
-            y: height - 50,
-            size: 12
-          });
-          totalPages++;
+          // Add the corresponding back page immediately after the front page (if double-sided)
+          if (jobPages.isDoubleSided && jobPages.backPages[i]) {
+            try {
+              const backDoc = await PDFDocument.load(jobPages.backPages[i]);
+              const [backCopyPage] = await finalPdf.copyPages(backDoc, [0]);
+              finalPdf.addPage(backCopyPage);
+              totalPages++;
+            } catch (backError) {
+              console.error(`Error adding back page ${i+1} for job ${jobPages.jobId}:`, backError);
+              errorCount++;
+              
+              // Create an error page if we couldn't add the back page
+              const errorPage = finalPdf.addPage();
+              const { width, height } = errorPage.getSize();
+              errorPage.drawText(`Error: Failed to process back side for job ${jobPages.jobName}`, {
+                x: 50,
+                y: height - 50,
+                size: 12
+              });
+              totalPages++;
+            }
+          }
         }
+      } catch (error) {
+        console.error(`Error processing pages for job ${jobPages.jobId}:`, error);
+        errorCount++;
       }
     }
     
     // Save the final PDF
     const pdfBytes = await finalPdf.save();
     
-    console.log(`Final PDF generated with ${totalPages} total pages`);
+    console.log(`Final PDF generated with ${totalPages} total pages (interleaved front/back)`);
     
     return {
       pdfBytes,
