@@ -4,9 +4,10 @@ import { getSignedUrl } from "./urlUtils";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { Job } from "@/components/batches/types/BatchTypes";
+import { generateBatchJobPdf } from "./batchJobPdfGenerator";
 
 /**
- * Downloads all job PDFs in a batch as a ZIP file
+ * Downloads all job PDFs in a batch as a single consolidated multi-page PDF
  */
 export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Promise<void> => {
   if (jobs.length === 0) {
@@ -17,7 +18,50 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
   }
 
   // Setup a loading toast with ID so we can update it
-  const toastId = toast.loading(`Preparing ${jobs.length} PDFs for download...`);
+  const toastId = toast.loading(`Preparing ${jobs.length} PDFs for batch ${batchName}...`);
+  
+  try {
+    // Generate a consolidated PDF with all jobs properly distributed
+    const result = await generateBatchJobPdf(jobs, batchName);
+    
+    // Create a Blob from the PDF bytes
+    const pdfBlob = new Blob([result.pdfBytes], { type: "application/pdf" });
+    
+    // Download the PDF
+    saveAs(pdfBlob, `${batchName}-all-jobs.pdf`);
+    
+    // Show summary toast
+    const successMessage = result.errorCount > 0
+      ? `Generated PDF with ${result.pageCount} pages. ${result.errorCount} jobs had errors.`
+      : `Successfully generated PDF with ${result.pageCount} pages for ${result.jobCount} jobs.`;
+    
+    toast.success("Download complete", { 
+      id: toastId,
+      description: successMessage
+    });
+  } catch (error) {
+    console.error("Error downloading batch job PDFs:", error);
+    toast.error("Failed to generate job PDFs", { 
+      id: toastId,
+      description: error instanceof Error ? error.message : "Unknown error occurred"
+    });
+  }
+};
+
+/**
+ * Downloads individual job PDFs in a batch as a ZIP file
+ * This is the original functionality, renamed for clarity
+ */
+export const downloadIndividualBatchJobPdfs = async (jobs: Job[], batchName: string): Promise<void> => {
+  if (jobs.length === 0) {
+    toast.error("No jobs available to download", {
+      description: "This batch doesn't have any linked jobs"
+    });
+    return;
+  }
+
+  // Setup a loading toast with ID so we can update it
+  const toastId = toast.loading(`Preparing ${jobs.length} individual PDFs for download...`);
   
   // Setup a timeout to update the toast if download takes too long
   const timeoutId = setTimeout(() => {
@@ -144,7 +188,7 @@ export const downloadBatchJobPdfs = async (jobs: Job[], batchName: string): Prom
     
     // Generate ZIP and trigger download
     const zipBlob = await zip.generateAsync({ type: "blob" });
-    saveAs(zipBlob, `${batchName}-job-pdfs.zip`);
+    saveAs(zipBlob, `${batchName}-individual-pdfs.zip`);
     
     // Show summary toast
     const message = jobsWithoutPdfs > 0 || failedJobs > 0

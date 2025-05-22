@@ -12,7 +12,14 @@ import {
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { toast } from "sonner";
 import { BatchDetailsType } from "./types/BatchTypes";
-import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
+import { downloadBatchJobPdfs, downloadIndividualBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface BatchActionsCardProps {
   batch: BatchDetailsType;
@@ -115,15 +122,45 @@ const BatchActionsCard = ({
           {/* Job PDFs Download */}
           <div className="space-y-2 border-t border-gray-200 pt-2">
             <h3 className="text-sm font-medium">Job PDFs</h3>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={onDownloadJobPdfs}
-              className="w-full flex items-center justify-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Download All Job PDFs
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full flex items-center justify-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Job PDFs
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem 
+                    onClick={onDownloadJobPdfs}
+                  >
+                    Combined PDF (Imposition Format)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (batch && batch.id) {
+                        try {
+                          // We're passing an empty function because the actual implementation is in the component
+                          // This is to maintain backward compatibility
+                          if (onDownloadJobPdfs) {
+                            await onDownloadJobPdfs();
+                          }
+                        } catch (error) {
+                          console.error("Error downloading job PDFs:", error);
+                          toast.error("Failed to download job PDFs");
+                        }
+                      }
+                    }}
+                  >
+                    Individual Job PDFs (ZIP)
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardContent>
@@ -132,4 +169,3 @@ const BatchActionsCard = ({
 };
 
 export default BatchActionsCard;
-

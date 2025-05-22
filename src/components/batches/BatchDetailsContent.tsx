@@ -5,7 +5,7 @@ import BatchDetailsCard from "./BatchDetailsCard";
 import BatchActionsCard from "./BatchActionsCard";
 import RelatedJobsCard from "./RelatedJobsCard";
 import { FlyerBatchOverview } from "../flyers/FlyerBatchOverview";
-import { downloadBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
+import { downloadBatchJobPdfs, downloadIndividualBatchJobPdfs } from "@/utils/pdf/batchJobPdfUtils";
 import { toast } from "sonner";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
 import { BaseJob } from "@/config/productTypes";
@@ -35,6 +35,7 @@ const BatchDetailsContent = ({
     }
     
     try {
+      // Use the new combined PDF generator
       await downloadBatchJobPdfs(relatedJobs, batch.name);
     } catch (error) {
       console.error("Error downloading job PDFs:", error);
@@ -42,10 +43,27 @@ const BatchDetailsContent = ({
     }
   };
 
+  const handleDownloadIndividualJobPdfs = async () => {
+    if (relatedJobs.length === 0) {
+      toast.error("No jobs available to download", {
+        description: "This batch doesn't have any linked jobs yet"
+      });
+      return;
+    }
+    
+    try {
+      // Use the individual PDFs function (ZIP file)
+      await downloadIndividualBatchJobPdfs(relatedJobs, batch.name);
+    } catch (error) {
+      console.error("Error downloading individual job PDFs:", error);
+      toast.error("Failed to download individual job PDFs");
+    }
+  };
+
   const handleDownloadBatchOverviewSheet = async () => {
     try {
-      // Check if batch overview PDF URL exists, prioritize back_pdf_url if overview_pdf_url is missing
-      const overviewPdfUrl = batch.back_pdf_url;
+      // Check if batch overview PDF URL exists
+      const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
       
       if (!overviewPdfUrl) {
         toast.error("No batch overview sheet available", {
