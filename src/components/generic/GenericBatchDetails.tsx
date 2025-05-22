@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
-import { ProductConfig, BatchStatus } from "@/config/productTypes";
+import { ProductConfig } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -69,7 +69,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     overview_pdf_url: batch.overview_pdf_url,
     due_date: batch.due_date,
     created_at: batch.created_at,
-    status: batch.status as BatchStatus
+    status: batch.status // Both are now string-based types
   };
 
   // Convert BaseJob[] to Job[] by adding required properties
@@ -78,9 +78,9 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     file_name: job.file_name || "",
     lamination_type: job.lamination_type || "none",
     due_date: job.due_date || new Date().toISOString(),
-    // Add the missing uploaded_at property
     uploaded_at: job.created_at || new Date().toISOString(),
-    // Make sure all required Job properties are present
+    double_sided: job.double_sided || false,
+    job_number: job.job_number || "",
     updated_at: job.updated_at || new Date().toISOString(),
     user_id: job.user_id || ""
   }));

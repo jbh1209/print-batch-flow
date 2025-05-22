@@ -72,7 +72,7 @@ export function useFetchBatchDetails({
         overview_pdf_url: data.back_pdf_url,
         due_date: data.due_date,
         created_at: data.created_at,
-        status: data.status,
+        status: data.status as BatchStatus, // Cast to the imported type
       };
       
       setBatch(batchData);
@@ -83,7 +83,7 @@ export function useFetchBatchDetails({
         console.log(`Fetching business card jobs for batch ID: ${batchId}`);
         const { data: jobs, error: jobsError } = await supabase
           .from("business_card_jobs")
-          .select("id, name, quantity, status, pdf_url, file_name, lamination_type, due_date, uploaded_at, double_sided")
+          .select("id, name, quantity, status, pdf_url, file_name, lamination_type, due_date, uploaded_at, double_sided, job_number, updated_at, user_id")
           .eq("batch_id", batchId)
           .order("name");
         
@@ -96,15 +96,15 @@ export function useFetchBatchDetails({
           console.log(`Found ${jobs.length} jobs for batch ID: ${batchId}`);
           console.log("First job sample:", jobs[0]);
           
-          // Explicitly cast jobs as unknown first, then as Job[] to avoid type errors
-          jobsData = (jobs as unknown) as Job[];
+          // Cast to Job[] since we know all fields are present
+          jobsData = jobs as unknown as Job[];
         } else {
           console.warn(`No jobs found for batch ID: ${batchId}`);
         }
       } else if (productType === "Flyers") {
         const { data: jobs, error: jobsError } = await supabase
           .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url, file_name")
+          .select("id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id")
           .eq("batch_id", batchId)
           .order("name");
         
@@ -112,18 +112,21 @@ export function useFetchBatchDetails({
 
         // Add missing properties to flyer jobs to match Job interface
         if (jobs) {
-          // Explicitly cast jobs with required properties
+          // Map each job to ensure it has all required properties
           jobsData = jobs.map(job => ({
-            ...job,
+            id: job.id,
+            name: job.name,
             file_name: job.file_name || job.name || "",
             lamination_type: "none", // Default for flyers
+            quantity: job.quantity,
             due_date: job.due_date || new Date().toISOString(),
             uploaded_at: job.created_at || new Date().toISOString(),
-            double_sided: false, // Default for flyers
-            // Add other required fields
+            status: job.status,
+            pdf_url: job.pdf_url,
             job_number: job.job_number || job.name || "",
             updated_at: job.updated_at || new Date().toISOString(),
-            user_id: job.user_id || ""
+            user_id: job.user_id || "",
+            double_sided: false // Default for flyers
           })) as Job[];
         }
       }

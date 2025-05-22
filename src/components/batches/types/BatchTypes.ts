@@ -1,48 +1,9 @@
 
-export interface BatchDetailsType {
-  id: string;
-  name: string;
-  lamination_type: string;
-  sheets_required: number;
-  front_pdf_url: string | null;
-  back_pdf_url: string | null;
-  overview_pdf_url: string | null;
-  due_date: string;
-  created_at: string;
-  status: BatchStatus;
-}
+import { BatchStatus as ConfigBatchStatus, JobStatus as ConfigJobStatus } from "@/config/productTypes";
 
-// Align with the enum used in config/productTypes.ts for consistency
-export enum JobStatus {
-  PENDING = "pending",
-  IN_PROGRESS = "in_progress",
-  COMPLETED = "completed",
-  FAILED = "failed",
-  ON_HOLD = "on_hold",
-  QUEUED = "queued",
-  BATCHED = "batched",
-  SHIPPED = "shipped",
-  DELIVERED = "delivered",
-  CANCELLED = "cancelled",
-  SENT_TO_PRINT = "sent_to_print",
-  PROCESSING = "processing"
-}
-
-// Align with the enum used in config/productTypes.ts for consistency
-export enum BatchStatus {
-  PENDING = "pending",
-  IN_PROGRESS = "in_progress",
-  COMPLETED = "completed",
-  FAILED = "failed",
-  ON_HOLD = "on_hold",
-  QUEUED = "queued",
-  BATCHED = "batched",
-  SHIPPED = "shipped",
-  DELIVERED = "delivered",
-  CANCELLED = "cancelled",
-  SENT_TO_PRINT = "sent_to_print",
-  PROCESSING = "processing"
-}
+// Use type alias instead of enum to match config/productTypes.ts
+export type BatchStatus = ConfigBatchStatus;
+export type JobStatus = ConfigJobStatus;
 
 // Add the missing BatchSummary interface
 export interface BatchSummary {
@@ -74,4 +35,17 @@ export interface Job {
   job_number?: string;
   updated_at?: string;
   user_id?: string;
+}
+
+export interface BatchDetailsType {
+  id: string;
+  name: string;
+  lamination_type: string;
+  sheets_required: number;
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
+  overview_pdf_url: string | null;
+  due_date: string;
+  created_at: string;
+  status: BatchStatus;
 }

@@ -78,9 +78,9 @@ const FlyerBatchDetails = () => {
     uploaded_at: job.created_at, // Use created_at as uploaded_at
     status: job.status,
     pdf_url: job.pdf_url,
-    user_id: job.user_id,
-    updated_at: job.updated_at,
-    job_number: job.job_number || job.name
+    user_id: job.user_id || "",
+    updated_at: job.updated_at || "",
+    job_number: job.job_number || job.name || ""
   }));
 
   // Convert FlyerBatch to BatchDetailsType for compatibility
@@ -94,7 +94,7 @@ const FlyerBatchDetails = () => {
     overview_pdf_url: batch.overview_pdf_url || batch.back_pdf_url,
     due_date: batch.due_date,
     created_at: batch.created_at,
-    status: batch.status as any // Force casting until we align enums
+    status: batch.status // Both are now string-based types
   };
 
   return (

@@ -2,7 +2,7 @@
 import React, { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
-import { ProductConfig, BatchStatus } from "@/config/productTypes";
+import { ProductConfig } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
@@ -80,7 +80,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     overview_pdf_url: batch.overview_pdf_url || null,
     due_date: batch.due_date,
     created_at: batch.created_at,
-    status: batch.status as BatchStatus
+    status: batch.status // Both are now string-based types
   };
 
   // Convert BaseJob[] to Job[] by adding required properties
@@ -92,6 +92,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     // Add the missing uploaded_at property
     uploaded_at: job.created_at || new Date().toISOString(),
     // Make sure all required Job properties are present
+    job_number: job.job_number || "",
     updated_at: job.updated_at || new Date().toISOString(),
     user_id: job.user_id || ""
   }));

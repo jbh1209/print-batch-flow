@@ -35,21 +35,6 @@ const AllBatches: React.FC = () => {
     );
   }
 
-  const handleBatchClick = (batchUrl: string) => {
-    navigate(batchUrl);
-  };
-  
-  const getBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | "success" => {
-    switch (status) {
-      case 'queued': return 'outline';
-      case 'in_progress': return 'secondary';
-      case 'sent_to_print': return 'secondary';
-      case 'completed': return 'default';
-      case 'cancelled': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
   // Convert batches to our local BatchSummary type with all required fields
   const typedBatches: BatchSummary[] = batches.map(batch => ({
     id: batch.id,
@@ -60,6 +45,7 @@ const AllBatches: React.FC = () => {
     created_at: batch.created_at || new Date().toISOString(),
     // Add the required fields that might be missing in the fetched data
     sheets_required: batch.sheets_required || 0,
+    lamination_type: batch.lamination_type || "none", // Add default lamination_type
     front_pdf_url: batch.front_pdf_url || null,
     back_pdf_url: batch.back_pdf_url || null
   }));
@@ -91,6 +77,21 @@ const AllBatches: React.FC = () => {
       />
     </div>
   );
+  
+  function getBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" | "success" {
+    switch (status) {
+      case 'queued': return 'outline';
+      case 'in_progress': return 'secondary';
+      case 'sent_to_print': return 'secondary';
+      case 'completed': return 'default';
+      case 'cancelled': return 'destructive';
+      default: return 'outline';
+    }
+  }
+
+  function handleBatchClick(batchUrl: string) {
+    navigate(batchUrl);
+  }
 };
 
 export default AllBatches;

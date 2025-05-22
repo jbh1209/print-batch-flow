@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import JobStatusBadge from "@/components/JobStatusBadge";
-import { BatchDetailsType, BatchStatus } from "./types/BatchTypes";
+import { BatchDetailsType } from "./types/BatchTypes";
 import BatchStatusUpdate from "./BatchStatusUpdate";
 
 interface BatchDetailsCardProps {
@@ -32,8 +32,8 @@ const BatchDetailsCard = ({ batch, onDeleteClick, onStatusUpdate }: BatchDetails
   // Determine if this is likely a sleeve batch based on the name
   const isSleeveBatch = batch.name && batch.name.startsWith('DXB-SL-');
 
-  // Ensure batch.status is treated as string for comparisons
-  const batchStatus = batch.status;
+  // Convert BatchStatus to string for comparisons
+  const batchStatus = batch.status.toString();
   const isCompletedOrSent = batchStatus === "completed" || batchStatus === "sent_to_print";
 
   return (
