@@ -59,7 +59,7 @@ export async function addJobPreviews(
       const xOffset = (gridConfig.cellWidth - scaledWidth) / 2;
       const yOffset = (gridConfig.cellHeight - scaledHeight - 20) / 2;
       
-      // Draw embedded page
+      // Draw embedded page - Remove border by not drawing the rectangle
       page.drawPage(embeddedPage, {
         x: x + xOffset,
         y: y - gridConfig.cellHeight + yOffset + 20,
@@ -67,11 +67,11 @@ export async function addJobPreviews(
         height: scaledHeight
       });
       
-      // Add job info below preview - smaller text for sleeve jobs
+      // Add job info below preview - using job_number instead of name
       const textSize = isSleeveJobType ? 6 : 7;
-      const jobName = job.name.substring(0, 20) + (job.name.length > 20 ? '...' : '');
-      page.drawText(jobName, {
-        x: x + (gridConfig.cellWidth / 2) - (jobName.length * 1.8),
+      const jobNumber = job.job_number.substring(0, 20) + (job.job_number.length > 20 ? '...' : '');
+      page.drawText(jobNumber, {
+        x: x + (gridConfig.cellWidth / 2) - (jobNumber.length * 1.8),
         y: y - gridConfig.cellHeight - 15,
         size: textSize,
         font: helveticaFont

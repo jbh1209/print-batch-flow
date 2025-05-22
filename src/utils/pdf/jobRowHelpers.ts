@@ -17,13 +17,13 @@ export function drawJobRow(
   index: number,
   slotInfo?: { slots: number; quantityPerSlot: number }
 ): PDFPage {
-  // Truncate job name if too long
-  let jobName = job.name;
-  if (jobName.length > 30) {
-    jobName = jobName.substring(0, 27) + "...";
+  // Truncate job number if too long
+  let jobNumber = job.job_number;
+  if (jobNumber.length > 30) {
+    jobNumber = jobNumber.substring(0, 27) + "...";
   }
   
-  page.drawText(jobName, {
+  page.drawText(jobNumber, {
     x: colStarts[0],
     y: rowY,
     size: 10,
@@ -107,7 +107,7 @@ export function drawOptimizationInfo(
   y -= 25;
   
   // Draw header
-  page.drawText("Job Name", {
+  page.drawText("Job Number", {
     x: colStarts[0],
     y,
     size: 12,
@@ -144,14 +144,14 @@ export function drawOptimizationInfo(
   // Draw each job's optimization info
   const rowHeight = 20;
   distribution.forEach((item, i) => {
-    // Truncate job name if too long
-    let jobName = item.job.name;
-    if (jobName.length > 30) {
-      jobName = jobName.substring(0, 27) + "...";
+    // Use job_number instead of name
+    let jobNumber = item.job.job_number;
+    if (jobNumber.length > 30) {
+      jobNumber = jobNumber.substring(0, 27) + "...";
     }
     
-    // Draw job name
-    page.drawText(jobName, {
+    // Draw job number
+    page.drawText(jobNumber, {
       x: colStarts[0],
       y,
       size: 10,
