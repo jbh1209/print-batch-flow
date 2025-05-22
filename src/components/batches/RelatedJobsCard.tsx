@@ -59,7 +59,7 @@ const RelatedJobsCard = ({ jobs }: RelatedJobsCardProps) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
+              <TableHead>Job Number</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -68,7 +68,7 @@ const RelatedJobsCard = ({ jobs }: RelatedJobsCardProps) => {
           <TableBody>
             {jobs.map((job) => (
               <TableRow key={job.id}>
-                <TableCell className="font-medium">{job.name}</TableCell>
+                <TableCell className="font-medium">{job.job_number}</TableCell>
                 <TableCell>{job.quantity}</TableCell>
                 <TableCell>
                   <JobStatusBadge status={job.status} />
@@ -79,7 +79,7 @@ const RelatedJobsCard = ({ jobs }: RelatedJobsCardProps) => {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleViewJobPdf(job.pdf_url, job.name)}
+                        onClick={() => handleViewJobPdf(job.pdf_url, job.job_number)}
                       >
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">View PDF</span>
@@ -87,7 +87,7 @@ const RelatedJobsCard = ({ jobs }: RelatedJobsCardProps) => {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleDownloadJobPdf(job.pdf_url, job.name)}
+                        onClick={() => handleDownloadJobPdf(job.pdf_url, job.job_number)}
                       >
                         <Download className="h-4 w-4" />
                         <span className="sr-only">Download PDF</span>

@@ -24,8 +24,8 @@ export const JobsTableHeader = ({
             disabled={selectableJobsCount === 0}
           />
         </TableHead>
-        <TableHead>Job Name</TableHead>
-        <TableHead>Job #</TableHead>
+        <TableHead>Job Number</TableHead>
+        <TableHead>Client Name</TableHead>
         <TableHead>Size</TableHead>
         <TableHead>Paper</TableHead>
         <TableHead>Quantity</TableHead>

@@ -47,8 +47,8 @@ export const FlyerJobRow = ({
           disabled={!canSelect}
         />
       </TableCell>
-      <TableCell className="font-medium">{job.name}</TableCell>
-      <TableCell>{job.job_number}</TableCell>
+      <TableCell className="font-medium">{job.job_number}</TableCell>
+      <TableCell>{job.name}</TableCell>
       <TableCell>{job.size}</TableCell>
       <TableCell>
         {job.paper_weight} {job.paper_type}

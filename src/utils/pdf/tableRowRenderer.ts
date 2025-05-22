@@ -20,9 +20,9 @@ export function drawTableRows(
   const displayJobs = jobs.slice(0, 8);
   
   displayJobs.forEach((job, index) => {
-    // Job name (truncate if too long)
-    const name = job.name.length > 18 ? job.name.substring(0, 15) + '...' : job.name;
-    page.drawText(name, {
+    // Job number (truncate if too long)
+    const jobNumber = job.job_number.length > 18 ? job.job_number.substring(0, 15) + '...' : job.job_number;
+    page.drawText(jobNumber, {
       x: colStarts[0],
       y,
       size: 9, // Smaller font
