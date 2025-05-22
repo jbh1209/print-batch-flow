@@ -6,7 +6,16 @@ import { JobDistributionItem } from "../batchOptimizationHelpers";
 
 // Helper function to safely access job number
 const getJobNumber = (job: Job): string => {
-  return 'job_number' in job ? job.job_number : job.name || 'Unknown Job';
+  // Properly handle the type by checking if property exists and ensuring it's a string
+  if ('job_number' in job && typeof job.job_number === 'string') {
+    return job.job_number;
+  } 
+  // Fallback to name if it exists and is a string
+  if ('name' in job && typeof job.name === 'string') {
+    return job.name;
+  }
+  // Ultimate fallback
+  return 'Unknown Job';
 };
 
 // Function to draw a single job row

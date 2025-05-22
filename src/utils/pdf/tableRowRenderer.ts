@@ -1,4 +1,3 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
@@ -8,11 +7,11 @@ import { isBusinessCardJobs, isFlyerJobs, isSleeveJobs } from "./jobTypeUtils";
 
 // Helper function to safely access job number regardless of job type
 const getJobNumber = (job: Job | FlyerJob | BaseJob): string => {
-  if ('job_number' in job) {
+  if ('job_number' in job && typeof job.job_number === 'string') {
     return job.job_number;
   } else {
     // Fallback to name if job_number is not available (shouldn't happen with proper types)
-    return job.name || 'Unknown Job';
+    return (job.name && typeof job.name === 'string') ? job.name : 'Unknown Job';
   }
 };
 
