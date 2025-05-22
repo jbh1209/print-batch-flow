@@ -9,7 +9,7 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { BatchDetailsType, Job, JobStatus } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -83,7 +83,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     status: batch.status
   };
 
-  // Convert BaseJob[] to Job[] by adding required properties
+  // Convert BaseJob[] to Job[] by adding required properties and correctly typing the status
   const jobsWithRequiredProps: Job[] = relatedJobs.map(job => ({
     ...job,
     file_name: job.file_name || "",
@@ -96,7 +96,9 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
     updated_at: job.updated_at || new Date().toISOString(),
     user_id: job.user_id || "",
     // Safely access the double_sided property with a fallback
-    double_sided: job.double_sided !== undefined ? job.double_sided : false
+    double_sided: job.double_sided !== undefined ? job.double_sided : false,
+    // Explicitly cast the status to JobStatus type
+    status: job.status as JobStatus
   }));
 
   return (

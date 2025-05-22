@@ -9,7 +9,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
-import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { BatchDetailsType, Job, JobStatus } from "@/components/batches/types/BatchTypes";
 
 interface GenericBatchDetailsProps {
   batchId: string;
@@ -72,7 +72,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     status: batch.status // Both are now string-based types
   };
 
-  // Convert BaseJob[] to Job[] by adding required properties
+  // Convert BaseJob[] to Job[] by adding required properties and correctly typing the status
   const jobsWithRequiredProps: Job[] = relatedJobs.map(job => ({
     ...job,
     file_name: job.file_name || "",
@@ -83,7 +83,9 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     double_sided: job.double_sided !== undefined ? job.double_sided : false,
     job_number: job.job_number || "",
     updated_at: job.updated_at || new Date().toISOString(),
-    user_id: job.user_id || ""
+    user_id: job.user_id || "",
+    // Explicitly cast the status to JobStatus type
+    status: job.status as JobStatus
   }));
 
   return (
