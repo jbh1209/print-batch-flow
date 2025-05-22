@@ -68,8 +68,8 @@ export function useFetchBatchDetails({
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        // Always use back_pdf_url as the overview_pdf_url since that column doesn't exist
-        overview_pdf_url: data.back_pdf_url,
+        // Use overview_pdf_url if it exists, otherwise fall back to back_pdf_url
+        overview_pdf_url: data.overview_pdf_url || data.back_pdf_url,
         due_date: data.due_date,
         created_at: data.created_at,
         status: data.status as BatchStatus, // Cast to the imported type

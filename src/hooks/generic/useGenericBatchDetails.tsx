@@ -45,10 +45,10 @@ export function useGenericBatchDetails({ batchId, config }: UseGenericBatchDetai
           return;
         }
         
-        // Convert the batchData to BaseBatch, adding the overview_pdf_url property
+        // Convert the batchData to BaseBatch, including the overview_pdf_url property
         const batchWithOverview: BaseBatch = {
           ...batchData,
-          overview_pdf_url: null // Adding the missing property with null value
+          overview_pdf_url: batchData.overview_pdf_url || null
         };
         
         setBatch(batchWithOverview);

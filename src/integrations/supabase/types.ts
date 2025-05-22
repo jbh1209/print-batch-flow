@@ -50,6 +50,8 @@ export type Database = {
           id: string
           lamination_type: Database["public"]["Enums"]["lamination_type"]
           name: string
+          needs_overview_pdf: boolean | null
+          overview_pdf_url: string | null
           paper_type: string | null
           paper_weight: string | null
           printer_type: string | null
@@ -69,6 +71,8 @@ export type Database = {
           id?: string
           lamination_type: Database["public"]["Enums"]["lamination_type"]
           name: string
+          needs_overview_pdf?: boolean | null
+          overview_pdf_url?: string | null
           paper_type?: string | null
           paper_weight?: string | null
           printer_type?: string | null
@@ -88,6 +92,8 @@ export type Database = {
           id?: string
           lamination_type?: Database["public"]["Enums"]["lamination_type"]
           name?: string
+          needs_overview_pdf?: boolean | null
+          overview_pdf_url?: string | null
           paper_type?: string | null
           paper_weight?: string | null
           printer_type?: string | null

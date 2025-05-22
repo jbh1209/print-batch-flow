@@ -6,3 +6,4 @@ verify_jwt = true
 
 [functions.cleanup-batch-jobs]
 verify_jwt = false
+
