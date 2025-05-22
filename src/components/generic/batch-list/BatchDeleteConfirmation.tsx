@@ -10,25 +10,32 @@ import {
   AlertDialogCancel,
   AlertDialogAction
 } from "@/components/ui/alert-dialog";
+import { Loader2 } from "lucide-react";
 
 interface BatchDeleteConfirmationProps {
   batchToDelete: string | null;
   isDeleting: boolean;
   onCancel: () => void;
   onDelete: () => Promise<void>;
+  batchName?: string;
 }
 
 export const BatchDeleteConfirmation: React.FC<BatchDeleteConfirmationProps> = ({
   batchToDelete,
   isDeleting,
   onCancel,
-  onDelete
+  onDelete,
+  batchName
 }) => {
   return (
     <AlertDialog open={!!batchToDelete} onOpenChange={(open) => !open && onCancel()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure you want to delete this batch?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {batchName 
+              ? `Are you sure you want to delete batch ${batchName}?` 
+              : "Are you sure you want to delete this batch?"}
+          </AlertDialogTitle>
           <AlertDialogDescription>
             This will return all jobs in this batch to the queue.
             This action cannot be undone.
@@ -36,8 +43,19 @@ export const BatchDeleteConfirmation: React.FC<BatchDeleteConfirmationProps> = (
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onDelete} disabled={isDeleting}>
-            {isDeleting ? 'Deleting...' : 'Delete'}
+          <AlertDialogAction 
+            onClick={onDelete} 
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              'Delete Batch'
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

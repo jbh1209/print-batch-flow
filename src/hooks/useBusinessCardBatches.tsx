@@ -5,8 +5,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LaminationType } from "@/components/business-cards/JobsTable";
-import { BatchStatus } from "@/config/productTypes"; // Import from config instead
+import { BatchStatus } from "@/config/productTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
+import { toast as sonnerToast } from "sonner";
 
 interface Batch {
   id: string;
@@ -17,7 +18,7 @@ interface Batch {
   back_pdf_url: string | null;
   due_date: string;
   created_at: string;
-  status: BatchStatus; // Now using our shared BatchStatus type
+  status: BatchStatus;
 }
 
 export const useBusinessCardBatches = (batchId: string | null) => {
@@ -47,8 +48,6 @@ export const useBusinessCardBatches = (batchId: string | null) => {
         .from("batches")
         .select("*")
         .filter('name', 'ilike', 'DXB-BC-%'); // Only fetch business card batches (prefix DXB-BC-)
-        
-      // Remove created_by filter to allow seeing all batches
         
       // If batchId is specified, filter to only show that batch
       if (batchId) {
@@ -126,19 +125,16 @@ export const useBusinessCardBatches = (batchId: string | null) => {
       
       console.log("Batch deleted successfully");
       
-      toast({
-        title: "Batch deleted",
-        description: "The batch has been deleted and its jobs returned to queue",
+      sonnerToast.success("Batch deleted", {
+        description: "The batch has been deleted and its jobs returned to queue"
       });
       
       // Refresh batch list
       fetchBatches();
     } catch (error) {
       console.error("Error deleting batch:", error);
-      toast({
-        title: "Error deleting batch",
-        description: "Failed to delete batch. Please try again.",
-        variant: "destructive",
+      sonnerToast.error("Failed to delete batch", {
+        description: "Please try again."
       });
     } finally {
       setIsDeleting(false);

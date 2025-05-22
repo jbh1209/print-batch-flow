@@ -4,7 +4,7 @@ import { useBusinessCardBatches } from "@/hooks/useBusinessCardBatches";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import BatchDetails from "@/components/batches/BatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
-import BatchDeleteDialog from "@/components/batches/business-cards/BatchDeleteDialog";
+import DeleteBatchDialog from "@/components/batches/DeleteBatchDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,7 @@ const BusinessCardBatches = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <BatchDeleteDialog 
+      <DeleteBatchDialog 
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
         onClose={() => setBatchToDelete(null)}

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
 
 interface UseDeleteBatchProps {
   productType: string;
@@ -20,47 +21,81 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
     
     setIsDeleting(true);
     try {
-      if (productType === "Business Cards") {
-        const { error: jobsError } = await supabase
-          .from("business_card_jobs")
-          .update({ 
-            status: "queued",
-            batch_id: null
-          })
-          .eq("batch_id", batchToDelete);
-        
-        if (jobsError) throw jobsError;
-      } else if (productType === "Flyers") {
-        const { error: jobsError } = await supabase
-          .from("flyer_jobs")
-          .update({ 
-            status: "queued",
-            batch_id: null
-          })
-          .eq("batch_id", batchToDelete);
-        
-        if (jobsError) throw jobsError;
+      console.log("Deleting batch:", batchToDelete, "Product type:", productType);
+      
+      // Step 1: Reset all jobs in this batch based on product type
+      let tableName: string;
+      
+      switch (productType) {
+        case "Business Cards":
+          tableName = "business_card_jobs";
+          break;
+        case "Flyers":
+          tableName = "flyer_jobs";
+          break;
+        case "Postcards":
+          tableName = "postcard_jobs";
+          break;
+        case "Posters":
+          tableName = "poster_jobs";
+          break;
+        case "Sleeves":
+          tableName = "sleeve_jobs";
+          break;
+        case "Stickers":
+          tableName = "sticker_jobs";
+          break;
+        case "Covers":
+          tableName = "cover_jobs";
+          break;
+        case "Boxes":
+          tableName = "box_jobs";
+          break;
+        default:
+          throw new Error(`Unsupported product type: ${productType}`);
       }
+      
+      console.log(`Resetting jobs in ${tableName} for batch ${batchToDelete}`);
+      
+      const { error: jobsError } = await supabase
+        .from(tableName)
+        .update({ 
+          status: "queued",
+          batch_id: null
+        })
+        .eq("batch_id", batchToDelete);
+      
+      if (jobsError) {
+        console.error(`Error resetting jobs in ${tableName}:`, jobsError);
+        throw jobsError;
+      }
+      
+      // Step 2: Delete the batch
+      console.log(`Deleting batch ${batchToDelete} from batches table`);
       
       const { error: deleteError } = await supabase
         .from("batches")
         .delete()
         .eq("id", batchToDelete);
       
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error("Error deleting batch:", deleteError);
+        throw deleteError;
+      }
       
-      toast({
-        title: "Batch deleted",
-        description: "The batch has been deleted and its jobs returned to queue",
+      console.log("Batch deleted successfully");
+      
+      // Use sonner toast for consistent experience
+      sonnerToast.success("Batch deleted successfully", {
+        description: "The batch has been deleted and all jobs returned to queue."
       });
       
+      // Navigate back to the batches page
       navigate(backUrl);
     } catch (error) {
       console.error("Error deleting batch:", error);
-      toast({
-        title: "Error deleting batch",
-        description: "Failed to delete batch. Please try again.",
-        variant: "destructive",
+      sonnerToast.error("Failed to delete batch", {
+        description: "An error occurred while deleting the batch. Please try again."
       });
     } finally {
       setIsDeleting(false);
