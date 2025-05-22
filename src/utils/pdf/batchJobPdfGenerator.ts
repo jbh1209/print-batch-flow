@@ -130,7 +130,9 @@ export async function generateBatchJobPdf(
           for (const backPage of jobPages.backPages) {
             // Load page from buffer
             const backDoc = await PDFDocument.load(backPage);
-            const [copyPage] = await backDoc.copyPages(backDoc, [0]);
+            // FIXED: The issue was here - we were incorrectly copying pages from backDoc to backDoc
+            // Instead, we should copy pages from backDoc to finalPdf
+            const [copyPage] = await finalPdf.copyPages(backDoc, [0]);
             finalPdf.addPage(copyPage);
             totalPages++;
           }
