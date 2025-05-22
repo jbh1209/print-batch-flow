@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
+import { BatchDetailsType, Job, BatchStatus, JobStatus } from "@/components/batches/types/BatchTypes";
 
 interface UseFetchBatchDetailsProps {
   batchId: string;
@@ -72,7 +72,7 @@ export function useFetchBatchDetails({
         overview_pdf_url: data.back_pdf_url,
         due_date: data.due_date,
         created_at: data.created_at,
-        status: data.status as BatchStatus, // Cast to the imported type
+        status: data.status as BatchStatus | string, // Cast to the imported type
       };
       
       setBatch(batchData);
@@ -118,11 +118,11 @@ export function useFetchBatchDetails({
             name: job.name,
             file_name: job.file_name || job.name || "",
             lamination_type: "none", // Default for flyers
-            quantity: job.quantity,
+            quantity: job.quantity || 0,
             due_date: job.due_date || new Date().toISOString(),
             uploaded_at: job.created_at || new Date().toISOString(),
-            status: job.status,
-            pdf_url: job.pdf_url,
+            status: job.status || "queued",
+            pdf_url: job.pdf_url || null,
             job_number: job.job_number || job.name || "",
             updated_at: job.updated_at || new Date().toISOString(),
             user_id: job.user_id || "",

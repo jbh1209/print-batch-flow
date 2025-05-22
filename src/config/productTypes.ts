@@ -1,4 +1,3 @@
-
 export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch';
 export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
 export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';

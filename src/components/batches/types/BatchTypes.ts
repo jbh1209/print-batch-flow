@@ -10,7 +10,7 @@ export interface BatchSummary {
   id: string;
   name: string;
   due_date: string;
-  status: string;
+  status: BatchStatus | string;
   product_type: string;
   sheets_required: number;
   lamination_type: string;
@@ -24,17 +24,16 @@ export interface Job {
   id: string;
   name: string;
   quantity: number;
-  status: string | JobStatus;
+  status: JobStatus | string;
   pdf_url: string | null;
   file_name: string;
   lamination_type: string;
   due_date: string;
   uploaded_at: string;
+  job_number: string;
+  updated_at: string;
+  user_id: string;
   double_sided?: boolean;
-  // Add missing properties required by several components
-  job_number?: string;
-  updated_at?: string;
-  user_id?: string;
 }
 
 export interface BatchDetailsType {
@@ -47,5 +46,5 @@ export interface BatchDetailsType {
   overview_pdf_url: string | null;
   due_date: string;
   created_at: string;
-  status: BatchStatus;
+  status: BatchStatus | string;
 }

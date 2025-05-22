@@ -62,7 +62,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
   const batchDetailsData: BatchDetailsType = {
     id: batch.id,
     name: batch.name,
-    lamination_type: batch.lamination_type,
+    lamination_type: batch.lamination_type || 'none',
     sheets_required: batch.sheets_required,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
@@ -79,7 +79,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
     lamination_type: job.lamination_type || "none",
     due_date: job.due_date || new Date().toISOString(),
     uploaded_at: job.created_at || new Date().toISOString(),
-    double_sided: job.double_sided || false,
+    double_sided: ('double_sided' in job) ? job.double_sided : false,
     job_number: job.job_number || "",
     updated_at: job.updated_at || new Date().toISOString(),
     user_id: job.user_id || ""

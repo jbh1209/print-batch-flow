@@ -45,18 +45,18 @@ const AllBatches: React.FC = () => {
     created_at: batch.created_at || new Date().toISOString(),
     // Add the required fields that might be missing in the fetched data
     sheets_required: batch.sheets_required || 0,
-    lamination_type: batch.lamination_type || "none", // Add default lamination_type
+    lamination_type: batch.lamination_type || "none",
     front_pdf_url: batch.front_pdf_url || null,
     back_pdf_url: batch.back_pdf_url || null
   }));
 
   // Separate batches into current and completed
   const currentBatches = typedBatches.filter(
-    batch => !['completed', 'sent_to_print'].includes(batch.status)
+    batch => !['completed', 'sent_to_print'].includes(String(batch.status))
   );
   
   const completedBatches = typedBatches.filter(
-    batch => ['completed', 'sent_to_print'].includes(batch.status)
+    batch => ['completed', 'sent_to_print'].includes(String(batch.status))
   );
 
   // Create a wrapper for getBatchUrl that works with our typed BatchSummary

@@ -33,7 +33,7 @@ const BatchDetailsCard = ({ batch, onDeleteClick, onStatusUpdate }: BatchDetails
   const isSleeveBatch = batch.name && batch.name.startsWith('DXB-SL-');
 
   // Convert BatchStatus to string for comparisons
-  const batchStatus = batch.status.toString();
+  const batchStatus = String(batch.status);
   const isCompletedOrSent = batchStatus === "completed" || batchStatus === "sent_to_print";
 
   return (
