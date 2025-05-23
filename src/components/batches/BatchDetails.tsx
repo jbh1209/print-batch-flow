@@ -5,7 +5,7 @@ import BatchDetailsHeader from "./BatchDetailsHeader";
 import BatchDetailsContent from "./BatchDetailsContent";
 import BatchDetailsLoading from "./BatchDetailsLoading";
 import BatchNotFound from "./BatchNotFound";
-import DeleteBatchDialog from "./DeleteBatchDialog";
+import { StandardDeleteBatchDialog } from "./StandardDeleteBatchDialog";
 
 interface BatchDetailsProps {
   batchId: string;
@@ -42,13 +42,13 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
             onDeleteClick={() => setBatchToDelete(batch.id)}
           />
 
-          {/* Delete Confirmation Dialog */}
-          <DeleteBatchDialog 
+          {/* Standardized Delete Confirmation Dialog */}
+          <StandardDeleteBatchDialog
             isOpen={!!batchToDelete}
             isDeleting={isDeleting}
-            batchName={batch?.name || ""}
-            onClose={() => setBatchToDelete(null)}
-            onConfirmDelete={handleDeleteBatch}
+            batchName={batch?.name}
+            onCancel={() => setBatchToDelete(null)}
+            onConfirm={handleDeleteBatch}
           />
         </>
       )}

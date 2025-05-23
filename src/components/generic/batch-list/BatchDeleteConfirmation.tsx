@@ -1,16 +1,6 @@
 
 import React from 'react';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction
-} from "@/components/ui/alert-dialog";
-import { Loader2 } from "lucide-react";
+import { StandardDeleteBatchDialog } from "@/components/batches/StandardDeleteBatchDialog";
 
 interface BatchDeleteConfirmationProps {
   batchToDelete: string | null;
@@ -27,38 +17,17 @@ export const BatchDeleteConfirmation: React.FC<BatchDeleteConfirmationProps> = (
   onDelete,
   batchName
 }) => {
+  const handleConfirm = async () => {
+    await onDelete();
+  };
+
   return (
-    <AlertDialog open={!!batchToDelete} onOpenChange={(open) => !open && onCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {batchName 
-              ? `Are you sure you want to delete batch ${batchName}?` 
-              : "Are you sure you want to delete this batch?"}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            This will return all jobs in this batch to the queue.
-            This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction 
-            onClick={onDelete} 
-            disabled={isDeleting}
-            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-          >
-            {isDeleting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Deleting...
-              </>
-            ) : (
-              'Delete Batch'
-            )}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <StandardDeleteBatchDialog
+      isOpen={!!batchToDelete}
+      isDeleting={isDeleting}
+      batchName={batchName}
+      onCancel={onCancel}
+      onConfirm={handleConfirm}
+    />
   );
 };

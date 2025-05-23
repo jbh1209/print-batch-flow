@@ -1,6 +1,6 @@
 
 import { useFetchBatchDetails } from "./batches/useFetchBatchDetails";
-import { useDeleteBatch } from "./batches/useDeleteBatch";
+import { useBatchDeletion } from "./useBatchDeletion";
 
 interface UseBatchDetailsProps {
   batchId: string;
@@ -20,9 +20,16 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
   const {
     batchToDelete,
     isDeleting,
-    setBatchToDelete,
-    handleDeleteBatch
-  } = useDeleteBatch({ productType, backUrl });
+    handleDeleteBatch,
+    initiateDeletion,
+    cancelDeletion
+  } = useBatchDeletion({ 
+    productType,
+    onSuccess: () => {
+      // Refresh the batch details after successful deletion
+      fetchBatchDetails();
+    }
+  });
 
   return {
     batch,
@@ -31,7 +38,7 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
     error,
     batchToDelete,
     isDeleting,
-    setBatchToDelete,
+    setBatchToDelete: initiateDeletion,
     handleDeleteBatch,
     fetchBatchDetails
   };

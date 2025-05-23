@@ -7,8 +7,9 @@ import { useParams, Navigate } from "react-router-dom";
 import FlyerBatchDetails from "./FlyerBatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
-import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
+import { StandardDeleteBatchDialog } from "@/components/batches/StandardDeleteBatchDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
+import { useBatchDeletion } from "@/hooks/useBatchDeletion";
 
 const FlyerBatches = () => {
   const { batchId } = useParams();
@@ -22,14 +23,21 @@ const FlyerBatches = () => {
     batches,
     isLoading,
     error,
-    batchToDelete,
-    isDeleting,
     fetchBatches,
     handleViewPDF,
-    handleDeleteBatch,
-    handleViewBatchDetails,
-    setBatchToDelete
+    handleViewBatchDetails
   } = useFlyerBatches();
+
+  const {
+    batchToDelete,
+    isDeleting,
+    handleDeleteBatch,
+    initiateDeletion,
+    cancelDeletion
+  } = useBatchDeletion({
+    productType: "Flyers",
+    onSuccess: fetchBatches // Refresh the list after successful deletion
+  });
 
   // Convert FlyerBatch[] to BatchSummary[] for BatchesWrapper
   const batchSummaries: BatchSummary[] = batches.map(batch => ({
@@ -44,6 +52,11 @@ const FlyerBatches = () => {
     back_pdf_url: batch.back_pdf_url,
     created_at: batch.created_at
   }));
+
+  // Find the batch name for the dialog
+  const batchToDeleteName = batchToDelete 
+    ? batches.find(b => b.id === batchToDelete)?.name 
+    : undefined;
 
   return (
     <div>
@@ -78,16 +91,17 @@ const FlyerBatches = () => {
         error={error}
         onRefresh={fetchBatches}
         onViewPDF={handleViewPDF}
-        onDeleteBatch={setBatchToDelete}
+        onDeleteBatch={initiateDeletion}
         onViewDetails={handleViewBatchDetails}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <BatchDeleteDialog 
+      {/* Standardized Delete Confirmation Dialog */}
+      <StandardDeleteBatchDialog
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
-        onClose={() => setBatchToDelete(null)}
-        onConfirmDelete={handleDeleteBatch}
+        batchName={batchToDeleteName}
+        onCancel={cancelDeletion}
+        onConfirm={handleDeleteBatch}
       />
     </div>
   );
