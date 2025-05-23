@@ -94,15 +94,89 @@ const JobActions = ({ job, onJobDeleted, onJobUpdated }: JobActionsProps) => {
     try {
       const tableName = job.productConfig.tableName;
       
-      // Get the original job data with proper type handling
-      const { data: originalJob, error: fetchError } = await supabase
-        .from(tableName)
-        .select('*')
-        .eq('id', job.id)
-        .single();
+      // Create a type-safe query based on the table name
+      let originalJob: any = null;
+      let error: any = null;
 
-      if (fetchError) {
-        console.error("Error fetching job:", fetchError);
+      switch (tableName) {
+        case 'business_card_jobs':
+          const bcResult = await supabase
+            .from('business_card_jobs')
+            .select('*')
+            .eq('id', job.id)
+            .single();
+          originalJob = bcResult.data;
+          error = bcResult.error;
+          break;
+        case 'flyer_jobs':
+          const flyerResult = await supabase
+            .from('flyer_jobs')
+            .select('*')
+            .eq('id', job.id)
+            .single();
+          originalJob = flyerResult.data;
+          error = flyerResult.error;
+          break;
+        case 'postcard_jobs':
+          const postcardResult = await supabase
+            .from('postcard_jobs')
+            .select('*')
+            .eq('id', job.id)
+            .single();
+          originalJob = postcardResult.data;
+          error = postcardResult.error;
+          break;
+        case 'poster_jobs':
+          const posterResult = await supabase
+            .from('poster_jobs')
+            .select('*')
+            .eq('id', job.id)
+            .single();
+          originalJob = posterResult.data;
+          error = posterResult.error;
+          break;
+        case 'sleeve_jobs':
+          const sleeveResult = await supabase
+            .from('sleeve_jobs')
+            .select('*')
+            .eq('id', job.id)
+            .single();
+          originalJob = sleeveResult.data;
+          error = sleeveResult.error;
+          break;
+        case 'box_jobs':
+          const boxResult = await supabase
+            .from('box_jobs')
+            .select('*')
+            .eq('id', job.id)
+            .single();
+          originalJob = boxResult.data;
+          error = boxResult.error;
+          break;
+        case 'cover_jobs':
+          const coverResult = await supabase
+            .from('cover_jobs')
+            .select('*')
+            .eq('id', job.id)
+            .single();
+          originalJob = coverResult.data;
+          error = coverResult.error;
+          break;
+        case 'sticker_jobs':
+          const stickerResult = await supabase
+            .from('sticker_jobs')
+            .select('*')
+            .eq('id', job.id)
+            .single();
+          originalJob = stickerResult.data;
+          error = stickerResult.error;
+          break;
+        default:
+          throw new Error(`Unknown table: ${tableName}`);
+      }
+
+      if (error) {
+        console.error("Error fetching job:", error);
         throw new Error("Failed to fetch original job data");
       }
 
@@ -121,14 +195,56 @@ const JobActions = ({ job, onJobDeleted, onJobUpdated }: JobActionsProps) => {
         batch_id: null,
       };
 
-      // Insert the duplicate
-      const { error: insertError } = await supabase
-        .from(tableName)
-        .insert(duplicateData);
-
-      if (insertError) {
-        console.error("Error inserting duplicate job:", insertError);
-        throw new Error("Failed to create duplicate job");
+      // Insert the duplicate using the same type-safe approach
+      switch (tableName) {
+        case 'business_card_jobs':
+          const bcInsertResult = await supabase
+            .from('business_card_jobs')
+            .insert(duplicateData);
+          if (bcInsertResult.error) throw bcInsertResult.error;
+          break;
+        case 'flyer_jobs':
+          const flyerInsertResult = await supabase
+            .from('flyer_jobs')
+            .insert(duplicateData);
+          if (flyerInsertResult.error) throw flyerInsertResult.error;
+          break;
+        case 'postcard_jobs':
+          const postcardInsertResult = await supabase
+            .from('postcard_jobs')
+            .insert(duplicateData);
+          if (postcardInsertResult.error) throw postcardInsertResult.error;
+          break;
+        case 'poster_jobs':
+          const posterInsertResult = await supabase
+            .from('poster_jobs')
+            .insert(duplicateData);
+          if (posterInsertResult.error) throw posterInsertResult.error;
+          break;
+        case 'sleeve_jobs':
+          const sleeveInsertResult = await supabase
+            .from('sleeve_jobs')
+            .insert(duplicateData);
+          if (sleeveInsertResult.error) throw sleeveInsertResult.error;
+          break;
+        case 'box_jobs':
+          const boxInsertResult = await supabase
+            .from('box_jobs')
+            .insert(duplicateData);
+          if (boxInsertResult.error) throw boxInsertResult.error;
+          break;
+        case 'cover_jobs':
+          const coverInsertResult = await supabase
+            .from('cover_jobs')
+            .insert(duplicateData);
+          if (coverInsertResult.error) throw coverInsertResult.error;
+          break;
+        case 'sticker_jobs':
+          const stickerInsertResult = await supabase
+            .from('sticker_jobs')
+            .insert(duplicateData);
+          if (stickerInsertResult.error) throw stickerInsertResult.error;
+          break;
       }
 
       toast.success("Job duplicated successfully");
@@ -148,12 +264,67 @@ const JobActions = ({ job, onJobDeleted, onJobUpdated }: JobActionsProps) => {
     try {
       const tableName = job.productConfig.tableName;
       
-      const { error } = await supabase
-        .from(tableName)
-        .delete()
-        .eq("id", job.id);
-
-      if (error) throw error;
+      // Use type-safe delete operations
+      switch (tableName) {
+        case 'business_card_jobs':
+          const bcResult = await supabase
+            .from('business_card_jobs')
+            .delete()
+            .eq("id", job.id);
+          if (bcResult.error) throw bcResult.error;
+          break;
+        case 'flyer_jobs':
+          const flyerResult = await supabase
+            .from('flyer_jobs')
+            .delete()
+            .eq("id", job.id);
+          if (flyerResult.error) throw flyerResult.error;
+          break;
+        case 'postcard_jobs':
+          const postcardResult = await supabase
+            .from('postcard_jobs')
+            .delete()
+            .eq("id", job.id);
+          if (postcardResult.error) throw postcardResult.error;
+          break;
+        case 'poster_jobs':
+          const posterResult = await supabase
+            .from('poster_jobs')
+            .delete()
+            .eq("id", job.id);
+          if (posterResult.error) throw posterResult.error;
+          break;
+        case 'sleeve_jobs':
+          const sleeveResult = await supabase
+            .from('sleeve_jobs')
+            .delete()
+            .eq("id", job.id);
+          if (sleeveResult.error) throw sleeveResult.error;
+          break;
+        case 'box_jobs':
+          const boxResult = await supabase
+            .from('box_jobs')
+            .delete()
+            .eq("id", job.id);
+          if (boxResult.error) throw boxResult.error;
+          break;
+        case 'cover_jobs':
+          const coverResult = await supabase
+            .from('cover_jobs')
+            .delete()
+            .eq("id", job.id);
+          if (coverResult.error) throw coverResult.error;
+          break;
+        case 'sticker_jobs':
+          const stickerResult = await supabase
+            .from('sticker_jobs')
+            .delete()
+            .eq("id", job.id);
+          if (stickerResult.error) throw stickerResult.error;
+          break;
+        default:
+          throw new Error(`Unknown table: ${tableName}`);
+      }
 
       toast.success("Job deleted successfully");
       if (onJobDeleted) {
