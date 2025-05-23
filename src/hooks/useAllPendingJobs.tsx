@@ -17,7 +17,7 @@ export const useAllPendingJobs = () => {
   const [jobs, setJobs] = useState<ExtendedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
 
   const fetchJobsFromTable = async (config: ProductConfig): Promise<ExtendedJob[]> => {
     if (!user) return [];
@@ -31,17 +31,14 @@ export const useAllPendingJobs = () => {
 
       console.log(`Fetching ${config.productType} jobs`);
 
-      // Build the query based on user role
+      // Build the query - all users should see all jobs
       let query = supabase
         .from(config.tableName as any)
         .select('*')
         .eq('status', 'queued')
         .order('due_date', { ascending: true });
       
-      // Only filter by user_id if not an admin
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
+      // No user filtering - all users see all jobs
       
       const { data, error } = await query;
       
@@ -91,7 +88,7 @@ export const useAllPendingJobs = () => {
     setError(null);
     
     try {
-      console.log("Fetching all pending jobs for user:", user.id, "Admin status:", isAdmin);
+      console.log("Fetching all pending jobs");
       
       // Create an array of promises to fetch jobs from each product table
       const productFetchPromises = Object.values(productConfigs).map(config => 
@@ -118,7 +115,7 @@ export const useAllPendingJobs = () => {
   
   useEffect(() => {
     fetchAllJobs();
-  }, [user, isAdmin]);
+  }, [user]);
   
   return {
     jobs,

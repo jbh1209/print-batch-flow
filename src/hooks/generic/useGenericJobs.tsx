@@ -8,7 +8,7 @@ import { useBatchFixes } from './useBatchFixes';
 import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +17,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { deleteJob, createJob, updateJob, getJobById } = useJobOperations(config.tableName, user?.id);
   const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useBatchFixes(config.tableName, user?.id);
 
-  // Fetch all jobs for this product type - with admin awareness
+  // Fetch all jobs for this product type - all users see all jobs
   const fetchJobs = async () => {
     try {
       setIsLoading(true);
@@ -34,18 +34,15 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      console.log('Fetching jobs from table:', config.tableName, 'isAdmin:', isAdmin);
+      console.log('Fetching jobs from table:', config.tableName);
       
-      // Build query based on admin status
+      // Build query - all users should see all jobs
       let query = supabase
         .from(config.tableName as any)
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Only filter by user_id if not an admin and user exists
-      if (!isAdmin && user) {
-        query = query.eq('user_id', user.id);
-      }
+      // No user filtering - all users see all jobs
 
       const { data, error: fetchError } = await query;
 
@@ -65,7 +62,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   useEffect(() => {
     fetchJobs();
-  }, [user, isAdmin]);
+  }, [user]);
 
   // Handle job deletion with local state update - removed user ID filter
   const handleDeleteJob = async (jobId: string) => {

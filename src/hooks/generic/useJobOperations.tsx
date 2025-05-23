@@ -8,7 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isAdmin } = useAuth();
 
   const deleteJob = async (jobId: string) => {
     try {
@@ -20,16 +19,11 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Build query based on admin status
-      let query = supabase
+      // All users can delete any job
+      const query = supabase
         .from(tableName as any)
         .delete()
         .eq('id', jobId);
-      
-      // Add user_id filter if not an admin
-      if (!isAdmin && userId) {
-        query = query.eq('user_id', userId);
-      }
       
       const { error } = await query;
 
@@ -101,9 +95,6 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         .eq('id', jobId);
       
       // Add user_id filter if not an admin and userId is provided
-      if (!isAdmin && userId) {
-        query = query.eq('user_id', userId);
-      }
       
       const { data, error } = await query.select().single();
 
@@ -134,9 +125,6 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         .eq('id', jobId);
       
       // Add user_id filter if not an admin and userId is provided
-      if (!isAdmin && userId) {
-        query = query.eq('user_id', userId);
-      }
       
       const { data, error } = await query.single();
 

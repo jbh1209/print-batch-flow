@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,7 +9,7 @@ import { useBatchCleanup } from "./business-cards/useBatchCleanup";
 
 export const useBusinessCardJobsList = () => {
   const { toast } = useToast();
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,17 +47,14 @@ export const useBusinessCardJobsList = () => {
         return;
       }
       
-      console.log("Fetching business card jobs, isAdmin:", isAdmin);
+      console.log("Fetching business card jobs");
       
       let query = supabase
         .from('business_card_jobs')
         .select('*')
         .order('created_at', { ascending: false });
       
-      // Only filter by user_id if not an admin
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
+      // No user filter - all users see all jobs
       
       if (filterView !== 'all') {
         query = query.eq('status', filterView);
@@ -76,15 +72,10 @@ export const useBusinessCardJobsList = () => {
       
       setJobs(data || []);
       
-      // Second query to get all job counts for filters - respecting admin status
+      // Second query to get all job counts for filters - no user filtering
       let countQuery = supabase
         .from('business_card_jobs')
         .select('status');
-      
-      // Only filter by user_id if not an admin
-      if (!isAdmin) {
-        countQuery = countQuery.eq('user_id', user.id);
-      }
       
       const { data: allJobs, error: countError } = await countQuery;
       
@@ -113,17 +104,11 @@ export const useBusinessCardJobsList = () => {
 
   const deleteJob = async (jobId: string): Promise<boolean> => {
     try {
-      let query = supabase
+      // All users can delete any job
+      const { error: deleteError } = await supabase
         .from('business_card_jobs')
         .delete()
         .eq('id', jobId);
-      
-      // Only filter by user_id if not an admin
-      if (!isAdmin && user) {
-        query = query.eq('user_id', user.id);
-      }
-      
-      const { error: deleteError } = await query;
       
       if (deleteError) throw deleteError;
       
@@ -152,7 +137,7 @@ export const useBusinessCardJobsList = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, [user, isAdmin, filterView, laminationFilter]);
+  }, [user, filterView, laminationFilter]);
   
   useEffect(() => {
     if (user) {
