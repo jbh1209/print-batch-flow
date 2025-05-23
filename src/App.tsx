@@ -37,45 +37,45 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <Toaster />
           <BatchOperationsProvider>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/batches" element={<AllBatches />} />
-                <Route path="/all-jobs" element={<AllJobsPage />} />
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="batches" element={<AllBatches />} />
+                <Route path="all-jobs" element={<AllJobsPage />} />
                 
                 {/* Business Card Routes */}
-                <Route path="/batches/business-cards" element={<BusinessCardBatches />} />
-                <Route path="/batches/business-cards/jobs" element={<BusinessCardJobs />} />
-                <Route path="/batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
-                <Route path="/batches/business-cards/jobs/edit/:jobId" element={<BusinessCardJobEdit />} />
-                <Route path="/batches/business-cards/batches" element={<BusinessCardBatches />} />
-                <Route path="/batches/business-cards/batches/:batchId" element={<BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards/batches" />} />
+                <Route path="batches/business-cards" element={<BusinessCardBatches />} />
+                <Route path="batches/business-cards/jobs" element={<BusinessCardJobs />} />
+                <Route path="batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
+                <Route path="batches/business-cards/jobs/edit/:jobId" element={<BusinessCardJobEdit />} />
+                <Route path="batches/business-cards/batches" element={<BusinessCardBatches />} />
+                <Route path="batches/business-cards/batches/:batchId" element={<BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards/batches" />} />
                 
                 {/* Flyer Routes */}
-                <Route path="/batches/flyers" element={<FlyerBatches />} />
-                <Route path="/batches/flyers/batches" element={<FlyerBatches />} />
-                <Route path="/batches/flyers/batches/:batchId" element={<FlyerBatchDetails />} />
-                <Route path="/batches/flyers/jobs/new" element={<FlyerJobNew />} />
+                <Route path="batches/flyers" element={<FlyerBatches />} />
+                <Route path="batches/flyers/batches" element={<FlyerBatches />} />
+                <Route path="batches/flyers/batches/:batchId" element={<FlyerBatchDetails />} />
+                <Route path="batches/flyers/jobs/new" element={<FlyerJobNew />} />
               
                 {/* Generic Batches Routes */}
-                <Route path="/batches/boxes" element={<BoxBatchesPage />} />
-                <Route path="/batches/boxes/batches" element={<BoxBatchesPage />} />
-                <Route path="/batches/covers" element={<CoverBatchesPage />} />
-                <Route path="/batches/covers/batches" element={<CoverBatchesPage />} />
-                <Route path="/batches/posters" element={<PosterBatchesPage />} />
-                <Route path="/batches/posters/batches" element={<PosterBatchesPage />} />
-                <Route path="/batches/sleeves" element={<SleeveBatchesPage />} />
-                <Route path="/batches/sleeves/batches" element={<SleeveBatchesPage />} />
-                <Route path="/batches/stickers" element={<StickerBatchesPage />} />
-                <Route path="/batches/stickers/batches" element={<StickerBatchesPage />} />
-                <Route path="/batches/postcards" element={<PostcardBatchesPage />} />
-                <Route path="/batches/postcards/batches" element={<PostcardBatchesPage />} />
+                <Route path="batches/boxes" element={<BoxBatchesPage />} />
+                <Route path="batches/boxes/batches" element={<BoxBatchesPage />} />
+                <Route path="batches/covers" element={<CoverBatchesPage />} />
+                <Route path="batches/covers/batches" element={<CoverBatchesPage />} />
+                <Route path="batches/posters" element={<PosterBatchesPage />} />
+                <Route path="batches/posters/batches" element={<PosterBatchesPage />} />
+                <Route path="batches/sleeves" element={<SleeveBatchesPage />} />
+                <Route path="batches/sleeves/batches" element={<SleeveBatchesPage />} />
+                <Route path="batches/stickers" element={<StickerBatchesPage />} />
+                <Route path="batches/stickers/batches" element={<StickerBatchesPage />} />
+                <Route path="batches/postcards" element={<PostcardBatchesPage />} />
+                <Route path="batches/postcards/batches" element={<PostcardBatchesPage />} />
                 
                 {/* Admin Routes */}
-                <Route path="/users" element={<Users />} />
-                <Route path="/settings" element={<Settings />} />
-              </Routes>
-            </Layout>
+                <Route path="users" element={<Users />} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
+            </Routes>
           </BatchOperationsProvider>
         </QueryClientProvider>
       </ThemeProvider>
