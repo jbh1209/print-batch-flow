@@ -4,6 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
+import { Database } from "@/integrations/supabase/types";
+
+// Define valid table names from the database
+type TableName = keyof Database['public']['Tables'];
 
 interface UseDeleteBatchProps {
   productType: string;
@@ -24,7 +28,7 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
       console.log("Deleting batch:", batchToDelete, "Product type:", productType);
       
       // Step 1: Reset all jobs in this batch based on product type
-      let tableName: string;
+      let tableName: TableName;
       
       switch (productType) {
         case "Business Cards":
@@ -57,6 +61,7 @@ export function useDeleteBatch({ productType, backUrl }: UseDeleteBatchProps) {
       
       console.log(`Resetting jobs in ${tableName} for batch ${batchToDelete}`);
       
+      // Use proper typing for the from() method
       const { error: jobsError } = await supabase
         .from(tableName)
         .update({ 
