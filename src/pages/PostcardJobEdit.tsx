@@ -73,7 +73,8 @@ const PostcardJobEdit = () => {
   const transformedJob = {
     ...job,
     size: job.size as any, // Cast to match FlyerJobForm expectations
-    paper_type: job.paper_type as any
+    paper_type: job.paper_type as any,
+    status: job.status as "queued" | "batched" | "completed" | "cancelled" // Explicitly cast status to match FlyerJob type
   };
 
   return <FlyerJobForm mode="edit" initialData={transformedJob} productType="postcard" />;
