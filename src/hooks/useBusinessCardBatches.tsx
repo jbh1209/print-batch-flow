@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { LaminationType } from "@/components/business-cards/JobsTable";
 import { BatchStatus } from "@/config/productTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
-import { toast as sonnerToast } from "sonner";
 
 interface Batch {
   id: string;
@@ -28,8 +27,6 @@ export const useBusinessCardBatches = (batchId: string | null) => {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchBatches = async () => {
     setIsLoading(true);
@@ -91,60 +88,54 @@ export const useBusinessCardBatches = (batchId: string | null) => {
     handlePdfAction(url, 'view');
   };
 
-  const handleDeleteBatch = async () => {
-    if (!batchToDelete) return;
-    
-    setIsDeleting(true);
-    try {
-      console.log("Deleting batch:", batchToDelete);
-      
-      // First reset all jobs in this batch back to queued
-      const { error: jobsError } = await supabase
-        .from("business_card_jobs")
-        .update({ 
-          status: "queued",  // Reset status to queued
-          batch_id: null     // Clear batch_id reference
-        })
-        .eq("batch_id", batchToDelete);
-      
-      if (jobsError) {
-        console.error("Error resetting jobs in batch:", jobsError);
-        throw jobsError;
-      }
-      
-      // Then delete the batch
-      const { error: deleteError } = await supabase
-        .from("batches")
-        .delete()
-        .eq("id", batchToDelete);
-      
-      if (deleteError) {
-        console.error("Error deleting batch:", deleteError);
-        throw deleteError;
-      }
-      
-      console.log("Batch deleted successfully");
-      
-      sonnerToast.success("Batch deleted", {
-        description: "The batch has been deleted and its jobs returned to queue"
-      });
-      
-      // Refresh batch list
-      fetchBatches();
-    } catch (error) {
-      console.error("Error deleting batch:", error);
-      sonnerToast.error("Failed to delete batch", {
-        description: "Please try again."
-      });
-    } finally {
-      setIsDeleting(false);
-      setBatchToDelete(null);
-    }
-  };
-
   const handleViewBatchDetails = (batchId: string) => {
     navigate(`/batches/business-cards/batches?batchId=${batchId}`);
   };
+
+  // Set up real-time subscriptions for batch changes
+  useEffect(() => {
+    if (!user) return;
+
+    console.log("Setting up real-time subscription for business card batches");
+    
+    const channel = supabase
+      .channel('business-card-batches-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'batches',
+          filter: 'name=ilike.DXB-BC-%'
+        },
+        (payload) => {
+          console.log('Real-time batch change detected:', payload);
+          
+          if (payload.eventType === 'DELETE') {
+            // Remove deleted batch from state
+            setBatches(prevBatches => 
+              prevBatches.filter(batch => batch.id !== payload.old.id)
+            );
+          } else if (payload.eventType === 'INSERT') {
+            // Add new batch to state
+            setBatches(prevBatches => [payload.new as Batch, ...prevBatches]);
+          } else if (payload.eventType === 'UPDATE') {
+            // Update existing batch in state
+            setBatches(prevBatches => 
+              prevBatches.map(batch => 
+                batch.id === payload.new.id ? payload.new as Batch : batch
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log("Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   useEffect(() => {
     fetchBatches();
@@ -154,12 +145,8 @@ export const useBusinessCardBatches = (batchId: string | null) => {
     batches,
     isLoading,
     error,
-    batchToDelete,
-    isDeleting,
     fetchBatches,
     handleViewPDF,
-    handleDeleteBatch,
-    handleViewBatchDetails,
-    setBatchToDelete
+    handleViewBatchDetails
   };
 };

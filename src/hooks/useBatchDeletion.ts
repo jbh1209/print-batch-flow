@@ -12,8 +12,12 @@ export function useBatchDeletion({ productType, onSuccess }: UseBatchDeletionPro
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteBatch = async () => {
-    if (!batchToDelete) return;
+    if (!batchToDelete) {
+      console.error("[useBatchDeletion] No batch selected for deletion");
+      return;
+    }
     
+    console.log(`[useBatchDeletion] Starting deletion process for batch: ${batchToDelete}`);
     setIsDeleting(true);
     
     try {
@@ -24,18 +28,25 @@ export function useBatchDeletion({ productType, onSuccess }: UseBatchDeletionPro
       );
       
       if (result.success) {
+        console.log(`[useBatchDeletion] Batch deletion successful`);
         setBatchToDelete(null);
+      } else {
+        console.error(`[useBatchDeletion] Batch deletion failed:`, result.error);
       }
+    } catch (error) {
+      console.error(`[useBatchDeletion] Unexpected error during deletion:`, error);
     } finally {
       setIsDeleting(false);
     }
   };
 
   const initiateDeletion = (batchId: string) => {
+    console.log(`[useBatchDeletion] Initiating deletion for batch: ${batchId}`);
     setBatchToDelete(batchId);
   };
 
   const cancelDeletion = () => {
+    console.log(`[useBatchDeletion] Cancelling deletion`);
     setBatchToDelete(null);
   };
 

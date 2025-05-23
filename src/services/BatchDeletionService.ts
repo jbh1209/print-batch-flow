@@ -17,7 +17,7 @@ export class BatchDeletionService {
     onSuccess?: () => void
   ): Promise<DeletionResult> {
     try {
-      console.log(`Starting deletion for batch ${batchId} (${productType})`);
+      console.log(`[BatchDeletion] Starting deletion for batch ${batchId} (${productType})`);
       
       // Step 1: Get the table name for this product type
       const tableName = this.getTableNameForProductType(productType);
@@ -25,24 +25,43 @@ export class BatchDeletionService {
         throw new Error(`Unsupported product type: ${productType}`);
       }
       
-      // Step 2: Reset all jobs in this batch back to queued status
-      console.log(`Resetting jobs in ${tableName} for batch ${batchId}`);
+      console.log(`[BatchDeletion] Using table name: ${tableName}`);
       
-      const { error: jobsError } = await supabase
+      // Step 2: First, let's check if the batch exists
+      const { data: batchCheck, error: batchCheckError } = await supabase
+        .from("batches")
+        .select("id, name")
+        .eq("id", batchId)
+        .single();
+      
+      if (batchCheckError) {
+        console.error(`[BatchDeletion] Batch check failed:`, batchCheckError);
+        throw new Error(`Batch not found: ${batchCheckError.message}`);
+      }
+      
+      console.log(`[BatchDeletion] Batch found:`, batchCheck);
+      
+      // Step 3: Reset all jobs in this batch back to queued status
+      console.log(`[BatchDeletion] Resetting jobs in ${tableName} for batch ${batchId}`);
+      
+      const { data: resetJobsData, error: jobsError } = await supabase
         .from(tableName as any)
         .update({ 
           status: "queued",
           batch_id: null
         })
-        .eq("batch_id", batchId);
+        .eq("batch_id", batchId)
+        .select("id");
       
       if (jobsError) {
-        console.error(`Error resetting jobs in ${tableName}:`, jobsError);
-        throw jobsError;
+        console.error(`[BatchDeletion] Error resetting jobs in ${tableName}:`, jobsError);
+        throw new Error(`Failed to reset jobs: ${jobsError.message}`);
       }
       
-      // Step 3: Delete the batch record
-      console.log(`Deleting batch ${batchId} from batches table`);
+      console.log(`[BatchDeletion] Reset ${resetJobsData?.length || 0} jobs to queued status`);
+      
+      // Step 4: Delete the batch record
+      console.log(`[BatchDeletion] Deleting batch ${batchId} from batches table`);
       
       const { error: deleteError } = await supabase
         .from("batches")
@@ -50,25 +69,26 @@ export class BatchDeletionService {
         .eq("id", batchId);
       
       if (deleteError) {
-        console.error("Error deleting batch:", deleteError);
-        throw deleteError;
+        console.error(`[BatchDeletion] Error deleting batch:`, deleteError);
+        throw new Error(`Failed to delete batch: ${deleteError.message}`);
       }
       
-      console.log("Batch deleted successfully");
+      console.log(`[BatchDeletion] Batch ${batchId} deleted successfully`);
       
-      // Step 4: Show success message
+      // Step 5: Show success message
       toast.success("Batch deleted successfully", {
-        description: "The batch has been deleted and all jobs returned to queue."
+        description: `Batch "${batchCheck.name}" has been deleted and ${resetJobsData?.length || 0} jobs returned to queue.`
       });
       
-      // Step 5: Call success callback if provided
+      // Step 6: Call success callback if provided
       if (onSuccess) {
+        console.log(`[BatchDeletion] Calling success callback`);
         onSuccess();
       }
       
       return { success: true };
     } catch (error) {
-      console.error("Error deleting batch:", error);
+      console.error(`[BatchDeletion] Error deleting batch:`, error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       
       toast.error("Failed to delete batch", {

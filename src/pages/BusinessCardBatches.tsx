@@ -4,11 +4,12 @@ import { useBusinessCardBatches } from "@/hooks/useBusinessCardBatches";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import BatchDetails from "@/components/batches/BatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
-import DeleteBatchDialog from "@/components/batches/DeleteBatchDialog";
+import { StandardDeleteBatchDialog } from "@/components/batches/StandardDeleteBatchDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
+import { useBatchDeletion } from "@/hooks/useBatchDeletion";
 
 const BusinessCardBatches = () => {
   const [searchParams] = useSearchParams();
@@ -18,14 +19,22 @@ const BusinessCardBatches = () => {
     batches,
     isLoading,
     error,
-    batchToDelete,
-    isDeleting,
     fetchBatches,
     handleViewPDF,
-    handleDeleteBatch,
-    handleViewBatchDetails,
-    setBatchToDelete
+    handleViewBatchDetails
   } = useBusinessCardBatches(batchId);
+
+  // Use the new standardized batch deletion hook
+  const {
+    batchToDelete,
+    isDeleting,
+    handleDeleteBatch,
+    initiateDeletion,
+    cancelDeletion
+  } = useBatchDeletion({
+    productType: "Business Cards",
+    onSuccess: fetchBatches // Refresh the list after successful deletion
+  });
 
   // Convert Batch[] to BatchSummary[] for BatchesWrapper
   const batchSummaries: BatchSummary[] = batches.map(batch => ({
@@ -40,6 +49,11 @@ const BusinessCardBatches = () => {
     back_pdf_url: batch.back_pdf_url,
     created_at: batch.created_at
   }));
+
+  // Find the batch name for the dialog
+  const batchToDeleteName = batchToDelete 
+    ? batches.find(b => b.id === batchToDelete)?.name 
+    : undefined;
 
   // If we're viewing a specific batch, render the BatchDetails component
   if (batchId) {
@@ -85,16 +99,17 @@ const BusinessCardBatches = () => {
         error={error}
         onRefresh={fetchBatches}
         onViewPDF={handleViewPDF}
-        onDeleteBatch={setBatchToDelete}
+        onDeleteBatch={initiateDeletion}
         onViewDetails={handleViewBatchDetails}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <DeleteBatchDialog 
+      {/* Standardized Delete Confirmation Dialog */}
+      <StandardDeleteBatchDialog
         isOpen={!!batchToDelete}
         isDeleting={isDeleting}
-        onClose={() => setBatchToDelete(null)}
-        onConfirmDelete={handleDeleteBatch}
+        batchName={batchToDeleteName}
+        onCancel={cancelDeletion}
+        onConfirm={handleDeleteBatch}
       />
     </div>
   );
