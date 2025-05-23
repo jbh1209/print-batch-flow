@@ -2,17 +2,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { LaminationType } from "@/components/business-cards/JobsTable";
-import { BatchStatus } from "@/config/productTypes";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
-import { toast as sonnerToast } from "sonner";
+import { BatchStatus } from "@/config/productTypes";
 
 interface Batch {
   id: string;
   name: string;
-  lamination_type: LaminationType;
+  lamination_type: string;
   sheets_required: number;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
@@ -24,13 +21,10 @@ interface Batch {
 export const useBusinessCardBatches = (batchId: string | null) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
+  
   const fetchBatches = async () => {
     setIsLoading(true);
     setError(null);
@@ -64,24 +58,9 @@ export const useBusinessCardBatches = (batchId: string | null) => {
       console.log("Business card batches received:", data?.length || 0, "records");
       
       setBatches(data || []);
-      
-      // If we're looking for a specific batch and didn't find it
-      if (batchId && (!data || data.length === 0)) {
-        console.log("Requested batch not found:", batchId);
-        toast({
-          title: "Batch not found",
-          description: "The requested batch could not be found or you don't have permission to view it.",
-          variant: "destructive",
-        });
-      }
     } catch (error) {
       console.error("Error fetching batches:", error);
       setError("Failed to load batch data");
-      toast({
-        title: "Error loading batches",
-        description: "Failed to load batch data. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
     }
@@ -89,57 +68,6 @@ export const useBusinessCardBatches = (batchId: string | null) => {
 
   const handleViewPDF = (url: string | null) => {
     handlePdfAction(url, 'view');
-  };
-
-  const handleDeleteBatch = async () => {
-    if (!batchToDelete) return;
-    
-    setIsDeleting(true);
-    try {
-      console.log("Deleting batch:", batchToDelete);
-      
-      // First reset all jobs in this batch back to queued
-      const { error: jobsError } = await supabase
-        .from("business_card_jobs")
-        .update({ 
-          status: "queued",  // Reset status to queued
-          batch_id: null     // Clear batch_id reference
-        })
-        .eq("batch_id", batchToDelete);
-      
-      if (jobsError) {
-        console.error("Error resetting jobs in batch:", jobsError);
-        throw jobsError;
-      }
-      
-      // Then delete the batch
-      const { error: deleteError } = await supabase
-        .from("batches")
-        .delete()
-        .eq("id", batchToDelete);
-      
-      if (deleteError) {
-        console.error("Error deleting batch:", deleteError);
-        throw deleteError;
-      }
-      
-      console.log("Batch deleted successfully");
-      
-      sonnerToast.success("Batch deleted", {
-        description: "The batch has been deleted and its jobs returned to queue"
-      });
-      
-      // Refresh batch list
-      fetchBatches();
-    } catch (error) {
-      console.error("Error deleting batch:", error);
-      sonnerToast.error("Failed to delete batch", {
-        description: "Please try again."
-      });
-    } finally {
-      setIsDeleting(false);
-      setBatchToDelete(null);
-    }
   };
 
   const handleViewBatchDetails = (batchId: string) => {
@@ -154,12 +82,8 @@ export const useBusinessCardBatches = (batchId: string | null) => {
     batches,
     isLoading,
     error,
-    batchToDelete,
-    isDeleting,
     fetchBatches,
     handleViewPDF,
-    handleDeleteBatch,
-    handleViewBatchDetails,
-    setBatchToDelete
+    handleViewBatchDetails
   };
 };
