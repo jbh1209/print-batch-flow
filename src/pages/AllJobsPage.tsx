@@ -27,6 +27,10 @@ const AllJobsPage: React.FC = () => {
     lowJobs
   } = useJobFiltering(jobs);
 
+  const handleJobsChange = () => {
+    refetch();
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -83,23 +87,53 @@ const AllJobsPage: React.FC = () => {
           />
           
           <TabsContent value="all">
-            <JobsTable jobs={sortedJobs} sortField={sortField} sortOrder={sortOrder} toggleSort={toggleSort} />
+            <JobsTable 
+              jobs={sortedJobs} 
+              sortField={sortField} 
+              sortOrder={sortOrder} 
+              toggleSort={toggleSort}
+              onJobsChange={handleJobsChange}
+            />
           </TabsContent>
           
           <TabsContent value="critical">
-            <JobsTable jobs={criticalJobs} sortField={sortField} sortOrder={sortOrder} toggleSort={toggleSort} />
+            <JobsTable 
+              jobs={criticalJobs} 
+              sortField={sortField} 
+              sortOrder={sortOrder} 
+              toggleSort={toggleSort}
+              onJobsChange={handleJobsChange}
+            />
           </TabsContent>
           
           <TabsContent value="high">
-            <JobsTable jobs={highJobs} sortField={sortField} sortOrder={sortOrder} toggleSort={toggleSort} />
+            <JobsTable 
+              jobs={highJobs} 
+              sortField={sortField} 
+              sortOrder={sortOrder} 
+              toggleSort={toggleSort}
+              onJobsChange={handleJobsChange}
+            />
           </TabsContent>
           
           <TabsContent value="medium">
-            <JobsTable jobs={mediumJobs} sortField={sortField} sortOrder={sortOrder} toggleSort={toggleSort} />
+            <JobsTable 
+              jobs={mediumJobs} 
+              sortField={sortField} 
+              sortOrder={sortOrder} 
+              toggleSort={toggleSort}
+              onJobsChange={handleJobsChange}
+            />
           </TabsContent>
           
           <TabsContent value="low">
-            <JobsTable jobs={lowJobs} sortField={sortField} sortOrder={sortOrder} toggleSort={toggleSort} />
+            <JobsTable 
+              jobs={lowJobs} 
+              sortField={sortField} 
+              sortOrder={sortOrder} 
+              toggleSort={toggleSort}
+              onJobsChange={handleJobsChange}
+            />
           </TabsContent>
         </Tabs>
       </div>

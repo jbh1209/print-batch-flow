@@ -7,19 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ExtendedJob } from '@/hooks/useAllPendingJobs';
 import { getUrgencyBackgroundClass } from '@/utils/dateCalculations';
+import JobActions from './JobActions';
 
 interface JobsTableProps {
   jobs: ExtendedJob[];
   sortField: 'due_date' | 'productType';
   sortOrder: 'asc' | 'desc';
   toggleSort: (field: 'due_date' | 'productType') => void;
+  onJobsChange?: () => void;
 }
 
 const JobsTable: React.FC<JobsTableProps> = ({
   jobs,
   sortField,
   sortOrder,
-  toggleSort
+  toggleSort,
+  onJobsChange
 }) => {
   const navigate = useNavigate();
 
@@ -90,12 +93,13 @@ const JobsTable: React.FC<JobsTableProps> = ({
             </TableHead>
             <TableHead>SLA Target</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {jobs.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                 No jobs found matching your filters
               </TableCell>
             </TableRow>
@@ -103,13 +107,19 @@ const JobsTable: React.FC<JobsTableProps> = ({
             jobs.map((job) => (
               <TableRow 
                 key={`${job.productConfig.tableName}-${job.id}`}
-                className={`${getUrgencyBackgroundClass(job.urgency)} cursor-pointer hover:bg-muted/50`}
-                onClick={() => handleNavigateToJob(job)}
+                className={`${getUrgencyBackgroundClass(job.urgency)} hover:bg-muted/50`}
                 style={{ 
                   borderLeft: `4px solid ${job.productConfig.ui.color || '#888'}` 
                 }}
               >
-                <TableCell>{job.job_number}</TableCell>
+                <TableCell>
+                  <span 
+                    className="cursor-pointer hover:underline text-blue-600"
+                    onClick={() => handleNavigateToJob(job)}
+                  >
+                    {job.job_number}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <Badge 
                     style={{ 
@@ -130,6 +140,13 @@ const JobsTable: React.FC<JobsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">Queued</Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <JobActions 
+                    job={job}
+                    onJobDeleted={onJobsChange}
+                    onJobUpdated={onJobsChange}
+                  />
                 </TableCell>
               </TableRow>
             ))
