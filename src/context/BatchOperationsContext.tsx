@@ -52,8 +52,8 @@ export const BatchOperationsProvider = ({ children }: BatchOperationsProviderPro
         
         console.log(`[BatchOperations] Resetting jobs in ${tableName} for batch ${batchId}`);
         
-        // Reset the jobs in the batch - use type assertion to avoid TypeScript error
-        const { error: jobsError } = await supabase
+        // Reset the jobs in the batch - use any to bypass TypeScript checking
+        const { error: jobsError } = await (supabase as any)
           .from(tableName)
           .update({
             status: "queued",

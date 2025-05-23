@@ -58,7 +58,6 @@ export const GenericBatchesList = ({
       
       <BatchDeleteConfirmation
         batchToDelete={batchToDelete}
-        isDeleting={isDeleting}
         onCancel={() => onSetBatchToDelete(null)}
         onDelete={onDeleteBatch}
       />
