@@ -56,28 +56,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Check if user is an admin using the secure RPC function first
+  // Check if user is an admin using the updated functions
   const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
       
-      // Try secure function first
-      try {
-        // Use is_admin_secure_fixed which is in the allowed list
-        const { data: isAdminSecure, error: secureError } = await supabase
-          .rpc('is_admin_secure_fixed', { _user_id: userId });
-        
-        if (!secureError) {
-          return !!isAdminSecure;
-        }
-        
-        console.log('Secure admin check failed, falling back to standard:', secureError);
-      } catch (error) {
-        console.log('Error in secure admin check:', error);
+      // Try is_admin function that we just fixed
+      const { data: isAdminCheck, error: adminError } = await supabase
+        .rpc('is_admin', { _user_id: userId });
+      
+      if (!adminError) {
+        return !!isAdminCheck;
       }
       
-      // We need to call the functions directly via SQL since the RPC name is not in the type definition
-      // Use a direct query approach that doesn't rely on RPC function name
+      console.log('Standard admin check failed, trying secure version:', adminError);
+      
+      // Fall back to is_admin_secure_fixed
+      const { data: isAdminSecure, error: secureError } = await supabase
+        .rpc('is_admin_secure_fixed', { _user_id: userId });
+      
+      if (!secureError) {
+        return !!isAdminSecure;
+      }
+      
+      console.log('Both admin checks failed, using direct query:', secureError);
+      
+      // Final fallback - direct query
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')

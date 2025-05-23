@@ -902,6 +902,10 @@ export type Database = {
           last_sign_in_at: string
         }[]
       }
+      is_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       is_admin_secure_fixed: {
         Args: { _user_id: string }
         Returns: boolean

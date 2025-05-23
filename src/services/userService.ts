@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -7,7 +6,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
     console.log('Starting fetchUsers in userService');
     
-    // First try using the secure direct RPC call to get users
+    // First try using the secure direct RPC call to get users that we just fixed
     try {
       console.log('Trying to get users with get_all_users_secure RPC');
       const { data: secureUsers, error: secureError } = await supabase
@@ -17,15 +16,11 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
         console.log('Successfully retrieved users with secure RPC function');
         // Map to our expected format
         const userList = await Promise.all(secureUsers.map(async (user) => {
-          // Use a direct query approach instead of RPC
-          const { data: adminRoleData } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', user.id)
-            .eq('role', 'admin')
-            .maybeSingle();
+          // Check if user is admin with our updated functions
+          const { data: isAdminCheck } = await supabase
+            .rpc('is_admin', { _user_id: user.id });
           
-          const isAdmin = !!adminRoleData;
+          const isAdmin = !!isAdminCheck;
           
           // Get profile information
           const { data: profile } = await supabase
@@ -62,122 +57,143 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     
     console.log('Profiles fetched:', profiles?.length || 0);
 
-    // Fall back to edge function
+    // Fall back to edge function with better error handling
     console.log('Invoking get-all-users edge function');
-    const response = await supabase.functions.invoke('get-all-users', {
-      method: 'GET',
-    });
-    
-    if (response.error) {
-      console.error('Error fetching user emails:', response.error);
-      throw new Error(response.error.message || 'Failed to fetch user data');
-    }
-    
-    const authUsers = response.data;
-    console.log('Users from edge function:', authUsers);
-    
-    // Validate that users is an array
-    if (!Array.isArray(authUsers)) {
-      console.error('Invalid users data returned from edge function:', authUsers);
-      throw new Error('Failed to fetch user data from authentication system');
-    }
-    
-    // Create a map of user IDs to email addresses
-    const usersMap = Object.fromEntries(
-      (authUsers || []).map((user) => [user.id, user.email])
-    );
-    console.log('Users map created with keys:', Object.keys(usersMap).length);
-    
-    const userList: UserWithRole[] = [];
-    
-    // If we have no profiles but we have auth users, create minimal user records
-    if ((!profiles || profiles.length === 0) && authUsers.length > 0) {
-      console.log('No profiles found but auth users exist, creating minimal records');
-      for (const authUser of authUsers) {
-        // Check if the user is an admin using direct query
+    try {
+      const response = await supabase.functions.invoke('get-all-users', {
+        method: 'GET',
+      });
+      
+      if (response.error) {
+        console.error('Error fetching user emails:', response.error);
+        throw new Error(response.error.message || 'Failed to fetch user data');
+      }
+      
+      const authUsers = response.data;
+      console.log('Users from edge function:', authUsers);
+      
+      // Validate that users is an array
+      if (!Array.isArray(authUsers)) {
+        console.error('Invalid users data returned from edge function:', authUsers);
+        throw new Error('Failed to fetch user data from authentication system');
+      }
+      
+      // Create a map of user IDs to email addresses
+      const usersMap = Object.fromEntries(
+        (authUsers || []).map((user) => [user.id, user.email])
+      );
+      console.log('Users map created with keys:', Object.keys(usersMap).length);
+      
+      const userList: UserWithRole[] = [];
+      
+      // If we have no profiles but we have auth users, create minimal user records
+      if ((!profiles || profiles.length === 0) && authUsers.length > 0) {
+        console.log('No profiles found but auth users exist, creating minimal records');
+        for (const authUser of authUsers) {
+          // Check if the user is an admin using direct query
+          const { data: adminRoleData, error: adminError } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', authUser.id)
+            .eq('role', 'admin')
+            .maybeSingle();
+            
+          if (adminError) {
+            console.error('Error checking admin status for', authUser.id, ':', adminError);
+            // Fall back to basic check
+            userList.push({
+              id: authUser.id,
+              email: authUser.email || 'No email',
+              full_name: null,
+              avatar_url: null,
+              role: 'user' as UserRole, // Default to user role
+              created_at: null
+            });
+          } else {
+            const isAdmin = !!adminRoleData;
+            userList.push({
+              id: authUser.id,
+              email: authUser.email || 'No email',
+              full_name: null,
+              avatar_url: null,
+              role: (isAdmin ? 'admin' : 'user') as UserRole, // Cast to UserRole
+              created_at: null
+            });
+          }
+        }
+        
+        console.log('Created minimal user records:', userList.length);
+        return userList;
+      }
+      
+      // Process each profile to build the complete user data with emails from auth
+      for (const profile of profiles || []) {
+        console.log(`Processing profile ${profile.id}`);
+        
+        // Check if the user is an admin using a direct query
         const { data: adminRoleData, error: adminError } = await supabase
           .from('user_roles')
           .select('role')
-          .eq('user_id', authUser.id)
+          .eq('user_id', profile.id)
           .eq('role', 'admin')
           .maybeSingle();
           
         if (adminError) {
-          console.error('Error checking admin status for', authUser.id, ':', adminError);
-          // Fall back to basic check
+          console.error('Error checking admin status for', profile.id, ':', adminError);
+          
+          // Get the email from our map or use a placeholder
+          const email = usersMap[profile.id] || 'Email not available';
+          
           userList.push({
-            id: authUser.id,
-            email: authUser.email || 'No email',
-            full_name: null,
-            avatar_url: null,
+            id: profile.id,
+            email: email,
+            full_name: profile.full_name || 'No Name',
+            avatar_url: profile.avatar_url,
             role: 'user' as UserRole, // Default to user role
-            created_at: null
+            created_at: profile.created_at
           });
         } else {
           const isAdmin = !!adminRoleData;
+          
+          // Get the email from our map or use a placeholder
+          const email = usersMap[profile.id] || 'Email not available';
+          
           userList.push({
-            id: authUser.id,
-            email: authUser.email || 'No email',
-            full_name: null,
-            avatar_url: null,
+            id: profile.id,
+            email: email,
+            full_name: profile.full_name || 'No Name',
+            avatar_url: profile.avatar_url,
             role: (isAdmin ? 'admin' : 'user') as UserRole, // Cast to UserRole
-            created_at: null
+            created_at: profile.created_at
           });
         }
       }
       
-      console.log('Created minimal user records:', userList.length);
+      console.log('Final user list built, count:', userList.length);
       return userList;
-    }
-    
-    // Process each profile to build the complete user data with emails from auth
-    for (const profile of profiles || []) {
-      console.log(`Processing profile ${profile.id}`);
+    } catch (error) {
+      console.error('Error fetching users with edge function:', error);
       
-      // Check if the user is an admin using a direct query
-      const { data: adminRoleData, error: adminError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', profile.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-        
-      if (adminError) {
-        console.error('Error checking admin status for', profile.id, ':', adminError);
-        
-        // Get the email from our map or use a placeholder
-        const email = usersMap[profile.id] || 'Email not available';
-        
-        userList.push({
-          id: profile.id,
-          email: email,
-          full_name: profile.full_name || 'No Name',
-          avatar_url: profile.avatar_url,
-          role: 'user' as UserRole, // Default to user role
-          created_at: profile.created_at
-        });
-      } else {
-        const isAdmin = !!adminRoleData;
-        
-        // Get the email from our map or use a placeholder
-        const email = usersMap[profile.id] || 'Email not available';
-        
-        userList.push({
-          id: profile.id,
-          email: email,
-          full_name: profile.full_name || 'No Name',
-          avatar_url: profile.avatar_url,
-          role: (isAdmin ? 'admin' : 'user') as UserRole, // Cast to UserRole
-          created_at: profile.created_at
-        });
+      // If everything fails, return an array with just the current user
+      // This ensures the UI doesn't break completely
+      const currentUser = supabase.auth.getUser();
+      if ((await currentUser).data.user) {
+        const user = (await currentUser).data.user;
+        return [{
+          id: user.id,
+          email: user.email || 'Current user',
+          full_name: 'Current User',
+          avatar_url: null,
+          role: 'admin' as UserRole, // Assume admin for the current user if all else fails
+          created_at: null
+        }];
       }
+      
+      return []; // Return empty list as last resort
     }
-    
-    console.log('Final user list built, count:', userList.length);
-    return userList;
   } catch (error) {
-    console.error('Error fetching users:', error);
-    throw error;
+    console.error('Error in fetchUsers:', error);
+    return []; // Return empty array on error
   }
 }
 

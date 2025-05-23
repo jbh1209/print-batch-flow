@@ -44,89 +44,53 @@ serve(async (req) => {
       });
     }
 
-    // Try to use our new secure function first
-    try {
-      console.log('Checking if user is admin using is_admin_secure');
-      const { data: isAdminSecure, error: adminSecureError } = await supabase.rpc('is_admin_secure', { _user_id: user.id });
-      
-      if (adminSecureError) {
-        console.log('Error using is_admin_secure, falling back to is_admin:', adminSecureError);
-        // Fall back to regular is_admin if the secure function fails
-        const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin', { _user_id: user.id });
-        
-        if (adminError || !isAdmin) {
-          console.log('Admin check failed:', adminError || 'Not admin');
-          return new Response(JSON.stringify({ error: 'Admin access required' }), { 
-            status: 403,
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          });
-        }
-      } else if (!isAdminSecure) {
-        console.log('User is not admin according to is_admin_secure');
-        return new Response(JSON.stringify({ error: 'Admin access required' }), { 
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-    } catch (error) {
-      console.error('Error in admin check:', error);
-      return new Response(JSON.stringify({ error: 'Error checking admin status' }), { 
-        status: 500,
+    // Check if user is admin using is_admin function that we just created
+    const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin', { _user_id: user.id });
+    
+    if (adminError || !isAdmin) {
+      console.log('Admin check failed:', adminError || 'Not admin');
+      return new Response(JSON.stringify({ error: 'Admin access required' }), { 
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
 
     console.log('Admin verified, fetching all users');
     
-    // Try our new secure function to get users first
-    try {
-      console.log('Trying to use get_all_users_secure function');
-      const { data: secureUsers, error: secureError } = await supabase.rpc('get_all_users_secure');
+    // Use our newly fixed get_all_users_secure function
+    const { data: secureUsers, error: secureError } = await supabase.rpc('get_all_users_secure');
       
-      if (!secureError && secureUsers && secureUsers.length > 0) {
-        console.log(`Found ${secureUsers.length} users with secure function`);
-        return new Response(JSON.stringify(secureUsers), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
+    if (!secureError && secureUsers && secureUsers.length > 0) {
+      console.log(`Found ${secureUsers.length} users with secure function`);
+      return new Response(JSON.stringify(secureUsers), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    } else {
+      console.log('Secure function failed or returned no users, falling back to admin.listUsers');
+      
+      // Fall back to auth.admin.listUsers method
+      const { data: authUsers, error } = await supabase.auth.admin.listUsers();
+      
+      if (error) {
+        console.log('Error fetching users:', error);
+        return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
         });
-      } else {
-        console.log('Secure function failed or returned no users, falling back to admin.listUsers');
       }
-    } catch (error) {
-      console.log('Error using secure function, falling back:', error);
-    }
-    
-    // Fall back to auth.admin.listUsers method
-    const { data: authUsers, error } = await supabase.auth.admin.listUsers();
-    
-    if (error) {
-      console.log('Error fetching users:', error);
-      return new Response(JSON.stringify({ error: error.message }), { 
-        status: 500,
+
+      console.log(`Found ${authUsers.users.length} users in auth`);
+      
+      // Transform the response to include only id and email
+      const simplifiedUsers = authUsers.users.map(user => ({
+        id: user.id,
+        email: user.email || 'No email'
+      }));
+
+      return new Response(JSON.stringify(simplifiedUsers), { 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
-
-    console.log(`Found ${authUsers.users.length} users in auth`);
-    
-    if (!authUsers.users || authUsers.users.length === 0) {
-      console.log('No users found in auth');
-      return new Response(JSON.stringify([]), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-
-    // Transform the response to include only id and email
-    const simplifiedUsers = authUsers.users.map(user => ({
-      id: user.id,
-      email: user.email || 'No email'
-    }));
-
-    console.log('Users transformed:', simplifiedUsers);
-
-    return new Response(JSON.stringify(simplifiedUsers), { 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    });
-    
   } catch (error) {
     console.error('Edge function error:', error);
     return new Response(JSON.stringify({ error: error.message }), { 
