@@ -94,33 +94,42 @@ const JobActions = ({ job, onJobDeleted, onJobUpdated }: JobActionsProps) => {
     try {
       const tableName = job.productConfig.tableName;
       
-      // Get the original job data
+      // Get the original job data with proper type handling
       const { data: originalJob, error: fetchError } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .select('*')
         .eq('id', job.id)
         .single();
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error("Error fetching job:", fetchError);
+        throw new Error("Failed to fetch original job data");
+      }
 
-      // Prepare the duplicate data
+      if (!originalJob) {
+        throw new Error("Original job not found");
+      }
+
+      // Prepare the duplicate data by removing fields that should be auto-generated
+      const { id, created_at, updated_at, ...jobData } = originalJob;
+      
       const duplicateData = {
-        ...originalJob,
-        id: undefined, // Let the database generate a new ID
+        ...jobData,
         job_number: `${originalJob.job_number}-COPY-${Date.now().toString().slice(-4)}`,
         name: `${originalJob.name} (Copy)`,
         status: 'queued',
         batch_id: null,
-        created_at: undefined,
-        updated_at: undefined
       };
 
       // Insert the duplicate
       const { error: insertError } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .insert(duplicateData);
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Error inserting duplicate job:", insertError);
+        throw new Error("Failed to create duplicate job");
+      }
 
       toast.success("Job duplicated successfully");
       if (onJobUpdated) {
@@ -140,7 +149,7 @@ const JobActions = ({ job, onJobDeleted, onJobUpdated }: JobActionsProps) => {
       const tableName = job.productConfig.tableName;
       
       const { error } = await supabase
-        .from(tableName as any)
+        .from(tableName)
         .delete()
         .eq("id", job.id);
 
