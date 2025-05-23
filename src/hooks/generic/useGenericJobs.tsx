@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +8,7 @@ import { useBatchFixes } from './useBatchFixes';
 import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [jobs, setJobs] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +17,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { deleteJob, createJob, updateJob, getJobById } = useJobOperations(config.tableName, user?.id);
   const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useBatchFixes(config.tableName, user?.id);
 
-  // Fetch all jobs for this product type - removed user filtering
+  // Fetch all jobs for this product type - with admin awareness
   const fetchJobs = async () => {
     try {
       setIsLoading(true);
@@ -35,13 +34,20 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      console.log('Fetching jobs from table:', config.tableName);
+      console.log('Fetching jobs from table:', config.tableName, 'isAdmin:', isAdmin);
       
-      // Removed user_id filter to allow seeing all jobs
-      const { data, error: fetchError } = await supabase
+      // Build query based on admin status
+      let query = supabase
         .from(config.tableName as any)
         .select('*')
         .order('created_at', { ascending: false });
+
+      // Only filter by user_id if not an admin and user exists
+      if (!isAdmin && user) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
@@ -59,7 +65,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   useEffect(() => {
     fetchJobs();
-  }, []);
+  }, [user, isAdmin]);
 
   // Handle job deletion with local state update - removed user ID filter
   const handleDeleteJob = async (jobId: string) => {

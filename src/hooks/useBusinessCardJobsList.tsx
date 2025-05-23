@@ -10,7 +10,7 @@ import { useBatchCleanup } from "./business-cards/useBatchCleanup";
 
 export const useBusinessCardJobsList = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,14 +48,17 @@ export const useBusinessCardJobsList = () => {
         return;
       }
       
-      console.log("Fetching business card jobs");
+      console.log("Fetching business card jobs, isAdmin:", isAdmin);
       
       let query = supabase
         .from('business_card_jobs')
         .select('*')
         .order('created_at', { ascending: false });
       
-      // Remove user_id filter to allow seeing all jobs (assuming that's what we want)
+      // Only filter by user_id if not an admin
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
       
       if (filterView !== 'all') {
         query = query.eq('status', filterView);
@@ -73,10 +76,17 @@ export const useBusinessCardJobsList = () => {
       
       setJobs(data || []);
       
-      // Second query to get all job counts for filters
-      const { data: allJobs, error: countError } = await supabase
+      // Second query to get all job counts for filters - respecting admin status
+      let countQuery = supabase
         .from('business_card_jobs')
         .select('status');
+      
+      // Only filter by user_id if not an admin
+      if (!isAdmin) {
+        countQuery = countQuery.eq('user_id', user.id);
+      }
+      
+      const { data: allJobs, error: countError } = await countQuery;
       
       if (countError) throw countError;
       
@@ -103,10 +113,17 @@ export const useBusinessCardJobsList = () => {
 
   const deleteJob = async (jobId: string): Promise<boolean> => {
     try {
-      const { error: deleteError } = await supabase
+      let query = supabase
         .from('business_card_jobs')
         .delete()
         .eq('id', jobId);
+      
+      // Only filter by user_id if not an admin
+      if (!isAdmin && user) {
+        query = query.eq('user_id', user.id);
+      }
+      
+      const { error: deleteError } = await query;
       
       if (deleteError) throw deleteError;
       
@@ -135,7 +152,7 @@ export const useBusinessCardJobsList = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, [user, filterView, laminationFilter]);
+  }, [user, isAdmin, filterView, laminationFilter]);
   
   useEffect(() => {
     if (user) {

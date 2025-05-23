@@ -1,15 +1,15 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BaseJob, JobStatus, TableName } from '@/config/productTypes';
 import { isExistingTable } from '@/utils/database/tableUtils';
+import { useAuth } from '@/hooks/useAuth';
 
 export function useJobOperations(tableName: TableName | undefined, userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { isAdmin } = useAuth();
 
-  // Modified to remove user_id filter - allow any user to delete any job
   const deleteJob = async (jobId: string) => {
     try {
       if (!tableName) {
@@ -20,11 +20,18 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Removed user_id filter to allow any user to delete any job
-      const { error } = await supabase
+      // Build query based on admin status
+      let query = supabase
         .from(tableName as any)
         .delete()
         .eq('id', jobId);
+      
+      // Add user_id filter if not an admin
+      if (!isAdmin && userId) {
+        query = query.eq('user_id', userId);
+      }
+      
+      const { error } = await query;
 
       if (error) throw error;
       
@@ -73,7 +80,6 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
     }
   };
 
-  // Modified to remove user_id filter - allow any user to update any job
   const updateJob = async <T extends BaseJob>(
     jobId: string,
     jobData: Partial<T>,
@@ -88,13 +94,18 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Removed user_id filter to allow any user to update any job
-      const { data, error } = await supabase
+      // Build query based on admin status
+      let query = supabase
         .from(tableName as any)
         .update(jobData)
-        .eq('id', jobId)
-        .select()
-        .single();
+        .eq('id', jobId);
+      
+      // Add user_id filter if not an admin and userId is provided
+      if (!isAdmin && userId) {
+        query = query.eq('user_id', userId);
+      }
+      
+      const { data, error } = await query.select().single();
 
       if (error) throw error;
       
@@ -106,8 +117,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
     }
   };
 
-  // Modified to remove user_id filter - allow any user to get any job
-  const getJobById = async <T extends BaseJob>(jobId: string, userId?: string) => { // Made userId optional
+  const getJobById = async <T extends BaseJob>(jobId: string, userId?: string) => {
     try {
       if (!tableName) {
         throw new Error(`Invalid table name`);
@@ -117,12 +127,18 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Removed user_id filter to allow any user to get any job
-      const { data, error } = await supabase
+      // Build query based on admin status
+      let query = supabase
         .from(tableName as any)
         .select('*')
-        .eq('id', jobId)
-        .single();
+        .eq('id', jobId);
+      
+      // Add user_id filter if not an admin and userId is provided
+      if (!isAdmin && userId) {
+        query = query.eq('user_id', userId);
+      }
+      
+      const { data, error } = await query.single();
 
       if (error) throw error;
       

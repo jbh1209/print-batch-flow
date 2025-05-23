@@ -17,7 +17,7 @@ export const useAllPendingJobs = () => {
   const [jobs, setJobs] = useState<ExtendedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const fetchJobsFromTable = async (config: ProductConfig): Promise<ExtendedJob[]> => {
     if (!user) return [];
@@ -29,15 +29,21 @@ export const useAllPendingJobs = () => {
         return [];
       }
 
-      console.log(`Fetching ${config.productType} jobs for user ${user.id}`);
+      console.log(`Fetching ${config.productType} jobs`);
 
-      // Using any type to work around TypeScript limitations with dynamic table names
-      const { data, error } = await supabase
+      // Build the query based on user role
+      let query = supabase
         .from(config.tableName as any)
         .select('*')
-        .eq('user_id', user.id)
         .eq('status', 'queued')
         .order('due_date', { ascending: true });
+      
+      // Only filter by user_id if not an admin
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
+      
+      const { data, error } = await query;
       
       if (error) {
         // Log the error but don't throw it to prevent breaking the entire data fetch
@@ -85,7 +91,7 @@ export const useAllPendingJobs = () => {
     setError(null);
     
     try {
-      console.log("Fetching all pending jobs for user:", user.id);
+      console.log("Fetching all pending jobs for user:", user.id, "Admin status:", isAdmin);
       
       // Create an array of promises to fetch jobs from each product table
       const productFetchPromises = Object.values(productConfigs).map(config => 
@@ -112,7 +118,7 @@ export const useAllPendingJobs = () => {
   
   useEffect(() => {
     fetchAllJobs();
-  }, [user]);
+  }, [user, isAdmin]);
   
   return {
     jobs,
