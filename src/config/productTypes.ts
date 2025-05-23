@@ -1,4 +1,5 @@
-export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch';
+
+export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch' | 'front_gloss_lam' | 'front_matt_lam' | 'no_lam';
 export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
 export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
 export type TableName = string;
@@ -116,10 +117,12 @@ export const productConfigs: Record<string, ProductConfig> = {
     jobNumberPrefix: "FL",
     availableSizes: ["A6", "A5", "A4", "DL"],
     availablePaperTypes: ["Gloss", "Silk", "Uncoated"],
-    availablePaperWeights: ["115gsm", "130gsm", "170gsm", "250gsm", "300gsm", "350gsm"],
+    availablePaperWeights: ["80gsm bond", "115gsm", "130gsm", "170gsm", "200gsm", "250gsm", "300gsm", "350gsm"],
+    availableSidesTypes: ["single", "double"],
     hasSize: true,
     hasPaperType: true,
     hasPaperWeight: true,
+    hasSides: true,
     slaTargetDays: 3,
     routes: {
       indexPath: "/batches/flyers",
@@ -145,9 +148,13 @@ export const productConfigs: Record<string, ProductConfig> = {
     availableSizes: ["A6", "A5", "A4", "DL"],
     availablePaperTypes: ["Gloss", "Silk", "Uncoated"],
     availablePaperWeights: ["115gsm", "130gsm", "170gsm", "250gsm", "300gsm", "350gsm"],
+    availableSidesTypes: ["single", "double"],
+    availableLaminationTypes: ["front_gloss_lam", "front_matt_lam", "no_lam"],
     hasSize: true,
     hasPaperType: true,
     hasPaperWeight: true,
+    hasSides: true,
+    hasLamination: true,
     slaTargetDays: 3,
     routes: {
       indexPath: "/batches/postcards",
@@ -222,9 +229,11 @@ export const productConfigs: Record<string, ProductConfig> = {
     jobNumberPrefix: "POST",
     availableSizes: ["A4", "A3"],
     availablePaperTypes: ["Matt", "Gloss"],
+    availablePaperWeights: ["80gsm bond", "115gsm", "130gsm", "170gsm", "200gsm", "250gsm", "300gsm", "350gsm"],
     availableSidesTypes: ["single", "double"],
     hasSize: true,
     hasPaperType: true,
+    hasPaperWeight: true,
     hasSides: true,
     slaTargetDays: 3,
     routes: {
@@ -288,8 +297,10 @@ export const productConfigs: Record<string, ProductConfig> = {
     productType: "Boxes",
     tableName: "box_jobs",
     jobNumberPrefix: "PB",
-    availablePaperTypes: ["Premium", "Standard"],
+    availablePaperTypes: ["FBB 230gsm", "FBB 300gsm", "300gsm matt"],
+    availableLaminationTypes: ["soft_touch", "matt", "gloss"],
     hasPaperType: true,
+    hasLamination: true,
     slaTargetDays: 5,
     routes: {
       indexPath: "/batches/boxes",

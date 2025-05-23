@@ -41,6 +41,20 @@ export const GenericJobFormFields = ({
 }: GenericJobFormFieldsProps) => {
   const { control, formState } = useFormContext();
 
+  // Helper function to get lamination type display name
+  const getLaminationDisplayName = (type: string) => {
+    switch (type) {
+      case "none": return "None";
+      case "matt": return "Matt";
+      case "gloss": return "Gloss";
+      case "soft_touch": return "Soft Touch";
+      case "front_gloss_lam": return "Front Gloss Lamination";
+      case "front_matt_lam": return "Front Matt Lamination";
+      case "no_lam": return "No Lamination";
+      default: return type;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Basic Job Information */}
@@ -193,6 +207,32 @@ export const GenericJobFormFields = ({
           />
         )}
 
+        {/* Paper Weight Selection */}
+        {config.availablePaperWeights && (
+          <FormField
+            control={control}
+            name="paper_weight"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Paper Weight*</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select paper weight" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {config.availablePaperWeights.map((weight) => (
+                      <SelectItem key={weight} value={weight}>{weight}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         {/* Lamination Type Selection */}
         {config.availableLaminationTypes && (
           <FormField
@@ -210,10 +250,7 @@ export const GenericJobFormFields = ({
                   <SelectContent>
                     {config.availableLaminationTypes.map((type) => (
                       <SelectItem key={type} value={type}>
-                        {type === "none" ? "None" : 
-                         type === "matt" ? "Matt" : 
-                         type === "gloss" ? "Gloss" : 
-                         type === "soft_touch" ? "Soft Touch" : type}
+                        {getLaminationDisplayName(type)}
                       </SelectItem>
                     ))}
                   </SelectContent>
