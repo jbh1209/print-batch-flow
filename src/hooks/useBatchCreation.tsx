@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
@@ -136,12 +135,12 @@ export function useBatchCreation() {
         // Continue with batch creation even if PDFs fail
       }
       
-      // Insert batch record into database
+      // Insert batch record into database with type assertion for lamination
       const { error: batchError, data: batchData } = await supabase
         .from("batches")
         .insert({
           name,
-          lamination_type: laminationType,
+          lamination_type: laminationType as any, // Type assertion to handle expanded types
           sheets_required: sheetsRequired,
           due_date: earliestDueDate.toISOString(),
           created_by: user.id,

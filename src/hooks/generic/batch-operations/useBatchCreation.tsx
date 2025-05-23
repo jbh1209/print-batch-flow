@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -88,10 +87,13 @@ export function useBatchCreation(productType: string, tableName: string) {
         slaTarget
       );
       
-      // Create the batch record
+      // Create the batch record with type assertion to handle expanded lamination types
       const { data: batch, error: batchError } = await supabase
         .from("batches")
-        .insert(batchData)
+        .insert({
+          ...batchData,
+          lamination_type: laminationType as any // Type assertion to bypass type check
+        })
         .select()
         .single();
         

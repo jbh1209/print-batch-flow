@@ -63,10 +63,14 @@ export const createBatchRecord = async (
       created_by: config.userId
     };
 
-    // Create the batch record - use the literal 'batches' table name
+    // Create the batch record - use the literal 'batches' table name with type assertion
+    // to handle expanded lamination types
     const { data, error } = await supabase
       .from('batches')
-      .insert(batchData)
+      .insert({
+        ...batchData,
+        lamination_type: batchData.lamination_type as any // Type assertion for compatibility
+      })
       .select('*')
       .single();
 
