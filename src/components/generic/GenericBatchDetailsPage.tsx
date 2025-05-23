@@ -4,13 +4,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useGenericBatchDetails } from "@/hooks/generic/useGenericBatchDetails";
 import { ProductConfig } from "@/config/productTypes";
 import BatchDetailsContent from "@/components/batches/BatchDetailsContent";
-import { BatchDeleteConfirmation } from "@/components/generic/batch-list/BatchDeleteConfirmation";
+import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BatchDetailsType, Job, JobStatus } from "@/components/batches/types/BatchTypes";
-import { useBatchOperations } from "@/context/BatchOperationsContext";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -24,29 +23,16 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
   // Use the batchId from props or params
   const batchId = propBatchId || paramBatchId;
   
-  const { batch, relatedJobs, isLoading, error } = useGenericBatchDetails({ 
-    batchId, 
-    config 
-  });
-  
   const {
-    batchBeingDeleted,
-    isDeletingBatch,
-    deleteBatch,
-    setBatchBeingDeleted
-  } = useBatchOperations();
-
-  const handleDeleteBatch = async () => {
-    if (!batchBeingDeleted || !batch) return;
-    
-    const success = await deleteBatch(
-      batchBeingDeleted,
-      config.productType,
-      config.routes.batchesPath
-    );
-    
-    // No need to do anything else - the context will handle redirect
-  };
+    batch,
+    relatedJobs,
+    isLoading,
+    error,
+    batchToDelete,
+    isDeleting,
+    setBatchToDelete,
+    handleDeleteBatch
+  } = useGenericBatchDetails({ batchId, config });
 
   useEffect(() => {
     console.log("GenericBatchDetailsPage - Batch ID:", batchId);
@@ -126,14 +112,14 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
         batch={batchDetailsData}
         relatedJobs={jobsWithRequiredProps}
         productType={config.productType}
-        onDeleteClick={() => setBatchBeingDeleted(batch.id)}
+        onDeleteClick={() => setBatchToDelete(batch.id)}
       />
 
-      <BatchDeleteConfirmation 
-        batchToDelete={batchBeingDeleted}
-        onCancel={() => setBatchBeingDeleted(null)}
-        onDelete={handleDeleteBatch}
-        batchName={batch.name}
+      <BatchDeleteDialog 
+        isOpen={!!batchToDelete}
+        isDeleting={isDeleting}
+        onClose={() => setBatchToDelete(null)}
+        onConfirmDelete={handleDeleteBatch}
       />
     </div>
   );

@@ -6,42 +6,11 @@ import { Loader2, AlertCircle } from "lucide-react";
 import AllBatchesHeader from '@/components/batches/AllBatchesHeader';
 import AllBatchesTabs from '@/components/batches/AllBatchesTabs';
 import { BatchSummary } from '@/components/batches/types/BatchTypes';
-import { useBatchOperations } from "@/context/BatchOperationsContext";
-import { BatchDeleteConfirmation } from "@/components/generic/batch-list/BatchDeleteConfirmation";
 
 const AllBatches: React.FC = () => {
   const { batches, isLoading, error, fetchBatches, getBatchUrl } = useBatchesList();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("current");
-  
-  const {
-    batchBeingDeleted,
-    isDeletingBatch,
-    deleteBatch,
-    setBatchBeingDeleted
-  } = useBatchOperations();
-  
-  // Handler for batch deletion
-  const handleDeleteBatch = async () => {
-    if (!batchBeingDeleted) return;
-    
-    const batchToDelete = batches.find(b => b.id === batchBeingDeleted);
-    if (!batchToDelete) {
-      console.error("Batch not found for deletion:", batchBeingDeleted);
-      return;
-    }
-    
-    const success = await deleteBatch(
-      batchBeingDeleted,
-      batchToDelete.product_type,
-      "/batches"
-    );
-    
-    if (success) {
-      // Refresh the batches list
-      fetchBatches();
-    }
-  };
 
   if (isLoading) {
     return (
@@ -92,9 +61,6 @@ const AllBatches: React.FC = () => {
 
   // Create a wrapper for getBatchUrl that works with our typed BatchSummary
   const getTypedBatchUrl = (batch: BatchSummary): string => getBatchUrl(batch);
-  
-  // Find the name of the batch being deleted
-  const batchToDeleteName = typedBatches.find(b => b.id === batchBeingDeleted)?.name;
 
   return (
     <div className="container mx-auto py-6">
@@ -108,15 +74,6 @@ const AllBatches: React.FC = () => {
         getBadgeVariant={getBadgeVariant}
         getBatchUrl={getTypedBatchUrl}
         handleBatchClick={handleBatchClick}
-        handleDeleteBatch={setBatchBeingDeleted}
-      />
-      
-      {/* Delete Confirmation Dialog */}
-      <BatchDeleteConfirmation 
-        batchToDelete={batchBeingDeleted}
-        onCancel={() => setBatchBeingDeleted(null)}
-        onDelete={handleDeleteBatch}
-        batchName={batchToDeleteName}
       />
     </div>
   );

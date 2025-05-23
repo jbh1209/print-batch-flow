@@ -1,11 +1,11 @@
 
+import { useState } from "react";
 import { useBatchDetails } from "@/hooks/useBatchDetails";
+import BatchDetailsHeader from "./BatchDetailsHeader";
 import BatchDetailsContent from "./BatchDetailsContent";
-import { BatchDeleteConfirmation } from "@/components/generic/batch-list/BatchDeleteConfirmation";
 import BatchDetailsLoading from "./BatchDetailsLoading";
 import BatchNotFound from "./BatchNotFound";
-import BatchDetailsHeader from "./BatchDetailsHeader";
-import { useBatchOperations } from "@/context/BatchOperationsContext";
+import DeleteBatchDialog from "./DeleteBatchDialog";
 
 interface BatchDetailsProps {
   batchId: string;
@@ -14,61 +14,44 @@ interface BatchDetailsProps {
 }
 
 const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
-  const {
+  const { 
     batch,
     relatedJobs,
     isLoading,
     error,
-    fetchBatchDetails
+    batchToDelete,
+    isDeleting,
+    setBatchToDelete,
+    handleDeleteBatch
   } = useBatchDetails({ batchId, productType, backUrl });
-  
-  const {
-    batchBeingDeleted,
-    isDeletingBatch,
-    deleteBatch,
-    setBatchBeingDeleted
-  } = useBatchOperations();
-
-  const handleDeleteBatch = async () => {
-    if (!batchBeingDeleted) return;
-    
-    await deleteBatch(
-      batchBeingDeleted,
-      productType,
-      backUrl
-    );
-  };
-
-  if (isLoading) {
-    return <BatchDetailsLoading />;
-  }
-
-  if (error || !batch) {
-    return <BatchNotFound backUrl={backUrl} />;
-  }
 
   return (
     <div>
-      <BatchDetailsHeader 
-        backUrl={backUrl}
-        error={null}
-        batchName={batch.name}
-        productType={productType}
-      />
-      
-      <BatchDetailsContent
-        batch={batch}
-        relatedJobs={relatedJobs}
-        productType={productType}
-        onDeleteClick={() => setBatchBeingDeleted(batch.id)}
-      />
+      <BatchDetailsHeader backUrl={backUrl} error={error} />
 
-      <BatchDeleteConfirmation
-        batchToDelete={batchBeingDeleted}
-        onCancel={() => setBatchBeingDeleted(null)}
-        onDelete={handleDeleteBatch}
-        batchName={batch.name}
-      />
+      {isLoading ? (
+        <BatchDetailsLoading />
+      ) : !batch ? (
+        <BatchNotFound backUrl={backUrl} />
+      ) : (
+        <>
+          <BatchDetailsContent
+            batch={batch}
+            relatedJobs={relatedJobs}
+            productType={productType}
+            onDeleteClick={() => setBatchToDelete(batch.id)}
+          />
+
+          {/* Delete Confirmation Dialog */}
+          <DeleteBatchDialog 
+            isOpen={!!batchToDelete}
+            isDeleting={isDeleting}
+            batchName={batch?.name || ""}
+            onClose={() => setBatchToDelete(null)}
+            onConfirmDelete={handleDeleteBatch}
+          />
+        </>
+      )}
     </div>
   );
 };

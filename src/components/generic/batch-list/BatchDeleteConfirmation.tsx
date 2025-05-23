@@ -11,10 +11,10 @@ import {
   AlertDialogAction
 } from "@/components/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
-import { useBatchOperations } from '@/context/BatchOperationsContext';
 
 interface BatchDeleteConfirmationProps {
   batchToDelete: string | null;
+  isDeleting: boolean;
   onCancel: () => void;
   onDelete: () => Promise<void>;
   batchName?: string;
@@ -22,12 +22,11 @@ interface BatchDeleteConfirmationProps {
 
 export const BatchDeleteConfirmation: React.FC<BatchDeleteConfirmationProps> = ({
   batchToDelete,
+  isDeleting,
   onCancel,
   onDelete,
   batchName
 }) => {
-  const { isDeletingBatch } = useBatchOperations();
-
   return (
     <AlertDialog open={!!batchToDelete} onOpenChange={(open) => !open && onCancel()}>
       <AlertDialogContent>
@@ -43,13 +42,13 @@ export const BatchDeleteConfirmation: React.FC<BatchDeleteConfirmationProps> = (
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeletingBatch}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction 
             onClick={onDelete} 
-            disabled={isDeletingBatch}
+            disabled={isDeleting}
             className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
           >
-            {isDeletingBatch ? (
+            {isDeleting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Deleting...

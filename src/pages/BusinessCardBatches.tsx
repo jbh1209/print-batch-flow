@@ -4,48 +4,28 @@ import { useBusinessCardBatches } from "@/hooks/useBusinessCardBatches";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import BatchDetails from "@/components/batches/BatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
+import DeleteBatchDialog from "@/components/batches/DeleteBatchDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
-import { useBatchOperations } from "@/context/BatchOperationsContext";
-import { BatchDeleteConfirmation } from "@/components/generic/batch-list/BatchDeleteConfirmation";
 
 const BusinessCardBatches = () => {
   const [searchParams] = useSearchParams();
   const batchId = searchParams.get('batchId');
   
-  const { 
+  const {
     batches,
     isLoading,
     error,
+    batchToDelete,
+    isDeleting,
     fetchBatches,
     handleViewPDF,
-    handleViewBatchDetails
+    handleDeleteBatch,
+    handleViewBatchDetails,
+    setBatchToDelete
   } = useBusinessCardBatches(batchId);
-  
-  const {
-    batchBeingDeleted,
-    isDeletingBatch,
-    deleteBatch,
-    setBatchBeingDeleted
-  } = useBatchOperations();
-
-  // Handle batch deletion with the context
-  const handleDeleteBatch = async () => {
-    if (!batchBeingDeleted) return;
-    
-    const success = await deleteBatch(
-      batchBeingDeleted,
-      "Business Cards",
-      "/batches/business-cards/batches"
-    );
-    
-    if (success) {
-      // Refresh the batches list
-      fetchBatches();
-    }
-  };
 
   // Convert Batch[] to BatchSummary[] for BatchesWrapper
   const batchSummaries: BatchSummary[] = batches.map(batch => ({
@@ -105,16 +85,16 @@ const BusinessCardBatches = () => {
         error={error}
         onRefresh={fetchBatches}
         onViewPDF={handleViewPDF}
-        onDeleteBatch={setBatchBeingDeleted}
+        onDeleteBatch={setBatchToDelete}
         onViewDetails={handleViewBatchDetails}
       />
 
       {/* Delete Confirmation Dialog */}
-      <BatchDeleteConfirmation 
-        batchToDelete={batchBeingDeleted}
-        onCancel={() => setBatchBeingDeleted(null)}
-        onDelete={handleDeleteBatch}
-        batchName={batches.find(b => b.id === batchBeingDeleted)?.name}
+      <DeleteBatchDialog 
+        isOpen={!!batchToDelete}
+        isDeleting={isDeleting}
+        onClose={() => setBatchToDelete(null)}
+        onConfirmDelete={handleDeleteBatch}
       />
     </div>
   );

@@ -7,12 +7,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface BatchDetailsHeaderProps {
   backUrl: string;
-  error?: string | null;
-  batchName?: string;
-  productType?: string;
+  error: string | null;
 }
 
-const BatchDetailsHeader = ({ backUrl, error, batchName, productType }: BatchDetailsHeaderProps) => {
+const BatchDetailsHeader = ({ backUrl, error }: BatchDetailsHeaderProps) => {
   const navigate = useNavigate();
 
   return (
@@ -24,12 +22,8 @@ const BatchDetailsHeader = ({ backUrl, error, batchName, productType }: BatchDet
           className="flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to {productType || 'All'} Batches
+          Back to All Batches
         </Button>
-        
-        {batchName && (
-          <h1 className="text-2xl font-bold ml-4">{batchName}</h1>
-        )}
       </div>
 
       {error && (
