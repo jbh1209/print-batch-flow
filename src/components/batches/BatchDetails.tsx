@@ -50,9 +50,10 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
   return (
     <div>
       <BatchDetailsHeader 
-        batchName={batch.name} 
-        productType={productType} 
-        backUrl={backUrl} 
+        backUrl={backUrl}
+        error={null}
+        batchName={batch.name}
+        productType={productType}
       />
       
       <BatchDetailsContent

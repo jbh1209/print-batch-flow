@@ -1,17 +1,18 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import BusinessCardJobs from './pages/BusinessCardJobs';
-import NewBusinessCardJob from './pages/NewBusinessCardJob';
-import EditBusinessCardJob from './pages/EditBusinessCardJob';
+import BusinessCardJobNew from './pages/BusinessCardJobNew';
+import BusinessCardJobEdit from './pages/BusinessCardJobEdit';
 import BusinessCardBatches from './pages/BusinessCardBatches';
 import BatchDetailsPage from './pages/BatchDetailsPage';
 import AllBatches from './pages/AllBatches';
 import FlyerBatches from './pages/FlyerBatches';
 import FlyerBatchDetails from './pages/FlyerBatchDetails';
 import { Toaster } from "@/components/ui/sonner"
-import GenericBatchDetailsPage from './components/generic/GenericBatchDetailsPage';
+import GenericBatchDetailsPage from './pages/generic/GenericBatchDetailsPage';
 import BoxBatchesPage from './pages/generic/BoxBatchesPage';
 import CoverBatchesPage from './pages/generic/CoverBatchesPage';
 import PosterBatchesPage from './pages/generic/PosterBatchesPage';
@@ -35,8 +36,8 @@ function App() {
               
               {/* Business Card Routes */}
               <Route path="/batches/business-cards/jobs" element={<BusinessCardJobs />} />
-              <Route path="/batches/business-cards/jobs/new" element={<NewBusinessCardJob />} />
-              <Route path="/batches/business-cards/jobs/edit/:jobId" element={<EditBusinessCardJob />} />
+              <Route path="/batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
+              <Route path="/batches/business-cards/jobs/edit/:jobId" element={<BusinessCardJobEdit />} />
               <Route path="/batches/business-cards/batches" element={<BusinessCardBatches />} />
               <Route path="/batches/business-cards/batches/:batchId" element={<BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards/batches" />} />
               

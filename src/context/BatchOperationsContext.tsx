@@ -3,8 +3,6 @@ import { createContext, useContext, useState, useCallback, ReactNode } from "rea
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Database } from "@/integrations/supabase/types";
-import { BatchStatus } from "@/config/productTypes";
 import { getProductJobsTable } from "@/utils/batch/tableMapping";
 
 // Define types for our context
@@ -54,7 +52,7 @@ export const BatchOperationsProvider = ({ children }: BatchOperationsProviderPro
         
         console.log(`[BatchOperations] Resetting jobs in ${tableName} for batch ${batchId}`);
         
-        // Reset the jobs in the batch
+        // Reset the jobs in the batch - use type assertion to avoid TypeScript error
         const { error: jobsError } = await supabase
           .from(tableName)
           .update({
