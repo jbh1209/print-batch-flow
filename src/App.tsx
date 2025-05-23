@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Auth from './pages/Auth';
@@ -51,6 +50,12 @@ import StickerJobNewPage from './pages/generic/StickerJobNewPage';
 
 // Import individual batch detail pages
 import GenericBatchDetailsPage from './pages/generic/GenericBatchDetailsPage';
+
+// Import job edit pages
+import FlyerJobEdit from './pages/FlyerJobEdit';
+import PostcardJobEdit from './pages/PostcardJobEdit';
+import SleeveJobEdit from './pages/SleeveJobEdit';
+import GenericJobEdit from './pages/GenericJobEdit';
 
 import Users from './pages/Users';
 import Settings from './pages/Settings';

@@ -69,7 +69,14 @@ const PostcardJobEdit = () => {
     return null;
   }
 
-  return <FlyerJobForm mode="edit" initialData={job} productType="postcard" />;
+  // Transform PostcardJob to match FlyerJobForm expectations
+  const transformedJob = {
+    ...job,
+    size: job.size as any, // Cast to match FlyerJobForm expectations
+    paper_type: job.paper_type as any
+  };
+
+  return <FlyerJobForm mode="edit" initialData={transformedJob} productType="postcard" />;
 };
 
 export default PostcardJobEdit;

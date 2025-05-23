@@ -23,12 +23,54 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
       if (!user || !jobId) return;
 
       try {
-        const { data, error } = await supabase
-          .from(config.tableName)
-          .select('*')
-          .eq('id', jobId)
-          .eq('user_id', user.id)
-          .single();
+        // Use type-safe queries based on table name
+        let data: any = null;
+        let error: any = null;
+
+        switch (config.tableName) {
+          case 'poster_jobs':
+            const posterResult = await supabase
+              .from('poster_jobs')
+              .select('*')
+              .eq('id', jobId)
+              .eq('user_id', user.id)
+              .single();
+            data = posterResult.data;
+            error = posterResult.error;
+            break;
+          case 'box_jobs':
+            const boxResult = await supabase
+              .from('box_jobs')
+              .select('*')
+              .eq('id', jobId)
+              .eq('user_id', user.id)
+              .single();
+            data = boxResult.data;
+            error = boxResult.error;
+            break;
+          case 'cover_jobs':
+            const coverResult = await supabase
+              .from('cover_jobs')
+              .select('*')
+              .eq('id', jobId)
+              .eq('user_id', user.id)
+              .single();
+            data = coverResult.data;
+            error = coverResult.error;
+            break;
+          case 'sticker_jobs':
+            const stickerResult = await supabase
+              .from('sticker_jobs')
+              .select('*')
+              .eq('id', jobId)
+              .eq('user_id', user.id)
+              .single();
+            data = stickerResult.data;
+            error = stickerResult.error;
+            break;
+          default:
+            throw new Error(`Unsupported table: ${config.tableName}`);
+        }
 
         if (error) throw error;
         setJob(data as BaseJob);
