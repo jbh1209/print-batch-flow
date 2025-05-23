@@ -1,9 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Database } from "@/integrations/supabase/types";
-
-type TableName = keyof Database['public']['Tables'];
 
 interface DeletionResult {
   success: boolean;
@@ -32,7 +29,7 @@ export class BatchDeletionService {
       console.log(`Resetting jobs in ${tableName} for batch ${batchId}`);
       
       const { error: jobsError } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .update({ 
           status: "queued",
           batch_id: null
@@ -85,8 +82,8 @@ export class BatchDeletionService {
   /**
    * Get the correct table name for a product type
    */
-  private static getTableNameForProductType(productType: string): TableName | null {
-    const tableMap: Record<string, TableName> = {
+  private static getTableNameForProductType(productType: string): string | null {
+    const tableMap: Record<string, string> = {
       "Business Cards": "business_card_jobs",
       "Flyers": "flyer_jobs",
       "Postcards": "postcard_jobs",
