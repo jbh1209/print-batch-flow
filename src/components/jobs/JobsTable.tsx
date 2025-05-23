@@ -24,13 +24,45 @@ const JobsTable: React.FC<JobsTableProps> = ({
   const navigate = useNavigate();
 
   const handleNavigateToJob = (job: ExtendedJob) => {
-    if (!job.productConfig?.routes?.jobDetailPath) {
-      console.error("Cannot navigate: job detail path not defined for", job.productConfig?.productType);
-      return;
+    // Create a more robust navigation system
+    let detailPath: string;
+    
+    // Map product types to their detail paths
+    switch (job.productConfig?.productType) {
+      case 'Business Cards':
+        // Business cards don't have individual job detail pages yet, navigate to jobs list
+        detailPath = '/batches/business-cards/jobs';
+        break;
+      case 'Flyers':
+        detailPath = `/batches/flyers/jobs/${job.id}`;
+        break;
+      case 'Postcards':
+        detailPath = `/batches/postcards/jobs/${job.id}`;
+        break;
+      case 'Posters':
+        detailPath = `/batches/posters/jobs/${job.id}`;
+        break;
+      case 'Sleeves':
+        detailPath = `/batches/sleeves/jobs/${job.id}`;
+        break;
+      case 'Boxes':
+        detailPath = `/batches/boxes/jobs/${job.id}`;
+        break;
+      case 'Covers':
+        detailPath = `/batches/covers/jobs/${job.id}`;
+        break;
+      case 'Stickers':
+        detailPath = `/batches/stickers/jobs/${job.id}`;
+        break;
+      default:
+        console.warn(`Unknown product type: ${job.productConfig?.productType}`);
+        // Fallback to the product's jobs list page
+        const productSlug = job.productConfig?.productType?.toLowerCase().replace(/\s+/g, '-');
+        detailPath = `/batches/${productSlug}/jobs`;
+        break;
     }
     
-    const detailPath = job.productConfig.routes.jobDetailPath(job.id);
-    console.log("Navigating to:", detailPath);
+    console.log(`Navigating to: ${detailPath} for job ${job.id} (${job.productConfig?.productType})`);
     navigate(detailPath);
   };
 
@@ -71,10 +103,9 @@ const JobsTable: React.FC<JobsTableProps> = ({
             jobs.map((job) => (
               <TableRow 
                 key={`${job.productConfig.tableName}-${job.id}`}
-                className={getUrgencyBackgroundClass(job.urgency)}
+                className={`${getUrgencyBackgroundClass(job.urgency)} cursor-pointer hover:bg-muted/50`}
                 onClick={() => handleNavigateToJob(job)}
                 style={{ 
-                  cursor: 'pointer',
                   borderLeft: `4px solid ${job.productConfig.ui.color || '#888'}` 
                 }}
               >
