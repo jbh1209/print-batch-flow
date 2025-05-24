@@ -27,11 +27,11 @@ const FlyerJobDetail = () => {
         setLoading(true);
         setError(null);
         
+        // Remove user_id filter to allow any authenticated user to view any job
         const { data, error } = await supabase
           .from("flyer_jobs")
           .select("*")
           .eq("id", jobId)
-          .eq("user_id", user.id)
           .single();
           
         if (error) throw error;

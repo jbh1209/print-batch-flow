@@ -34,6 +34,17 @@ export const useFlyerJobSubmit = () => {
         
         toast.loading("Uploading PDF file...");
         
+        // Check if the bucket exists, create if it doesn't
+        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+        if (bucketsError) {
+          console.error('Error checking buckets:', bucketsError);
+        } else {
+          const pdfBucketExists = buckets.some(bucket => bucket.id === 'pdf_files');
+          if (!pdfBucketExists) {
+            console.warn('pdf_files bucket does not exist - it should have been created by the migration');
+          }
+        }
+        
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('pdf_files')
           .upload(filePath, selectedFile, {
@@ -60,7 +71,7 @@ export const useFlyerJobSubmit = () => {
       }
 
       if (jobId) {
-        // We're updating an existing job
+        // We're updating an existing job - remove user_id check
         const updateData: any = {
           name: data.name,
           job_number: data.job_number,

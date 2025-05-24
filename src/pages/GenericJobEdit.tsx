@@ -23,7 +23,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
       if (!user || !jobId) return;
 
       try {
-        // Use type-safe queries based on table name
+        // Use type-safe queries based on table name, but remove user_id filter
         let data: any = null;
         let error: any = null;
 
@@ -33,7 +33,6 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
               .from('poster_jobs')
               .select('*')
               .eq('id', jobId)
-              .eq('user_id', user.id)
               .single();
             data = posterResult.data;
             error = posterResult.error;
@@ -43,7 +42,6 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
               .from('box_jobs')
               .select('*')
               .eq('id', jobId)
-              .eq('user_id', user.id)
               .single();
             data = boxResult.data;
             error = boxResult.error;
@@ -53,7 +51,6 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
               .from('cover_jobs')
               .select('*')
               .eq('id', jobId)
-              .eq('user_id', user.id)
               .single();
             data = coverResult.data;
             error = coverResult.error;
@@ -63,7 +60,6 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
               .from('sticker_jobs')
               .select('*')
               .eq('id', jobId)
-              .eq('user_id', user.id)
               .single();
             data = stickerResult.data;
             error = stickerResult.error;
