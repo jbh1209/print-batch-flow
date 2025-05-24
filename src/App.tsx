@@ -52,7 +52,8 @@ import StickerJobNewPage from './pages/generic/StickerJobNewPage';
 // Import individual batch detail pages
 import GenericBatchDetailsPage from './pages/generic/GenericBatchDetailsPage';
 
-// Import job edit pages
+// Import ALL job edit pages - ensuring all are available
+import BusinessCardJobEdit from './pages/BusinessCardJobEdit';
 import FlyerJobEdit from './pages/FlyerJobEdit';
 import PostcardJobEdit from './pages/PostcardJobEdit';
 import SleeveJobEdit from './pages/SleeveJobEdit';
@@ -86,10 +87,12 @@ const App = () => {
             <Route path="/batches" element={<AllBatches />} />
             <Route path="/batches/all" element={<Navigate to="/batches" replace />} />
             
-            {/* Business Cards Routes */}
+            {/* Business Cards Routes - Fixed with proper edit route */}
             <Route path="/batches/business-cards" element={<BusinessCards />} />
             <Route path="/batches/business-cards/jobs" element={<BusinessCardJobs />} />
             <Route path="/batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
+            <Route path="/batches/business-cards/jobs/edit/:id" element={<BusinessCardJobEdit />} />
+            <Route path="/batches/business-cards/jobs/:jobId" element={<GenericJobDetailsPage config={productConfigs["BusinessCards"]} />} />
             <Route path="/batches/business-cards/batches" element={<BusinessCardBatches />} />
             <Route path="/batches/business-cards/batches/:batchId" element={<BatchDetailsPage productType="Business Cards" backUrl="/batches/business-cards/batches" />} />
             
@@ -120,12 +123,11 @@ const App = () => {
             <Route path="/batches/posters/batches" element={<PosterBatchesPage />} />
             <Route path="/batches/posters/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs["Posters"]} />} />
             
-            {/* Sleeves Routes - Fixed to use both edit patterns */}
+            {/* Sleeves Routes - Standardized edit route */}
             <Route path="/batches/sleeves" element={<Sleeves />} />
             <Route path="/batches/sleeves/jobs" element={<SleeveJobsPage />} />
             <Route path="/batches/sleeves/jobs/new" element={<SleeveJobNewPage />} />
             <Route path="/batches/sleeves/jobs/edit/:jobId" element={<SleeveJobEdit />} />
-            <Route path="/batches/sleeves/jobs/:id/edit" element={<SleeveJobEditPage />} />
             <Route path="/batches/sleeves/jobs/:jobId" element={<GenericJobDetailsPage config={productConfigs["Sleeves"]} />} />
             <Route path="/batches/sleeves/batches" element={<SleeveBatchesPage />} />
             <Route path="/batches/sleeves/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs["Sleeves"]} />} />

@@ -41,6 +41,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
   };
 
   const handleEditJob = (jobId: string) => {
+    // Fixed: Use the correct route pattern that matches App.tsx
     navigate(`/batches/business-cards/jobs/edit/${jobId}`);
   };
 
