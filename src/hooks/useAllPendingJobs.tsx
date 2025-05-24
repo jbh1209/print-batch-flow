@@ -29,18 +29,15 @@ export const useAllPendingJobs = () => {
         return [];
       }
 
-      console.log(`Fetching ${config.productType} jobs`);
+      console.log(`Fetching ${config.productType} jobs for user ${user.id}`);
 
-      // Build the query - all users should see all jobs
-      let query = supabase
+      // Using any type to work around TypeScript limitations with dynamic table names
+      const { data, error } = await supabase
         .from(config.tableName as any)
         .select('*')
+        .eq('user_id', user.id)
         .eq('status', 'queued')
         .order('due_date', { ascending: true });
-      
-      // No user filtering - all users see all jobs
-      
-      const { data, error } = await query;
       
       if (error) {
         // Log the error but don't throw it to prevent breaking the entire data fetch
@@ -88,7 +85,7 @@ export const useAllPendingJobs = () => {
     setError(null);
     
     try {
-      console.log("Fetching all pending jobs");
+      console.log("Fetching all pending jobs for user:", user.id);
       
       // Create an array of promises to fetch jobs from each product table
       const productFetchPromises = Object.values(productConfigs).map(config => 

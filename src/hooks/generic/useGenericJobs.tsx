@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,7 +18,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
   const { deleteJob, createJob, updateJob, getJobById } = useJobOperations(config.tableName, user?.id);
   const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useBatchFixes(config.tableName, user?.id);
 
-  // Fetch all jobs for this product type - all users see all jobs
+  // Fetch all jobs for this product type - removed user filtering
   const fetchJobs = async () => {
     try {
       setIsLoading(true);
@@ -36,15 +37,11 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       console.log('Fetching jobs from table:', config.tableName);
       
-      // Build query - all users should see all jobs
-      let query = supabase
+      // Removed user_id filter to allow seeing all jobs
+      const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
         .order('created_at', { ascending: false });
-
-      // No user filtering - all users see all jobs
-
-      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
@@ -62,7 +59,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   useEffect(() => {
     fetchJobs();
-  }, [user]);
+  }, []);
 
   // Handle job deletion with local state update - removed user ID filter
   const handleDeleteJob = async (jobId: string) => {
