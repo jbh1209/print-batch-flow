@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Auth from './pages/Auth';
@@ -55,6 +56,7 @@ import GenericBatchDetailsPage from './pages/generic/GenericBatchDetailsPage';
 import FlyerJobEdit from './pages/FlyerJobEdit';
 import PostcardJobEdit from './pages/PostcardJobEdit';
 import SleeveJobEdit from './pages/SleeveJobEdit';
+import SleeveJobEditPage from './pages/generic/SleeveJobEditPage';
 import GenericJobEdit from './pages/GenericJobEdit';
 
 import Users from './pages/Users';
@@ -118,11 +120,12 @@ const App = () => {
             <Route path="/batches/posters/batches" element={<PosterBatchesPage />} />
             <Route path="/batches/posters/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs["Posters"]} />} />
             
-            {/* Sleeves Routes */}
+            {/* Sleeves Routes - Fixed to use both edit patterns */}
             <Route path="/batches/sleeves" element={<Sleeves />} />
             <Route path="/batches/sleeves/jobs" element={<SleeveJobsPage />} />
             <Route path="/batches/sleeves/jobs/new" element={<SleeveJobNewPage />} />
             <Route path="/batches/sleeves/jobs/edit/:jobId" element={<SleeveJobEdit />} />
+            <Route path="/batches/sleeves/jobs/:id/edit" element={<SleeveJobEditPage />} />
             <Route path="/batches/sleeves/jobs/:jobId" element={<GenericJobDetailsPage config={productConfigs["Sleeves"]} />} />
             <Route path="/batches/sleeves/batches" element={<SleeveBatchesPage />} />
             <Route path="/batches/sleeves/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs["Sleeves"]} />} />

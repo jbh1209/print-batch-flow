@@ -1,4 +1,3 @@
-
 export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch' | 'front_gloss_lam' | 'front_matt_lam' | 'no_lam';
 export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
 export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
@@ -101,7 +100,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/business-cards/batches",
       basePath: "/batches/business-cards",
       jobDetailPath: (id) => `/batches/business-cards/jobs/${id}`,
-      jobEditPath: (id) => `/batches/business-cards/jobs/${id}/edit`,
+      jobEditPath: (id) => `/batches/business-cards/jobs/edit/${id}`,
     },
     ui: {
       icon: "card",
@@ -131,7 +130,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/flyers/batches",
       basePath: "/batches/flyers",
       jobDetailPath: (id) => `/batches/flyers/jobs/${id}`,
-      jobEditPath: (id) => `/batches/flyers/jobs/${id}/edit`,
+      jobEditPath: (id) => `/batches/flyers/jobs/edit/${id}`,
     },
     ui: {
       icon: "package",
@@ -163,7 +162,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/postcards/batches",
       basePath: "/batches/postcards",
       jobDetailPath: (id) => `/batches/postcards/jobs/${id}`,
-      jobEditPath: (id) => `/batches/postcards/jobs/${id}/edit`,
+      jobEditPath: (id) => `/batches/postcards/jobs/edit/${id}`,
     },
     ui: {
       icon: "mail",
@@ -187,7 +186,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/sleeves/batches",
       basePath: "/batches/sleeves",
       jobDetailPath: (id) => `/batches/sleeves/jobs/${id}`,
-      jobEditPath: (id) => `/batches/sleeves/jobs/${id}/edit`,
+      jobEditPath: (id) => `/batches/sleeves/jobs/edit/${id}`,
     },
     ui: {
       icon: "box",
@@ -213,7 +212,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/stickers/batches",
       basePath: "/batches/stickers",
       jobDetailPath: (id) => `/batches/stickers/jobs/${id}`,
-      jobEditPath: (id) => `/batches/stickers/jobs/${id}/edit`,
+      jobEditPath: (id) => `/batches/stickers/jobs/edit/${id}`,
     },
     ui: {
       icon: "sticker",
@@ -243,7 +242,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/posters/batches",
       basePath: "/batches/posters",
       jobDetailPath: (id) => `/batches/posters/jobs/${id}`,
-      jobEditPath: (id) => `/batches/posters/jobs/${id}/edit`,
+      jobEditPath: (id) => `/batches/posters/jobs/edit/${id}`,
     },
     ui: {
       icon: "image",
@@ -283,7 +282,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/covers/batches",
       basePath: "/batches/covers",
       jobDetailPath: (id) => `/batches/covers/jobs/${id}`,
-      jobEditPath: (id) => `/batches/covers/jobs/${id}/edit`,
+      jobEditPath: (id) => `/batches/covers/jobs/edit/${id}`,
     },
     ui: {
       icon: "book",
@@ -309,7 +308,7 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/boxes/batches",
       basePath: "/batches/boxes",
       jobDetailPath: (id) => `/batches/boxes/jobs/${id}`,
-      jobEditPath: (id) => `/batches/boxes/jobs/${id}/edit`,
+      jobEditPath: (id) => `/batches/boxes/jobs/edit/${id}`,
     },
     ui: {
       icon: "package",
