@@ -9,7 +9,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Modified to remove user_id filter - allow any user to delete any job
+  // Allow any authenticated user to delete any job
   const deleteJob = async (jobId: string) => {
     try {
       if (!tableName) {
@@ -20,7 +20,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot delete job`);
       }
       
-      // Removed user_id filter to allow any user to delete any job
+      // Remove user_id filter to allow any authenticated user to delete any job
       const { error } = await supabase
         .from(tableName as any)
         .delete()
@@ -73,7 +73,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
     }
   };
 
-  // Modified to remove user_id filter - allow any user to update any job
+  // Allow any authenticated user to update any job
   const updateJob = async <T extends BaseJob>(
     jobId: string,
     jobData: Partial<T>,
@@ -88,7 +88,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot update job`);
       }
       
-      // Removed user_id filter to allow any user to update any job
+      // Remove user_id filter to allow any authenticated user to update any job
       const { data, error } = await supabase
         .from(tableName as any)
         .update(jobData)
@@ -106,7 +106,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
     }
   };
 
-  // Modified to remove user_id filter - allow any user to get any job
+  // Allow any authenticated user to get any job
   const getJobById = async <T extends BaseJob>(jobId: string, userId?: string) => { // Made userId optional
     try {
       if (!tableName) {
@@ -117,7 +117,7 @@ export function useJobOperations(tableName: TableName | undefined, userId: strin
         throw new Error(`Table ${tableName} doesn't exist yet, cannot get job`);
       }
       
-      // Removed user_id filter to allow any user to get any job
+      // Remove user_id filter to allow any authenticated user to get any job
       const { data, error } = await supabase
         .from(tableName as any)
         .select('*')

@@ -902,6 +902,10 @@ export type Database = {
           last_sign_in_at: string
         }[]
       }
+      get_user_role_safe: {
+        Args: { user_id_param: string }
+        Returns: string
+      }
       is_admin: {
         Args: { _user_id: string }
         Returns: boolean

@@ -29,13 +29,12 @@ export const useAllPendingJobs = () => {
         return [];
       }
 
-      console.log(`Fetching ${config.productType} jobs for user ${user.id}`);
+      console.log(`Fetching ${config.productType} jobs`);
 
-      // Using any type to work around TypeScript limitations with dynamic table names
+      // Remove user_id filter to show all jobs to all authenticated users
       const { data, error } = await supabase
         .from(config.tableName as any)
         .select('*')
-        .eq('user_id', user.id)
         .eq('status', 'queued')
         .order('due_date', { ascending: true });
       
@@ -85,7 +84,7 @@ export const useAllPendingJobs = () => {
     setError(null);
     
     try {
-      console.log("Fetching all pending jobs for user:", user.id);
+      console.log("Fetching all pending jobs");
       
       // Create an array of promises to fetch jobs from each product table
       const productFetchPromises = Object.values(productConfigs).map(config => 

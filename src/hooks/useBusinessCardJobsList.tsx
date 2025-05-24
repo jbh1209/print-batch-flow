@@ -55,7 +55,7 @@ export const useBusinessCardJobsList = () => {
         .select('*')
         .order('created_at', { ascending: false });
       
-      // Remove user_id filter to allow seeing all jobs (assuming that's what we want)
+      // Remove user_id filter to allow seeing all jobs
       
       if (filterView !== 'all') {
         query = query.eq('status', filterView);
@@ -103,6 +103,7 @@ export const useBusinessCardJobsList = () => {
 
   const deleteJob = async (jobId: string): Promise<boolean> => {
     try {
+      // Remove user_id filter to allow any authenticated user to delete any job
       const { error: deleteError } = await supabase
         .from('business_card_jobs')
         .delete()

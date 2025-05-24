@@ -37,7 +37,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
       console.log('Fetching jobs from table:', config.tableName);
       
-      // Removed user_id filter to allow seeing all jobs
+      // Remove user_id filter to allow seeing all jobs
       const { data, error: fetchError } = await supabase
         .from(config.tableName as any)
         .select('*')
