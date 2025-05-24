@@ -79,45 +79,49 @@ const BatchConfirmDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create New Batch</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="space-y-2 sm:space-y-3">
+          <DialogTitle className="text-lg sm:text-xl">Create New Batch</DialogTitle>
+          <DialogDescription className="text-sm sm:text-base">
             You are about to create a batch with {selectedJobs.length} jobs
             {!isCompatible && (
-              <div className="text-destructive mt-2 font-medium">
+              <div className="text-destructive mt-2 font-medium text-sm">
                 Warning: Selected jobs have different lamination types
               </div>
             )}
           </DialogDescription>
         </DialogHeader>
         
-        <BatchDetailsSection
-          selectedJobs={selectedJobs}
-          batchName={batchName}
-          optimization={optimization}
-          isCompatible={isCompatible}
-        />
-
-        <div className="space-y-2 mt-4">
-          <Label htmlFor="slaTargetDays">SLA Target Days</Label>
-          <Input
-            id="slaTargetDays"
-            type="number"
-            min="1"
-            value={slaTargetDays}
-            onChange={handleSlaChange}
-            className="w-full"
+        <div className="space-y-4 sm:space-y-6">
+          <BatchDetailsSection
+            selectedJobs={selectedJobs}
+            batchName={batchName}
+            optimization={optimization}
+            isCompatible={isCompatible}
           />
-          <p className="text-sm text-muted-foreground">
-            Default for business cards: {defaultSla} days
-          </p>
-        </div>
 
-        <UpcomingDueJobsSection 
-          upcomingDueJobs={upcomingDueJobs}
-          onSelectJob={onSelectJob}
-        />
+          <div className="space-y-2">
+            <Label htmlFor="slaTargetDays" className="text-sm font-medium">
+              SLA Target Days
+            </Label>
+            <Input
+              id="slaTargetDays"
+              type="number"
+              min="1"
+              value={slaTargetDays}
+              onChange={handleSlaChange}
+              className="w-full"
+            />
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Default for business cards: {defaultSla} days
+            </p>
+          </div>
+
+          <UpcomingDueJobsSection 
+            upcomingDueJobs={upcomingDueJobs}
+            onSelectJob={onSelectJob}
+          />
+        </div>
         
         <BatchDialogFooter
           onCancel={() => setIsOpen(false)}

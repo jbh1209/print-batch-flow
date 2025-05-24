@@ -15,18 +15,19 @@ const BatchDialogFooter = ({
   isCreatingBatch
 }: BatchDialogFooterProps) => {
   return (
-    <DialogFooter>
+    <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
       <Button 
         variant="outline" 
         onClick={onCancel}
         disabled={isCreatingBatch}
+        className="w-full sm:w-auto"
       >
         Cancel
       </Button>
       <Button 
         onClick={onConfirm}
         disabled={isCreatingBatch}
-        className="gap-2"
+        className="gap-2 w-full sm:w-auto"
       >
         {isCreatingBatch ? (
           <>
