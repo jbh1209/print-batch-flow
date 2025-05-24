@@ -163,7 +163,7 @@ export const GenericJobFormFields = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Size*</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select size" />
@@ -189,7 +189,7 @@ export const GenericJobFormFields = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Paper Type*</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select paper type" />
@@ -215,7 +215,7 @@ export const GenericJobFormFields = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Paper Weight*</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select paper weight" />
@@ -241,7 +241,7 @@ export const GenericJobFormFields = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Lamination Type</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select lamination type" />
@@ -269,7 +269,7 @@ export const GenericJobFormFields = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>UV Varnish</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || "none"}>
+                <Select onValueChange={field.onChange} value={field.value || "none"}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select UV varnish type" />
@@ -298,7 +298,7 @@ export const GenericJobFormFields = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Sides*</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select sides" />

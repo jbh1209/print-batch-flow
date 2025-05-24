@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { Form } from "@/components/ui/form";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import JobFormFields from "@/components/business-cards/JobFormFields";
@@ -50,14 +51,28 @@ const JobEditForm = ({ jobData, isSaving, onSubmit }: JobEditFormProps) => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: jobData?.name || "",
-      quantity: jobData?.quantity || 100,
-      doubleSided: jobData?.double_sided || false,
-      laminationType: jobData?.lamination_type || "none",
-      paperType: jobData?.paper_type || "350gsm Matt",
-      dueDate: jobData?.due_date ? new Date(jobData.due_date) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      name: "",
+      quantity: 100,
+      doubleSided: false,
+      laminationType: "none",
+      paperType: "350gsm Matt",
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
+
+  // Reset form with proper data when jobData changes
+  useEffect(() => {
+    if (jobData) {
+      form.reset({
+        name: jobData.name,
+        quantity: jobData.quantity,
+        doubleSided: jobData.double_sided,
+        laminationType: jobData.lamination_type,
+        paperType: jobData.paper_type,
+        dueDate: new Date(jobData.due_date),
+      });
+    }
+  }, [jobData, form]);
 
   const handleFormSubmit = async (data: FormValues) => {
     const success = await onSubmit(data, selectedFile);

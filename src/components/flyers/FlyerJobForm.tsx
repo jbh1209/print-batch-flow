@@ -35,15 +35,30 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
   const form = useForm<FlyerJobFormValues>({
     resolver: zodResolver(flyerJobFormSchema),
     defaultValues: {
-      name: initialData?.name || "",
-      job_number: initialData?.job_number || "",
-      size: initialData?.size || "A4",
-      paper_weight: initialData?.paper_weight || "115gsm",
-      paper_type: initialData?.paper_type || "Matt",
-      quantity: initialData?.quantity || 0,
-      due_date: initialData ? new Date(initialData.due_date) : new Date()
+      name: "",
+      job_number: "",
+      size: "A4",
+      paper_weight: "115gsm",
+      paper_type: "Matt",
+      quantity: 0,
+      due_date: new Date()
     }
   });
+
+  // Reset form with proper data when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name,
+        job_number: initialData.job_number,
+        size: initialData.size,
+        paper_weight: initialData.paper_weight,
+        paper_type: initialData.paper_type,
+        quantity: initialData.quantity,
+        due_date: new Date(initialData.due_date)
+      });
+    }
+  }, [initialData, form]);
 
   useEffect(() => {
     if (selectedFile) {

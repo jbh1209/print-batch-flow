@@ -17,7 +17,7 @@ export const PrintSpecificationsFields = () => {
             <FormLabel>Size*</FormLabel>
             <Select 
               onValueChange={field.onChange} 
-              defaultValue={field.value}
+              value={field.value}
             >
               <FormControl>
                 <SelectTrigger>
@@ -43,7 +43,7 @@ export const PrintSpecificationsFields = () => {
             <FormLabel>Paper Weight*</FormLabel>
             <Select 
               onValueChange={field.onChange} 
-              defaultValue={field.value}
+              value={field.value}
             >
               <FormControl>
                 <SelectTrigger>
@@ -69,7 +69,7 @@ export const PrintSpecificationsFields = () => {
             <FormLabel>Paper Type*</FormLabel>
             <Select 
               onValueChange={field.onChange} 
-              defaultValue={field.value}
+              value={field.value}
             >
               <FormControl>
                 <SelectTrigger>

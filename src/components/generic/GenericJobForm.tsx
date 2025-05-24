@@ -39,21 +39,35 @@ export const GenericJobForm = ({
   // Create form schema based on product configuration
   const formSchema = createJobFormSchema(config);
   
-  // Get default values based on product configuration or initial data
-  const defaultValues = initialData ? {
-    name: initialData.name,
-    job_number: initialData.job_number,
-    quantity: initialData.quantity,
-    due_date: new Date(initialData.due_date),
-    ...(initialData.size && { size: initialData.size }),
-    ...(initialData.paper_type && { paper_type: initialData.paper_type }),
-    ...(initialData.paper_weight && { paper_weight: initialData.paper_weight })
-  } : getDefaultFormValues(config);
+  // Get default values based on product configuration
+  const defaultValues = getDefaultFormValues(config);
 
   const form = useForm<GenericJobFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues
   });
+
+  // Reset form with proper data when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      const resetData: any = {
+        name: initialData.name,
+        job_number: initialData.job_number,
+        quantity: initialData.quantity,
+        due_date: new Date(initialData.due_date)
+      };
+
+      // Add optional fields if they exist
+      if (initialData.size) resetData.size = initialData.size;
+      if (initialData.paper_type) resetData.paper_type = initialData.paper_type;
+      if (initialData.paper_weight) resetData.paper_weight = initialData.paper_weight;
+      if (initialData.lamination_type) resetData.lamination_type = initialData.lamination_type;
+      if (initialData.uv_varnish) resetData.uv_varnish = initialData.uv_varnish;
+      if (initialData.sides) resetData.sides = initialData.sides;
+
+      form.reset(resetData);
+    }
+  }, [initialData, form]);
 
   useEffect(() => {
     if (selectedFile) {

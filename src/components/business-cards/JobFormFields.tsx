@@ -79,7 +79,7 @@ const JobFormFields = ({ control }: JobFormFieldsProps) => {
         render={({ field }) => (
           <FormItem>
             <FormLabel>Paper Type</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Select paper type" />
@@ -103,7 +103,7 @@ const JobFormFields = ({ control }: JobFormFieldsProps) => {
         render={({ field }) => (
           <FormItem>
             <FormLabel>Lamination Type</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Select lamination type" />
