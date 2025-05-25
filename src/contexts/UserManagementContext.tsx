@@ -3,7 +3,6 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import * as userService from '@/services/userService';
-import { useAuth } from '@/hooks/useAuth';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 interface UserManagementContextType {
@@ -30,14 +29,11 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
   const { isAdmin } = useAdminAuth();
 
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) {
-      console.log('🚫 Not admin, skipping fetchUsers');
       setUsers([]);
-      setIsLoading(false);
       return;
     }
     
@@ -45,44 +41,20 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     setError(null);
     
     try {
-      console.log('📋 Fetching users...');
       const fetchedUsers = await userService.fetchUsers();
-      console.log('✅ Users fetched:', fetchedUsers.length);
-      
-      if (Array.isArray(fetchedUsers)) {
-        setUsers(fetchedUsers);
-        
-        // If current user isn't in the list and we have a fallback, add them
-        if (user && fetchedUsers.length === 0) {
-          console.log('⚠️ No users found, adding current admin user');
-          const currentAdmin: UserWithRole = {
-            id: user.id,
-            email: user.email || 'Current admin',
-            full_name: null,
-            avatar_url: null,
-            role: 'admin',
-            created_at: null
-          };
-          setUsers([currentAdmin]);
-        }
-      } else {
-        console.warn('⚠️ Invalid user array returned:', fetchedUsers);
-        setUsers([]);
-      }
+      setUsers(fetchedUsers);
     } catch (error: any) {
       console.error('❌ Error loading users:', error);
-      setError(`Error loading users: ${error.message}`);
+      setError(error.message);
       toast.error(`Error loading users: ${error.message}`);
       setUsers([]);
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin, user]);
+  }, [isAdmin]);
 
-  // Auto-refresh users when admin status changes
   useEffect(() => {
     if (isAdmin) {
-      console.log('👑 Admin status confirmed, loading users');
       fetchUsers();
     }
   }, [isAdmin, fetchUsers]);
@@ -112,18 +84,13 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   }, [fetchUsers]);
 
   const deleteUser = useCallback(async (userId: string) => {
-    if (!userId) {
-      toast.error('Invalid user ID');
-      return;
-    }
-    
     try {
       await userService.revokeUserAccess(userId);
-      toast.success('User role revoked successfully');
+      toast.success('User access revoked successfully');
       await fetchUsers();
     } catch (error: any) {
-      console.error('❌ Error removing user role:', error);
-      toast.error(`Error removing user role: ${error.message}`);
+      console.error('❌ Error removing user:', error);
+      toast.error(`Error removing user: ${error.message}`);
       throw error;
     }
   }, [fetchUsers]);

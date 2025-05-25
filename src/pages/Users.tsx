@@ -15,7 +15,6 @@ const Users = () => {
   const navigate = useNavigate();
   const { isAdmin, adminExists, isLoading, error } = useAdminAuth();
 
-  // Show loading state while checking auth/admin status
   if (isLoading) {
     return <LoadingState />;
   }
@@ -26,14 +25,13 @@ const Users = () => {
         <div>
           <div className="flex items-center">
             <UsersIcon className="h-6 w-6 mr-2 text-batchflow-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Users</h1>
+            <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
           </div>
           <p className="text-gray-500 mt-1">Manage user accounts and permissions</p>
         </div>
         <Button onClick={() => navigate("/")}>Back to Dashboard</Button>
       </div>
 
-      {/* Display any errors */}
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertTriangle className="h-4 w-4" />
@@ -43,7 +41,6 @@ const Users = () => {
         </Alert>
       )}
 
-      {/* Conditional rendering based on admin status */}
       {!adminExists ? (
         <>
           <Alert className="mb-6">

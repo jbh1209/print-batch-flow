@@ -4,6 +4,8 @@ project_id = "kgizusgqexmlfcqfjopk"
 [functions.get-all-users]
 verify_jwt = true
 
-[functions.cleanup-batch-jobs]
+[functions.get-users-admin]
 verify_jwt = false
 
+[functions.cleanup-batch-jobs]
+verify_jwt = false
