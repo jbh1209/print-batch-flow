@@ -12,19 +12,17 @@ const BusinessCards = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   
-  const { pendingJobs, isLoading: jobsLoading, refresh: refreshJobs } = useJobStats(user?.id);
-  const { activeBatches, batchTypeStats, isLoading: batchesLoading, refresh: refreshBatches } = useBatchStats(user?.id);
+  const { pendingJobs, isLoading: jobsLoading, refresh: refreshJobs } = useJobStats();
+  const { activeBatches, batchTypeStats, isLoading: batchesLoading, refresh: refreshBatches } = useBatchStats();
   
   // Calculate capacity percentage for business cards
   const businessCardStats = batchTypeStats.find(stat => stat.name === "Business Cards");
   const capacityPercentage = businessCardStats ? Math.round((businessCardStats.progress / businessCardStats.total) * 100) : 0;
   
   useEffect(() => {
-    if (user) {
-      refreshJobs();
-      refreshBatches();
-    }
-  }, [user, refreshJobs, refreshBatches]);
+    refreshJobs();
+    refreshBatches();
+  }, [refreshJobs, refreshBatches]);
 
   return (
     <div>
