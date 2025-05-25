@@ -14,7 +14,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError);
-      return []; // Return empty array instead of throwing
+      return [];
     }
     
     console.log('Profiles fetched:', profiles?.length || 0);
@@ -35,7 +35,7 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     // Return basic user list without edge function dependency
     const userList: UserWithRole[] = (profiles || []).map(profile => ({
       id: profile.id,
-      email: 'Email not available', // Don't depend on edge function
+      email: 'Email not available',
       full_name: profile.full_name || 'No Name',
       avatar_url: profile.avatar_url,
       role: (roleMap.get(profile.id) || 'user') as UserRole,
@@ -45,11 +45,11 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     return userList;
   } catch (error) {
     console.error('Error in fetchUsers:', error);
-    return []; // Always return an array, never throw
+    return [];
   }
 }
 
-// Check if any admin exists in the system with error handling
+// Check if any admin exists using the new secure function
 export async function checkAdminExists(): Promise<boolean> {
   try {
     const { data, error } = await supabase
@@ -61,7 +61,7 @@ export async function checkAdminExists(): Promise<boolean> {
     
     if (error) {
       console.error('Error checking admin existence:', error);
-      return false; // Assume no admin on error
+      return false;
     }
     
     return !!data;
@@ -71,16 +71,12 @@ export async function checkAdminExists(): Promise<boolean> {
   }
 }
 
-// Add admin role to a user with error handling
+// Add admin role using the new RPC function
 export async function addAdminRole(userId: string): Promise<void> {
   try {
-    const { error } = await supabase
-      .from('user_roles')
-      .insert([
-        { user_id: userId, role: 'admin' }
-      ])
-      .select()
-      .single();
+    const { error } = await supabase.rpc('add_admin_role', { 
+      admin_user_id: userId 
+    });
     
     if (error) throw error;
   } catch (error) {
@@ -126,15 +122,15 @@ export async function createUser(userData: UserFormData): Promise<User> {
   }
 }
 
-// Update user profile with error handling
+// Update user profile using the secure RPC function
 export async function updateUserProfile(userId: string, userData: UserFormData): Promise<void> {
   try {
-    // Update user's full name in profiles table
+    // Update user's full name using the secure function
     if (userData.full_name !== undefined) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ full_name: userData.full_name })
-        .eq('id', userId);
+      const { error } = await supabase.rpc('update_user_profile_admin', {
+        _user_id: userId,
+        _full_name: userData.full_name
+      });
           
       if (error) {
         console.error('Error updating profile name:', error);
@@ -152,21 +148,13 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
   }
 }
 
-// Update user role with simplified approach
+// Update user role using the secure RPC function
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   try {
-    // Remove existing role first
-    await supabase
-      .from('user_roles')
-      .delete()
-      .eq('user_id', userId);
-    
-    // Add new role
-    const { error } = await supabase
-      .from('user_roles')
-      .insert([
-        { user_id: userId, role }
-      ]);
+    const { error } = await supabase.rpc('set_user_role', {
+      target_user_id: userId,
+      new_role: role
+    });
         
     if (error) throw error;
   } catch (error) {
@@ -191,13 +179,12 @@ export async function assignRole(userId: string, role: UserRole): Promise<void> 
   }
 }
 
-// Revoke user role/access
+// Revoke user role/access using the secure RPC function
 export async function revokeUserAccess(userId: string): Promise<void> {
   try {
-    const { error } = await supabase
-      .from('user_roles')
-      .delete()
-      .eq('user_id', userId);
+    const { error } = await supabase.rpc('revoke_user_role', {
+      target_user_id: userId
+    });
       
     if (error) throw error;
   } catch (error) {

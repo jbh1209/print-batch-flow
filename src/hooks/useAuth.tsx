@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Simple profile fetch with error handling
+  // Simple profile fetch with better error handling
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       const { data, error } = await supabase
@@ -56,17 +56,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Simple admin check with error handling
+  // Use the new secure admin check function
   const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
       
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('check_user_admin_status', { 
+        check_user_id: userId 
+      });
       
       if (error) {
         console.warn('Admin check failed (non-critical):', error.message);
@@ -80,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Load additional user data separately from auth state
+  // Load user data with proper error boundaries
   const loadUserData = async (userId: string) => {
     try {
       const [profileData, adminStatus] = await Promise.allSettled([
@@ -105,7 +102,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     console.log('Setting up auth state listener...');
     
-    // Simplified auth state listener - no database calls here
+    // Clean auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
@@ -118,7 +115,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
           setUser(userObj);
           
-          // Defer user data loading to prevent auth callback issues
+          // Defer user data loading to prevent auth conflicts
           setTimeout(() => {
             loadUserData(session.user.id);
           }, 100);
@@ -145,7 +142,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const timeout = setTimeout(() => {
       console.log('Auth timeout reached');
       setLoading(false);
-    }, 2000);
+    }, 3000);
 
     return () => {
       clearTimeout(timeout);

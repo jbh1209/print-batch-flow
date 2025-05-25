@@ -40,13 +40,10 @@ export const useOptionalUserData = (userId: string | undefined) => {
           .eq('id', userId)
           .maybeSingle();
 
-        // Load admin status
-        const adminPromise = supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userId)
-          .eq('role', 'admin')
-          .maybeSingle();
+        // Use the new secure admin check function
+        const adminPromise = supabase.rpc('check_user_admin_status', { 
+          check_user_id: userId 
+        });
 
         const [profileResult, adminResult] = await Promise.allSettled([
           profilePromise,
