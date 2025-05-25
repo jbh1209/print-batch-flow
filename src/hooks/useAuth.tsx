@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Simplified profile fetch without RLS issues
+  // Fetch profile without causing RLS issues
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       const { data, error } = await supabase
@@ -56,20 +56,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Simplified admin check using the safe function
+  // Check admin status using the safe RPC function
   const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
       
       const { data, error } = await supabase
-        .rpc('get_user_role_safe', { user_id_param: userId });
+        .rpc('is_admin', { _user_id: userId });
       
       if (error) {
         console.error('Error checking admin status:', error);
         return false;
       }
 
-      return data === 'admin';
+      return !!data;
     } catch (error) {
       console.error('Error in checkIsAdmin:', error);
       return false;
@@ -106,19 +106,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
           setUser(userObj);
           
-          // Defer profile and admin fetching to avoid recursion
-          setTimeout(async () => {
-            if (!isSubscribed) return;
-            
-            try {
-              const profile = await fetchProfile(session.user.id);
+          // Fetch profile and admin status without causing recursion
+          try {
+            const profile = await fetchProfile(session.user.id);
+            if (isSubscribed) {
               setProfile(profile);
               await updateAdminStatus(session.user.id);
-            } catch (error) {
-              console.error('Error in deferred auth setup:', error);
             }
+          } catch (error) {
+            console.error('Error in auth setup:', error);
+          }
+          
+          if (isSubscribed) {
             setLoading(false);
-          }, 100);
+          }
         } else {
           setUser(null);
           setProfile(null);
@@ -143,15 +144,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         try {
           const profile = await fetchProfile(session.user.id);
-          setProfile(profile);
-          await updateAdminStatus(session.user.id);
+          if (isSubscribed) {
+            setProfile(profile);
+            await updateAdminStatus(session.user.id);
+          }
         } catch (error) {
           console.error('Error in initial auth setup:', error);
         }
       } else {
         setUser(null);
       }
-      setLoading(false);
+      
+      if (isSubscribed) {
+        setLoading(false);
+      }
     });
 
     return () => {
