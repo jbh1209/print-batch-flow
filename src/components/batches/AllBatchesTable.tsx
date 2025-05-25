@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { calculateJobUrgency } from "@/utils/dateCalculations";
+import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
 import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
@@ -26,20 +26,24 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
   emptyMessage,
   emptyDescription
 }) => {
-  // Get row background color based on batch status
-  const getRowBackgroundColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-50 border-l-4 border-l-green-500';
-      case 'sent_to_print':
-        return 'bg-blue-50 border-l-4 border-l-blue-500';
-      case 'processing':
-        return 'bg-amber-50 border-l-4 border-l-amber-500';
-      case 'cancelled':
-        return 'bg-red-50 border-l-4 border-l-red-500';
-      default:
-        return '';
+  // Enhanced row background color based on urgency and status
+  const getRowBackgroundColor = (status: string, urgency: any) => {
+    // If batch is completed, use status-based colors
+    if (['completed', 'sent_to_print', 'cancelled'].includes(status)) {
+      switch (status) {
+        case 'completed':
+          return 'bg-green-50 border-l-4 border-l-green-500';
+        case 'sent_to_print':
+          return 'bg-blue-50 border-l-4 border-l-blue-500';
+        case 'cancelled':
+          return 'bg-red-50 border-l-4 border-l-red-500';
+        default:
+          return '';
+      }
     }
+    
+    // For active batches, use urgency-based colors
+    return getUrgencyBackgroundClass(urgency);
   };
   
   if (batches.length === 0) {
@@ -51,12 +55,30 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
     );
   }
 
+  // Sort batches by urgency (most urgent first) for active batches
+  const sortedBatches = [...batches].sort((a, b) => {
+    const aProductType = a.product_type || "Business Cards";
+    const bProductType = b.product_type || "Business Cards";
+    
+    const aNormalizedProductType = aProductType.replace(/\s+/g, '') as keyof typeof productConfigs;
+    const bNormalizedProductType = bProductType.replace(/\s+/g, '') as keyof typeof productConfigs;
+    
+    const aConfig = productConfigs[aNormalizedProductType] || productConfigs["BusinessCards"];
+    const bConfig = productConfigs[bNormalizedProductType] || productConfigs["BusinessCards"];
+    
+    const aUrgency = calculateJobUrgency(a.due_date, aConfig);
+    const bUrgency = calculateJobUrgency(b.due_date, bConfig);
+    
+    const urgencyOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3 };
+    return urgencyOrder[aUrgency] - urgencyOrder[bUrgency];
+  });
+
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead>Name & Priority</TableHead>
             <TableHead>Product Type</TableHead>
             <TableHead>Due Date</TableHead>
             <TableHead>Status</TableHead>
@@ -64,7 +86,7 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {batches.map((batch) => {
+          {sortedBatches.map((batch) => {
             // Safely get product config, using default if not found
             const productType = batch.product_type || "Business Cards";
             // Normalize the product type key to match the keys in productConfigs
@@ -75,20 +97,26 @@ const AllBatchesTable: React.FC<AllBatchesTableProps> = ({
             return (
               <TableRow 
                 key={batch.id} 
-                className={getRowBackgroundColor(batch.status)}
+                className={getRowBackgroundColor(batch.status, urgencyLevel)}
               >
                 <TableCell>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3">
                     <BatchUrgencyIndicator 
                       urgencyLevel={urgencyLevel}
                       earliestDueDate={batch.due_date}
                       productType={productType}
+                      size="md"
+                      showLabel={urgencyLevel === 'critical' || urgencyLevel === 'high'}
                     />
-                    <span>{batch.name}</span>
+                    <span className={urgencyLevel === 'critical' ? 'font-bold text-red-700' : ''}>{batch.name}</span>
                   </div>
                 </TableCell>
                 <TableCell>{productType}</TableCell>
-                <TableCell>{batch.due_date ? format(new Date(batch.due_date), 'MMM dd, yyyy') : 'N/A'}</TableCell>
+                <TableCell>
+                  <span className={urgencyLevel === 'critical' ? 'font-bold text-red-700' : ''}>
+                    {batch.due_date ? format(new Date(batch.due_date), 'MMM dd, yyyy') : 'N/A'}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <Badge variant={getBadgeVariant(batch.status)}>
                     {batch.status.replace('_', ' ')}

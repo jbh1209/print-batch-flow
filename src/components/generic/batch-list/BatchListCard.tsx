@@ -18,6 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Eye, File, Trash2, MoreHorizontal } from "lucide-react";
 import { format } from 'date-fns';
 import { BaseBatch } from '@/config/productTypes';
+import BatchUrgencyIndicator from '@/components/batches/BatchUrgencyIndicator';
+import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
+import { productConfigs } from "@/config/productTypes";
 
 interface BatchListCardProps {
   batch: BaseBatch;
@@ -32,13 +35,58 @@ export const BatchListCard: React.FC<BatchListCardProps> = ({
   onViewBatchDetails,
   onSetBatchToDelete
 }) => {
+  // Determine product type from batch name pattern (DXB-XX-#####)
+  const getProductTypeFromBatchName = (name: string): string => {
+    const match = name.match(/DXB-([A-Z]+)-\d+/);
+    if (match && match[1]) {
+      const code = match[1];
+      const codeToType: { [key: string]: string } = {
+        'BC': 'Business Cards',
+        'FL': 'Flyers',
+        'PC': 'Postcards',
+        'PB': 'Boxes',
+        'STK': 'Stickers',
+        'COV': 'Covers',
+        'POS': 'Posters',
+        'SL': 'Sleeves'
+      };
+      return codeToType[code] || 'Business Cards';
+    }
+    return 'Business Cards';
+  };
+
+  const productType = getProductTypeFromBatchName(batch.name);
+  const normalizedProductType = productType.replace(/\s+/g, '') as keyof typeof productConfigs;
+  const config = productConfigs[normalizedProductType] || productConfigs["BusinessCards"];
+  const urgencyLevel = calculateJobUrgency(batch.due_date, config);
+  
+  // Get card background based on urgency
+  const getCardBackgroundClass = () => {
+    if (['completed', 'sent_to_print', 'cancelled'].includes(batch.status)) {
+      return 'bg-white'; // Normal background for completed batches
+    }
+    return getUrgencyBackgroundClass(urgencyLevel).replace('border-l-4', 'border-l-2');
+  };
+
   return (
-    <Card key={batch.id} className="overflow-hidden">
+    <Card className={`overflow-hidden ${getCardBackgroundClass()}`}>
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-lg">{batch.name}</CardTitle>
-            <CardDescription>Created: {format(new Date(batch.created_at), 'MMM dd, yyyy')}</CardDescription>
+          <div className="flex items-center space-x-3">
+            <BatchUrgencyIndicator 
+              urgencyLevel={urgencyLevel}
+              earliestDueDate={batch.due_date}
+              productType={productType}
+              size="sm"
+            />
+            <div>
+              <CardTitle className={`text-lg ${urgencyLevel === 'critical' ? 'text-red-700 font-bold' : ''}`}>
+                {batch.name}
+              </CardTitle>
+              <CardDescription>
+                Created: {format(new Date(batch.created_at), 'MMM dd, yyyy')}
+              </CardDescription>
+            </div>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -72,7 +120,11 @@ export const BatchListCard: React.FC<BatchListCardProps> = ({
         <div className="space-y-2">
           <BatchStatusBadge status={batch.status} />
           <BatchDetailRow label="Sheets Required:" value={batch.sheets_required.toString()} />
-          <BatchDetailRow label="Due Date:" value={format(new Date(batch.due_date), 'MMM dd, yyyy')} />
+          <BatchDetailRow 
+            label="Due Date:" 
+            value={format(new Date(batch.due_date), 'MMM dd, yyyy')} 
+            isUrgent={urgencyLevel === 'critical'}
+          />
           <BatchDetailRow label="Lamination:" value={batch.lamination_type} capitalize={true} />
           {batch.paper_type && (
             <BatchDetailRow label="Paper Type:" value={batch.paper_type} />
@@ -129,13 +181,16 @@ interface BatchDetailRowProps {
   label: string;
   value: string;
   capitalize?: boolean;
+  isUrgent?: boolean;
 }
 
-const BatchDetailRow: React.FC<BatchDetailRowProps> = ({ label, value, capitalize = false }) => {
+const BatchDetailRow: React.FC<BatchDetailRowProps> = ({ label, value, capitalize = false, isUrgent = false }) => {
   return (
     <div className="flex justify-between">
       <span className="text-sm text-gray-500">{label}</span>
-      <span className={capitalize ? 'capitalize' : ''}>{value}</span>
+      <span className={`${capitalize ? 'capitalize' : ''} ${isUrgent ? 'font-bold text-red-700' : ''}`}>
+        {value}
+      </span>
     </div>
   );
 };
