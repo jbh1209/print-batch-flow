@@ -19,10 +19,11 @@ const BusinessCards = () => {
   const businessCardStats = batchTypeStats.find(stat => stat.name === "Business Cards");
   const capacityPercentage = businessCardStats ? Math.round((businessCardStats.progress / businessCardStats.total) * 100) : 0;
   
+  // Load stats once on component mount, avoid infinite loops
   useEffect(() => {
     refreshJobs();
     refreshBatches();
-  }, [refreshJobs, refreshBatches]);
+  }, []);
 
   return (
     <div>
@@ -150,7 +151,6 @@ const BusinessCards = () => {
           </div>
         </TabsContent>
         
-        {/* Other tab contents will load their respective component pages */}
         <TabsContent value="jobs">
           <div className="flex items-center justify-center p-12 text-gray-500">
             Navigate to the Jobs tab to view jobs

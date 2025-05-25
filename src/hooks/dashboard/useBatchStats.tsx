@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,7 +25,7 @@ export const useBatchStats = () => {
     error: null
   });
 
-  const fetchBatchStats = async () => {
+  const fetchBatchStats = useCallback(async () => {
     try {
       setStats(prev => ({ ...prev, isLoading: true, error: null }));
       
@@ -113,7 +113,7 @@ export const useBatchStats = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]); // Only depend on toast
 
   return {
     ...stats,

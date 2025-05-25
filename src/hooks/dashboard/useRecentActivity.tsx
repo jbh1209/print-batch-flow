@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,11 +25,21 @@ export const useRecentActivity = (userId: string | undefined) => {
     error: null
   });
 
-  const fetchRecentActivity = async () => {
-    if (!userId) return;
+  const fetchRecentActivity = useCallback(async () => {
+    if (!userId) {
+      console.log("No user ID provided for recent activity");
+      setStats({
+        recentActivity: [],
+        isLoading: false,
+        error: null
+      });
+      return;
+    }
     
     try {
       setStats(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      console.log("Fetching recent activity for user:", userId);
       
       // Fetch recent business card jobs
       const { data: recentBusinessCardJobs, error: recentBusinessCardError } = await supabase
@@ -79,6 +89,8 @@ export const useRecentActivity = (userId: string | undefined) => {
       );
       recentActivity = recentActivity.slice(0, 5);
       
+      console.log("Recent activity fetched:", recentActivity.length, "items");
+      
       setStats({
         recentActivity,
         isLoading: false,
@@ -99,7 +111,7 @@ export const useRecentActivity = (userId: string | undefined) => {
         variant: "destructive",
       });
     }
-  };
+  }, [userId, toast]); // Only depend on userId and toast
 
   return {
     ...stats,
