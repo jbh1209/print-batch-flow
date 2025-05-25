@@ -64,7 +64,7 @@ export function calculateColumnStarts(margin: number, colWidths: number[]): numb
   return colStarts;
 }
 
-// Function to draw table header
+// Function to draw table header - removed separator line
 export function drawTableHeader(
   page: PDFPage,
   tableY: number,
@@ -118,11 +118,5 @@ export function drawTableHeader(
     });
   }
   
-  // Draw separator line
-  page.drawLine({
-    start: { x: margin, y: tableY - 10 },
-    end: { x: margin + colWidths.reduce((a, b) => a + b, 0), y: tableY - 10 },
-    thickness: 1,
-    color: rgb(0, 0, 0)
-  });
+  // Removed the separator line that was causing the black line issue
 }
