@@ -14,8 +14,6 @@ interface UserManagementContextType {
   createUser: (userData: UserFormData) => Promise<void>;
   updateUser: (userId: string, userData: UserFormData) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  addAdminRole: (userId: string) => Promise<void>;
-  syncProfiles: () => Promise<void>;
 }
 
 const UserManagementContext = createContext<UserManagementContextType>({
@@ -26,8 +24,6 @@ const UserManagementContext = createContext<UserManagementContextType>({
   createUser: async () => {},
   updateUser: async () => {},
   deleteUser: async () => {},
-  addAdminRole: async () => {},
-  syncProfiles: async () => {},
 });
 
 export const UserManagementProvider = ({ children }: { children: React.ReactNode }) => {
@@ -35,7 +31,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const { isAdmin, refreshAdminStatus } = useAdminAuth();
+  const { isAdmin } = useAdminAuth();
 
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) {
@@ -82,22 +78,6 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       setIsLoading(false);
     }
   }, [isAdmin, user]);
-
-  const syncProfiles = useCallback(async () => {
-    try {
-      const result = await userService.syncProfilesWithAuth();
-      if (result.synced_count > 0 || result.fixed_count > 0) {
-        toast.success(`Sync complete: ${result.synced_count} profiles created, ${result.fixed_count} profiles fixed`);
-        await fetchUsers(); // Refresh users after sync
-      } else {
-        toast.success('All profiles are already synced');
-      }
-    } catch (error: any) {
-      console.error('❌ Error syncing profiles:', error);
-      toast.error(`Sync failed: ${error.message}`);
-      throw error;
-    }
-  }, [fetchUsers]);
 
   // Auto-refresh users when admin status changes
   useEffect(() => {
@@ -148,26 +128,6 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     }
   }, [fetchUsers]);
 
-  const addAdminRole = useCallback(async (userId: string) => {
-    if (!userId) {
-      toast.error('Invalid user ID');
-      return;
-    }
-    
-    try {
-      await userService.addAdminRole(userId);
-      toast.success('Admin role successfully assigned');
-      
-      // Refresh admin status and reload page
-      await refreshAdminStatus();
-      setTimeout(() => window.location.reload(), 2000);
-    } catch (error: any) {
-      console.error('❌ Error setting admin role:', error);
-      toast.error(`Failed to set admin role: ${error.message}`);
-      throw error;
-    }
-  }, [refreshAdminStatus]);
-
   const value = {
     users,
     isLoading,
@@ -176,8 +136,6 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     createUser,
     updateUser,
     deleteUser,
-    addAdminRole,
-    syncProfiles,
   };
 
   return (

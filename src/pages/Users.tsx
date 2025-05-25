@@ -4,32 +4,19 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Users as UsersIcon, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AuthDebugger } from "@/components/users/AuthDebugger";
 import { UserManagementProvider } from "@/contexts/UserManagementContext";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
-import { UserTableContainer } from "@/components/users/UserTableContainer";
+import { SimpleUserManagement } from "@/components/users/SimpleUserManagement";
 import { LoadingState } from "@/components/users/LoadingState";
 import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMessage";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import { useAuth } from "@/hooks/useAuth";
 
-// Main content component separated from provider setup
-const UsersContent = () => {
+const Users = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { isAdmin, adminExists, isLoading, error } = useAdminAuth();
-
-  console.log('👤 Users page state:', { 
-    isAdmin, 
-    adminExists, 
-    isLoading, 
-    user: !!user,
-    userEmail: user?.email 
-  });
 
   // Show loading state while checking auth/admin status
   if (isLoading) {
-    console.log('⏳ Showing loading state');
     return <LoadingState />;
   }
 
@@ -45,9 +32,6 @@ const UsersContent = () => {
         </div>
         <Button onClick={() => navigate("/")}>Back to Dashboard</Button>
       </div>
-
-      {/* Show auth debugger for troubleshooting */}
-      {user && <AuthDebugger />}
 
       {/* Display any errors */}
       {error && (
@@ -74,16 +58,11 @@ const UsersContent = () => {
         <AccessRestrictedMessage />
       ) : (
         <UserManagementProvider>
-          <UserTableContainer />
+          <SimpleUserManagement />
         </UserManagementProvider>
       )}
     </div>
   );
-};
-
-// Wrapper component
-const Users = () => {
-  return <UsersContent />;
 };
 
 export default Users;
