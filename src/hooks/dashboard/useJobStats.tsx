@@ -10,7 +10,7 @@ interface JobStats {
   error: string | null;
 }
 
-export const useJobStats = (userId: string | undefined) => {
+export const useJobStats = () => {
   const { toast } = useToast();
   const [stats, setStats] = useState<JobStats>({
     pendingJobs: 0,
@@ -23,92 +23,58 @@ export const useJobStats = (userId: string | undefined) => {
     try {
       setStats(prev => ({ ...prev, isLoading: true, error: null }));
       
-      console.log("Fetching job stats...");
+      console.log("Fetching global job stats...");
       
-      // Fetch pending business card jobs
-      const { data: pendingBusinessCardJobs, error: businessCardJobsError } = await supabase
-        .from("business_card_jobs")
-        .select("id")
-        .eq("status", "queued");
+      // Fetch pending jobs from all job tables
+      const [businessCardJobs, flyerJobs, postcardJobs] = await Promise.allSettled([
+        supabase.from("business_card_jobs").select("id", { count: 'exact' }).eq("status", "queued"),
+        supabase.from("flyer_jobs").select("id", { count: 'exact' }).eq("status", "queued"),
+        supabase.from("postcard_jobs").select("id", { count: 'exact' }).eq("status", "queued")
+      ]);
       
-      if (businessCardJobsError) {
-        console.error("Error fetching business card jobs:", businessCardJobsError);
-        throw businessCardJobsError;
+      let totalPendingJobs = 0;
+      
+      if (businessCardJobs.status === 'fulfilled' && !businessCardJobs.value.error) {
+        totalPendingJobs += businessCardJobs.value.count || 0;
+        console.log("Business card pending jobs:", businessCardJobs.value.count);
       }
       
-      // Fetch pending flyer jobs
-      const { data: pendingFlyerJobs, error: flyerJobsError } = await supabase
-        .from("flyer_jobs")
-        .select("id")
-        .eq("status", "queued");
-      
-      if (flyerJobsError) {
-        console.error("Error fetching flyer jobs:", flyerJobsError);
-        throw flyerJobsError;
+      if (flyerJobs.status === 'fulfilled' && !flyerJobs.value.error) {
+        totalPendingJobs += flyerJobs.value.count || 0;
+        console.log("Flyer pending jobs:", flyerJobs.value.count);
       }
       
-      // Fetch pending postcard jobs
-      const { data: pendingPostcardJobs, error: postcardJobsError } = await supabase
-        .from("postcard_jobs")
-        .select("id")
-        .eq("status", "queued");
-      
-      if (postcardJobsError) {
-        console.error("Error fetching postcard jobs:", postcardJobsError);
-        throw postcardJobsError;
+      if (postcardJobs.status === 'fulfilled' && !postcardJobs.value.error) {
+        totalPendingJobs += postcardJobs.value.count || 0;
+        console.log("Postcard pending jobs:", postcardJobs.value.count);
       }
       
-      // Calculate total pending jobs
-      const totalPendingJobs = (pendingBusinessCardJobs?.length || 0) + 
-                              (pendingFlyerJobs?.length || 0) + 
-                              (pendingPostcardJobs?.length || 0);
-      
-      // Fetch jobs completed today
+      // Fetch completed jobs today
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
       
-      const { data: completedTodayBusinessCards, error: completedBusinessCardsError } = await supabase
-        .from("business_card_jobs")
-        .select("id")
-        .eq("status", "completed")
-        .gte("updated_at", todayISO);
+      const [completedBusinessCards, completedFlyers, completedPostcards] = await Promise.allSettled([
+        supabase.from("business_card_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
+        supabase.from("flyer_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
+        supabase.from("postcard_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO)
+      ]);
       
-      if (completedBusinessCardsError) {
-        console.error("Error fetching completed business cards:", completedBusinessCardsError);
-        throw completedBusinessCardsError;
+      let totalCompletedToday = 0;
+      
+      if (completedBusinessCards.status === 'fulfilled' && !completedBusinessCards.value.error) {
+        totalCompletedToday += completedBusinessCards.value.count || 0;
       }
       
-      const { data: completedTodayFlyers, error: completedFlyersError } = await supabase
-        .from("flyer_jobs")
-        .select("id")
-        .eq("status", "completed")
-        .gte("updated_at", todayISO);
-      
-      if (completedFlyersError) {
-        console.error("Error fetching completed flyers:", completedFlyersError);
-        throw completedFlyersError;
+      if (completedFlyers.status === 'fulfilled' && !completedFlyers.value.error) {
+        totalCompletedToday += completedFlyers.value.count || 0;
       }
       
-      const { data: completedTodayPostcards, error: completedPostcardsError } = await supabase
-        .from("postcard_jobs")
-        .select("id")
-        .eq("status", "completed")
-        .gte("updated_at", todayISO);
-      
-      if (completedPostcardsError) {
-        console.error("Error fetching completed postcards:", completedPostcardsError);
-        throw completedPostcardsError;
+      if (completedPostcards.status === 'fulfilled' && !completedPostcards.value.error) {
+        totalCompletedToday += completedPostcards.value.count || 0;
       }
-      
-      const totalCompletedToday = (completedTodayBusinessCards?.length || 0) + 
-                                 (completedTodayFlyers?.length || 0) + 
-                                 (completedTodayPostcards?.length || 0);
       
       console.log("Job stats calculated:", {
-        pendingBusinessCards: pendingBusinessCardJobs?.length || 0,
-        pendingFlyers: pendingFlyerJobs?.length || 0,
-        pendingPostcards: pendingPostcardJobs?.length || 0,
         totalPending: totalPendingJobs,
         completedToday: totalCompletedToday
       });

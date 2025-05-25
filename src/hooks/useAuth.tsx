@@ -1,8 +1,8 @@
+
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserProfile, UserRole } from '@/types/user-types';
 import { Session } from '@supabase/supabase-js';
-import { User as AuthUser } from '@supabase/supabase-js'; // Import Supabase's User type as AuthUser
 
 interface AuthContextType {
   user: User | null;
@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Fetch user profile from profiles table
+  // Simplified profile fetch without RLS issues
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       const { data, error } = await supabase
@@ -56,52 +56,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Check if user is an admin using the updated functions
+  // Simplified admin check using the safe function
   const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
       
-      // Try is_admin function that we just fixed
-      const { data: isAdminCheck, error: adminError } = await supabase
-        .rpc('is_admin', { _user_id: userId });
-      
-      if (!adminError) {
-        return !!isAdminCheck;
-      }
-      
-      console.log('Standard admin check failed, trying secure version:', adminError);
-      
-      // Fall back to is_admin_secure_fixed
-      const { data: isAdminSecure, error: secureError } = await supabase
-        .rpc('is_admin_secure_fixed', { _user_id: userId });
-      
-      if (!secureError) {
-        return !!isAdminSecure;
-      }
-      
-      console.log('Both admin checks failed, using direct query:', secureError);
-      
-      // Final fallback - direct query
       const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
+        .rpc('get_user_role_safe', { user_id_param: userId });
       
       if (error) {
         console.error('Error checking admin status:', error);
         return false;
       }
 
-      return !!data;
+      return data === 'admin';
     } catch (error) {
       console.error('Error in checkIsAdmin:', error);
       return false;
     }
   };
 
-  // Update admin status
+  // Update admin status safely
   const updateAdminStatus = async (userId: string) => {
     if (!userId) return;
     try {
@@ -116,14 +91,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isSubscribed = true;
     
-    // Set up auth state listener FIRST to avoid missing events
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (!isSubscribed) return;
         
+        console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         
-        // Convert Supabase user to our User type
         if (session?.user) {
           const userObj: User = {
             id: session.user.id,
@@ -131,15 +106,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
           setUser(userObj);
           
-          // Fetch profile if we have a user - use setTimeout to avoid recursive RLS issues
+          // Defer profile and admin fetching to avoid recursion
           setTimeout(async () => {
             if (!isSubscribed) return;
             
-            const profile = await fetchProfile(session.user.id);
-            setProfile(profile);
-            await updateAdminStatus(session.user.id);
+            try {
+              const profile = await fetchProfile(session.user.id);
+              setProfile(profile);
+              await updateAdminStatus(session.user.id);
+            } catch (error) {
+              console.error('Error in deferred auth setup:', error);
+            }
             setLoading(false);
-          }, 0);
+          }, 100);
         } else {
           setUser(null);
           setProfile(null);
@@ -149,24 +128,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
+    // Check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isSubscribed) return;
       
       setSession(session);
       
-      // Fetch profile if we have a user
       if (session?.user) {
-        // Convert Supabase user to our User type
         const userObj: User = {
           id: session.user.id,
           email: session.user.email || undefined
         };
         setUser(userObj);
         
-        const profile = await fetchProfile(session.user.id);
-        setProfile(profile);
-        await updateAdminStatus(session.user.id);
+        try {
+          const profile = await fetchProfile(session.user.id);
+          setProfile(profile);
+          await updateAdminStatus(session.user.id);
+        } catch (error) {
+          console.error('Error in initial auth setup:', error);
+        }
       } else {
         setUser(null);
       }

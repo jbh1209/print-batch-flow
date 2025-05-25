@@ -7,42 +7,45 @@ import { useRecentActivity } from "./dashboard/useRecentActivity";
 
 export const useDashboardStats = () => {
   const { user, isLoading: authLoading } = useAuth();
-  const jobStats = useJobStats(user?.id);
-  const batchStats = useBatchStats(user?.id);
+  const jobStats = useJobStats();
+  const batchStats = useBatchStats();
   const activityStats = useRecentActivity(user?.id);
 
   useEffect(() => {
-    // Only fetch data when user is available and auth is not loading
+    // Fetch stats immediately, regardless of auth state for global metrics
+    console.log("Fetching dashboard stats...");
+    jobStats.refresh();
+    batchStats.refresh();
+    
+    // Only fetch activity if user is available (user-specific)
     if (user && !authLoading) {
-      console.log("User authenticated, fetching dashboard stats for user:", user.id);
-      jobStats.refresh();
-      batchStats.refresh();
+      console.log("User authenticated, fetching activity for user:", user.id);
       activityStats.refresh();
     }
   }, [user, authLoading]);
 
   return {
-    // Job stats
+    // Job stats (global)
     pendingJobs: jobStats.pendingJobs,
     printedToday: jobStats.printedToday,
     
-    // Batch stats
+    // Batch stats (global)
     activeBatches: batchStats.activeBatches,
     bucketsFilled: batchStats.bucketsFilled,
     batchTypeStats: batchStats.batchTypeStats,
     
-    // Activity stats
+    // Activity stats (user-specific)
     recentActivity: activityStats.recentActivity,
     
     // Loading and error states
-    isLoading: authLoading || jobStats.isLoading || batchStats.isLoading || activityStats.isLoading,
+    isLoading: jobStats.isLoading || batchStats.isLoading || (authLoading && !user),
     error: jobStats.error || batchStats.error || activityStats.error,
     
     // Refresh function
     refresh: () => {
+      jobStats.refresh();
+      batchStats.refresh();
       if (user && !authLoading) {
-        jobStats.refresh();
-        batchStats.refresh();
         activityStats.refresh();
       }
     }
