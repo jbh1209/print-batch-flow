@@ -20,30 +20,26 @@ export const useJobStats = (userId: string | undefined) => {
   });
 
   const fetchJobStats = async () => {
-    if (!userId) return;
-    
     try {
       setStats(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Fetch pending business card jobs
+      // Fetch pending business card jobs (status = 'queued')
       const { data: pendingBusinessCardJobs, error: businessCardJobsError } = await supabase
         .from("business_card_jobs")
         .select("id")
-        .eq("user_id", userId)
         .eq("status", "queued");
       
       if (businessCardJobsError) throw businessCardJobsError;
       
-      // Fetch pending flyer jobs
+      // Fetch pending flyer jobs (status = 'queued')
       const { data: pendingFlyerJobs, error: flyerJobsError } = await supabase
         .from("flyer_jobs")
         .select("id")
-        .eq("user_id", userId)
         .eq("status", "queued");
       
       if (flyerJobsError) throw flyerJobsError;
       
-      // Calculate total pending jobs
+      // Calculate total pending jobs across all product types
       const totalPendingJobs = (pendingBusinessCardJobs?.length || 0) + (pendingFlyerJobs?.length || 0);
       
       // Fetch jobs completed today
@@ -53,7 +49,6 @@ export const useJobStats = (userId: string | undefined) => {
       const { data: completedTodayBusinessCards, error: completedBusinessCardsError } = await supabase
         .from("business_card_jobs")
         .select("id")
-        .eq("user_id", userId)
         .eq("status", "completed")
         .gte("updated_at", today.toISOString());
       
@@ -62,13 +57,19 @@ export const useJobStats = (userId: string | undefined) => {
       const { data: completedTodayFlyers, error: completedFlyersError } = await supabase
         .from("flyer_jobs")
         .select("id")
-        .eq("user_id", userId)
         .eq("status", "completed")
         .gte("updated_at", today.toISOString());
       
       if (completedFlyersError) throw completedFlyersError;
       
       const totalCompletedToday = (completedTodayBusinessCards?.length || 0) + (completedTodayFlyers?.length || 0);
+      
+      console.log("Job stats fetched:", {
+        pendingBusinessCards: pendingBusinessCardJobs?.length || 0,
+        pendingFlyers: pendingFlyerJobs?.length || 0,
+        totalPending: totalPendingJobs,
+        completedToday: totalCompletedToday
+      });
       
       setStats({
         pendingJobs: totalPendingJobs,

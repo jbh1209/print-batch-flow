@@ -1,12 +1,30 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, ArrowLeft } from "lucide-react";
+import { useJobStats } from "@/hooks/dashboard/useJobStats";
+import { useBatchStats } from "@/hooks/dashboard/useBatchStats";
+import { useAuth } from "@/hooks/useAuth";
 
 const BusinessCards = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
+  
+  const { pendingJobs, isLoading: jobsLoading, refresh: refreshJobs } = useJobStats(user?.id);
+  const { activeBatches, batchTypeStats, isLoading: batchesLoading, refresh: refreshBatches } = useBatchStats(user?.id);
+  
+  // Calculate capacity percentage for business cards
+  const businessCardStats = batchTypeStats.find(stat => stat.name === "Business Cards");
+  const capacityPercentage = businessCardStats ? Math.round((businessCardStats.progress / businessCardStats.total) * 100) : 0;
+  
+  useEffect(() => {
+    if (user) {
+      refreshJobs();
+      refreshBatches();
+    }
+  }, [user, refreshJobs, refreshBatches]);
 
   return (
     <div>
@@ -48,7 +66,9 @@ const BusinessCards = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
               <h3 className="text-lg font-semibold mb-2">Pending Jobs</h3>
-              <div className="text-3xl font-bold">0</div>
+              <div className="text-3xl font-bold">
+                {jobsLoading ? "..." : pendingJobs}
+              </div>
               <p className="text-sm text-gray-500 mt-2">Unbatched jobs waiting for processing</p>
               
               <Button 
@@ -65,7 +85,9 @@ const BusinessCards = () => {
             
             <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
               <h3 className="text-lg font-semibold mb-2">Active Batches</h3>
-              <div className="text-3xl font-bold">0</div>
+              <div className="text-3xl font-bold">
+                {batchesLoading ? "..." : activeBatches}
+              </div>
               <p className="text-sm text-gray-500 mt-2">Batches currently in production</p>
               
               <Button 
@@ -79,7 +101,9 @@ const BusinessCards = () => {
             
             <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
               <h3 className="text-lg font-semibold mb-2">Capacity</h3>
-              <div className="text-3xl font-bold">0%</div>
+              <div className="text-3xl font-bold">
+                {batchesLoading ? "..." : `${capacityPercentage}%`}
+              </div>
               <p className="text-sm text-gray-500 mt-2">Current batch bucket capacity</p>
               
               <Button 

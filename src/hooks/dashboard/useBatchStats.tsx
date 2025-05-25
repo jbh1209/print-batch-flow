@@ -26,56 +26,45 @@ export const useBatchStats = (userId: string | undefined) => {
   });
 
   const fetchBatchStats = async () => {
-    if (!userId) return;
-    
     try {
       setStats(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Fetch active batches
+      // Fetch active batches (pending, processing)
       const { data: activeBatches, error: batchesError } = await supabase
         .from("batches")
-        .select("id")
-        .eq("created_by", userId)
+        .select("id, status")
         .in("status", ["pending", "processing"]);
       
       if (batchesError) throw batchesError;
       
-      // Calculate batch type statistics
+      // Calculate batch type statistics - get pending jobs for each type
       const { data: pendingBusinessCardJobs } = await supabase
         .from("business_card_jobs")
         .select("id")
-        .eq("user_id", userId)
         .eq("status", "queued");
         
       const { data: pendingFlyerJobs } = await supabase
         .from("flyer_jobs")
         .select("id, size")
-        .eq("user_id", userId)
         .eq("status", "queued");
       
       const batchTypeStats = [
-        { name: "Business Cards", progress: 0, total: 50 },
-        { name: "Flyers A5", progress: 0, total: 50 },
-        { name: "Flyers A4", progress: 0, total: 50 },
+        { name: "Business Cards", progress: pendingBusinessCardJobs?.length || 0, total: 50 },
+        { name: "Flyers A5", progress: pendingFlyerJobs?.filter(job => job.size === "A5").length || 0, total: 50 },
+        { name: "Flyers A4", progress: pendingFlyerJobs?.filter(job => job.size === "A4").length || 0, total: 50 },
         { name: "Postcards", progress: 0, total: 50 }
       ];
       
-      // Update progress for each type
-      if (pendingBusinessCardJobs) {
-        batchTypeStats[0].progress = pendingBusinessCardJobs.length;
-      }
-      
-      if (pendingFlyerJobs) {
-        const flyerA5Jobs = pendingFlyerJobs.filter(job => job.size === "A5");
-        const flyerA4Jobs = pendingFlyerJobs.filter(job => job.size === "A4");
-        batchTypeStats[1].progress = flyerA5Jobs?.length || 0;
-        batchTypeStats[2].progress = flyerA4Jobs?.length || 0;
-      }
-      
-      // Calculate buckets at capacity
+      // Calculate buckets at capacity (>= 80%)
       const bucketsFilled = batchTypeStats.filter(
         type => (type.progress / type.total) >= 0.8
       ).length;
+      
+      console.log("Batch stats fetched:", {
+        activeBatches: activeBatches?.length || 0,
+        bucketsFilled,
+        batchTypeStats
+      });
       
       setStats({
         activeBatches: activeBatches?.length || 0,
