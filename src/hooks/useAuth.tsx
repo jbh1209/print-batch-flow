@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Simplified profile fetch
+  // Simple profile fetch with error handling
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       const { data, error } = await supabase
@@ -45,18 +45,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.warn('Profile fetch failed (non-critical):', error.message);
         return null;
       }
       
       return data;
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
+      console.warn('Profile fetch error (non-critical):', error);
       return null;
     }
   };
 
-  // Simplified admin check
+  // Simple admin check with error handling
   const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
@@ -69,23 +69,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .maybeSingle();
       
       if (error) {
-        console.error('Error checking admin status:', error);
+        console.warn('Admin check failed (non-critical):', error.message);
         return false;
       }
 
       return !!data;
     } catch (error) {
-      console.error('Error in checkIsAdmin:', error);
+      console.warn('Admin check error (non-critical):', error);
       return false;
+    }
+  };
+
+  // Load additional user data separately from auth state
+  const loadUserData = async (userId: string) => {
+    try {
+      const [profileData, adminStatus] = await Promise.allSettled([
+        fetchProfile(userId),
+        checkIsAdmin(userId)
+      ]);
+      
+      if (profileData.status === 'fulfilled') {
+        setProfile(profileData.value);
+      }
+      
+      if (adminStatus.status === 'fulfilled') {
+        setIsAdmin(adminStatus.value);
+      }
+    } catch (error) {
+      console.warn('User data loading failed (non-critical):', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     console.log('Setting up auth state listener...');
     
-    // Simple auth state listener
+    // Simplified auth state listener - no database calls here
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         
@@ -96,17 +118,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
           setUser(userObj);
           
-          // Load additional data in background
-          Promise.all([
-            fetchProfile(session.user.id),
-            checkIsAdmin(session.user.id)
-          ]).then(([profile, isAdminUser]) => {
-            setProfile(profile);
-            setIsAdmin(isAdminUser);
-            setLoading(false);
-          }).catch(() => {
-            setLoading(false);
-          });
+          // Defer user data loading to prevent auth callback issues
+          setTimeout(() => {
+            loadUserData(session.user.id);
+          }, 100);
         } else {
           setUser(null);
           setProfile(null);
@@ -122,13 +137,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!session) {
         setLoading(false);
       }
+    }).catch(() => {
+      setLoading(false);
     });
 
     // Failsafe timeout
     const timeout = setTimeout(() => {
       console.log('Auth timeout reached');
       setLoading(false);
-    }, 3000);
+    }, 2000);
 
     return () => {
       clearTimeout(timeout);
@@ -144,9 +161,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(null);
       setProfile(null);
       setIsAdmin(false);
-      setLoading(false);
     } catch (error) {
       console.error('Error signing out:', error);
+    } finally {
       setLoading(false);
     }
   };

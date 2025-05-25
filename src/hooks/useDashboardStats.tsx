@@ -11,27 +11,41 @@ export const useDashboardStats = () => {
   const batchStats = useBatchStats();
   const activityStats = useRecentActivity(user?.id);
 
-  // Simplified refresh function
+  // Simplified refresh function with error handling
   const refresh = useCallback(() => {
-    console.log("Refreshing dashboard stats...");
-    jobStats.refresh();
-    batchStats.refresh();
-    
-    if (user?.id) {
-      activityStats.refresh();
-    }
-  }, [user?.id]);
-
-  // Only load stats when auth is complete and user is available
-  useEffect(() => {
-    if (!authLoading) {
-      console.log("Auth complete, loading dashboard stats");
+    try {
+      console.log("Refreshing dashboard stats...");
       jobStats.refresh();
       batchStats.refresh();
       
       if (user?.id) {
         activityStats.refresh();
       }
+    } catch (error) {
+      console.warn("Dashboard refresh failed:", error);
+    }
+  }, [user?.id]);
+
+  // Load stats when auth is complete - with delay to avoid auth conflicts
+  useEffect(() => {
+    if (!authLoading && user) {
+      console.log("Auth complete, loading dashboard stats");
+      
+      // Add delay to ensure auth state is fully settled
+      const timer = setTimeout(() => {
+        try {
+          jobStats.refresh();
+          batchStats.refresh();
+          
+          if (user.id) {
+            activityStats.refresh();
+          }
+        } catch (error) {
+          console.warn("Dashboard stats loading failed:", error);
+        }
+      }, 200);
+
+      return () => clearTimeout(timer);
     }
   }, [authLoading, user?.id]);
 
