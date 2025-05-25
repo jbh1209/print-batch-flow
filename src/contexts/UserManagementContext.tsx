@@ -35,11 +35,11 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const { isAdmin } = useAdminAuth();
+  const { isAdmin, refreshAdminStatus } = useAdminAuth();
 
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) {
-      console.log('Not admin, skipping fetchUsers');
+      console.log('🚫 Not admin, skipping fetchUsers');
       setUsers([]);
       setIsLoading(false);
       return;
@@ -49,16 +49,16 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     setError(null);
     
     try {
-      console.log('Fetching users...');
+      console.log('📋 Fetching users...');
       const fetchedUsers = await userService.fetchUsers();
-      console.log('Users fetched:', fetchedUsers);
+      console.log('✅ Users fetched:', fetchedUsers.length);
       
       if (Array.isArray(fetchedUsers)) {
         setUsers(fetchedUsers);
         
         // If current user isn't in the list and we have a fallback, add them
         if (user && fetchedUsers.length === 0) {
-          console.log('No users found, adding current admin user');
+          console.log('⚠️ No users found, adding current admin user');
           const currentAdmin: UserWithRole = {
             id: user.id,
             email: user.email || 'Current admin',
@@ -70,11 +70,11 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
           setUsers([currentAdmin]);
         }
       } else {
-        console.warn('Invalid user array returned:', fetchedUsers);
+        console.warn('⚠️ Invalid user array returned:', fetchedUsers);
         setUsers([]);
       }
     } catch (error: any) {
-      console.error('Error loading users:', error);
+      console.error('❌ Error loading users:', error);
       setError(`Error loading users: ${error.message}`);
       toast.error(`Error loading users: ${error.message}`);
       setUsers([]);
@@ -93,7 +93,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
         toast.success('All profiles are already synced');
       }
     } catch (error: any) {
-      console.error('Error syncing profiles:', error);
+      console.error('❌ Error syncing profiles:', error);
       toast.error(`Sync failed: ${error.message}`);
       throw error;
     }
@@ -102,7 +102,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
   // Auto-refresh users when admin status changes
   useEffect(() => {
     if (isAdmin) {
-      console.log('Admin status confirmed, loading users');
+      console.log('👑 Admin status confirmed, loading users');
       fetchUsers();
     }
   }, [isAdmin, fetchUsers]);
@@ -113,7 +113,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       toast.success('User created successfully');
       await fetchUsers();
     } catch (error: any) {
-      console.error('Error creating user:', error);
+      console.error('❌ Error creating user:', error);
       toast.error(`Error creating user: ${error.message}`);
       throw error;
     }
@@ -125,7 +125,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       toast.success('User updated successfully');
       await fetchUsers();
     } catch (error: any) {
-      console.error('Error updating user:', error);
+      console.error('❌ Error updating user:', error);
       toast.error(`Error updating user: ${error.message}`);
       throw error;
     }
@@ -142,7 +142,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       toast.success('User role revoked successfully');
       await fetchUsers();
     } catch (error: any) {
-      console.error('Error removing user role:', error);
+      console.error('❌ Error removing user role:', error);
       toast.error(`Error removing user role: ${error.message}`);
       throw error;
     }
@@ -157,13 +157,16 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     try {
       await userService.addAdminRole(userId);
       toast.success('Admin role successfully assigned');
+      
+      // Refresh admin status and reload page
+      await refreshAdminStatus();
       setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
-      console.error('Error setting admin role:', error);
+      console.error('❌ Error setting admin role:', error);
       toast.error(`Failed to set admin role: ${error.message}`);
       throw error;
     }
-  }, []);
+  }, [refreshAdminStatus]);
 
   const value = {
     users,

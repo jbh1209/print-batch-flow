@@ -30,13 +30,18 @@ export function AdminSetupForm() {
     setIsSubmitting(true);
     
     try {
+      console.log('🔧 Setting admin role for user:', userId);
       await userService.addAdminRole(userId);
       setSuccessMessage("Admin role successfully assigned! Refreshing...");
       
       // Refresh admin status and reload page
       await refreshAdminStatus();
-      setTimeout(() => window.location.reload(), 2000);
+      setTimeout(() => {
+        console.log('🔄 Reloading page after admin setup');
+        window.location.reload();
+      }, 2000);
     } catch (error: any) {
+      console.error('❌ Admin setup failed:', error);
       setErrorMessage(error.message || "Failed to set admin role");
     } finally {
       setIsSubmitting(false);

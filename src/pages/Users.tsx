@@ -3,7 +3,6 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Users as UsersIcon, AlertTriangle } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthDebugger } from "@/components/users/AuthDebugger";
 import { UserManagementProvider } from "@/contexts/UserManagementContext";
@@ -20,10 +19,17 @@ const UsersContent = () => {
   const { user } = useAuth();
   const { isAdmin, adminExists, isLoading, error } = useAdminAuth();
 
-  console.log('Users page state:', { isAdmin, adminExists, isLoading, user: !!user });
+  console.log('👤 Users page state:', { 
+    isAdmin, 
+    adminExists, 
+    isLoading, 
+    user: !!user,
+    userEmail: user?.email 
+  });
 
-  // Show loading state
+  // Show loading state while checking auth/admin status
   if (isLoading) {
+    console.log('⏳ Showing loading state');
     return <LoadingState />;
   }
 
@@ -47,12 +53,23 @@ const UsersContent = () => {
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            Authentication Error: {error}
+          </AlertDescription>
         </Alert>
       )}
 
+      {/* Conditional rendering based on admin status */}
       {!adminExists ? (
-        <AdminSetupForm />
+        <>
+          <Alert className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              No administrators are configured. Set up the first admin account to begin managing users.
+            </AlertDescription>
+          </Alert>
+          <AdminSetupForm />
+        </>
       ) : !isAdmin ? (
         <AccessRestrictedMessage />
       ) : (

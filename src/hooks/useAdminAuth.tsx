@@ -18,66 +18,57 @@ export const useAdminAuth = (): AdminAuthState => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const checkAdminStatus = async (userId: string): Promise<boolean> => {
+  const checkAdminStatus = async (): Promise<{ isAdmin: boolean; adminExists: boolean }> => {
     try {
-      const { data, error } = await supabase.rpc('check_user_admin_status', { 
-        check_user_id: userId 
+      console.log('🔍 Checking admin status for user:', user?.id);
+      
+      // Use the new comprehensive RPC function
+      const { data, error } = await supabase.rpc('get_admin_status', { 
+        check_user_id: user?.id || null 
       });
       
       if (error) {
-        console.warn('Admin status check failed:', error.message);
-        return false;
+        console.error('❌ Admin status check failed:', error);
+        throw error;
       }
       
-      return !!data;
-    } catch (error) {
-      console.warn('Admin status check error:', error);
-      return false;
-    }
-  };
-
-  const checkIfAnyAdminExists = async (): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
+      const result = data?.[0] || { user_is_admin: false, any_admin_exists: false };
+      console.log('✅ Admin status result:', result);
       
-      if (error) {
-        console.warn('Admin existence check failed:', error.message);
-        return false;
-      }
-      
-      return !!data;
-    } catch (error) {
-      console.warn('Admin existence check error:', error);
-      return false;
+      return {
+        isAdmin: result.user_is_admin,
+        adminExists: result.any_admin_exists
+      };
+    } catch (error: any) {
+      console.error('❌ Error in admin status check:', error);
+      throw new Error(`Admin status check failed: ${error.message}`);
     }
   };
 
   const refreshAdminStatus = async () => {
-    if (authLoading) return;
+    // Don't proceed if auth is still loading
+    if (authLoading) {
+      console.log('⏳ Auth still loading, skipping admin status check');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      // Check if any admin exists first
-      const anyAdminExists = await checkIfAnyAdminExists();
+      const { isAdmin: userIsAdmin, adminExists: anyAdminExists } = await checkAdminStatus();
+      
+      setIsAdmin(userIsAdmin);
       setAdminExists(anyAdminExists);
-
-      // If user is logged in, check their admin status
-      if (user?.id) {
-        const userIsAdmin = await checkAdminStatus(user.id);
-        setIsAdmin(userIsAdmin);
-      } else {
-        setIsAdmin(false);
-      }
+      
+      console.log('✅ Admin status updated:', { 
+        userIsAdmin, 
+        anyAdminExists, 
+        userId: user?.id 
+      });
     } catch (error: any) {
-      console.error('Admin status refresh failed:', error);
-      setError(error.message || 'Failed to check admin status');
+      console.error('❌ Failed to refresh admin status:', error);
+      setError(error.message);
       setIsAdmin(false);
       setAdminExists(false);
     } finally {
@@ -85,10 +76,11 @@ export const useAdminAuth = (): AdminAuthState => {
     }
   };
 
-  // Load admin status when auth completes
+  // Load admin status when auth state changes
   useEffect(() => {
     if (!authLoading) {
-      // Add small delay to ensure auth state is fully settled
+      console.log('🔄 Auth loading complete, checking admin status');
+      // Small delay to ensure auth state is fully settled
       const timer = setTimeout(refreshAdminStatus, 100);
       return () => clearTimeout(timer);
     }

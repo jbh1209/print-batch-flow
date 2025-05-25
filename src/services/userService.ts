@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -115,15 +116,10 @@ export async function getAdminUserStats(): Promise<{
   }
 }
 
-// Check if any admin exists using the new secure function
+// Check if any admin exists using the new RPC function
 export async function checkAdminExists(): Promise<boolean> {
   try {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('role', 'admin')
-      .limit(1)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc('check_admin_exists');
     
     if (error) {
       console.error('Error checking admin existence:', error);
@@ -137,7 +133,7 @@ export async function checkAdminExists(): Promise<boolean> {
   }
 }
 
-// Add admin role using the new RPC function
+// Add admin role using the existing RPC function
 export async function addAdminRole(userId: string): Promise<void> {
   try {
     const { error } = await supabase.rpc('add_admin_role', { 

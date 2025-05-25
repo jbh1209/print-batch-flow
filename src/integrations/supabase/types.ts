@@ -876,9 +876,20 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      check_admin_exists: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       check_user_admin_status: {
         Args: { check_user_id: string }
         Returns: boolean
+      }
+      get_admin_status: {
+        Args: { check_user_id?: string }
+        Returns: {
+          user_is_admin: boolean
+          any_admin_exists: boolean
+        }[]
       }
       get_admin_user_stats: {
         Args: Record<PropertyKey, never>
