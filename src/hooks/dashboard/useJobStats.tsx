@@ -23,50 +23,92 @@ export const useJobStats = (userId: string | undefined) => {
     try {
       setStats(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Fetch pending business card jobs (status = 'queued')
+      console.log("Fetching job stats...");
+      
+      // Fetch pending business card jobs
       const { data: pendingBusinessCardJobs, error: businessCardJobsError } = await supabase
         .from("business_card_jobs")
         .select("id")
         .eq("status", "queued");
       
-      if (businessCardJobsError) throw businessCardJobsError;
+      if (businessCardJobsError) {
+        console.error("Error fetching business card jobs:", businessCardJobsError);
+        throw businessCardJobsError;
+      }
       
-      // Fetch pending flyer jobs (status = 'queued')
+      // Fetch pending flyer jobs
       const { data: pendingFlyerJobs, error: flyerJobsError } = await supabase
         .from("flyer_jobs")
         .select("id")
         .eq("status", "queued");
       
-      if (flyerJobsError) throw flyerJobsError;
+      if (flyerJobsError) {
+        console.error("Error fetching flyer jobs:", flyerJobsError);
+        throw flyerJobsError;
+      }
       
-      // Calculate total pending jobs across all product types
-      const totalPendingJobs = (pendingBusinessCardJobs?.length || 0) + (pendingFlyerJobs?.length || 0);
+      // Fetch pending postcard jobs
+      const { data: pendingPostcardJobs, error: postcardJobsError } = await supabase
+        .from("postcard_jobs")
+        .select("id")
+        .eq("status", "queued");
+      
+      if (postcardJobsError) {
+        console.error("Error fetching postcard jobs:", postcardJobsError);
+        throw postcardJobsError;
+      }
+      
+      // Calculate total pending jobs
+      const totalPendingJobs = (pendingBusinessCardJobs?.length || 0) + 
+                              (pendingFlyerJobs?.length || 0) + 
+                              (pendingPostcardJobs?.length || 0);
       
       // Fetch jobs completed today
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const todayISO = today.toISOString();
       
       const { data: completedTodayBusinessCards, error: completedBusinessCardsError } = await supabase
         .from("business_card_jobs")
         .select("id")
         .eq("status", "completed")
-        .gte("updated_at", today.toISOString());
+        .gte("updated_at", todayISO);
       
-      if (completedBusinessCardsError) throw completedBusinessCardsError;
+      if (completedBusinessCardsError) {
+        console.error("Error fetching completed business cards:", completedBusinessCardsError);
+        throw completedBusinessCardsError;
+      }
       
       const { data: completedTodayFlyers, error: completedFlyersError } = await supabase
         .from("flyer_jobs")
         .select("id")
         .eq("status", "completed")
-        .gte("updated_at", today.toISOString());
+        .gte("updated_at", todayISO);
       
-      if (completedFlyersError) throw completedFlyersError;
+      if (completedFlyersError) {
+        console.error("Error fetching completed flyers:", completedFlyersError);
+        throw completedFlyersError;
+      }
       
-      const totalCompletedToday = (completedTodayBusinessCards?.length || 0) + (completedTodayFlyers?.length || 0);
+      const { data: completedTodayPostcards, error: completedPostcardsError } = await supabase
+        .from("postcard_jobs")
+        .select("id")
+        .eq("status", "completed")
+        .gte("updated_at", todayISO);
       
-      console.log("Job stats fetched:", {
+      if (completedPostcardsError) {
+        console.error("Error fetching completed postcards:", completedPostcardsError);
+        throw completedPostcardsError;
+      }
+      
+      const totalCompletedToday = (completedTodayBusinessCards?.length || 0) + 
+                                 (completedTodayFlyers?.length || 0) + 
+                                 (completedTodayPostcards?.length || 0);
+      
+      console.log("Job stats calculated:", {
         pendingBusinessCards: pendingBusinessCardJobs?.length || 0,
         pendingFlyers: pendingFlyerJobs?.length || 0,
+        pendingPostcards: pendingPostcardJobs?.length || 0,
         totalPending: totalPendingJobs,
         completedToday: totalCompletedToday
       });

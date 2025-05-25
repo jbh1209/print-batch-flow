@@ -6,18 +6,20 @@ import { useBatchStats } from "./dashboard/useBatchStats";
 import { useRecentActivity } from "./dashboard/useRecentActivity";
 
 export const useDashboardStats = () => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const jobStats = useJobStats(user?.id);
   const batchStats = useBatchStats(user?.id);
   const activityStats = useRecentActivity(user?.id);
 
   useEffect(() => {
-    if (user) {
+    // Only fetch data when user is available and auth is not loading
+    if (user && !authLoading) {
+      console.log("User authenticated, fetching dashboard stats for user:", user.id);
       jobStats.refresh();
       batchStats.refresh();
       activityStats.refresh();
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   return {
     // Job stats
@@ -33,14 +35,16 @@ export const useDashboardStats = () => {
     recentActivity: activityStats.recentActivity,
     
     // Loading and error states
-    isLoading: jobStats.isLoading || batchStats.isLoading || activityStats.isLoading,
+    isLoading: authLoading || jobStats.isLoading || batchStats.isLoading || activityStats.isLoading,
     error: jobStats.error || batchStats.error || activityStats.error,
     
     // Refresh function
     refresh: () => {
-      jobStats.refresh();
-      batchStats.refresh();
-      activityStats.refresh();
+      if (user && !authLoading) {
+        jobStats.refresh();
+        batchStats.refresh();
+        activityStats.refresh();
+      }
     }
   };
 };

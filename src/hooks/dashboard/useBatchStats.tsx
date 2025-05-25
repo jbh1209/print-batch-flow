@@ -29,30 +29,55 @@ export const useBatchStats = (userId: string | undefined) => {
     try {
       setStats(prev => ({ ...prev, isLoading: true, error: null }));
       
+      console.log("Fetching batch stats...");
+      
       // Fetch active batches (pending, processing)
       const { data: activeBatches, error: batchesError } = await supabase
         .from("batches")
         .select("id, status")
         .in("status", ["pending", "processing"]);
       
-      if (batchesError) throw batchesError;
+      if (batchesError) {
+        console.error("Error fetching active batches:", batchesError);
+        throw batchesError;
+      }
       
       // Calculate batch type statistics - get pending jobs for each type
-      const { data: pendingBusinessCardJobs } = await supabase
+      const { data: pendingBusinessCardJobs, error: businessCardError } = await supabase
         .from("business_card_jobs")
         .select("id")
         .eq("status", "queued");
+      
+      if (businessCardError) {
+        console.error("Error fetching pending business card jobs:", businessCardError);
+        throw businessCardError;
+      }
         
-      const { data: pendingFlyerJobs } = await supabase
+      const { data: pendingFlyerJobs, error: flyerError } = await supabase
         .from("flyer_jobs")
         .select("id, size")
         .eq("status", "queued");
+      
+      if (flyerError) {
+        console.error("Error fetching pending flyer jobs:", flyerError);
+        throw flyerError;
+      }
+      
+      const { data: pendingPostcardJobs, error: postcardError } = await supabase
+        .from("postcard_jobs")
+        .select("id")
+        .eq("status", "queued");
+      
+      if (postcardError) {
+        console.error("Error fetching pending postcard jobs:", postcardError);
+        throw postcardError;
+      }
       
       const batchTypeStats = [
         { name: "Business Cards", progress: pendingBusinessCardJobs?.length || 0, total: 50 },
         { name: "Flyers A5", progress: pendingFlyerJobs?.filter(job => job.size === "A5").length || 0, total: 50 },
         { name: "Flyers A4", progress: pendingFlyerJobs?.filter(job => job.size === "A4").length || 0, total: 50 },
-        { name: "Postcards", progress: 0, total: 50 }
+        { name: "Postcards", progress: pendingPostcardJobs?.length || 0, total: 50 }
       ];
       
       // Calculate buckets at capacity (>= 80%)
@@ -60,7 +85,7 @@ export const useBatchStats = (userId: string | undefined) => {
         type => (type.progress / type.total) >= 0.8
       ).length;
       
-      console.log("Batch stats fetched:", {
+      console.log("Batch stats calculated:", {
         activeBatches: activeBatches?.length || 0,
         bucketsFilled,
         batchTypeStats
