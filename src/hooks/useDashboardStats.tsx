@@ -11,32 +11,29 @@ export const useDashboardStats = () => {
   const batchStats = useBatchStats();
   const activityStats = useRecentActivity(user?.id);
 
-  // Memoized refresh function to prevent infinite loops
+  // Simplified refresh function
   const refresh = useCallback(() => {
     console.log("Refreshing dashboard stats...");
     jobStats.refresh();
     batchStats.refresh();
     
-    if (user && !authLoading) {
-      console.log("User authenticated, refreshing activity for user:", user.id);
+    if (user?.id) {
       activityStats.refresh();
     }
-  }, [user?.id, authLoading]); // Only depend on stable values
+  }, [user?.id]);
 
-  // Load stats once on mount and when user changes
+  // Only load stats when auth is complete and user is available
   useEffect(() => {
-    console.log("Dashboard stats effect triggered - user:", user?.id, "authLoading:", authLoading);
-    
-    // Always fetch global stats
-    jobStats.refresh();
-    batchStats.refresh();
-    
-    // Only fetch user-specific activity if user is available
-    if (user && !authLoading) {
-      console.log("User authenticated, fetching activity for user:", user.id);
-      activityStats.refresh();
+    if (!authLoading) {
+      console.log("Auth complete, loading dashboard stats");
+      jobStats.refresh();
+      batchStats.refresh();
+      
+      if (user?.id) {
+        activityStats.refresh();
+      }
     }
-  }, [user?.id, authLoading]); // Only depend on user ID and auth loading state
+  }, [authLoading, user?.id]);
 
   return {
     // Job stats (global)
@@ -52,10 +49,10 @@ export const useDashboardStats = () => {
     recentActivity: activityStats.recentActivity,
     
     // Loading and error states
-    isLoading: jobStats.isLoading || batchStats.isLoading || (authLoading && !user),
+    isLoading: authLoading || jobStats.isLoading || batchStats.isLoading,
     error: jobStats.error || batchStats.error || activityStats.error,
     
-    // Memoized refresh function
+    // Simplified refresh function
     refresh
   };
 };

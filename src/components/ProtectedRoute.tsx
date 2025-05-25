@@ -13,6 +13,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   console.log('ProtectedRoute - loading:', loading, 'user:', !!user);
 
+  // Show loading spinner while checking auth
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
@@ -24,6 +25,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
+  // Redirect to auth if no user
   if (!user) {
     console.log('No user found, redirecting to auth');
     return <Navigate to="/auth" replace />;

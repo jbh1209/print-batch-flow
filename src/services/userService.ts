@@ -1,52 +1,12 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
-// Fetch all users with their roles - Simplified to avoid RLS issues
+// Simplified user fetching - removed complex RPC calls
 export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
-    console.log('Starting fetchUsers in userService');
+    console.log('Fetching users...');
     
-    // Try using the secure RPC call first
-    try {
-      console.log('Trying to get users with get_all_users_secure RPC');
-      const { data: secureUsers, error: secureError } = await supabase
-        .rpc('get_all_users_secure');
-      
-      if (!secureError && secureUsers && secureUsers.length > 0) {
-        console.log('Successfully retrieved users with secure RPC function');
-        // Map to our expected format
-        const userList = await Promise.all(secureUsers.map(async (user) => {
-          // Check if user is admin using our safe function
-          const { data: isAdminCheck } = await supabase
-            .rpc('is_admin', { _user_id: user.id });
-          
-          const isAdmin = !!isAdminCheck;
-          
-          // Get profile information
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url, created_at')
-            .eq('id', user.id)
-            .maybeSingle();
-          
-          return {
-            id: user.id,
-            email: user.email || 'No email',
-            full_name: profile?.full_name || null,
-            avatar_url: profile?.avatar_url || null,
-            role: (isAdmin ? 'admin' : 'user') as UserRole,
-            created_at: profile?.created_at || null
-          };
-        }));
-        
-        return userList;
-      }
-    } catch (error) {
-      console.log('Secure RPC failed, falling back to edge function:', error);
-    }
-    
-    // Get all profiles from the profiles table
+    // Get profiles first
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url, created_at');
@@ -58,100 +18,56 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
     
     console.log('Profiles fetched:', profiles?.length || 0);
 
-    // Fall back to edge function for auth data
-    console.log('Invoking get-all-users edge function');
+    // Get user roles
+    const { data: userRoles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('user_id, role');
+      
+    if (rolesError) {
+      console.error('Error fetching user roles:', rolesError);
+      throw rolesError;
+    }
+
+    // Create role lookup
+    const roleMap = new Map(userRoles?.map(ur => [ur.user_id, ur.role]) || []);
+
+    // Try to get emails from edge function
     try {
       const response = await supabase.functions.invoke('get-all-users', {
         method: 'GET',
       });
       
-      if (response.error) {
-        console.error('Error fetching user emails:', response.error);
-        throw new Error(response.error.message || 'Failed to fetch user data');
-      }
-      
-      const authUsers = response.data;
-      console.log('Users from edge function:', authUsers);
-      
-      if (!Array.isArray(authUsers)) {
-        console.error('Invalid users data returned from edge function:', authUsers);
-        throw new Error('Failed to fetch user data from authentication system');
-      }
-      
-      // Create a map of user IDs to email addresses
-      const usersMap = Object.fromEntries(
-        (authUsers || []).map((user) => [user.id, user.email])
-      );
-      console.log('Users map created with keys:', Object.keys(usersMap).length);
-      
-      const userList: UserWithRole[] = [];
-      
-      // If we have no profiles but we have auth users, create minimal user records
-      if ((!profiles || profiles.length === 0) && authUsers.length > 0) {
-        console.log('No profiles found but auth users exist, creating minimal records');
-        for (const authUser of authUsers) {
-          // Check admin status using the safe RPC function
-          const { data: isAdminCheck } = await supabase
-            .rpc('is_admin', { _user_id: authUser.id });
-            
-          const isAdmin = !!isAdminCheck;
-          
-          userList.push({
-            id: authUser.id,
-            email: authUser.email || 'No email',
-            full_name: null,
-            avatar_url: null,
-            role: (isAdmin ? 'admin' : 'user') as UserRole,
-            created_at: null
-          });
-        }
+      if (response.data && Array.isArray(response.data)) {
+        const usersMap = Object.fromEntries(
+          response.data.map((user) => [user.id, user.email])
+        );
         
-        console.log('Created minimal user records:', userList.length);
-        return userList;
-      }
-      
-      // Process each profile to build the complete user data
-      for (const profile of profiles || []) {
-        console.log(`Processing profile ${profile.id}`);
-        
-        // Check admin status using the safe RPC function
-        const { data: isAdminCheck } = await supabase
-          .rpc('is_admin', { _user_id: profile.id });
-          
-        const isAdmin = !!isAdminCheck;
-        const email = usersMap[profile.id] || 'Email not available';
-        
-        userList.push({
+        const userList: UserWithRole[] = (profiles || []).map(profile => ({
           id: profile.id,
-          email: email,
+          email: usersMap[profile.id] || 'Email not available',
           full_name: profile.full_name || 'No Name',
           avatar_url: profile.avatar_url,
-          role: (isAdmin ? 'admin' : 'user') as UserRole,
+          role: (roleMap.get(profile.id) || 'user') as UserRole,
           created_at: profile.created_at
-        });
+        }));
+        
+        return userList;
       }
-      
-      console.log('Final user list built, count:', userList.length);
-      return userList;
     } catch (error) {
-      console.error('Error fetching users with edge function:', error);
-      
-      // If everything fails, return current user only
-      const currentUser = supabase.auth.getUser();
-      if ((await currentUser).data.user) {
-        const user = (await currentUser).data.user;
-        return [{
-          id: user.id,
-          email: user.email || 'Current user',
-          full_name: 'Current User',
-          avatar_url: null,
-          role: 'admin' as UserRole,
-          created_at: null
-        }];
-      }
-      
-      return [];
+      console.log('Edge function failed, returning basic user list');
     }
+    
+    // Fallback: return profiles with default emails
+    const userList: UserWithRole[] = (profiles || []).map(profile => ({
+      id: profile.id,
+      email: 'Email not available',
+      full_name: profile.full_name || 'No Name',
+      avatar_url: profile.avatar_url,
+      role: (roleMap.get(profile.id) || 'user') as UserRole,
+      created_at: profile.created_at
+    }));
+    
+    return userList;
   } catch (error) {
     console.error('Error in fetchUsers:', error);
     return [];

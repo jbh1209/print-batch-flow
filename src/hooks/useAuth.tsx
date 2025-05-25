@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Fetch profile safely
+  // Simplified profile fetch
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       const { data, error } = await supabase
@@ -56,13 +56,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Check admin status using the safe RPC function
+  // Simplified admin check
   const checkIsAdmin = async (userId: string): Promise<boolean> => {
     try {
       if (!userId) return false;
       
       const { data, error } = await supabase
-        .rpc('is_admin', { _user_id: userId });
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
       
       if (error) {
         console.error('Error checking admin status:', error);
@@ -77,14 +81,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    let isSubscribed = true;
     console.log('Setting up auth state listener...');
     
-    // Set up auth state listener
+    // Simple auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!isSubscribed) return;
-        
         console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         
@@ -95,28 +96,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
           setUser(userObj);
           
-          // Defer data fetching to avoid blocking the auth state change
-          setTimeout(async () => {
-            if (!isSubscribed) return;
-            
-            try {
-              const [profile, isAdminUser] = await Promise.all([
-                fetchProfile(session.user.id),
-                checkIsAdmin(session.user.id)
-              ]);
-              
-              if (isSubscribed) {
-                setProfile(profile);
-                setIsAdmin(isAdminUser);
-                setLoading(false);
-              }
-            } catch (error) {
-              console.error('Error in deferred auth setup:', error);
-              if (isSubscribed) {
-                setLoading(false);
-              }
-            }
-          }, 0);
+          // Load additional data in background
+          Promise.all([
+            fetchProfile(session.user.id),
+            checkIsAdmin(session.user.id)
+          ]).then(([profile, isAdminUser]) => {
+            setProfile(profile);
+            setIsAdmin(isAdminUser);
+            setLoading(false);
+          }).catch(() => {
+            setLoading(false);
+          });
         } else {
           setUser(null);
           setProfile(null);
@@ -126,72 +116,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Check for existing session with timeout
-    const checkSession = async () => {
-      try {
-        console.log('Checking for existing session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting session:', error);
-          if (isSubscribed) {
-            setLoading(false);
-          }
-          return;
-        }
-        
-        if (!isSubscribed) return;
-        
-        setSession(session);
-        
-        if (session?.user) {
-          const userObj: User = {
-            id: session.user.id,
-            email: session.user.email || undefined
-          };
-          setUser(userObj);
-          
-          try {
-            const [profile, isAdminUser] = await Promise.all([
-              fetchProfile(session.user.id),
-              checkIsAdmin(session.user.id)
-            ]);
-            
-            if (isSubscribed) {
-              setProfile(profile);
-              setIsAdmin(isAdminUser);
-            }
-          } catch (error) {
-            console.error('Error in initial auth setup:', error);
-          }
-        } else {
-          setUser(null);
-        }
-        
-        if (isSubscribed) {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error in checkSession:', error);
-        if (isSubscribed) {
-          setLoading(false);
-        }
-      }
-    };
-
-    // Add a fallback timeout to ensure loading state resolves
-    const fallbackTimeout = setTimeout(() => {
-      if (isSubscribed && loading) {
-        console.log('Auth loading timeout reached, setting loading to false');
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', !!session?.user);
+      if (!session) {
         setLoading(false);
       }
-    }, 5000); // 5 second timeout
+    });
 
-    checkSession();
+    // Failsafe timeout
+    const timeout = setTimeout(() => {
+      console.log('Auth timeout reached');
+      setLoading(false);
+    }, 3000);
 
     return () => {
-      isSubscribed = false;
-      clearTimeout(fallbackTimeout);
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -200,7 +140,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setLoading(true);
       await supabase.auth.signOut();
-      // Reset state immediately
       setUser(null);
       setSession(null);
       setProfile(null);
