@@ -1,13 +1,36 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
-// Simplified user fetching with better error handling
+// Enhanced user fetching with complete data from auth.users
 export async function fetchUsers(): Promise<UserWithRole[]> {
   try {
-    console.log('Fetching users...');
+    console.log('Fetching users with complete data...');
     
-    // Get profiles first with error handling
+    // Use the new enhanced function that gets real email addresses
+    const { data: completeUsers, error: completeError } = await supabase.rpc('get_all_users_with_complete_data');
+    
+    if (completeError) {
+      console.error('Error fetching complete user data:', completeError);
+      return [];
+    }
+    
+    if (completeUsers && completeUsers.length > 0) {
+      console.log(`Found ${completeUsers.length} users with complete data`);
+      const userList: UserWithRole[] = completeUsers.map(user => ({
+        id: user.id,
+        email: user.email || 'No email',
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+        role: (user.role || 'user') as UserRole,
+        created_at: user.created_at
+      }));
+      
+      return userList;
+    }
+    
+    console.log('No users found with complete data function, falling back to profiles method');
+    
+    // Fallback to profiles method
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url, created_at');
@@ -17,22 +40,19 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
       return [];
     }
     
-    console.log('Profiles fetched:', profiles?.length || 0);
-
-    // Get user roles with error handling
+    // Get user roles
     const { data: userRoles, error: rolesError } = await supabase
       .from('user_roles')
       .select('user_id, role');
       
     if (rolesError) {
       console.error('Error fetching user roles:', rolesError);
-      // Continue without roles instead of failing completely
     }
 
     // Create role lookup
     const roleMap = new Map(userRoles?.map(ur => [ur.user_id, ur.role]) || []);
 
-    // Return basic user list without edge function dependency
+    // Return basic user list
     const userList: UserWithRole[] = (profiles || []).map(profile => ({
       id: profile.id,
       email: 'Email not available',
@@ -46,6 +66,52 @@ export async function fetchUsers(): Promise<UserWithRole[]> {
   } catch (error) {
     console.error('Error in fetchUsers:', error);
     return [];
+  }
+}
+
+// Sync profiles with auth users
+export async function syncProfilesWithAuth(): Promise<{ synced_count: number; fixed_count: number }> {
+  try {
+    const { data, error } = await supabase.rpc('sync_profiles_with_auth');
+    
+    if (error) {
+      console.error('Error syncing profiles:', error);
+      throw error;
+    }
+    
+    return data[0] || { synced_count: 0, fixed_count: 0 };
+  } catch (error) {
+    console.error('Error syncing profiles with auth:', error);
+    throw error;
+  }
+}
+
+// Get admin user statistics
+export async function getAdminUserStats(): Promise<{
+  total_users: number;
+  admin_users: number;
+  regular_users: number;
+  users_without_profiles: number;
+  recent_signups: number;
+}> {
+  try {
+    const { data, error } = await supabase.rpc('get_admin_user_stats');
+    
+    if (error) {
+      console.error('Error getting admin stats:', error);
+      throw error;
+    }
+    
+    return data[0] || {
+      total_users: 0,
+      admin_users: 0,
+      regular_users: 0,
+      users_without_profiles: 0,
+      recent_signups: 0
+    };
+  } catch (error) {
+    console.error('Error getting admin user stats:', error);
+    throw error;
   }
 }
 

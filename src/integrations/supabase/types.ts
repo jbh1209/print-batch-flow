@@ -880,6 +880,16 @@ export type Database = {
         Args: { check_user_id: string }
         Returns: boolean
       }
+      get_admin_user_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          total_users: number
+          admin_users: number
+          regular_users: number
+          users_without_profiles: number
+          recent_signups: number
+        }[]
+      }
       get_all_users: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -892,6 +902,19 @@ export type Database = {
         Returns: {
           id: string
           email: string
+        }[]
+      }
+      get_all_users_with_complete_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+          full_name: string
+          avatar_url: string
+          role: string
+          created_at: string
+          last_sign_in_at: string
+          email_confirmed_at: string
         }[]
       }
       get_all_users_with_roles: {
@@ -929,6 +952,13 @@ export type Database = {
       set_user_role_admin: {
         Args: { _target_user_id: string; _new_role: string }
         Returns: boolean
+      }
+      sync_profiles_with_auth: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          synced_count: number
+          fixed_count: number
+        }[]
       }
       update_user_profile_admin: {
         Args: { _user_id: string; _full_name: string }

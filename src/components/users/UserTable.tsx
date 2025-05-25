@@ -9,7 +9,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Edit, Trash2, AlertTriangle, Calendar, Clock } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,9 +32,32 @@ interface UserTableProps {
 }
 
 export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString();
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return 'Never';
+    try {
+      return new Date(dateString).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -68,7 +91,6 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
 
   console.log('UserTable rendering with users:', users);
 
-  // Check if users is valid and has items
   const hasUsers = Array.isArray(users) && users.length > 0;
 
   return (
@@ -76,10 +98,15 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead>User Details</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
-            <TableHead>Created</TableHead>
+            <TableHead>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Created
+              </div>
+            </TableHead>
             <TableHead className="w-[100px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -90,7 +117,9 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                 <div className="flex flex-col items-center justify-center gap-2">
                   <AlertTriangle className="h-8 w-8 text-amber-500" />
                   <p>No users found</p>
-                  <p className="text-sm text-muted-foreground">This could be due to missing user data or permission issues</p>
+                  <p className="text-sm text-muted-foreground">
+                    This could be due to missing user data or permission issues. Try syncing profiles.
+                  </p>
                 </div>
               </TableCell>
             </TableRow>
@@ -98,15 +127,32 @@ export function UserTable({ users, onEdit, onDelete }: UserTableProps) {
             users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>
-                  <div className="font-medium">{user.full_name || 'No Name'}</div>
+                  <div className="space-y-1">
+                    <div className="font-medium">{user.full_name || 'No Name'}</div>
+                    <div className="text-xs text-muted-foreground">ID: {user.id.slice(0, 8)}...</div>
+                  </div>
                 </TableCell>
-                <TableCell>{user.email}</TableCell>
+                <TableCell>
+                  <div className="space-y-1">
+                    <div className="font-mono text-sm">
+                      {user.email === 'Email not available' ? (
+                        <span className="text-amber-600 italic">{user.email}</span>
+                      ) : (
+                        user.email
+                      )}
+                    </div>
+                  </div>
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
                     {user.role || 'user'}
                   </Badge>
                 </TableCell>
-                <TableCell>{user.created_at ? formatDate(user.created_at) : 'N/A'}</TableCell>
+                <TableCell>
+                  <div className="space-y-1">
+                    <div className="text-sm">{formatDate(user.created_at)}</div>
+                  </div>
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Button 

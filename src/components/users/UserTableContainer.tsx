@@ -1,12 +1,14 @@
 
 import React, { useState } from "react";
 import { UserTable } from "./UserTable";
+import { AdminDashboard } from "./AdminDashboard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { UserPlus } from "lucide-react";
+import { UserPlus, BarChart3 } from "lucide-react";
 import { UserForm } from "./UserForm";
 import { useUserManagement } from "@/contexts/UserManagementContext";
 import { UserFormData, UserWithRole } from "@/types/user-types";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function UserTableContainer() {
   const { users, createUser, updateUser, deleteUser } = useUserManagement();
@@ -53,37 +55,56 @@ export function UserTableContainer() {
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openAddUserDialog}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add User
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>
-                {editingUser ? 'Edit User' : 'Add New User'}
-              </DialogTitle>
-            </DialogHeader>
-            <UserForm 
-              initialData={editingUser ? {
-                email: editingUser.email,
-                full_name: editingUser.full_name,
-                role: editingUser.role
-              } : undefined}
-              onSubmit={editingUser ? handleEditUser : handleAddUser}
-              isEditing={!!editingUser}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
-      <UserTable 
-        users={users}
-        onEdit={openEditDialog}
-        onDelete={handleDeleteUser}
-      />
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <UserPlus className="h-4 w-4" />
+            User Management
+          </TabsTrigger>
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Admin Dashboard
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="users" className="space-y-4">
+          <div className="flex justify-end">
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={openAddUserDialog}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add User
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingUser ? 'Edit User' : 'Add New User'}
+                  </DialogTitle>
+                </DialogHeader>
+                <UserForm 
+                  initialData={editingUser ? {
+                    email: editingUser.email,
+                    full_name: editingUser.full_name,
+                    role: editingUser.role
+                  } : undefined}
+                  onSubmit={editingUser ? handleEditUser : handleAddUser}
+                  isEditing={!!editingUser}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+          <UserTable 
+            users={users}
+            onEdit={openEditDialog}
+            onDelete={handleDeleteUser}
+          />
+        </TabsContent>
+        
+        <TabsContent value="dashboard">
+          <AdminDashboard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

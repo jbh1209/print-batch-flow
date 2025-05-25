@@ -16,6 +16,7 @@ interface UserManagementContextType {
   deleteUser: (userId: string) => Promise<void>;
   checkAdminExists: () => Promise<void>;
   addAdminRole: (userId: string) => Promise<void>;
+  syncProfiles: () => Promise<void>;
 }
 
 const UserManagementContext = createContext<UserManagementContextType>({
@@ -29,6 +30,7 @@ const UserManagementContext = createContext<UserManagementContextType>({
   deleteUser: async () => {},
   checkAdminExists: async () => {},
   addAdminRole: async () => {},
+  syncProfiles: async () => {},
 });
 
 export const UserManagementProvider = ({ children }: { children: React.ReactNode }) => {
@@ -56,9 +58,9 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       if (Array.isArray(fetchedUsers)) {
         setUsers(fetchedUsers);
         
-        // If current user isn't in the list, add them with admin role
-        if (user && !fetchedUsers.some(u => u.id === user.id)) {
-          console.log('Current admin user not in list, adding them');
+        // If current user isn't in the list and we have a fallback, add them
+        if (user && fetchedUsers.length === 0) {
+          console.log('No users found, adding current admin user');
           const currentAdmin: UserWithRole = {
             id: user.id,
             email: user.email || 'Current admin',
@@ -67,7 +69,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
             role: 'admin',
             created_at: null
           };
-          setUsers(prev => [...prev, currentAdmin]);
+          setUsers([currentAdmin]);
         }
       } else {
         console.warn('Invalid user array returned:', fetchedUsers);
@@ -82,6 +84,22 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       setIsLoading(false);
     }
   }, [isAdmin, user]);
+
+  const syncProfiles = useCallback(async () => {
+    try {
+      const result = await userService.syncProfilesWithAuth();
+      if (result.synced_count > 0 || result.fixed_count > 0) {
+        toast.success(`Sync complete: ${result.synced_count} profiles created, ${result.fixed_count} profiles fixed`);
+        await fetchUsers(); // Refresh users after sync
+      } else {
+        toast.success('All profiles are already synced');
+      }
+    } catch (error: any) {
+      console.error('Error syncing profiles:', error);
+      toast.error(`Sync failed: ${error.message}`);
+      throw error;
+    }
+  }, [fetchUsers]);
 
   // Auto-refresh users when admin status changes
   useEffect(() => {
@@ -108,7 +126,6 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     try {
       await userService.createUser(userData);
       toast.success('User created successfully');
-      // Immediately fetch users to update the list
       await fetchUsers();
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -156,7 +173,6 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
       await userService.addAdminRole(userId);
       toast.success('Admin role successfully assigned');
       setAnyAdminExists(true);
-      // Reload the page after a short delay to show the updated UI
       setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
       console.error('Error setting admin role:', error);
@@ -176,6 +192,7 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     deleteUser,
     checkAdminExists,
     addAdminRole,
+    syncProfiles,
   };
 
   return (
