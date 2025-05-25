@@ -11,15 +11,21 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
 
+  console.log('ProtectedRoute - loading:', loading, 'user:', !!user);
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="animate-spin h-8 w-8 text-batchflow-primary" />
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="animate-spin h-8 w-8 text-batchflow-primary" />
+          <p className="text-sm text-gray-600">Loading your workspace...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
+    console.log('No user found, redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
 
