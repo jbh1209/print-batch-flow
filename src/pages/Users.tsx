@@ -1,33 +1,26 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Users as UsersIcon, AlertTriangle } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthDebugger } from "@/components/users/AuthDebugger";
-import { UserManagementProvider, useUserManagement } from "@/contexts/UserManagementContext";
+import { UserManagementProvider } from "@/contexts/UserManagementContext";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
 import { UserTableContainer } from "@/components/users/UserTableContainer";
 import { LoadingState } from "@/components/users/LoadingState";
 import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMessage";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 // Main content component separated from provider setup
 const UsersContent = () => {
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
-  const { 
-    error, 
-    isLoading, 
-    anyAdminExists, 
-    checkAdminExists 
-  } = useUserManagement();
+  const { user } = useAuth();
+  const { isAdmin, adminExists, isLoading, error } = useAdminAuth();
 
-  // Only need to check if admin exists, fetchUsers is handled in UserManagementContext now
-  useEffect(() => {
-    checkAdminExists();
-  }, [checkAdminExists]);
+  console.log('Users page state:', { isAdmin, adminExists, isLoading, user: !!user });
 
   // Show loading state
   if (isLoading) {
@@ -58,24 +51,22 @@ const UsersContent = () => {
         </Alert>
       )}
 
-      {!anyAdminExists ? (
+      {!adminExists ? (
         <AdminSetupForm />
       ) : !isAdmin ? (
         <AccessRestrictedMessage />
       ) : (
-        <UserTableContainer />
+        <UserManagementProvider>
+          <UserTableContainer />
+        </UserManagementProvider>
       )}
     </div>
   );
 };
 
-// Wrapper component that provides the UserManagementContext
+// Wrapper component
 const Users = () => {
-  return (
-    <UserManagementProvider>
-      <UsersContent />
-    </UserManagementProvider>
-  );
+  return <UsersContent />;
 };
 
 export default Users;

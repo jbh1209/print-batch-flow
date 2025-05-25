@@ -6,22 +6,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserManagement } from "@/contexts/UserManagementContext";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
+import * as userService from "@/services/userService";
 
 export function AdminSetupForm() {
   const { user } = useAuth();
-  const { addAdminRole } = useUserManagement();
-  const [userId, setUserId] = useState("");
+  const { refreshAdminStatus } = useAdminAuth();
+  const [userId, setUserId] = useState(user?.id || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
-  // Auto-fill the user ID when the component mounts and user is available
-  useState(() => {
-    if (user?.id) {
-      setUserId(user.id);
-    }
-  });
 
   const handleSetAsAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,8 +30,12 @@ export function AdminSetupForm() {
     setIsSubmitting(true);
     
     try {
-      await addAdminRole(userId);
-      setSuccessMessage("Admin role successfully assigned!");
+      await userService.addAdminRole(userId);
+      setSuccessMessage("Admin role successfully assigned! Refreshing...");
+      
+      // Refresh admin status and reload page
+      await refreshAdminStatus();
+      setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
       setErrorMessage(error.message || "Failed to set admin role");
     } finally {

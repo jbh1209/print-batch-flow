@@ -4,17 +4,16 @@ import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import * as userService from '@/services/userService';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 interface UserManagementContextType {
   users: UserWithRole[];
   isLoading: boolean;
   error: string | null;
-  anyAdminExists: boolean;
   fetchUsers: () => Promise<void>;
   createUser: (userData: UserFormData) => Promise<void>;
   updateUser: (userId: string, userData: UserFormData) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  checkAdminExists: () => Promise<void>;
   addAdminRole: (userId: string) => Promise<void>;
   syncProfiles: () => Promise<void>;
 }
@@ -23,26 +22,25 @@ const UserManagementContext = createContext<UserManagementContextType>({
   users: [],
   isLoading: false,
   error: null,
-  anyAdminExists: false,
   fetchUsers: async () => {},
   createUser: async () => {},
   updateUser: async () => {},
   deleteUser: async () => {},
-  checkAdminExists: async () => {},
   addAdminRole: async () => {},
   syncProfiles: async () => {},
 });
 
 export const UserManagementProvider = ({ children }: { children: React.ReactNode }) => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [anyAdminExists, setAnyAdminExists] = useState(false);
-  const { isAdmin, user } = useAuth();
+  const { user } = useAuth();
+  const { isAdmin } = useAdminAuth();
 
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) {
       console.log('Not admin, skipping fetchUsers');
+      setUsers([]);
       setIsLoading(false);
       return;
     }
@@ -103,24 +101,11 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
 
   // Auto-refresh users when admin status changes
   useEffect(() => {
-    console.log('UserManagementContext: isAdmin changed to', isAdmin);
     if (isAdmin) {
+      console.log('Admin status confirmed, loading users');
       fetchUsers();
     }
   }, [isAdmin, fetchUsers]);
-
-  const checkAdminExists = useCallback(async () => {
-    try {
-      setError(null);
-      const exists = await userService.checkAdminExists();
-      console.log('Admin exists:', exists);
-      setAnyAdminExists(exists);
-    } catch (error: any) {
-      console.error('Error checking admin existence:', error);
-      setError(`Error checking if admin exists: ${error.message}`);
-      setAnyAdminExists(false);
-    }
-  }, []);
 
   const createUser = useCallback(async (userData: UserFormData) => {
     try {
@@ -172,7 +157,6 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     try {
       await userService.addAdminRole(userId);
       toast.success('Admin role successfully assigned');
-      setAnyAdminExists(true);
       setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
       console.error('Error setting admin role:', error);
@@ -185,12 +169,10 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     users,
     isLoading,
     error,
-    anyAdminExists,
     fetchUsers,
     createUser,
     updateUser,
     deleteUser,
-    checkAdminExists,
     addAdminRole,
     syncProfiles,
   };
