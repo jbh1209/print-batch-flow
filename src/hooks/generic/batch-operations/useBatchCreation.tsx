@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,6 +14,7 @@ import {
 } from "@/utils/batch/batchDataProcessor";
 import { isExistingTable } from "@/utils/database/tableUtils";
 import { processBatchJobs } from "@/utils/batch/batchJobProcessor";
+import { addBusinessDays } from "date-fns";
 
 export function useBatchCreation(productType: string, tableName: string) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(false);
@@ -54,11 +56,22 @@ export function useBatchCreation(productType: string, tableName: string) {
       // Calculate sheets required
       const sheetsRequired = calculateSheetsRequired(selectedJobs);
       
-      // Find the earliest due date among selected jobs
-      const earliestDueDate = findEarliestDueDate(selectedJobs);
+      // Find the earliest due date among selected jobs for reference
+      const earliestJobDueDate = findEarliestDueDate(selectedJobs);
       
       // Get the correct SLA days for this product type
       const slaTarget = slaTargetDays || config.slaTargetDays || 3;
+      
+      // Calculate the actual batch due date: today + SLA target days
+      const today = new Date();
+      const batchDueDate = addBusinessDays(today, slaTarget);
+      
+      console.log(`Batch due date calculation:`, {
+        today: today.toISOString(),
+        slaTargetDays: slaTarget,
+        calculatedBatchDueDate: batchDueDate.toISOString(),
+        earliestJobDueDate: earliestJobDueDate.toISOString()
+      });
       
       // Get common properties from jobs for the batch
       const firstJob = selectedJobs[0];
@@ -72,15 +85,15 @@ export function useBatchCreation(productType: string, tableName: string) {
         paperType,
         laminationType,
         sheetsRequired,
-        dueDate: earliestDueDate.toISOString(),
+        dueDate: batchDueDate.toISOString(),
         slaTarget
       });
       
-      // Create batch data object
+      // Create batch data object with the calculated batch due date
       const batchData = createBatchDataObject(
         batchName,
         sheetsRequired,
-        earliestDueDate,
+        batchDueDate, // Use calculated batch due date instead of earliest job due date
         laminationType,
         paperType,
         user.id,
@@ -120,7 +133,7 @@ export function useBatchCreation(productType: string, tableName: string) {
       
       // Report success or failure
       if (processResult.success) {
-        toast.success(`Batch created with ${selectedJobs.length} jobs`);
+        toast.success(`Batch created with ${selectedJobs.length} jobs, due ${batchDueDate.toLocaleDateString()}`);
         return batch;
       } else {
         // Try to delete the batch since jobs update failed

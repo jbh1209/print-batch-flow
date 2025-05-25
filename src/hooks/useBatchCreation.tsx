@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
@@ -6,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Job, LaminationType } from "@/components/business-cards/JobsTable";
 import { generateAndUploadBatchPDFs } from "@/utils/batchPdfOperations";
 import { isExistingTable } from "@/utils/database/tableValidation";
+import { addBusinessDays } from "date-fns";
 
 // Standardized product type codes for batch naming
 const PRODUCT_TYPE_CODES = {
@@ -108,11 +110,23 @@ export function useBatchCreation() {
       // Generate batch name with standardized format
       const name = customBatchName || await generateBatchNumber("business_cards");
       
-      // Get earliest due date from jobs for the batch due date
-      const earliestDueDate = selectedJobs.reduce((earliest, job) => {
+      // Get earliest due date from jobs for reference
+      const earliestJobDueDate = selectedJobs.reduce((earliest, job) => {
         const jobDate = new Date(job.due_date);
         return jobDate < earliest ? jobDate : earliest;
       }, new Date(selectedJobs[0].due_date));
+      
+      // Calculate the actual batch due date: today + SLA target days (default 3 days for business cards)
+      const today = new Date();
+      const slaTargetDays = 3; // Default SLA for business cards
+      const batchDueDate = addBusinessDays(today, slaTargetDays);
+      
+      console.log(`Batch due date calculation:`, {
+        today: today.toISOString(),
+        slaTargetDays,
+        calculatedBatchDueDate: batchDueDate.toISOString(),
+        earliestJobDueDate: earliestJobDueDate.toISOString()
+      });
       
       let overviewUrl = "";
       let impositionUrl = "";
@@ -142,10 +156,11 @@ export function useBatchCreation() {
           name,
           lamination_type: laminationType as any, // Type assertion to handle expanded types
           sheets_required: sheetsRequired,
-          due_date: earliestDueDate.toISOString(),
+          due_date: batchDueDate.toISOString(), // Use calculated batch due date
           created_by: user.id,
           front_pdf_url: impositionUrl || null,
-          back_pdf_url: overviewUrl || null
+          back_pdf_url: overviewUrl || null,
+          sla_target_days: slaTargetDays
         })
         .select()
         .single();
@@ -232,7 +247,7 @@ export function useBatchCreation() {
       }
       
       sonnerToast.success("Batch created successfully", {
-        description: `Created batch ${name} with ${selectedJobs.length} jobs`
+        description: `Created batch ${name} with ${selectedJobs.length} jobs, due ${batchDueDate.toLocaleDateString()}`
       });
       
       return true;

@@ -1,8 +1,10 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
+import { addBusinessDays } from 'date-fns';
 
 export function useFlyerJobOperations() {
   const { user } = useAuth();
@@ -120,6 +122,23 @@ export function useFlyerJobOperations() {
       // Generate batch name with standardized format
       const batchNumber = await generateFlyerBatchNumber();
       
+      // Calculate the actual batch due date: today + SLA target days
+      const today = new Date();
+      const batchDueDate = addBusinessDays(today, batchProperties.slaTargetDays);
+      
+      // Get earliest job due date for reference
+      const earliestJobDueDate = selectedJobs.reduce((earliest, job) => {
+        const jobDate = new Date(job.due_date);
+        return jobDate < earliest ? jobDate : earliest;
+      }, new Date(selectedJobs[0].due_date));
+      
+      console.log(`Flyer batch due date calculation:`, {
+        today: today.toISOString(),
+        slaTargetDays: batchProperties.slaTargetDays,
+        calculatedBatchDueDate: batchDueDate.toISOString(),
+        earliestJobDueDate: earliestJobDueDate.toISOString()
+      });
+      
       // Create the batch - use type assertion to handle expanded lamination types
       const { data: batchData, error: batchError } = await supabase
         .from('batches')
@@ -128,7 +147,7 @@ export function useFlyerJobOperations() {
           paper_type: batchProperties.paperType,
           paper_weight: batchProperties.paperWeight,
           lamination_type: batchProperties.laminationType as any, // Type assertion to bypass type check
-          due_date: new Date().toISOString(), // Default to current date
+          due_date: batchDueDate.toISOString(), // Use calculated batch due date
           printer_type: batchProperties.printerType,
           sheet_size: batchProperties.sheetSize,
           sheets_required: sheetsRequired,
@@ -153,7 +172,7 @@ export function useFlyerJobOperations() {
       
       if (updateError) throw updateError;
       
-      toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs`);
+      toast.success(`Batch ${batchNumber} created with ${selectedJobs.length} jobs, due ${batchDueDate.toLocaleDateString()}`);
       return batchData;
       
     } catch (err) {
