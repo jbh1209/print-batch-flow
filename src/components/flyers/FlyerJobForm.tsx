@@ -16,7 +16,7 @@ import FormActions from "../business-cards/FormActions";
 interface FlyerJobFormProps {
   mode?: 'create' | 'edit';
   initialData?: FlyerJob;
-  productType?: string; // Added productType prop
+  productType?: string;
 }
 
 export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flyer' }: FlyerJobFormProps) => {
@@ -47,7 +47,8 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
 
   // Reset form with proper data when initialData changes
   useEffect(() => {
-    if (initialData) {
+    if (initialData && mode === 'edit') {
+      console.log('Resetting form with data:', initialData);
       form.reset({
         name: initialData.name,
         job_number: initialData.job_number,
@@ -58,13 +59,12 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
         due_date: new Date(initialData.due_date)
       });
     }
-  }, [initialData, form]);
+  }, [initialData, form, mode]);
 
   useEffect(() => {
     if (selectedFile) {
       form.setValue("file", selectedFile, { shouldValidate: true });
     } else if (mode === 'create') {
-      // Only clear the file field if we're creating (required for new jobs)
       form.setValue("file", undefined as any, { shouldValidate: false });
     }
   }, [selectedFile, form, mode]);
@@ -78,7 +78,6 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
   };
 
   const onSubmit = async (data: FlyerJobFormValues) => {
-    // Pass the job ID if we're in edit mode
     await handleSubmit(data, selectedFile, mode === 'edit' ? initialData?.id : undefined);
   };
 

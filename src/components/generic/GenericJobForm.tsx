@@ -36,10 +36,7 @@ export const GenericJobForm = ({
     maxSizeInMB: 10
   });
 
-  // Create form schema based on product configuration
   const formSchema = createJobFormSchema(config);
-  
-  // Get default values based on product configuration
   const defaultValues = getDefaultFormValues(config);
 
   const form = useForm<GenericJobFormValues>({
@@ -49,7 +46,8 @@ export const GenericJobForm = ({
 
   // Reset form with proper data when initialData changes
   useEffect(() => {
-    if (initialData) {
+    if (initialData && mode === 'edit') {
+      console.log(`Resetting ${config.tableName} form with data:`, initialData);
       const resetData: any = {
         name: initialData.name,
         job_number: initialData.job_number,
@@ -65,21 +63,20 @@ export const GenericJobForm = ({
       if (initialData.uv_varnish) resetData.uv_varnish = initialData.uv_varnish;
       if (initialData.sides) resetData.sides = initialData.sides;
 
+      console.log(`Reset data for ${config.tableName}:`, resetData);
       form.reset(resetData);
     }
-  }, [initialData, form]);
+  }, [initialData, form, mode, config.tableName]);
 
   useEffect(() => {
     if (selectedFile) {
       form.setValue("file", selectedFile, { shouldValidate: true });
     } else if (mode === 'create') {
-      // Only clear the file field if we're creating (required for new jobs)
       form.setValue("file", undefined as any, { shouldValidate: false });
     }
   }, [selectedFile, form, mode]);
 
   const onSubmit = async (data: GenericJobFormValues) => {
-    // Pass the job ID if we're in edit mode
     await handleSubmit(data, selectedFile, mode === 'edit' ? initialData?.id : undefined);
   };
 

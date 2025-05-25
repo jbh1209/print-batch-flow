@@ -36,7 +36,6 @@ const PostcardJobEdit = () => {
       if (!user || !jobId) return;
 
       try {
-        // Remove user_id filter to allow any authenticated user to edit any job
         const { data, error } = await supabase
           .from('postcard_jobs')
           .select('*')
@@ -44,6 +43,8 @@ const PostcardJobEdit = () => {
           .single();
 
         if (error) throw error;
+        
+        console.log('Fetched postcard job data:', data);
         setJob(data as PostcardJob);
       } catch (err) {
         console.error('Error fetching job:', err);
@@ -72,10 +73,13 @@ const PostcardJobEdit = () => {
   // Transform PostcardJob to match FlyerJobForm expectations
   const transformedJob = {
     ...job,
-    size: job.size as any, // Cast to match FlyerJobForm expectations
+    size: job.size as any,
     paper_type: job.paper_type as any,
-    status: job.status as "queued" | "batched" | "completed" | "cancelled" // Explicitly cast status to match FlyerJob type
+    paper_weight: job.paper_weight as string,
+    status: job.status as "queued" | "batched" | "completed" | "cancelled"
   };
+
+  console.log('Transformed postcard job for form:', transformedJob);
 
   return <FlyerJobForm mode="edit" initialData={transformedJob} productType="postcard" />;
 };

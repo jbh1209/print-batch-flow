@@ -23,7 +23,6 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
       if (!user || !jobId) return;
 
       try {
-        // Use type-safe queries based on table name, but remove user_id filter
         let data: any = null;
         let error: any = null;
 
@@ -69,6 +68,8 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
         }
 
         if (error) throw error;
+        
+        console.log(`Fetched ${config.tableName} job data:`, data);
         setJob(data as BaseJob);
       } catch (err) {
         console.error('Error fetching job:', err);
