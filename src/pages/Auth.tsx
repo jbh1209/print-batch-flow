@@ -56,12 +56,23 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md px-4">
-        <Card>
+    <div 
+      className="flex justify-center items-center min-h-screen relative"
+      style={{
+        backgroundImage: `url('/lovable-uploads/cead37e0-6caa-4eab-aacc-372ee18df48c.png')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Dark overlay for better contrast */}
+      <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+      
+      <div className="w-full max-w-md px-4 relative z-10">
+        <Card className="backdrop-blur-sm bg-white/90 shadow-2xl">
           <CardHeader>
-            <CardTitle>Login</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
+            <CardTitle className="text-2xl font-bold text-center text-gray-800">BatchFlow Login</CardTitle>
+            <CardDescription className="text-center">Enter your credentials to access your printing workflow</CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
