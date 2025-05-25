@@ -71,7 +71,7 @@ const BusinessCards = () => {
               <Button 
                 variant="outline" 
                 className="w-full mt-4"
-                onClick={() => setActiveTab("batches")}
+                onClick={() => navigate("/batches/business-cards/batches")}
               >
                 View All Batches
               </Button>
