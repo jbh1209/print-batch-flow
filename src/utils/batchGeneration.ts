@@ -48,7 +48,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     console.log("Default optimization - sheets required:", optimization.sheetsRequired);
   }
   
-  // Draw batch info in top section (takes up about 150px)
+  // Draw batch info in top section - more compact layout
   drawBatchInfo(
     page, 
     batchName, 
@@ -59,13 +59,13 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     optimization.sheetsRequired
   );
   
-  // Calculate proper spacing for table position
-  // Batch info takes ~150px, so start table at 220px from top to give more space
-  const tableStartY = pageHeight - margin - 220;
+  // Better spacing calculations - batch info is more compact now
+  // Batch info takes ~120px, start table at 180px from top
+  const tableStartY = pageHeight - margin - 180;
   
   const colWidths = isBusinessCardJobs(jobs) 
-    ? [150, 80, 70, 80, 100]
-    : [150, 60, 60, 100]; // Wider column for stock type
+    ? [120, 70, 60, 70, 90] // Reduced column widths
+    : [120, 50, 50, 80]; // Reduced column widths for non-business cards
   
   const colStarts = calculateColumnStarts(margin, colWidths);
   
@@ -83,23 +83,23 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     isBusinessCardJobs(jobs) ? optimization.distribution : null
   );
   
-  // Calculate grid layout for preview area - ensure enough space between table and previews
-  // Add 60px buffer between table end and preview start
-  const previewStartY = Math.min(finalTableY - 60, pageHeight - 450); // Ensure previews don't go too high
-  const availablePreviewHeight = previewStartY - margin - 60; // Leave more space for footer
+  // Calculate grid layout for preview area with better spacing
+  // Add 40px buffer between table end and preview start
+  const previewStartY = Math.min(finalTableY - 40, pageHeight - 350);
+  const availablePreviewHeight = previewStartY - margin - 80; // More space for footer
   
-  // Calculate grid config with proper spacing - fix property names to match GridConfig interface
+  // Calculate grid config with proper spacing and reduced preview size
   const baseGridConfig = calculateGridLayout(jobs.length, pageHeight);
   const gridConfig = {
-    cols: baseGridConfig.columns, // Map columns to cols
-    rows: baseGridConfig.rows,
-    cellWidth: baseGridConfig.cellWidth,
-    cellHeight: Math.min(baseGridConfig.cellHeight, availablePreviewHeight / baseGridConfig.rows),
+    cols: baseGridConfig.columns,
+    rows: Math.min(baseGridConfig.rows, 2), // Limit to 2 rows max
+    cellWidth: Math.min(baseGridConfig.cellWidth, 80), // Smaller preview cells
+    cellHeight: Math.min(baseGridConfig.cellHeight, availablePreviewHeight / 2), // Ensure fit
     startY: previewStartY,
     maxHeight: availablePreviewHeight
   };
   
-  console.log("Grid layout positioning:", {
+  console.log("Improved grid layout positioning:", {
     tableStartY,
     finalTableY, 
     previewStartY,
@@ -107,7 +107,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     gridConfig
   });
   
-  // Add job previews in grid layout - starting below the jobs table with proper spacing
+  // Add job previews in grid layout - smaller and better positioned
   await addJobPreviews(
     page,
     jobs,

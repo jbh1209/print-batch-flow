@@ -1,3 +1,4 @@
+
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
@@ -25,26 +26,26 @@ export function drawTableRows(
 ) {
   let y = startY;
   
-  // Limit display to top 8 jobs to prevent overlap with previews
-  const displayJobs = jobs.slice(0, 8);
+  // Limit display to top 6 jobs to prevent overlap with previews
+  const displayJobs = jobs.slice(0, 6);
   
   displayJobs.forEach((job, index) => {
-    // Job number (truncate if too long)
+    // Job number (truncate more aggressively for better fit)
     const jobNumber = getJobNumber(job);
-    const displayText = jobNumber.length > 18 ? jobNumber.substring(0, 15) + '...' : jobNumber;
+    const displayText = jobNumber.length > 14 ? jobNumber.substring(0, 11) + '...' : jobNumber;
     page.drawText(displayText, {
       x: colStarts[0],
       y,
-      size: 9, // Smaller font
+      size: 8, // Smaller font
       font
     });
     
-    // Due date (formatted)
-    const dueDate = job.due_date ? format(new Date(job.due_date), 'MMM d') : 'N/A';
+    // Due date (formatted more compactly)
+    const dueDate = job.due_date ? format(new Date(job.due_date), 'M/d') : 'N/A';
     page.drawText(dueDate, {
       x: colStarts[1],
       y,
-      size: 9, // Smaller font
+      size: 8, // Smaller font
       font
     });
     
@@ -52,7 +53,7 @@ export function drawTableRows(
     page.drawText(job.quantity.toString(), {
       x: colStarts[2],
       y,
-      size: 9, // Smaller font
+      size: 8, // Smaller font
       font
     });
     
@@ -63,7 +64,7 @@ export function drawTableRows(
       page.drawText(doubleSided, {
         x: colStarts[3],
         y,
-        size: 9, // Smaller font
+        size: 8, // Smaller font
         font
       });
     } else if (isFlyerJobs([job])) {
@@ -71,7 +72,7 @@ export function drawTableRows(
       page.drawText(flyerJob.size || 'N/A', {
         x: colStarts[3],
         y,
-        size: 9, // Smaller font
+        size: 8, // Smaller font
         font
       });
     } else if (isSleeveJobs([job])) {
@@ -80,13 +81,13 @@ export function drawTableRows(
       page.drawText(stockType || 'Standard', {
         x: colStarts[3],
         y,
-        size: 9, // Smaller font
+        size: 8, // Smaller font
         font
       });
     }
     
-    // Update y for next row - reduced vertical spacing
-    y -= 15; // Reduced from 20 to 15
+    // Update y for next row - further reduced vertical spacing
+    y -= 12; // Reduced from 15 to 12
   });
   
   // If there are more jobs than we displayed, add a note
@@ -94,12 +95,12 @@ export function drawTableRows(
     page.drawText(`+ ${jobs.length - displayJobs.length} more jobs`, {
       x: colStarts[0],
       y: y - 5,
-      size: 8,
+      size: 7,
       font,
       color: rgb(0.5, 0.5, 0.5)
     });
   }
   
   // Return the final Y position to help position elements that follow the table
-  return y - 20; // Extra padding below the table
+  return y - 15; // Reduced extra padding
 }
