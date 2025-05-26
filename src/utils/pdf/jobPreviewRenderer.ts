@@ -1,4 +1,3 @@
-
 import { PDFDocument, PDFPage, rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
@@ -137,8 +136,8 @@ async function drawJobPreviewWithPdf(
     // Copy the first page from the source PDF
     const [copiedPage] = await targetPdf.copyPages(sourcePdf, [0]);
     
-    // Add the copied page to the target PDF to get an embedded page
-    const addedPage = targetPdf.addPage(copiedPage);
+    // Embed the copied page to get a PDFEmbeddedPage
+    const embeddedPage = await targetPdf.embedPage(copiedPage);
     
     // Get the original size for scaling calculations
     const originalSize = copiedPage.getSize();
@@ -153,19 +152,13 @@ async function drawJobPreviewWithPdf(
     const previewX = x + (width - scaledWidth) / 2;
     const previewY = y - height + 20 + (height - 20 - scaledHeight) / 2; // 20px for text
     
-    // Draw the added page content
-    page.drawPage(addedPage, {
+    // Draw the embedded page content
+    page.drawPage(embeddedPage, {
       x: previewX,
       y: previewY,
       width: scaledWidth,
       height: scaledHeight
     });
-    
-    // Remove the temporary page from the document since we only needed it for drawing
-    const pageIndex = targetPdf.getPages().indexOf(addedPage);
-    if (pageIndex > 0) { // Don't remove the main page (index 0)
-      targetPdf.removePage(pageIndex);
-    }
     
     console.log(`Successfully rendered PDF preview for job ${job.id}`);
     
