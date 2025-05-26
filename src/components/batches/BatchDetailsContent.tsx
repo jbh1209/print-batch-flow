@@ -60,7 +60,10 @@ const BatchDetailsContent = ({
     
     try {
       // Generate the PDF bytes - ensure we pass the sheets_required from the batch
-      console.log("Generating overview with sheets required:", batch.sheets_required);
+      console.log("=== BATCH DETAILS CONTENT - GENERATING OVERVIEW ===");
+      console.log("Batch sheets_required:", batch.sheets_required);
+      console.log("Type of batch.sheets_required:", typeof batch.sheets_required);
+      
       const pdfBytes = await generateBatchOverview(
         convertToBaseJobs(relatedJobs),
         batch.name,
@@ -159,7 +162,10 @@ const BatchDetailsContent = ({
       if (!overviewPdfUrl) {
         // If no overview PDF exists yet, generate one with the correct sheets required
         if (relatedJobs.length > 0) {
-          console.log("Generating new overview with sheets required:", batch.sheets_required);
+          console.log("=== BATCH DETAILS CONTENT - DOWNLOAD OVERVIEW ===");
+          console.log("Generating new overview with batch.sheets_required:", batch.sheets_required);
+          console.log("Type of batch.sheets_required:", typeof batch.sheets_required);
+          
           // Generate the PDF bytes with the actual sheets required from the batch
           const pdfBytes = await generateBatchOverview(
             convertToBaseJobs(relatedJobs),

@@ -12,6 +12,9 @@ export function drawTableHeader(
   isBusinessCard: boolean = false,
   isSleeve: boolean = false
 ) {
+  console.log("=== TABLE HEADER RENDERER - DRAW TABLE HEADER CALLED ===");
+  console.log("This function should NOT draw any black lines");
+  
   // Draw header row background - reduced height
   page.drawRectangle({
     x: margin - 5,
@@ -38,5 +41,6 @@ export function drawTableHeader(
     });
   });
 
-  // Completely removed separator line - no drawLine call at all
+  console.log("=== TABLE HEADER RENDERER - NO BLACK LINE DRAWN ===");
+  // IMPORTANT: NO drawLine call here - black line removed!
 }

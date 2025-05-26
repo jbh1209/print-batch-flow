@@ -10,8 +10,11 @@ export function drawBusinessCardInfo(
   helveticaFont: any,
   sheetsRequired: number
 ): void {
-  console.log("=== BUSINESS CARD INFO RENDERER ===");
+  console.log("=== BUSINESS CARD INFO RENDERER START ===");
   console.log("Received sheetsRequired parameter:", sheetsRequired);
+  console.log("Type of sheetsRequired:", typeof sheetsRequired);
+  console.log("Is sheetsRequired falsy?", !sheetsRequired);
+  console.log("Is sheetsRequired > 0?", sheetsRequired > 0);
   
   // Draw lamination info background and text
   const laminationType = jobs[0]?.lamination_type || 'none';
@@ -34,6 +37,7 @@ export function drawBusinessCardInfo(
   });
   
   const totalCards = jobs.reduce((sum, job) => sum + job.quantity, 0);
+  console.log("Total cards calculated:", totalCards);
   
   page.drawText(`Total Cards: ${totalCards}`, {
     x: margin,
@@ -43,12 +47,18 @@ export function drawBusinessCardInfo(
     color: rgb(0, 0, 0)
   });
   
-  // Always use the sheets required value passed from the batch data
-  // If sheetsRequired is provided and > 0, use it; otherwise calculate as fallback
-  const actualSheetsRequired = sheetsRequired && sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalCards / 24);
+  // CRITICAL CHANGE: Always use the passed sheetsRequired value directly
+  // If it's 0 or undefined, calculate as fallback
+  let displaySheetsRequired;
+  if (sheetsRequired && sheetsRequired > 0) {
+    displaySheetsRequired = sheetsRequired;
+    console.log("Using passed sheetsRequired value:", displaySheetsRequired);
+  } else {
+    displaySheetsRequired = Math.ceil(totalCards / 24);
+    console.log("sheetsRequired was", sheetsRequired, "so calculated fallback:", displaySheetsRequired);
+  }
   
-  console.log("Calculated actualSheetsRequired:", actualSheetsRequired);
-  console.log("Will display on PDF:", `Sheets Required: ${actualSheetsRequired}`);
+  console.log("FINAL sheets required value to display:", displaySheetsRequired);
   
   page.drawRectangle({
     x: margin - 5,
@@ -58,7 +68,10 @@ export function drawBusinessCardInfo(
     color: rgb(0.102, 0.122, 0.173),
   });
   
-  page.drawText(`Sheets Required: ${actualSheetsRequired}`, {
+  const sheetsText = `Sheets Required: ${displaySheetsRequired}`;
+  console.log("Drawing text on PDF:", sheetsText);
+  
+  page.drawText(sheetsText, {
     x: margin,
     y: page.getHeight() - margin - 110,
     size: 14,

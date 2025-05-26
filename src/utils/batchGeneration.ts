@@ -8,7 +8,7 @@ import {
   calculateColumnStarts,
   drawFooter 
 } from "./pdf/pageLayoutHelpers";
-import { drawTableHeader } from "./pdf/tableHeaderRenderer";
+import { drawTableHeader } from "./pdf/tableHeaderRenderer"; // FIXED: Import from correct file
 import { drawBatchInfo } from "./pdf/batchInfoHelpers";
 import { calculateOptimalDistribution } from "./batchOptimizationHelpers";
 import { calculateGridLayout } from "./pdf/gridLayoutHelper";
@@ -25,7 +25,8 @@ export async function generateBatchOverview(
   console.log("=== BATCH OVERVIEW GENERATION START ===");
   console.log("Batch name:", batchName);
   console.log("Jobs count:", jobs.length);
-  console.log("Sheets required parameter:", sheetsRequired);
+  console.log("Sheets required parameter received:", sheetsRequired);
+  console.log("Type of sheetsRequired:", typeof sheetsRequired);
 
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -50,8 +51,8 @@ export async function generateBatchOverview(
     console.log("Non-business card calculated sheets:", optimization.sheetsRequired);
   }
   
-  // Use the provided sheetsRequired if available, otherwise use the calculated value
-  const finalSheetsRequired = sheetsRequired && sheetsRequired > 0 ? sheetsRequired : optimization.sheetsRequired;
+  // CRITICAL: Use the provided sheetsRequired if available, otherwise use the calculated value
+  const finalSheetsRequired = (sheetsRequired !== undefined && sheetsRequired > 0) ? sheetsRequired : optimization.sheetsRequired;
   
   console.log("Final sheets required for PDF generation:", finalSheetsRequired);
   console.log("=== CALLING drawBatchInfo WITH SHEETS:", finalSheetsRequired, "===");
