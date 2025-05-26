@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
@@ -60,11 +59,12 @@ const BatchDetailsContent = ({
     toast.loading("Generating batch overview PDF...");
     
     try {
-      // Generate the PDF bytes - pass the actual sheets required from the batch
+      // Generate the PDF bytes - ensure we pass the sheets_required from the batch
+      console.log("Generating overview with sheets required:", batch.sheets_required);
       const pdfBytes = await generateBatchOverview(
         convertToBaseJobs(relatedJobs),
         batch.name,
-        batch.sheets_required // Pass the actual sheets required value from the batch
+        batch.sheets_required || 0 // Ensure we pass the actual sheets required value
       );
       
       // Upload to storage
@@ -157,9 +157,28 @@ const BatchDetailsContent = ({
       const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
       
       if (!overviewPdfUrl) {
-        // If no overview PDF exists yet, try to generate one with the correct sheets required
+        // If no overview PDF exists yet, generate one with the correct sheets required
         if (relatedJobs.length > 0) {
-          await handleGenerateAndUploadOverview();
+          console.log("Generating new overview with sheets required:", batch.sheets_required);
+          // Generate the PDF bytes with the actual sheets required from the batch
+          const pdfBytes = await generateBatchOverview(
+            convertToBaseJobs(relatedJobs),
+            batch.name,
+            batch.sheets_required || 0
+          );
+          
+          // Create a blob and download it directly
+          const blob = new Blob([pdfBytes], { type: "application/pdf" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `${batch.name}-overview.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          
+          toast.success("Batch overview sheet downloaded successfully");
           return;
         } else {
           toast.error("No batch overview sheet available", {
@@ -169,7 +188,7 @@ const BatchDetailsContent = ({
         }
       }
 
-      console.log("Downloading batch overview sheet:", overviewPdfUrl);
+      console.log("Downloading existing batch overview sheet:", overviewPdfUrl);
       toastId = toast.loading("Downloading batch overview sheet...");
       
       await handlePdfAction(overviewPdfUrl, 'download', `${batch.name}-overview.pdf`);

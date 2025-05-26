@@ -43,7 +43,9 @@ export async function generateBatchOverview(
   }
   
   // Use the provided sheetsRequired if available, otherwise use the calculated value
-  const finalSheetsRequired = sheetsRequired || optimization.sheetsRequired;
+  const finalSheetsRequired = sheetsRequired && sheetsRequired > 0 ? sheetsRequired : optimization.sheetsRequired;
+  
+  console.log("Final sheets required for PDF generation:", finalSheetsRequired);
   
   // Draw batch info in top section with the correct sheets required value
   drawBatchInfo(
