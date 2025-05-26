@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Job } from "@/components/business-cards/JobsTable";
+import { Job, LaminationType } from "@/components/business-cards/JobsTable";
 
 interface UseBusinessCardJobsReturn {
   jobs: Job[];
@@ -10,7 +10,7 @@ interface UseBusinessCardJobsReturn {
   error: string | null;
   selectedJobs: string[];
   filterView: "all" | "queued" | "batched" | "completed";
-  laminationFilter: string | null;
+  laminationFilter: LaminationType | null;
   filterCounts: {
     all: number;
     queued: number;
@@ -19,7 +19,7 @@ interface UseBusinessCardJobsReturn {
   };
   // Actions
   setFilterView: (view: "all" | "queued" | "batched" | "completed") => void;
-  setLaminationFilter: (filter: string | null) => void;
+  setLaminationFilter: (filter: LaminationType | null) => void;
   handleSelectJob: (jobId: string, isSelected: boolean) => void;
   handleSelectAllJobs: (isSelected: boolean) => void;
   handleDeleteJob: (jobId: string) => Promise<void>;
@@ -34,7 +34,7 @@ export const useBusinessCardJobs = (): UseBusinessCardJobsReturn => {
   const [error, setError] = useState<string | null>(null);
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
   const [filterView, setFilterView] = useState<"all" | "queued" | "batched" | "completed">("all");
-  const [laminationFilter, setLaminationFilter] = useState<string | null>(null);
+  const [laminationFilter, setLaminationFilter] = useState<LaminationType | null>(null);
   const [filterCounts, setFilterCounts] = useState({
     all: 0,
     queued: 0,
@@ -73,7 +73,7 @@ export const useBusinessCardJobs = (): UseBusinessCardJobsReturn => {
         query = query.eq('status', filterView);
       }
 
-      if (laminationFilter) {
+      if (laminationFilter && laminationFilter !== 'none') {
         query = query.eq('lamination_type', laminationFilter);
       }
 

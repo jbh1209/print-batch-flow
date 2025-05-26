@@ -8,6 +8,7 @@ import { useBusinessCardJobs } from "@/hooks/useBusinessCardJobs";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const BusinessCardJobs = () => {
   const navigate = useNavigate();
