@@ -114,6 +114,7 @@ const BusinessCardJobs = () => {
           selectedJobs={selectedJobs}
           onSelectJob={handleSelectJob}
           onSelectAllJobs={(isSelected) => handleSelectAllJobs(isSelected, jobs)}
+          deleteJob={deleteJob}
         />
       </div>
     </div>

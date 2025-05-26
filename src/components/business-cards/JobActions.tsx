@@ -18,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { MoreHorizontal, Pencil, Trash2, Eye, Download } from "lucide-react";
@@ -77,33 +76,16 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
     try {
       console.log("Starting job deletion for ID:", jobId);
       
-      const { error } = await supabase
-        .from("business_card_jobs")
-        .delete()
-        .eq("id", jobId);
-
-      if (error) {
-        console.error("Supabase deletion error:", error);
-        throw new Error(`Database error: ${error.message}`);
-      }
-
-      console.log("Job deleted successfully from database");
-      sonnerToast.success("Job deleted successfully");
-      
       // Close dialog first
       setShowDeleteDialog(false);
       
-      // Call the callback after a brief delay to ensure UI updates
+      // Call the callback immediately to trigger refresh
       if (onJobDeleted) {
-        setTimeout(() => {
-          try {
-            onJobDeleted();
-          } catch (callbackError) {
-            console.error("Error in onJobDeleted callback:", callbackError);
-            // Don't throw here as the deletion was successful
-          }
-        }, 100);
+        console.log("Calling onJobDeleted callback");
+        onJobDeleted();
       }
+      
+      sonnerToast.success("Job deleted successfully");
       
     } catch (error) {
       console.error("Job deletion failed:", error);

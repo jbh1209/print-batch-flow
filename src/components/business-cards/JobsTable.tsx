@@ -32,6 +32,7 @@ interface JobsTableProps {
   onSelectJob: (jobId: string, isSelected: boolean) => void;
   onSelectAllJobs: (isSelected: boolean) => void;
   error?: string | null;
+  deleteJob?: (jobId: string) => Promise<boolean>;
 }
 
 const JobsTable = ({ 
@@ -41,7 +42,8 @@ const JobsTable = ({
   selectedJobs,
   onSelectJob,
   onSelectAllJobs,
-  error
+  error,
+  deleteJob
 }: JobsTableProps) => {
   const [selectAll, setSelectAll] = useState(false);
 
@@ -61,6 +63,25 @@ const JobsTable = ({
   const isJobSelectable = (job: Job) => {
     // Only queued jobs can be selected for batching
     return job.status === "queued";
+  };
+
+  const handleJobDeleted = async (jobId: string) => {
+    console.log("Handling job deletion for:", jobId);
+    
+    if (deleteJob) {
+      try {
+        const success = await deleteJob(jobId);
+        if (success) {
+          console.log("Job deleted successfully, refreshing list");
+          // The hook should handle state updates automatically
+        }
+      } catch (error) {
+        console.error("Error deleting job:", error);
+      }
+    } else {
+      console.log("No deleteJob function provided, calling onRefresh");
+      onRefresh();
+    }
   };
 
   if (isLoading) {
@@ -164,7 +185,7 @@ const JobsTable = ({
               <JobActions 
                 jobId={job.id} 
                 pdfUrl={job.pdf_url || ''} 
-                onJobDeleted={onRefresh}
+                onJobDeleted={() => handleJobDeleted(job.id)}
               />
             </TableCell>
           </TableRow>

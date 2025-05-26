@@ -1,90 +1,60 @@
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import JobsTable, { Job } from "@/components/business-cards/JobsTable";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { Table, TableHeader, TableBody, TableHead, TableRow } from "@/components/ui/table";
+import JobsTable, { Job } from "./JobsTable";
 
 interface JobsTableContainerProps {
   jobs: Job[];
   isLoading: boolean;
+  error: string | null;
   onRefresh: () => void;
   selectedJobs: string[];
   onSelectJob: (jobId: string, isSelected: boolean) => void;
   onSelectAllJobs: (isSelected: boolean) => void;
-  error?: string | null;
+  deleteJob?: (jobId: string) => Promise<boolean>;
 }
 
-const JobsTableContainer = ({ 
-  jobs, 
-  isLoading, 
+const JobsTableContainer = ({
+  jobs,
+  isLoading,
+  error,
   onRefresh,
   selectedJobs,
   onSelectJob,
   onSelectAllJobs,
-  error
+  deleteJob
 }: JobsTableContainerProps) => {
   return (
-    <>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">Select</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>File</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead>Lamination</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Uploaded</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <JobsTable 
-              jobs={jobs} 
-              isLoading={isLoading}
-              onRefresh={onRefresh}
-              selectedJobs={selectedJobs}
-              onSelectJob={onSelectJob}
-              onSelectAllJobs={onSelectAllJobs}
-              error={error}
-            />
-          </TableBody>
-        </Table>
-      </div>
-      
-      {!isLoading && !error && jobs.length > 0 && (
-        <div className="p-4 border-t">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious href="#" />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink href="#" isActive>1</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext href="#" />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
-    </>
+    <div className="border-t">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">
+              <span className="sr-only">Select</span>
+            </TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead>File</TableHead>
+            <TableHead>Quantity</TableHead>
+            <TableHead>Lamination</TableHead>
+            <TableHead>Due Date</TableHead>
+            <TableHead>Uploaded</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <JobsTable
+            jobs={jobs}
+            isLoading={isLoading}
+            error={error}
+            onRefresh={onRefresh}
+            selectedJobs={selectedJobs}
+            onSelectJob={onSelectJob}
+            onSelectAllJobs={onSelectAllJobs}
+            deleteJob={deleteJob}
+          />
+        </TableBody>
+      </Table>
+    </div>
   );
 };
 
