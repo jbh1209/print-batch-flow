@@ -3,6 +3,7 @@ import { PDFDocument, PDFPage, rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
+import { loadPdfAsBytes } from "./pdfLoaderCore";
 
 interface GridConfig {
   cols: number;
@@ -28,7 +29,7 @@ export async function addJobPreviews(
   
   // Ensure we don't exceed available space and maintain proper aspect ratio
   const cellHeight = Math.min(gridConfig.cellHeight, maxHeight / gridConfig.rows);
-  const cellWidth = Math.min(gridConfig.cellWidth, 140); // Increased max width
+  const cellWidth = Math.min(gridConfig.cellWidth, 140);
   
   console.log("Preview positioning:", {
     previewStartY,
@@ -44,35 +45,35 @@ export async function addJobPreviews(
   const jobsToDisplay = jobs.slice(0, maxJobsToDisplay);
   
   // Calculate proper spacing to center the grid
-  const totalGridWidth = gridConfig.cols * cellWidth + (gridConfig.cols - 1) * 25; // 25px spacing
+  const totalGridWidth = gridConfig.cols * cellWidth + (gridConfig.cols - 1) * 25;
   const availableWidth = page.getWidth() - 2 * margin;
   const gridStartX = margin + (availableWidth - totalGridWidth) / 2;
   
-  jobsToDisplay.forEach((job, index) => {
+  // Process jobs and render previews
+  for (let index = 0; index < jobsToDisplay.length; index++) {
+    const job = jobsToDisplay[index];
     const row = Math.floor(index / gridConfig.cols);
     const col = index % gridConfig.cols;
     
-    // Improved positioning with proper centering and spacing
-    const x = gridStartX + (col * (cellWidth + 25)); // 25px spacing between cells
-    const y = previewStartY - (row * (cellHeight + 35)); // 35px spacing between rows
+    const x = gridStartX + (col * (cellWidth + 25));
+    const y = previewStartY - (row * (cellHeight + 35));
     
     // Ensure we don't draw below the footer area
-    const minY = margin + 60; // Footer area
+    const minY = margin + 60;
     if (y - cellHeight < minY) {
       console.log(`Skipping job ${index} - would overlap footer at y=${y}, minY=${minY}`);
-      return;
+      continue;
     }
     
-    // Draw job preview with consistent styling
-    drawJobPreviewPlaceholder(page, job, x, y, cellWidth, cellHeight, helveticaFont);
-  });
+    // Draw job preview with actual PDF content
+    await drawJobPreviewWithPdf(page, job, x, y, cellWidth, cellHeight, helveticaFont, pdfDoc);
+  }
   
   // Add note for remaining jobs if any
   if (jobs.length > jobsToDisplay.length) {
     const remainingCount = jobs.length - jobsToDisplay.length;
     const noteY = previewStartY - (gridConfig.rows * (cellHeight + 35)) - 15;
     
-    // Only show note if there's space
     if (noteY > margin + 40) {
       page.drawText(`+ ${remainingCount} more jobs not shown`, {
         x: margin,
@@ -85,16 +86,19 @@ export async function addJobPreviews(
   }
 }
 
-function drawJobPreviewPlaceholder(
+async function drawJobPreviewWithPdf(
   page: PDFPage,
   job: Job | FlyerJob | BaseJob,
   x: number,
   y: number,
   width: number,
   height: number,
-  font: any
-): void {
-  // Draw border with consistent styling
+  font: any,
+  targetPdf: PDFDocument
+): Promise<void> {
+  console.log(`Drawing preview for job ${job.id}`);
+  
+  // Draw border
   page.drawRectangle({
     x,
     y: y - height,
@@ -102,34 +106,97 @@ function drawJobPreviewPlaceholder(
     height,
     borderColor: rgb(0.7, 0.7, 0.7),
     borderWidth: 1,
-    color: rgb(0.98, 0.98, 0.98) // Light background
+    color: rgb(1, 1, 1)
   });
   
-  // Draw job identifier with proper text sizing
+  try {
+    // Get PDF URL - handle different job types
+    let pdfUrl = '';
+    if ('pdf_url' in job && job.pdf_url) {
+      pdfUrl = job.pdf_url;
+    } else if ('front_pdf_url' in job && job.front_pdf_url) {
+      pdfUrl = job.front_pdf_url;
+    }
+    
+    if (!pdfUrl) {
+      throw new Error('No PDF URL found');
+    }
+    
+    // Load the PDF content
+    const pdfData = await loadPdfAsBytes(pdfUrl, job.id);
+    if (!pdfData || !pdfData.buffer) {
+      throw new Error('Failed to load PDF data');
+    }
+    
+    // Load PDF document
+    const sourcePdf = await PDFDocument.load(pdfData.buffer);
+    if (sourcePdf.getPageCount() === 0) {
+      throw new Error('PDF has no pages');
+    }
+    
+    // Copy the first page from the source PDF
+    const [copiedPage] = await targetPdf.copyPages(sourcePdf, [0]);
+    
+    // Scale and position the copied page to fit in the preview area
+    const originalSize = copiedPage.getSize();
+    const scaleX = (width - 10) / originalSize.width;  // 10px margin
+    const scaleY = (height - 25) / originalSize.height; // 25px for text area
+    const scale = Math.min(scaleX, scaleY, 0.3); // Limit scale to 0.3
+    
+    const scaledWidth = originalSize.width * scale;
+    const scaledHeight = originalSize.height * scale;
+    
+    // Center the preview in the available space
+    const previewX = x + (width - scaledWidth) / 2;
+    const previewY = y - height + 20 + (height - 20 - scaledHeight) / 2; // 20px for text
+    
+    // Draw the PDF page content
+    page.drawPage(copiedPage, {
+      x: previewX,
+      y: previewY,
+      width: scaledWidth,
+      height: scaledHeight
+    });
+    
+    console.log(`Successfully rendered PDF preview for job ${job.id}`);
+    
+  } catch (error) {
+    console.error(`Error rendering PDF preview for job ${job.id}:`, error);
+    
+    // Fall back to placeholder
+    page.drawText("PDF Preview", {
+      x: x + width / 2 - 30,
+      y: y - height / 2,
+      size: 8,
+      font,
+      color: rgb(0.5, 0.5, 0.5)
+    });
+  }
+  
+  // Draw job identifier at the bottom
   const jobIdentifier = getJobIdentifier(job);
   const displayText = jobIdentifier.length > 15 ? jobIdentifier.substring(0, 12) + '...' : jobIdentifier;
   
-  // Center the text in the preview box
-  page.drawText(displayText, {
-    x: x + 8,
-    y: y - height + 8,
-    size: 8,
-    font,
-    color: rgb(0.3, 0.3, 0.3)
+  // Black background for text
+  page.drawRectangle({
+    x,
+    y: y - height,
+    width,
+    height: 20,
+    color: rgb(0, 0, 0)
   });
   
-  // Add a small indicator for the job type
-  page.drawText("Preview", {
-    x: x + 8,
-    y: y - height + height - 18,
-    size: 7,
+  // White text on black background
+  page.drawText(displayText, {
+    x: x + 5,
+    y: y - height + 6,
+    size: 8,
     font,
-    color: rgb(0.6, 0.6, 0.6)
+    color: rgb(1, 1, 1)
   });
 }
 
 function getJobIdentifier(job: Job | FlyerJob | BaseJob): string {
-  // Try different properties to get a job identifier
   if ('job_number' in job && job.job_number) {
     return job.job_number;
   }

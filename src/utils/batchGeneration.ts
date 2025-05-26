@@ -45,7 +45,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     };
   }
   
-  // Draw batch info - more compact and positioned higher
+  // Draw batch info - compact positioning
   drawBatchInfo(
     page, 
     batchName, 
@@ -56,17 +56,17 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     optimization.sheetsRequired
   );
   
-  // Improved spacing - batch info is now more compact, start table higher
-  const tableStartY = pageHeight - margin - 140; // Moved up from 180 to 140
+  // Table positioning - moved higher to make room for PDF previews
+  const tableStartY = pageHeight - margin - 150;
   
-  // Reduced column widths for better fit
+  // Adjusted column widths for better fit
   const colWidths = isBusinessCardJobs(jobs) 
-    ? [100, 60, 50, 70, 80] // Further reduced widths
-    : [100, 50, 50, 70]; // Further reduced widths for non-business cards
+    ? [100, 60, 50, 70, 80]
+    : [100, 50, 50, 70];
   
   const colStarts = calculateColumnStarts(margin, colWidths);
   
-  // Draw table with improved positioning
+  // Draw table
   const finalTableY = drawCompactJobsTable(
     page, 
     jobs, 
@@ -80,24 +80,24 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     isBusinessCardJobs(jobs) ? optimization.distribution : null
   );
   
-  // Calculate preview area positioning with better spacing control
-  const minPreviewStartY = finalTableY - 60; // Increased buffer from 40 to 60
-  const maxPreviewStartY = pageHeight - 400; // Reserve more space for previews
+  // Calculate preview area positioning with better spacing for PDF content
+  const minPreviewStartY = finalTableY - 80; // Increased buffer for PDF previews
+  const maxPreviewStartY = pageHeight - 450; // More space reserved for PDF previews
   const previewStartY = Math.min(minPreviewStartY, maxPreviewStartY);
   
   // Available height for previews
   const footerHeight = 50;
   const availablePreviewHeight = previewStartY - margin - footerHeight;
   
-  // Calculate grid layout with proper constraints
+  // Calculate grid layout with proper constraints for PDF content
   const baseGridConfig = calculateGridLayout(jobs.length, pageHeight);
   
-  // Improved grid configuration with better sizing
+  // Enhanced grid configuration for PDF previews
   const gridConfig = {
-    cols: Math.min(baseGridConfig.columns, 3), // Limit to 3 columns max
-    rows: Math.min(baseGridConfig.rows, 2), // Limit to 2 rows max
-    cellWidth: Math.min(baseGridConfig.cellWidth, 120), // Increased from 80 to 120
-    cellHeight: Math.min(baseGridConfig.cellHeight, availablePreviewHeight / 2 - 20), // Better height calculation
+    cols: Math.min(baseGridConfig.columns, 3),
+    rows: Math.min(baseGridConfig.rows, 2),
+    cellWidth: Math.min(baseGridConfig.cellWidth, 160), // Increased for PDF content
+    cellHeight: Math.min(baseGridConfig.cellHeight, availablePreviewHeight / 2 - 30), // Better height for PDF
     startY: previewStartY,
     maxHeight: availablePreviewHeight
   };
@@ -112,8 +112,8 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     gridConfig
   });
   
-  // Only add previews if there's sufficient space
-  if (availablePreviewHeight > 100) {
+  // Add PDF previews with enhanced rendering
+  if (availablePreviewHeight > 120) { // Increased minimum space requirement
     await addJobPreviews(
       page,
       jobs,
@@ -123,7 +123,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
       helveticaFont
     );
   } else {
-    console.log("Insufficient space for job previews");
+    console.log("Insufficient space for PDF previews");
   }
   
   // Add footer at bottom
