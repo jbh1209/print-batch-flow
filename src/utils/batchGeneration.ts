@@ -1,3 +1,4 @@
+
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
@@ -47,7 +48,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     console.log("Default optimization - sheets required:", optimization.sheetsRequired);
   }
   
-  // Draw batch info in top section
+  // Draw batch info in top section (takes up about 150px)
   drawBatchInfo(
     page, 
     batchName, 
@@ -58,11 +59,10 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     optimization.sheetsRequired
   );
   
-  // Draw compact jobs table - adjust position based on job type
-  const tableY = isSleeveJobs(jobs) 
-    ? pageHeight - margin - 130 // Position lower for sleeve jobs
-    : pageHeight - margin - 110; // Default position
-    
+  // Calculate proper spacing for table position
+  // Batch info takes ~150px, so start table at 200px from top
+  const tableStartY = pageHeight - margin - 200;
+  
   const colWidths = isBusinessCardJobs(jobs) 
     ? [150, 80, 70, 80, 100]
     : [150, 60, 60, 100]; // Wider column for stock type
@@ -73,7 +73,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   const finalTableY = drawCompactJobsTable(
     page, 
     jobs, 
-    tableY, 
+    tableStartY, 
     colStarts, 
     helveticaFont, 
     helveticaBold, 
@@ -83,10 +83,26 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     isBusinessCardJobs(jobs) ? optimization.distribution : null
   );
   
-  // Calculate grid layout for preview area - starting further down
-  const gridConfig = calculateGridLayout(jobs.length, pageHeight);
+  // Calculate grid layout for preview area - ensure enough space between table and previews
+  // Add 50px buffer between table end and preview start
+  const previewStartY = Math.min(finalTableY - 50, pageHeight - 400); // Ensure previews don't go too high
+  const availablePreviewHeight = previewStartY - margin - 50; // Leave space for footer
   
-  // Add job previews in grid layout - starting below the jobs table
+  // Calculate grid config with proper spacing
+  const gridConfig = {
+    ...calculateGridLayout(jobs.length, pageHeight),
+    startY: previewStartY,
+    maxHeight: availablePreviewHeight
+  };
+  
+  console.log("Grid layout positioning:", {
+    tableStartY,
+    finalTableY, 
+    previewStartY,
+    availablePreviewHeight
+  });
+  
+  // Add job previews in grid layout - starting below the jobs table with proper spacing
   await addJobPreviews(
     page,
     jobs,
@@ -96,7 +112,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     helveticaFont
   );
   
-  // Add footer
+  // Add footer at bottom
   drawFooter(page, margin, batchName, helveticaFont);
   
   console.log("=== BATCH OVERVIEW GENERATION COMPLETE ===");

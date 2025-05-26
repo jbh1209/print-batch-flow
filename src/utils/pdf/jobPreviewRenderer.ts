@@ -1,102 +1,116 @@
 
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFPage, rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
-import { loadPdfAsBytes } from "./pdfLoaderCore";
-import { isBusinessCardJobs, isSleeveJobs } from "./jobTypeUtils";
 
-// Helper function to safely access job number regardless of job type
-const getJobNumber = (job: Job | FlyerJob | BaseJob): string => {
-  if ('job_number' in job && typeof job.job_number === 'string') {
-    return job.job_number;
-  } else {
-    // Fallback to name if job_number is not available
-    return (job.name && typeof job.name === 'string') ? job.name : 'Unknown Job';
-  }
-};
+interface GridConfig {
+  cols: number;
+  rows: number;
+  cellWidth: number;
+  cellHeight: number;
+  startY?: number;
+  maxHeight?: number;
+}
 
 export async function addJobPreviews(
-  page: any,
+  page: PDFPage,
   jobs: Job[] | FlyerJob[] | BaseJob[],
-  gridConfig: any,
+  gridConfig: GridConfig,
   margin: number,
-  pdfDoc: any,
+  pdfDoc: PDFDocument,
   helveticaFont: any
-) {
-  let currentRow = 0;
-  let currentCol = 0;
+): Promise<void> {
+  console.log("Adding job previews with grid config:", gridConfig);
   
-  // Adjust preview layout for sleeve jobs
-  const isSleeveJobType = isSleeveJobs(jobs);
-  const previewScale = isSleeveJobType ? 0.8 : 0.9; // Smaller previews for sleeve jobs
+  // Use provided startY or calculate default
+  const previewStartY = gridConfig.startY || 300;
+  const maxHeight = gridConfig.maxHeight || 200;
   
-  // Determine maximum number of previews based on job type
-  const maxPreviews = isSleeveJobType ? 12 : 24;
+  // Ensure we don't exceed the available space
+  const cellHeight = Math.min(gridConfig.cellHeight, maxHeight / gridConfig.rows);
+  const cellWidth = gridConfig.cellWidth;
   
-  for (let i = 0; i < jobs.length && i < maxPreviews; i++) {
-    const job = jobs[i];
-    const pdfUrl = job.pdf_url;
+  console.log("Preview positioning:", {
+    previewStartY,
+    maxHeight,
+    cellHeight,
+    cellWidth
+  });
+  
+  // Limit the number of jobs to display based on available space
+  const maxJobsToDisplay = gridConfig.cols * gridConfig.rows;
+  const jobsToDisplay = jobs.slice(0, maxJobsToDisplay);
+  
+  jobsToDisplay.forEach((job, index) => {
+    const row = Math.floor(index / gridConfig.cols);
+    const col = index % gridConfig.cols;
     
-    if (!pdfUrl) continue;
+    const x = margin + (col * (cellWidth + 20)); // 20px spacing between cells
+    const y = previewStartY - (row * (cellHeight + 30)); // 30px spacing between rows
     
-    try {
-      // Load and embed the job's PDF
-      const pdfData = await loadPdfAsBytes(pdfUrl, job.id);
-      if (!pdfData?.buffer) continue;
-      
-      // Load PDF document
-      const jobPdf = await PDFDocument.load(pdfData.buffer);
-      if (jobPdf.getPageCount() === 0) continue;
-      
-      // Get and embed first page
-      const [firstPage] = jobPdf.getPages();
-      const embeddedPage = await pdfDoc.embedPage(firstPage);
-      
-      // Calculate position in grid - account for lower startY to avoid overlap with table
-      const x = margin + currentCol * (gridConfig.cellWidth + gridConfig.padding);
-      const y = gridConfig.startY - currentRow * (gridConfig.cellHeight + gridConfig.padding);
-      
-      // Scale to fit cell while maintaining aspect ratio
-      const scale = Math.min(
-        (gridConfig.cellWidth * previewScale) / embeddedPage.width,
-        (gridConfig.cellHeight * previewScale) / embeddedPage.height
-      ) * 0.9; // Further reduce to 90% of available space
-      
-      // Center the preview in the cell
-      const scaledWidth = embeddedPage.width * scale;
-      const scaledHeight = embeddedPage.height * scale;
-      const xOffset = (gridConfig.cellWidth - scaledWidth) / 2;
-      const yOffset = (gridConfig.cellHeight - scaledHeight - 20) / 2;
-      
-      // Draw embedded page - Remove border by not drawing the rectangle
-      page.drawPage(embeddedPage, {
-        x: x + xOffset,
-        y: y - gridConfig.cellHeight + yOffset + 20,
-        width: scaledWidth,
-        height: scaledHeight
-      });
-      
-      // Add job info below preview - using job_number instead of name
-      const textSize = isSleeveJobType ? 6 : 7;
-      const jobNumber = getJobNumber(job);
-      const displayText = jobNumber.length > 20 ? jobNumber.substring(0, 20) + '...' : jobNumber;
-      page.drawText(displayText, {
-        x: x + (gridConfig.cellWidth / 2) - (displayText.length * 1.8),
-        y: y - gridConfig.cellHeight - 15,
-        size: textSize,
-        font: helveticaFont
-      });
-      
-      // Update grid position
-      currentCol++;
-      if (currentCol >= gridConfig.columns) {
-        currentCol = 0;
-        currentRow++;
-      }
-    } catch (error) {
-      console.error(`Error adding preview for job ${job.id}:`, error);
-      continue;
+    // Skip if this would go below the footer area
+    if (y - cellHeight < margin + 30) {
+      console.log(`Skipping job ${index} - would overlap footer`);
+      return;
     }
+    
+    // Draw job preview placeholder
+    drawJobPreviewPlaceholder(page, job, x, y, cellWidth, cellHeight, helveticaFont);
+  });
+  
+  // Add note if some jobs were skipped
+  if (jobs.length > jobsToDisplay.length) {
+    const remainingCount = jobs.length - jobsToDisplay.length;
+    page.drawText(`+ ${remainingCount} more jobs not shown`, {
+      x: margin,
+      y: previewStartY - (gridConfig.rows * (cellHeight + 30)) - 20,
+      size: 9,
+      font: helveticaFont,
+      color: rgb(0.5, 0.5, 0.5)
+    });
   }
+}
+
+function drawJobPreviewPlaceholder(
+  page: PDFPage,
+  job: Job | FlyerJob | BaseJob,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  font: any
+): void {
+  // Draw border
+  page.drawRectangle({
+    x,
+    y: y - height,
+    width,
+    height,
+    borderColor: rgb(0.7, 0.7, 0.7),
+    borderWidth: 1
+  });
+  
+  // Draw job identifier - get job number safely
+  const jobIdentifier = getJobIdentifier(job);
+  const displayText = jobIdentifier.length > 12 ? jobIdentifier.substring(0, 9) + '...' : jobIdentifier;
+  
+  page.drawText(displayText, {
+    x: x + 5,
+    y: y - height + 5,
+    size: 8,
+    font,
+    color: rgb(0.3, 0.3, 0.3)
+  });
+}
+
+function getJobIdentifier(job: Job | FlyerJob | BaseJob): string {
+  // Try different properties to get a job identifier
+  if ('job_number' in job && job.job_number) {
+    return job.job_number;
+  }
+  if ('name' in job && job.name) {
+    return job.name;
+  }
+  return `Job ${job.id}`;
 }
