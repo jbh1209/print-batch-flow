@@ -110,11 +110,11 @@ async function drawJobPreviewWithPdf(
   });
   
   try {
-    // Get PDF URL - handle different job types
-    let pdfUrl = '';
-    if ('pdf_url' in job && job.pdf_url) {
+    // Get PDF URL - handle different job types with proper typing
+    let pdfUrl: string = '';
+    if ('pdf_url' in job && typeof job.pdf_url === 'string' && job.pdf_url) {
       pdfUrl = job.pdf_url;
-    } else if ('front_pdf_url' in job && job.front_pdf_url) {
+    } else if ('front_pdf_url' in job && typeof job.front_pdf_url === 'string' && job.front_pdf_url) {
       pdfUrl = job.front_pdf_url;
     }
     
@@ -134,10 +134,11 @@ async function drawJobPreviewWithPdf(
       throw new Error('PDF has no pages');
     }
     
-    // Copy the first page from the source PDF
+    // Copy the first page from the source PDF and embed it
     const [copiedPage] = await targetPdf.copyPages(sourcePdf, [0]);
+    const embeddedPage = targetPdf.addPage(copiedPage);
     
-    // Scale and position the copied page to fit in the preview area
+    // Get the original size for scaling calculations
     const originalSize = copiedPage.getSize();
     const scaleX = (width - 10) / originalSize.width;  // 10px margin
     const scaleY = (height - 25) / originalSize.height; // 25px for text area
@@ -150,13 +151,16 @@ async function drawJobPreviewWithPdf(
     const previewX = x + (width - scaledWidth) / 2;
     const previewY = y - height + 20 + (height - 20 - scaledHeight) / 2; // 20px for text
     
-    // Draw the PDF page content
-    page.drawPage(copiedPage, {
+    // Draw the embedded PDF page content
+    page.drawPage(embeddedPage, {
       x: previewX,
       y: previewY,
       width: scaledWidth,
       height: scaledHeight
     });
+    
+    // Remove the temporary page we added
+    targetPdf.removePage(targetPdf.getPageCount() - 1);
     
     console.log(`Successfully rendered PDF preview for job ${job.id}`);
     
