@@ -40,7 +40,7 @@ export function drawBusinessCardInfo(
     color: rgb(0, 0, 0)
   });
   
-  // Display the actual sheets required (no doubling needed here)
+  // Display the sheets required prominently with proper calculation
   const actualSheetsRequired = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalCards / 24);
   
   page.drawRectangle({
