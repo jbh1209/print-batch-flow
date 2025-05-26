@@ -127,20 +127,17 @@ async function drawJobPreviewWithPdf(
       throw new Error('Failed to load PDF data');
     }
     
-    // Load PDF document
-    const sourcePdf = await PDFDocument.load(pdfData.buffer);
-    if (sourcePdf.getPageCount() === 0) {
-      throw new Error('PDF has no pages');
+    // Embed the entire PDF document into the target PDF
+    const embeddedPdf = await targetPdf.embedPdf(pdfData.buffer);
+    
+    // Get the first page from the embedded PDF
+    const [embeddedPage] = embeddedPdf.pages;
+    if (!embeddedPage) {
+      throw new Error('No pages found in embedded PDF');
     }
     
-    // Copy the first page from the source PDF
-    const [copiedPage] = await targetPdf.copyPages(sourcePdf, [0]);
-    
-    // Embed the copied page to get a PDFEmbeddedPage
-    const embeddedPage = await targetPdf.embedPage(copiedPage);
-    
     // Get the original size for scaling calculations
-    const originalSize = copiedPage.getSize();
+    const originalSize = { width: embeddedPage.width, height: embeddedPage.height };
     const scaleX = (width - 10) / originalSize.width;  // 10px margin
     const scaleY = (height - 25) / originalSize.height; // 25px for text area
     const scale = Math.min(scaleX, scaleY, 0.3); // Limit scale to 0.3
