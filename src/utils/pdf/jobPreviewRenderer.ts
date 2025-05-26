@@ -1,3 +1,4 @@
+
 import { PDFDocument, PDFPage, rgb } from "pdf-lib";
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
@@ -128,10 +129,10 @@ async function drawJobPreviewWithPdf(
     }
     
     // Embed the entire PDF document into the target PDF
-    const embeddedPdf = await targetPdf.embedPdf(pdfData.buffer);
+    const embeddedPages = await targetPdf.embedPdf(pdfData.buffer);
     
-    // Get the first page from the embedded PDF
-    const [embeddedPage] = embeddedPdf.pages;
+    // Get the first page from the embedded pages array
+    const embeddedPage = embeddedPages[0];
     if (!embeddedPage) {
       throw new Error('No pages found in embedded PDF');
     }
