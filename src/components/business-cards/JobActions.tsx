@@ -63,7 +63,13 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
     }
   };
 
-  const handleDeleteJob = async () => {
+  const handleDeleteJob = async (e?: React.MouseEvent) => {
+    // Prevent event bubbling
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (isDeleting) return; // Prevent double-clicks
     
     setIsDeleting(true);
@@ -111,7 +117,10 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
         variant: "destructive"
       });
     } finally {
-      setIsDeleting(false);
+      // Always reset the deleting state
+      setTimeout(() => {
+        setIsDeleting(false);
+      }, 500);
     }
   };
 
@@ -138,7 +147,11 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
             <span>Download PDF</span>
           </DropdownMenuItem>
           <DropdownMenuItem 
-            onClick={() => setShowDeleteDialog(true)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowDeleteDialog(true);
+            }}
             disabled={isDeleting}
             className="flex items-center gap-2 text-red-600 focus:text-red-600"
           >

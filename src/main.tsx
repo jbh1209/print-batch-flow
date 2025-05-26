@@ -22,7 +22,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         <App />
-        <Toaster position="top-center" richColors duration={4000} />
+        <Toaster position="top-center" richColors duration={3000} />
       </ThemeProvider>
     </QueryClientProvider>
   </React.StrictMode>,
