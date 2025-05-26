@@ -69,9 +69,6 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
     try {
       console.log("Starting deletion for job:", jobId);
       
-      // Close dialog immediately
-      setShowDeleteDialog(false);
-      
       // Delete from database
       const { error } = await supabase
         .from('business_card_jobs')
@@ -84,19 +81,26 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
       }
       
       console.log("Job deleted successfully from database");
+      
+      // Close dialog first
+      setShowDeleteDialog(false);
+      
+      // Show success message
       sonnerToast.success("Job deleted successfully");
       
-      // Trigger refresh if callback provided
+      // Trigger refresh after a brief delay to ensure state is clean
       if (onJobDeleted) {
         setTimeout(() => {
           onJobDeleted();
-        }, 100);
+        }, 200);
       }
       
     } catch (error) {
       console.error("Job deletion failed:", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       sonnerToast.error(`Failed to delete job: ${errorMessage}`);
+      
+      // Don't close dialog on error so user can retry
     } finally {
       setIsDeleting(false);
     }
