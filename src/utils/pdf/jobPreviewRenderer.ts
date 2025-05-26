@@ -23,52 +23,65 @@ export async function addJobPreviews(
 ): Promise<void> {
   console.log("Adding job previews with grid config:", gridConfig);
   
-  // Use provided startY or calculate default
   const previewStartY = gridConfig.startY || 300;
   const maxHeight = gridConfig.maxHeight || 200;
   
-  // Ensure we don't exceed the available space
+  // Ensure we don't exceed available space and maintain proper aspect ratio
   const cellHeight = Math.min(gridConfig.cellHeight, maxHeight / gridConfig.rows);
-  const cellWidth = gridConfig.cellWidth;
+  const cellWidth = Math.min(gridConfig.cellWidth, 140); // Increased max width
   
   console.log("Preview positioning:", {
     previewStartY,
     maxHeight,
     cellHeight,
-    cellWidth
+    cellWidth,
+    rows: gridConfig.rows,
+    cols: gridConfig.cols
   });
   
-  // Limit the number of jobs to display based on available space
+  // Limit jobs to display based on available grid space
   const maxJobsToDisplay = gridConfig.cols * gridConfig.rows;
   const jobsToDisplay = jobs.slice(0, maxJobsToDisplay);
+  
+  // Calculate proper spacing to center the grid
+  const totalGridWidth = gridConfig.cols * cellWidth + (gridConfig.cols - 1) * 25; // 25px spacing
+  const availableWidth = page.getWidth() - 2 * margin;
+  const gridStartX = margin + (availableWidth - totalGridWidth) / 2;
   
   jobsToDisplay.forEach((job, index) => {
     const row = Math.floor(index / gridConfig.cols);
     const col = index % gridConfig.cols;
     
-    const x = margin + (col * (cellWidth + 20)); // 20px spacing between cells
-    const y = previewStartY - (row * (cellHeight + 30)); // 30px spacing between rows
+    // Improved positioning with proper centering and spacing
+    const x = gridStartX + (col * (cellWidth + 25)); // 25px spacing between cells
+    const y = previewStartY - (row * (cellHeight + 35)); // 35px spacing between rows
     
-    // Skip if this would go below the footer area
-    if (y - cellHeight < margin + 30) {
-      console.log(`Skipping job ${index} - would overlap footer`);
+    // Ensure we don't draw below the footer area
+    const minY = margin + 60; // Footer area
+    if (y - cellHeight < minY) {
+      console.log(`Skipping job ${index} - would overlap footer at y=${y}, minY=${minY}`);
       return;
     }
     
-    // Draw job preview placeholder
+    // Draw job preview with consistent styling
     drawJobPreviewPlaceholder(page, job, x, y, cellWidth, cellHeight, helveticaFont);
   });
   
-  // Add note if some jobs were skipped
+  // Add note for remaining jobs if any
   if (jobs.length > jobsToDisplay.length) {
     const remainingCount = jobs.length - jobsToDisplay.length;
-    page.drawText(`+ ${remainingCount} more jobs not shown`, {
-      x: margin,
-      y: previewStartY - (gridConfig.rows * (cellHeight + 30)) - 20,
-      size: 9,
-      font: helveticaFont,
-      color: rgb(0.5, 0.5, 0.5)
-    });
+    const noteY = previewStartY - (gridConfig.rows * (cellHeight + 35)) - 15;
+    
+    // Only show note if there's space
+    if (noteY > margin + 40) {
+      page.drawText(`+ ${remainingCount} more jobs not shown`, {
+        x: margin,
+        y: noteY,
+        size: 8,
+        font: helveticaFont,
+        color: rgb(0.5, 0.5, 0.5)
+      });
+    }
   }
 }
 
@@ -81,26 +94,37 @@ function drawJobPreviewPlaceholder(
   height: number,
   font: any
 ): void {
-  // Draw border
+  // Draw border with consistent styling
   page.drawRectangle({
     x,
     y: y - height,
     width,
     height,
     borderColor: rgb(0.7, 0.7, 0.7),
-    borderWidth: 1
+    borderWidth: 1,
+    color: rgb(0.98, 0.98, 0.98) // Light background
   });
   
-  // Draw job identifier - get job number safely
+  // Draw job identifier with proper text sizing
   const jobIdentifier = getJobIdentifier(job);
-  const displayText = jobIdentifier.length > 12 ? jobIdentifier.substring(0, 9) + '...' : jobIdentifier;
+  const displayText = jobIdentifier.length > 15 ? jobIdentifier.substring(0, 12) + '...' : jobIdentifier;
   
+  // Center the text in the preview box
   page.drawText(displayText, {
-    x: x + 5,
-    y: y - height + 5,
+    x: x + 8,
+    y: y - height + 8,
     size: 8,
     font,
     color: rgb(0.3, 0.3, 0.3)
+  });
+  
+  // Add a small indicator for the job type
+  page.drawText("Preview", {
+    x: x + 8,
+    y: y - height + height - 18,
+    size: 7,
+    font,
+    color: rgb(0.6, 0.6, 0.6)
   });
 }
 

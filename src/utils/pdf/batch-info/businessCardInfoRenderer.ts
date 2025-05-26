@@ -12,27 +12,27 @@ export function drawBusinessCardInfo(
 ): void {
   console.log("Drawing business card info - jobs count:", jobs.length);
   console.log("Sheets required parameter:", sheetsRequired);
-  console.log("First job sample:", jobs[0]);
   
-  // More compact layout with smaller elements
+  // Very compact layout to prevent overflow
   const laminationType = jobs[0]?.lamination_type || 'none';
   const laminationText = `Lamination: ${laminationType.charAt(0).toUpperCase() + laminationType.slice(1)}`;
   
-  // Position lamination info more compactly
-  const laminationY = page.getHeight() - margin - 70; // Moved up
+  // Position elements in a more compact horizontal layout
+  const infoY = page.getHeight() - margin - 85; // Moved higher up
   
+  // Lamination info - smaller and more compact
   page.drawRectangle({
     x: margin - 5,
-    y: laminationY,
-    width: 130, // Reduced width
-    height: 20, // Reduced height
+    y: infoY,
+    width: 110, // Further reduced width
+    height: 18, // Further reduced height
     color: rgb(0.102, 0.122, 0.173),
   });
   
   page.drawText(laminationText, {
     x: margin,
-    y: laminationY + 6, // Adjusted for smaller rectangle
-    size: 10, // Smaller font
+    y: infoY + 5, // Adjusted for smaller rectangle
+    size: 9, // Smaller font
     font: helveticaBold,
     color: rgb(1, 1, 1)
   });
@@ -41,38 +41,38 @@ export function drawBusinessCardInfo(
   const totalCards = jobs.reduce((sum, job) => sum + job.quantity, 0);
   
   page.drawText(`Total Cards: ${totalCards}`, {
-    x: margin + 150, // Position to the right of lamination
-    y: laminationY + 6,
-    size: 10,
+    x: margin + 125, // Position to the right with less spacing
+    y: infoY + 5,
+    size: 9, // Smaller font to match
     font: helveticaFont,
     color: rgb(0, 0, 0)
   });
   
-  // Display the sheets required more compactly
+  // Sheets required - positioned below with minimal spacing
   const actualSheetsRequired = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalCards / 24);
   console.log("Calculated sheets required:", actualSheetsRequired);
   
-  const sheetsY = laminationY - 30; // Reduced spacing
+  const sheetsY = infoY - 25; // Reduced spacing
   
   page.drawRectangle({
     x: margin - 5,
     y: sheetsY,
-    width: 160, // Reduced width
-    height: 20, // Reduced height
+    width: 140, // Reduced width
+    height: 18, // Reduced height to match above
     color: rgb(0.102, 0.122, 0.173),
   });
   
   page.drawText(`Sheets Required: ${actualSheetsRequired}`, {
     x: margin,
-    y: sheetsY + 6, // Adjusted for smaller rectangle
-    size: 12, // Slightly smaller
+    y: sheetsY + 5, // Adjusted for smaller rectangle
+    size: 10, // Slightly larger for importance
     font: helveticaBold,
     color: rgb(1, 1, 1)
   });
   
-  console.log("Business card info positioning (compact):", {
-    laminationY,
-    totalCardsY: laminationY + 6,
+  console.log("Business card info positioning (ultra-compact):", {
+    infoY,
+    totalCardsY: infoY + 5,
     sheetsY
   });
 }

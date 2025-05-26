@@ -12,27 +12,49 @@ interface GridConfig {
 }
 
 export function calculateGridLayout(jobCount: number, pageHeight: number): GridConfig {
-  // Reserve top 30% for job info and table, use bottom 70% for previews
-  const previewAreaHeight = pageHeight * 0.7;
-  // Start Y positioned lower to avoid overlapping with the job table
-  const startY = pageHeight - (pageHeight * 0.3) - 150; // Additional offset to avoid overlap with table
-  const previewWidth = 510; // Width for preview area
+  console.log("Calculating grid layout for", jobCount, "jobs, page height:", pageHeight);
   
-  // Adjust grid layout based on job count
-  const columns = 3; // 3 columns for sleeve boxes
-  const rows = Math.ceil(jobCount / columns);
-  const maxRows = 4; // Limit rows to ensure they fit on the page
+  // Reserve space more accurately based on actual layout
+  const headerHeight = 140; // Space for batch info and table
+  const footerHeight = 60;  // Space for footer
+  const availableHeight = pageHeight - headerHeight - footerHeight;
   
-  // Calculate cell dimensions based on available space
-  const cellPadding = 10;
-  const cellWidth = (previewWidth - (cellPadding * (columns + 1))) / columns;
+  // Calculate optimal grid based on job count and available space
+  let columns = 3; // Default to 3 columns
+  let rows = Math.ceil(jobCount / columns);
   
-  // Make sure cell height is proportional for sleeve boxes (which are more square)
-  const cellHeight = cellWidth * 1.2; // Height is 120% of width for sleeve boxes
+  // Limit rows to ensure content fits
+  const maxRows = Math.floor(availableHeight / 120); // Minimum 120px per row
+  if (rows > maxRows) {
+    rows = maxRows;
+    columns = Math.min(4, Math.ceil(jobCount / rows)); // Adjust columns if needed
+  }
+  
+  // Calculate cell dimensions with proper spacing
+  const previewWidth = 500; // Available width for previews
+  const cellPadding = 25;
+  const cellWidth = Math.min(140, (previewWidth - (cellPadding * (columns + 1))) / columns);
+  
+  // Calculate cell height to maintain good proportions
+  const availableRowHeight = availableHeight / rows;
+  const cellHeight = Math.min(100, availableRowHeight - cellPadding);
+  
+  // Start position from top
+  const startY = pageHeight - headerHeight - 20; // 20px buffer
+  
+  console.log("Grid layout calculated:", {
+    columns,
+    rows,
+    cellWidth,
+    cellHeight,
+    startY,
+    availableHeight,
+    maxRows
+  });
   
   return {
     columns,
-    rows: Math.min(rows, maxRows),
+    rows,
     cellWidth,
     cellHeight,
     startY,
