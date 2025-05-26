@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
@@ -59,10 +60,11 @@ const BatchDetailsContent = ({
     toast.loading("Generating batch overview PDF...");
     
     try {
-      // Generate the PDF bytes
+      // Generate the PDF bytes - pass the actual sheets required from the batch
       const pdfBytes = await generateBatchOverview(
         convertToBaseJobs(relatedJobs),
-        batch.name
+        batch.name,
+        batch.sheets_required // Pass the actual sheets required value from the batch
       );
       
       // Upload to storage
@@ -155,7 +157,7 @@ const BatchDetailsContent = ({
       const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
       
       if (!overviewPdfUrl) {
-        // If no overview PDF exists yet, try to generate one
+        // If no overview PDF exists yet, try to generate one with the correct sheets required
         if (relatedJobs.length > 0) {
           await handleGenerateAndUploadOverview();
           return;

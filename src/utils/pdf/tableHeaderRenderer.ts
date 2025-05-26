@@ -38,5 +38,5 @@ export function drawTableHeader(
     });
   });
 
-  // Completely removed the black separator line
+  // No separator line - completely removed to eliminate the black line
 }

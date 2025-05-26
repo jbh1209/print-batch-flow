@@ -40,7 +40,8 @@ export function drawBusinessCardInfo(
     color: rgb(0, 0, 0)
   });
   
-  // Display the actual sheets required (no doubling needed here)
+  // Use the sheets required value passed from the batch data
+  // This ensures we show the actual value from the batch page
   const actualSheetsRequired = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalCards / 24);
   
   page.drawRectangle({

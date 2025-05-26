@@ -1,4 +1,3 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
@@ -16,8 +15,12 @@ import { isBusinessCardJobs, isSleeveJobs } from "./pdf/jobTypeUtils";
 import { drawCompactJobsTable } from "./pdf/jobTableRenderer";
 import { addJobPreviews } from "./pdf/jobPreviewRenderer";
 
-// Updated function that accepts BaseJob[] as a valid parameter type
-export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[], batchName: string): Promise<Uint8Array> {
+// Updated function that accepts BaseJob[] as a valid parameter type and optional sheetsRequired
+export async function generateBatchOverview(
+  jobs: Job[] | FlyerJob[] | BaseJob[], 
+  batchName: string, 
+  sheetsRequired?: number
+): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -39,7 +42,10 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     };
   }
   
-  // Draw batch info in top section
+  // Use the provided sheetsRequired if available, otherwise use the calculated value
+  const finalSheetsRequired = sheetsRequired || optimization.sheetsRequired;
+  
+  // Draw batch info in top section with the correct sheets required value
   drawBatchInfo(
     page, 
     batchName, 
@@ -47,7 +53,7 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     helveticaFont, 
     helveticaBold, 
     margin, 
-    optimization.sheetsRequired
+    finalSheetsRequired
   );
   
   // Draw compact jobs table - adjust position based on job type
