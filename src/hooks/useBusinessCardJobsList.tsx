@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -7,6 +7,7 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { useJobFilters } from "./business-cards/useJobFilters";
 import { useJobSelection } from "./business-cards/useJobSelection";
 import { useBatchCleanup } from "./business-cards/useBatchCleanup";
+import { toast as sonnerToast } from "sonner";
 
 export const useBusinessCardJobsList = () => {
   const { toast } = useToast();
@@ -37,25 +38,24 @@ export const useBusinessCardJobsList = () => {
     fixBatchedJobsWithoutBatch,
   } = useBatchCleanup();
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
+    if (!user) {
+      console.log("No authenticated user found for jobs");
+      setJobs([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     
     try {
-      if (!user) {
-        console.log("No authenticated user found for jobs");
-        setIsLoading(false);
-        return;
-      }
-      
       console.log("Fetching business card jobs");
       
       let query = supabase
         .from('business_card_jobs')
         .select('*')
         .order('created_at', { ascending: false });
-      
-      // Remove user_id filter to allow seeing all jobs
       
       if (filterView !== 'all') {
         query = query.eq('status', filterView);
@@ -67,30 +67,40 @@ export const useBusinessCardJobsList = () => {
       
       const { data, error: fetchError } = await query;
       
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error("Fetch error:", fetchError);
+        throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
+      }
       
       console.log("Business card jobs data received:", data?.length || 0, "records");
       
       setJobs(data || []);
       
-      // Second query to get all job counts for filters
+      // Get filter counts
       const { data: allJobs, error: countError } = await supabase
         .from('business_card_jobs')
         .select('status');
       
-      if (countError) throw countError;
+      if (countError) {
+        console.warn("Error fetching counts:", countError);
+        // Don't throw here, just log the warning
+      } else {
+        setFilterCounts({
+          all: allJobs?.length || 0,
+          queued: allJobs?.filter(job => job.status === 'queued').length || 0,
+          batched: allJobs?.filter(job => job.status === 'batched').length || 0,
+          completed: allJobs?.filter(job => job.status === 'completed').length || 0
+        });
+      }
       
-      setFilterCounts({
-        all: allJobs?.length || 0,
-        queued: allJobs?.filter(job => job.status === 'queued').length || 0,
-        batched: allJobs?.filter(job => job.status === 'batched').length || 0,
-        completed: allJobs?.filter(job => job.status === 'completed').length || 0
-      });
-      
+      // Clear selections when data changes
       setSelectedJobs([]);
+      
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      setError("Failed to load jobs data");
+      const errorMessage = error instanceof Error ? error.message : "Failed to load jobs data";
+      setError(errorMessage);
+      
       toast({
         title: "Error fetching jobs",
         description: "There was a problem loading your jobs.",
@@ -99,50 +109,70 @@ export const useBusinessCardJobsList = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, filterView, laminationFilter, toast]);
 
-  const deleteJob = async (jobId: string): Promise<boolean> => {
+  const deleteJob = useCallback(async (jobId: string): Promise<boolean> => {
+    if (!jobId) {
+      console.error("No job ID provided for deletion");
+      return false;
+    }
+
     try {
-      // Remove user_id filter to allow any authenticated user to delete any job
+      console.log("Deleting job:", jobId);
+      
       const { error: deleteError } = await supabase
         .from('business_card_jobs')
         .delete()
         .eq('id', jobId);
       
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error("Database deletion error:", deleteError);
+        throw new Error(`Database error: ${deleteError.message}`);
+      }
       
-      // Remove the job from state
-      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+      // Update local state immediately
+      setJobs(prevJobs => {
+        const updatedJobs = prevJobs.filter(job => job.id !== jobId);
+        console.log(`Job removed from state. Jobs count: ${prevJobs.length} -> ${updatedJobs.length}`);
+        return updatedJobs;
+      });
       
-      // If job was selected, remove it from selection
+      // Remove from selection if it was selected
       setSelectedJobs(prevSelected => prevSelected.filter(id => id !== jobId));
       
-      toast({
-        title: "Job deleted",
-        description: "The job was successfully deleted.",
-      });
-      
+      sonnerToast.success("Job deleted successfully");
       return true;
+      
     } catch (error) {
       console.error('Error deleting job:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete job";
+      
+      sonnerToast.error(`Delete failed: ${errorMessage}`);
+      
       toast({
         title: "Error deleting job",
-        description: "There was a problem deleting the job.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
       return false;
     }
-  };
+  }, [toast]);
 
+  // Initial fetch and when dependencies change
   useEffect(() => {
     fetchJobs();
-  }, [user, filterView, laminationFilter]);
+  }, [fetchJobs]);
   
+  // Fix batched jobs on mount
   useEffect(() => {
     if (user) {
-      fixBatchedJobsWithoutBatch();
+      fixBatchedJobsWithoutBatch().catch(error => {
+        console.error("Error fixing batched jobs:", error);
+        // Don't show user error for this background operation
+      });
     }
-  }, [user]);
+  }, [user, fixBatchedJobsWithoutBatch]);
 
   return {
     jobs,

@@ -37,44 +37,81 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleViewJob = (jobId: string, pdfUrl: string) => {
-    handlePdfAction(pdfUrl, 'view');
+    try {
+      handlePdfAction(pdfUrl, 'view');
+    } catch (error) {
+      console.error("Error viewing job:", error);
+      sonnerToast.error("Failed to view PDF");
+    }
   };
 
   const handleEditJob = (jobId: string) => {
-    // Fixed: Use the correct route pattern that matches App.tsx
-    navigate(`/batches/business-cards/jobs/edit/${jobId}`);
+    try {
+      navigate(`/batches/business-cards/jobs/edit/${jobId}`);
+    } catch (error) {
+      console.error("Error navigating to edit:", error);
+      sonnerToast.error("Failed to open edit page");
+    }
   };
 
   const handleDownloadPdf = () => {
-    handlePdfAction(pdfUrl, 'download');
+    try {
+      handlePdfAction(pdfUrl, 'download');
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      sonnerToast.error("Failed to download PDF");
+    }
   };
 
   const handleDeleteJob = async () => {
+    if (isDeleting) return; // Prevent double-clicks
+    
     setIsDeleting(true);
+    
     try {
+      console.log("Starting job deletion for ID:", jobId);
+      
       const { error } = await supabase
         .from("business_card_jobs")
         .delete()
         .eq("id", jobId);
 
       if (error) {
-        throw error;
+        console.error("Supabase deletion error:", error);
+        throw new Error(`Database error: ${error.message}`);
       }
 
+      console.log("Job deleted successfully from database");
       sonnerToast.success("Job deleted successfully");
+      
+      // Close dialog first
+      setShowDeleteDialog(false);
+      
+      // Call the callback after a brief delay to ensure UI updates
       if (onJobDeleted) {
-        onJobDeleted();
+        setTimeout(() => {
+          try {
+            onJobDeleted();
+          } catch (callbackError) {
+            console.error("Error in onJobDeleted callback:", callbackError);
+            // Don't throw here as the deletion was successful
+          }
+        }, 100);
       }
+      
     } catch (error) {
-      console.error("Error deleting job:", error);
+      console.error("Job deletion failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      
+      sonnerToast.error(`Failed to delete job: ${errorMessage}`);
+      
       toast({
         title: "Error deleting job",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
       setIsDeleting(false);
-      setShowDeleteDialog(false);
     }
   };
 
@@ -82,7 +119,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" disabled={isDeleting}>
             <MoreHorizontal size={16} />
             <span className="sr-only">Actions</span>
           </Button>
@@ -102,6 +139,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
           </DropdownMenuItem>
           <DropdownMenuItem 
             onClick={() => setShowDeleteDialog(true)}
+            disabled={isDeleting}
             className="flex items-center gap-2 text-red-600 focus:text-red-600"
           >
             <Trash2 size={16} />
