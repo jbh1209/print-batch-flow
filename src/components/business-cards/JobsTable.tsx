@@ -31,6 +31,7 @@ interface JobsTableProps {
   selectedJobs: string[];
   onSelectJob: (jobId: string, isSelected: boolean) => void;
   onSelectAllJobs: (isSelected: boolean) => void;
+  onJobDeleted: (jobId: string) => Promise<void>;
   error?: string | null;
 }
 
@@ -41,6 +42,7 @@ const JobsTable = ({
   selectedJobs,
   onSelectJob,
   onSelectAllJobs,
+  onJobDeleted,
   error
 }: JobsTableProps) => {
   const [selectAll, setSelectAll] = useState(false);
@@ -162,7 +164,7 @@ const JobsTable = ({
               <JobActions 
                 jobId={job.id} 
                 pdfUrl={job.pdf_url || ''} 
-                onJobDeleted={onRefresh}
+                onJobDeleted={onJobDeleted}
               />
             </TableCell>
           </TableRow>

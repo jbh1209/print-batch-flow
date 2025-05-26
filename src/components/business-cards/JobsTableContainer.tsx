@@ -10,6 +10,7 @@ interface JobsTableContainerProps {
   selectedJobs: string[];
   onSelectJob: (jobId: string, isSelected: boolean) => void;
   onSelectAllJobs: (isSelected: boolean) => void;
+  onJobDeleted: (jobId: string) => Promise<void>;
 }
 
 const JobsTableContainer = ({
@@ -19,7 +20,8 @@ const JobsTableContainer = ({
   onRefresh,
   selectedJobs,
   onSelectJob,
-  onSelectAllJobs
+  onSelectAllJobs,
+  onJobDeleted
 }: JobsTableContainerProps) => {
   return (
     <div className="border-t">
@@ -48,6 +50,7 @@ const JobsTableContainer = ({
             selectedJobs={selectedJobs}
             onSelectJob={onSelectJob}
             onSelectAllJobs={onSelectAllJobs}
+            onJobDeleted={onJobDeleted}
           />
         </TableBody>
       </Table>

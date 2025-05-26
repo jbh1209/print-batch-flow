@@ -18,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { toast as sonnerToast } from "sonner";
 import { MoreHorizontal, Pencil, Trash2, Eye, Download } from "lucide-react";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
@@ -26,13 +25,16 @@ import { handlePdfAction } from "@/utils/pdfActionUtils";
 interface JobActionsProps {
   jobId: string;
   pdfUrl: string;
-  onJobDeleted?: () => void;
+  onJobDeleted: (jobId: string) => Promise<void>;
+  isDeleting?: boolean;
 }
 
-const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
+const JobActions = ({ jobId, pdfUrl, onJobDeleted, isDeleting = false }: JobActionsProps) => {
   const navigate = useNavigate();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleting_, setIsDeleting] = useState(false);
+
+  const currentlyDeleting = isDeleting || isDeleting_;
 
   const handleViewJob = () => {
     try {
@@ -62,45 +64,18 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
   };
 
   const handleDeleteJob = async () => {
-    if (isDeleting) return;
+    if (currentlyDeleting) return;
     
     setIsDeleting(true);
     
     try {
-      console.log("Starting deletion for job:", jobId);
-      
-      // Delete from database
-      const { error } = await supabase
-        .from('business_card_jobs')
-        .delete()
-        .eq('id', jobId);
-      
-      if (error) {
-        console.error("Database deletion error:", error);
-        throw new Error(`Database error: ${error.message}`);
-      }
-      
-      console.log("Job deleted successfully from database");
-      
-      // Close dialog first
+      await onJobDeleted(jobId);
       setShowDeleteDialog(false);
-      
-      // Show success message
       sonnerToast.success("Job deleted successfully");
-      
-      // Trigger refresh after a brief delay to ensure state is clean
-      if (onJobDeleted) {
-        setTimeout(() => {
-          onJobDeleted();
-        }, 200);
-      }
-      
     } catch (error) {
       console.error("Job deletion failed:", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       sonnerToast.error(`Failed to delete job: ${errorMessage}`);
-      
-      // Don't close dialog on error so user can retry
     } finally {
       setIsDeleting(false);
     }
@@ -110,7 +85,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" disabled={isDeleting}>
+          <Button variant="ghost" size="sm" disabled={currentlyDeleting}>
             <MoreHorizontal size={16} />
             <span className="sr-only">Actions</span>
           </Button>
@@ -130,7 +105,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
           </DropdownMenuItem>
           <DropdownMenuItem 
             onClick={() => setShowDeleteDialog(true)}
-            disabled={isDeleting}
+            disabled={currentlyDeleting}
             className="flex items-center gap-2 text-red-600 focus:text-red-600"
           >
             <Trash2 size={16} />
@@ -149,13 +124,13 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={currentlyDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDeleteJob} 
-              disabled={isDeleting}
+              disabled={currentlyDeleting}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {currentlyDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

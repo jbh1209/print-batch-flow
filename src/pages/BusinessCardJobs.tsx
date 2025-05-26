@@ -4,9 +4,10 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import StatusFilterTabs from "@/components/business-cards/StatusFilterTabs";
 import JobsTableContainer from "@/components/business-cards/JobsTableContainer";
 import FilterBar from "@/components/business-cards/FilterBar";
-import { useBusinessCardJobsList } from "@/hooks/useBusinessCardJobsList";
+import { useBusinessCardJobs } from "@/hooks/useBusinessCardJobs";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
+import { toast as sonnerToast } from "sonner";
 
 const BusinessCardJobs = () => {
   const navigate = useNavigate();
@@ -18,18 +19,57 @@ const BusinessCardJobs = () => {
     filterCounts, 
     laminationFilter, 
     selectedJobs,
-    isFixingBatchedJobs,
     setFilterView, 
     setLaminationFilter, 
-    fetchJobs,
-    fixBatchedJobsWithoutBatch,
     handleSelectJob, 
     handleSelectAllJobs,
+    handleDeleteJob,
+    refreshJobs,
     getSelectedJobObjects
-  } = useBusinessCardJobsList();
-  
+  } = useBusinessCardJobs();
+
   const handleBatchComplete = () => {
-    fetchJobs();
+    refreshJobs();
+  };
+
+  const handleJobDeleted = async (jobId: string) => {
+    try {
+      await handleDeleteJob(jobId);
+    } catch (error) {
+      // Error is already handled in the hook and JobActions
+      throw error;
+    }
+  };
+
+  const handleFixOrphanedJobs = async () => {
+    try {
+      sonnerToast.info("Fixing orphaned jobs...");
+      
+      const { data: orphanedJobs, error: findError } = await supabase
+        .from('business_card_jobs')
+        .select('id')
+        .eq('status', 'batched')
+        .is('batch_id', null);
+      
+      if (findError) throw findError;
+      
+      if (orphanedJobs && orphanedJobs.length > 0) {
+        const { error: updateError } = await supabase
+          .from('business_card_jobs')
+          .update({ status: 'queued' })
+          .in('id', orphanedJobs.map(job => job.id));
+        
+        if (updateError) throw updateError;
+        
+        sonnerToast.success(`Fixed ${orphanedJobs.length} orphaned jobs`);
+        refreshJobs();
+      } else {
+        sonnerToast.info("No orphaned jobs found");
+      }
+    } catch (error) {
+      console.error('Error fixing orphaned jobs:', error);
+      sonnerToast.error("Failed to fix orphaned jobs");
+    }
   };
 
   return (
@@ -50,7 +90,7 @@ const BusinessCardJobs = () => {
                 variant="outline" 
                 size="sm" 
                 className="mt-2"
-                onClick={() => fetchJobs()}
+                onClick={refreshJobs}
               >
                 Try Again
               </Button>
@@ -69,7 +109,7 @@ const BusinessCardJobs = () => {
         <FilterBar 
           laminationFilter={laminationFilter}
           setLaminationFilter={setLaminationFilter}
-          selectedJobs={getSelectedJobObjects(jobs)}
+          selectedJobs={getSelectedJobObjects()}
           allAvailableJobs={jobs}
           onBatchComplete={handleBatchComplete}
           onSelectJob={handleSelectJob}
@@ -84,17 +124,9 @@ const BusinessCardJobs = () => {
               variant="outline" 
               size="sm"
               className="bg-white"
-              onClick={() => fixBatchedJobsWithoutBatch()}
-              disabled={isFixingBatchedJobs}
+              onClick={handleFixOrphanedJobs}
             >
-              {isFixingBatchedJobs ? (
-                <>
-                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                  Fixing...
-                </>
-              ) : (
-                'Fix Orphaned Jobs'
-              )}
+              Fix Orphaned Jobs
             </Button>
           </div>
         )}
@@ -103,10 +135,11 @@ const BusinessCardJobs = () => {
           jobs={jobs}
           isLoading={isLoading}
           error={error}
-          onRefresh={fetchJobs}
+          onRefresh={refreshJobs}
           selectedJobs={selectedJobs}
           onSelectJob={handleSelectJob}
-          onSelectAllJobs={(isSelected) => handleSelectAllJobs(isSelected, jobs)}
+          onSelectAllJobs={(isSelected) => handleSelectAllJobs(isSelected)}
+          onJobDeleted={handleJobDeleted}
         />
       </div>
     </div>
