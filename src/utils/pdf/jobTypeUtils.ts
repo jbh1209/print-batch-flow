@@ -12,10 +12,16 @@ export function isBusinessCardJobs(jobs: Job[] | FlyerJob[] | BaseJob[]): jobs i
   
   const firstJob = jobs[0];
   console.log("First job properties:", Object.keys(firstJob));
-  console.log("Has double_sided:", 'double_sided' in firstJob);
-  console.log("double_sided value:", firstJob.double_sided);
   
-  const isBusinessCard = 'double_sided' in firstJob;
+  // Safely check if double_sided property exists
+  const hasDoubleSided = 'double_sided' in firstJob;
+  console.log("Has double_sided:", hasDoubleSided);
+  
+  if (hasDoubleSided) {
+    console.log("double_sided value:", (firstJob as Job).double_sided);
+  }
+  
+  const isBusinessCard = hasDoubleSided;
   console.log("Is business card jobs:", isBusinessCard);
   return isBusinessCard;
 }
