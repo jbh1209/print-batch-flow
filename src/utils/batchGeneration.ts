@@ -1,4 +1,3 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
@@ -18,6 +17,11 @@ import { addJobPreviews } from "./pdf/jobPreviewRenderer";
 
 // Updated function that accepts BaseJob[] as a valid parameter type
 export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[], batchName: string): Promise<Uint8Array> {
+  console.log("=== GENERATING BATCH OVERVIEW ===");
+  console.log("Batch name:", batchName);
+  console.log("Jobs count:", jobs.length);
+  console.log("Jobs type check - first job keys:", jobs[0] ? Object.keys(jobs[0]) : 'no jobs');
+  
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -31,12 +35,16 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   // Calculate optimal distribution if jobs are of type Job (business cards)
   let optimization;
   if (isBusinessCardJobs(jobs)) {
+    console.log("Jobs identified as business cards");
     optimization = calculateOptimalDistribution(jobs);
+    console.log("Optimization calculated - sheets required:", optimization.sheetsRequired);
   } else {
+    console.log("Jobs NOT identified as business cards");
     optimization = { 
       sheetsRequired: Math.ceil(jobs.reduce((sum, job) => sum + job.quantity, 0) / 4),
       distribution: null
     };
+    console.log("Default optimization - sheets required:", optimization.sheetsRequired);
   }
   
   // Draw batch info in top section
@@ -90,6 +98,8 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   
   // Add footer
   drawFooter(page, margin, batchName, helveticaFont);
+  
+  console.log("=== BATCH OVERVIEW GENERATION COMPLETE ===");
   
   return await pdfDoc.save();
 }

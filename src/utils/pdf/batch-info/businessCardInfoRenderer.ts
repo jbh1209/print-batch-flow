@@ -10,6 +10,10 @@ export function drawBusinessCardInfo(
   helveticaFont: any,
   sheetsRequired: number
 ): void {
+  console.log("Drawing business card info - jobs count:", jobs.length);
+  console.log("Sheets required parameter:", sheetsRequired);
+  console.log("First job sample:", jobs[0]);
+  
   // Draw lamination info background and text
   const laminationType = jobs[0]?.lamination_type || 'none';
   const laminationText = `Lamination: ${laminationType.charAt(0).toUpperCase() + laminationType.slice(1)}`;
@@ -42,6 +46,7 @@ export function drawBusinessCardInfo(
   
   // Display the sheets required prominently with proper calculation
   const actualSheetsRequired = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalCards / 24);
+  console.log("Calculated sheets required:", actualSheetsRequired);
   
   page.drawRectangle({
     x: margin - 5,
