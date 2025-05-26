@@ -10,69 +10,52 @@ export function drawBusinessCardInfo(
   helveticaFont: any,
   sheetsRequired: number
 ): void {
-  console.log("Drawing business card info - jobs count:", jobs.length);
-  console.log("Sheets required parameter:", sheetsRequired);
-  
-  // Very compact layout to prevent overflow
+  // Draw lamination info background and text
   const laminationType = jobs[0]?.lamination_type || 'none';
   const laminationText = `Lamination: ${laminationType.charAt(0).toUpperCase() + laminationType.slice(1)}`;
   
-  // Position elements in a more compact horizontal layout
-  const infoY = page.getHeight() - margin - 85; // Moved higher up
-  
-  // Lamination info - smaller and more compact
   page.drawRectangle({
     x: margin - 5,
-    y: infoY,
-    width: 110, // Further reduced width
-    height: 18, // Further reduced height
+    y: page.getHeight() - margin - 75,
+    width: 150,
+    height: 30,
     color: rgb(0.102, 0.122, 0.173),
   });
   
   page.drawText(laminationText, {
     x: margin,
-    y: infoY + 5, // Adjusted for smaller rectangle
-    size: 9, // Smaller font
+    y: page.getHeight() - margin - 60,
+    size: 12,
     font: helveticaBold,
     color: rgb(1, 1, 1)
   });
   
-  // Total cards info - positioned inline to save space
   const totalCards = jobs.reduce((sum, job) => sum + job.quantity, 0);
   
   page.drawText(`Total Cards: ${totalCards}`, {
-    x: margin + 125, // Position to the right with less spacing
-    y: infoY + 5,
-    size: 9, // Smaller font to match
+    x: margin,
+    y: page.getHeight() - margin - 90,
+    size: 12,
     font: helveticaFont,
     color: rgb(0, 0, 0)
   });
   
-  // Sheets required - positioned below with minimal spacing
+  // Display the actual sheets required (no doubling needed here)
   const actualSheetsRequired = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalCards / 24);
-  console.log("Calculated sheets required:", actualSheetsRequired);
-  
-  const sheetsY = infoY - 25; // Reduced spacing
   
   page.drawRectangle({
     x: margin - 5,
-    y: sheetsY,
-    width: 140, // Reduced width
-    height: 18, // Reduced height to match above
+    y: page.getHeight() - margin - 125,
+    width: 200,
+    height: 30,
     color: rgb(0.102, 0.122, 0.173),
   });
   
   page.drawText(`Sheets Required: ${actualSheetsRequired}`, {
     x: margin,
-    y: sheetsY + 5, // Adjusted for smaller rectangle
-    size: 10, // Slightly larger for importance
+    y: page.getHeight() - margin - 110,
+    size: 14,
     font: helveticaBold,
     color: rgb(1, 1, 1)
-  });
-  
-  console.log("Business card info positioning (ultra-compact):", {
-    infoY,
-    totalCardsY: infoY + 5,
-    sheetsY
   });
 }

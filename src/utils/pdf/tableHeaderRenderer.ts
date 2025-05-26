@@ -12,10 +12,15 @@ export function drawTableHeader(
   isBusinessCard: boolean = false,
   isSleeve: boolean = false
 ) {
-  console.log("Drawing table header - isBusinessCard:", isBusinessCard, "isSleeve:", isSleeve);
-  
-  // COMPLETELY REMOVED: No background rectangle to eliminate any line issues
-  
+  // Draw header row background - reduced height
+  page.drawRectangle({
+    x: margin - 5,
+    y: tableY - 5,
+    width: 680,
+    height: 20, // Reduced from 25 to 20
+    color: rgb(0.95, 0.95, 0.95)
+  });
+
   // Get headers based on job type
   const headers = calculateHeaderLabels(isBusinessCard, isSleeve);
   
@@ -33,5 +38,5 @@ export function drawTableHeader(
     });
   });
 
-  // NO separator line or background - completely clean
+  // Completely removed the black separator line
 }

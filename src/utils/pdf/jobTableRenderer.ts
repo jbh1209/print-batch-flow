@@ -21,7 +21,7 @@ export function drawCompactJobsTable(
   // Determine if these are sleeve jobs
   const isSleeve = isSleeveJobs(jobs);
   
-  // Draw the table header with more compact styling
+  // Draw the table header
   drawTableHeader(
     page,
     tableY,
@@ -33,8 +33,8 @@ export function drawCompactJobsTable(
     isSleeve
   );
   
-  // Draw the table rows in a more compact layout - further reduced vertical spacing
-  const rowY = tableY - 15; // Reduced from 20 to 15
+  // Draw the table rows in a more compact layout - reduced vertical spacing
+  const rowY = tableY - 20; // Reduced from 25 to 20
   const finalY = drawTableRows(
     page,
     jobs,

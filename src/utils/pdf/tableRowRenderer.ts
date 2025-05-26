@@ -1,4 +1,3 @@
-
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
@@ -11,6 +10,7 @@ const getJobNumber = (job: Job | FlyerJob | BaseJob): string => {
   if ('job_number' in job && typeof job.job_number === 'string') {
     return job.job_number;
   } else {
+    // Fallback to name if job_number is not available (shouldn't happen with proper types)
     return (job.name && typeof job.name === 'string') ? job.name : 'Unknown Job';
   }
 };
@@ -25,85 +25,81 @@ export function drawTableRows(
 ) {
   let y = startY;
   
-  // Limit display to top 5 jobs to ensure better fit
-  const displayJobs = jobs.slice(0, 5);
+  // Limit display to top 8 jobs to prevent overlap with previews
+  const displayJobs = jobs.slice(0, 8);
   
   displayJobs.forEach((job, index) => {
-    // Job number with more aggressive truncation for better fit
+    // Job number (truncate if too long)
     const jobNumber = getJobNumber(job);
-    const displayText = jobNumber.length > 12 ? jobNumber.substring(0, 9) + '...' : jobNumber;
+    const displayText = jobNumber.length > 18 ? jobNumber.substring(0, 15) + '...' : jobNumber;
     page.drawText(displayText, {
       x: colStarts[0],
       y,
-      size: 8,
+      size: 9, // Smaller font
       font
     });
     
-    // Due date with compact formatting
-    const dueDate = job.due_date ? format(new Date(job.due_date), 'M/d') : 'N/A';
+    // Due date (formatted)
+    const dueDate = job.due_date ? format(new Date(job.due_date), 'MMM d') : 'N/A';
     page.drawText(dueDate, {
       x: colStarts[1],
       y,
-      size: 8,
+      size: 9, // Smaller font
       font
     });
     
-    // Quantity with proper alignment
+    // Quantity
     page.drawText(job.quantity.toString(), {
       x: colStarts[2],
       y,
-      size: 8,
+      size: 9, // Smaller font
       font
     });
     
-    // Fourth column based on job type
+    // Stock Type or Size or Double-sided based on job type
     if (isBusinessCardJobs([job])) {
       const businessCardJob = job as Job;
       const doubleSided = businessCardJob.double_sided ? 'Yes' : 'No';
       page.drawText(doubleSided, {
         x: colStarts[3],
         y,
-        size: 8,
+        size: 9, // Smaller font
         font
       });
     } else if (isFlyerJobs([job])) {
       const flyerJob = job as FlyerJob;
-      const sizeText = flyerJob.size || 'N/A';
-      const displaySize = sizeText.length > 8 ? sizeText.substring(0, 6) + '..' : sizeText;
-      page.drawText(displaySize, {
+      page.drawText(flyerJob.size || 'N/A', {
         x: colStarts[3],
         y,
-        size: 8,
+        size: 9, // Smaller font
         font
       });
     } else if (isSleeveJobs([job])) {
       const sleeveJob = job as BaseJob;
-      const stockType = 'stock_type' in sleeveJob ? sleeveJob.stock_type || 'Standard' : 'Standard';
-      const displayStock = stockType.length > 8 ? stockType.substring(0, 6) + '..' : stockType;
-      page.drawText(displayStock, {
+      const stockType = 'stock_type' in sleeveJob ? sleeveJob.stock_type : 'Standard';
+      page.drawText(stockType || 'Standard', {
         x: colStarts[3],
         y,
-        size: 8,
+        size: 9, // Smaller font
         font
       });
     }
     
-    // Reduced row spacing for better compactness
-    y -= 14; // Increased slightly from 12 to 14 for better readability
+    // Update y for next row - reduced vertical spacing
+    y -= 15; // Reduced from 20 to 15
   });
   
-  // If there are more jobs than displayed, add compact note
+  // If there are more jobs than we displayed, add a note
   if (jobs.length > displayJobs.length) {
-    page.drawText(`+ ${jobs.length - displayJobs.length} more`, {
+    page.drawText(`+ ${jobs.length - displayJobs.length} more jobs`, {
       x: colStarts[0],
-      y: y - 8,
-      size: 7,
+      y: y - 5,
+      size: 8,
       font,
       color: rgb(0.5, 0.5, 0.5)
     });
-    y -= 15; // Account for the additional text
   }
   
-  // Return final Y position with proper buffer
-  return y - 20;
+  // Return the final Y position to help position elements that follow the table
+  return y - 20; // Extra padding below the table
 }

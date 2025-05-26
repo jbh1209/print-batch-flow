@@ -12,48 +12,27 @@ interface GridConfig {
 }
 
 export function calculateGridLayout(jobCount: number, pageHeight: number): GridConfig {
-  console.log("Calculating grid layout for", jobCount, "jobs, page height:", pageHeight);
+  // Reserve top 30% for job info and table, use bottom 70% for previews
+  const previewAreaHeight = pageHeight * 0.7;
+  // Start Y positioned lower to avoid overlapping with the job table
+  const startY = pageHeight - (pageHeight * 0.3) - 150; // Additional offset to avoid overlap with table
+  const previewWidth = 510; // Width for preview area
   
-  // Reserve space more accurately based on actual layout
-  const headerHeight = 160; // Increased to account for business card info
-  const footerHeight = 60;
-  const availableHeight = pageHeight - headerHeight - footerHeight;
+  // Adjust grid layout based on job count
+  const columns = 3; // 3 columns for sleeve boxes
+  const rows = Math.ceil(jobCount / columns);
+  const maxRows = 4; // Limit rows to ensure they fit on the page
   
-  // Calculate optimal grid based on job count and available space
-  let columns = Math.min(3, jobCount); // Max 3 columns, but adjust based on job count
-  let rows = Math.ceil(jobCount / columns);
+  // Calculate cell dimensions based on available space
+  const cellPadding = 10;
+  const cellWidth = (previewWidth - (cellPadding * (columns + 1))) / columns;
   
-  // Limit rows to ensure content fits with PDF previews
-  const maxRows = Math.floor(availableHeight / 150); // Increased minimum height for PDF previews
-  if (rows > maxRows) {
-    rows = maxRows;
-    columns = Math.min(4, Math.ceil(jobCount / rows));
-  }
-  
-  // Calculate cell dimensions with proper spacing for PDF content
-  const previewWidth = 500;
-  const cellPadding = 30; // Increased padding for better spacing
-  const cellWidth = Math.min(160, (previewWidth - (cellPadding * (columns + 1))) / columns); // Increased max width
-  
-  // Calculate cell height to accommodate PDF preview and text
-  const availableRowHeight = availableHeight / rows;
-  const cellHeight = Math.min(120, availableRowHeight - cellPadding); // Increased height for PDF content
-  
-  const startY = pageHeight - headerHeight - 30; // 30px buffer
-  
-  console.log("Grid layout calculated:", {
-    columns,
-    rows,
-    cellWidth,
-    cellHeight,
-    startY,
-    availableHeight,
-    maxRows
-  });
+  // Make sure cell height is proportional for sleeve boxes (which are more square)
+  const cellHeight = cellWidth * 1.2; // Height is 120% of width for sleeve boxes
   
   return {
     columns,
-    rows,
+    rows: Math.min(rows, maxRows),
     cellWidth,
     cellHeight,
     startY,

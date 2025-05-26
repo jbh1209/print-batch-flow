@@ -4,26 +4,8 @@ import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
 
 export function isBusinessCardJobs(jobs: Job[] | FlyerJob[] | BaseJob[]): jobs is Job[] {
-  console.log("Checking if jobs are business card jobs - count:", jobs.length);
-  if (jobs.length === 0) {
-    console.log("No jobs provided");
-    return false;
-  }
-  
-  const firstJob = jobs[0];
-  console.log("First job properties:", Object.keys(firstJob));
-  
-  // Safely check if double_sided property exists
-  const hasDoubleSided = 'double_sided' in firstJob;
-  console.log("Has double_sided:", hasDoubleSided);
-  
-  if (hasDoubleSided) {
-    console.log("double_sided value:", (firstJob as Job).double_sided);
-  }
-  
-  const isBusinessCard = hasDoubleSided;
-  console.log("Is business card jobs:", isBusinessCard);
-  return isBusinessCard;
+  if (jobs.length === 0) return false;
+  return 'double_sided' in jobs[0];
 }
 
 export function isFlyerJobs(jobs: Job[] | FlyerJob[] | BaseJob[]): jobs is FlyerJob[] {
