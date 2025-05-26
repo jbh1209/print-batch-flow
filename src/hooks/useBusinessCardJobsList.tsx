@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,7 +8,6 @@ import { useJobFilters } from "./business-cards/useJobFilters";
 import { useJobSelection } from "./business-cards/useJobSelection";
 import { useBatchCleanup } from "./business-cards/useBatchCleanup";
 import { toast as sonnerToast } from "sonner";
-import { handleAuthError } from "@/utils/authCleanup";
 
 export const useBusinessCardJobsList = () => {
   const { toast } = useToast();
@@ -69,13 +69,6 @@ export const useBusinessCardJobsList = () => {
       
       if (fetchError) {
         console.error("Fetch error:", fetchError);
-        
-        // Check if it's an auth error
-        if (fetchError.message?.includes('JWT') || fetchError.code === 'PGRST301') {
-          await handleAuthError();
-          return;
-        }
-        
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
       
@@ -134,14 +127,6 @@ export const useBusinessCardJobsList = () => {
       
       if (deleteError) {
         console.error("Database deletion error:", deleteError);
-        
-        // Check if it's an auth error
-        if (deleteError.message?.includes('JWT') || deleteError.code === 'PGRST301') {
-          console.log("Auth error during deletion, handling cleanup");
-          await handleAuthError();
-          return false;
-        }
-        
         throw new Error(`Database error: ${deleteError.message}`);
       }
       
