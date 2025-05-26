@@ -41,8 +41,8 @@ export function drawBusinessCardInfo(
   });
   
   // Use the sheets required value passed from the batch data
-  // This ensures we show the actual value from the batch page
-  const actualSheetsRequired = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalCards / 24);
+  // This ensures we show the actual value from the batch page, not a calculated one
+  const displaySheetsRequired = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalCards / 24);
   
   page.drawRectangle({
     x: margin - 5,
@@ -52,7 +52,7 @@ export function drawBusinessCardInfo(
     color: rgb(0.102, 0.122, 0.173),
   });
   
-  page.drawText(`Sheets Required: ${actualSheetsRequired}`, {
+  page.drawText(`Sheets Required: ${displaySheetsRequired}`, {
     x: margin,
     y: page.getHeight() - margin - 110,
     size: 14,

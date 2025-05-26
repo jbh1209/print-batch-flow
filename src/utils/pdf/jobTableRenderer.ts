@@ -21,7 +21,7 @@ export function drawCompactJobsTable(
   // Determine if these are sleeve jobs
   const isSleeve = isSleeveJobs(jobs);
   
-  // Draw the table header
+  // Draw the table header using the updated function that removes the black line
   drawTableHeader(
     page,
     tableY,
