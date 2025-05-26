@@ -60,8 +60,8 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   );
   
   // Calculate proper spacing for table position
-  // Batch info takes ~150px, so start table at 200px from top
-  const tableStartY = pageHeight - margin - 200;
+  // Batch info takes ~150px, so start table at 220px from top to give more space
+  const tableStartY = pageHeight - margin - 220;
   
   const colWidths = isBusinessCardJobs(jobs) 
     ? [150, 80, 70, 80, 100]
@@ -84,13 +84,17 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
   );
   
   // Calculate grid layout for preview area - ensure enough space between table and previews
-  // Add 50px buffer between table end and preview start
-  const previewStartY = Math.min(finalTableY - 50, pageHeight - 400); // Ensure previews don't go too high
-  const availablePreviewHeight = previewStartY - margin - 50; // Leave space for footer
+  // Add 60px buffer between table end and preview start
+  const previewStartY = Math.min(finalTableY - 60, pageHeight - 450); // Ensure previews don't go too high
+  const availablePreviewHeight = previewStartY - margin - 60; // Leave more space for footer
   
-  // Calculate grid config with proper spacing
+  // Calculate grid config with proper spacing - fix property names to match GridConfig interface
+  const baseGridConfig = calculateGridLayout(jobs.length, pageHeight);
   const gridConfig = {
-    ...calculateGridLayout(jobs.length, pageHeight),
+    cols: baseGridConfig.columns, // Map columns to cols
+    rows: baseGridConfig.rows,
+    cellWidth: baseGridConfig.cellWidth,
+    cellHeight: Math.min(baseGridConfig.cellHeight, availablePreviewHeight / baseGridConfig.rows),
     startY: previewStartY,
     maxHeight: availablePreviewHeight
   };
@@ -99,7 +103,8 @@ export async function generateBatchOverview(jobs: Job[] | FlyerJob[] | BaseJob[]
     tableStartY,
     finalTableY, 
     previewStartY,
-    availablePreviewHeight
+    availablePreviewHeight,
+    gridConfig
   });
   
   // Add job previews in grid layout - starting below the jobs table with proper spacing
