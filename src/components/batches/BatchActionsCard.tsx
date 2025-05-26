@@ -40,11 +40,22 @@ const BatchActionsCard = ({
       return;
     }
     
+    let toastId: string | number | undefined;
+    
     try {
-      toast.loading("Downloading batch front PDF...");
+      toastId = toast.loading("Downloading batch front PDF...");
       await handlePdfAction(batch.front_pdf_url, 'download', `${batch.name}-front.pdf`);
+      
+      if (toastId) {
+        toast.dismiss(toastId);
+      }
+      toast.success("Front PDF downloaded successfully");
     } catch (error) {
       console.error(`Error downloading front PDF for batch ${batch.id}:`, error);
+      
+      if (toastId) {
+        toast.dismiss(toastId);
+      }
       toast.error("Error downloading batch front PDF");
     }
   };
@@ -55,11 +66,22 @@ const BatchActionsCard = ({
       return;
     }
     
+    let toastId: string | number | undefined;
+    
     try {
-      toast.loading("Downloading batch back PDF...");
+      toastId = toast.loading("Downloading batch back PDF...");
       await handlePdfAction(batch.back_pdf_url, 'download', `${batch.name}-back.pdf`);
+      
+      if (toastId) {
+        toast.dismiss(toastId);
+      }
+      toast.success("Back PDF downloaded successfully");
     } catch (error) {
       console.error(`Error downloading back PDF for batch ${batch.id}:`, error);
+      
+      if (toastId) {
+        toast.dismiss(toastId);
+      }
       toast.error("Error downloading batch back PDF");
     }
   };

@@ -40,8 +40,8 @@ export function drawBusinessCardInfo(
     color: rgb(0, 0, 0)
   });
   
-  // Calculate doubled sheets required and draw info
-  const actualSheetsRequired = sheetsRequired > 0 ? sheetsRequired * 2 : Math.ceil(totalCards / 12);
+  // Display the actual sheets required (no doubling needed here)
+  const actualSheetsRequired = sheetsRequired > 0 ? sheetsRequired : Math.ceil(totalCards / 24);
   
   page.drawRectangle({
     x: margin - 5,

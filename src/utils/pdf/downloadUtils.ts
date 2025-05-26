@@ -20,7 +20,9 @@ export const downloadFile = (url: string, filename: string): void => {
   link.click();
   document.body.removeChild(link);
   
-  toast.success("Download initiated");
+  // Clear any existing loading toasts and show success
+  toast.dismiss();
+  toast.success("Download complete");
 };
 
 /**
@@ -31,9 +33,11 @@ export const openInNewTab = (url: string): void => {
   
   if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
     console.warn("Popup blocked or failed to open");
+    toast.dismiss();
     toast.info("Opening PDF in current tab as popup was blocked");
     window.location.href = url;
   } else {
+    toast.dismiss();
     toast.success("PDF opened in new tab");
   }
 };

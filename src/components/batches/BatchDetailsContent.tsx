@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { BatchDetailsType, Job } from "./types/BatchTypes";
 import BatchDetailsCard from "./BatchDetailsCard";
@@ -149,6 +148,8 @@ const BatchDetailsContent = ({
   };
 
   const handleDownloadBatchOverviewSheet = async () => {
+    let toastId: string | number | undefined;
+    
     try {
       // Check if batch overview PDF URL exists
       const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
@@ -167,10 +168,23 @@ const BatchDetailsContent = ({
       }
 
       console.log("Downloading batch overview sheet:", overviewPdfUrl);
-      toast.loading("Downloading batch overview sheet...");
+      toastId = toast.loading("Downloading batch overview sheet...");
+      
       await handlePdfAction(overviewPdfUrl, 'download', `${batch.name}-overview.pdf`);
+      
+      // Dismiss the loading toast and show success
+      if (toastId) {
+        toast.dismiss(toastId);
+      }
+      toast.success("Batch overview sheet downloaded successfully");
+      
     } catch (error) {
       console.error("Error downloading batch overview sheet:", error);
+      
+      // Dismiss the loading toast and show error
+      if (toastId) {
+        toast.dismiss(toastId);
+      }
       toast.error("Failed to download batch overview sheet");
     }
   };

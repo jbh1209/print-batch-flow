@@ -38,5 +38,5 @@ export function drawTableHeader(
     });
   });
 
-  // Removed the black separator line that was causing the visual issue
+  // Completely removed the black separator line
 }
