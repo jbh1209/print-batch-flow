@@ -134,9 +134,9 @@ async function drawJobPreviewWithPdf(
       throw new Error('PDF has no pages');
     }
     
-    // Copy the first page from the source PDF and embed it
+    // Copy the first page from the source PDF and embed it properly
     const [copiedPage] = await targetPdf.copyPages(sourcePdf, [0]);
-    const embeddedPage = targetPdf.addPage(copiedPage);
+    const embeddedPage = await targetPdf.embedPage(copiedPage);
     
     // Get the original size for scaling calculations
     const originalSize = copiedPage.getSize();
@@ -158,9 +158,6 @@ async function drawJobPreviewWithPdf(
       width: scaledWidth,
       height: scaledHeight
     });
-    
-    // Remove the temporary page we added for embedding
-    targetPdf.removePage(targetPdf.getPageCount() - 1);
     
     console.log(`Successfully rendered PDF preview for job ${job.id}`);
     
