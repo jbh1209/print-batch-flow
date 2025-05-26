@@ -22,16 +22,14 @@ const BusinessCardJobs = () => {
     setFilterView, 
     setLaminationFilter, 
     fetchJobs,
-    deleteJob,
     fixBatchedJobsWithoutBatch,
     handleSelectJob, 
     handleSelectAllJobs,
     getSelectedJobObjects
   } = useBusinessCardJobsList();
   
-  // Handle batch completion
   const handleBatchComplete = () => {
-    fetchJobs(); // Refresh the jobs list
+    fetchJobs();
   };
 
   return (
@@ -41,7 +39,6 @@ const BusinessCardJobs = () => {
         subtitle="View and manage all business card jobs" 
       />
       
-      {/* Error message if there's an issue fetching data */}
       {error && !isLoading && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-4">
           <div className="flex items-center">
@@ -63,14 +60,12 @@ const BusinessCardJobs = () => {
       )}
       
       <div className="bg-white rounded-lg border shadow mb-8">
-        {/* Tabs */}
         <StatusFilterTabs 
           filterView={filterView} 
           filterCounts={filterCounts} 
           setFilterView={setFilterView} 
         />
         
-        {/* Filter Bar */}
         <FilterBar 
           laminationFilter={laminationFilter}
           setLaminationFilter={setLaminationFilter}
@@ -80,7 +75,6 @@ const BusinessCardJobs = () => {
           onSelectJob={handleSelectJob}
         />
         
-        {/* Fix Orphaned Jobs Button - only show if there are jobs stuck in batched state */}
         {filterCounts.batched > 0 && (
           <div className="border-t p-3 bg-amber-50 flex justify-between items-center">
             <div className="text-sm text-amber-800">
@@ -105,7 +99,6 @@ const BusinessCardJobs = () => {
           </div>
         )}
         
-        {/* Jobs Table */}
         <JobsTableContainer 
           jobs={jobs}
           isLoading={isLoading}
@@ -114,7 +107,6 @@ const BusinessCardJobs = () => {
           selectedJobs={selectedJobs}
           onSelectJob={handleSelectJob}
           onSelectAllJobs={(isSelected) => handleSelectAllJobs(isSelected, jobs)}
-          deleteJob={deleteJob}
         />
       </div>
     </div>

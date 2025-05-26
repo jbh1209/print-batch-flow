@@ -7,7 +7,6 @@ import { Job } from "@/components/business-cards/JobsTable";
 import { useJobFilters } from "./business-cards/useJobFilters";
 import { useJobSelection } from "./business-cards/useJobSelection";
 import { useBatchCleanup } from "./business-cards/useBatchCleanup";
-import { toast as sonnerToast } from "sonner";
 
 export const useBusinessCardJobsList = () => {
   const { toast } = useToast();
@@ -83,7 +82,6 @@ export const useBusinessCardJobsList = () => {
       
       if (countError) {
         console.warn("Error fetching counts:", countError);
-        // Don't throw here, just log the warning
       } else {
         setFilterCounts({
           all: allJobs?.length || 0,
@@ -93,7 +91,6 @@ export const useBusinessCardJobsList = () => {
         });
       }
       
-      // Clear selections when data changes
       setSelectedJobs([]);
       
     } catch (error) {
@@ -111,65 +108,14 @@ export const useBusinessCardJobsList = () => {
     }
   }, [user, filterView, laminationFilter, toast]);
 
-  const deleteJob = useCallback(async (jobId: string): Promise<boolean> => {
-    if (!jobId) {
-      console.error("No job ID provided for deletion");
-      return false;
-    }
-
-    try {
-      console.log("Deleting job:", jobId);
-      
-      const { error: deleteError } = await supabase
-        .from('business_card_jobs')
-        .delete()
-        .eq('id', jobId);
-      
-      if (deleteError) {
-        console.error("Database deletion error:", deleteError);
-        throw new Error(`Database error: ${deleteError.message}`);
-      }
-      
-      // Update local state immediately
-      setJobs(prevJobs => {
-        const updatedJobs = prevJobs.filter(job => job.id !== jobId);
-        console.log(`Job removed from state. Jobs count: ${prevJobs.length} -> ${updatedJobs.length}`);
-        return updatedJobs;
-      });
-      
-      // Remove from selection if it was selected
-      setSelectedJobs(prevSelected => prevSelected.filter(id => id !== jobId));
-      
-      sonnerToast.success("Job deleted successfully");
-      return true;
-      
-    } catch (error) {
-      console.error('Error deleting job:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete job";
-      
-      sonnerToast.error(`Delete failed: ${errorMessage}`);
-      
-      toast({
-        title: "Error deleting job",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      
-      return false;
-    }
-  }, [toast]);
-
-  // Initial fetch and when dependencies change
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
   
-  // Fix batched jobs on mount
   useEffect(() => {
     if (user) {
       fixBatchedJobsWithoutBatch().catch(error => {
         console.error("Error fixing batched jobs:", error);
-        // Don't show user error for this background operation
       });
     }
   }, [user, fixBatchedJobsWithoutBatch]);
@@ -186,7 +132,6 @@ export const useBusinessCardJobsList = () => {
     setFilterView,
     setLaminationFilter,
     fetchJobs,
-    deleteJob,
     fixBatchedJobsWithoutBatch,
     handleSelectJob,
     handleSelectAllJobs,

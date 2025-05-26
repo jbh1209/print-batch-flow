@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { toast as sonnerToast } from "sonner";
 import { MoreHorizontal, Pencil, Trash2, Eye, Download } from "lucide-react";
 import { handlePdfAction } from "@/utils/pdfActionUtils";
@@ -31,11 +31,10 @@ interface JobActionsProps {
 
 const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleViewJob = (jobId: string, pdfUrl: string) => {
+  const handleViewJob = () => {
     try {
       handlePdfAction(pdfUrl, 'view');
     } catch (error) {
@@ -44,7 +43,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
     }
   };
 
-  const handleEditJob = (jobId: string) => {
+  const handleEditJob = () => {
     try {
       navigate(`/batches/business-cards/jobs/edit/${jobId}`);
     } catch (error) {
@@ -62,47 +61,44 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
     }
   };
 
-  const handleDeleteJob = async (e?: React.MouseEvent) => {
-    // Prevent event bubbling
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
-    if (isDeleting) return; // Prevent double-clicks
+  const handleDeleteJob = async () => {
+    if (isDeleting) return;
     
     setIsDeleting(true);
     
     try {
-      console.log("Starting job deletion for ID:", jobId);
+      console.log("Starting deletion for job:", jobId);
       
-      // Close dialog first
+      // Close dialog immediately
       setShowDeleteDialog(false);
       
-      // Call the callback immediately to trigger refresh
-      if (onJobDeleted) {
-        console.log("Calling onJobDeleted callback");
-        onJobDeleted();
+      // Delete from database
+      const { error } = await supabase
+        .from('business_card_jobs')
+        .delete()
+        .eq('id', jobId);
+      
+      if (error) {
+        console.error("Database deletion error:", error);
+        throw new Error(`Database error: ${error.message}`);
       }
       
+      console.log("Job deleted successfully from database");
       sonnerToast.success("Job deleted successfully");
+      
+      // Trigger refresh if callback provided
+      if (onJobDeleted) {
+        setTimeout(() => {
+          onJobDeleted();
+        }, 100);
+      }
       
     } catch (error) {
       console.error("Job deletion failed:", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      
       sonnerToast.error(`Failed to delete job: ${errorMessage}`);
-      
-      toast({
-        title: "Error deleting job",
-        description: errorMessage,
-        variant: "destructive"
-      });
     } finally {
-      // Always reset the deleting state
-      setTimeout(() => {
-        setIsDeleting(false);
-      }, 500);
+      setIsDeleting(false);
     }
   };
 
@@ -116,11 +112,11 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => handleViewJob(jobId, pdfUrl)} className="flex items-center gap-2">
+          <DropdownMenuItem onClick={handleViewJob} className="flex items-center gap-2">
             <Eye size={16} />
             <span>View PDF</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleEditJob(jobId)} className="flex items-center gap-2">
+          <DropdownMenuItem onClick={handleEditJob} className="flex items-center gap-2">
             <Pencil size={16} />
             <span>Edit</span>
           </DropdownMenuItem>
@@ -129,11 +125,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
             <span>Download PDF</span>
           </DropdownMenuItem>
           <DropdownMenuItem 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowDeleteDialog(true);
-            }}
+            onClick={() => setShowDeleteDialog(true)}
             disabled={isDeleting}
             className="flex items-center gap-2 text-red-600 focus:text-red-600"
           >
@@ -159,14 +151,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted }: JobActionsProps) => {
               disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
-              {isDeleting ? (
-                <>
-                  <span className="animate-spin mr-2">○</span>
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
