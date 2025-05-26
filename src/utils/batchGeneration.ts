@@ -1,3 +1,4 @@
+
 import { Job } from "@/components/business-cards/JobsTable";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
@@ -5,9 +6,9 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { 
   addNewPage,
   calculateColumnStarts,
-  drawTableHeader,
   drawFooter 
 } from "./pdf/pageLayoutHelpers";
+import { drawTableHeader } from "./pdf/tableHeaderRenderer";
 import { drawBatchInfo } from "./pdf/batchInfoHelpers";
 import { calculateOptimalDistribution } from "./batchOptimizationHelpers";
 import { calculateGridLayout } from "./pdf/gridLayoutHelper";
@@ -21,6 +22,11 @@ export async function generateBatchOverview(
   batchName: string, 
   sheetsRequired?: number
 ): Promise<Uint8Array> {
+  console.log("=== BATCH OVERVIEW GENERATION START ===");
+  console.log("Batch name:", batchName);
+  console.log("Jobs count:", jobs.length);
+  console.log("Sheets required parameter:", sheetsRequired);
+
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -35,17 +41,20 @@ export async function generateBatchOverview(
   let optimization;
   if (isBusinessCardJobs(jobs)) {
     optimization = calculateOptimalDistribution(jobs);
+    console.log("Business card optimization calculated sheets:", optimization.sheetsRequired);
   } else {
     optimization = { 
       sheetsRequired: Math.ceil(jobs.reduce((sum, job) => sum + job.quantity, 0) / 4),
       distribution: null
     };
+    console.log("Non-business card calculated sheets:", optimization.sheetsRequired);
   }
   
   // Use the provided sheetsRequired if available, otherwise use the calculated value
   const finalSheetsRequired = sheetsRequired && sheetsRequired > 0 ? sheetsRequired : optimization.sheetsRequired;
   
   console.log("Final sheets required for PDF generation:", finalSheetsRequired);
+  console.log("=== CALLING drawBatchInfo WITH SHEETS:", finalSheetsRequired, "===");
   
   // Draw batch info in top section with the correct sheets required value
   drawBatchInfo(
@@ -98,6 +107,8 @@ export async function generateBatchOverview(
   
   // Add footer
   drawFooter(page, margin, batchName, helveticaFont);
+  
+  console.log("=== BATCH OVERVIEW GENERATION COMPLETE ===");
   
   return await pdfDoc.save();
 }

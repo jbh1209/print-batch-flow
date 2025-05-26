@@ -18,20 +18,31 @@ export function drawBatchInfo(
   margin: number,
   sheetsRequired: number = 0
 ): void {
+  console.log("=== BATCH INFO HELPERS ===");
+  console.log("Batch name:", batchName);
+  console.log("Jobs length:", jobs.length);
+  console.log("Sheets required parameter:", sheetsRequired);
+  
   // Draw the batch header
   drawBatchHeader(page, batchName, helveticaBold, helveticaFont, margin);
   
   // Check if jobs array is not empty
   if (jobs.length === 0) {
+    console.log("No jobs to process, returning early");
     return;
   }
   
   // Draw specific info based on job type
   if (isBusinessCardJobs(jobs)) {
+    console.log("Processing as business card jobs, calling drawBusinessCardInfo with sheets:", sheetsRequired);
     drawBusinessCardInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
   } else if (isFlyerJobs(jobs)) {
+    console.log("Processing as flyer jobs, calling drawFlyerInfo with sheets:", sheetsRequired);
     drawFlyerInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
   } else if (isSleeveJobs(jobs)) {
+    console.log("Processing as sleeve jobs, calling drawSleeveInfo with sheets:", sheetsRequired);
     drawSleeveInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
   }
+  
+  console.log("=== BATCH INFO HELPERS COMPLETE ===");
 }

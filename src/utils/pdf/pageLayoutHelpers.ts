@@ -1,6 +1,7 @@
 
 import { PDFDocument, PDFPage, rgb } from "pdf-lib";
 import { format } from "date-fns";
+import { drawTableHeader } from "./tableHeaderRenderer";
 
 // Function to add a new A4 page
 export function addNewPage(pdfDoc: PDFDocument): PDFPage {
@@ -62,61 +63,4 @@ export function calculateColumnStarts(margin: number, colWidths: number[]): numb
   }
   
   return colStarts;
-}
-
-// Function to draw table header - completely removed separator line
-export function drawTableHeader(
-  page: PDFPage,
-  tableY: number,
-  colStarts: number[],
-  helveticaBold: any,
-  margin: number,
-  colWidths: number[],
-  includeSlotInfo: boolean = false
-): void {
-  // Draw table header with bold font
-  page.drawText("Job Name", {
-    x: colStarts[0],
-    y: tableY,
-    size: 12,
-    font: helveticaBold,
-    color: rgb(0, 0, 0)
-  });
-  
-  page.drawText("Due Date", {
-    x: colStarts[1],
-    y: tableY,
-    size: 12,
-    font: helveticaBold,
-    color: rgb(0, 0, 0)
-  });
-  
-  page.drawText("Quantity", {
-    x: colStarts[2],
-    y: tableY,
-    size: 12,
-    font: helveticaBold,
-    color: rgb(0, 0, 0)
-  });
-  
-  page.drawText("Double-sided", {
-    x: colStarts[3],
-    y: tableY,
-    size: 12,
-    font: helveticaBold,
-    color: rgb(0, 0, 0)
-  });
-  
-  // Add slot info column if needed
-  if (includeSlotInfo) {
-    page.drawText("Slot Allocation", {
-      x: colStarts[4],
-      y: tableY,
-      size: 12,
-      font: helveticaBold,
-      color: rgb(0, 0, 0)
-    });
-  }
-  
-  // No separator line - completely removed to eliminate the black line
 }
