@@ -134,9 +134,8 @@ async function drawJobPreviewWithPdf(
       throw new Error('PDF has no pages');
     }
     
-    // Copy the first page from the source PDF and embed it properly
+    // Copy the first page from the source PDF
     const [copiedPage] = await targetPdf.copyPages(sourcePdf, [0]);
-    const embeddedPage = await targetPdf.embedPage(copiedPage);
     
     // Get the original size for scaling calculations
     const originalSize = copiedPage.getSize();
@@ -151,8 +150,8 @@ async function drawJobPreviewWithPdf(
     const previewX = x + (width - scaledWidth) / 2;
     const previewY = y - height + 20 + (height - 20 - scaledHeight) / 2; // 20px for text
     
-    // Draw the embedded PDF page content
-    page.drawPage(embeddedPage, {
+    // Draw the copied PDF page content directly
+    page.drawPage(copiedPage, {
       x: previewX,
       y: previewY,
       width: scaledWidth,
