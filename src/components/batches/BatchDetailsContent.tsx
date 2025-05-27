@@ -49,7 +49,7 @@ const BatchDetailsContent = ({
     };
     
     checkOverviewStatus();
-  }, [batch.id, batch.overview_pdf_url]);
+  }, [batch.id, batch.overview_pdf_url, relatedJobs]);
 
   // Function to generate and upload the overview PDF
   const handleGenerateAndUploadOverview = async () => {
@@ -163,8 +163,14 @@ const BatchDetailsContent = ({
         // If no overview PDF exists yet, generate one with the correct sheets required
         if (relatedJobs.length > 0) {
           console.log("=== BATCH DETAILS CONTENT - DOWNLOAD OVERVIEW ===");
-          console.log("Generating new overview with batch.sheets_required:", batch.sheets_required);
+          console.log("Batch object:", batch);
+          console.log("Batch.sheets_required:", batch.sheets_required);
           console.log("Type of batch.sheets_required:", typeof batch.sheets_required);
+          console.log("Generating new overview with sheets_required:", batch.sheets_required);
+          
+          // Add cache-busting timestamp
+          const timestamp = Date.now();
+          console.log("Cache-busting timestamp for PDF generation:", timestamp);
           
           // Generate the PDF bytes with the actual sheets required from the batch
           const pdfBytes = await generateBatchOverview(
@@ -178,7 +184,7 @@ const BatchDetailsContent = ({
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
-          link.download = `${batch.name}-overview.pdf`;
+          link.download = `${batch.name}-overview-${timestamp}.pdf`; // Add timestamp to filename
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);

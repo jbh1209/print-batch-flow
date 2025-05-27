@@ -8,7 +8,7 @@ import {
   calculateColumnStarts,
   drawFooter 
 } from "./pdf/pageLayoutHelpers";
-import { drawTableHeader } from "./pdf/tableHeaderRenderer"; // FIXED: Import from correct file
+import { drawTableHeader } from "./pdf/tableHeaderRenderer";
 import { drawBatchInfo } from "./pdf/batchInfoHelpers";
 import { calculateOptimalDistribution } from "./batchOptimizationHelpers";
 import { calculateGridLayout } from "./pdf/gridLayoutHelper";
@@ -16,7 +16,6 @@ import { isBusinessCardJobs, isSleeveJobs } from "./pdf/jobTypeUtils";
 import { drawCompactJobsTable } from "./pdf/jobTableRenderer";
 import { addJobPreviews } from "./pdf/jobPreviewRenderer";
 
-// Updated function that accepts BaseJob[] as a valid parameter type and optional sheetsRequired
 export async function generateBatchOverview(
   jobs: Job[] | FlyerJob[] | BaseJob[], 
   batchName: string, 
@@ -27,13 +26,21 @@ export async function generateBatchOverview(
   console.log("Jobs count:", jobs.length);
   console.log("Sheets required parameter received:", sheetsRequired);
   console.log("Type of sheetsRequired:", typeof sheetsRequired);
+  console.log("sheetsRequired value analysis:");
+  console.log("  - Is undefined:", sheetsRequired === undefined);
+  console.log("  - Is null:", sheetsRequired === null);
+  console.log("  - Is 0:", sheetsRequired === 0);
+  console.log("  - Is truthy:", !!sheetsRequired);
+
+  // Add cache-busting timestamp
+  const generationTimestamp = Date.now();
+  console.log("PDF Generation timestamp (cache-busting):", generationTimestamp);
 
   const pdfDoc = await PDFDocument.create();
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const helveticaItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
   
-  // Create first page - single page overview
   const page = addNewPage(pdfDoc);
   const pageHeight = page.getHeight();
   const margin = 50;
@@ -54,7 +61,10 @@ export async function generateBatchOverview(
   // CRITICAL: Use the provided sheetsRequired if available, otherwise use the calculated value
   const finalSheetsRequired = (sheetsRequired !== undefined && sheetsRequired > 0) ? sheetsRequired : optimization.sheetsRequired;
   
-  console.log("Final sheets required for PDF generation:", finalSheetsRequired);
+  console.log("=== FINAL SHEETS REQUIRED DECISION ===");
+  console.log("Provided sheetsRequired:", sheetsRequired);
+  console.log("Calculated optimization.sheetsRequired:", optimization.sheetsRequired);
+  console.log("FINAL sheets required for PDF generation:", finalSheetsRequired);
   console.log("=== CALLING drawBatchInfo WITH SHEETS:", finalSheetsRequired, "===");
   
   // Draw batch info in top section with the correct sheets required value
@@ -70,12 +80,12 @@ export async function generateBatchOverview(
   
   // Draw compact jobs table - adjust position based on job type
   const tableY = isSleeveJobs(jobs) 
-    ? pageHeight - margin - 130 // Position lower for sleeve jobs
-    : pageHeight - margin - 110; // Default position
+    ? pageHeight - margin - 130
+    : pageHeight - margin - 110;
     
   const colWidths = isBusinessCardJobs(jobs) 
     ? [150, 80, 70, 80, 100]
-    : [150, 60, 60, 100]; // Wider column for stock type
+    : [150, 60, 60, 100];
   
   const colStarts = calculateColumnStarts(margin, colWidths);
   
@@ -93,10 +103,10 @@ export async function generateBatchOverview(
     isBusinessCardJobs(jobs) ? optimization.distribution : null
   );
   
-  // Calculate grid layout for preview area - starting further down
+  // Calculate grid layout for preview area
   const gridConfig = calculateGridLayout(jobs.length, pageHeight);
   
-  // Add job previews in grid layout - starting below the jobs table
+  // Add job previews in grid layout
   await addJobPreviews(
     page,
     jobs,
@@ -110,6 +120,7 @@ export async function generateBatchOverview(
   drawFooter(page, margin, batchName, helveticaFont);
   
   console.log("=== BATCH OVERVIEW GENERATION COMPLETE ===");
+  console.log("Generated PDF with sheets required:", finalSheetsRequired);
   
   return await pdfDoc.save();
 }

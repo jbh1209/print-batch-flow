@@ -18,10 +18,17 @@ export function drawBatchInfo(
   margin: number,
   sheetsRequired: number = 0
 ): void {
-  console.log("=== BATCH INFO HELPERS ===");
+  console.log("=== BATCH INFO HELPERS START ===");
   console.log("Batch name:", batchName);
   console.log("Jobs length:", jobs.length);
-  console.log("Sheets required parameter:", sheetsRequired);
+  console.log("Sheets required parameter received:", sheetsRequired);
+  console.log("Type of sheetsRequired:", typeof sheetsRequired);
+  console.log("sheetsRequired analysis in batchInfoHelpers:");
+  console.log("  - Raw value:", sheetsRequired);
+  console.log("  - Is undefined:", sheetsRequired === undefined);
+  console.log("  - Is null:", sheetsRequired === null);
+  console.log("  - Is 0:", sheetsRequired === 0);
+  console.log("  - Is truthy:", !!sheetsRequired);
   
   // Draw the batch header
   drawBatchHeader(page, batchName, helveticaBold, helveticaFont, margin);
@@ -34,13 +41,16 @@ export function drawBatchInfo(
   
   // Draw specific info based on job type
   if (isBusinessCardJobs(jobs)) {
-    console.log("Processing as business card jobs, calling drawBusinessCardInfo with sheets:", sheetsRequired);
+    console.log("=== CALLING BUSINESS CARD INFO RENDERER ===");
+    console.log("Passing sheetsRequired to drawBusinessCardInfo:", sheetsRequired);
     drawBusinessCardInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
   } else if (isFlyerJobs(jobs)) {
-    console.log("Processing as flyer jobs, calling drawFlyerInfo with sheets:", sheetsRequired);
+    console.log("=== CALLING FLYER INFO RENDERER ===");
+    console.log("Passing sheetsRequired to drawFlyerInfo:", sheetsRequired);
     drawFlyerInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
   } else if (isSleeveJobs(jobs)) {
-    console.log("Processing as sleeve jobs, calling drawSleeveInfo with sheets:", sheetsRequired);
+    console.log("=== CALLING SLEEVE INFO RENDERER ===");
+    console.log("Passing sheetsRequired to drawSleeveInfo:", sheetsRequired);
     drawSleeveInfo(page, jobs, margin, helveticaBold, helveticaFont, sheetsRequired);
   }
   
