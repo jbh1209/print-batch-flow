@@ -1,95 +1,181 @@
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useJobStats } from "./dashboard/useJobStats";
-import { useBatchStats } from "./dashboard/useBatchStats";
-import { useRecentActivity } from "./dashboard/useRecentActivity";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface DashboardStats {
+  // Job stats (global)
+  pendingJobs: number;
+  printedToday: number;
+  
+  // Batch stats (global)
+  activeBatches: number;
+  bucketsFilled: number;
+  batchTypeStats: {
+    name: string;
+    progress: number;
+    total: number;
+  }[];
+  
+  // Activity stats (user-specific)
+  recentActivity: {
+    id: string;
+    name: string;
+    action: string;
+    type: string;
+    timestamp: string;
+  }[];
+  
+  // Loading and error states
+  isLoading: boolean;
+  error: string | null;
+}
 
 export const useDashboardStats = () => {
   const { user, isLoading: authLoading } = useAuth();
-  const jobStats = useJobStats();
-  const batchStats = useBatchStats();
-  const activityStats = useRecentActivity(user?.id);
-  
-  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
-  const lastRefreshRef = useRef<number>(0);
-  const MIN_REFRESH_INTERVAL = 5000; // Minimum 5 seconds between refreshes
+  const [stats, setStats] = useState<DashboardStats>({
+    pendingJobs: 0,
+    printedToday: 0,
+    activeBatches: 0,
+    bucketsFilled: 0,
+    batchTypeStats: [],
+    recentActivity: [],
+    isLoading: true,
+    error: null
+  });
 
-  // Rate-limited refresh function
-  const refresh = useCallback(() => {
-    const now = Date.now();
-    const timeSinceLastRefresh = now - lastRefreshRef.current;
-    
-    if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL) {
-      console.log("Rate limiting dashboard refresh");
-      return;
-    }
+  const fetchStats = useCallback(async () => {
+    if (authLoading) return;
     
     try {
-      console.log("Refreshing dashboard stats...");
-      lastRefreshRef.current = now;
+      setStats(prev => ({ ...prev, isLoading: true, error: null }));
       
-      jobStats.refresh();
-      batchStats.refresh();
+      console.log("Fetching dashboard stats...");
       
+      // Fetch job stats
+      const [businessCardJobs, flyerJobs, postcardJobs] = await Promise.allSettled([
+        supabase.from("business_card_jobs").select("id", { count: 'exact' }).eq("status", "queued"),
+        supabase.from("flyer_jobs").select("id", { count: 'exact' }).eq("status", "queued"),
+        supabase.from("postcard_jobs").select("id", { count: 'exact' }).eq("status", "queued")
+      ]);
+      
+      let totalPendingJobs = 0;
+      
+      if (businessCardJobs.status === 'fulfilled' && !businessCardJobs.value.error) {
+        totalPendingJobs += businessCardJobs.value.count || 0;
+      }
+      
+      if (flyerJobs.status === 'fulfilled' && !flyerJobs.value.error) {
+        totalPendingJobs += flyerJobs.value.count || 0;
+      }
+      
+      if (postcardJobs.status === 'fulfilled' && !postcardJobs.value.error) {
+        totalPendingJobs += postcardJobs.value.count || 0;
+      }
+      
+      // Fetch completed jobs today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayISO = today.toISOString();
+      
+      const [completedBusinessCards, completedFlyers, completedPostcards] = await Promise.allSettled([
+        supabase.from("business_card_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
+        supabase.from("flyer_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
+        supabase.from("postcard_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO)
+      ]);
+      
+      let totalCompletedToday = 0;
+      
+      if (completedBusinessCards.status === 'fulfilled' && !completedBusinessCards.value.error) {
+        totalCompletedToday += completedBusinessCards.value.count || 0;
+      }
+      
+      if (completedFlyers.status === 'fulfilled' && !completedFlyers.value.error) {
+        totalCompletedToday += completedFlyers.value.count || 0;
+      }
+      
+      if (completedPostcards.status === 'fulfilled' && !completedPostcards.value.error) {
+        totalCompletedToday += completedPostcards.value.count || 0;
+      }
+
+      // Fetch active batches
+      const { data: activeBatches, count: activeBatchesCount } = await supabase
+        .from("batches")
+        .select("id", { count: 'exact' })
+        .in("status", ["pending", "processing"]);
+
+      // Calculate batch type stats
+      const batchTypeStats = [
+        { name: "Business Cards", progress: totalPendingJobs > 0 ? Math.min(totalPendingJobs, 50) : 0, total: 50 },
+        { name: "Flyers A5", progress: 0, total: 50 },
+        { name: "Flyers A4", progress: 0, total: 50 },
+        { name: "Postcards", progress: 0, total: 50 }
+      ];
+      
+      const bucketsFilled = batchTypeStats.filter(
+        type => (type.progress / type.total) >= 0.8
+      ).length;
+
+      // Fetch recent activity (user-specific)
+      let recentActivity: any[] = [];
       if (user?.id) {
-        activityStats.refresh();
+        const { data: activityData } = await supabase
+          .from("business_card_jobs")
+          .select("id, customer, status, updated_at")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(5);
+
+        recentActivity = (activityData || []).map(job => ({
+          id: job.id,
+          name: job.customer || "Unnamed Job",
+          action: "updated",
+          type: "job",
+          timestamp: job.updated_at
+        }));
       }
+      
+      console.log("Dashboard stats calculated:", {
+        totalPending: totalPendingJobs,
+        completedToday: totalCompletedToday,
+        activeBatches: activeBatchesCount || 0,
+        bucketsFilled,
+        recentActivity: recentActivity.length
+      });
+      
+      setStats({
+        pendingJobs: totalPendingJobs,
+        printedToday: totalCompletedToday,
+        activeBatches: activeBatchesCount || 0,
+        bucketsFilled,
+        batchTypeStats,
+        recentActivity,
+        isLoading: false,
+        error: null
+      });
+      
     } catch (error) {
-      console.warn("Dashboard refresh failed:", error);
+      console.error("Error fetching dashboard stats:", error);
+      setStats(prev => ({
+        ...prev,
+        isLoading: false,
+        error: "Failed to load dashboard statistics"
+      }));
+      
+      toast.error("Failed to load dashboard statistics");
     }
-  }, [user?.id, jobStats, batchStats, activityStats]);
+  }, [user?.id, authLoading]);
 
-  // Load stats when auth is complete with debouncing
+  // Load stats when auth is ready
   useEffect(() => {
-    if (!authLoading && user) {
-      console.log("Auth complete, loading dashboard stats");
-      
-      // Clear any existing timeout
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-      
-      // Debounce the stats loading
-      refreshTimeoutRef.current = setTimeout(() => {
-        try {
-          jobStats.refresh();
-          batchStats.refresh();
-          
-          if (user.id) {
-            activityStats.refresh();
-          }
-        } catch (error) {
-          console.warn("Dashboard stats loading failed:", error);
-        }
-      }, 300);
-
-      return () => {
-        if (refreshTimeoutRef.current) {
-          clearTimeout(refreshTimeoutRef.current);
-        }
-      };
+    if (!authLoading) {
+      fetchStats();
     }
-  }, [authLoading, user?.id]);
+  }, [authLoading, fetchStats]);
 
   return {
-    // Job stats (global)
-    pendingJobs: jobStats.pendingJobs,
-    printedToday: jobStats.printedToday,
-    
-    // Batch stats (global)
-    activeBatches: batchStats.activeBatches,
-    bucketsFilled: batchStats.bucketsFilled,
-    batchTypeStats: batchStats.batchTypeStats,
-    
-    // Activity stats (user-specific)
-    recentActivity: activityStats.recentActivity,
-    
-    // Loading and error states
-    isLoading: authLoading || jobStats.isLoading || batchStats.isLoading,
-    error: jobStats.error || batchStats.error || activityStats.error,
-    
-    // Rate-limited refresh function
-    refresh
+    ...stats,
+    refresh: fetchStats
   };
 };

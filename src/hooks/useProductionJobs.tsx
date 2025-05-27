@@ -1,30 +1,84 @@
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useProductionJobsData } from "./tracker/useProductionJobsData";
-import { useProductionJobOperations } from "./tracker/useProductionJobOperations";
-import { useProductionJobStats } from "./tracker/useProductionJobStats";
+import { toast } from "sonner";
+
+interface ProductionJob {
+  id: string;
+  wo_no: string;
+  status: string;
+  date?: string | null;
+  so_no?: string | null;
+  qt_no?: string | null;
+  rep?: string | null;
+  user_name?: string | null;
+  category?: string | null;
+  customer?: string | null;
+  reference?: string | null;
+  qty?: number | null;
+  due_date?: string | null;
+  location?: string | null;
+  highlighted?: boolean;
+  qr_code_data?: string | null;
+  qr_code_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export const useProductionJobs = () => {
   const { user, isLoading: authLoading } = useAuth();
-  const { jobs, isLoading, error, fetchJobs, setJobs } = useProductionJobsData();
-  const { updateJobStatus: updateStatus } = useProductionJobOperations();
-  const { getJobsByStatus, getJobStats } = useProductionJobStats(jobs);
-  
-  const realtimeChannelRef = useRef<any>(null);
-  const lastUpdateRef = useRef<number>(0);
-  const setupRef = useRef<boolean>(false);
-  const DEBOUNCE_DELAY = 1000; // 1 second debounce
+  const [jobs, setJobs] = useState<ProductionJob[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Optimized real-time subscription setup
-  const setupRealtimeSubscription = useCallback(() => {
-    if (!user?.id || realtimeChannelRef.current || setupRef.current || authLoading) {
-      return null;
+  // Simple data fetching
+  const fetchJobs = useCallback(async () => {
+    if (!user?.id) {
+      setJobs([]);
+      setIsLoading(false);
+      setError(null);
+      return;
     }
 
-    setupRef.current = true;
-    console.log("Setting up optimized real-time subscription for user:", user.id);
+    try {
+      setError(null);
+      console.log("Fetching production jobs for user:", user.id);
+
+      const { data, error: fetchError } = await supabase
+        .from('production_jobs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) {
+        throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
+      }
+
+      console.log("Production jobs fetched:", data?.length || 0, "jobs");
+      setJobs(data || []);
+    } catch (err) {
+      console.error('Error fetching production jobs:', err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to load jobs";
+      setError(errorMessage);
+      toast.error("Failed to load production jobs");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
+
+  // Initial data load
+  useEffect(() => {
+    if (!authLoading) {
+      fetchJobs();
+    }
+  }, [authLoading, fetchJobs]);
+
+  // Simple real-time subscription
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log("Setting up real-time subscription for user:", user.id);
 
     const channel = supabase
       .channel(`production_jobs_${user.id}`)
@@ -39,18 +93,6 @@ export const useProductionJobs = () => {
         (payload) => {
           console.log('Production jobs changed:', payload.eventType);
           
-          const now = Date.now();
-          const timeSinceLastUpdate = now - lastUpdateRef.current;
-          
-          // Debounce rapid updates
-          if (timeSinceLastUpdate < DEBOUNCE_DELAY) {
-            console.log('Debouncing real-time update');
-            return;
-          }
-          
-          lastUpdateRef.current = now;
-          
-          // Handle different event types without full refetch when possible
           if (payload.eventType === 'UPDATE' && payload.new) {
             // Optimistic update for status changes
             setJobs(prevJobs => 
@@ -59,10 +101,8 @@ export const useProductionJobs = () => {
               )
             );
           } else {
-            // Only fetch for INSERT/DELETE or when we can't do optimistic update
-            setTimeout(() => {
-              fetchJobs();
-            }, 100);
+            // Refetch for INSERT/DELETE
+            fetchJobs();
           }
         }
       )
@@ -70,29 +110,13 @@ export const useProductionJobs = () => {
         console.log("Real-time subscription status:", status);
       });
 
-    realtimeChannelRef.current = channel;
-    return channel;
-  }, [user?.id, fetchJobs, setJobs, authLoading]);
-
-  // Set up real-time subscription only when auth is ready
-  useEffect(() => {
-    if (authLoading || !user?.id) {
-      return;
-    }
-    
-    const channel = setupRealtimeSubscription();
-    
     return () => {
-      if (realtimeChannelRef.current) {
-        console.log("Cleaning up real-time subscription");
-        supabase.removeChannel(realtimeChannelRef.current);
-        realtimeChannelRef.current = null;
-        setupRef.current = false;
-      }
+      console.log("Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
     };
-  }, [user?.id, authLoading]); // Only depend on user.id and authLoading
+  }, [user?.id, fetchJobs]);
 
-  // Optimized job status update with optimistic updates
+  // Job status update with optimistic updates
   const updateJobStatus = useCallback(async (jobId: string, newStatus: string) => {
     console.log("Updating job status:", jobId, "to", newStatus);
     
@@ -104,22 +128,54 @@ export const useProductionJobs = () => {
     );
     
     try {
-      const success = await updateStatus(jobId, newStatus);
-      
-      if (!success) {
-        // Revert optimistic update on failure
-        console.error("Failed to update job status, reverting");
-        fetchJobs(); // Refetch to get correct state
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ status: newStatus })
+        .eq('id', jobId);
+
+      if (error) {
+        console.error("Failed to update job status:", error);
+        // Revert optimistic update
+        fetchJobs();
+        return false;
       }
       
-      return success;
+      return true;
     } catch (error) {
       console.error("Error updating job status:", error);
-      // Revert optimistic update on error
+      // Revert optimistic update
       fetchJobs();
       return false;
     }
-  }, [updateStatus, setJobs, fetchJobs]);
+  }, [fetchJobs]);
+
+  // Helper functions
+  const getJobsByStatus = useCallback((status: string) => {
+    return jobs.filter(job => (job.status || 'Pre-Press') === status);
+  }, [jobs]);
+
+  const getJobStats = useCallback(() => {
+    const statusCounts: Record<string, number> = {};
+    
+    // Initialize all statuses with 0
+    const allStatuses = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
+    allStatuses.forEach(status => {
+      statusCounts[status] = 0;
+    });
+    
+    // Count actual jobs
+    jobs.forEach(job => {
+      const status = job.status || 'Pre-Press';
+      if (statusCounts.hasOwnProperty(status)) {
+        statusCounts[status]++;
+      }
+    });
+
+    return {
+      total: jobs.length,
+      statusCounts
+    };
+  }, [jobs]);
 
   return {
     jobs,

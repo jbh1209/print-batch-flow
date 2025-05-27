@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { AuthContext } from './AuthContext';
 import { AuthState } from './types';
-import { loadUserData, checkIsAdmin } from './authUtils';
+import { loadUserData } from './authUtils';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [authState, setAuthState] = useState<AuthState>({
@@ -15,93 +15,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     isAdmin: false
   });
 
-  const mountedRef = useRef(true);
-  const initializedRef = useRef(false);
-
-  // Optimized user data update with ref checks
+  // Simple user data loading
   const updateUserData = useCallback(async (userId: string) => {
-    if (!mountedRef.current || !userId) return;
-    
     try {
       const { profile, isAdmin } = await loadUserData(userId);
-      
-      if (!mountedRef.current) return;
-      
       setAuthState(prev => ({
         ...prev,
         profile,
         isAdmin
       }));
     } catch (error) {
-      console.warn('User data loading failed (non-critical):', error);
+      console.warn('Failed to load user data:', error);
     }
   }, []);
 
   useEffect(() => {
-    console.log('Setting up auth state listener...');
-    
-    // Get initial session without causing loops
-    const initializeAuth = async () => {
-      if (initializedRef.current) return;
-      initializedRef.current = true;
-      
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (!mountedRef.current) return;
-        
-        if (error) {
-          console.error('Error getting initial session:', error);
-          setAuthState(prev => ({ ...prev, loading: false }));
-          return;
-        }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthState(prev => ({
+        ...prev,
+        user: session?.user || null,
+        session,
+        loading: false
+      }));
 
-        console.log('Initial session check:', !!session?.user);
-        
-        if (session?.user) {
-          setAuthState(prev => ({
-            ...prev,
-            user: session.user,
-            session,
-            loading: false
-          }));
-          
-          // Load additional user data asynchronously
-          updateUserData(session.user.id);
-        } else {
-          setAuthState(prev => ({ ...prev, loading: false }));
-        }
-      } catch (error) {
-        console.error('Error in initializeAuth:', error);
-        if (mountedRef.current) {
-          setAuthState(prev => ({ ...prev, loading: false }));
-        }
+      if (session?.user) {
+        updateUserData(session.user.id);
       }
-    };
+    });
 
-    // Set up auth state listener with optimized handling
+    // Listen to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!mountedRef.current) return;
-        
-        console.log('Auth state changed:', event, session?.user?.id);
-        
-        if (session?.user) {
-          setAuthState(prev => ({
-            ...prev,
-            user: session.user,
-            session,
-            loading: false
-          }));
-          
-          // Only load user data on sign in, not on token refresh
-          if (event === 'SIGNED_IN') {
-            // Defer to prevent blocking
-            setTimeout(() => {
-              updateUserData(session.user.id);
-            }, 0);
-          }
-        } else {
+        setAuthState(prev => ({
+          ...prev,
+          user: session?.user || null,
+          session,
+          loading: false
+        }));
+
+        if (session?.user && event === 'SIGNED_IN') {
+          updateUserData(session.user.id);
+        } else if (!session) {
           setAuthState({
             user: null,
             session: null,
@@ -113,38 +68,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Initialize auth after setting up listener
-    initializeAuth();
-
-    // Cleanup timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      if (mountedRef.current && !initializedRef.current) {
-        console.log('Auth timeout reached, forcing loading to false');
-        setAuthState(prev => ({ ...prev, loading: false }));
-      }
-    }, 3000); // Reduced from 5 seconds
-
-    return () => {
-      mountedRef.current = false;
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
-  }, []); // Empty dependency array to prevent loops
+    return () => subscription.unsubscribe();
+  }, [updateUserData]);
 
   const signOut = useCallback(async () => {
     try {
-      setAuthState(prev => ({ ...prev, loading: true }));
       await supabase.auth.signOut();
-      setAuthState({
-        user: null,
-        session: null,
-        profile: null,
-        loading: false,
-        isAdmin: false
-      });
     } catch (error) {
       console.error('Error signing out:', error);
-      setAuthState(prev => ({ ...prev, loading: false }));
+    }
+  }, []);
+
+  const checkIsAdmin = useCallback(async (userId: string): Promise<boolean> => {
+    try {
+      const { data } = await supabase.rpc('check_user_admin_status', { 
+        check_user_id: userId 
+      });
+      return !!data;
+    } catch (error) {
+      console.warn('Admin check failed:', error);
+      return false;
     }
   }, []);
 

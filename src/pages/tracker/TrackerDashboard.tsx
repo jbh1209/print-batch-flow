@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo } from "react";
+import React from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
@@ -10,22 +10,10 @@ import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptySt
 const TrackerDashboard = () => {
   const { jobs, isLoading, error, getJobStats } = useProductionJobs();
   
-  // Memoize stats to prevent recalculation on every render
-  const stats = useMemo(() => {
-    return getJobStats();
-  }, [getJobStats]);
+  // Get stats directly from the hook
+  const stats = getJobStats();
 
   console.log("TrackerDashboard render - isLoading:", isLoading, "jobs count:", jobs.length, "error:", error);
-
-  // Add debugging effect - only log when key values change
-  useEffect(() => {
-    console.log("TrackerDashboard state changed:", {
-      isLoading,
-      jobsCount: jobs.length,
-      error,
-      statsTotal: stats.total
-    });
-  }, [isLoading, jobs.length, error, stats.total]);
 
   // Loading state
   if (isLoading) {

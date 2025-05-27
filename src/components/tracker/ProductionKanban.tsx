@@ -1,9 +1,8 @@
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback } from "react";
 import {
   DndContext,
   DragEndEvent,
-  DragOverEvent,
   DragStartEvent,
   closestCorners,
   KeyboardSensor,
@@ -11,12 +10,10 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { ProductionJobCard } from "./ProductionJobCard";
 import { KanbanColumn } from "./KanbanColumn";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
 
@@ -26,7 +23,7 @@ export const ProductionKanban = () => {
   const { jobs, isLoading, error, updateJobStatus, getJobsByStatus } = useProductionJobs();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Memoize sensors to prevent recreation on each render
+  // Sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -34,8 +31,8 @@ export const ProductionKanban = () => {
     })
   );
 
-  // Memoize status color mapping
-  const getStatusColor = useMemo(() => {
+  // Status color mapping
+  const getStatusColor = (status: string) => {
     const colors = {
       "Pre-Press": "bg-blue-100 text-blue-800",
       "Printing": "bg-yellow-100 text-yellow-800",
@@ -44,8 +41,8 @@ export const ProductionKanban = () => {
       "Shipped": "bg-green-100 text-green-800",
       "Completed": "bg-gray-100 text-gray-800"
     };
-    return (status: string) => colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
-  }, []);
+    return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
+  };
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -63,7 +60,6 @@ export const ProductionKanban = () => {
 
     const newStatus = String(over.id);
     
-    // Update job status using optimistic updates
     const success = await updateJobStatus(activeJobId, newStatus);
     
     if (success) {
