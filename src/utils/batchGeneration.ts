@@ -78,20 +78,20 @@ export async function generateBatchOverview(
     finalSheetsRequired
   );
   
-  // CRITICAL FIX: Move table significantly further down to avoid overlap with "Sheets Required" block
+  // MAJOR FIX: Calculate table position to ensure it starts WELL BELOW the "Sheets Required" block
   // The "Sheets Required" block is positioned at: pageHeight - margin - 125 with height of 35
-  // So it occupies from y=pageHeight-margin-125 to y=pageHeight-margin-90
-  // We need to start the table well below this: pageHeight - margin - 125 - 35 - 20 = pageHeight - margin - 180
+  // Block occupies: y = pageHeight - margin - 125 (top) to y = pageHeight - margin - 90 (bottom)
+  // Table must start significantly below this with additional buffer space
   const tableY = isSleeveJobs(jobs) 
-    ? pageHeight - margin - 190  // Even more space for sleeve jobs
-    : pageHeight - margin - 180; // Moved down significantly more to avoid overlap
+    ? pageHeight - margin - 220  // Much more space for sleeve jobs
+    : pageHeight - margin - 200; // Much more space to prevent any overlap
     
-  console.log("=== CRITICAL TABLE POSITIONING FIX ===");
+  console.log("=== MAJOR TABLE POSITIONING FIX ===");
   console.log("Page height:", pageHeight);
   console.log("Margin:", margin);
-  console.log("Sheets Required block ends at:", pageHeight - margin - 90);
-  console.log("NEW tableY position:", tableY);
-  console.log("Gap between blocks:", (pageHeight - margin - 90) - tableY);
+  console.log("Sheets Required block bottom at:", pageHeight - margin - 90);
+  console.log("NEW tableY position (much lower):", tableY);
+  console.log("Gap between blocks:", (pageHeight - margin - 90) - tableY, "points");
   
   const colWidths = isBusinessCardJobs(jobs) 
     ? [150, 80, 70, 80, 100]
@@ -113,12 +113,12 @@ export async function generateBatchOverview(
     isBusinessCardJobs(jobs) ? optimization.distribution : null
   );
   
-  // Calculate grid layout for preview area - start previews even lower to account for lower table position
+  // Calculate grid layout for preview area - start previews even lower to account for much lower table position
   const gridConfig = calculateGridLayout(jobs.length, pageHeight);
   // Adjust grid start position to account for much lower table position
-  gridConfig.startY = Math.min(gridConfig.startY, finalTableY - 30);
+  gridConfig.startY = Math.min(gridConfig.startY, finalTableY - 40);
   
-  console.log("=== UPDATED GRID POSITIONING ===");
+  console.log("=== FINAL GRID POSITIONING ===");
   console.log("Original grid startY:", calculateGridLayout(jobs.length, pageHeight).startY);
   console.log("Adjusted grid startY:", gridConfig.startY);
   console.log("Final table Y position:", finalTableY);
