@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,36 +8,15 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Upload, FileSpreadsheet, Check, X, QrCode, Download } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { generateQRCodeData, generateQRCodeImage } from "@/utils/qrCodeGenerator";
-
-interface ParsedJob {
-  wo_no: string;
-  status: string;
-  date: string;
-  rep: string;
-  category: string;
-  customer: string;
-  reference: string;
-  qty: number;
-  due_date: string;
-  location: string;
-  note: string;
-}
+import { parseExcelFile, ExcelImportDebugger, ParsedJob, ImportStats } from "@/utils/excelParser";
 
 interface JobDataWithQR extends ParsedJob {
   user_id: string;
   qr_code_data?: string;
   qr_code_url?: string;
-}
-
-interface ImportStats {
-  totalRows: number;
-  processedRows: number;
-  skippedRows: number;
-  invalidWONumbers: number;
 }
 
 export const ExcelUpload = () => {
@@ -46,214 +26,30 @@ export const ExcelUpload = () => {
   const [fileName, setFileName] = useState("");
   const [generateQRCodes, setGenerateQRCodes] = useState(true);
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
-
-  const addDebugInfo = (message: string) => {
-    setDebugInfo(prev => [...prev, message]);
-    console.log("[Excel Import]", message);
-  };
-
-  const formatExcelDate = (excelDate: any): string => {
-    if (!excelDate) return "";
-    
-    addDebugInfo(`Processing date: ${JSON.stringify(excelDate)} (type: ${typeof excelDate})`);
-    
-    // If it's already a string
-    if (typeof excelDate === 'string') {
-      const cleaned = excelDate.trim();
-      
-      // Handle YYYY/MM/DD format
-      if (cleaned.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) {
-        const [year, month, day] = cleaned.split('/');
-        const formatted = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        addDebugInfo(`Formatted date string ${cleaned} to ${formatted}`);
-        return formatted;
-      }
-      
-      // Handle other date formats
-      const dateAttempt = new Date(cleaned);
-      if (!isNaN(dateAttempt.getTime())) {
-        const formatted = dateAttempt.toISOString().split('T')[0];
-        addDebugInfo(`Parsed date string ${cleaned} to ${formatted}`);
-        return formatted;
-      }
-      
-      addDebugInfo(`Could not parse date string: ${cleaned}`);
-      return "";
-    }
-    
-    // If it's an Excel serial number
-    if (typeof excelDate === 'number') {
-      try {
-        // Excel dates are days since 1900-01-01 (with leap year bug correction)
-        const excelEpoch = new Date(1900, 0, 1);
-        const date = new Date(excelEpoch.getTime() + (excelDate - 2) * 24 * 60 * 60 * 1000);
-        const formatted = date.toISOString().split('T')[0];
-        addDebugInfo(`Converted Excel serial ${excelDate} to ${formatted}`);
-        return formatted;
-      } catch (error) {
-        addDebugInfo(`Error converting Excel serial ${excelDate}: ${error}`);
-        return "";
-      }
-    }
-    
-    // If it's already a Date object
-    if (excelDate instanceof Date) {
-      const formatted = excelDate.toISOString().split('T')[0];
-      addDebugInfo(`Converted Date object to ${formatted}`);
-      return formatted;
-    }
-    
-    addDebugInfo(`Unknown date format: ${JSON.stringify(excelDate)}`);
-    return "";
-  };
-
-  const formatWONumber = (woNo: any): string => {
-    if (!woNo) return "";
-    
-    // Convert to string and clean
-    const cleaned = String(woNo).trim();
-    addDebugInfo(`Processing WO Number: "${woNo}" -> "${cleaned}"`);
-    
-    // If it's already 6 digits, keep it as is
-    if (/^\d{6}$/.test(cleaned)) {
-      addDebugInfo(`WO Number already 6 digits: ${cleaned}`);
-      return cleaned;
-    }
-    
-    // Extract only numbers
-    const numbersOnly = cleaned.replace(/[^0-9]/g, '');
-    
-    // If we have numbers, pad to 6 digits
-    if (numbersOnly) {
-      const padded = numbersOnly.padStart(6, '0');
-      addDebugInfo(`WO Number "${cleaned}" -> "${numbersOnly}" -> "${padded}"`);
-      return padded;
-    }
-    
-    addDebugInfo(`Could not extract valid WO Number from: "${cleaned}"`);
-    return "";
-  };
-
-  const findColumnIndex = (headers: string[], possibleNames: string[]): number => {
-    const headerLower = headers.map(h => String(h || '').toLowerCase().trim());
-    
-    for (const name of possibleNames) {
-      const index = headerLower.findIndex(h => h.includes(name.toLowerCase()));
-      if (index !== -1) {
-        addDebugInfo(`Found column "${name}" at index ${index} (header: "${headers[index]}")`);
-        return index;
-      }
-    }
-    
-    addDebugInfo(`Column not found for: ${possibleNames.join(', ')}`);
-    return -1;
-  };
+  const [debugger] = useState(() => new ExcelImportDebugger());
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
-    setDebugInfo([]);
+    debugger.clear();
     
     try {
-      addDebugInfo(`Starting to process file: ${file.name}`);
+      const { jobs, stats } = await parseExcelFile(file, debugger);
       
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      
-      // Get the range to understand the data structure
-      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-      addDebugInfo(`Sheet range: ${range.s.r} to ${range.e.r} rows, ${range.s.c} to ${range.e.c} columns`);
-      
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
-      addDebugInfo(`Raw data rows: ${jsonData.length}`);
-      
-      if (jsonData.length < 2) {
-        toast.error("Excel file appears to be empty or has no data rows");
-        return;
-      }
-
-      // Get headers from first row
-      const headers = jsonData[0] as string[];
-      addDebugInfo(`Headers found: ${JSON.stringify(headers)}`);
-
-      // Find column indices
-      const columnMap = {
-        woNo: findColumnIndex(headers, ['wo no', 'work order', 'wo number']),
-        status: findColumnIndex(headers, ['status']),
-        date: findColumnIndex(headers, ['date', 'creation date', 'created']),
-        rep: findColumnIndex(headers, ['rep', 'representative']),
-        category: findColumnIndex(headers, ['category', 'type']),
-        customer: findColumnIndex(headers, ['customer', 'client']),
-        reference: findColumnIndex(headers, ['reference', 'ref']),
-        qty: findColumnIndex(headers, ['qty', 'quantity']),
-        dueDate: findColumnIndex(headers, ['due date', 'due']),
-        location: findColumnIndex(headers, ['location', 'dept', 'department']),
-        note: findColumnIndex(headers, ['note', 'notes', 'comment', 'comments'])
-      };
-
-      addDebugInfo(`Column mapping: ${JSON.stringify(columnMap)}`);
-
-      // Process data rows
-      const dataRows = jsonData.slice(1) as any[][];
-      const stats: ImportStats = {
-        totalRows: dataRows.length,
-        processedRows: 0,
-        skippedRows: 0,
-        invalidWONumbers: 0
-      };
-
-      const mapped: ParsedJob[] = [];
-
-      dataRows.forEach((row, index) => {
-        addDebugInfo(`Processing row ${index + 2}: ${JSON.stringify(row.slice(0, 12))}`);
-        
-        const woNo = formatWONumber(row[columnMap.woNo]);
-        
-        if (!woNo || woNo === "000000") {
-          addDebugInfo(`Skipping row ${index + 2}: Invalid WO Number`);
-          stats.skippedRows++;
-          stats.invalidWONumbers++;
-          return;
-        }
-
-        const job: ParsedJob = {
-          wo_no: woNo,
-          status: String(row[columnMap.status] || "").trim() || "Production",
-          date: formatExcelDate(row[columnMap.date]),
-          rep: String(row[columnMap.rep] || "").trim(),
-          category: String(row[columnMap.category] || "").trim(),
-          customer: String(row[columnMap.customer] || "").trim(),
-          reference: String(row[columnMap.reference] || "").trim(),
-          qty: parseInt(String(row[columnMap.qty] || "0").replace(/[^0-9]/g, '')) || 0,
-          due_date: formatExcelDate(row[columnMap.dueDate]),
-          location: String(row[columnMap.location] || "").trim(),
-          note: String(row[columnMap.note] || "").trim()
-        };
-
-        addDebugInfo(`Mapped job: ${JSON.stringify(job)}`);
-        mapped.push(job);
-        stats.processedRows++;
-      });
-
-      addDebugInfo(`Import completed: ${stats.processedRows} processed, ${stats.skippedRows} skipped`);
-
-      setParsedJobs(mapped);
+      setParsedJobs(jobs);
       setImportStats(stats);
-      toast.success(`Parsed ${mapped.length} jobs from ${file.name}. ${stats.skippedRows} rows skipped.`);
+      toast.success(`Parsed ${jobs.length} jobs from ${file.name}. ${stats.skippedRows} rows skipped.`);
     } catch (error) {
       console.error("Error parsing Excel file:", error);
-      addDebugInfo(`Error: ${error}`);
+      debugger.addDebugInfo(`Error: ${error}`);
       toast.error("Failed to parse Excel file. Please check the format.");
     }
   };
 
   const downloadDebugInfo = () => {
-    const debugText = debugInfo.join('\n');
+    const debugText = debugger.getDebugInfo().join('\n');
     const blob = new Blob([debugText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -346,7 +142,7 @@ export const ExcelUpload = () => {
       setParsedJobs([]);
       setFileName("");
       setImportStats(null);
-      setDebugInfo([]);
+      debugger.clear();
       
       // Reset file input
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -364,13 +160,13 @@ export const ExcelUpload = () => {
     setParsedJobs([]);
     setFileName("");
     setImportStats(null);
-    setDebugInfo([]);
+    debugger.clear();
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   };
 
   return (
-    <div className="w-full max-w-[95vw] mx-auto space-y-6">
+    <div className="w-full space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -423,7 +219,7 @@ export const ExcelUpload = () => {
               </div>
             )}
 
-            {debugInfo.length > 0 && (
+            {debugger.getDebugInfo().length > 0 && (
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -434,7 +230,7 @@ export const ExcelUpload = () => {
                   <Download className="h-4 w-4" />
                   Download Debug Info
                 </Button>
-                <span className="text-sm text-gray-500">({debugInfo.length} debug messages)</span>
+                <span className="text-sm text-gray-500">({debugger.getDebugInfo().length} debug messages)</span>
               </div>
             )}
             
@@ -491,7 +287,7 @@ export const ExcelUpload = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {parsedJobs.slice(0, 50).map((job, index) => (
+                  {parsedJobs.slice(0, 100).map((job, index) => (
                     <TableRow key={index}>
                       <TableCell className="font-medium">{job.wo_no}</TableCell>
                       <TableCell>
@@ -514,9 +310,9 @@ export const ExcelUpload = () => {
                   ))}
                 </TableBody>
               </Table>
-              {parsedJobs.length > 50 && (
+              {parsedJobs.length > 100 && (
                 <p className="text-sm text-gray-500 mt-2 text-center">
-                  Showing first 50 jobs. {parsedJobs.length - 50} more will be uploaded.
+                  Showing first 100 jobs. {parsedJobs.length - 100} more will be uploaded.
                 </p>
               )}
             </div>
