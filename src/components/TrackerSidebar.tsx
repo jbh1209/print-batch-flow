@@ -8,11 +8,13 @@ import {
   FileSpreadsheet,
   Home,
   ChevronLeft,
-  Package2
+  Package2,
+  Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "./ui/button";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 interface NavItemProps {
   to: string;
@@ -41,6 +43,7 @@ const NavItem = ({ to, icon, label, isActive }: NavItemProps) => {
 const TrackerSidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { isAdmin } = useAdminAuth();
 
   return (
     <div className={cn(
@@ -97,6 +100,18 @@ const TrackerSidebar = () => {
             label={collapsed ? "" : "Work Sheets"} 
             isActive={location.pathname === "/tracker/worksheets"} 
           />
+          
+          {isAdmin && (
+            <>
+              <div className="border-t border-white/10 my-2"></div>
+              <NavItem 
+                to="/tracker/admin" 
+                icon={<Settings size={20} />} 
+                label={collapsed ? "" : "Administration"} 
+                isActive={location.pathname === "/tracker/admin"} 
+              />
+            </>
+          )}
         </nav>
       </div>
 
