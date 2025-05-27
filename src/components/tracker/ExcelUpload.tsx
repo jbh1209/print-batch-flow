@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +26,12 @@ interface ParsedJob {
   qty: number;
   due_date: string;
   location: string;
+}
+
+interface JobDataWithQR extends ParsedJob {
+  user_id: string;
+  qr_code_data?: string;
+  qr_code_url?: string;
 }
 
 export const ExcelUpload = () => {
@@ -80,15 +85,15 @@ export const ExcelUpload = () => {
     setIsUploading(true);
     
     try {
-      const jobsWithUserId = [];
+      const jobsWithUserId: JobDataWithQR[] = [];
       
       for (const job of parsedJobs) {
-        const jobData = {
+        const jobData: JobDataWithQR = {
           ...job,
           user_id: user.id,
           // Convert date strings to proper dates
-          date: job.date ? new Date(job.date).toISOString().split('T')[0] : null,
-          due_date: job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : null
+          date: job.date ? new Date(job.date).toISOString().split('T')[0] : "",
+          due_date: job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : ""
         };
 
         // Generate QR code if enabled

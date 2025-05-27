@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,7 +51,16 @@ export const UserGroupManager = ({ userId, showAllUsers = false }: UserGroupMana
         .order('name');
 
       if (error) throw error;
-      setGroups(data || []);
+      
+      // Transform permissions from Json to Record<string, boolean>
+      const transformedGroups = data?.map(group => ({
+        ...group,
+        permissions: typeof group.permissions === 'object' && group.permissions !== null 
+          ? group.permissions as Record<string, boolean>
+          : {}
+      })) || [];
+      
+      setGroups(transformedGroups);
     } catch (error) {
       console.error('Error fetching groups:', error);
       toast.error('Failed to load user groups');
@@ -81,7 +89,12 @@ export const UserGroupManager = ({ userId, showAllUsers = false }: UserGroupMana
         ...user,
         groups: memberships
           ?.filter(m => m.user_id === user.id)
-          ?.map(m => m.user_groups) || []
+          ?.map(m => ({
+            ...m.user_groups,
+            permissions: typeof m.user_groups.permissions === 'object' && m.user_groups.permissions !== null 
+              ? m.user_groups.permissions as Record<string, boolean>
+              : {}
+          })) || []
       }));
 
       setUsers(usersWithGroups);
@@ -104,7 +117,13 @@ export const UserGroupManager = ({ userId, showAllUsers = false }: UserGroupMana
 
       if (error) throw error;
 
-      const userGroups = data?.map(m => m.user_groups).filter(Boolean) || [];
+      const userGroups = data?.map(m => ({
+        ...m.user_groups,
+        permissions: typeof m.user_groups.permissions === 'object' && m.user_groups.permissions !== null 
+          ? m.user_groups.permissions as Record<string, boolean>
+          : {}
+      })).filter(Boolean) || [];
+      
       setUsers([{ 
         id: uid, 
         email: '', 

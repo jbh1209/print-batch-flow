@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 import { UserForm } from "./UserForm";
 import { useUserManagement } from "@/contexts/UserManagementContext";
-import { UserFormData, UserWithRole } from "@/types/user-types";
+import { UserFormData, UserWithRole, UserRole } from "@/types/user-types";
 
 export function SimpleUserManagement() {
   const { users, createUser, updateUser, deleteUser } = useUserManagement();
@@ -71,7 +71,7 @@ export function SimpleUserManagement() {
               initialData={editingUser ? {
                 email: editingUser.email,
                 full_name: editingUser.full_name,
-                role: editingUser.role
+                role: editingUser.role as UserRole
               } : undefined}
               onSubmit={editingUser ? handleEditUser : handleAddUser}
               isEditing={!!editingUser}
