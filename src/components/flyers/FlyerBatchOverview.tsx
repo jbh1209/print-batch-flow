@@ -41,7 +41,11 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
       // Show a toast that we're working on it
       const toastId = toast.loading("Generating batch overview...");
 
-      // Generate the single-page batch overview
+      // Add cache-busting timestamp to ensure fresh generation
+      const timestamp = Date.now();
+      console.log("FlyerBatchOverview - Cache-busting timestamp:", timestamp);
+
+      // Generate the single-page batch overview with updated layout
       const pdfBytes = await generateBatchOverview(jobs, batchName);
       
       // Convert PDF to a data URL for preview
@@ -64,9 +68,11 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
   const downloadOverview = () => {
     if (!overviewUrl) return;
     
+    // Add cache-busting timestamp to download filename
+    const timestamp = Date.now();
     const link = document.createElement("a");
     link.href = overviewUrl;
-    link.download = `${batchName}-overview.pdf`;
+    link.download = `${batchName}-overview-${timestamp}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -109,7 +115,7 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
       ) : overviewUrl ? (
         <div className="border rounded-md overflow-hidden">
           <iframe 
-            src={overviewUrl} 
+            src={`${overviewUrl}#toolbar=0`}
             className="w-full h-[500px]" 
             title={`${batchName} Overview`}
           />

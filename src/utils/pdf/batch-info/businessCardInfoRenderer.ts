@@ -27,7 +27,7 @@ export function drawBusinessCardInfo(
     y: page.getHeight() - margin - 75,
     width: 150,
     height: 30,
-    color: rgb(0.2, 0.3, 0.6), // CHANGED: Much lighter blue instead of dark color
+    color: rgb(0.2, 0.3, 0.6), // LIGHTER blue color
   });
   
   page.drawText(laminationText, {
@@ -80,7 +80,7 @@ export function drawBusinessCardInfo(
     y: page.getHeight() - margin - 125,
     width: 250, // INCREASED width for better visibility
     height: 35, // INCREASED height for better visibility
-    color: rgb(0.2, 0.3, 0.6), // CHANGED: Same lighter blue as lamination
+    color: rgb(0.2, 0.3, 0.6), // LIGHTER blue color (same as lamination)
   });
   
   const sheetsText = `Sheets Required: ${displaySheetsRequired}`;

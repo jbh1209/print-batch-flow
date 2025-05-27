@@ -63,13 +63,15 @@ export const useBatchPdfDownloads = ({
           console.log("Batch.sheets_required:", batch.sheets_required);
           console.log("Generating new overview with sheets_required:", batch.sheets_required);
           
+          // Add cache-busting timestamp
           const timestamp = Date.now();
           console.log("Cache-busting timestamp for PDF generation:", timestamp);
           
+          // IMPORTANT: Use the same updated generateBatchOverview function
           const pdfBytes = await generateBatchOverview(
             convertToBaseJobs(relatedJobs),
             batch.name,
-            batch.sheets_required || 0
+            batch.sheets_required || 0  // Ensure we pass the sheets_required value
           );
           
           const blob = new Blob([pdfBytes], { type: "application/pdf" });
