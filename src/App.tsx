@@ -1,9 +1,9 @@
-
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -74,92 +74,94 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="light">
-        <TooltipProvider>
-          <Toaster />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/app-selector" element={<AppSelector />} />
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/app-selector" element={<AppSelector />} />
 
-              {/* BatchFlow routes */}
-              <Route path="/batchflow" element={
-                <ProtectedRoute>
-                  <BatchFlowLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<BatchFlowHome />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="business-cards" element={<BusinessCards />} />
-                <Route path="flyers" element={<Flyers />} />
-                <Route path="postcards" element={<PostcardJobsPage />} />
-                <Route path="postcards/new" element={<PostcardJobNewPage />} />
-                <Route path="postcards/edit/:id" element={<PostcardJobEdit />} />
-                <Route path="postcards/batches" element={<PostcardBatchesPage />} />
-                <Route path="posters" element={<PosterJobsPage />} />
-                <Route path="posters/new" element={<PosterJobNewPage />} />
-                <Route path="posters/batches" element={<PosterBatchesPage />} />
-                <Route path="sleeves" element={<SleeveJobsPage />} />
-                <Route path="sleeves/new" element={<SleeveJobNewPage />} />
-                <Route path="sleeves/edit/:id" element={<SleeveJobEditPage />} />
-                <Route path="sleeves/batches" element={<SleeveBatchesPage />} />
-                <Route path="boxes" element={<BoxJobsPage />} />
-                <Route path="boxes/new" element={<BoxJobNewPage />} />
-                <Route path="boxes/batches" element={<BoxBatchesPage />} />
-                <Route path="covers" element={<CoverJobsPage />} />
-                <Route path="covers/new" element={<CoverJobNewPage />} />
-                <Route path="covers/batches" element={<CoverBatchesPage />} />
-                <Route path="stickers" element={<StickerJobsPage />} />
-                <Route path="stickers/new" element={<StickerJobNewPage />} />
-                <Route path="stickers/batches" element={<StickerBatchesPage />} />
-                <Route path="business-card-jobs" element={<BusinessCardJobs />} />
-                <Route path="business-card-jobs/new" element={<BusinessCardJobNew />} />
-                <Route path="business-card-jobs/edit/:id" element={<BusinessCardJobEdit />} />
-                <Route path="flyer-jobs" element={<FlyerJobs />} />
-                <Route path="flyer-jobs/new" element={<FlyerJobNew />} />
-                <Route path="flyer-jobs/edit/:id" element={<FlyerJobEdit />} />
-                <Route path="flyer-jobs/:id" element={<FlyerJobDetail />} />
-                <Route path="business-card-batches" element={<BusinessCardBatches />} />
-                <Route path="flyer-batches" element={<FlyerBatches />} />
-                <Route path="flyer-batches/:id" element={<FlyerBatchDetails />} />
-                <Route path="batch/:id" element={<BatchDetailsPage productType="business-cards" backUrl="/batchflow/business-card-batches" />} />
-                <Route path="batches" element={<AllBatches />} />
-                <Route path="jobs" element={<AllJobsPage />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="users" element={<Users />} />
-                <Route path=":productType/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Postcards} />} />
-                <Route path=":productType/jobs/:jobId" element={<GenericJobDetailsPage config={productConfigs.Postcards} />} />
-                <Route path=":productType/jobs/edit/:jobId" element={<GenericJobEdit config={productConfigs.Postcards} />} />
-              </Route>
+                {/* BatchFlow routes */}
+                <Route path="/batchflow" element={
+                  <ProtectedRoute>
+                    <BatchFlowLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<BatchFlowHome />} />
+                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="business-cards" element={<BusinessCards />} />
+                  <Route path="flyers" element={<Flyers />} />
+                  <Route path="postcards" element={<PostcardJobsPage />} />
+                  <Route path="postcards/new" element={<PostcardJobNewPage />} />
+                  <Route path="postcards/edit/:id" element={<PostcardJobEdit />} />
+                  <Route path="postcards/batches" element={<PostcardBatchesPage />} />
+                  <Route path="posters" element={<PosterJobsPage />} />
+                  <Route path="posters/new" element={<PosterJobNewPage />} />
+                  <Route path="posters/batches" element={<PosterBatchesPage />} />
+                  <Route path="sleeves" element={<SleeveJobsPage />} />
+                  <Route path="sleeves/new" element={<SleeveJobNewPage />} />
+                  <Route path="sleeves/edit/:id" element={<SleeveJobEditPage />} />
+                  <Route path="sleeves/batches" element={<SleeveBatchesPage />} />
+                  <Route path="boxes" element={<BoxJobsPage />} />
+                  <Route path="boxes/new" element={<BoxJobNewPage />} />
+                  <Route path="boxes/batches" element={<BoxBatchesPage />} />
+                  <Route path="covers" element={<CoverJobsPage />} />
+                  <Route path="covers/new" element={<CoverJobNewPage />} />
+                  <Route path="covers/batches" element={<CoverBatchesPage />} />
+                  <Route path="stickers" element={<StickerJobsPage />} />
+                  <Route path="stickers/new" element={<StickerJobNewPage />} />
+                  <Route path="stickers/batches" element={<StickerBatchesPage />} />
+                  <Route path="business-card-jobs" element={<BusinessCardJobs />} />
+                  <Route path="business-card-jobs/new" element={<BusinessCardJobNew />} />
+                  <Route path="business-card-jobs/edit/:id" element={<BusinessCardJobEdit />} />
+                  <Route path="flyer-jobs" element={<FlyerJobs />} />
+                  <Route path="flyer-jobs/new" element={<FlyerJobNew />} />
+                  <Route path="flyer-jobs/edit/:id" element={<FlyerJobEdit />} />
+                  <Route path="flyer-jobs/:id" element={<FlyerJobDetail />} />
+                  <Route path="business-card-batches" element={<BusinessCardBatches />} />
+                  <Route path="flyer-batches" element={<FlyerBatches />} />
+                  <Route path="flyer-batches/:id" element={<FlyerBatchDetails />} />
+                  <Route path="batch/:id" element={<BatchDetailsPage productType="business-cards" backUrl="/batchflow/business-card-batches" />} />
+                  <Route path="batches" element={<AllBatches />} />
+                  <Route path="jobs" element={<AllJobsPage />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="users" element={<Users />} />
+                  <Route path=":productType/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Postcards} />} />
+                  <Route path=":productType/jobs/:jobId" element={<GenericJobDetailsPage config={productConfigs.Postcards} />} />
+                  <Route path=":productType/jobs/edit/:jobId" element={<GenericJobEdit config={productConfigs.Postcards} />} />
+                </Route>
 
-              {/* Tracker routes */}
-              <Route path="/tracker" element={
-                <ProtectedRoute>
-                  <TrackerLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<TrackerDashboard />} />
-                <Route path="upload" element={<TrackerUpload />} />
-                <Route path="kanban" element={<TrackerKanban />} />
-                <Route path="jobs" element={<TrackerJobs />} />
-                <Route path="worksheets" element={<TrackerWorkSheets />} />
-                <Route path="labels" element={<TrackerLabels />} />
-                <Route path="admin" element={<TrackerAdmin />} />
-              </Route>
+                {/* Tracker routes */}
+                <Route path="/tracker" element={
+                  <ProtectedRoute>
+                    <TrackerLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<TrackerDashboard />} />
+                  <Route path="upload" element={<TrackerUpload />} />
+                  <Route path="kanban" element={<TrackerKanban />} />
+                  <Route path="jobs" element={<TrackerJobs />} />
+                  <Route path="worksheets" element={<TrackerWorkSheets />} />
+                  <Route path="labels" element={<TrackerLabels />} />
+                  <Route path="admin" element={<TrackerAdmin />} />
+                </Route>
 
-              {/* Legacy routes that redirect to BatchFlow */}
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<Dashboard />} />
-              </Route>
+                {/* Legacy routes that redirect to BatchFlow */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<Dashboard />} />
+                </Route>
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

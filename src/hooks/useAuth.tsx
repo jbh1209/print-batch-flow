@@ -94,17 +94,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error) {
       console.warn('User data loading failed (non-critical):', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
     console.log('Setting up auth state listener...');
     
-    // Clean auth state listener
+    let mounted = true;
+    
+    // Get initial session
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('Error getting initial session:', error);
+          setLoading(false);
+          return;
+        }
+
+        console.log('Initial session check:', !!session?.user);
+        
+        if (session?.user) {
+          const userObj: User = {
+            id: session.user.id,
+            email: session.user.email || undefined
+          };
+          setUser(userObj);
+          setSession(session);
+          
+          // Load additional user data
+          await loadUserData(session.user.id);
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error in getInitialSession:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        if (!mounted) return;
+        
         console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         
@@ -115,36 +153,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
           setUser(userObj);
           
-          // Defer user data loading to prevent auth conflicts
-          setTimeout(() => {
-            loadUserData(session.user.id);
-          }, 100);
+          // Load user data
+          await loadUserData(session.user.id);
         } else {
           setUser(null);
           setProfile(null);
           setIsAdmin(false);
-          setLoading(false);
         }
+        
+        setLoading(false);
       }
     );
 
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', !!session?.user);
-      if (!session) {
+    // Get initial session
+    getInitialSession();
+
+    // Failsafe timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      if (mounted) {
+        console.log('Auth timeout reached, forcing loading to false');
         setLoading(false);
       }
-    }).catch(() => {
-      setLoading(false);
-    });
-
-    // Failsafe timeout
-    const timeout = setTimeout(() => {
-      console.log('Auth timeout reached');
-      setLoading(false);
-    }, 3000);
+    }, 5000);
 
     return () => {
+      mounted = false;
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
