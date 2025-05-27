@@ -78,11 +78,19 @@ export async function generateBatchOverview(
     finalSheetsRequired
   );
   
-  // Draw compact jobs table - adjust position based on job type
+  // Draw compact jobs table - ADJUSTED position to avoid overlap with "Sheets Required" block
+  // The "Sheets Required" block is now larger (35px height) and positioned at y = pageHeight - margin - 125
+  // So the table needs to start at least 35px below that: pageHeight - margin - 125 - 35 = pageHeight - margin - 160
   const tableY = isSleeveJobs(jobs) 
-    ? pageHeight - margin - 130
-    : pageHeight - margin - 110;
+    ? pageHeight - margin - 170  // Extra space for sleeve jobs
+    : pageHeight - margin - 160; // Moved down significantly to avoid overlap
     
+  console.log("=== TABLE POSITIONING ===");
+  console.log("Page height:", pageHeight);
+  console.log("Margin:", margin);
+  console.log("Calculated tableY position:", tableY);
+  console.log("This should be below the Sheets Required block which ends at:", pageHeight - margin - 125 + 35);
+  
   const colWidths = isBusinessCardJobs(jobs) 
     ? [150, 80, 70, 80, 100]
     : [150, 60, 60, 100];
@@ -103,8 +111,15 @@ export async function generateBatchOverview(
     isBusinessCardJobs(jobs) ? optimization.distribution : null
   );
   
-  // Calculate grid layout for preview area
+  // Calculate grid layout for preview area - start previews even lower to account for table repositioning
   const gridConfig = calculateGridLayout(jobs.length, pageHeight);
+  // Adjust grid start position to account for lower table position
+  gridConfig.startY = Math.min(gridConfig.startY, finalTableY - 20);
+  
+  console.log("=== GRID POSITIONING ===");
+  console.log("Original grid startY:", calculateGridLayout(jobs.length, pageHeight).startY);
+  console.log("Adjusted grid startY:", gridConfig.startY);
+  console.log("Final table Y position:", finalTableY);
   
   // Add job previews in grid layout
   await addJobPreviews(
