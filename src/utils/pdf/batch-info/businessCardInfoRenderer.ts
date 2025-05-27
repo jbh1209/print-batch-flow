@@ -73,24 +73,25 @@ export function drawBusinessCardInfo(
   const timestamp = Date.now();
   console.log("Cache-busting timestamp:", timestamp);
   
-  // Draw sheets required rectangle - LIGHTER BLUE COLOR AND LARGER
-  console.log("Drawing sheets required rectangle with LIGHTER blue color");
+  // Draw sheets required rectangle - INCREASED SPACING from Total Cards
+  // Changed Y position from -125 to -145 to add 20 points more space
+  console.log("Drawing sheets required rectangle with INCREASED spacing");
   page.drawRectangle({
     x: margin - 5,
-    y: page.getHeight() - margin - 125,
-    width: 250, // INCREASED width for better visibility
-    height: 35, // INCREASED height for better visibility
+    y: page.getHeight() - margin - 145, // INCREASED spacing from -125 to -145
+    width: 250,
+    height: 35,
     color: rgb(0.2, 0.3, 0.6), // LIGHTER blue color (same as lamination)
   });
   
   const sheetsText = `Sheets Required: ${displaySheetsRequired}`;
   console.log("Drawing text on PDF:", sheetsText);
-  console.log("Text position - x:", margin, "y:", page.getHeight() - margin - 105);
+  console.log("Text position - x:", margin, "y:", page.getHeight() - margin - 125); // Adjusted text position too
   
   page.drawText(sheetsText, {
     x: margin,
-    y: page.getHeight() - margin - 105, // ADJUSTED for larger rectangle
-    size: 16, // INCREASED font size for better visibility
+    y: page.getHeight() - margin - 125, // ADJUSTED text position for larger rectangle with increased spacing
+    size: 16,
     font: helveticaBold,
     color: rgb(1, 1, 1)
   });
