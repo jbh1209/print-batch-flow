@@ -7,21 +7,23 @@ import { useProductionJobOperations } from "./tracker/useProductionJobOperations
 import { useProductionJobStats } from "./tracker/useProductionJobStats";
 
 export const useProductionJobs = () => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { jobs, isLoading, error, fetchJobs, setJobs } = useProductionJobsData();
   const { updateJobStatus: updateStatus } = useProductionJobOperations();
   const { getJobsByStatus, getJobStats } = useProductionJobStats(jobs);
   
   const realtimeChannelRef = useRef<any>(null);
   const lastUpdateRef = useRef<number>(0);
+  const setupRef = useRef<boolean>(false);
   const DEBOUNCE_DELAY = 1000; // 1 second debounce
 
-  // Optimized real-time subscription with debouncing
+  // Optimized real-time subscription setup
   const setupRealtimeSubscription = useCallback(() => {
-    if (!user?.id || realtimeChannelRef.current) {
+    if (!user?.id || realtimeChannelRef.current || setupRef.current || authLoading) {
       return null;
     }
 
+    setupRef.current = true;
     console.log("Setting up optimized real-time subscription for user:", user.id);
 
     const channel = supabase
@@ -70,11 +72,13 @@ export const useProductionJobs = () => {
 
     realtimeChannelRef.current = channel;
     return channel;
-  }, [user?.id, fetchJobs, setJobs]);
+  }, [user?.id, fetchJobs, setJobs, authLoading]);
 
-  // Set up real-time subscription only once
+  // Set up real-time subscription only when auth is ready
   useEffect(() => {
-    if (!user?.id) return;
+    if (authLoading || !user?.id) {
+      return;
+    }
     
     const channel = setupRealtimeSubscription();
     
@@ -83,9 +87,10 @@ export const useProductionJobs = () => {
         console.log("Cleaning up real-time subscription");
         supabase.removeChannel(realtimeChannelRef.current);
         realtimeChannelRef.current = null;
+        setupRef.current = false;
       }
     };
-  }, [user?.id]); // Only depend on user.id
+  }, [user?.id, authLoading]); // Only depend on user.id and authLoading
 
   // Optimized job status update with optimistic updates
   const updateJobStatus = useCallback(async (jobId: string, newStatus: string) => {
@@ -118,7 +123,7 @@ export const useProductionJobs = () => {
 
   return {
     jobs,
-    isLoading,
+    isLoading: isLoading || authLoading,
     error,
     fetchJobs,
     updateJobStatus,

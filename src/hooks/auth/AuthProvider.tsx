@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { AuthContext } from './AuthContext';
@@ -15,27 +15,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     isAdmin: false
   });
 
-  // Update user data when user changes
-  const updateUserData = async (userId: string) => {
-    const { profile, isAdmin } = await loadUserData(userId);
-    setAuthState(prev => ({
-      ...prev,
-      profile,
-      isAdmin
-    }));
-  };
+  const mountedRef = useRef(true);
+  const initializedRef = useRef(false);
+
+  // Optimized user data update with ref checks
+  const updateUserData = useCallback(async (userId: string) => {
+    if (!mountedRef.current || !userId) return;
+    
+    try {
+      const { profile, isAdmin } = await loadUserData(userId);
+      
+      if (!mountedRef.current) return;
+      
+      setAuthState(prev => ({
+        ...prev,
+        profile,
+        isAdmin
+      }));
+    } catch (error) {
+      console.warn('User data loading failed (non-critical):', error);
+    }
+  }, []);
 
   useEffect(() => {
     console.log('Setting up auth state listener...');
     
-    let mounted = true;
-    
-    // Get initial session
-    const getInitialSession = async () => {
+    // Get initial session without causing loops
+    const initializeAuth = async () => {
+      if (initializedRef.current) return;
+      initializedRef.current = true;
+      
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (!mounted) return;
+        if (!mountedRef.current) return;
         
         if (error) {
           console.error('Error getting initial session:', error);
@@ -49,26 +62,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setAuthState(prev => ({
             ...prev,
             user: session.user,
-            session
+            session,
+            loading: false
           }));
           
-          // Load additional user data
-          await updateUserData(session.user.id);
+          // Load additional user data asynchronously
+          updateUserData(session.user.id);
+        } else {
+          setAuthState(prev => ({ ...prev, loading: false }));
         }
-        
-        setAuthState(prev => ({ ...prev, loading: false }));
       } catch (error) {
-        console.error('Error in getInitialSession:', error);
-        if (mounted) {
+        console.error('Error in initializeAuth:', error);
+        if (mountedRef.current) {
           setAuthState(prev => ({ ...prev, loading: false }));
         }
       }
     };
 
-    // Set up auth state listener
+    // Set up auth state listener with optimized handling
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!mounted) return;
+        if (!mountedRef.current) return;
         
         console.log('Auth state changed:', event, session?.user?.id);
         
@@ -80,8 +94,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             loading: false
           }));
           
-          // Load user data
-          await updateUserData(session.user.id);
+          // Only load user data on sign in, not on token refresh
+          if (event === 'SIGNED_IN') {
+            // Defer to prevent blocking
+            setTimeout(() => {
+              updateUserData(session.user.id);
+            }, 0);
+          }
         } else {
           setAuthState({
             user: null,
@@ -94,25 +113,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Get initial session
-    getInitialSession();
+    // Initialize auth after setting up listener
+    initializeAuth();
 
-    // Failsafe timeout to prevent infinite loading
+    // Cleanup timeout to prevent infinite loading
     const timeout = setTimeout(() => {
-      if (mounted) {
+      if (mountedRef.current && !initializedRef.current) {
         console.log('Auth timeout reached, forcing loading to false');
         setAuthState(prev => ({ ...prev, loading: false }));
       }
-    }, 5000);
+    }, 3000); // Reduced from 5 seconds
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Empty dependency array to prevent loops
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       setAuthState(prev => ({ ...prev, loading: true }));
       await supabase.auth.signOut();
@@ -127,7 +146,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('Error signing out:', error);
       setAuthState(prev => ({ ...prev, loading: false }));
     }
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{

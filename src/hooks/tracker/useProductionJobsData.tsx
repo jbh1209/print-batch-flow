@@ -34,6 +34,7 @@ export const useProductionJobsData = () => {
   
   const fetchJobsRef = useRef<boolean>(false);
   const lastFetchRef = useRef<number>(0);
+  const initializedRef = useRef<boolean>(false);
   const MIN_FETCH_INTERVAL = 2000; // Minimum 2 seconds between fetches
 
   const fetchJobs = useCallback(async () => {
@@ -97,16 +98,24 @@ export const useProductionJobsData = () => {
     }
   }, [user?.id, authLoading]);
 
-  // Optimized effect that only runs when auth is ready and user changes
+  // Initialize data fetching only once when auth is ready
   useEffect(() => {
-    if (authLoading) {
-      console.log("Auth loading, waiting...");
+    if (authLoading || initializedRef.current) {
       return;
     }
 
-    console.log("Auth ready, fetching jobs for user:", user?.id);
-    fetchJobs();
-  }, [user?.id, authLoading]); // Removed fetchJobs from dependencies to prevent loops
+    if (user?.id) {
+      console.log("Auth ready, initializing jobs fetch for user:", user.id);
+      initializedRef.current = true;
+      fetchJobs();
+    } else {
+      console.log("No user, setting empty state");
+      setJobs([]);
+      setIsLoading(false);
+      setError(null);
+      initializedRef.current = true;
+    }
+  }, [user?.id, authLoading]); // Only run when these change
 
   return {
     jobs,
