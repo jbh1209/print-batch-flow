@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -14,32 +14,16 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { ProductionJobCard } from "./ProductionJobCard";
 import { KanbanColumn } from "./KanbanColumn";
-
-interface ProductionJob {
-  id: string;
-  wo_no: string;
-  status: string;
-  so_no?: string;
-  customer?: string;
-  category?: string;
-  qty?: number;
-  due_date?: string;
-  location?: string;
-  highlighted?: boolean;
-}
+import { useProductionJobs } from "@/hooks/useProductionJobs";
 
 const STATUSES = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
 
 export const ProductionKanban = () => {
-  const { user } = useAuth();
-  const [jobs, setJobs] = useState<ProductionJob[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { jobs, isLoading, error, updateJobStatus, getJobsByStatus } = useProductionJobs();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -48,56 +32,6 @@ export const ProductionKanban = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
-  const fetchJobs = async () => {
-    if (!user?.id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('production_jobs')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error("Error fetching jobs:", error);
-        toast.error("Failed to load jobs");
-        return;
-      }
-
-      setJobs(data || []);
-    } catch (error) {
-      console.error("Error fetching jobs:", error);
-      toast.error("Failed to load jobs");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchJobs();
-
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('production_jobs_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'production_jobs',
-          filter: `user_id=eq.${user?.id}`,
-        },
-        () => {
-          fetchJobs();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -115,37 +49,12 @@ export const ProductionKanban = () => {
 
     const newStatus = String(over.id);
     
-    // Optimistic update
-    setJobs(jobs.map(job => 
-      job.id === activeJobId 
-        ? { ...job, status: newStatus }
-        : job
-    ));
-
-    // Update in database
-    try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .update({ status: newStatus })
-        .eq('id', activeJobId);
-
-      if (error) {
-        console.error("Error updating job status:", error);
-        toast.error("Failed to update job status");
-        // Revert optimistic update
-        fetchJobs();
-      } else {
-        toast.success(`Job ${activeJob.wo_no} moved to ${newStatus}`);
-      }
-    } catch (error) {
-      console.error("Error updating job status:", error);
-      toast.error("Failed to update job status");
-      fetchJobs();
+    // Update job status using the hook
+    const success = await updateJobStatus(activeJobId, newStatus);
+    
+    if (success) {
+      toast.success(`Job ${activeJob.wo_no} moved to ${newStatus}`);
     }
-  };
-
-  const getJobsByStatus = (status: string) => {
-    return jobs.filter(job => job.status === status);
   };
 
   const getStatusColor = (status: string) => {
@@ -160,11 +69,27 @@ export const ProductionKanban = () => {
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading jobs...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+          <div className="flex items-center">
+            <AlertTriangle className="h-5 w-5 mr-2" />
+            <div>
+              <p className="font-medium">Error loading kanban board</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -174,6 +99,9 @@ export const ProductionKanban = () => {
       <div className="mb-6">
         <h2 className="text-2xl font-bold">Production Kanban Board</h2>
         <p className="text-gray-600">Drag and drop jobs to update their status</p>
+        <div className="mt-2 text-sm text-gray-500">
+          Total jobs: {jobs.length}
+        </div>
       </div>
 
       <DndContext
