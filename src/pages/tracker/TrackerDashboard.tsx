@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
@@ -13,6 +13,17 @@ const TrackerDashboard = () => {
 
   console.log("TrackerDashboard render - isLoading:", isLoading, "jobs count:", jobs.length, "error:", error);
 
+  // Add debugging effect
+  useEffect(() => {
+    console.log("TrackerDashboard mounted/updated:", {
+      isLoading,
+      jobsCount: jobs.length,
+      error,
+      stats
+    });
+  }, [isLoading, jobs.length, error, stats]);
+
+  // Loading state with timeout protection
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -22,6 +33,7 @@ const TrackerDashboard = () => {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="p-6">
@@ -37,6 +49,8 @@ const TrackerDashboard = () => {
       </div>
     );
   }
+
+  console.log("TrackerDashboard rendering main content with stats:", stats);
 
   return (
     <div className="space-y-6">

@@ -24,34 +24,40 @@ interface ProductionJob {
 }
 
 export const useProductionJobStats = (jobs: ProductionJob[]) => {
-  const getJobsByStatus = (status: string) => {
-    return jobs.filter(job => job.status === status);
-  };
-
-  const getJobStats = () => {
-    const statusCounts: Record<string, number> = {};
-    
-    // Initialize all statuses with 0
-    const allStatuses = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
-    allStatuses.forEach(status => {
-      statusCounts[status] = 0;
-    });
-    
-    // Count actual jobs
-    jobs.forEach(job => {
-      if (job.status && statusCounts.hasOwnProperty(job.status)) {
-        statusCounts[job.status]++;
-      }
-    });
-
-    return {
-      total: jobs.length,
-      statusCounts
+  const getJobsByStatus = useMemo(() => {
+    return (status: string) => {
+      return jobs.filter(job => job.status === status);
     };
-  };
+  }, [jobs]);
+
+  const getJobStats = useMemo(() => {
+    return () => {
+      const statusCounts: Record<string, number> = {};
+      
+      // Initialize all statuses with 0
+      const allStatuses = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
+      allStatuses.forEach(status => {
+        statusCounts[status] = 0;
+      });
+      
+      // Count actual jobs
+      jobs.forEach(job => {
+        if (job.status && statusCounts.hasOwnProperty(job.status)) {
+          statusCounts[job.status]++;
+        }
+      });
+
+      console.log("Job stats calculated:", { total: jobs.length, statusCounts });
+
+      return {
+        total: jobs.length,
+        statusCounts
+      };
+    };
+  }, [jobs]);
 
   return {
     getJobsByStatus,
-    getJobStats: () => getJobStats()
+    getJobStats
   };
 };

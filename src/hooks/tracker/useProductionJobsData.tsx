@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -32,14 +32,16 @@ export const useProductionJobsData = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     console.log("fetchJobs called with user:", user?.id, "authLoading:", authLoading);
     
+    // Don't fetch if auth is still loading
     if (authLoading) {
       console.log("Auth still loading, skipping fetch");
       return;
     }
 
+    // If no user, set empty state and stop loading
     if (!user?.id) {
       console.log("No user ID, setting empty jobs");
       setJobs([]);
@@ -76,20 +78,37 @@ export const useProductionJobsData = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.id, authLoading]);
 
+  // Effect to fetch jobs when auth state changes
   useEffect(() => {
     console.log("useProductionJobsData effect triggered - authLoading:", authLoading, "user:", user?.id);
     
-    // Only fetch when auth is not loading
-    if (!authLoading) {
-      fetchJobs();
-    }
-  }, [user?.id, authLoading]);
+    // Add a small delay to ensure auth state is settled
+    const timeoutId = setTimeout(() => {
+      if (!authLoading) {
+        fetchJobs();
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [fetchJobs]);
+
+  // Add a safety timeout to prevent infinite loading
+  useEffect(() => {
+    const safetyTimeout = setTimeout(() => {
+      if (isLoading && !authLoading) {
+        console.warn("Safety timeout reached, forcing loading to false");
+        setIsLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(safetyTimeout);
+  }, [isLoading, authLoading]);
 
   return {
     jobs,
-    isLoading: authLoading || isLoading,
+    isLoading: isLoading || authLoading,
     error,
     fetchJobs,
     setJobs
