@@ -54,55 +54,47 @@ export const useBatchPdfDownloads = ({
     let toastId: string | number | undefined;
     
     try {
-      const overviewPdfUrl = batch.overview_pdf_url || batch.back_pdf_url;
-      
-      if (!overviewPdfUrl) {
-        if (relatedJobs.length > 0) {
-          console.log("=== BATCH PDF DOWNLOADS - DOWNLOAD OVERVIEW ===");
-          console.log("Batch object:", batch);
-          console.log("Batch.sheets_required:", batch.sheets_required);
-          console.log("Generating new overview with sheets_required:", batch.sheets_required);
-          
-          // Add cache-busting timestamp
-          const timestamp = Date.now();
-          console.log("Cache-busting timestamp for PDF generation:", timestamp);
-          
-          // IMPORTANT: Use the same updated generateBatchOverview function
-          const pdfBytes = await generateBatchOverview(
-            convertToBaseJobs(relatedJobs),
-            batch.name,
-            batch.sheets_required || 0  // Ensure we pass the sheets_required value
-          );
-          
-          const blob = new Blob([pdfBytes], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `${batch.name}-overview-${timestamp}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          
-          toast.success("Batch overview sheet downloaded successfully");
-          return;
-        } else {
-          toast.error("No batch overview sheet available", {
-            description: "This batch doesn't have jobs or an overview PDF"
-          });
-          return;
+      // FORCE FRESH PDF GENERATION - Always generate new PDF to ensure updated layout
+      if (relatedJobs.length > 0) {
+        console.log("=== FORCING FRESH PDF GENERATION FOR DOWNLOAD ===");
+        console.log("Batch object:", batch);
+        console.log("Batch.sheets_required:", batch.sheets_required);
+        console.log("Generating fresh overview with corrected layout and sheets_required:", batch.sheets_required);
+        
+        toastId = toast.loading("Generating batch overview sheet...");
+        
+        // Add cache-busting timestamp
+        const timestamp = Date.now();
+        console.log("Cache-busting timestamp for fresh PDF generation:", timestamp);
+        
+        // CRITICAL: Always use fresh generateBatchOverview function with updated layout
+        const pdfBytes = await generateBatchOverview(
+          convertToBaseJobs(relatedJobs),
+          batch.name,
+          batch.sheets_required || 0  // Ensure we pass the sheets_required value
+        );
+        
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${batch.name}-overview-${timestamp}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        if (toastId) {
+          toast.dismiss(toastId);
         }
+        toast.success("Batch overview sheet downloaded successfully");
+        return;
+      } else {
+        toast.error("No batch overview sheet available", {
+          description: "This batch doesn't have jobs to generate an overview"
+        });
+        return;
       }
-
-      console.log("Downloading existing batch overview sheet:", overviewPdfUrl);
-      toastId = toast.loading("Downloading batch overview sheet...");
-      
-      await handlePdfAction(overviewPdfUrl, 'download', `${batch.name}-overview.pdf`);
-      
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      toast.success("Batch overview sheet downloaded successfully");
       
     } catch (error) {
       console.error("Error downloading batch overview sheet:", error);
