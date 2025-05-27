@@ -697,6 +697,69 @@ export type Database = {
         }
         Relationships: []
       }
+      production_jobs: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          customer: string | null
+          date: string | null
+          due_date: string | null
+          highlighted: boolean | null
+          id: string
+          location: string | null
+          qt_no: string | null
+          qty: number | null
+          reference: string | null
+          rep: string | null
+          so_no: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          user_name: string | null
+          wo_no: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          customer?: string | null
+          date?: string | null
+          due_date?: string | null
+          highlighted?: boolean | null
+          id?: string
+          location?: string | null
+          qt_no?: string | null
+          qty?: number | null
+          reference?: string | null
+          rep?: string | null
+          so_no?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          user_name?: string | null
+          wo_no: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          customer?: string | null
+          date?: string | null
+          due_date?: string | null
+          highlighted?: boolean | null
+          id?: string
+          location?: string | null
+          qt_no?: string | null
+          qty?: number | null
+          reference?: string | null
+          rep?: string | null
+          so_no?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          user_name?: string | null
+          wo_no?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -994,6 +1057,13 @@ export type Database = {
         | "sent_to_print"
       paper_type: "Matt" | "Gloss"
       printer_type: "HP 12000" | "HP 7900"
+      production_status:
+        | "Pre-Press"
+        | "Printing"
+        | "Finishing"
+        | "Packaging"
+        | "Shipped"
+        | "Completed"
       sheet_size: "455x640mm" | "530x750mm" | "320x455mm"
     }
     CompositeTypes: {
@@ -1129,6 +1199,14 @@ export const Constants = {
       ],
       paper_type: ["Matt", "Gloss"],
       printer_type: ["HP 12000", "HP 7900"],
+      production_status: [
+        "Pre-Press",
+        "Printing",
+        "Finishing",
+        "Packaging",
+        "Shipped",
+        "Completed",
+      ],
       sheet_size: ["455x640mm", "530x750mm", "320x455mm"],
     },
   },

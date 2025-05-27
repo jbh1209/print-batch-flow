@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -13,10 +14,13 @@ import {
   Settings, 
   ChevronLeft,
   Mail,
-  ClipboardList
+  ClipboardList,
+  Home,
+  Target
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { Button } from "./ui/button";
 
 interface NavItemProps {
   to: string;
@@ -54,7 +58,12 @@ const Sidebar = () => {
       collapsed ? "w-16" : "w-64"
     )}>
       <div className="flex items-center justify-between p-4 border-b border-white/10">
-        {!collapsed && <h1 className="text-xl font-bold">BatchFlow</h1>}
+        {!collapsed && (
+          <div>
+            <h1 className="text-xl font-bold">BatchFlow</h1>
+            <p className="text-xs text-white/70">Printing Management</p>
+          </div>
+        )}
         <button 
           onClick={() => setCollapsed(!collapsed)}
           className="p-1 rounded-full hover:bg-white/10"
@@ -70,92 +79,119 @@ const Sidebar = () => {
         {!collapsed && <div className="mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">General</div>}
         <nav className="flex flex-col gap-1">
           <NavItem 
-            to="/" 
+            to="/batchflow" 
             icon={<LayoutDashboard size={20} />} 
             label={collapsed ? "" : "Dashboard"} 
-            isActive={location.pathname === "/"} 
+            isActive={location.pathname === "/batchflow"} 
           />
           <NavItem 
-            to="/all-jobs" 
+            to="/batchflow/all-jobs" 
             icon={<ClipboardList size={20} />} 
             label={collapsed ? "" : "All Jobs"} 
-            isActive={location.pathname === "/all-jobs"} 
+            isActive={location.pathname === "/batchflow/all-jobs"} 
           />
           <NavItem 
-            to="/batches" 
+            to="/batchflow/batches" 
             icon={<Layers size={20} />} 
             label={collapsed ? "" : "All Batches"} 
-            isActive={location.pathname === "/batches" || location.pathname.startsWith("/batches/all")} 
+            isActive={location.pathname === "/batchflow/batches" || location.pathname.startsWith("/batchflow/batches/all")} 
           />
           
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Batch Types</div>}
           {collapsed && <div className="my-4 border-t border-white/10"></div>}
           
           <NavItem 
-            to="/batches/business-cards" 
+            to="/batchflow/batches/business-cards" 
             icon={<CreditCard size={20} />} 
             label={collapsed ? "" : "Business Cards"} 
-            isActive={location.pathname.includes("/batches/business-cards")} 
+            isActive={location.pathname.includes("/batchflow/batches/business-cards")} 
           />
           <NavItem 
-            to="/batches/flyers" 
+            to="/batchflow/batches/flyers" 
             icon={<FileText size={20} />} 
             label={collapsed ? "" : "Flyers"} 
-            isActive={location.pathname.includes("/batches/flyers")} 
+            isActive={location.pathname.includes("/batchflow/batches/flyers")} 
           />
           <NavItem 
-            to="/batches/postcards" 
+            to="/batchflow/batches/postcards" 
             icon={<Mail size={20} />} 
             label={collapsed ? "" : "Postcards"} 
-            isActive={location.pathname.includes("/batches/postcards")} 
+            isActive={location.pathname.includes("/batchflow/batches/postcards")} 
           />
           <NavItem 
-            to="/batches/sleeves" 
+            to="/batchflow/batches/sleeves" 
             icon={<Package size={20} />} 
             label={collapsed ? "" : "Shipper Box Sleeves"} 
-            isActive={location.pathname.includes("/batches/sleeves")} 
+            isActive={location.pathname.includes("/batchflow/batches/sleeves")} 
           />
           <NavItem 
-            to="/batches/boxes" 
+            to="/batchflow/batches/boxes" 
             icon={<Box size={20} />} 
             label={collapsed ? "" : "Product Boxes"} 
-            isActive={location.pathname.includes("/batches/boxes")} 
+            isActive={location.pathname.includes("/batchflow/batches/boxes")} 
           />
           <NavItem 
-            to="/batches/stickers" 
+            to="/batchflow/batches/stickers" 
             icon={<Sticker size={20} />} 
             label={collapsed ? "" : "Zund Stickers"} 
-            isActive={location.pathname.includes("/batches/stickers")} 
+            isActive={location.pathname.includes("/batchflow/batches/stickers")} 
           />
           <NavItem 
-            to="/batches/covers" 
+            to="/batchflow/batches/covers" 
             icon={<Book size={20} />} 
             label={collapsed ? "" : "Covers"} 
-            isActive={location.pathname.includes("/batches/covers")} 
+            isActive={location.pathname.includes("/batchflow/batches/covers")} 
           />
           <NavItem 
-            to="/batches/posters" 
+            to="/batchflow/batches/posters" 
             icon={<Image size={20} />} 
             label={collapsed ? "" : "Posters"} 
-            isActive={location.pathname.includes("/batches/posters")} 
+            isActive={location.pathname.includes("/batchflow/batches/posters")} 
           />
           
           {!collapsed && <div className="mt-6 mb-2 px-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Administration</div>}
           {collapsed && <div className="my-4 border-t border-white/10"></div>}
           
           <NavItem 
-            to="/users" 
+            to="/batchflow/users" 
             icon={<Users size={20} />} 
             label={collapsed ? "" : "Users"} 
-            isActive={location.pathname === "/users"} 
+            isActive={location.pathname === "/batchflow/users"} 
           />
           <NavItem 
-            to="/settings" 
+            to="/batchflow/settings" 
             icon={<Settings size={20} />} 
             label={collapsed ? "" : "Settings"} 
-            isActive={location.pathname === "/settings"} 
+            isActive={location.pathname === "/batchflow/settings"} 
           />
         </nav>
+      </div>
+
+      <div className="p-4 border-t border-white/10">
+        <Button 
+          asChild 
+          variant="outline" 
+          size="sm" 
+          className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20"
+        >
+          <Link to="/" className="flex items-center gap-2">
+            <Home size={16} />
+            {!collapsed && "Switch Apps"}
+          </Link>
+        </Button>
+        {!collapsed && (
+          <Button 
+            asChild 
+            variant="ghost" 
+            size="sm" 
+            className="w-full mt-2 text-white/70 hover:text-white hover:bg-white/10"
+          >
+            <Link to="/tracker" className="flex items-center gap-2">
+              <Target size={16} />
+              Tracker
+            </Link>
+          </Button>
+        )}
       </div>
     </div>
   );
