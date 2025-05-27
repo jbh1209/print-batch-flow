@@ -46,18 +46,21 @@ export const useDashboardStats = () => {
   });
 
   const fetchStats = useCallback(async () => {
-    if (authLoading) return;
+    if (authLoading || !user?.id) {
+      setStats(prev => ({ ...prev, isLoading: false }));
+      return;
+    }
     
     try {
       setStats(prev => ({ ...prev, isLoading: true, error: null }));
       
       console.log("Fetching dashboard stats...");
       
-      // Fetch job stats
+      // Fetch job stats - count queued jobs
       const [businessCardJobs, flyerJobs, postcardJobs] = await Promise.allSettled([
-        supabase.from("business_card_jobs").select("id", { count: 'exact' }).eq("status", "queued"),
-        supabase.from("flyer_jobs").select("id", { count: 'exact' }).eq("status", "queued"),
-        supabase.from("postcard_jobs").select("id", { count: 'exact' }).eq("status", "queued")
+        supabase.from("business_card_jobs").select("*", { count: 'exact' }).eq("status", "queued"),
+        supabase.from("flyer_jobs").select("*", { count: 'exact' }).eq("status", "queued"),
+        supabase.from("postcard_jobs").select("*", { count: 'exact' }).eq("status", "queued")
       ]);
       
       let totalPendingJobs = 0;
@@ -80,9 +83,9 @@ export const useDashboardStats = () => {
       const todayISO = today.toISOString();
       
       const [completedBusinessCards, completedFlyers, completedPostcards] = await Promise.allSettled([
-        supabase.from("business_card_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
-        supabase.from("flyer_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
-        supabase.from("postcard_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO)
+        supabase.from("business_card_jobs").select("*", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
+        supabase.from("flyer_jobs").select("*", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
+        supabase.from("postcard_jobs").select("*", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO)
       ]);
       
       let totalCompletedToday = 0;
@@ -100,14 +103,14 @@ export const useDashboardStats = () => {
       }
 
       // Fetch active batches
-      const { data: activeBatches, count: activeBatchesCount } = await supabase
+      const { count: activeBatchesCount } = await supabase
         .from("batches")
-        .select("id", { count: 'exact' })
+        .select("*", { count: 'exact' })
         .in("status", ["pending", "processing"]);
 
       // Calculate batch type stats
       const batchTypeStats = [
-        { name: "Business Cards", progress: totalPendingJobs > 0 ? Math.min(totalPendingJobs, 50) : 0, total: 50 },
+        { name: "Business Cards", progress: Math.min(totalPendingJobs, 50), total: 50 },
         { name: "Flyers A5", progress: 0, total: 50 },
         { name: "Flyers A4", progress: 0, total: 50 },
         { name: "Postcards", progress: 0, total: 50 }
@@ -117,19 +120,19 @@ export const useDashboardStats = () => {
         type => (type.progress / type.total) >= 0.8
       ).length;
 
-      // Fetch recent activity (user-specific)
+      // Fetch recent activity (user-specific) - using correct column names
       let recentActivity: any[] = [];
       if (user?.id) {
         const { data: activityData } = await supabase
           .from("business_card_jobs")
-          .select("id, customer, status, updated_at")
+          .select("id, name, status, updated_at")
           .eq("user_id", user.id)
           .order("updated_at", { ascending: false })
           .limit(5);
 
         recentActivity = (activityData || []).map(job => ({
           id: job.id,
-          name: job.customer || "Unnamed Job",
+          name: job.name || "Unnamed Job",
           action: "updated",
           type: "job",
           timestamp: job.updated_at
@@ -169,10 +172,8 @@ export const useDashboardStats = () => {
 
   // Load stats when auth is ready
   useEffect(() => {
-    if (!authLoading) {
-      fetchStats();
-    }
-  }, [authLoading, fetchStats]);
+    fetchStats();
+  }, [fetchStats]);
 
   return {
     ...stats,
