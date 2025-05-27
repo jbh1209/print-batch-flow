@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Upload, FileSpreadsheet, Check, X, QrCode, Download } from "lucide-react";
+import { Upload, FileSpreadsheet, Check, X, QrCode, Download, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +26,7 @@ export const ExcelUpload = () => {
   const [fileName, setFileName] = useState("");
   const [generateQRCodes, setGenerateQRCodes] = useState(true);
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [debugLogger] = useState(() => new ExcelImportDebugger());
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,6 +34,7 @@ export const ExcelUpload = () => {
     if (!file) return;
 
     setFileName(file.name);
+    setUploadError(null);
     debugLogger.clear();
     
     try {
@@ -40,10 +42,20 @@ export const ExcelUpload = () => {
       
       setParsedJobs(jobs);
       setImportStats(stats);
-      toast.success(`Parsed ${jobs.length} jobs from ${file.name}. ${stats.skippedRows} rows skipped.`);
+      
+      let message = `Parsed ${jobs.length} jobs from ${file.name}.`;
+      if (stats.skippedRows > 0) {
+        message += ` ${stats.skippedRows} rows skipped.`;
+      }
+      if (stats.invalidDates > 0) {
+        message += ` ${stats.invalidDates} invalid dates found.`;
+      }
+      
+      toast.success(message);
     } catch (error) {
       console.error("Error parsing Excel file:", error);
       debugLogger.addDebugInfo(`Error: ${error}`);
+      setUploadError(`Failed to parse Excel file: ${error instanceof Error ? error.message : "Unknown error"}`);
       toast.error("Failed to parse Excel file. Please check the format.");
     }
   };
@@ -59,12 +71,41 @@ export const ExcelUpload = () => {
     URL.revokeObjectURL(url);
   };
 
+  const validateJobData = (job: ParsedJob): string[] => {
+    const errors: string[] = [];
+    
+    if (!job.wo_no) errors.push("Missing WO Number");
+    if (!job.customer) errors.push("Missing Customer");
+    if (!job.due_date) errors.push("Missing Due Date");
+    if (job.qty <= 0) errors.push("Invalid Quantity");
+    
+    return errors;
+  };
+
   const handleConfirmUpload = async () => {
     if (!user?.id || parsedJobs.length === 0) return;
 
     setIsUploading(true);
+    setUploadError(null);
     
     try {
+      debugLogger.addDebugInfo(`Starting upload of ${parsedJobs.length} jobs for user ${user.id}`);
+      
+      // Validate jobs before upload
+      const validationErrors: string[] = [];
+      parsedJobs.forEach((job, index) => {
+        const jobErrors = validateJobData(job);
+        if (jobErrors.length > 0) {
+          validationErrors.push(`Row ${index + 1}: ${jobErrors.join(', ')}`);
+        }
+      });
+      
+      if (validationErrors.length > 0) {
+        setUploadError(`Validation errors:\n${validationErrors.slice(0, 5).join('\n')}${validationErrors.length > 5 ? '\n...' : ''}`);
+        debugLogger.addDebugInfo(`Validation failed: ${validationErrors.join('; ')}`);
+        return;
+      }
+      
       const jobsWithUserId: JobDataWithQR[] = [];
       
       for (const job of parsedJobs) {
@@ -88,12 +129,15 @@ export const ExcelUpload = () => {
             jobData.qr_code_data = qrData;
             jobData.qr_code_url = qrUrl;
           } catch (qrError) {
-            console.warn(`Failed to generate QR code for ${job.wo_no}:`, qrError);
+            debugLogger.addDebugInfo(`Failed to generate QR code for ${job.wo_no}: ${qrError}`);
           }
         }
 
         jobsWithUserId.push(jobData);
       }
+
+      debugLogger.addDebugInfo(`Attempting to insert ${jobsWithUserId.length} jobs into database`);
+      debugLogger.addDebugInfo(`Sample job data: ${JSON.stringify(jobsWithUserId[0], null, 2)}`);
 
       const { data, error } = await supabase
         .from('production_jobs')
@@ -104,10 +148,13 @@ export const ExcelUpload = () => {
         .select();
 
       if (error) {
-        console.error("Upload error:", error);
+        debugLogger.addDebugInfo(`Database error: ${JSON.stringify(error)}`);
+        setUploadError(`Database error: ${error.message}`);
         toast.error("Failed to upload jobs to database");
         return;
       }
+
+      debugLogger.addDebugInfo(`Successfully inserted ${data?.length || 0} jobs`);
 
       // Update QR codes with actual job IDs if QR generation was enabled
       if (generateQRCodes && data) {
@@ -131,7 +178,7 @@ export const ExcelUpload = () => {
                 })
                 .eq('id', insertedJob.id);
             } catch (qrError) {
-              console.warn(`Failed to update QR code for job ${insertedJob.id}:`, qrError);
+              debugLogger.addDebugInfo(`Failed to update QR code for job ${insertedJob.id}: ${qrError}`);
             }
           }
         }
@@ -149,7 +196,8 @@ export const ExcelUpload = () => {
       if (fileInput) fileInput.value = "";
       
     } catch (error) {
-      console.error("Upload error:", error);
+      debugLogger.addDebugInfo(`Upload error: ${error}`);
+      setUploadError(`Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`);
       toast.error("Failed to upload jobs");
     } finally {
       setIsUploading(false);
@@ -160,6 +208,7 @@ export const ExcelUpload = () => {
     setParsedJobs([]);
     setFileName("");
     setImportStats(null);
+    setUploadError(null);
     debugLogger.clear();
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
@@ -175,7 +224,7 @@ export const ExcelUpload = () => {
           </CardTitle>
           <CardDescription>
             Upload an Excel file (.xlsx, .xls) containing production jobs. 
-            Expected columns: WO No., Status, Date, Rep, Category, Customer, Reference, Qty, Due Date, Location, Note
+            Expected columns: WO No., Status, Date, Rep, Category, Customer, Reference, Qty, Due Date, Location
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -207,6 +256,18 @@ export const ExcelUpload = () => {
               </Label>
             </div>
 
+            {uploadError && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-red-800">Upload Error</h4>
+                    <pre className="text-sm text-red-700 mt-1 whitespace-pre-wrap">{uploadError}</pre>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {importStats && (
               <div className="p-4 bg-blue-50 rounded-lg">
                 <h4 className="font-semibold mb-2">Import Statistics</h4>
@@ -215,6 +276,7 @@ export const ExcelUpload = () => {
                   <div>Successfully imported: {importStats.processedRows}</div>
                   <div>Skipped rows: {importStats.skippedRows}</div>
                   <div>Invalid WO Numbers: {importStats.invalidWONumbers}</div>
+                  <div>Invalid dates: {importStats.invalidDates}</div>
                 </div>
               </div>
             )}
@@ -283,7 +345,6 @@ export const ExcelUpload = () => {
                     <TableHead>Qty</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Location</TableHead>
-                    <TableHead>Note</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -292,7 +353,7 @@ export const ExcelUpload = () => {
                       <TableCell className="font-medium">{job.wo_no}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded text-xs ${
-                          job.status === 'Production' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                          job.status === 'Pre-Press' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                         }`}>
                           {job.status}
                         </span>
@@ -305,7 +366,6 @@ export const ExcelUpload = () => {
                       <TableCell>{job.qty}</TableCell>
                       <TableCell>{job.due_date || '-'}</TableCell>
                       <TableCell>{job.location || '-'}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{job.note || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

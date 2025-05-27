@@ -12,7 +12,6 @@ export interface ParsedJob {
   qty: number;
   due_date: string;
   location: string;
-  note: string;
 }
 
 export interface ImportStats {
@@ -20,6 +19,7 @@ export interface ImportStats {
   processedRows: number;
   skippedRows: number;
   invalidWONumbers: number;
+  invalidDates: number;
 }
 
 export class ExcelImportDebugger {
@@ -44,54 +44,46 @@ export const formatExcelDate = (excelDate: any, logger: ExcelImportDebugger): st
   
   logger.addDebugInfo(`Processing date: ${JSON.stringify(excelDate)} (type: ${typeof excelDate})`);
   
-  // If it's already a string
-  if (typeof excelDate === 'string') {
-    const cleaned = excelDate.trim();
+  try {
+    let dateObj: Date | null = null;
     
-    // Handle YYYY/MM/DD format
-    if (cleaned.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) {
-      const [year, month, day] = cleaned.split('/');
-      const formatted = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      logger.addDebugInfo(`Formatted date string ${cleaned} to ${formatted}`);
-      return formatted;
+    // If it's already a string
+    if (typeof excelDate === 'string') {
+      const cleaned = excelDate.trim();
+      
+      // Handle YYYY/MM/DD format
+      if (cleaned.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) {
+        const [year, month, day] = cleaned.split('/');
+        dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else {
+        // Try to parse as regular date string
+        dateObj = new Date(cleaned);
+      }
     }
-    
-    // Handle other date formats
-    const dateAttempt = new Date(cleaned);
-    if (!isNaN(dateAttempt.getTime())) {
-      const formatted = dateAttempt.toISOString().split('T')[0];
-      logger.addDebugInfo(`Parsed date string ${cleaned} to ${formatted}`);
-      return formatted;
-    }
-    
-    logger.addDebugInfo(`Could not parse date string: ${cleaned}`);
-    return "";
-  }
-  
-  // If it's an Excel serial number
-  if (typeof excelDate === 'number') {
-    try {
+    // If it's an Excel serial number
+    else if (typeof excelDate === 'number') {
       // Excel dates are days since 1900-01-01 (with leap year bug correction)
       const excelEpoch = new Date(1900, 0, 1);
-      const date = new Date(excelEpoch.getTime() + (excelDate - 2) * 24 * 60 * 60 * 1000);
-      const formatted = date.toISOString().split('T')[0];
-      logger.addDebugInfo(`Converted Excel serial ${excelDate} to ${formatted}`);
+      dateObj = new Date(excelEpoch.getTime() + (excelDate - 2) * 24 * 60 * 60 * 1000);
+    }
+    // If it's already a Date object
+    else if (excelDate instanceof Date) {
+      dateObj = excelDate;
+    }
+    
+    // Validate the date and format as YYYY-MM-DD
+    if (dateObj && !isNaN(dateObj.getTime())) {
+      const formatted = dateObj.toISOString().split('T')[0];
+      logger.addDebugInfo(`Successfully formatted date to: ${formatted}`);
       return formatted;
-    } catch (error) {
-      logger.addDebugInfo(`Error converting Excel serial ${excelDate}: ${error}`);
+    } else {
+      logger.addDebugInfo(`Invalid date, could not parse: ${JSON.stringify(excelDate)}`);
       return "";
     }
+  } catch (error) {
+    logger.addDebugInfo(`Error processing date ${JSON.stringify(excelDate)}: ${error}`);
+    return "";
   }
-  
-  // If it's already a Date object
-  if (excelDate instanceof Date) {
-    const formatted = excelDate.toISOString().split('T')[0];
-    logger.addDebugInfo(`Converted Date object to ${formatted}`);
-    return formatted;
-  }
-  
-  logger.addDebugInfo(`Unknown date format: ${JSON.stringify(excelDate)}`);
-  return "";
 };
 
 export const formatWONumber = (woNo: any, logger: ExcelImportDebugger): string => {
@@ -170,7 +162,7 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
   const headers = jsonData[0] as string[];
   logger.addDebugInfo(`Headers found: ${JSON.stringify(headers)}`);
 
-  // Find column indices
+  // Find column indices - removed 'note' field as it's not in database
   const columnMap = {
     woNo: findColumnIndex(headers, ['wo no', 'work order', 'wo number'], logger),
     status: findColumnIndex(headers, ['status'], logger),
@@ -181,27 +173,20 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
     reference: findColumnIndex(headers, ['reference', 'ref'], logger),
     qty: findColumnIndex(headers, ['qty', 'quantity'], logger),
     dueDate: findColumnIndex(headers, ['due date', 'due'], logger),
-    location: findColumnIndex(headers, ['location', 'dept', 'department'], logger),
-    note: findColumnIndex(headers, ['note', 'notes', 'comment', 'comments'], logger)
+    location: findColumnIndex(headers, ['location', 'dept', 'department'], logger)
   };
 
   logger.addDebugInfo(`Column mapping: ${JSON.stringify(columnMap)}`);
 
-  // Process data rows, excluding the last row if it's just a number (total count)
+  // Process data rows
   let dataRows = jsonData.slice(1) as any[][];
-  
-  // Check if last row is just a total count (single number)
-  const lastRow = dataRows[dataRows.length - 1];
-  if (lastRow && lastRow.length === 1 && !isNaN(Number(lastRow[0]))) {
-    logger.addDebugInfo(`Removing total count row: ${lastRow[0]}`);
-    dataRows = dataRows.slice(0, -1);
-  }
   
   const stats: ImportStats = {
     totalRows: dataRows.length,
     processedRows: 0,
     skippedRows: 0,
-    invalidWONumbers: 0
+    invalidWONumbers: 0,
+    invalidDates: 0
   };
 
   const mapped: ParsedJob[] = [];
@@ -218,18 +203,31 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
       return;
     }
 
+    // Process dates with validation
+    const formattedDate = formatExcelDate(row[columnMap.date], logger);
+    const formattedDueDate = formatExcelDate(row[columnMap.dueDate], logger);
+    
+    // Check for invalid dates
+    if (!formattedDate && row[columnMap.date]) {
+      logger.addDebugInfo(`Warning: Invalid date in row ${index + 2}`);
+      stats.invalidDates++;
+    }
+    if (!formattedDueDate && row[columnMap.dueDate]) {
+      logger.addDebugInfo(`Warning: Invalid due date in row ${index + 2}`);
+      stats.invalidDates++;
+    }
+
     const job: ParsedJob = {
       wo_no: woNo,
-      status: String(row[columnMap.status] || "").trim() || "Production",
-      date: formatExcelDate(row[columnMap.date], logger),
+      status: String(row[columnMap.status] || "").trim() || "Pre-Press",
+      date: formattedDate,
       rep: String(row[columnMap.rep] || "").trim(),
       category: String(row[columnMap.category] || "").trim(),
       customer: String(row[columnMap.customer] || "").trim(),
       reference: String(row[columnMap.reference] || "").trim(),
       qty: parseInt(String(row[columnMap.qty] || "0").replace(/[^0-9]/g, '')) || 0,
-      due_date: formatExcelDate(row[columnMap.dueDate], logger),
-      location: String(row[columnMap.location] || "").trim(),
-      note: String(row[columnMap.note] || "").trim()
+      due_date: formattedDueDate,
+      location: String(row[columnMap.location] || "").trim()
     };
 
     logger.addDebugInfo(`Mapped job: ${JSON.stringify(job)}`);
@@ -237,7 +235,7 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
     stats.processedRows++;
   });
 
-  logger.addDebugInfo(`Import completed: ${stats.processedRows} processed, ${stats.skippedRows} skipped`);
+  logger.addDebugInfo(`Import completed: ${stats.processedRows} processed, ${stats.skippedRows} skipped, ${stats.invalidDates} invalid dates`);
 
   return { jobs: mapped, stats };
 };
