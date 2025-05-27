@@ -101,7 +101,6 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
               <Switch
                 checked={highlighted}
                 onCheckedChange={handleToggleHighlight}
-                size="sm"
               />
             </div>
           </div>

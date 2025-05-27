@@ -100,7 +100,7 @@ export const ProductionKanban = () => {
   }, [user?.id]);
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    setActiveId(String(event.active.id));
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -109,14 +109,15 @@ export const ProductionKanban = () => {
 
     if (!over || active.id === over.id) return;
 
-    const activeJob = jobs.find(job => job.id === active.id);
+    const activeJobId = String(active.id);
+    const activeJob = jobs.find(job => job.id === activeJobId);
     if (!activeJob) return;
 
-    const newStatus = over.id as string;
+    const newStatus = String(over.id);
     
     // Optimistic update
     setJobs(jobs.map(job => 
-      job.id === active.id 
+      job.id === activeJobId 
         ? { ...job, status: newStatus }
         : job
     ));
@@ -126,7 +127,7 @@ export const ProductionKanban = () => {
       const { error } = await supabase
         .from('production_jobs')
         .update({ status: newStatus })
-        .eq('id', active.id);
+        .eq('id', activeJobId);
 
       if (error) {
         console.error("Error updating job status:", error);
