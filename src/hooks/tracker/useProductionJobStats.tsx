@@ -3,8 +3,24 @@ import { useMemo } from 'react';
 
 interface ProductionJob {
   id: string;
+  wo_no: string;
   status: string;
-  [key: string]: any;
+  date?: string | null;
+  so_no?: string | null;
+  qt_no?: string | null;
+  rep?: string | null;
+  user_name?: string | null;
+  category?: string | null;
+  customer?: string | null;
+  reference?: string | null;
+  qty?: number | null;
+  due_date?: string | null;
+  location?: string | null;
+  highlighted?: boolean;
+  qr_code_data?: string | null;
+  qr_code_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export const useProductionJobStats = (jobs: ProductionJob[]) => {
