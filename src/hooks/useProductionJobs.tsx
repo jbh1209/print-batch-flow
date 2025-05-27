@@ -109,8 +109,8 @@ export const useProductionJobs = () => {
       )
       .subscribe((status) => {
         console.log("Real-time subscription status:", status);
-        if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIPTION_ERROR) {
-          console.error("Real-time subscription failed");
+        if (status !== REALTIME_SUBSCRIBE_STATES.SUBSCRIBED && status !== REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR) {
+          console.error("Real-time subscription failed with status:", status);
           setError("Real-time updates unavailable");
         }
       });
