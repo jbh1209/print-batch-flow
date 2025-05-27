@@ -7,7 +7,7 @@ import { ExcelUpload } from "@/components/tracker/ExcelUpload";
 
 const TrackerUpload = () => {
   return (
-    <div className="container mx-auto max-w-4xl">
+    <div className="w-full max-w-[95vw] mx-auto">
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
           <Button variant="outline" size="sm" asChild>
