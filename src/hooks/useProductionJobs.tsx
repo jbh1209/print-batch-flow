@@ -32,7 +32,7 @@ export const useProductionJobs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Simple data fetching
+  // Optimized data fetching
   const fetchJobs = useCallback(async () => {
     if (!user?.id) {
       setJobs([]);
@@ -74,7 +74,7 @@ export const useProductionJobs = () => {
     }
   }, [authLoading, fetchJobs]);
 
-  // Simple real-time subscription
+  // Optimized real-time subscription
   useEffect(() => {
     if (!user?.id) return;
 
@@ -101,13 +101,17 @@ export const useProductionJobs = () => {
               )
             );
           } else {
-            // Refetch for INSERT/DELETE
+            // Refetch for INSERT/DELETE to avoid stale data
             fetchJobs();
           }
         }
       )
       .subscribe((status) => {
         console.log("Real-time subscription status:", status);
+        if (status === 'SUBSCRIPTION_ERROR') {
+          console.error("Real-time subscription failed");
+          setError("Real-time updates unavailable");
+        }
       });
 
     return () => {
@@ -116,11 +120,12 @@ export const useProductionJobs = () => {
     };
   }, [user?.id, fetchJobs]);
 
-  // Job status update with optimistic updates
+  // Optimized job status update with better error handling
   const updateJobStatus = useCallback(async (jobId: string, newStatus: string) => {
     console.log("Updating job status:", jobId, "to", newStatus);
     
     // Optimistic update
+    const previousJobs = jobs;
     setJobs(prevJobs => 
       prevJobs.map(job => 
         job.id === jobId ? { ...job, status: newStatus } : job
@@ -136,18 +141,21 @@ export const useProductionJobs = () => {
       if (error) {
         console.error("Failed to update job status:", error);
         // Revert optimistic update
-        fetchJobs();
+        setJobs(previousJobs);
+        toast.error("Failed to update job status");
         return false;
       }
       
+      toast.success("Job status updated successfully");
       return true;
     } catch (error) {
       console.error("Error updating job status:", error);
       // Revert optimistic update
-      fetchJobs();
+      setJobs(previousJobs);
+      toast.error("Failed to update job status");
       return false;
     }
-  }, [fetchJobs]);
+  }, [jobs]);
 
   // Helper functions
   const getJobsByStatus = useCallback((status: string) => {

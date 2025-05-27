@@ -56,61 +56,49 @@ export const useDashboardStats = () => {
       
       console.log("Fetching dashboard stats...");
       
-      // Fetch job stats - count queued jobs
-      const [businessCardJobs, flyerJobs, postcardJobs] = await Promise.allSettled([
+      // Fetch pending jobs - simplified queries
+      const [businessCardResult, flyerResult, postcardResult] = await Promise.allSettled([
         supabase.from("business_card_jobs").select("*", { count: 'exact' }).eq("status", "queued"),
         supabase.from("flyer_jobs").select("*", { count: 'exact' }).eq("status", "queued"),
         supabase.from("postcard_jobs").select("*", { count: 'exact' }).eq("status", "queued")
       ]);
       
-      let totalPendingJobs = 0;
-      
-      if (businessCardJobs.status === 'fulfilled' && !businessCardJobs.value.error) {
-        totalPendingJobs += businessCardJobs.value.count || 0;
-      }
-      
-      if (flyerJobs.status === 'fulfilled' && !flyerJobs.value.error) {
-        totalPendingJobs += flyerJobs.value.count || 0;
-      }
-      
-      if (postcardJobs.status === 'fulfilled' && !postcardJobs.value.error) {
-        totalPendingJobs += postcardJobs.value.count || 0;
-      }
+      const pendingJobs = [businessCardResult, flyerResult, postcardResult]
+        .reduce((total, result) => {
+          if (result.status === 'fulfilled' && !result.value.error) {
+            return total + (result.value.count || 0);
+          }
+          return total;
+        }, 0);
       
       // Fetch completed jobs today
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
       
-      const [completedBusinessCards, completedFlyers, completedPostcards] = await Promise.allSettled([
+      const [completedBCResult, completedFlyerResult, completedPCResult] = await Promise.allSettled([
         supabase.from("business_card_jobs").select("*", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
         supabase.from("flyer_jobs").select("*", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
         supabase.from("postcard_jobs").select("*", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO)
       ]);
       
-      let totalCompletedToday = 0;
-      
-      if (completedBusinessCards.status === 'fulfilled' && !completedBusinessCards.value.error) {
-        totalCompletedToday += completedBusinessCards.value.count || 0;
-      }
-      
-      if (completedFlyers.status === 'fulfilled' && !completedFlyers.value.error) {
-        totalCompletedToday += completedFlyers.value.count || 0;
-      }
-      
-      if (completedPostcards.status === 'fulfilled' && !completedPostcards.value.error) {
-        totalCompletedToday += completedPostcards.value.count || 0;
-      }
+      const printedToday = [completedBCResult, completedFlyerResult, completedPCResult]
+        .reduce((total, result) => {
+          if (result.status === 'fulfilled' && !result.value.error) {
+            return total + (result.value.count || 0);
+          }
+          return total;
+        }, 0);
 
       // Fetch active batches
-      const { count: activeBatchesCount } = await supabase
+      const { count: activeBatches } = await supabase
         .from("batches")
         .select("*", { count: 'exact' })
         .in("status", ["pending", "processing"]);
 
       // Calculate batch type stats
       const batchTypeStats = [
-        { name: "Business Cards", progress: Math.min(totalPendingJobs, 50), total: 50 },
+        { name: "Business Cards", progress: Math.min(pendingJobs, 50), total: 50 },
         { name: "Flyers A5", progress: 0, total: 50 },
         { name: "Flyers A4", progress: 0, total: 50 },
         { name: "Postcards", progress: 0, total: 50 }
@@ -120,37 +108,34 @@ export const useDashboardStats = () => {
         type => (type.progress / type.total) >= 0.8
       ).length;
 
-      // Fetch recent activity (user-specific) - using correct column names
-      let recentActivity: any[] = [];
-      if (user?.id) {
-        const { data: activityData } = await supabase
-          .from("business_card_jobs")
-          .select("id, name, status, updated_at")
-          .eq("user_id", user.id)
-          .order("updated_at", { ascending: false })
-          .limit(5);
+      // Fetch recent activity (user-specific)
+      const { data: activityData } = await supabase
+        .from("business_card_jobs")
+        .select("id, name, status, updated_at")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(5);
 
-        recentActivity = (activityData || []).map(job => ({
-          id: job.id,
-          name: job.name || "Unnamed Job",
-          action: "updated",
-          type: "job",
-          timestamp: job.updated_at
-        }));
-      }
+      const recentActivity = (activityData || []).map(job => ({
+        id: job.id,
+        name: job.name || "Unnamed Job",
+        action: "updated",
+        type: "job",
+        timestamp: job.updated_at
+      }));
       
       console.log("Dashboard stats calculated:", {
-        totalPending: totalPendingJobs,
-        completedToday: totalCompletedToday,
-        activeBatches: activeBatchesCount || 0,
+        pendingJobs,
+        printedToday,
+        activeBatches: activeBatches || 0,
         bucketsFilled,
         recentActivity: recentActivity.length
       });
       
       setStats({
-        pendingJobs: totalPendingJobs,
-        printedToday: totalCompletedToday,
-        activeBatches: activeBatchesCount || 0,
+        pendingJobs,
+        printedToday,
+        activeBatches: activeBatches || 0,
         bucketsFilled,
         batchTypeStats,
         recentActivity,
@@ -170,7 +155,7 @@ export const useDashboardStats = () => {
     }
   }, [user?.id, authLoading]);
 
-  // Load stats when auth is ready
+  // Load stats when dependencies change
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
