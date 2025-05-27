@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +10,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { generateQRCodeData, generateQRCodeImage } from "@/utils/qrCodeGenerator";
-import { parseExcelFile, ExcelImportDebugger, ParsedJob, ImportStats } from "@/utils/excelParser";
+import { 
+  parseExcelFile, 
+  ExcelImportDebugger, 
+  ParsedJob, 
+  ImportStats,
+  validateAllJobs 
+} from "@/utils/excel";
 
 interface JobDataWithQR extends ParsedJob {
   user_id: string;
@@ -90,16 +95,10 @@ export const ExcelUpload = () => {
     
     try {
       debugLogger.addDebugInfo(`Starting upload of ${parsedJobs.length} jobs for user ${user.id}`);
-      
-      // Validate jobs before upload
-      const validationErrors: string[] = [];
-      parsedJobs.forEach((job, index) => {
-        const jobErrors = validateJobData(job);
-        if (jobErrors.length > 0) {
-          validationErrors.push(`Row ${index + 1}: ${jobErrors.join(', ')}`);
-        }
-      });
-      
+    
+      // Validate jobs before upload using the new validator
+      const validationErrors = validateAllJobs(parsedJobs);
+    
       if (validationErrors.length > 0) {
         setUploadError(`Validation errors:\n${validationErrors.slice(0, 5).join('\n')}${validationErrors.length > 5 ? '\n...' : ''}`);
         debugLogger.addDebugInfo(`Validation failed: ${validationErrors.join('; ')}`);
