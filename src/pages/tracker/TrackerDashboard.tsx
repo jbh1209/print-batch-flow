@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
@@ -9,21 +9,25 @@ import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptySt
 
 const TrackerDashboard = () => {
   const { jobs, isLoading, error, getJobStats } = useProductionJobs();
-  const stats = getJobStats();
+  
+  // Memoize stats to prevent recalculation on every render
+  const stats = useMemo(() => {
+    return getJobStats();
+  }, [getJobStats]);
 
   console.log("TrackerDashboard render - isLoading:", isLoading, "jobs count:", jobs.length, "error:", error);
 
-  // Add debugging effect
+  // Add debugging effect - only log when key values change
   useEffect(() => {
-    console.log("TrackerDashboard mounted/updated:", {
+    console.log("TrackerDashboard state changed:", {
       isLoading,
       jobsCount: jobs.length,
       error,
-      stats
+      statsTotal: stats.total
     });
-  }, [isLoading, jobs.length, error, stats]);
+  }, [isLoading, jobs.length, error, stats.total]);
 
-  // Loading state with timeout protection
+  // Loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">

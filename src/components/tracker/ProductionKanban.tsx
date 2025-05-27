@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -26,6 +26,7 @@ export const ProductionKanban = () => {
   const { jobs, isLoading, error, updateJobStatus, getJobsByStatus } = useProductionJobs();
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  // Memoize sensors to prevent recreation on each render
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -33,11 +34,24 @@ export const ProductionKanban = () => {
     })
   );
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id));
-  };
+  // Memoize status color mapping
+  const getStatusColor = useMemo(() => {
+    const colors = {
+      "Pre-Press": "bg-blue-100 text-blue-800",
+      "Printing": "bg-yellow-100 text-yellow-800",
+      "Finishing": "bg-purple-100 text-purple-800", 
+      "Packaging": "bg-orange-100 text-orange-800",
+      "Shipped": "bg-green-100 text-green-800",
+      "Completed": "bg-gray-100 text-gray-800"
+    };
+    return (status: string) => colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
+  }, []);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
 
@@ -49,25 +63,15 @@ export const ProductionKanban = () => {
 
     const newStatus = String(over.id);
     
-    // Update job status using the hook
+    // Update job status using optimistic updates
     const success = await updateJobStatus(activeJobId, newStatus);
     
     if (success) {
       toast.success(`Job ${activeJob.wo_no} moved to ${newStatus}`);
+    } else {
+      toast.error(`Failed to move job ${activeJob.wo_no}`);
     }
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      "Pre-Press": "bg-blue-100 text-blue-800",
-      "Printing": "bg-yellow-100 text-yellow-800",
-      "Finishing": "bg-purple-100 text-purple-800", 
-      "Packaging": "bg-orange-100 text-orange-800",
-      "Shipped": "bg-green-100 text-green-800",
-      "Completed": "bg-gray-100 text-gray-800"
-    };
-    return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
-  };
+  }, [jobs, updateJobStatus]);
 
   if (isLoading) {
     return (

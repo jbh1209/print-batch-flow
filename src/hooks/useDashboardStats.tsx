@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobStats } from "./dashboard/useJobStats";
 import { useBatchStats } from "./dashboard/useBatchStats";
@@ -10,11 +10,25 @@ export const useDashboardStats = () => {
   const jobStats = useJobStats();
   const batchStats = useBatchStats();
   const activityStats = useRecentActivity(user?.id);
+  
+  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
+  const lastRefreshRef = useRef<number>(0);
+  const MIN_REFRESH_INTERVAL = 5000; // Minimum 5 seconds between refreshes
 
-  // Simplified refresh function with error handling
+  // Rate-limited refresh function
   const refresh = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastRefresh = now - lastRefreshRef.current;
+    
+    if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL) {
+      console.log("Rate limiting dashboard refresh");
+      return;
+    }
+    
     try {
       console.log("Refreshing dashboard stats...");
+      lastRefreshRef.current = now;
+      
       jobStats.refresh();
       batchStats.refresh();
       
@@ -24,15 +38,20 @@ export const useDashboardStats = () => {
     } catch (error) {
       console.warn("Dashboard refresh failed:", error);
     }
-  }, [user?.id]);
+  }, [user?.id, jobStats, batchStats, activityStats]);
 
-  // Load stats when auth is complete - with delay to avoid auth conflicts
+  // Load stats when auth is complete with debouncing
   useEffect(() => {
     if (!authLoading && user) {
       console.log("Auth complete, loading dashboard stats");
       
-      // Add delay to ensure auth state is fully settled
-      const timer = setTimeout(() => {
+      // Clear any existing timeout
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      
+      // Debounce the stats loading
+      refreshTimeoutRef.current = setTimeout(() => {
         try {
           jobStats.refresh();
           batchStats.refresh();
@@ -43,9 +62,13 @@ export const useDashboardStats = () => {
         } catch (error) {
           console.warn("Dashboard stats loading failed:", error);
         }
-      }, 200);
+      }, 300);
 
-      return () => clearTimeout(timer);
+      return () => {
+        if (refreshTimeoutRef.current) {
+          clearTimeout(refreshTimeoutRef.current);
+        }
+      };
     }
   }, [authLoading, user?.id]);
 
@@ -66,7 +89,7 @@ export const useDashboardStats = () => {
     isLoading: authLoading || jobStats.isLoading || batchStats.isLoading,
     error: jobStats.error || batchStats.error || activityStats.error,
     
-    // Simplified refresh function
+    // Rate-limited refresh function
     refresh
   };
 };

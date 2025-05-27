@@ -24,36 +24,47 @@ interface ProductionJob {
 }
 
 export const useProductionJobStats = (jobs: ProductionJob[]) => {
+  // Memoize job filtering by status
   const getJobsByStatus = useMemo(() => {
+    const jobsByStatus = jobs.reduce((acc, job) => {
+      const status = job.status || 'Pre-Press';
+      if (!acc[status]) {
+        acc[status] = [];
+      }
+      acc[status].push(job);
+      return acc;
+    }, {} as Record<string, ProductionJob[]>);
+
     return (status: string) => {
-      return jobs.filter(job => job.status === status);
+      return jobsByStatus[status] || [];
     };
   }, [jobs]);
 
+  // Memoize stats calculation
   const getJobStats = useMemo(() => {
-    return () => {
-      const statusCounts: Record<string, number> = {};
-      
-      // Initialize all statuses with 0
-      const allStatuses = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
-      allStatuses.forEach(status => {
-        statusCounts[status] = 0;
-      });
-      
-      // Count actual jobs
-      jobs.forEach(job => {
-        if (job.status && statusCounts.hasOwnProperty(job.status)) {
-          statusCounts[job.status]++;
-        }
-      });
+    const statusCounts: Record<string, number> = {};
+    
+    // Initialize all statuses with 0
+    const allStatuses = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
+    allStatuses.forEach(status => {
+      statusCounts[status] = 0;
+    });
+    
+    // Count actual jobs
+    jobs.forEach(job => {
+      const status = job.status || 'Pre-Press';
+      if (statusCounts.hasOwnProperty(status)) {
+        statusCounts[status]++;
+      }
+    });
 
-      console.log("Job stats calculated:", { total: jobs.length, statusCounts });
-
-      return {
-        total: jobs.length,
-        statusCounts
-      };
+    const stats = {
+      total: jobs.length,
+      statusCounts
     };
+
+    console.log("Job stats calculated:", stats);
+    return () => stats;
   }, [jobs]);
 
   return {

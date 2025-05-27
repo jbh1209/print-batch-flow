@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -31,17 +31,31 @@ export const useProductionJobsData = () => {
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const fetchJobsRef = useRef<boolean>(false);
+  const lastFetchRef = useRef<number>(0);
+  const MIN_FETCH_INTERVAL = 2000; // Minimum 2 seconds between fetches
 
   const fetchJobs = useCallback(async () => {
-    console.log("fetchJobs called with user:", user?.id, "authLoading:", authLoading);
-    
-    // Don't fetch if auth is still loading
+    // Prevent multiple simultaneous fetches
+    if (fetchJobsRef.current) {
+      console.log("Fetch already in progress, skipping");
+      return;
+    }
+
+    // Rate limiting
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchRef.current;
+    if (timeSinceLastFetch < MIN_FETCH_INTERVAL) {
+      console.log("Rate limiting fetch, too soon since last fetch");
+      return;
+    }
+
     if (authLoading) {
       console.log("Auth still loading, skipping fetch");
       return;
     }
 
-    // If no user, set empty state and stop loading
     if (!user?.id) {
       console.log("No user ID, setting empty jobs");
       setJobs([]);
@@ -50,8 +64,10 @@ export const useProductionJobsData = () => {
       return;
     }
 
+    fetchJobsRef.current = true;
+    lastFetchRef.current = now;
+
     try {
-      setIsLoading(true);
       setError(null);
 
       console.log("Fetching production jobs for user:", user.id);
@@ -77,34 +93,20 @@ export const useProductionJobsData = () => {
       toast.error("Failed to load production jobs");
     } finally {
       setIsLoading(false);
+      fetchJobsRef.current = false;
     }
   }, [user?.id, authLoading]);
 
-  // Effect to fetch jobs when auth state changes
+  // Optimized effect that only runs when auth is ready and user changes
   useEffect(() => {
-    console.log("useProductionJobsData effect triggered - authLoading:", authLoading, "user:", user?.id);
-    
-    // Add a small delay to ensure auth state is settled
-    const timeoutId = setTimeout(() => {
-      if (!authLoading) {
-        fetchJobs();
-      }
-    }, 100);
+    if (authLoading) {
+      console.log("Auth loading, waiting...");
+      return;
+    }
 
-    return () => clearTimeout(timeoutId);
-  }, [fetchJobs]);
-
-  // Add a safety timeout to prevent infinite loading
-  useEffect(() => {
-    const safetyTimeout = setTimeout(() => {
-      if (isLoading && !authLoading) {
-        console.warn("Safety timeout reached, forcing loading to false");
-        setIsLoading(false);
-      }
-    }, 10000); // 10 second timeout
-
-    return () => clearTimeout(safetyTimeout);
-  }, [isLoading, authLoading]);
+    console.log("Auth ready, fetching jobs for user:", user?.id);
+    fetchJobs();
+  }, [user?.id, authLoading]); // Removed fetchJobs from dependencies to prevent loops
 
   return {
     jobs,
