@@ -11,6 +11,8 @@ const TrackerDashboard = () => {
   const { jobs, isLoading, error, getJobStats } = useProductionJobs();
   const stats = getJobStats();
 
+  console.log("TrackerDashboard render - isLoading:", isLoading, "jobs count:", jobs.length, "error:", error);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">

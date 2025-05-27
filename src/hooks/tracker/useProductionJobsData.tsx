@@ -27,21 +27,32 @@ interface ProductionJob {
 }
 
 export const useProductionJobsData = () => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchJobs = async () => {
+    console.log("fetchJobs called with user:", user?.id, "authLoading:", authLoading);
+    
+    if (authLoading) {
+      console.log("Auth still loading, skipping fetch");
+      return;
+    }
+
     if (!user?.id) {
+      console.log("No user ID, setting empty jobs");
       setJobs([]);
       setIsLoading(false);
+      setError(null);
       return;
     }
 
     try {
       setIsLoading(true);
       setError(null);
+
+      console.log("Fetching production jobs for user:", user.id);
 
       const { data, error: fetchError } = await supabase
         .from('production_jobs')
@@ -54,7 +65,7 @@ export const useProductionJobsData = () => {
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
 
-      console.log("Production jobs fetched:", data?.length || 0);
+      console.log("Production jobs fetched successfully:", data?.length || 0, "jobs");
       setJobs(data || []);
 
     } catch (err) {
@@ -67,9 +78,18 @@ export const useProductionJobsData = () => {
     }
   };
 
+  useEffect(() => {
+    console.log("useProductionJobsData effect triggered - authLoading:", authLoading, "user:", user?.id);
+    
+    // Only fetch when auth is not loading
+    if (!authLoading) {
+      fetchJobs();
+    }
+  }, [user?.id, authLoading]);
+
   return {
     jobs,
-    isLoading,
+    isLoading: authLoading || isLoading,
     error,
     fetchJobs,
     setJobs

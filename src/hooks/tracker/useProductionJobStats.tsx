@@ -1,24 +1,10 @@
 
+import { useMemo } from 'react';
+
 interface ProductionJob {
   id: string;
-  wo_no: string;
   status: string;
-  date?: string | null;
-  so_no?: string | null;
-  qt_no?: string | null;
-  rep?: string | null;
-  user_name?: string | null;
-  category?: string | null;
-  customer?: string | null;
-  reference?: string | null;
-  qty?: number | null;
-  due_date?: string | null;
-  location?: string | null;
-  highlighted?: boolean;
-  qr_code_data?: string | null;
-  qr_code_url?: string | null;
-  created_at?: string;
-  updated_at?: string;
+  [key: string]: any;
 }
 
 export const useProductionJobStats = (jobs: ProductionJob[]) => {
@@ -27,20 +13,29 @@ export const useProductionJobStats = (jobs: ProductionJob[]) => {
   };
 
   const getJobStats = () => {
-    const totalJobs = jobs.length;
-    const statusCounts = jobs.reduce((acc, job) => {
-      acc[job.status] = (acc[job.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const statusCounts: Record<string, number> = {};
+    
+    // Initialize all statuses with 0
+    const allStatuses = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
+    allStatuses.forEach(status => {
+      statusCounts[status] = 0;
+    });
+    
+    // Count actual jobs
+    jobs.forEach(job => {
+      if (job.status && statusCounts.hasOwnProperty(job.status)) {
+        statusCounts[job.status]++;
+      }
+    });
 
     return {
-      total: totalJobs,
+      total: jobs.length,
       statusCounts
     };
   };
 
   return {
     getJobsByStatus,
-    getJobStats
+    getJobStats: () => getJobStats()
   };
 };
