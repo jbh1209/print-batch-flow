@@ -6,9 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Calendar, Package, User, MapPin, Star, Edit } from "lucide-react";
+import { Calendar, Package, User, MapPin, Star, Edit, QrCode } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { QRCodeManager } from "./QRCodeManager";
 
 interface ProductionJob {
   id: string;
@@ -21,6 +22,8 @@ interface ProductionJob {
   due_date?: string;
   location?: string;
   highlighted?: boolean;
+  qr_code_data?: string;
+  qr_code_url?: string;
 }
 
 interface ProductionJobCardProps {
@@ -29,6 +32,7 @@ interface ProductionJobCardProps {
 
 export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
   const [highlighted, setHighlighted] = useState(job.highlighted || false);
+  const [jobData, setJobData] = useState(job);
   
   const {
     attributes,
@@ -63,6 +67,14 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
       toast.error("Failed to update highlight");
       setHighlighted(!checked); // Revert on error
     }
+  };
+
+  const handleQRCodeGenerated = (qrData: string, qrUrl: string) => {
+    setJobData(prev => ({
+      ...prev,
+      qr_code_data: qrData,
+      qr_code_url: qrUrl
+    }));
   };
 
   const isOverdue = job.due_date && new Date(job.due_date) < new Date();
@@ -149,6 +161,22 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
               <span className="text-xs text-gray-600 truncate">{job.location}</span>
             </div>
           )}
+
+          {/* QR Code Section */}
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="flex items-center gap-1">
+              {jobData.qr_code_url && (
+                <QrCode className="h-3 w-3 text-green-500" />
+              )}
+              <span className="text-xs text-gray-500">
+                {jobData.qr_code_url ? 'QR Generated' : 'No QR Code'}
+              </span>
+            </div>
+            <QRCodeManager 
+              job={jobData} 
+              onQRCodeGenerated={handleQRCodeGenerated}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>

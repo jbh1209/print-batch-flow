@@ -707,6 +707,8 @@ export type Database = {
           highlighted: boolean | null
           id: string
           location: string | null
+          qr_code_data: string | null
+          qr_code_url: string | null
           qt_no: string | null
           qty: number | null
           reference: string | null
@@ -727,6 +729,8 @@ export type Database = {
           highlighted?: boolean | null
           id?: string
           location?: string | null
+          qr_code_data?: string | null
+          qr_code_url?: string | null
           qt_no?: string | null
           qty?: number | null
           reference?: string | null
@@ -747,6 +751,8 @@ export type Database = {
           highlighted?: boolean | null
           id?: string
           location?: string | null
+          qr_code_data?: string | null
+          qr_code_url?: string | null
           qt_no?: string | null
           qty?: number | null
           reference?: string | null
@@ -901,6 +907,65 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_group_memberships: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          group_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          group_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          group_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_group_memberships_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "user_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          permissions: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          permissions?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          permissions?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

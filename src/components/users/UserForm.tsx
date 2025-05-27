@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -7,14 +7,22 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DialogFooter } from "@/components/ui/dialog";
 import { AlertCircle } from "lucide-react";
 import { UserFormData } from "@/types/user-types";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UserFormProps {
   initialData?: UserFormData;
   onSubmit: (data: UserFormData) => void;
   isEditing?: boolean;
+}
+
+interface UserGroup {
+  id: string;
+  name: string;
+  description: string;
 }
 
 // Define form schema based on whether we're editing or creating
@@ -26,7 +34,8 @@ const createUserSchema = z.object({
     .min(8, { message: "Password must be at least 8 characters" })
     .max(100),
   confirmPassword: z.string(),
-  role: z.string().default("user")
+  role: z.string().default("user"),
+  groups: z.array(z.string()).optional()
 }).refine((data) => data.password === data.confirmPassword, {
   path: ["confirmPassword"],
   message: "Passwords do not match",
@@ -34,12 +43,14 @@ const createUserSchema = z.object({
 
 const editUserSchema = z.object({
   full_name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  role: z.string().default("user")
+  role: z.string().default("user"),
+  groups: z.array(z.string()).optional()
 });
 
 export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
   
   const formSchema = isEditing ? editUserSchema : createUserSchema;
   
@@ -49,9 +60,28 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
       email: initialData?.email || "",
       full_name: initialData?.full_name || "",
       role: initialData?.role || "user",
+      groups: initialData?.groups || [],
       ...(isEditing ? {} : { password: "", confirmPassword: "" })
     }
   });
+
+  useEffect(() => {
+    fetchUserGroups();
+  }, []);
+
+  const fetchUserGroups = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_groups')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setUserGroups(data || []);
+    } catch (error) {
+      console.error('Error fetching user groups:', error);
+    }
+  };
 
   const handleSubmit = async (data: any) => {
     setIsSubmitting(true);
@@ -130,6 +160,60 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
             </FormItem>
           )}
         />
+
+        {userGroups.length > 0 && (
+          <FormField
+            control={form.control}
+            name="groups"
+            render={() => (
+              <FormItem>
+                <FormLabel>User Groups</FormLabel>
+                <div className="space-y-2">
+                  {userGroups.map((group) => (
+                    <FormField
+                      key={group.id}
+                      control={form.control}
+                      name="groups"
+                      render={({ field }) => {
+                        return (
+                          <FormItem
+                            key={group.id}
+                            className="flex flex-row items-start space-x-3 space-y-0"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(group.id)}
+                                onCheckedChange={(checked) => {
+                                  const current = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...current, group.id]);
+                                  } else {
+                                    field.onChange(current.filter((id) => id !== group.id));
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-sm font-normal">
+                                {group.name}
+                              </FormLabel>
+                              {group.description && (
+                                <p className="text-xs text-muted-foreground">
+                                  {group.description}
+                                </p>
+                              )}
+                            </div>
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         {!isEditing && (
           <>

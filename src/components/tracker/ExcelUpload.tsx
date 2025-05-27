@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileSpreadsheet, Check, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Upload, FileSpreadsheet, Check, X, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { generateQRCodeData, generateQRCodeImage } from "@/utils/qrCodeGenerator";
 
 interface ParsedJob {
   wo_no: string;
@@ -31,6 +34,7 @@ export const ExcelUpload = () => {
   const [parsedJobs, setParsedJobs] = useState<ParsedJob[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [generateQRCodes, setGenerateQRCodes] = useState(true);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -76,21 +80,47 @@ export const ExcelUpload = () => {
     setIsUploading(true);
     
     try {
-      // Add user_id to each job
-      const jobsWithUserId = parsedJobs.map(job => ({
-        ...job,
-        user_id: user.id,
-        // Convert date strings to proper dates
-        date: job.date ? new Date(job.date).toISOString().split('T')[0] : null,
-        due_date: job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : null
-      }));
+      const jobsWithUserId = [];
+      
+      for (const job of parsedJobs) {
+        const jobData = {
+          ...job,
+          user_id: user.id,
+          // Convert date strings to proper dates
+          date: job.date ? new Date(job.date).toISOString().split('T')[0] : null,
+          due_date: job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : null
+        };
+
+        // Generate QR code if enabled
+        if (generateQRCodes) {
+          try {
+            const qrData = generateQRCodeData({
+              wo_no: job.wo_no,
+              job_id: `temp-${job.wo_no}`, // Temporary ID, will be replaced after insertion
+              customer: job.customer,
+              due_date: job.due_date
+            });
+            
+            const qrUrl = await generateQRCodeImage(qrData);
+            
+            jobData.qr_code_data = qrData;
+            jobData.qr_code_url = qrUrl;
+          } catch (qrError) {
+            console.warn(`Failed to generate QR code for ${job.wo_no}:`, qrError);
+            // Continue without QR code
+          }
+        }
+
+        jobsWithUserId.push(jobData);
+      }
 
       const { data, error } = await supabase
         .from('production_jobs')
         .upsert(jobsWithUserId, { 
           onConflict: 'wo_no,user_id',
           ignoreDuplicates: false 
-        });
+        })
+        .select();
 
       if (error) {
         console.error("Upload error:", error);
@@ -98,7 +128,36 @@ export const ExcelUpload = () => {
         return;
       }
 
-      toast.success(`Successfully uploaded ${jobsWithUserId.length} jobs`);
+      // Update QR codes with actual job IDs if QR generation was enabled
+      if (generateQRCodes && data) {
+        for (const insertedJob of data) {
+          if (insertedJob.qr_code_data) {
+            try {
+              const updatedQrData = generateQRCodeData({
+                wo_no: insertedJob.wo_no,
+                job_id: insertedJob.id,
+                customer: insertedJob.customer,
+                due_date: insertedJob.due_date
+              });
+              
+              const updatedQrUrl = await generateQRCodeImage(updatedQrData);
+              
+              await supabase
+                .from('production_jobs')
+                .update({
+                  qr_code_data: updatedQrData,
+                  qr_code_url: updatedQrUrl
+                })
+                .eq('id', insertedJob.id);
+            } catch (qrError) {
+              console.warn(`Failed to update QR code for job ${insertedJob.id}:`, qrError);
+            }
+          }
+        }
+      }
+
+      const qrMessage = generateQRCodes ? " with QR codes" : "";
+      toast.success(`Successfully uploaded ${jobsWithUserId.length} jobs${qrMessage}`);
       setParsedJobs([]);
       setFileName("");
       
@@ -150,6 +209,18 @@ export const ExcelUpload = () => {
                 </div>
               )}
             </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="generate-qr"
+                checked={generateQRCodes}
+                onCheckedChange={setGenerateQRCodes}
+              />
+              <Label htmlFor="generate-qr" className="flex items-center gap-2">
+                <QrCode className="h-4 w-4" />
+                Generate QR codes for each job
+              </Label>
+            </div>
             
             {parsedJobs.length > 0 && (
               <div className="flex gap-2">
@@ -160,6 +231,7 @@ export const ExcelUpload = () => {
                 >
                   <Check className="h-4 w-4" />
                   {isUploading ? "Uploading..." : `Upload ${parsedJobs.length} Jobs`}
+                  {generateQRCodes && " with QR Codes"}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -181,6 +253,7 @@ export const ExcelUpload = () => {
             <CardTitle>Preview ({parsedJobs.length} jobs)</CardTitle>
             <CardDescription>
               Review the parsed jobs before uploading to the database
+              {generateQRCodes && " (QR codes will be generated automatically)"}
             </CardDescription>
           </CardHeader>
           <CardContent>
