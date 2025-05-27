@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 
 interface ProductionJob {
   id: string;
@@ -74,7 +75,7 @@ export const useProductionJobs = () => {
     }
   }, [authLoading, fetchJobs]);
 
-  // Optimized real-time subscription
+  // Optimized real-time subscription with proper error handling
   useEffect(() => {
     if (!user?.id) return;
 
@@ -108,7 +109,7 @@ export const useProductionJobs = () => {
       )
       .subscribe((status) => {
         console.log("Real-time subscription status:", status);
-        if (status === 'SUBSCRIPTION_ERROR') {
+        if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIPTION_ERROR) {
           console.error("Real-time subscription failed");
           setError("Real-time updates unavailable");
         }
