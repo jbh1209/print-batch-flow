@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@/types/user-types';
-import { Session } from '@supabase/supabase-js';
+import { User, Session } from '@supabase/supabase-js';
 import { AuthContext } from './AuthContext';
 import { AuthState } from './types';
 import { loadUserData, checkIsAdmin } from './authUtils';
@@ -47,14 +46,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Initial session check:', !!session?.user);
         
         if (session?.user) {
-          const userObj: User = {
-            id: session.user.id,
-            email: session.user.email || undefined
-          };
-          
           setAuthState(prev => ({
             ...prev,
-            user: userObj,
+            user: session.user,
             session
           }));
           
@@ -79,14 +73,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Auth state changed:', event, session?.user?.id);
         
         if (session?.user) {
-          const userObj: User = {
-            id: session.user.id,
-            email: session.user.email || undefined
-          };
-          
           setAuthState(prev => ({
             ...prev,
-            user: userObj,
+            user: session.user,
             session,
             loading: false
           }));
