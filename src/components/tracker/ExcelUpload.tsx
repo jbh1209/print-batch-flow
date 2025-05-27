@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,17 +16,15 @@ import { generateQRCodeData, generateQRCodeImage } from "@/utils/qrCodeGenerator
 interface ParsedJob {
   wo_no: string;
   status: string;
-  so_no: string;
-  qt_no: string;
   date: string;
   rep: string;
-  user_name: string;
   category: string;
   customer: string;
   reference: string;
   qty: number;
   due_date: string;
   location: string;
+  note: string;
 }
 
 interface JobDataWithQR extends ParsedJob {
@@ -41,6 +40,45 @@ export const ExcelUpload = () => {
   const [fileName, setFileName] = useState("");
   const [generateQRCodes, setGenerateQRCodes] = useState(true);
 
+  const formatExcelDate = (excelDate: any): string => {
+    if (!excelDate) return "";
+    
+    // If it's already a string in YYYY/MM/DD format
+    if (typeof excelDate === 'string') {
+      // Handle various date formats
+      if (excelDate.includes('/')) {
+        const parts = excelDate.split('/');
+        if (parts.length === 3) {
+          // Assume YYYY/MM/DD format
+          const [year, month, day] = parts;
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+      }
+      return excelDate;
+    }
+    
+    // If it's an Excel serial number
+    if (typeof excelDate === 'number') {
+      // Excel dates are days since 1900-01-01 (with some adjustments)
+      const excelEpoch = new Date(1900, 0, 1);
+      const date = new Date(excelEpoch.getTime() + (excelDate - 2) * 24 * 60 * 60 * 1000);
+      return date.toISOString().split('T')[0];
+    }
+    
+    // If it's already a Date object
+    if (excelDate instanceof Date) {
+      return excelDate.toISOString().split('T')[0];
+    }
+    
+    return "";
+  };
+
+  const formatWONumber = (woNo: any): string => {
+    if (!woNo) return "";
+    const cleaned = String(woNo).replace(/[^0-9]/g, '');
+    return cleaned.padStart(6, '0');
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -54,22 +92,24 @@ export const ExcelUpload = () => {
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      // Map Excel columns to our database fields
+      console.log("Raw Excel data:", jsonData.slice(0, 3)); // Debug log
+
+      // Map Excel columns to our database fields based on the screenshot
       const mapped = jsonData.map((row: any) => ({
-        wo_no: row["WO No."] || row["WO No"] || row["wo_no"] || "",
-        status: row["Status"] || row["status"] || "Pre-Press",
-        so_no: row["SO No."] || row["SO No"] || row["so_no"] || "",
-        qt_no: row["QT No."] || row["QT No"] || row["qt_no"] || "",
-        date: row["Date"] || row["date"] || "",
-        rep: row["Rep"] || row["rep"] || "",
-        user_name: row["User"] || row["user"] || row["user_name"] || "",
-        category: row["Category"] || row["category"] || "",
-        customer: row["Customer"] || row["customer"] || "",
-        reference: row["Reference"] || row["reference"] || "",
-        qty: parseInt(row["Qty"] || row["qty"] || "0") || 0,
-        due_date: row["Due Date"] || row["due_date"] || "",
-        location: row["Location"] || row["location"] || ""
-      })).filter(job => job.wo_no); // Only include rows with work order numbers
+        wo_no: formatWONumber(row["WO No."] || row["WO No"] || ""),
+        status: String(row["Status"] || "").trim() || "Production",
+        date: formatExcelDate(row["Date"]),
+        rep: String(row["Rep"] || "").trim() || "",
+        category: String(row["Category"] || "").trim() || "",
+        customer: String(row["Customer"] || "").trim() || "",
+        reference: String(row["Reference"] || "").trim() || "",
+        qty: parseInt(String(row["Qty"] || row["Quantity"] || "0").replace(/[^0-9]/g, '')) || 0,
+        due_date: formatExcelDate(row["Due Date"] || row["DueDate"]),
+        location: String(row["Location"] || "").trim() || "",
+        note: String(row["Note"] || row["Notes"] || "").trim() || ""
+      })).filter(job => job.wo_no && job.wo_no !== "000000"); // Only include rows with valid work order numbers
+
+      console.log("Mapped jobs:", mapped.slice(0, 3)); // Debug log
 
       setParsedJobs(mapped);
       toast.success(`Parsed ${mapped.length} jobs from ${file.name}`);
@@ -90,10 +130,7 @@ export const ExcelUpload = () => {
       for (const job of parsedJobs) {
         const jobData: JobDataWithQR = {
           ...job,
-          user_id: user.id,
-          // Convert date strings to proper dates
-          date: job.date ? new Date(job.date).toISOString().split('T')[0] : "",
-          due_date: job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : ""
+          user_id: user.id
         };
 
         // Generate QR code if enabled
@@ -195,7 +232,7 @@ export const ExcelUpload = () => {
           </CardTitle>
           <CardDescription>
             Upload an Excel file (.xlsx, .xls) containing production jobs. 
-            Expected columns: WO No., Status, SO No., QT No., Date, Rep, User, Category, Customer, Reference, Qty, Due Date, Location
+            Expected columns: WO No., Status, Date, Rep, Category, Customer, Reference, Qty, Due Date, Location, Note
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -267,11 +304,12 @@ export const ExcelUpload = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>WO No.</TableHead>
-                    <TableHead>Customer</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Qty</TableHead>
                     <TableHead>Due Date</TableHead>
-                    <TableHead>Category</TableHead>
+                    <TableHead>Rep</TableHead>
                     <TableHead>Location</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -279,12 +317,19 @@ export const ExcelUpload = () => {
                   {parsedJobs.slice(0, 20).map((job, index) => (
                     <TableRow key={index}>
                       <TableCell className="font-medium">{job.wo_no}</TableCell>
-                      <TableCell>{job.customer}</TableCell>
-                      <TableCell>{job.status}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          job.status === 'Production' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {job.status}
+                        </span>
+                      </TableCell>
+                      <TableCell>{job.customer || '-'}</TableCell>
+                      <TableCell>{job.category || '-'}</TableCell>
                       <TableCell>{job.qty}</TableCell>
-                      <TableCell>{job.due_date}</TableCell>
-                      <TableCell>{job.category}</TableCell>
-                      <TableCell>{job.location}</TableCell>
+                      <TableCell>{job.due_date || '-'}</TableCell>
+                      <TableCell>{job.rep || '-'}</TableCell>
+                      <TableCell>{job.location || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
