@@ -2,13 +2,13 @@
 export interface ParsedJob {
   wo_no: string;
   status: string;
-  date: string;
+  date: string | null;
   rep: string;
   category: string;
   customer: string;
   reference: string;
   qty: number;
-  due_date: string;
+  due_date: string | null;
   location: string;
 }
 

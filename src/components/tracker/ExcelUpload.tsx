@@ -100,7 +100,10 @@ export const ExcelUpload = () => {
       for (const job of parsedJobs) {
         const jobData: JobDataWithQR = {
           ...job,
-          user_id: user.id
+          user_id: user.id,
+          // Convert null dates to undefined for database insertion
+          date: job.date || undefined,
+          due_date: job.due_date || undefined
         };
 
         // Generate QR code if enabled

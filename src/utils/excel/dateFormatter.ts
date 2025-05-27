@@ -1,11 +1,11 @@
 
 import type { ExcelImportDebugger } from './debugger';
 
-export const formatExcelDate = (excelDate: any, logger: ExcelImportDebugger): string => {
+export const formatExcelDate = (excelDate: any, logger: ExcelImportDebugger): string | null => {
   // Handle completely empty/null/undefined values
   if (!excelDate || excelDate === '' || excelDate === null || excelDate === undefined) {
-    logger.addDebugInfo(`Empty date field, returning empty string`);
-    return "";
+    logger.addDebugInfo(`Empty date field, returning null`);
+    return null;
   }
   
   logger.addDebugInfo(`Processing date: ${JSON.stringify(excelDate)} (type: ${typeof excelDate})`);
@@ -19,8 +19,8 @@ export const formatExcelDate = (excelDate: any, logger: ExcelImportDebugger): st
       
       // Handle empty string after trimming
       if (cleaned === '') {
-        logger.addDebugInfo(`Empty string after trimming, returning empty`);
-        return "";
+        logger.addDebugInfo(`Empty string after trimming, returning null`);
+        return null;
       }
       
       // Handle YYYY/MM/DD format
@@ -36,8 +36,8 @@ export const formatExcelDate = (excelDate: any, logger: ExcelImportDebugger): st
     else if (typeof excelDate === 'number') {
       // Handle 0 or negative numbers as empty dates
       if (excelDate <= 0) {
-        logger.addDebugInfo(`Invalid Excel date number: ${excelDate}, returning empty`);
-        return "";
+        logger.addDebugInfo(`Invalid Excel date number: ${excelDate}, returning null`);
+        return null;
       }
       
       // Excel dates are days since 1900-01-01 (with leap year bug correction)
@@ -55,11 +55,11 @@ export const formatExcelDate = (excelDate: any, logger: ExcelImportDebugger): st
       logger.addDebugInfo(`Successfully formatted date to: ${formatted}`);
       return formatted;
     } else {
-      logger.addDebugInfo(`Invalid date, could not parse: ${JSON.stringify(excelDate)}, returning empty`);
-      return "";
+      logger.addDebugInfo(`Invalid date, could not parse: ${JSON.stringify(excelDate)}, returning null`);
+      return null;
     }
   } catch (error) {
-    logger.addDebugInfo(`Error processing date ${JSON.stringify(excelDate)}: ${error}, returning empty`);
-    return "";
+    logger.addDebugInfo(`Error processing date ${JSON.stringify(excelDate)}: ${error}, returning null`);
+    return null;
   }
 };
