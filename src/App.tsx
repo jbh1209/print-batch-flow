@@ -62,10 +62,11 @@ import TrackerWorkSheets from "./pages/tracker/TrackerWorkSheets";
 import TrackerLabels from "./pages/tracker/TrackerLabels";
 import TrackerAdmin from "./pages/tracker/TrackerAdmin";
 
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import BatchFlowLayout from "./components/BatchFlowLayout";
 import TrackerLayout from "./components/TrackerLayout";
+import { productConfigs } from "./config/productTypes";
 
 const queryClient = new QueryClient();
 
@@ -121,14 +122,14 @@ function App() {
                 <Route path="business-card-batches" element={<BusinessCardBatches />} />
                 <Route path="flyer-batches" element={<FlyerBatches />} />
                 <Route path="flyer-batches/:id" element={<FlyerBatchDetails />} />
-                <Route path="batch/:id" element={<BatchDetailsPage />} />
+                <Route path="batch/:id" element={<BatchDetailsPage productType="business-cards" backUrl="/batchflow/business-card-batches" />} />
                 <Route path="batches" element={<AllBatches />} />
                 <Route path="jobs" element={<AllJobsPage />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="users" element={<Users />} />
-                <Route path=":productType/batches/:batchId" element={<GenericBatchDetailsPage />} />
-                <Route path=":productType/jobs/:jobId" element={<GenericJobDetailsPage />} />
-                <Route path=":productType/jobs/edit/:jobId" element={<GenericJobEdit />} />
+                <Route path=":productType/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Postcards} />} />
+                <Route path=":productType/jobs/:jobId" element={<GenericJobDetailsPage config={productConfigs.Postcards} />} />
+                <Route path=":productType/jobs/edit/:jobId" element={<GenericJobEdit config={productConfigs.Postcards} />} />
               </Route>
 
               {/* Tracker routes */}
