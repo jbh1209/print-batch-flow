@@ -26,30 +26,30 @@ export const ExcelUpload = () => {
   const [fileName, setFileName] = useState("");
   const [generateQRCodes, setGenerateQRCodes] = useState(true);
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
-  const [debugger] = useState(() => new ExcelImportDebugger());
+  const [debugLogger] = useState(() => new ExcelImportDebugger());
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
-    debugger.clear();
+    debugLogger.clear();
     
     try {
-      const { jobs, stats } = await parseExcelFile(file, debugger);
+      const { jobs, stats } = await parseExcelFile(file, debugLogger);
       
       setParsedJobs(jobs);
       setImportStats(stats);
       toast.success(`Parsed ${jobs.length} jobs from ${file.name}. ${stats.skippedRows} rows skipped.`);
     } catch (error) {
       console.error("Error parsing Excel file:", error);
-      debugger.addDebugInfo(`Error: ${error}`);
+      debugLogger.addDebugInfo(`Error: ${error}`);
       toast.error("Failed to parse Excel file. Please check the format.");
     }
   };
 
   const downloadDebugInfo = () => {
-    const debugText = debugger.getDebugInfo().join('\n');
+    const debugText = debugLogger.getDebugInfo().join('\n');
     const blob = new Blob([debugText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -142,7 +142,7 @@ export const ExcelUpload = () => {
       setParsedJobs([]);
       setFileName("");
       setImportStats(null);
-      debugger.clear();
+      debugLogger.clear();
       
       // Reset file input
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -160,7 +160,7 @@ export const ExcelUpload = () => {
     setParsedJobs([]);
     setFileName("");
     setImportStats(null);
-    debugger.clear();
+    debugLogger.clear();
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   };
@@ -219,7 +219,7 @@ export const ExcelUpload = () => {
               </div>
             )}
 
-            {debugger.getDebugInfo().length > 0 && (
+            {debugLogger.getDebugInfo().length > 0 && (
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -230,7 +230,7 @@ export const ExcelUpload = () => {
                   <Download className="h-4 w-4" />
                   Download Debug Info
                 </Button>
-                <span className="text-sm text-gray-500">({debugger.getDebugInfo().length} debug messages)</span>
+                <span className="text-sm text-gray-500">({debugLogger.getDebugInfo().length} debug messages)</span>
               </div>
             )}
             
