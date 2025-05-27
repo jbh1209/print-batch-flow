@@ -2,11 +2,21 @@
 import type { ExcelImportDebugger } from './debugger';
 
 export const formatWONumber = (woNo: any, logger: ExcelImportDebugger): string => {
-  if (!woNo && woNo !== 0) return "";
+  // Handle completely empty/null/undefined values
+  if (woNo === null || woNo === undefined || woNo === '') {
+    logger.addDebugInfo(`Empty WO Number field`);
+    return "";
+  }
   
   // Convert to string and clean
   const cleaned = String(woNo).trim();
   logger.addDebugInfo(`Processing WO Number: "${woNo}" -> "${cleaned}"`);
+  
+  // Handle empty string after trimming
+  if (cleaned === '') {
+    logger.addDebugInfo(`Empty WO Number after trimming`);
+    return "";
+  }
   
   // If it looks like a 6-digit number, return as-is
   if (/^\d{6}$/.test(cleaned)) {

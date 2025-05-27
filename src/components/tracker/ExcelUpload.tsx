@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Upload, FileSpreadsheet, Check, X, QrCode, Download, AlertTriangle } from "lucide-react";
+import { Upload, FileSpreadsheet, Check, X, QrCode, Download, AlertTriangle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,10 +51,10 @@ export const ExcelUpload = () => {
       
       let message = `Parsed ${jobs.length} jobs from ${file.name}.`;
       if (stats.skippedRows > 0) {
-        message += ` ${stats.skippedRows} rows skipped.`;
+        message += ` ${stats.skippedRows} rows skipped (missing WO numbers).`;
       }
       if (stats.invalidDates > 0) {
-        message += ` ${stats.invalidDates} invalid dates found.`;
+        message += ` ${stats.invalidDates} invalid dates found (rows with blank dates are allowed).`;
       }
       
       toast.success(message);
@@ -76,17 +77,6 @@ export const ExcelUpload = () => {
     URL.revokeObjectURL(url);
   };
 
-  const validateJobData = (job: ParsedJob): string[] => {
-    const errors: string[] = [];
-    
-    if (!job.wo_no) errors.push("Missing WO Number");
-    if (!job.customer) errors.push("Missing Customer");
-    if (!job.due_date) errors.push("Missing Due Date");
-    if (job.qty <= 0) errors.push("Invalid Quantity");
-    
-    return errors;
-  };
-
   const handleConfirmUpload = async () => {
     if (!user?.id || parsedJobs.length === 0) return;
 
@@ -96,7 +86,7 @@ export const ExcelUpload = () => {
     try {
       debugLogger.addDebugInfo(`Starting upload of ${parsedJobs.length} jobs for user ${user.id}`);
     
-      // Validate jobs before upload using the new validator
+      // Validate jobs before upload using the updated validator
       const validationErrors = validateAllJobs(parsedJobs);
     
       if (validationErrors.length > 0) {
@@ -223,7 +213,9 @@ export const ExcelUpload = () => {
           </CardTitle>
           <CardDescription>
             Upload an Excel file (.xlsx, .xls) containing production jobs. 
-            Expected columns: WO No., Status, Date, Rep, Category, Customer, Reference, Qty, Due Date, Location
+            Expected columns: WO No., Status, Date, Rep, Category, Customer, Reference, Qty, Due Date, Location.
+            <br />
+            <span className="text-blue-600 font-medium">Note: Blank cells are allowed for all fields except WO Number and Customer.</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -269,13 +261,21 @@ export const ExcelUpload = () => {
 
             {importStats && (
               <div className="p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-semibold mb-2">Import Statistics</h4>
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  Import Statistics
+                </h4>
                 <div className="text-sm space-y-1">
                   <div>Total rows processed: {importStats.totalRows}</div>
                   <div>Successfully imported: {importStats.processedRows}</div>
                   <div>Skipped rows: {importStats.skippedRows}</div>
                   <div>Invalid WO Numbers: {importStats.invalidWONumbers}</div>
                   <div>Invalid dates: {importStats.invalidDates}</div>
+                  {importStats.invalidDates > 0 && (
+                    <div className="text-blue-600 text-xs mt-2">
+                      * Invalid dates were converted to blank fields and jobs were still imported
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -327,6 +327,8 @@ export const ExcelUpload = () => {
             <CardDescription>
               Review the parsed jobs before uploading to the database
               {generateQRCodes && " (QR codes will be generated automatically)"}
+              <br />
+              <span className="text-sm text-gray-600">Blank cells are shown as "-" and are acceptable</span>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -360,7 +362,9 @@ export const ExcelUpload = () => {
                       <TableCell>{job.date || '-'}</TableCell>
                       <TableCell>{job.rep || '-'}</TableCell>
                       <TableCell>{job.category || '-'}</TableCell>
-                      <TableCell>{job.customer || '-'}</TableCell>
+                      <TableCell className={!job.customer ? 'text-red-500 font-medium' : ''}>
+                        {job.customer || 'MISSING'}
+                      </TableCell>
                       <TableCell>{job.reference || '-'}</TableCell>
                       <TableCell>{job.qty}</TableCell>
                       <TableCell>{job.due_date || '-'}</TableCell>

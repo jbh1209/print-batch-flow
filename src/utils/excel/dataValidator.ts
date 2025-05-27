@@ -4,10 +4,13 @@ import type { ParsedJob } from './types';
 export const validateJobData = (job: ParsedJob): string[] => {
   const errors: string[] = [];
   
+  // Only require essential fields - WO Number and Customer
   if (!job.wo_no) errors.push("Missing WO Number");
   if (!job.customer) errors.push("Missing Customer");
-  if (!job.due_date) errors.push("Missing Due Date");
-  if (job.qty <= 0) errors.push("Invalid Quantity");
+  
+  // Due date is not required - can be blank
+  // Quantity validation - allow 0 but warn if negative
+  if (job.qty < 0) errors.push("Invalid Quantity (negative)");
   
   return errors;
 };

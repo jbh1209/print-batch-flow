@@ -6,6 +6,12 @@ import { formatExcelDate } from './dateFormatter';
 import { formatWONumber } from './woNumberFormatter';
 import { createColumnMap } from './columnMapper';
 
+const safeGetCellValue = (row: any[], index: number): any => {
+  if (index === -1 || !row || index >= row.length) return '';
+  const value = row[index];
+  return value === null || value === undefined ? '' : value;
+};
+
 export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): Promise<ParsedData> => {
   logger.addDebugInfo(`Starting to process file: ${file.name}`);
   
@@ -49,40 +55,53 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
   dataRows.forEach((row, index) => {
     logger.addDebugInfo(`Processing row ${index + 2}: ${JSON.stringify(row.slice(0, 12))}`);
     
-    const woNo = formatWONumber(row[columnMap.woNo], logger);
+    const woNo = formatWONumber(safeGetCellValue(row, columnMap.woNo), logger);
     
+    // Only skip if WO number is completely missing - allow other fields to be blank
     if (!woNo) {
-      logger.addDebugInfo(`Skipping row ${index + 2}: Invalid WO Number`);
+      logger.addDebugInfo(`Skipping row ${index + 2}: Missing WO Number`);
       stats.skippedRows++;
       stats.invalidWONumbers++;
       return;
     }
 
-    // Process dates with validation
-    const formattedDate = formatExcelDate(row[columnMap.date], logger);
-    const formattedDueDate = formatExcelDate(row[columnMap.dueDate], logger);
+    // Process dates with validation - allow empty dates
+    const dateValue = safeGetCellValue(row, columnMap.date);
+    const dueDateValue = safeGetCellValue(row, columnMap.dueDate);
     
-    // Check for invalid dates
-    if (!formattedDate && row[columnMap.date]) {
-      logger.addDebugInfo(`Warning: Invalid date in row ${index + 2}`);
+    const formattedDate = formatExcelDate(dateValue, logger);
+    const formattedDueDate = formatExcelDate(dueDateValue, logger);
+    
+    // Only log as error if there was a value but it couldn't be parsed
+    if (!formattedDate && dateValue && String(dateValue).trim() !== '') {
+      logger.addDebugInfo(`Warning: Invalid date in row ${index + 2}: "${dateValue}"`);
       stats.invalidDates++;
     }
-    if (!formattedDueDate && row[columnMap.dueDate]) {
-      logger.addDebugInfo(`Warning: Invalid due date in row ${index + 2}`);
+    if (!formattedDueDate && dueDateValue && String(dueDateValue).trim() !== '') {
+      logger.addDebugInfo(`Warning: Invalid due date in row ${index + 2}: "${dueDateValue}"`);
       stats.invalidDates++;
     }
 
+    // Safely extract other fields with fallbacks
+    const statusValue = safeGetCellValue(row, columnMap.status);
+    const repValue = safeGetCellValue(row, columnMap.rep);
+    const categoryValue = safeGetCellValue(row, columnMap.category);
+    const customerValue = safeGetCellValue(row, columnMap.customer);
+    const referenceValue = safeGetCellValue(row, columnMap.reference);
+    const qtyValue = safeGetCellValue(row, columnMap.qty);
+    const locationValue = safeGetCellValue(row, columnMap.location);
+
     const job: ParsedJob = {
       wo_no: woNo,
-      status: String(row[columnMap.status] || "").trim() || "Pre-Press",
+      status: String(statusValue || "").trim() || "Pre-Press",
       date: formattedDate,
-      rep: String(row[columnMap.rep] || "").trim(),
-      category: String(row[columnMap.category] || "").trim(),
-      customer: String(row[columnMap.customer] || "").trim(),
-      reference: String(row[columnMap.reference] || "").trim(),
-      qty: parseInt(String(row[columnMap.qty] || "0").replace(/[^0-9]/g, '')) || 0,
+      rep: String(repValue || "").trim(),
+      category: String(categoryValue || "").trim(),
+      customer: String(customerValue || "").trim(),
+      reference: String(referenceValue || "").trim(),
+      qty: parseInt(String(qtyValue || "0").replace(/[^0-9]/g, '')) || 0,
       due_date: formattedDueDate,
-      location: String(row[columnMap.location] || "").trim()
+      location: String(locationValue || "").trim()
     };
 
     logger.addDebugInfo(`Mapped job: ${JSON.stringify(job)}`);
