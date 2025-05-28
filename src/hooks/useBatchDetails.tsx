@@ -27,7 +27,8 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
   const {
     batchToDelete,
     isDeleting,
-    setBatchToDelete,
+    initiateDeletion,
+    cancelDeletion,
     handleDeleteBatch
   } = useBatchDeletion({
     productType,
@@ -130,7 +131,7 @@ export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetai
     error,
     batchToDelete,
     isDeleting,
-    setBatchToDelete,
+    setBatchToDelete: initiateDeletion,
     handleDeleteBatch
   };
 }
