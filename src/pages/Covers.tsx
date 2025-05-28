@@ -56,8 +56,8 @@ const Covers = () => {
       >
         <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="jobs" onClick={() => navigate("/batches/covers/jobs")}>Jobs</TabsTrigger>
-          <TabsTrigger value="batches" onClick={() => navigate("/batches/covers/batches")}>Batches</TabsTrigger>
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
+          <TabsTrigger value="batches">Batches</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-6">
@@ -78,7 +78,6 @@ const Covers = () => {
                 className="w-full mt-4"
                 onClick={() => {
                   setActiveTab("jobs");
-                  navigate("/batches/covers/jobs");
                 }}
               >
                 View All Jobs
@@ -101,7 +100,6 @@ const Covers = () => {
                 className="w-full mt-4"
                 onClick={() => {
                   setActiveTab("batches");
-                  navigate("/batches/covers/batches");
                 }}
               >
                 View All Batches
@@ -115,7 +113,7 @@ const Covers = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate("/batches/covers/jobs/new")}
+                onClick={() => navigate("/batchflow/batches/covers/jobs/new")}
               >
                 Add New Job
               </Button>
@@ -129,11 +127,6 @@ const Covers = () => {
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Paper Type Options</h4>
                 <p>{config.availablePaperTypes?.join(", ")}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Size Options</h4>
-                <p>{config.availableSizes?.join(", ")}</p>
               </div>
               
               <div>
@@ -156,13 +149,23 @@ const Covers = () => {
         
         <TabsContent value="jobs">
           <div className="flex items-center justify-center p-12 text-gray-500">
-            Navigate to the Jobs tab to view cover jobs
+            <Button 
+              onClick={() => navigate("/batchflow/batches/covers/jobs")}
+              className="text-lg"
+            >
+              Go to Jobs Page
+            </Button>
           </div>
         </TabsContent>
         
         <TabsContent value="batches">
           <div className="flex items-center justify-center p-12 text-gray-500">
-            Navigate to the Batches tab to view cover batches
+            <Button 
+              onClick={() => navigate("/batchflow/batches/covers/batches")}
+              className="text-lg"
+            >
+              Go to Batches Page
+            </Button>
           </div>
         </TabsContent>
       </Tabs>

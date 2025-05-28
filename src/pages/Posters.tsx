@@ -56,8 +56,8 @@ const Posters = () => {
       >
         <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="jobs" onClick={() => navigate("/batches/posters/jobs")}>Jobs</TabsTrigger>
-          <TabsTrigger value="batches" onClick={() => navigate("/batches/posters/batches")}>Batches</TabsTrigger>
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
+          <TabsTrigger value="batches">Batches</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-6">
@@ -78,7 +78,6 @@ const Posters = () => {
                 className="w-full mt-4"
                 onClick={() => {
                   setActiveTab("jobs");
-                  navigate("/batches/posters/jobs");
                 }}
               >
                 View All Jobs
@@ -101,7 +100,6 @@ const Posters = () => {
                 className="w-full mt-4"
                 onClick={() => {
                   setActiveTab("batches");
-                  navigate("/batches/posters/batches");
                 }}
               >
                 View All Batches
@@ -147,13 +145,23 @@ const Posters = () => {
         
         <TabsContent value="jobs">
           <div className="flex items-center justify-center p-12 text-gray-500">
-            Navigate to the Jobs tab to view poster jobs
+            <Button 
+              onClick={() => navigate("/batches/posters/jobs")}
+              className="text-lg"
+            >
+              Go to Jobs Page
+            </Button>
           </div>
         </TabsContent>
         
         <TabsContent value="batches">
           <div className="flex items-center justify-center p-12 text-gray-500">
-            Navigate to the Batches tab to view poster batches
+            <Button 
+              onClick={() => navigate("/batches/posters/batches")}
+              className="text-lg"
+            >
+              Go to Batches Page
+            </Button>
           </div>
         </TabsContent>
       </Tabs>
