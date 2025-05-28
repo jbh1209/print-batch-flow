@@ -20,12 +20,12 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
   // Determine if we're working with sleeve jobs
   const isSleeveJobsType = isSleeveJobs(jobs);
   
-  // Generate the batch overview PDF when jobs change
+  // Generate the batch overview PDF when component mounts
   useEffect(() => {
     if (jobs.length > 0) {
       generateOverview();
     }
-  }, []);  // Only run on mount, not on every jobs change
+  }, [jobs.length]); // Only regenerate when job count changes
 
   const generateOverview = async () => {
     if (jobs.length === 0) {
@@ -38,14 +38,10 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
       setOverviewUrl(null);
       setGenerationError(null);
       
-      // Show a toast that we're working on it
-      const toastId = toast.loading("Generating batch overview...");
+      console.log("FlyerBatchOverview - Generating overview for jobs:", jobs.length);
 
-      // Add cache-busting timestamp to ensure fresh generation
+      // Generate the single-page batch overview with cache-busting
       const timestamp = Date.now();
-      console.log("FlyerBatchOverview - Cache-busting timestamp:", timestamp);
-
-      // Generate the single-page batch overview with updated layout
       const pdfBytes = await generateBatchOverview(jobs, batchName);
       
       // Convert PDF to a data URL for preview
@@ -53,8 +49,7 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
       const url = URL.createObjectURL(blob);
       setOverviewUrl(url);
       
-      // Dismiss the loading toast and show success
-      toast.dismiss(toastId);
+      console.log("FlyerBatchOverview - Overview generated successfully");
       toast.success("Batch overview generated successfully");
     } catch (error) {
       console.error("Error generating batch overview:", error);
@@ -68,7 +63,6 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
   const downloadOverview = () => {
     if (!overviewUrl) return;
     
-    // Add cache-busting timestamp to download filename
     const timestamp = Date.now();
     const link = document.createElement("a");
     link.href = overviewUrl;
@@ -79,7 +73,7 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
   };
 
   // Determine title based on job type
-  const titleText = isSleeveJobsType ? "Sleeve Batch Overview" : "Batch Overview";
+  const titleText = isSleeveJobsType ? "Sleeve Batch Overview" : "Flyer Batch Overview";
 
   return (
     <div className="mt-6">
@@ -110,7 +104,7 @@ export const FlyerBatchOverview = ({ jobs, batchName }: FlyerBatchOverviewProps)
       {isGenerating ? (
         <div className="border rounded-md p-8 flex flex-col items-center justify-center bg-gray-50">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mb-2"></div>
-          <p className="text-sm text-gray-500">Generating overview...</p>
+          <p className="text-sm text-gray-500">Generating flyer batch overview...</p>
         </div>
       ) : overviewUrl ? (
         <div className="border rounded-md overflow-hidden">

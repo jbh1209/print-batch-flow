@@ -197,7 +197,7 @@ export const useFlyerJobs = () => {
     }
   };
 
-  // Enhanced batch creation with better user feedback
+  // Enhanced batch creation using the dedicated flyer batch operations
   const createBatch = async (
     selectedJobs: FlyerJob[], 
     batchProperties: {
@@ -215,11 +215,9 @@ export const useFlyerJobs = () => {
     }
 
     try {
-      console.log(`Creating batch with ${selectedJobs.length} jobs:`, {
-        jobs: selectedJobs.map(j => ({ name: j.name, specs: `${j.paper_type} ${j.paper_weight}` })),
-        properties: batchProperties
-      });
+      console.log(`Creating flyer batch with ${selectedJobs.length} jobs using dedicated function`);
 
+      // Use the dedicated flyer batch creation function which includes proper DXB-FL- numbering
       const result = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
       
       // Refresh jobs after batch creation
@@ -228,7 +226,7 @@ export const useFlyerJobs = () => {
       // Enhanced success message with batch details
       const totalQuantity = selectedJobs.reduce((sum, job) => sum + job.quantity, 0);
       toast.success(
-        `Batch created successfully with ${selectedJobs.length} jobs (${totalQuantity} total quantity)`,
+        `Flyer batch created successfully with ${selectedJobs.length} jobs (${totalQuantity} total quantity)`,
         {
           description: `Paper: ${batchProperties.paperType} ${batchProperties.paperWeight}`
         }
@@ -236,9 +234,9 @@ export const useFlyerJobs = () => {
       
       return result;
     } catch (error) {
-      console.error('Error creating batch:', error);
+      console.error('Error creating flyer batch:', error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-      toast.error(`Failed to create batch: ${errorMessage}`);
+      toast.error(`Failed to create flyer batch: ${errorMessage}`);
       throw error;
     }
   };
