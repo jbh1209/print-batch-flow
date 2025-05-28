@@ -113,7 +113,7 @@ export const useFlyerJobSubmit = () => {
         toast.success("Flyer job created successfully");
       }
       
-      // Updated navigation path
+      // Fixed navigation path to match the current routing structure
       navigate("/batchflow/batches/flyers/jobs");
       return true;
     } catch (error) {

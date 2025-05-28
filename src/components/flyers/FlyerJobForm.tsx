@@ -72,9 +72,9 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
   // Determine navigation path based on productType
   const getNavigationPath = () => {
     if (productType === 'postcard') {
-      return "/batches/postcards/jobs";
+      return "/batchflow/batches/postcards/jobs";
     }
-    return "/batches/flyers/jobs";
+    return "/batchflow/batches/flyers/jobs";
   };
 
   const onSubmit = async (data: FlyerJobFormValues) => {

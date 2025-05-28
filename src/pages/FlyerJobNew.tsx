@@ -17,7 +17,7 @@ const FlyerJobNew = () => {
         <Button 
           variant="outline" 
           className="flex items-center gap-1"
-          onClick={() => navigate("/batches/flyers/jobs")}
+          onClick={() => navigate("/batchflow/batches/flyers/jobs")}
         >
           <ArrowLeft size={16} />
           <span>Back to Jobs</span>
