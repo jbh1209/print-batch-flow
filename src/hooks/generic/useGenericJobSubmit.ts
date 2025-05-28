@@ -8,6 +8,7 @@ import { GenericJobFormValues } from "@/lib/schema/genericJobFormSchema";
 import { SleeveJobFormValues } from "@/lib/schema/sleeveJobFormSchema";
 import { ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableUtils";
+import { transformJobDataForTable } from "@/utils/database/productDataTransformers";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,39 +85,52 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         return false;
       }
 
+      // Create base job data that all products need
+      const baseJobData = {
+        name: data.name,
+        job_number: data.job_number,
+        quantity: data.quantity,
+        due_date: data.due_date.toISOString(),
+        user_id: user?.id!,
+        status: 'queued'
+      };
+
       if (jobId) {
         // We're updating an existing job
-        const updateData: any = {
-          name: data.name,
-          job_number: data.job_number,
-          quantity: data.quantity,
-          due_date: data.due_date.toISOString(),
-        };
-        
-        // Add product-specific fields based on config
-        if (config.productType === "Sleeves") {
-          const sleeveData = data as SleeveJobFormValues;
-          updateData.stock_type = sleeveData.stock_type;
-          updateData.single_sided = sleeveData.single_sided;
-        } else {
-          // Add fields based on config availability
-          if (config.hasSize && 'size' in data) updateData.size = data.size;
-          if (config.hasPaperType && 'paper_type' in data) updateData.paper_type = data.paper_type;
-          if (config.hasPaperWeight && 'paper_weight' in data) updateData.paper_weight = data.paper_weight;
-          if (config.hasLamination && 'lamination_type' in data) updateData.lamination_type = data.lamination_type;
-          if (config.hasSides && 'sides' in data) updateData.sides = data.sides;
-          if (config.hasUVVarnish && 'uv_varnish' in data) updateData.uv_varnish = data.uv_varnish;
-        }
+        const updateData = { ...baseJobData };
         
         // Only include file data if a new file was uploaded
         if (pdfUrl && fileName) {
-          updateData.pdf_url = pdfUrl;
-          updateData.file_name = fileName;
+          Object.assign(updateData, {
+            pdf_url: pdfUrl,
+            file_name: fileName
+          });
         }
+        
+        // Use transformer to get the correct fields for this table
+        const transformedData = transformJobDataForTable(tableName, data, {
+          ...baseJobData,
+          pdf_url: pdfUrl || '',
+          file_name: fileName || ''
+        });
+        
+        // Remove fields that shouldn't be in update (like user_id, status for updates)
+        const { user_id, status, pdf_url: _, file_name: __, ...updateFields } = transformedData;
+        const finalUpdateData = { ...updateFields };
+        
+        // Add file data back if we have it
+        if (pdfUrl && fileName) {
+          Object.assign(finalUpdateData, {
+            pdf_url: pdfUrl,
+            file_name: fileName
+          });
+        }
+        
+        console.log(`Updating ${config.productType} job with data:`, finalUpdateData);
         
         const { error } = await supabase
           .from(tableName as any)
-          .update(updateData)
+          .update(finalUpdateData)
           .eq('id', jobId);
           
         if (error) throw error;
@@ -124,31 +138,11 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         toast.success(`${config.ui.jobFormTitle} updated successfully`);
       } else {
         // We're creating a new job
-        const newJobData: any = {
-          name: data.name,
-          job_number: data.job_number,
-          quantity: data.quantity,
-          due_date: data.due_date.toISOString(),
+        const newJobData = transformJobDataForTable(tableName, data, {
+          ...baseJobData,
           pdf_url: pdfUrl!,
-          file_name: fileName!,
-          user_id: user?.id,
-          status: 'queued'
-        };
-        
-        // Add product-specific fields based on config
-        if (config.productType === "Sleeves") {
-          const sleeveData = data as SleeveJobFormValues;
-          newJobData.stock_type = sleeveData.stock_type;
-          newJobData.single_sided = sleeveData.single_sided;
-        } else {
-          // Add fields based on config availability
-          if (config.hasSize && 'size' in data) newJobData.size = data.size;
-          if (config.hasPaperType && 'paper_type' in data) newJobData.paper_type = data.paper_type;
-          if (config.hasPaperWeight && 'paper_weight' in data) newJobData.paper_weight = data.paper_weight;
-          if (config.hasLamination && 'lamination_type' in data) newJobData.lamination_type = data.lamination_type;
-          if (config.hasSides && 'sides' in data) newJobData.sides = data.sides;
-          if (config.hasUVVarnish && 'uv_varnish' in data) newJobData.uv_varnish = data.uv_varnish;
-        }
+          file_name: fileName!
+        });
         
         console.log(`Creating ${config.productType} job with data:`, newJobData);
         
