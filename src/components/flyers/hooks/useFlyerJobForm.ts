@@ -63,23 +63,28 @@ export const useFlyerJobForm = () => {
         fileName = selectedFile.name;
       }
 
+      // Create the data object with ONLY fields that exist in the flyer_jobs table
+      const flyerJobData = {
+        name: data.name,
+        job_number: data.job_number,
+        size: data.size,
+        paper_weight: data.paper_weight,
+        paper_type: data.paper_type,
+        quantity: data.quantity,
+        due_date: data.due_date.toISOString(),
+      };
+
       if (jobId) {
         // Update existing job
-        const updateData: any = {
-          name: data.name,
-          job_number: data.job_number,
-          size: data.size,
-          paper_weight: data.paper_weight,
-          paper_type: data.paper_type,
-          quantity: data.quantity,
-          due_date: data.due_date.toISOString(),
-        };
+        const updateData: any = { ...flyerJobData };
         
         // Only include file data if a new file was uploaded
         if (pdfUrl && fileName) {
           updateData.pdf_url = pdfUrl;
           updateData.file_name = fileName;
         }
+        
+        console.log('Updating flyer job with data:', updateData);
         
         const { error } = await supabase
           .from('flyer_jobs')
@@ -98,21 +103,19 @@ export const useFlyerJobForm = () => {
           throw new Error("File upload is required for new jobs");
         }
 
+        const insertData = {
+          ...flyerJobData,
+          pdf_url: pdfUrl,
+          file_name: fileName,
+          user_id: user.id,
+          status: 'queued'
+        };
+
+        console.log('Creating new flyer job with data:', insertData);
+
         const { error } = await supabase
           .from('flyer_jobs')
-          .insert({
-            name: data.name,
-            job_number: data.job_number,
-            size: data.size,
-            paper_weight: data.paper_weight,
-            paper_type: data.paper_type,
-            quantity: data.quantity,
-            due_date: data.due_date.toISOString(),
-            pdf_url: pdfUrl,
-            file_name: fileName,
-            user_id: user.id,
-            status: 'queued'
-          });
+          .insert(insertData);
 
         if (error) {
           console.error('Create error:', error);

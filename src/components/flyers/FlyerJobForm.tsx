@@ -79,7 +79,18 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
     console.log('Form submission data:', data);
     console.log('Selected file:', selectedFile);
     
-    const success = await handleSubmit(data, selectedFile, mode === 'edit' ? initialData?.id : undefined);
+    // Ensure we only submit fields that exist in the database schema
+    const cleanedData = {
+      name: data.name,
+      job_number: data.job_number,
+      size: data.size,
+      paper_weight: data.paper_weight,
+      paper_type: data.paper_type,
+      quantity: data.quantity,
+      due_date: data.due_date
+    };
+    
+    const success = await handleSubmit(cleanedData, selectedFile, mode === 'edit' ? initialData?.id : undefined);
     if (success) {
       console.log('Job submitted successfully');
     }

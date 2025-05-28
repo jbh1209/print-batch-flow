@@ -2,6 +2,7 @@
 import * as z from "zod";
 import { FlyerSize, PaperType } from "@/components/batches/types/FlyerTypes";
 
+// Schema that matches ONLY the flyer_jobs table columns (NO SIDES field)
 export const flyerJobFormSchema = z.object({
   name: z.string().min(1, "Client name is required"),
   job_number: z.string().min(1, "Job number is required"),

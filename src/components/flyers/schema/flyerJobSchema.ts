@@ -5,7 +5,7 @@ import * as z from "zod";
 export type FlyerSize = "A5" | "A4" | "DL" | "A3";
 export type FlyerPaperType = "Matt" | "Gloss";
 
-// Base schema for flyer jobs - matches flyer_jobs table exactly
+// Base schema for flyer jobs - matches flyer_jobs table exactly (NO SIDES FIELD)
 export const flyerJobBaseSchema = z.object({
   name: z.string().min(1, "Client name is required"),
   job_number: z.string().min(1, "Job number is required"),
