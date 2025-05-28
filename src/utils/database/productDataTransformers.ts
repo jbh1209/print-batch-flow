@@ -15,64 +15,67 @@ interface BaseJobData {
   status: string;
 }
 
+// Type for form data with optional product-specific fields
+type ProductFormData = GenericJobFormValues | SleeveJobFormValues | Record<string, any>;
+
 // Product-specific transformers that know exactly what fields each table expects
 export const productDataTransformers = {
-  postcard_jobs: (data: GenericJobFormValues, baseData: BaseJobData) => ({
+  postcard_jobs: (data: ProductFormData, baseData: BaseJobData) => ({
     ...baseData,
-    size: data.size || 'A6',
-    paper_type: data.paper_type || 'Gloss',
-    paper_weight: data.paper_weight || '300gsm',
-    lamination_type: data.lamination_type || 'none',
-    sides: data.sides || 'single'
+    size: (data as any).size || 'A6',
+    paper_type: (data as any).paper_type || 'Gloss',
+    paper_weight: (data as any).paper_weight || '300gsm',
+    lamination_type: (data as any).lamination_type || 'none',
+    sides: (data as any).sides || 'single'
   }),
 
-  poster_jobs: (data: GenericJobFormValues, baseData: BaseJobData) => ({
+  poster_jobs: (data: ProductFormData, baseData: BaseJobData) => ({
     ...baseData,
-    size: data.size || 'A4',
-    paper_type: data.paper_type || 'Matt',
-    paper_weight: data.paper_weight || '170gsm',
-    lamination_type: data.lamination_type || 'none',
-    sides: data.sides || 'single'
+    size: (data as any).size || 'A4',
+    paper_type: (data as any).paper_type || 'Matt',
+    paper_weight: (data as any).paper_weight || '170gsm',
+    lamination_type: (data as any).lamination_type || 'none',
+    sides: (data as any).sides || 'single'
   }),
 
-  cover_jobs: (data: GenericJobFormValues, baseData: BaseJobData) => ({
+  cover_jobs: (data: ProductFormData, baseData: BaseJobData) => ({
     ...baseData,
-    paper_type: data.paper_type || '250gsm Matt',
-    paper_weight: data.paper_weight || '250gsm',
-    lamination_type: data.lamination_type || 'none',
-    sides: data.sides || 'single',
-    uv_varnish: data.uv_varnish || 'none'
+    paper_type: (data as any).paper_type || '250gsm Matt',
+    paper_weight: (data as any).paper_weight || '250gsm',
+    lamination_type: (data as any).lamination_type || 'none',
+    sides: (data as any).sides || 'single',
+    uv_varnish: (data as any).uv_varnish || 'none'
   }),
 
-  sticker_jobs: (data: GenericJobFormValues, baseData: BaseJobData) => ({
+  sticker_jobs: (data: ProductFormData, baseData: BaseJobData) => ({
     ...baseData,
-    paper_type: data.paper_type || 'Paper',
-    lamination_type: data.lamination_type || 'none'
+    paper_type: (data as any).paper_type || 'Paper',
+    lamination_type: (data as any).lamination_type || 'none'
   }),
 
-  box_jobs: (data: GenericJobFormValues, baseData: BaseJobData) => ({
+  box_jobs: (data: ProductFormData, baseData: BaseJobData) => ({
     ...baseData,
-    paper_type: data.paper_type || 'FBB 230gsm',
-    lamination_type: data.lamination_type || 'none'
+    paper_type: (data as any).paper_type || 'FBB 230gsm',
+    lamination_type: (data as any).lamination_type || 'none'
   }),
 
-  sleeve_jobs: (data: SleeveJobFormValues, baseData: BaseJobData) => ({
+  sleeve_jobs: (data: ProductFormData, baseData: BaseJobData) => ({
     ...baseData,
-    stock_type: data.stock_type || 'Kraft',
-    single_sided: data.single_sided || true
+    stock_type: (data as any).stock_type || 'Kraft',
+    single_sided: (data as any).single_sided || true
   }),
 
-  flyer_jobs: (data: GenericJobFormValues, baseData: BaseJobData) => ({
+  flyer_jobs: (data: ProductFormData, baseData: BaseJobData) => ({
     ...baseData,
-    size: data.size || 'A5',
-    paper_type: data.paper_type || 'Matt',
-    paper_weight: data.paper_weight || '170gsm'
+    size: (data as any).size || 'A5',
+    paper_type: (data as any).paper_type || 'Matt',
+    paper_weight: (data as any).paper_weight || '170gsm'
   })
 };
 
 export const transformJobDataForTable = (
   tableName: string,
-  formData: GenericJobFormValues | SleeveJobFormValues,
+  formData: ProductFormData,
   baseData: BaseJobData
 ) => {
   const transformer = productDataTransformers[tableName as keyof typeof productDataTransformers];
@@ -83,7 +86,7 @@ export const transformJobDataForTable = (
   }
   
   try {
-    return transformer(formData as any, baseData);
+    return transformer(formData, baseData);
   } catch (error) {
     console.error(`Error transforming data for ${tableName}:`, error);
     return baseData;
