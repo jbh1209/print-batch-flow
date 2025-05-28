@@ -85,7 +85,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
       }
 
       if (jobId) {
-        // We're updating an existing job - remove user_id check
+        // We're updating an existing job
         const updateData: any = {
           name: data.name,
           job_number: data.job_number,
@@ -93,20 +93,19 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           due_date: data.due_date.toISOString(),
         };
         
-        // Add product-specific fields
+        // Add product-specific fields based on config
         if (config.productType === "Sleeves") {
-          // Make sure we correctly type the data as SleeveJobFormValues
           const sleeveData = data as SleeveJobFormValues;
           updateData.stock_type = sleeveData.stock_type;
           updateData.single_sided = sleeveData.single_sided;
         } else {
-          // Add optional fields if they exist in the form data
-          if ('size' in data) updateData.size = data.size;
-          if ('paper_type' in data) updateData.paper_type = data.paper_type;
-          if ('paper_weight' in data) updateData.paper_weight = data.paper_weight;
-          if ('lamination_type' in data) updateData.lamination_type = data.lamination_type;
-          if ('sides' in data) updateData.sides = data.sides;
-          if ('uv_varnish' in data) updateData.uv_varnish = data.uv_varnish;
+          // Add fields based on config availability
+          if (config.hasSize && 'size' in data) updateData.size = data.size;
+          if (config.hasPaperType && 'paper_type' in data) updateData.paper_type = data.paper_type;
+          if (config.hasPaperWeight && 'paper_weight' in data) updateData.paper_weight = data.paper_weight;
+          if (config.hasLamination && 'lamination_type' in data) updateData.lamination_type = data.lamination_type;
+          if (config.hasSides && 'sides' in data) updateData.sides = data.sides;
+          if (config.hasUVVarnish && 'uv_varnish' in data) updateData.uv_varnish = data.uv_varnish;
         }
         
         // Only include file data if a new file was uploaded
@@ -115,7 +114,6 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           updateData.file_name = fileName;
         }
         
-        // Use 'as any' to bypass TypeScript's type checking for the table name
         const { error } = await supabase
           .from(tableName as any)
           .update(updateData)
@@ -137,28 +135,31 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           status: 'queued'
         };
         
-        // Add product-specific fields
+        // Add product-specific fields based on config
         if (config.productType === "Sleeves") {
-          // Make sure we correctly type the data as SleeveJobFormValues
           const sleeveData = data as SleeveJobFormValues;
           newJobData.stock_type = sleeveData.stock_type;
           newJobData.single_sided = sleeveData.single_sided;
         } else {
-          // Add optional fields if they exist in the form data
-          if ('size' in data) newJobData.size = data.size;
-          if ('paper_type' in data) newJobData.paper_type = data.paper_type;
-          if ('paper_weight' in data) newJobData.paper_weight = data.paper_weight;
-          if ('lamination_type' in data) newJobData.lamination_type = data.lamination_type;
-          if ('sides' in data) newJobData.sides = data.sides;
-          if ('uv_varnish' in data) newJobData.uv_varnish = data.uv_varnish;
+          // Add fields based on config availability
+          if (config.hasSize && 'size' in data) newJobData.size = data.size;
+          if (config.hasPaperType && 'paper_type' in data) newJobData.paper_type = data.paper_type;
+          if (config.hasPaperWeight && 'paper_weight' in data) newJobData.paper_weight = data.paper_weight;
+          if (config.hasLamination && 'lamination_type' in data) newJobData.lamination_type = data.lamination_type;
+          if (config.hasSides && 'sides' in data) newJobData.sides = data.sides;
+          if (config.hasUVVarnish && 'uv_varnish' in data) newJobData.uv_varnish = data.uv_varnish;
         }
         
-        // Use 'as any' to bypass TypeScript's type checking for the table name
+        console.log(`Creating ${config.productType} job with data:`, newJobData);
+        
         const { error } = await supabase
           .from(tableName as any)
           .insert(newJobData);
 
-        if (error) throw error;
+        if (error) {
+          console.error(`Database error for ${config.productType}:`, error);
+          throw error;
+        }
         
         toast.success(`${config.ui.jobFormTitle} created successfully`);
       }

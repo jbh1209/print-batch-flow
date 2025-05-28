@@ -1,21 +1,20 @@
 
-import { TableName, ExistingTableName } from "@/config/productTypes";
+import { ExistingTableName } from '@/config/productTypes';
 
-// Make the function signature match the one in tableValidation.ts
-export const isExistingTable = (tableName: TableName): boolean => {
-  const existingTables: ExistingTableName[] = [
-    "flyer_jobs",
-    "postcard_jobs", 
-    "business_card_jobs",
-    "poster_jobs",
-    "sleeve_jobs",
-    "box_jobs",
-    "cover_jobs",
-    "sticker_jobs",
-    "batches", 
-    "profiles", 
-    "user_roles"
-  ];
-  
+export const existingTables: ExistingTableName[] = [
+  'flyer_jobs',
+  'postcard_jobs', 
+  'business_card_jobs',
+  'poster_jobs',
+  'sleeve_jobs',
+  'box_jobs',
+  'cover_jobs',
+  'sticker_jobs',
+  'batches',
+  'profiles',
+  'user_roles'
+];
+
+export function isExistingTable(tableName: string): tableName is ExistingTableName {
   return existingTables.includes(tableName as ExistingTableName);
-};
+}

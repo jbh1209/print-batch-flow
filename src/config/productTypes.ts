@@ -1,4 +1,3 @@
-
 export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch' | 'front_gloss_lam' | 'front_matt_lam' | 'no_lam';
 export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
 export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
@@ -276,13 +275,13 @@ export const productConfigs: Record<string, ProductConfig> = {
     hasSides: true,
     slaTargetDays: 3,
     routes: {
-      indexPath: "/batches/covers",
-      jobsPath: "/batches/covers/jobs",
-      newJobPath: "/batches/covers/jobs/new",
-      batchesPath: "/batches/covers/batches",
-      basePath: "/batches/covers",
-      jobDetailPath: (id) => `/batches/covers/jobs/${id}`,
-      jobEditPath: (id) => `/batches/covers/jobs/edit/${id}`,
+      indexPath: "/batchflow/batches/covers",
+      jobsPath: "/batchflow/batches/covers/jobs",
+      newJobPath: "/batchflow/batches/covers/jobs/new",
+      batchesPath: "/batchflow/batches/covers/batches",
+      basePath: "/batchflow/batches/covers",
+      jobDetailPath: (id) => `/batchflow/batches/covers/jobs/${id}`,
+      jobEditPath: (id) => `/batchflow/batches/covers/jobs/edit/${id}`,
     },
     ui: {
       icon: "book",
