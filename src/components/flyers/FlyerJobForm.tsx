@@ -7,21 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { ArrowLeft } from "lucide-react";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { FlyerJobFormFields } from "./components/FlyerJobFormFields";
-import { useFlyerJobSubmit } from "./hooks/useFlyerJobSubmit";
-import { flyerJobFormSchema, flyerJobFormSchemaCreate, type FlyerJobFormValues } from "./schema/flyerJobFormSchema";
+import { FlyerJobFormFields } from "./components/form/FlyerJobFormFields";
+import { useFlyerJobForm } from "./hooks/useFlyerJobForm";
+import { 
+  flyerJobCreateSchema, 
+  flyerJobEditSchema, 
+  type FlyerJobFormValues 
+} from "./schema/flyerJobSchema";
 import { FlyerJob } from "../batches/types/FlyerTypes";
 import FormActions from "../business-cards/FormActions";
 
 interface FlyerJobFormProps {
   mode?: 'create' | 'edit';
   initialData?: FlyerJob;
-  productType?: string;
 }
 
-export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flyer' }: FlyerJobFormProps) => {
+export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps) => {
   const navigate = useNavigate();
-  const { handleSubmit, isSubmitting } = useFlyerJobSubmit();
+  const { handleSubmit, isSubmitting } = useFlyerJobForm();
   
   const { 
     selectedFile, 
@@ -33,7 +36,7 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
   });
 
   // Use different schema for create vs edit mode
-  const schema = mode === 'create' ? flyerJobFormSchemaCreate : flyerJobFormSchema;
+  const schema = mode === 'create' ? flyerJobCreateSchema : flyerJobEditSchema;
 
   const form = useForm<FlyerJobFormValues>({
     resolver: zodResolver(schema),
@@ -68,17 +71,9 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
     if (selectedFile) {
       form.setValue("file", selectedFile, { shouldValidate: true });
     } else if (mode === 'create') {
-      form.setValue("file", undefined, { shouldValidate: false });
+      form.setValue("file", undefined as any, { shouldValidate: false });
     }
   }, [selectedFile, form, mode]);
-
-  // Determine navigation path based on productType
-  const getNavigationPath = () => {
-    if (productType === 'postcard') {
-      return "/batchflow/batches/postcards/jobs";
-    }
-    return "/batchflow/batches/flyers/jobs";
-  };
 
   const onSubmit = async (data: FlyerJobFormValues) => {
     console.log('Form submission data:', data);
@@ -97,13 +92,12 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
           variant="outline" 
           size="sm" 
           className="mr-4"
-          onClick={() => navigate(getNavigationPath())}
+          onClick={() => navigate("/batchflow/batches/flyers/jobs")}
         >
           <ArrowLeft size={16} className="mr-1" /> Back to Jobs
         </Button>
         <h2 className="text-xl font-semibold">
-          {mode === 'create' ? `Create New ${productType === 'postcard' ? 'Postcard' : 'Flyer'} Job` : 
-           `Edit ${productType === 'postcard' ? 'Postcard' : 'Flyer'} Job`}
+          {mode === 'create' ? 'Create New Flyer Job' : 'Edit Flyer Job'}
         </h2>
       </div>
 
@@ -120,7 +114,7 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
             <FormActions 
               isSubmitting={isSubmitting}
               submitLabel={mode === 'create' ? 'Create Job' : 'Save Changes'}
-              cancelPath={getNavigationPath()}
+              cancelPath="/batchflow/batches/flyers/jobs"
             />
           </form>
         </Form>

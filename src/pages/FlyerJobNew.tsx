@@ -24,7 +24,7 @@ const FlyerJobNew = () => {
         </Button>
       </div>
 
-      <FlyerJobForm />
+      <FlyerJobForm mode="create" />
     </div>
   );
 };
