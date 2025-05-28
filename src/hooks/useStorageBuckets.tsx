@@ -7,8 +7,11 @@ export function useStorageBuckets() {
   const [error, setError] = useState<string | null>(null);
   const { user, loading } = useAuth();
   
-  // We're using direct Supabase storage access consistent with the flyers implementation
-  // No bucket checks needed
+  // Storage buckets are now properly configured via SQL migrations
+  // No runtime checks needed as the pdf_files bucket is created in the database
   
-  return { isInitializing, error };
+  return { 
+    isInitializing: false, 
+    error: null 
+  };
 }

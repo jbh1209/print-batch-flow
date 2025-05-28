@@ -19,7 +19,6 @@ const FlyerJobEdit = () => {
       if (!user || !jobId) return;
 
       try {
-        // Remove user_id filter to allow any authenticated user to edit any job
         const { data, error } = await supabase
           .from('flyer_jobs')
           .select('*')
@@ -31,7 +30,7 @@ const FlyerJobEdit = () => {
       } catch (err) {
         console.error('Error fetching job:', err);
         toast.error('Failed to load job');
-        navigate('/batches/flyers/jobs');
+        navigate('/batchflow/batches/flyers/jobs');
       } finally {
         setIsLoading(false);
       }

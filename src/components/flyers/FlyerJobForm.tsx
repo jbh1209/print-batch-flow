@@ -9,7 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FlyerJobFormFields } from "./components/FlyerJobFormFields";
 import { useFlyerJobSubmit } from "./hooks/useFlyerJobSubmit";
-import { flyerJobFormSchema, type FlyerJobFormValues } from "./schema/flyerJobFormSchema";
+import { flyerJobFormSchema, flyerJobFormSchemaCreate, type FlyerJobFormValues } from "./schema/flyerJobFormSchema";
 import { FlyerJob } from "../batches/types/FlyerTypes";
 import FormActions from "../business-cards/FormActions";
 
@@ -32,8 +32,11 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
     maxSizeInMB: 10
   });
 
+  // Use different schema for create vs edit mode
+  const schema = mode === 'create' ? flyerJobFormSchemaCreate : flyerJobFormSchema;
+
   const form = useForm<FlyerJobFormValues>({
-    resolver: zodResolver(flyerJobFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       name: "",
       job_number: "",
@@ -65,7 +68,7 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
     if (selectedFile) {
       form.setValue("file", selectedFile, { shouldValidate: true });
     } else if (mode === 'create') {
-      form.setValue("file", undefined as any, { shouldValidate: false });
+      form.setValue("file", undefined, { shouldValidate: false });
     }
   }, [selectedFile, form, mode]);
 
@@ -78,7 +81,13 @@ export const FlyerJobForm = ({ mode = 'create', initialData, productType = 'flye
   };
 
   const onSubmit = async (data: FlyerJobFormValues) => {
-    await handleSubmit(data, selectedFile, mode === 'edit' ? initialData?.id : undefined);
+    console.log('Form submission data:', data);
+    console.log('Selected file:', selectedFile);
+    
+    const success = await handleSubmit(data, selectedFile, mode === 'edit' ? initialData?.id : undefined);
+    if (success) {
+      console.log('Job submitted successfully');
+    }
   };
 
   return (

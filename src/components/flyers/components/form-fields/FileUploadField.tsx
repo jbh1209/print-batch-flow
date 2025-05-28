@@ -1,6 +1,6 @@
 
 import { useFormContext } from "react-hook-form";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import FileUpload from "@/components/business-cards/FileUpload";
 
 interface FileUploadFieldProps {
@@ -35,6 +35,7 @@ export const FileUploadField = ({
               helpText={isEdit 
                 ? "Upload a new PDF file to replace the current one (Optional)" 
                 : "Upload a PDF file of your flyer design (Max: 10MB)"}
+              name="file"
             />
           </FormControl>
           <FormMessage />

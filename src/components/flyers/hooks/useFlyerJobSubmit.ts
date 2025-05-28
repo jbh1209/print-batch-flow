@@ -14,36 +14,28 @@ export const useFlyerJobSubmit = () => {
   const { user } = useAuth();
 
   const handleSubmit = async (data: FlyerJobFormValues, selectedFile: File | null, jobId?: string) => {
-    // If we're editing a job and no new file was selected, we can proceed without file validation
     if (!selectedFile && !jobId) {
       toast.error("Please upload a PDF file");
+      return false;
+    }
+
+    if (!user) {
+      toast.error("You must be logged in to create a job");
       return false;
     }
 
     setIsSubmitting(true);
     
     try {
-      // If we're editing and there's no new file, we don't need to upload again
       let pdfUrl = undefined;
       let fileName = undefined;
       
       // Only upload a new file if one is selected
       if (selectedFile) {
         const uniqueFileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
-        const filePath = `${user?.id}/${uniqueFileName}`;
+        const filePath = `${user.id}/${uniqueFileName}`;
         
-        toast.loading("Uploading PDF file...");
-        
-        // Check if the bucket exists, create if it doesn't
-        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-        if (bucketsError) {
-          console.error('Error checking buckets:', bucketsError);
-        } else {
-          const pdfBucketExists = buckets.some(bucket => bucket.id === 'pdf_files');
-          if (!pdfBucketExists) {
-            console.warn('pdf_files bucket does not exist - it should have been created by the migration');
-          }
-        }
+        console.log(`Uploading file to: ${filePath}`);
         
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('pdf_files')
@@ -53,8 +45,11 @@ export const useFlyerJobSubmit = () => {
           });
 
         if (uploadError) {
+          console.error('Upload error:', uploadError);
           throw new Error(`Error uploading file: ${uploadError.message}`);
         }
+
+        console.log('Upload successful:', uploadData);
 
         const { data: urlData } = supabase.storage
           .from('pdf_files')
@@ -64,14 +59,14 @@ export const useFlyerJobSubmit = () => {
           throw new Error("Failed to get public URL for uploaded file");
         }
 
-        toast.success("File uploaded successfully");
+        console.log('Public URL generated:', urlData.publicUrl);
         
         pdfUrl = urlData.publicUrl;
         fileName = selectedFile.name;
       }
 
       if (jobId) {
-        // We're updating an existing job - remove user_id check
+        // We're updating an existing job
         const updateData: any = {
           name: data.name,
           job_number: data.job_number,
@@ -93,11 +88,18 @@ export const useFlyerJobSubmit = () => {
           .update(updateData)
           .eq('id', jobId);
           
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
         
         toast.success("Flyer job updated successfully");
       } else {
         // We're creating a new job
+        if (!pdfUrl || !fileName) {
+          throw new Error("File upload is required for new jobs");
+        }
+
         await createJob({
           name: data.name,
           job_number: data.job_number,
@@ -106,19 +108,19 @@ export const useFlyerJobSubmit = () => {
           paper_type: data.paper_type,
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
-          pdf_url: pdfUrl!,
-          file_name: fileName!
+          pdf_url: pdfUrl,
+          file_name: fileName
         });
 
         toast.success("Flyer job created successfully");
       }
       
-      // Fixed navigation path to match the current routing structure
       navigate("/batchflow/batches/flyers/jobs");
       return true;
     } catch (error) {
       console.error("Error with flyer job:", error);
-      toast.error(`Failed to ${jobId ? 'update' : 'create'} flyer job: ${error instanceof Error ? error.message : "Unknown error"}`);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      toast.error(`Failed to ${jobId ? 'update' : 'create'} flyer job: ${errorMessage}`);
       return false;
     } finally {
       setIsSubmitting(false);

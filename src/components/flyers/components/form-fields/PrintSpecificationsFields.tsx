@@ -1,6 +1,6 @@
 
 import { useFormContext } from "react-hook-form";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { sizeOptions, paperTypeOptions, paperWeightOptions } from "../../schema/flyerJobFormSchema";
 
@@ -8,17 +8,14 @@ export const PrintSpecificationsFields = () => {
   const { control } = useFormContext();
 
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <FormField
         control={control}
         name="size"
         render={({ field }) => (
           <FormItem>
             <FormLabel>Size*</FormLabel>
-            <Select 
-              onValueChange={field.onChange} 
-              value={field.value}
-            >
+            <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Select size" />
@@ -34,25 +31,22 @@ export const PrintSpecificationsFields = () => {
           </FormItem>
         )}
       />
-      
+
       <FormField
         control={control}
-        name="paper_weight"
+        name="paper_type"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Paper Weight*</FormLabel>
-            <Select 
-              onValueChange={field.onChange} 
-              value={field.value}
-            >
+            <FormLabel>Paper Type*</FormLabel>
+            <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select weight" />
+                  <SelectValue placeholder="Select paper type" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {paperWeightOptions.map((weight) => (
-                  <SelectItem key={weight} value={weight}>{weight}</SelectItem>
+                {paperTypeOptions.map((type) => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -60,25 +54,22 @@ export const PrintSpecificationsFields = () => {
           </FormItem>
         )}
       />
-      
+
       <FormField
         control={control}
-        name="paper_type"
+        name="paper_weight"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Paper Type*</FormLabel>
-            <Select 
-              onValueChange={field.onChange} 
-              value={field.value}
-            >
+            <FormLabel>Paper Weight*</FormLabel>
+            <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
+                  <SelectValue placeholder="Select paper weight" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {paperTypeOptions.map((type) => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                {paperWeightOptions.map((weight) => (
+                  <SelectItem key={weight} value={weight}>{weight}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
