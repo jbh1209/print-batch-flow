@@ -109,7 +109,7 @@ function App() {
                   <Route path="batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
                   <Route path="batches/business-cards/jobs/edit/:id" element={<BusinessCardJobEdit />} />
                   <Route path="batches/business-cards/batches" element={<BusinessCardBatches />} />
-                  <Route path="batches/business-cards/batches/:id" element={<BatchDetailsPage productType="business-cards" backUrl="/batchflow/batches/business-cards/batches" />} />
+                  <Route path="batches/business-cards/batches/:batchId" element={<BatchDetailsPage productType="business-cards" backUrl="/batchflow/batches/business-cards/batches" />} />
                   
                   {/* Flyers routes - Updated paths */}
                   <Route path="batches/flyers" element={<Flyers />} />
@@ -118,7 +118,7 @@ function App() {
                   <Route path="batches/flyers/jobs/edit/:id" element={<FlyerJobEdit />} />
                   <Route path="batches/flyers/jobs/:id" element={<FlyerJobDetail />} />
                   <Route path="batches/flyers/batches" element={<FlyerBatches />} />
-                  <Route path="batches/flyers/batches/:id" element={<FlyerBatchDetailsWrapper />} />
+                  <Route path="batches/flyers/batches/:batchId" element={<FlyerBatchDetailsWrapper />} />
                   
                   {/* Postcards routes - Fixed to use overview page */}
                   <Route path="batches/postcards" element={<Postcards />} />
@@ -126,14 +126,14 @@ function App() {
                   <Route path="batches/postcards/jobs/new" element={<PostcardJobNewPage />} />
                   <Route path="batches/postcards/jobs/edit/:id" element={<PostcardJobEdit />} />
                   <Route path="batches/postcards/batches" element={<PostcardBatchesPage />} />
-                  <Route path="batches/postcards/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Postcards} />} />
+                  <Route path="batches/postcards/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Postcards} />} />
                   
                   {/* Posters routes - Fixed to use overview page */}
                   <Route path="batches/posters" element={<Posters />} />
                   <Route path="batches/posters/jobs" element={<PosterJobsPage />} />
                   <Route path="batches/posters/jobs/new" element={<PosterJobNewPage />} />
                   <Route path="batches/posters/batches" element={<PosterBatchesPage />} />
-                  <Route path="batches/posters/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Posters} />} />
+                  <Route path="batches/posters/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Posters} />} />
                   
                   {/* Sleeves routes - Fixed to use overview page */}
                   <Route path="batches/sleeves" element={<Sleeves />} />
@@ -141,28 +141,28 @@ function App() {
                   <Route path="batches/sleeves/jobs/new" element={<SleeveJobNewPage />} />
                   <Route path="batches/sleeves/jobs/edit/:id" element={<SleeveJobEditPage />} />
                   <Route path="batches/sleeves/batches" element={<SleeveBatchesPage />} />
-                  <Route path="batches/sleeves/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Sleeves} />} />
+                  <Route path="batches/sleeves/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Sleeves} />} />
                   
                   {/* Boxes routes - Fixed to use overview page */}
                   <Route path="batches/boxes" element={<Boxes />} />
                   <Route path="batches/boxes/jobs" element={<BoxJobsPage />} />
                   <Route path="batches/boxes/jobs/new" element={<BoxJobNewPage />} />
                   <Route path="batches/boxes/batches" element={<BoxBatchesPage />} />
-                  <Route path="batches/boxes/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Boxes} />} />
+                  <Route path="batches/boxes/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Boxes} />} />
                   
                   {/* Covers routes - Fixed to use overview page */}
                   <Route path="batches/covers" element={<Covers />} />
                   <Route path="batches/covers/jobs" element={<CoverJobsPage />} />
                   <Route path="batches/covers/jobs/new" element={<CoverJobNewPage />} />
                   <Route path="batches/covers/batches" element={<CoverBatchesPage />} />
-                  <Route path="batches/covers/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Covers} />} />
+                  <Route path="batches/covers/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Covers} />} />
                   
                   {/* Stickers routes - Fixed to use overview page */}
                   <Route path="batches/stickers" element={<Stickers />} />
                   <Route path="batches/stickers/jobs" element={<StickerJobsPage />} />
                   <Route path="batches/stickers/jobs/new" element={<StickerJobNewPage />} />
                   <Route path="batches/stickers/batches" element={<StickerBatchesPage />} />
-                  <Route path="batches/stickers/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Stickers} />} />
+                  <Route path="batches/stickers/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Stickers} />} />
                   
                   {/* Generic job detail routes - Updated paths */}
                   <Route path="batches/:productType/jobs/:jobId" element={<GenericJobDetailsPage config={productConfigs.Postcards} />} />
@@ -185,7 +185,7 @@ function App() {
                   <Route path="business-cards/jobs/new" element={<BusinessCardJobNew />} />
                   <Route path="business-cards/jobs/edit/:id" element={<BusinessCardJobEdit />} />
                   <Route path="business-cards/batches" element={<BusinessCardBatches />} />
-                  <Route path="business-cards/batches/:id" element={<BatchDetailsPage productType="business-cards" backUrl="/batchflow/batches/business-cards/batches" />} />
+                  <Route path="business-cards/batches/:batchId" element={<BatchDetailsPage productType="business-cards" backUrl="/batchflow/batches/business-cards/batches" />} />
                   
                   {/* Flyers legacy routes */}
                   <Route path="flyers" element={<Flyers />} />
@@ -194,7 +194,7 @@ function App() {
                   <Route path="flyers/jobs/edit/:id" element={<FlyerJobEdit />} />
                   <Route path="flyers/jobs/:id" element={<FlyerJobDetail />} />
                   <Route path="flyers/batches" element={<FlyerBatches />} />
-                  <Route path="flyers/batches/:id" element={<FlyerBatchDetailsWrapper />} />
+                  <Route path="flyers/batches/:batchId" element={<FlyerBatchDetailsWrapper />} />
                   
                   {/* Other generic product legacy routes - Fixed to use overview pages */}
                   <Route path="postcards" element={<Postcards />} />
@@ -202,38 +202,38 @@ function App() {
                   <Route path="postcards/jobs/new" element={<PostcardJobNewPage />} />
                   <Route path="postcards/jobs/edit/:id" element={<PostcardJobEdit />} />
                   <Route path="postcards/batches" element={<PostcardBatchesPage />} />
-                  <Route path="postcards/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Postcards} />} />
+                  <Route path="postcards/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Postcards} />} />
                   
                   <Route path="posters" element={<Posters />} />
                   <Route path="posters/jobs" element={<PosterJobsPage />} />
                   <Route path="posters/jobs/new" element={<PosterJobNewPage />} />
                   <Route path="posters/batches" element={<PosterBatchesPage />} />
-                  <Route path="posters/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Posters} />} />
+                  <Route path="posters/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Posters} />} />
                   
                   <Route path="sleeves" element={<Sleeves />} />
                   <Route path="sleeves/jobs" element={<SleeveJobsPage />} />
                   <Route path="sleeves/jobs/new" element={<SleeveJobNewPage />} />
                   <Route path="sleeves/jobs/edit/:id" element={<SleeveJobEditPage />} />
                   <Route path="sleeves/batches" element={<SleeveBatchesPage />} />
-                  <Route path="sleeves/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Sleeves} />} />
+                  <Route path="sleeves/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Sleeves} />} />
                   
                   <Route path="boxes" element={<Boxes />} />
                   <Route path="boxes/jobs" element={<BoxJobsPage />} />
                   <Route path="boxes/jobs/new" element={<BoxJobNewPage />} />
                   <Route path="boxes/batches" element={<BoxBatchesPage />} />
-                  <Route path="boxes/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Boxes} />} />
+                  <Route path="boxes/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Boxes} />} />
                   
                   <Route path="covers" element={<Covers />} />
                   <Route path="covers/jobs" element={<CoverJobsPage />} />
                   <Route path="covers/jobs/new" element={<CoverJobNewPage />} />
                   <Route path="covers/batches" element={<CoverBatchesPage />} />
-                  <Route path="covers/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Covers} />} />
+                  <Route path="covers/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Covers} />} />
                   
                   <Route path="stickers" element={<Stickers />} />
                   <Route path="stickers/jobs" element={<StickerJobsPage />} />
                   <Route path="stickers/jobs/new" element={<StickerJobNewPage />} />
                   <Route path="stickers/batches" element={<StickerBatchesPage />} />
-                  <Route path="stickers/batches/:id" element={<GenericBatchDetailsPage config={productConfigs.Stickers} />} />
+                  <Route path="stickers/batches/:batchId" element={<GenericBatchDetailsPage config={productConfigs.Stickers} />} />
                   
                   {/* Legacy catch-all for batches */}
                   <Route index element={<AllBatches />} />
