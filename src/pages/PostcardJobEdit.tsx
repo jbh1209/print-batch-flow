@@ -81,7 +81,7 @@ const PostcardJobEdit = () => {
 
   console.log('Transformed postcard job for form:', transformedJob);
 
-  return <FlyerJobForm mode="edit" initialData={transformedJob} productType="postcard" />;
+  return <FlyerJobForm mode="edit" initialData={transformedJob} />;
 };
 
 export default PostcardJobEdit;
