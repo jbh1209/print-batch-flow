@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
-import { FlyerJobFormValues } from "../schema/flyerJobFormSchema";
+import { FlyerJobFormValues } from "../schema/flyerJobSchema";
 import { useAuth } from "@/hooks/useAuth";
 
 export const useFlyerJobSubmit = () => {
