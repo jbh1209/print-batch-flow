@@ -8,10 +8,16 @@ interface BatchDetailsPageProps {
   backUrl: string;
 }
 
-const BatchDetailsPage: React.FC<BatchDetailsPageProps> = ({ productType, backUrl }) => {
+const BatchDetailsPage = ({ productType, backUrl }: BatchDetailsPageProps) => {
   const { batchId } = useParams<{ batchId: string }>();
+  
+  console.log("=== BatchDetailsPage Debug ===");
+  console.log("BatchId from params:", batchId);
+  console.log("ProductType:", productType);
+  console.log("BackUrl:", backUrl);
 
   if (!batchId) {
+    console.error("No batchId in URL params");
     return (
       <div className="bg-white rounded-lg shadow p-8 text-center">
         <h2 className="text-xl font-semibold mb-2">No Batch Selected</h2>
@@ -20,7 +26,13 @@ const BatchDetailsPage: React.FC<BatchDetailsPageProps> = ({ productType, backUr
     );
   }
 
-  return <BatchDetails batchId={batchId} productType={productType} backUrl={backUrl} />;
+  return (
+    <BatchDetails 
+      batchId={batchId} 
+      productType={productType} 
+      backUrl={backUrl} 
+    />
+  );
 };
 
 export default BatchDetailsPage;
