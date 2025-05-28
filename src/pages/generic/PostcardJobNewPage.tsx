@@ -14,7 +14,15 @@ const PostcardJobNewPage = () => {
   
   const handleCreateJob = async (formData: any) => {
     try {
-      await createJob(formData);
+      // Transform the sides field to match database schema
+      const transformedData = { ...formData };
+      
+      // Remove sides field if it exists since postcard_jobs table doesn't have it
+      if (transformedData.sides) {
+        delete transformedData.sides;
+      }
+      
+      await createJob(transformedData);
       navigate(config.routes.jobsPath);
     } catch (error) {
       console.error("Error creating postcard job:", error);
@@ -50,6 +58,7 @@ const PostcardJobNewPage = () => {
             pdf_url: '',
             file_name: ''
           } as any}
+          onSubmit={handleCreateJob}
         />
       </div>
     </div>
