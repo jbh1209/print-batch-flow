@@ -2,7 +2,7 @@
 import React from "react";
 import { useParams } from "react-router-dom";
 import { productConfigs } from "@/config/productTypes";
-import GenericBatchDetailsPage from "@/components/generic/GenericBatchDetailsPage";
+import GenericBatchDetailsPage from "./GenericBatchDetailsPage";
 
 const FlyerBatchDetailsPage = () => {
   const { batchId } = useParams<{ batchId: string }>();
