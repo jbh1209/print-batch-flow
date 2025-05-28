@@ -30,7 +30,7 @@ export type FlyerJobFormValues = z.infer<typeof flyerJobBaseSchema> & {
   file?: File;
 };
 
-// Form options that match database constraints
+// Form options that match database constraints and product config
 export const flyerPaperWeightOptions = ["115gsm", "130gsm", "170gsm", "200gsm", "250gsm"];
 export const flyerSizeOptions: FlyerSize[] = ["A5", "A4", "DL", "A3"];
 export const flyerPaperTypeOptions: FlyerPaperType[] = ["Matt", "Gloss"];

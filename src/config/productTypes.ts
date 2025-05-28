@@ -1,3 +1,4 @@
+
 export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch' | 'front_gloss_lam' | 'front_matt_lam' | 'no_lam';
 export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
 export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
@@ -115,13 +116,12 @@ export const productConfigs: Record<string, ProductConfig> = {
     tableName: "flyer_jobs",
     jobNumberPrefix: "FL",
     availableSizes: ["A6", "A5", "A4", "DL"],
-    availablePaperTypes: ["Gloss", "Silk", "Uncoated"],
-    availablePaperWeights: ["80gsm bond", "115gsm", "130gsm", "170gsm", "200gsm", "250gsm", "300gsm", "350gsm"],
-    availableSidesTypes: ["single", "double"],
+    availablePaperTypes: ["Matt", "Gloss"],
+    availablePaperWeights: ["115gsm", "130gsm", "170gsm", "200gsm", "250gsm"],
     hasSize: true,
     hasPaperType: true,
     hasPaperWeight: true,
-    hasSides: true,
+    // REMOVED: hasSides and availableSidesTypes - flyers don't have sides field in this system
     slaTargetDays: 3,
     routes: {
       indexPath: "/batches/flyers",
