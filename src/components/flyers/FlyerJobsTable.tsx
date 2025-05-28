@@ -7,7 +7,6 @@ import { Plus } from "lucide-react";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { toast } from "sonner";
 import { FlyerJobsTableContainer } from "./FlyerJobsTableContainer";
-import { FlyerBatchCreateDialog } from "./FlyerBatchCreateDialog";
 import { Table } from "@/components/ui/table";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { FlyerJobsEmptyState } from "./components/FlyerJobsEmptyState";
@@ -25,13 +24,14 @@ export const FlyerJobsTable = () => {
     error, 
     fetchJobs, 
     fixBatchedJobsWithoutBatch, 
-    isFixingBatchedJobs 
+    isFixingBatchedJobs,
+    createBatch,
+    isCreatingBatch
   } = useFlyerJobs();
 
   // State for job selection and filtering
   const [selectedJobs, setSelectedJobs] = useState<FlyerJob[]>([]);
   const [filterView, setFilterView] = useState<"all" | "queued" | "batched" | "completed">("all");
-  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   
   // Filter jobs based on current view
   const filteredJobs = filterView === 'all' 
@@ -69,21 +69,59 @@ export const FlyerJobsTable = () => {
     }
   };
 
-  // Handle closing batch dialog
-  const handleBatchDialogClose = () => {
-    setIsBatchDialogOpen(false);
+  // Validate job compatibility for batching
+  const validateJobsForBatching = (jobs: FlyerJob[]) => {
+    if (jobs.length === 0) {
+      return { isValid: false, error: "No jobs selected" };
+    }
+
+    const firstJob = jobs[0];
+    const incompatibleJobs = jobs.filter(job => 
+      job.paper_type !== firstJob.paper_type || 
+      job.paper_weight !== firstJob.paper_weight
+    );
+
+    if (incompatibleJobs.length > 0) {
+      return { 
+        isValid: false, 
+        error: `Selected jobs have mixed specifications. All jobs must have the same paper type (${firstJob.paper_type}) and weight (${firstJob.paper_weight}).` 
+      };
+    }
+
+    return { isValid: true, error: null };
   };
 
-  // Handle successful batch creation
-  const handleBatchSuccess = () => {
-    setIsBatchDialogOpen(false);
-    setSelectedJobs([]);
-    fetchJobs();
-    toast.success("Batch created successfully");
-  };
+  // Direct batch creation without modal
+  const handleCreateBatch = async () => {
+    const validation = validateJobsForBatching(selectedJobs);
+    
+    if (!validation.isValid) {
+      toast.error(validation.error);
+      return;
+    }
 
-  const handleCreateBatch = () => {
-    setIsBatchDialogOpen(true);
+    try {
+      const firstJob = selectedJobs[0];
+      
+      // Auto-determine batch properties from selected jobs
+      const batchProperties = {
+        paperType: firstJob.paper_type,
+        paperWeight: firstJob.paper_weight,
+        laminationType: 'none' as const,
+        printerType: 'HP 12000',
+        sheetSize: '530x750mm',
+        slaTargetDays: 3 // Default SLA for flyers
+      };
+
+      await createBatch(selectedJobs, batchProperties);
+      
+      // Clear selection after successful batch creation
+      setSelectedJobs([]);
+      
+    } catch (error) {
+      console.error('Error creating batch:', error);
+      // Error handling is already done in the createBatch function
+    }
   };
 
   if (isLoading) {
@@ -98,54 +136,50 @@ export const FlyerJobsTable = () => {
   const selectableJobsCount = availableJobs.length;
 
   return (
-    <>
-      <div className="bg-white rounded-lg border shadow">
-        {/* Status filter tabs */}
-        <StatusFilterTabs 
-          filterView={filterView}
-          setFilterView={setFilterView}
-          filterCounts={filterCounts}
-        />
-
-        {/* Selection controls */}
-        <SelectionControls 
-          selectedCount={selectedJobs.length}
-          totalSelectableCount={selectableJobsCount}
-          onCreateBatch={handleCreateBatch}
-        />
-
-        {/* Fix Orphaned Jobs Button - only show if there are jobs stuck in batched state */}
-        {filterCounts.batched > 0 && (
-          <BatchFixBanner 
-            onFixJobs={fixBatchedJobsWithoutBatch}
-            isFixingBatchedJobs={isFixingBatchedJobs}
-          />
-        )}
-
-        {/* Jobs Table */}
-        <FlyerJobsTableContainer>
-          <Table>
-            <JobsTableHeader 
-              onSelectAll={handleSelectAllJobs}
-              allSelected={selectedJobs.length === selectableJobsCount && selectableJobsCount > 0}
-              selectableJobsCount={selectableJobsCount}
-            />
-            <FlyerJobsBody 
-              jobs={filteredJobs}
-              selectedJobs={selectedJobs}
-              handleSelectJob={handleSelectJob}
-            />
-          </Table>
-        </FlyerJobsTableContainer>
-      </div>
-      
-      {/* Batch Creation Dialog */}
-      <FlyerBatchCreateDialog
-        isOpen={isBatchDialogOpen}
-        onClose={handleBatchDialogClose}
-        onSuccess={handleBatchSuccess}
-        preSelectedJobs={selectedJobs}
+    <div className="bg-white rounded-lg border shadow">
+      {/* Status filter tabs */}
+      <StatusFilterTabs 
+        filterView={filterView}
+        setFilterView={setFilterView}
+        filterCounts={filterCounts}
       />
-    </>
+
+      {/* Selection controls with direct batch creation */}
+      <div className="flex justify-between items-center p-4 border-b">
+        <div className="text-sm text-muted-foreground">
+          {selectedJobs.length} of {selectableJobsCount} jobs selected
+        </div>
+        <Button 
+          onClick={handleCreateBatch} 
+          disabled={selectedJobs.length === 0 || isCreatingBatch}
+        >
+          {isCreatingBatch ? "Creating Batch..." : "Create Batch"}
+        </Button>
+      </div>
+
+      {/* Fix Orphaned Jobs Button - only show if there are jobs stuck in batched state */}
+      {filterCounts.batched > 0 && (
+        <BatchFixBanner 
+          onFixJobs={fixBatchedJobsWithoutBatch}
+          isFixingBatchedJobs={isFixingBatchedJobs}
+        />
+      )}
+
+      {/* Jobs Table */}
+      <FlyerJobsTableContainer>
+        <Table>
+          <JobsTableHeader 
+            onSelectAll={handleSelectAllJobs}
+            allSelected={selectedJobs.length === selectableJobsCount && selectableJobsCount > 0}
+            selectableJobsCount={selectableJobsCount}
+          />
+          <FlyerJobsBody 
+            jobs={filteredJobs}
+            selectedJobs={selectedJobs}
+            handleSelectJob={handleSelectJob}
+          />
+        </Table>
+      </FlyerJobsTableContainer>
+    </div>
   );
 };

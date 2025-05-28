@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -198,7 +197,7 @@ export const useFlyerJobs = () => {
     }
   };
 
-  // Wrapper for batch creation that matches the expected interface
+  // Enhanced batch creation with better user feedback
   const createBatch = async (
     selectedJobs: FlyerJob[], 
     batchProperties: {
@@ -210,10 +209,38 @@ export const useFlyerJobs = () => {
       slaTargetDays: number;
     }
   ) => {
-    const result = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
-    // Refresh jobs after batch creation
-    await fetchJobs();
-    return result;
+    if (selectedJobs.length === 0) {
+      toast.error("No jobs selected for batching");
+      return null;
+    }
+
+    try {
+      console.log(`Creating batch with ${selectedJobs.length} jobs:`, {
+        jobs: selectedJobs.map(j => ({ name: j.name, specs: `${j.paper_type} ${j.paper_weight}` })),
+        properties: batchProperties
+      });
+
+      const result = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
+      
+      // Refresh jobs after batch creation
+      await fetchJobs();
+      
+      // Enhanced success message with batch details
+      const totalQuantity = selectedJobs.reduce((sum, job) => sum + job.quantity, 0);
+      toast.success(
+        `Batch created successfully with ${selectedJobs.length} jobs (${totalQuantity} total quantity)`,
+        {
+          description: `Paper: ${batchProperties.paperType} ${batchProperties.paperWeight}`
+        }
+      );
+      
+      return result;
+    } catch (error) {
+      console.error('Error creating batch:', error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      toast.error(`Failed to create batch: ${errorMessage}`);
+      throw error;
+    }
   };
 
   return {
