@@ -11,25 +11,25 @@ const BatchFlowHome = () => {
       name: "Business Cards",
       icon: <CreditCard className="h-6 w-6 mb-2" />,
       description: "Manage business card batches and jobs",
-      link: "/batchflow/batches/business-cards"
+      link: "/batchflow/business-card-batches"
     },
     {
       name: "Postcards",
       icon: <Mail className="h-6 w-6 mb-2" />,
       description: "Create and manage postcard print batches",
-      link: "/batchflow/batches/postcards"
+      link: "/batchflow/postcards/batches"
     },
     {
       name: "Flyers",
       icon: <FileText className="h-6 w-6 mb-2" />,
       description: "Organize flyer production batches",
-      link: "/batchflow/batches/flyers"
+      link: "/batchflow/flyer-batches"
     },
     {
       name: "Product Boxes",
       icon: <Box className="h-6 w-6 mb-2" />,
       description: "Manage product box printing",
-      link: "/batchflow/batches/boxes"
+      link: "/batchflow/boxes/batches"
     }
   ];
 
@@ -50,10 +50,10 @@ const BatchFlowHome = () => {
           
           <div className="flex justify-center gap-4">
             <Button asChild size="lg">
-              <Link to="/batchflow/batches/all">View All Batches</Link>
+              <Link to="/batchflow/batches">View All Batches</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link to="/batchflow/batches/business-cards/jobs/new">Create New Job</Link>
+              <Link to="/batchflow/business-card-jobs/new">Create New Job</Link>
             </Button>
           </div>
         </div>
@@ -84,7 +84,7 @@ const BatchFlowHome = () => {
           </CardHeader>
           <CardContent className="pb-6">
             <Button asChild>
-              <Link to="/batchflow/batches/all" className="flex items-center gap-2">
+              <Link to="/batchflow/batches" className="flex items-center gap-2">
                 <Layers className="h-5 w-5" />
                 View All Batches
               </Link>
