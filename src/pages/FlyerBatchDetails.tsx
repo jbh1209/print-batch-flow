@@ -1,4 +1,3 @@
-
 import { useParams } from 'react-router-dom';
 import { useState } from 'react';
 import FlyerBatchLoading from '@/components/flyers/batch-details/FlyerBatchLoading';
@@ -16,7 +15,7 @@ import {
 } from '@/utils/flyers/typeGuards';
 
 const FlyerBatchDetails = () => {
-  const { id: batchId } = useParams();
+  const { batchId } = useParams();
   
   console.log('FlyerBatchDetails - batchId from params:', batchId);
   
