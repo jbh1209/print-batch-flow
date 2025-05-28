@@ -6,39 +6,35 @@ import FlyerBatchLoading from '@/components/flyers/batch-details/FlyerBatchLoadi
 import EmptyBatchState from '@/components/flyers/batch-details/EmptyBatchState';
 import DeleteBatchDialog from '@/components/flyers/batch-details/DeleteBatchDialog';
 import BatchDetailsHeader from '@/components/flyers/batch-details/BatchDetailsHeader';
-import BatchDetailsCard from '@/components/batches/BatchDetailsCard';
-import BatchActionsCard from '@/components/batches/BatchActionsCard';
-import RelatedJobsCard from '@/components/batches/RelatedJobsCard';
-import { BatchOverviewGenerator } from '@/components/batches/BatchOverviewGenerator';
-import { useBatchPdfDownloads } from '@/components/batches/BatchPdfDownloads';
+import BatchDetailsContent from '@/components/batches/BatchDetailsContent';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
-import { FlyerJob } from '@/components/batches/types/FlyerTypes';
+import { FlyerJob, FlyerBatch } from '@/components/batches/types/FlyerTypes';
 import { Job, BatchDetailsType } from '@/components/batches/types/BatchTypes';
 import { BaseJob } from '@/config/productTypes';
 
 const FlyerBatchDetails = () => {
-  // Fix: Use 'id' parameter instead of 'batchId' to match the route structure
   const { id: batchId } = useParams();
   const [relatedJobs, setRelatedJobs] = useState<FlyerJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   console.log('FlyerBatchDetails - batchId from params:', batchId);
   
   const {
     batches,
     isLoading,
-    error,
+    error: batchError,
     batchToDelete,
     isDeleting,
     handleDeleteBatch,
     setBatchToDelete,
     fetchBatches
-  } = useFlyerBatches(batchId);
+  } = useFlyerBatches(batchId || null);
 
   console.log('FlyerBatchDetails - batches:', batches);
   console.log('FlyerBatchDetails - isLoading:', isLoading);
-  console.log('FlyerBatchDetails - error:', error);
+  console.log('FlyerBatchDetails - batchError:', batchError);
 
   const batch = batches[0];
 
@@ -51,6 +47,7 @@ const FlyerBatchDetails = () => {
       }
       
       setIsLoadingJobs(true);
+      setError(null);
       
       try {
         console.log('Fetching related jobs for batch:', batchId);
@@ -65,6 +62,7 @@ const FlyerBatchDetails = () => {
         setRelatedJobs(data || []);
       } catch (err) {
         console.error('Error fetching related jobs:', err);
+        setError('Failed to load related jobs');
       } finally {
         setIsLoadingJobs(false);
       }
@@ -75,64 +73,48 @@ const FlyerBatchDetails = () => {
     }
   }, [batchId, batch]);
 
-  // Convert FlyerJob[] to Job[] and BaseJob[] for compatibility
-  const convertedJobs: Job[] = relatedJobs.map(job => ({
-    id: job.id,
-    name: job.name,
-    file_name: job.file_name || job.name || "",
-    quantity: job.quantity,
-    lamination_type: "none",
-    due_date: job.due_date,
-    uploaded_at: job.created_at,
-    status: job.status,
-    pdf_url: job.pdf_url,
-    user_id: job.user_id || "",
-    updated_at: job.updated_at || "",
-    job_number: job.job_number || job.name || ""
-  }));
-
-  const convertToBaseJobs = (jobs: Job[]): BaseJob[] => {
-    return jobs.map(job => ({
-      ...job,
-      paper_type: relatedJobs.find(fj => fj.id === job.id)?.paper_type || "",
-      paper_weight: relatedJobs.find(fj => fj.id === job.id)?.paper_weight || "",
-      size: relatedJobs.find(fj => fj.id === job.id)?.size || ""
-    })) as unknown as BaseJob[];
+  // Helper function to safely convert FlyerJob to Job with proper error handling
+  const convertFlyerJobsToJobs = (flyerJobs: FlyerJob[]): Job[] => {
+    try {
+      return flyerJobs.map(job => ({
+        id: job.id,
+        name: job.name,
+        file_name: job.file_name || job.name || "",
+        quantity: job.quantity,
+        lamination_type: "none", // Default for flyers
+        due_date: job.due_date,
+        uploaded_at: job.created_at,
+        status: job.status,
+        pdf_url: job.pdf_url,
+        user_id: job.user_id || "",
+        updated_at: job.updated_at || "",
+        job_number: job.job_number || job.name || ""
+      }));
+    } catch (error) {
+      console.error('Error converting flyer jobs to jobs:', error);
+      return [];
+    }
   };
 
-  // Convert FlyerBatch to BatchDetailsType for compatibility
-  const batchDetails: BatchDetailsType | null = batch ? {
-    id: batch.id,
-    name: batch.name,
-    lamination_type: batch.lamination_type,
-    sheets_required: batch.sheets_required,
-    front_pdf_url: batch.front_pdf_url,
-    back_pdf_url: batch.back_pdf_url,
-    overview_pdf_url: batch.overview_pdf_url || batch.back_pdf_url,
-    due_date: batch.due_date,
-    created_at: batch.created_at,
-    status: batch.status
-  } : null;
-
-  // Initialize batch overview and PDF download functionality
-  const { convertToBaseJobs: overviewConverter } = batchDetails ? BatchOverviewGenerator({ 
-    batch: batchDetails, 
-    relatedJobs: convertedJobs,
-    onRefresh: fetchBatches
-  }) : { convertToBaseJobs: () => [] };
-
-  const {
-    handleDownloadJobPdfs,
-    handleDownloadIndividualJobPdfs,
-    handleDownloadBatchOverviewSheet
-  } = batchDetails ? useBatchPdfDownloads({ 
-    batch: batchDetails, 
-    relatedJobs: convertedJobs, 
-    convertToBaseJobs
-  }) : {
-    handleDownloadJobPdfs: async () => {},
-    handleDownloadIndividualJobPdfs: async () => {},
-    handleDownloadBatchOverviewSheet: async () => {}
+  // Helper function to safely convert FlyerBatch to BatchDetailsType
+  const convertFlyerBatchToBatchDetails = (flyerBatch: FlyerBatch): BatchDetailsType | null => {
+    try {
+      return {
+        id: flyerBatch.id,
+        name: flyerBatch.name,
+        lamination_type: flyerBatch.lamination_type,
+        sheets_required: flyerBatch.sheets_required,
+        front_pdf_url: flyerBatch.front_pdf_url,
+        back_pdf_url: flyerBatch.back_pdf_url,
+        overview_pdf_url: flyerBatch.overview_pdf_url || flyerBatch.back_pdf_url,
+        due_date: flyerBatch.due_date,
+        created_at: flyerBatch.created_at,
+        status: flyerBatch.status
+      };
+    } catch (error) {
+      console.error('Error converting flyer batch to batch details:', error);
+      return null;
+    }
   };
 
   // Show loading state
@@ -142,13 +124,14 @@ const FlyerBatchDetails = () => {
   }
 
   // Show error state with more details
-  if (error) {
-    console.log('Error occurred:', error);
+  if (batchError || error) {
+    const displayError = batchError || error;
+    console.log('Error occurred:', displayError);
     return (
       <div className="p-6">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-red-600 mb-2">Error Loading Batch</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-gray-600 mb-4">{displayError}</p>
           <p className="text-sm text-gray-500 mb-4">Batch ID: {batchId || 'undefined'}</p>
           <button 
             onClick={fetchBatches}
@@ -162,8 +145,17 @@ const FlyerBatchDetails = () => {
   }
 
   // Show empty state if no batch found
-  if (!batch || !batchDetails) {
+  if (!batch) {
     console.log('No batch found for ID:', batchId);
+    return <EmptyBatchState />;
+  }
+
+  // Convert batch and jobs with error handling
+  const batchDetails = convertFlyerBatchToBatchDetails(batch);
+  const convertedJobs = convertFlyerJobsToJobs(relatedJobs);
+
+  if (!batchDetails) {
+    console.error('Failed to convert batch details');
     return <EmptyBatchState />;
   }
 
@@ -176,28 +168,25 @@ const FlyerBatchDetails = () => {
         onDeleteClick={() => setBatchToDelete(batch.id)}
       />
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <BatchDetailsCard 
-          batch={batchDetails}
-          onDeleteClick={() => setBatchToDelete(batch.id)}
-        />
-        <BatchActionsCard 
-          batch={batchDetails}
-          onDownloadJobPdfs={handleDownloadJobPdfs}
-          onDownloadIndividualJobPdfs={handleDownloadIndividualJobPdfs}
-          onDownloadBatchOverviewSheet={handleDownloadBatchOverviewSheet}
-        />
-      </div>
+      <BatchDetailsContent
+        batch={batchDetails}
+        relatedJobs={convertedJobs}
+        productType="Flyers"
+        onDeleteClick={() => setBatchToDelete(batch.id)}
+        onRefresh={fetchBatches}
+      />
 
-      {/* Related Jobs Card and Batch Overview */}
+      {/* Flyer-specific batch overview */}
       {relatedJobs && relatedJobs.length > 0 && (
-        <>
-          <RelatedJobsCard jobs={convertedJobs} />
-          <FlyerBatchOverview 
-            jobs={convertToBaseJobs(convertedJobs)} 
-            batchName={batch.name} 
-          />
-        </>
+        <FlyerBatchOverview 
+          jobs={convertedJobs.map(job => ({
+            ...job,
+            paper_type: relatedJobs.find(fj => fj.id === job.id)?.paper_type || "",
+            paper_weight: relatedJobs.find(fj => fj.id === job.id)?.paper_weight || "",
+            size: relatedJobs.find(fj => fj.id === job.id)?.size || ""
+          })) as unknown as BaseJob[]} 
+          batchName={batch.name} 
+        />
       )}
 
       {/* Delete Confirmation Dialog */}

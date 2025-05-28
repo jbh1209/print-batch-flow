@@ -11,6 +11,16 @@ interface BatchDetailsHeaderProps {
 const BatchDetailsHeader = ({ batchName, onDeleteClick }: BatchDetailsHeaderProps) => {
   const navigate = useNavigate();
   
+  const handleBackClick = () => {
+    try {
+      navigate("/batchflow/batches/flyers/batches");
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback navigation
+      navigate("/batchflow/batches/flyers");
+    }
+  };
+  
   return (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center">
@@ -18,7 +28,7 @@ const BatchDetailsHeader = ({ batchName, onDeleteClick }: BatchDetailsHeaderProp
           variant="outline" 
           size="sm" 
           className="mr-4"
-          onClick={() => navigate("/batchflow/batches/flyers/batches")}
+          onClick={handleBackClick}
         >
           <ArrowLeft size={16} className="mr-1" /> Back to Batches
         </Button>
