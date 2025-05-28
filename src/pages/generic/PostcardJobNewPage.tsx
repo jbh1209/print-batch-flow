@@ -11,23 +11,6 @@ const PostcardJobNewPage = () => {
   const navigate = useNavigate();
   const config = productConfigs["Postcards"];
   const { createJob, isLoading } = useGenericJobCreation(config);
-  
-  const handleCreateJob = async (formData: any) => {
-    try {
-      // Transform the sides field to match database schema
-      const transformedData = { ...formData };
-      
-      // Remove sides field if it exists since postcard_jobs table doesn't have it
-      if (transformedData.sides) {
-        delete transformedData.sides;
-      }
-      
-      await createJob(transformedData);
-      navigate(config.routes.jobsPath);
-    } catch (error) {
-      console.error("Error creating postcard job:", error);
-    }
-  };
 
   return (
     <div className="container mx-auto py-4">
@@ -58,7 +41,6 @@ const PostcardJobNewPage = () => {
             pdf_url: '',
             file_name: ''
           } as any}
-          onSubmit={handleCreateJob}
         />
       </div>
     </div>
