@@ -18,7 +18,8 @@ import { Job, BatchDetailsType } from '@/components/batches/types/BatchTypes';
 import { BaseJob } from '@/config/productTypes';
 
 const FlyerBatchDetails = () => {
-  const { batchId } = useParams();
+  // Fix: Use 'id' parameter instead of 'batchId' to match the route structure
+  const { id: batchId } = useParams();
   const [relatedJobs, setRelatedJobs] = useState<FlyerJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   
@@ -134,11 +135,13 @@ const FlyerBatchDetails = () => {
     handleDownloadBatchOverviewSheet: async () => {}
   };
 
+  // Show loading state
   if (isLoading || isLoadingJobs) {
     console.log('Still loading...');
     return <FlyerBatchLoading />;
   }
 
+  // Show error state with more details
   if (error) {
     console.log('Error occurred:', error);
     return (
@@ -146,6 +149,7 @@ const FlyerBatchDetails = () => {
         <div className="text-center">
           <h2 className="text-xl font-semibold text-red-600 mb-2">Error Loading Batch</h2>
           <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-sm text-gray-500 mb-4">Batch ID: {batchId || 'undefined'}</p>
           <button 
             onClick={fetchBatches}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -157,8 +161,9 @@ const FlyerBatchDetails = () => {
     );
   }
 
+  // Show empty state if no batch found
   if (!batch || !batchDetails) {
-    console.log('No batch found');
+    console.log('No batch found for ID:', batchId);
     return <EmptyBatchState />;
   }
 

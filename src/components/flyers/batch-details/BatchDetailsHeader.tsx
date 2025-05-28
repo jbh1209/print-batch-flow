@@ -18,7 +18,7 @@ const BatchDetailsHeader = ({ batchName, onDeleteClick }: BatchDetailsHeaderProp
           variant="outline" 
           size="sm" 
           className="mr-4"
-          onClick={() => navigate("/batches/flyers/batches")}
+          onClick={() => navigate("/batchflow/batches/flyers/batches")}
         >
           <ArrowLeft size={16} className="mr-1" /> Back to Batches
         </Button>
