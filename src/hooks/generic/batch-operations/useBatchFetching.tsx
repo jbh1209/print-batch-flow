@@ -7,12 +7,18 @@ import { toast } from "sonner";
 import { getProductTypeCode } from "@/utils/batch/productTypeCodes";
 
 export function useBatchFetching(config: ProductConfig, batchId: string | null = null) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [batches, setBatches] = useState<BaseBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBatches = async () => {
+    // Wait for auth to load before fetching
+    if (authLoading) {
+      console.log("Auth still loading, waiting...");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -34,6 +40,7 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
         query = query.eq("id", batchId);
       }
       
+      // Remove user filtering to show all batches
       const { data, error: fetchError } = await query
         .order('created_at', { ascending: false });
 
@@ -60,9 +67,12 @@ export function useBatchFetching(config: ProductConfig, batchId: string | null =
     }
   };
 
+  // Initial fetch when auth is ready
   useEffect(() => {
-    fetchBatches();
-  }, [batchId]);
+    if (!authLoading) {
+      fetchBatches();
+    }
+  }, [authLoading, batchId]);
 
   return { batches, isLoading, error, fetchBatches };
 }

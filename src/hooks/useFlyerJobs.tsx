@@ -1,23 +1,20 @@
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { FlyerJob, LaminationType } from '@/components/batches/types/FlyerTypes';
-import { useFlyerJobOperations } from './flyers/useFlyerJobOperations';
-import { useFlyerBatchFix } from './flyers/useFlyerBatchFix';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 
-export function useFlyerJobs() {
-  const { user } = useAuth();
+export const useFlyerJobs = () => {
+  const { user, isLoading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<FlyerJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const { deleteJob, createJob, createBatchWithSelectedJobs, isCreatingBatch } = useFlyerJobOperations();
-  
-  const fetchJobs = async () => {
-    if (!user) {
-      setIsLoading(false);
+
+  const fetchJobs = useCallback(async () => {
+    // Wait for auth to load before fetching
+    if (authLoading) {
+      console.log("Auth still loading, waiting...");
       return;
     }
 
@@ -25,7 +22,9 @@ export function useFlyerJobs() {
       setIsLoading(true);
       setError(null);
 
-      // Remove user_id filter to allow seeing all flyer jobs
+      console.log("Fetching flyer jobs for all users");
+
+      // Remove user filtering to show all jobs
       const { data, error: fetchError } = await supabase
         .from('flyer_jobs')
         .select('*')
@@ -33,107 +32,178 @@ export function useFlyerJobs() {
 
       if (fetchError) throw fetchError;
 
-      // Explicitly cast and ensure type compatibility
-      const typedJobs: FlyerJob[] = (data || []).map(job => ({
-        id: job.id,
-        name: job.name,
-        job_number: job.job_number,
-        size: job.size,
-        paper_weight: job.paper_weight,
-        paper_type: job.paper_type,
-        quantity: job.quantity,
-        due_date: job.due_date,
-        batch_id: job.batch_id,
-        status: job.status,
-        pdf_url: job.pdf_url,
-        file_name: job.file_name,
-        user_id: job.user_id,
-        created_at: job.created_at,
-        updated_at: job.updated_at
-      }));
-      
-      setJobs(typedJobs);
+      console.log("Flyer jobs fetched:", data?.length || 0, "jobs");
+      setJobs(data || []);
     } catch (err) {
       console.error('Error fetching flyer jobs:', err);
       setError('Failed to load flyer jobs');
+      toast.error("Failed to load flyer jobs");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [authLoading]);
 
+  // Initial fetch when auth is ready
   useEffect(() => {
-    fetchJobs();
-  }, [user]);
+    if (!authLoading) {
+      fetchJobs();
+    }
+  }, [authLoading, fetchJobs]);
 
-  // Wrap the delete job operation to update local state
-  const handleDeleteJob = async (jobId: string) => {
+  const createJob = async (jobData: Omit<FlyerJob, 'id' | 'user_id' | 'status' | 'batch_id' | 'created_at' | 'updated_at'>) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
     try {
-      await deleteJob(jobId);
-      // Update the jobs list after deletion
-      setJobs(jobs.filter(job => job.id !== jobId));
-      toast.success("Job deleted successfully");
-      return true;
+      const newJob = {
+        ...jobData,
+        user_id: user.id,
+        status: 'queued' as const
+      };
+
+      const { data, error } = await supabase
+        .from('flyer_jobs')
+        .insert(newJob)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setJobs(prevJobs => [data, ...prevJobs]);
+      return data;
     } catch (err) {
-      toast.error("Error deleting job");
+      console.error('Error creating flyer job:', err);
       throw err;
     }
   };
 
-  // Wrap the create job operation to update local state
-  const handleCreateJob = async (jobData: Omit<FlyerJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>) => {
+  const updateJob = async (jobId: string, jobData: Partial<FlyerJob>) => {
     try {
-      const newJob = await createJob(jobData);
-      // Update the jobs list with the new job
-      setJobs(prevJobs => [newJob as FlyerJob, ...prevJobs]);
-      return newJob;
-    } catch (err) {
-      throw err;
-    }
-  };
+      // Remove user_id filter to allow any user to update any job
+      const { data, error } = await supabase
+        .from('flyer_jobs')
+        .update(jobData)
+        .eq('id', jobId)
+        .select()
+        .single();
 
-  // Wrap the create batch operation
-  const handleCreateBatch = async (
-    selectedJobs: FlyerJob[],
-    batchProperties: {
-      paperType: string;
-      paperWeight: string;
-      laminationType: LaminationType;
-      printerType: string;
-      sheetSize: string;
-      slaTargetDays: number; // Added slaTargetDays property
-    }
-  ) => {
-    try {
-      const batch = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
-      
-      // Update local state to reflect the batched jobs
+      if (error) throw error;
+
       setJobs(prevJobs => 
-        prevJobs.map(job => 
-          selectedJobs.some(selectedJob => selectedJob.id === job.id)
-            ? { ...job, status: 'batched' as const, batch_id: batch.id }
-            : job
-        )
+        prevJobs.map(job => job.id === jobId ? { ...job, ...data } : job)
       );
-      
-      return batch;
+      return data;
     } catch (err) {
+      console.error('Error updating flyer job:', err);
       throw err;
     }
   };
 
-  // Initialize the batch fix hook with our fetchJobs method
-  const { fixBatchedJobsWithoutBatch, isFixingBatchedJobs } = useFlyerBatchFix(fetchJobs);
+  const deleteJob = async (jobId: string) => {
+    try {
+      // Remove user_id filter to allow any user to delete any job
+      const { error } = await supabase
+        .from('flyer_jobs')
+        .delete()
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+      toast.success("Flyer job deleted successfully");
+    } catch (err) {
+      console.error('Error deleting flyer job:', err);
+      toast.error("Failed to delete flyer job");
+      throw err;
+    }
+  };
+
+  const getJobById = async (jobId: string) => {
+    try {
+      // Remove user_id filter to allow any user to get any job
+      const { data, error } = await supabase
+        .from('flyer_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Error fetching flyer job:', err);
+      throw err;
+    }
+  };
+
+  const fixBatchedJobsWithoutBatch = async () => {
+    try {
+      console.log("Fixing batched flyer jobs without valid batch references");
+      
+      // Remove user filtering for fix operation
+      const { data: batchedJobs, error: fetchError } = await supabase
+        .from('flyer_jobs')
+        .select('id, batch_id')
+        .eq('status', 'batched');
+
+      if (fetchError) throw fetchError;
+
+      if (!batchedJobs || batchedJobs.length === 0) {
+        console.log("No batched flyer jobs found");
+        return 0;
+      }
+
+      // Check which batches actually exist
+      const batchIds = [...new Set(batchedJobs.map(job => job.batch_id).filter(Boolean))];
+      const { data: existingBatches, error: batchError } = await supabase
+        .from('batches')
+        .select('id')
+        .in('id', batchIds);
+
+      if (batchError) throw batchError;
+
+      const existingBatchIds = new Set(existingBatches?.map(batch => batch.id) || []);
+      const jobsToFix = batchedJobs.filter(job => 
+        !job.batch_id || !existingBatchIds.has(job.batch_id)
+      );
+
+      if (jobsToFix.length === 0) {
+        console.log("No flyer jobs need fixing");
+        return 0;
+      }
+
+      // Reset jobs to queued status
+      const { error: updateError } = await supabase
+        .from('flyer_jobs')
+        .update({ 
+          status: 'queued',
+          batch_id: null 
+        })
+        .in('id', jobsToFix.map(job => job.id));
+
+      if (updateError) throw updateError;
+
+      console.log(`Fixed ${jobsToFix.length} flyer jobs`);
+      await fetchJobs();
+      toast.success(`Fixed ${jobsToFix.length} orphaned flyer jobs`);
+      return jobsToFix.length;
+    } catch (err) {
+      console.error('Error fixing batched flyer jobs:', err);
+      toast.error("Failed to fix orphaned jobs");
+      throw err;
+    }
+  };
 
   return {
     jobs,
     isLoading,
     error,
     fetchJobs,
-    deleteJob: handleDeleteJob,
-    createJob: handleCreateJob,
-    createBatch: handleCreateBatch,
-    isCreatingBatch,
+    createJob,
+    updateJob,
+    deleteJob,
+    getJobById,
     fixBatchedJobsWithoutBatch,
-    isFixingBatchedJobs
+    isFixingBatchedJobs: false
   };
-}
+};

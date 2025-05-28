@@ -9,7 +9,7 @@ import { useBatchFixes } from './useBatchFixes';
 import { isExistingTable } from '@/utils/database/tableUtils';
 
 export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +20,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
 
   // Fetch all jobs for this product type - removed user filtering
   const fetchJobs = async () => {
+    // Wait for auth to load before fetching
+    if (authLoading) {
+      console.log("Auth still loading, waiting...");
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -35,7 +41,7 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
         return;
       }
 
-      console.log('Fetching jobs from table:', config.tableName);
+      console.log('Fetching jobs from table:', config.tableName, 'for all users');
       
       // Remove user_id filter to allow seeing all jobs
       const { data, error: fetchError } = await supabase
@@ -57,9 +63,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     }
   };
 
+  // Initial fetch when auth is ready
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    if (!authLoading) {
+      fetchJobs();
+    }
+  }, [authLoading]);
 
   // Handle job deletion with local state update - removed user ID filter
   const handleDeleteJob = async (jobId: string) => {

@@ -113,7 +113,8 @@ export const useFlyerJobSubmit = () => {
         toast.success("Flyer job created successfully");
       }
       
-      navigate("/batches/flyers/jobs");
+      // Updated navigation path
+      navigate("/batchflow/batches/flyers/jobs");
       return true;
     } catch (error) {
       console.error("Error with flyer job:", error);

@@ -1,168 +1,104 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, ArrowLeft } from "lucide-react";
-import { useJobStats } from "@/hooks/dashboard/useJobStats";
-import { useBatchStats } from "@/hooks/dashboard/useBatchStats";
-import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { CreditCard, Plus, Users, Layers, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const BusinessCards = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview");
-  
-  const { pendingJobs, isLoading: jobsLoading, refresh: refreshJobs } = useJobStats();
-  const { activeBatches, batchTypeStats, isLoading: batchesLoading, refresh: refreshBatches } = useBatchStats();
-  
-  // Calculate capacity percentage for business cards
-  const businessCardStats = batchTypeStats.find(stat => stat.name === "Business Cards");
-  const capacityPercentage = businessCardStats ? Math.round((businessCardStats.progress / businessCardStats.total) * 100) : 0;
-  
-  // Load stats once on component mount, avoid infinite loops
-  useEffect(() => {
-    refreshJobs();
-    refreshBatches();
-  }, []);
-
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <CreditCard className="h-6 w-6 mr-2 text-batchflow-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">Business Cards</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-1"
-            onClick={() => navigate("/")}
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Dashboard</span>
+    <div className="container mx-auto p-6">
+      <div className="mb-8">
+        <div className="flex items-center gap-4 mb-4">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/batchflow" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to BatchFlow
+            </Link>
           </Button>
-          <Button onClick={() => navigate("/batches/business-cards/jobs/new")}>Add New Job</Button>
+        </div>
+        <div className="text-center">
+          <div className="flex justify-center mb-4">
+            <CreditCard className="h-12 w-12 text-primary" />
+          </div>
+          <h1 className="text-3xl font-bold mb-2">Business Cards</h1>
+          <p className="text-gray-600 mb-6">Manage your business card printing jobs and batches</p>
+          
+          <div className="flex justify-center gap-4">
+            <Button asChild size="lg">
+              <Link to="/batchflow/batches/business-cards/jobs/new">Create New Job</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link to="/batchflow/batches/business-cards/batches">View All Batches</Link>
+            </Button>
+          </div>
         </div>
       </div>
-      
-      <div className="text-gray-500 mb-6">
-        Manage business card batches and jobs
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+          <CardHeader className="text-center">
+            <div className="flex justify-center">
+              <Plus className="h-8 w-8 mb-2 text-primary" />
+            </div>
+            <CardTitle>Jobs Management</CardTitle>
+            <CardDescription>Create, edit, and manage individual business card jobs</CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-sm text-gray-600 mb-4">
+              Upload artwork, set specifications, and track individual business card orders
+            </p>
+          </CardContent>
+          <CardFooter className="bg-gray-50 p-4 flex justify-center">
+            <Button asChild>
+              <Link to="/batchflow/batches/business-cards/jobs">Manage Jobs</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+
+        <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+          <CardHeader className="text-center">
+            <div className="flex justify-center">
+              <Layers className="h-8 w-8 mb-2 text-primary" />
+            </div>
+            <CardTitle>Batch Processing</CardTitle>
+            <CardDescription>Group jobs into efficient production batches</CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-sm text-gray-600 mb-4">
+              Organize multiple jobs by paper type, lamination, and production requirements
+            </p>
+          </CardContent>
+          <CardFooter className="bg-gray-50 p-4 flex justify-center">
+            <Button asChild>
+              <Link to="/batchflow/batches/business-cards/batches">View Batches</Link>
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
-      
-      <Tabs 
-        defaultValue="overview" 
-        className="w-full"
-        value={activeTab}
-        onValueChange={setActiveTab}
-      >
-        <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="jobs" onClick={() => navigate("/batches/business-cards/jobs")}>Jobs</TabsTrigger>
-          <TabsTrigger value="batches" onClick={() => navigate("/batches/business-cards/batches")}>Batches</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold mb-2">Pending Jobs</h3>
-              <div className="text-3xl font-bold">
-                {jobsLoading ? "..." : pendingJobs}
-              </div>
-              <p className="text-sm text-gray-500 mt-2">Unbatched jobs waiting for processing</p>
-              
-              <Button 
-                variant="outline" 
-                className="w-full mt-4"
-                onClick={() => {
-                  setActiveTab("jobs");
-                  navigate("/batches/business-cards/jobs");
-                }}
-              >
+
+      <div className="mt-12">
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Common business card management tasks</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center gap-4 pb-6">
+            <Button variant="outline" asChild>
+              <Link to="/batchflow/batches/business-cards/jobs" className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
                 View All Jobs
-              </Button>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold mb-2">Active Batches</h3>
-              <div className="text-3xl font-bold">
-                {batchesLoading ? "..." : activeBatches}
-              </div>
-              <p className="text-sm text-gray-500 mt-2">Batches currently in production</p>
-              
-              <Button 
-                variant="outline" 
-                className="w-full mt-4"
-                onClick={() => navigate("/batches/business-cards/batches")}
-              >
-                View All Batches
-              </Button>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold mb-2">Capacity</h3>
-              <div className="text-3xl font-bold">
-                {batchesLoading ? "..." : `${capacityPercentage}%`}
-              </div>
-              <p className="text-sm text-gray-500 mt-2">Current batch bucket capacity</p>
-              
-              <Button 
-                className="w-full mt-4"
-                onClick={() => navigate("/batches/business-cards/jobs/new")}
-              >
-                Add New Job
-              </Button>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold mb-4">Business Card Specifications</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Sheet Dimensions</h4>
-                <p>320mm × 455mm</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Card Dimensions</h4>
-                <p>90mm × 50mm</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Layout</h4>
-                <p>3 columns × 8 rows (24 cards per sheet)</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Paper Weight</h4>
-                <p>350gsm Matt</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Lamination Options</h4>
-                <p>Gloss, Matt, Soft Touch</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Target Batch Size</h4>
-                <p>250 sheets (6000 cards)</p>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="jobs">
-          <div className="flex items-center justify-center p-12 text-gray-500">
-            Navigate to the Jobs tab to view jobs
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="batches">
-          <div className="flex items-center justify-center p-12 text-gray-500">
-            Navigate to the Batches tab to view batches
-          </div>
-        </TabsContent>
-      </Tabs>
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/batchflow/batches/business-cards/jobs/new" className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Create New Job
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
