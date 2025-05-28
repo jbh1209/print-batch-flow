@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -171,7 +172,9 @@ export const useBusinessCardJobsList = () => {
 
   const filteredJobs = jobs.filter(job => {
     const statusMatch = filterView === 'all' || job.status === filterView;
-    const laminationMatch = laminationFilter === 'all' || job.lamination_type === laminationFilter;
+    // Fix the type error by ensuring proper type comparison
+    const laminationMatch = laminationFilter === 'all' || 
+      (typeof job.lamination_type === 'string' && job.lamination_type === laminationFilter);
     return statusMatch && laminationMatch;
   });
 

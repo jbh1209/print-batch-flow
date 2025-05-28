@@ -3,13 +3,17 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { FlyerJob, LaminationType } from "@/components/batches/types/FlyerTypes";
+import { useFlyerJobOperations } from "@/hooks/flyers/useFlyerJobOperations";
 
 export const useFlyerJobs = () => {
   const { user, isLoading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<FlyerJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Use the operations hook to get batch creation functionality
+  const { createBatchWithSelectedJobs, isCreatingBatch } = useFlyerJobOperations();
 
   const fetchJobs = useCallback(async () => {
     // Wait for auth to load before fetching
@@ -194,6 +198,24 @@ export const useFlyerJobs = () => {
     }
   };
 
+  // Wrapper for batch creation that matches the expected interface
+  const createBatch = async (
+    selectedJobs: FlyerJob[], 
+    batchProperties: {
+      paperType: string;
+      paperWeight: string;
+      laminationType: LaminationType;
+      printerType: string;
+      sheetSize: string;
+      slaTargetDays: number;
+    }
+  ) => {
+    const result = await createBatchWithSelectedJobs(selectedJobs, batchProperties);
+    // Refresh jobs after batch creation
+    await fetchJobs();
+    return result;
+  };
+
   return {
     jobs,
     isLoading,
@@ -204,6 +226,8 @@ export const useFlyerJobs = () => {
     deleteJob,
     getJobById,
     fixBatchedJobsWithoutBatch,
-    isFixingBatchedJobs: false
+    isFixingBatchedJobs: false,
+    createBatch,
+    isCreatingBatch
   };
 };
