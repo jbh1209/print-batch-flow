@@ -118,9 +118,9 @@ const FlyerBatchDetails = () => {
     relatedJobs: convertedJobs, 
     convertToBaseJobs
   }) : {
-    handleDownloadJobPdfs: () => {},
-    handleDownloadIndividualJobPdfs: () => {},
-    handleDownloadBatchOverviewSheet: () => {}
+    handleDownloadJobPdfs: async () => {},
+    handleDownloadIndividualJobPdfs: async () => {},
+    handleDownloadBatchOverviewSheet: async () => {}
   };
 
   if (isLoading || isLoadingJobs) {
