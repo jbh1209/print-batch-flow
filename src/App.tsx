@@ -67,6 +67,7 @@ import Layout from "./components/Layout";
 import BatchFlowLayout from "./components/BatchFlowLayout";
 import TrackerLayout from "./components/TrackerLayout";
 import { productConfigs } from "./config/productTypes";
+import FlyerBatchDetailsWrapper from "./pages/FlyerBatchDetailsWrapper";
 
 const queryClient = new QueryClient();
 
@@ -111,7 +112,7 @@ function App() {
                   <Route path="batches/flyers/jobs/edit/:id" element={<FlyerJobEdit />} />
                   <Route path="batches/flyers/jobs/:id" element={<FlyerJobDetail />} />
                   <Route path="batches/flyers/batches" element={<FlyerBatches />} />
-                  <Route path="batches/flyers/batches/:id" element={<FlyerBatchDetails />} />
+                  <Route path="batches/flyers/batches/:id" element={<FlyerBatchDetailsWrapper />} />
                   
                   {/* Postcards routes - Updated paths */}
                   <Route path="batches/postcards" element={<PostcardJobsPage />} />
@@ -187,7 +188,7 @@ function App() {
                   <Route path="flyers/jobs/edit/:id" element={<FlyerJobEdit />} />
                   <Route path="flyers/jobs/:id" element={<FlyerJobDetail />} />
                   <Route path="flyers/batches" element={<FlyerBatches />} />
-                  <Route path="flyers/batches/:id" element={<FlyerBatchDetails />} />
+                  <Route path="flyers/batches/:id" element={<FlyerBatchDetailsWrapper />} />
                   
                   {/* Other generic product legacy routes */}
                   <Route path="postcards" element={<PostcardJobsPage />} />
