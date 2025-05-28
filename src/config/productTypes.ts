@@ -1,3 +1,4 @@
+
 export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch' | 'front_gloss_lam' | 'front_matt_lam' | 'no_lam';
 export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
 export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
@@ -255,7 +256,6 @@ export const productConfigs: Record<string, ProductConfig> = {
     productType: "Covers",
     tableName: "cover_jobs",
     jobNumberPrefix: "COV",
-    availableSizes: ["A5", "A4"],
     availablePaperTypes: [
       "250gsm Gloss", 
       "250gsm Matt", 
@@ -267,9 +267,9 @@ export const productConfigs: Record<string, ProductConfig> = {
     availableLaminationTypes: ["none", "matt", "gloss"],
     availableUVVarnishTypes: ["none", "gloss"],
     availableSidesTypes: ["single", "double"],
-    hasSize: true,
+    hasSize: false,
     hasPaperType: true,
-    hasPaperWeight: false,
+    hasPaperWeight: true,
     hasLamination: true,
     hasUVVarnish: true,
     hasSides: true,
