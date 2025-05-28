@@ -11,25 +11,25 @@ const BatchFlowHome = () => {
       name: "Business Cards",
       icon: <CreditCard className="h-6 w-6 mb-2" />,
       description: "Manage business card batches and jobs",
-      link: "/batchflow/business-card-batches"
+      link: "/batchflow/batches/business-cards"
     },
     {
       name: "Postcards",
       icon: <Mail className="h-6 w-6 mb-2" />,
       description: "Create and manage postcard print batches",
-      link: "/batchflow/postcards/batches"
+      link: "/batchflow/batches/postcards"
     },
     {
       name: "Flyers",
       icon: <FileText className="h-6 w-6 mb-2" />,
       description: "Organize flyer production batches",
-      link: "/batchflow/flyer-batches"
+      link: "/batchflow/batches/flyers"
     },
     {
       name: "Product Boxes",
       icon: <Box className="h-6 w-6 mb-2" />,
       description: "Manage product box printing",
-      link: "/batchflow/boxes/batches"
+      link: "/batchflow/batches/boxes"
     }
   ];
 
@@ -53,7 +53,7 @@ const BatchFlowHome = () => {
               <Link to="/batchflow/batches">View All Batches</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link to="/batchflow/business-card-jobs/new">Create New Job</Link>
+              <Link to="/batchflow/batches/business-cards/jobs/new">Create New Job</Link>
             </Button>
           </div>
         </div>
