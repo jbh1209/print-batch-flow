@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -50,7 +51,7 @@ export const useBatchesList = () => {
       
       // Process batch data to determine product type from standardized batch name
       const processedBatches = data?.map(batch => {
-        // Extract product type from standardized batch name format: DXB-BC-00001
+        // Extract product type from standardized batch name format: DXB-XX-##### 
         let productType = "Unknown";
         if (batch.name) {
           // Regex to match DXB-XX-##### format
@@ -84,31 +85,30 @@ export const useBatchesList = () => {
   }, [user]);
 
   const getProductUrl = (productType: string) => {
-    // Convert spaces to dashes and make lowercase for proper URL format
-    const formattedType = productType.toLowerCase().replace(/ /g, '-');
+    // Convert product type to URL format and use proper batchflow prefix
     switch(productType) {
-      case "Business Cards": return "/batches/business-cards/batches";
-      case "Flyers": return "/batches/flyers/batches";
-      case "Postcards": return "/batches/postcards/batches";
-      case "Product Boxes": 
-      case "Boxes": return "/batches/boxes/batches";
-      case "Stickers": return "/batches/stickers/batches";
-      case "Covers": return "/batches/covers/batches";
-      case "Posters": return "/batches/posters/batches";
-      case "Sleeves": 
-      case "Shipper Box Sleeves": return "/batches/sleeves/batches";
-      default: return "/batches/all";
+      case "Business Cards": return "/batchflow/batches/business-cards/batches";
+      case "Flyers": return "/batchflow/batches/flyers/batches";
+      case "Postcards": return "/batchflow/batches/postcards/batches";
+      case "Boxes": return "/batchflow/batches/boxes/batches";
+      case "Stickers": return "/batchflow/batches/stickers/batches";
+      case "Covers": return "/batchflow/batches/covers/batches";
+      case "Posters": return "/batchflow/batches/posters/batches";
+      case "Sleeves": return "/batchflow/batches/sleeves/batches";
+      default: return "/batchflow/batches";
     }
   };
 
   const getBatchUrl = (batch: BatchSummary) => {
-    // Generate proper URLs for batch details
+    // Generate proper URLs for batch details using the batchflow prefix
     const productPath = getProductUrl(batch.product_type);
-    if (productPath === "/batches/all") {
-      return `/batches`;
+    if (productPath === "/batchflow/batches") {
+      return `/batchflow/batches`;
     }
     
-    // Use the direct path pattern for all batch types
+    console.log(`Generating batch URL: ${productPath}/${batch.id} for product type: ${batch.product_type}`);
+    
+    // Use the direct path pattern for all batch types with batchflow prefix
     return `${productPath}/${batch.id}`;
   };
 
