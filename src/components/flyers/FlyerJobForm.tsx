@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { ArrowLeft } from "lucide-react";
 import { useFileUpload } from "@/hooks/useFileUpload";
-import { FlyerJobFormFields } from "./components/form/FlyerJobFormFields";
+import { FlyerJobFormFields } from "./components/FlyerJobFormFields";
 import { useFlyerJobForm } from "./hooks/useFlyerJobForm";
 import { 
   flyerJobCreateSchema, 
@@ -79,7 +79,7 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
     console.log('Form submission data:', data);
     console.log('Selected file:', selectedFile);
     
-    // Ensure we only submit fields that exist in the database schema
+    // Ensure we only submit fields that exist in the database schema - NO SIDES FIELD
     const cleanedData = {
       name: data.name,
       job_number: data.job_number,

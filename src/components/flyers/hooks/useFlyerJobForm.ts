@@ -108,7 +108,7 @@ export const useFlyerJobForm = () => {
           pdf_url: pdfUrl,
           file_name: fileName,
           user_id: user.id,
-          status: 'queued'
+          status: 'queued' as const  // Fix the type issue by using 'as const'
         };
 
         console.log('Creating new flyer job with data:', insertData);

@@ -2,7 +2,13 @@
 import { useFormContext } from "react-hook-form";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { sizeOptions, paperTypeOptions, paperWeightOptions } from "../../schema/flyerJobFormSchema";
+
+// Import from flyerJobSchema to ensure consistency
+import { 
+  flyerSizeOptions, 
+  flyerPaperTypeOptions, 
+  flyerPaperWeightOptions 
+} from "../../schema/flyerJobSchema";
 
 export const PrintSpecificationsFields = () => {
   const { control } = useFormContext();
@@ -22,7 +28,7 @@ export const PrintSpecificationsFields = () => {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {sizeOptions.map((size) => (
+                {flyerSizeOptions.map((size) => (
                   <SelectItem key={size} value={size}>{size}</SelectItem>
                 ))}
               </SelectContent>
@@ -45,7 +51,7 @@ export const PrintSpecificationsFields = () => {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {paperTypeOptions.map((type) => (
+                {flyerPaperTypeOptions.map((type) => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
               </SelectContent>
@@ -68,7 +74,7 @@ export const PrintSpecificationsFields = () => {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {paperWeightOptions.map((weight) => (
+                {flyerPaperWeightOptions.map((weight) => (
                   <SelectItem key={weight} value={weight}>{weight}</SelectItem>
                 ))}
               </SelectContent>
