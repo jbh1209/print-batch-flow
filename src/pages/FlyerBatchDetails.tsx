@@ -22,6 +22,8 @@ const FlyerBatchDetails = () => {
   const [relatedJobs, setRelatedJobs] = useState<FlyerJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   
+  console.log('FlyerBatchDetails - batchId from params:', batchId);
+  
   const {
     batches,
     isLoading,
@@ -33,16 +35,24 @@ const FlyerBatchDetails = () => {
     fetchBatches
   } = useFlyerBatches(batchId);
 
+  console.log('FlyerBatchDetails - batches:', batches);
+  console.log('FlyerBatchDetails - isLoading:', isLoading);
+  console.log('FlyerBatchDetails - error:', error);
+
   const batch = batches[0];
 
   // Fetch related jobs for the current batch
   useEffect(() => {
     async function fetchRelatedJobs() {
-      if (!batchId) return;
+      if (!batchId) {
+        console.log('No batchId provided');
+        return;
+      }
       
       setIsLoadingJobs(true);
       
       try {
+        console.log('Fetching related jobs for batch:', batchId);
         const { data, error } = await supabase
           .from('flyer_jobs')
           .select('*')
@@ -50,6 +60,7 @@ const FlyerBatchDetails = () => {
           
         if (error) throw error;
         
+        console.log('Related jobs fetched:', data?.length || 0);
         setRelatedJobs(data || []);
       } catch (err) {
         console.error('Error fetching related jobs:', err);
@@ -124,12 +135,34 @@ const FlyerBatchDetails = () => {
   };
 
   if (isLoading || isLoadingJobs) {
+    console.log('Still loading...');
     return <FlyerBatchLoading />;
   }
 
+  if (error) {
+    console.log('Error occurred:', error);
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-red-600 mb-2">Error Loading Batch</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={fetchBatches}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!batch || !batchDetails) {
+    console.log('No batch found');
     return <EmptyBatchState />;
   }
+
+  console.log('Rendering batch details for:', batch.name);
 
   return (
     <div>

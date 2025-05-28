@@ -73,13 +73,14 @@ const generateFlyerBatchNumber = async (): Promise<string> => {
       });
       
       // Find the highest number and increment
-      nextNumber = Math.max(0, ...numbers) + 1;
+      const maxNumber = Math.max(0, ...numbers);
+      nextNumber = maxNumber + 1;
     }
     
     // Format with 5 digits padding starting from 00001
     const batchNumber = `DXB-FL-${nextNumber.toString().padStart(5, '0')}`;
     
-    console.log(`Generated flyer batch number: ${batchNumber}`);
+    console.log(`Generated flyer batch number: ${batchNumber} (next: ${nextNumber})`);
     return batchNumber;
   } catch (err) {
     console.error('Error generating flyer batch number:', err);

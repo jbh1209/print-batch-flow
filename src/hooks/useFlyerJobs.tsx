@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -215,7 +216,7 @@ export const useFlyerJobs = () => {
     }
 
     try {
-      console.log(`Creating flyer batch with ${selectedJobs.length} jobs using dedicated function`);
+      console.log(`Creating flyer batch with ${selectedJobs.length} jobs using dedicated flyer function`);
 
       // Use the dedicated flyer batch creation function which includes proper DXB-FL- numbering
       const result = await createBatchWithSelectedJobs(selectedJobs, batchProperties);

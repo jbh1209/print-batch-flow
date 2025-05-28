@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,11 +73,11 @@ export function useFlyerJobOperations() {
       const { data, error } = await supabase
         .from('batches')
         .select('name')
-        .ilike('DXB-FL-%', 'DXB-FL-%');
+        .ilike('name', 'DXB-FL-%');
       
       if (error) throw error;
       
-      // Extract numbers from existing batch names
+      // Extract numbers from existing batch names and find the highest
       let nextNumber = 1;
       if (data && data.length > 0) {
         const numbers = data.map(batch => {
@@ -87,16 +86,19 @@ export function useFlyerJobOperations() {
         });
         
         // Find the highest number and increment
-        nextNumber = Math.max(0, ...numbers) + 1;
+        const maxNumber = Math.max(0, ...numbers);
+        nextNumber = maxNumber + 1;
       }
       
-      // Format with 5 digits padding
+      // Format with 5 digits padding starting from 00001
       const batchNumber = `DXB-FL-${nextNumber.toString().padStart(5, '0')}`;
       
+      console.log(`Generated flyer batch number: ${batchNumber} (next number: ${nextNumber})`);
       return batchNumber;
     } catch (err) {
-      console.error('Error generating batch number:', err);
-      return `DXB-FL-${new Date().getTime().toString().substr(-5).padStart(5, '0')}`; // Fallback using timestamp
+      console.error('Error generating flyer batch number:', err);
+      // Fallback using timestamp
+      return `DXB-FL-${new Date().getTime().toString().substr(-5).padStart(5, '0')}`;
     }
   };
 
