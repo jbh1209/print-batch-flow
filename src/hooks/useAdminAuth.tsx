@@ -22,9 +22,9 @@ export const useAdminAuth = (): AdminAuthState => {
     try {
       console.log('🔍 Checking admin status with new clean function...');
       
-      // Use the new simplified is_admin function
+      // Use the new simplified is_admin function with correct parameter name
       const { data: isAdminData, error: isAdminError } = await supabase.rpc('is_admin', { 
-        check_user_id: user?.id || null 
+        _user_id: user?.id || null 
       });
       
       if (isAdminError) {
