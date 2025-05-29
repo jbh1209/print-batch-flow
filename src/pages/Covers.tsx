@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -244,11 +243,13 @@ const Covers = () => {
             <GenericBatchesList
               batches={batches}
               isLoading={batchesLoading}
-              config={config}
+              error={null}
+              productType={config.productType}
+              title="Cover Batches"
               onViewPDF={handleViewPDF}
               onDeleteBatch={handleDeleteBatch}
               onViewBatchDetails={handleViewBatchDetails}
-              setBatchToDelete={setBatchToDelete}
+              onSetBatchToDelete={setBatchToDelete}
               batchToDelete={batchToDelete}
               isDeleting={isDeleting}
             />
