@@ -20,9 +20,9 @@ export const useAdminAuth = (): AdminAuthState => {
 
   const checkAdminStatus = async (): Promise<{ isAdmin: boolean; adminExists: boolean }> => {
     try {
-      console.log('🔍 Checking admin status with new clean function...');
+      console.log('🔍 Checking admin status...');
       
-      // Use the new simplified is_admin function with correct parameter name
+      // Use the correct parameter name for is_admin function
       const { data: isAdminData, error: isAdminError } = await supabase.rpc('is_admin', { 
         _user_id: user?.id || null 
       });
