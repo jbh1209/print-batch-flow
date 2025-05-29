@@ -1075,6 +1075,10 @@ export type Database = {
         Args: { check_user_id: string }
         Returns: boolean
       }
+      check_user_is_admin: {
+        Args: { check_user_id?: string }
+        Returns: boolean
+      }
       get_admin_status: {
         Args: { check_user_id?: string }
         Returns: {
@@ -1141,6 +1145,10 @@ export type Database = {
       }
       is_admin_secure_fixed: {
         Args: { _user_id: string }
+        Returns: boolean
+      }
+      is_user_admin: {
+        Args: { check_user_id?: string }
         Returns: boolean
       }
       revoke_user_role: {
