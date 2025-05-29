@@ -20,9 +20,9 @@ export const useAdminAuth = (): AdminAuthState => {
 
   const checkAdminStatus = async (): Promise<{ isAdmin: boolean; adminExists: boolean }> => {
     try {
-      console.log('🔍 Checking admin status for user:', user?.id);
+      console.log('🔍 Checking admin status with new simple function...');
       
-      // Use the new comprehensive RPC function
+      // Use the new simplified admin status function
       const { data, error } = await supabase.rpc('get_admin_status', { 
         check_user_id: user?.id || null 
       });
@@ -46,7 +46,6 @@ export const useAdminAuth = (): AdminAuthState => {
   };
 
   const refreshAdminStatus = async () => {
-    // Don't proceed if auth is still loading
     if (authLoading) {
       console.log('⏳ Auth still loading, skipping admin status check');
       return;
@@ -61,7 +60,7 @@ export const useAdminAuth = (): AdminAuthState => {
       setIsAdmin(userIsAdmin);
       setAdminExists(anyAdminExists);
       
-      console.log('✅ Admin status updated:', { 
+      console.log('✅ Admin status updated successfully:', { 
         userIsAdmin, 
         anyAdminExists, 
         userId: user?.id 
@@ -76,11 +75,9 @@ export const useAdminAuth = (): AdminAuthState => {
     }
   };
 
-  // Load admin status when auth state changes
   useEffect(() => {
     if (!authLoading) {
       console.log('🔄 Auth loading complete, checking admin status');
-      // Small delay to ensure auth state is fully settled
       const timer = setTimeout(refreshAdminStatus, 100);
       return () => clearTimeout(timer);
     }
