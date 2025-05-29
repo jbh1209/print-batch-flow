@@ -22,7 +22,7 @@ export const useCategories = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('🔄 Fetching categories with new security policies...');
+      console.log('🔄 Fetching categories with updated RLS policies...');
 
       const { data, error: fetchError } = await supabase
         .from('categories')
@@ -48,7 +48,7 @@ export const useCategories = () => {
 
   const createCategory = async (categoryData: Omit<Category, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      console.log('🔄 Creating category with new security policies...');
+      console.log('🔄 Creating category with updated RLS policies...');
       
       const { error } = await supabase
         .from('categories')
@@ -72,7 +72,7 @@ export const useCategories = () => {
 
   const updateCategory = async (id: string, categoryData: Partial<Category>) => {
     try {
-      console.log('🔄 Updating category with new security policies...');
+      console.log('🔄 Updating category with updated RLS policies...');
       
       const { error } = await supabase
         .from('categories')
@@ -97,7 +97,7 @@ export const useCategories = () => {
 
   const deleteCategory = async (id: string) => {
     try {
-      console.log('🔄 Deleting category with new security policies...');
+      console.log('🔄 Deleting category with updated RLS policies...');
       
       const { error } = await supabase
         .from('categories')

@@ -20,24 +20,31 @@ export const useAdminAuth = (): AdminAuthState => {
 
   const checkAdminStatus = async (): Promise<{ isAdmin: boolean; adminExists: boolean }> => {
     try {
-      console.log('🔍 Checking admin status with new simple function...');
+      console.log('🔍 Checking admin status with new clean function...');
       
-      // Use the new simplified admin status function
-      const { data, error } = await supabase.rpc('get_admin_status', { 
+      // Use the new simplified is_admin function
+      const { data: isAdminData, error: isAdminError } = await supabase.rpc('is_admin', { 
         check_user_id: user?.id || null 
       });
       
-      if (error) {
-        console.error('❌ Admin status check failed:', error);
-        throw error;
+      if (isAdminError) {
+        console.error('❌ Admin check failed:', isAdminError);
+        throw isAdminError;
       }
       
-      const result = data?.[0] || { user_is_admin: false, any_admin_exists: false };
-      console.log('✅ Admin status result:', result);
+      // Check if any admin exists using the existing function
+      const { data: adminExistsData, error: adminExistsError } = await supabase.rpc('any_admin_exists');
+      
+      if (adminExistsError) {
+        console.error('❌ Admin exists check failed:', adminExistsError);
+        throw adminExistsError;
+      }
+      
+      console.log('✅ Admin status result:', { isAdmin: isAdminData, adminExists: adminExistsData });
       
       return {
-        isAdmin: result.user_is_admin,
-        adminExists: result.any_admin_exists
+        isAdmin: !!isAdminData,
+        adminExists: !!adminExistsData
       };
     } catch (error: any) {
       console.error('❌ Error in admin status check:', error);

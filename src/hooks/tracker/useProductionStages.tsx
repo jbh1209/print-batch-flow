@@ -23,7 +23,7 @@ export const useProductionStages = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('🔄 Fetching production stages with new security policies...');
+      console.log('🔄 Fetching production stages with updated RLS policies...');
 
       const { data, error: fetchError } = await supabase
         .from('production_stages')
@@ -49,7 +49,7 @@ export const useProductionStages = () => {
 
   const createStage = async (stageData: Omit<ProductionStage, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      console.log('🔄 Creating production stage with new security policies...');
+      console.log('🔄 Creating production stage with updated RLS policies...');
       
       const { error } = await supabase
         .from('production_stages')
@@ -73,7 +73,7 @@ export const useProductionStages = () => {
 
   const updateStage = async (id: string, stageData: Partial<ProductionStage>) => {
     try {
-      console.log('🔄 Updating production stage with new security policies...');
+      console.log('🔄 Updating production stage with updated RLS policies...');
       
       const { error } = await supabase
         .from('production_stages')
@@ -98,7 +98,7 @@ export const useProductionStages = () => {
 
   const deleteStage = async (id: string) => {
     try {
-      console.log('🔄 Deleting production stage with new security policies...');
+      console.log('🔄 Deleting production stage with updated RLS policies...');
       
       const { error } = await supabase
         .from('production_stages')
