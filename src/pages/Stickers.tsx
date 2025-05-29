@@ -8,7 +8,7 @@ import { productConfigs } from "@/config/productTypes";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
 import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 import GenericJobsTable from "@/components/generic/GenericJobsTable";
-import GenericBatchesList from "@/components/generic/GenericBatchesList";
+import { GenericBatchesList } from "@/components/generic/GenericBatchesList";
 import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';
 
 const Stickers = () => {
