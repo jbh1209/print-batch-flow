@@ -6,13 +6,38 @@ import { Button } from "@/components/ui/button";
 import { Image, Plus, ArrowLeft } from "lucide-react";
 import { productConfigs } from "@/config/productTypes";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
+import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
+import GenericJobsTable from "@/components/generic/GenericJobsTable";
+import GenericBatchesList from "@/components/generic/GenericBatchesList";
+import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';
 
 const Posters = () => {
   const navigate = useNavigate();
   const config = productConfigs["Posters"];
   const [activeTab, setActiveTab] = useState("overview");
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
+  const [selectedJobs, setSelectedJobs] = useState<any[]>([]);
   
-  const { jobs, isLoading: jobsLoading } = useGenericJobs(config);
+  const { 
+    jobs, 
+    isLoading: jobsLoading, 
+    deleteJob, 
+    createBatch, 
+    isCreatingBatch,
+    fixBatchedJobsWithoutBatch,
+    isFixingBatchedJobs
+  } = useGenericJobs(config);
+
+  const { 
+    batches, 
+    isLoading: batchesLoading, 
+    handleDeleteBatch, 
+    handleViewPDF, 
+    handleViewBatchDetails,
+    setBatchToDelete,
+    batchToDelete,
+    isDeleting
+  } = useGenericBatches(config);
   
   // Calculate basic stats
   const pendingJobsCount = jobs.filter(job => job.status === "queued").length;
@@ -22,6 +47,21 @@ const Posters = () => {
   const capacityPercentage = activeBatchesCount > 0 
     ? Math.min(Math.round((activeBatchesCount / 5) * 100), 100) 
     : 0;
+
+  const handleViewJob = (jobId: string) => {
+    if (config.routes.jobDetailPath) {
+      navigate(config.routes.jobDetailPath(jobId));
+    }
+  };
+
+  const handleCreateBatch = (jobs: any[]) => {
+    setSelectedJobs(jobs);
+    setIsBatchDialogOpen(true);
+  };
+
+  const handleBatchCreated = () => {
+    setIsBatchDialogOpen(false);
+  };
 
   return (
     <div>
@@ -144,24 +184,70 @@ const Posters = () => {
         </TabsContent>
         
         <TabsContent value="jobs">
-          <div className="flex items-center justify-center p-12 text-gray-500">
-            <Button 
-              onClick={() => navigate("/batches/posters/jobs")}
-              className="text-lg"
-            >
-              Go to Jobs Page
-            </Button>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Poster Jobs</h2>
+              <div className="flex space-x-2">
+                <Button onClick={() => handleCreateBatch(jobs.filter(job => job.status === 'queued'))}>
+                  <Image className="mr-2 h-4 w-4" />
+                  Batch Jobs
+                </Button>
+                <Button onClick={() => navigate(config.routes.newJobPath)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Job
+                </Button>
+              </div>
+            </div>
+
+            <GenericJobsTable
+              jobs={jobs}
+              isLoading={jobsLoading}
+              error={null}
+              deleteJob={deleteJob}
+              fetchJobs={async () => {}}
+              createBatch={createBatch}
+              isCreatingBatch={isCreatingBatch}
+              fixBatchedJobsWithoutBatch={async () => { 
+                await fixBatchedJobsWithoutBatch();
+              }}
+              isFixingBatchedJobs={isFixingBatchedJobs}
+              config={config}
+              onViewJob={handleViewJob}
+            />
+
+            <GenericBatchCreateDialog
+              config={config}
+              isOpen={isBatchDialogOpen}
+              onClose={() => setIsBatchDialogOpen(false)}
+              onSuccess={handleBatchCreated}
+              preSelectedJobs={selectedJobs}
+              createBatch={createBatch}
+              isCreatingBatch={isCreatingBatch}
+            />
           </div>
         </TabsContent>
         
         <TabsContent value="batches">
-          <div className="flex items-center justify-center p-12 text-gray-500">
-            <Button 
-              onClick={() => navigate("/batches/posters/batches")}
-              className="text-lg"
-            >
-              Go to Batches Page
-            </Button>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Poster Batches</h2>
+              <Button onClick={() => navigate(config.routes.newJobPath)}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Job
+              </Button>
+            </div>
+
+            <GenericBatchesList
+              batches={batches}
+              isLoading={batchesLoading}
+              config={config}
+              onViewPDF={handleViewPDF}
+              onDeleteBatch={handleDeleteBatch}
+              onViewBatchDetails={handleViewBatchDetails}
+              setBatchToDelete={setBatchToDelete}
+              batchToDelete={batchToDelete}
+              isDeleting={isDeleting}
+            />
           </div>
         </TabsContent>
       </Tabs>
