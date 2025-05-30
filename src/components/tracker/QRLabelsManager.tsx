@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QrCode, Download, Printer, FileText, Loader2 } from "lucide-react";
@@ -64,7 +64,7 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
   };
 
   return (
-    <Dialog open={selectedJobs.length > 0} onOpenChange={onClose}>
+    <Dialog open={selectedJobs.length > 0} onOpenChange={(open) => !open && onClose?.()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -88,11 +88,11 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Label Size:</span>
-                <span className="text-sm text-gray-600">100mm × 50mm</span>
+                <span className="text-sm text-gray-600">100mm × 50mm (1 per page)</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Format:</span>
-                <span className="text-sm text-gray-600">PDF (A4, 2×5 grid)</span>
+                <span className="text-sm text-gray-600">PDF ({selectedJobs.length} pages)</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Job Number Format:</span>
@@ -211,8 +211,8 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
               <div className="space-y-2">
                 <p className="text-sm font-medium text-blue-800">Printing Instructions</p>
                 <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• Labels are sized for 100mm × 50mm label stock</li>
-                  <li>• PDF contains 10 labels per A4 page (2×5 grid)</li>
+                  <li>• Labels are sized exactly 100mm × 50mm (1 per page)</li>
+                  <li>• PDF contains one label per page for easy printing</li>
                   <li>• Use your label printer's Windows driver</li>
                   <li>• Apply labels to paper job tickets for factory scanning</li>
                 </ul>
