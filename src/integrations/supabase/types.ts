@@ -259,6 +259,54 @@ export type Database = {
         }
         Relationships: []
       }
+      category_production_stages: {
+        Row: {
+          category_id: string
+          created_at: string
+          estimated_duration_hours: number | null
+          id: string
+          is_required: boolean
+          production_stage_id: string
+          stage_order: number
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          estimated_duration_hours?: number | null
+          id?: string
+          is_required?: boolean
+          production_stage_id: string
+          stage_order: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          estimated_duration_hours?: number | null
+          id?: string
+          is_required?: boolean
+          production_stage_id?: string
+          stage_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_production_stages_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "category_production_stages_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cover_jobs: {
         Row: {
           batch_id: string | null
@@ -385,6 +433,75 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_stage_instances: {
+        Row: {
+          category_id: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          job_id: string
+          job_table_name: string
+          notes: string | null
+          production_stage_id: string
+          qr_scan_data: Json | null
+          stage_order: number
+          started_at: string | null
+          started_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          job_table_name: string
+          notes?: string | null
+          production_stage_id: string
+          qr_scan_data?: Json | null
+          stage_order: number
+          started_at?: string | null
+          started_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          job_table_name?: string
+          notes?: string | null
+          production_stage_id?: string
+          qr_scan_data?: Json | null
+          stage_order?: number
+          started_at?: string | null
+          started_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_stage_instances_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
             referencedColumns: ["id"]
           },
         ]
@@ -730,6 +847,7 @@ export type Database = {
       production_jobs: {
         Row: {
           category: string | null
+          category_id: string | null
           created_at: string | null
           customer: string | null
           date: string | null
@@ -752,6 +870,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          category_id?: string | null
           created_at?: string | null
           customer?: string | null
           date?: string | null
@@ -774,6 +893,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          category_id?: string | null
           created_at?: string | null
           customer?: string | null
           date?: string | null
@@ -794,7 +914,15 @@ export type Database = {
           user_name?: string | null
           wo_no?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "production_jobs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       production_stages: {
         Row: {
@@ -1063,6 +1191,16 @@ export type Database = {
         Args: { admin_user_id: string }
         Returns: boolean
       }
+      advance_job_stage: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_current_stage_id: string
+          p_completed_by?: string
+          p_notes?: string
+        }
+        Returns: boolean
+      }
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -1135,9 +1273,21 @@ export type Database = {
           last_sign_in_at: string
         }[]
       }
+      get_next_active_stage: {
+        Args: { p_job_id: string; p_job_table_name: string }
+        Returns: string
+      }
       get_user_role_safe: {
         Args: { user_id_param: string }
         Returns: string
+      }
+      initialize_job_stages: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_category_id: string
+        }
+        Returns: boolean
       }
       is_admin: {
         Args: { _user_id: string }
