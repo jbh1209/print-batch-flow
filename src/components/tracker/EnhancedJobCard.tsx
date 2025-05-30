@@ -11,11 +11,13 @@ import {
   QrCode,
   Play,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Smartphone
 } from "lucide-react";
 import { useJobStageManagement } from "@/hooks/tracker/useJobStageManagement";
 import { JobStageProgress } from "./JobStageProgress";
 import { QRStageScanner } from "./QRStageScanner";
+import { QRCodeManager } from "./QRCodeManager";
 
 interface EnhancedJobCardProps {
   job: {
@@ -26,6 +28,8 @@ interface EnhancedJobCardProps {
     category_id?: string;
     due_date?: string;
     status: string;
+    qr_code_data?: string;
+    qr_code_url?: string;
   };
   jobTableName: string;
   onJobUpdate?: () => void;
@@ -91,9 +95,9 @@ export const EnhancedJobCard = ({
 
   const handleQRScanComplete = async (stageId: string, qrData: any, notes?: string) => {
     if (scannerMode === 'start') {
-      await handleStartStage(stageId);
+      await startStage(stageId, qrData);
     } else {
-      await handleCompleteStage(stageId, notes);
+      await completeStage(stageId, notes);
     }
   };
 
@@ -113,8 +117,16 @@ export const EnhancedJobCard = ({
       <Card className="w-full">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-lg">{job.wo_no}</CardTitle>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">{job.wo_no}</CardTitle>
+                {job.qr_code_url && (
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                    <QrCode className="h-3 w-3 mr-1" />
+                    QR Ready
+                  </Badge>
+                )}
+              </div>
               {job.customer && (
                 <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
                   <User className="h-3 w-3" />
@@ -122,21 +134,32 @@ export const EnhancedJobCard = ({
                 </div>
               )}
             </div>
-            <Badge variant="outline" className={getStatusColor(job.status)}>
-              {job.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={getStatusColor(job.status)}>
+                {job.status}
+              </Badge>
+            </div>
           </div>
           
-          <div className="flex items-center gap-4 text-sm text-gray-600">
-            {job.category && (
-              <span>{job.category}</span>
-            )}
-            {job.due_date && (
-              <div className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {formatDate(job.due_date)}
-              </div>
-            )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              {job.category && (
+                <span>{job.category}</span>
+              )}
+              {job.due_date && (
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {formatDate(job.due_date)}
+                </div>
+              )}
+            </div>
+            
+            {/* QR Code Manager */}
+            <QRCodeManager 
+              job={job} 
+              compact={true}
+              onQRCodeGenerated={onJobUpdate}
+            />
           </div>
         </CardHeader>
 
@@ -192,8 +215,14 @@ export const EnhancedJobCard = ({
                       <div className="font-medium text-blue-900">
                         Current: {currentStage.production_stage.name}
                       </div>
-                      <div className="text-sm text-blue-700">
+                      <div className="text-sm text-blue-700 flex items-center gap-1">
                         Stage {currentStage.stage_order} of {jobStages.length}
+                        {job.qr_code_url && (
+                          <span className="flex items-center gap-1 ml-2">
+                            <Smartphone className="h-3 w-3" />
+                            Scan Ready
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -202,17 +231,18 @@ export const EnhancedJobCard = ({
                         variant="outline"
                         onClick={() => handleQRScan(currentStage.id, 'complete')}
                         disabled={isProcessing}
+                        className="flex items-center gap-1"
                       >
-                        <QrCode className="h-3 w-3 mr-1" />
+                        <QrCode className="h-3 w-3" />
                         Scan
                       </Button>
                       <Button
                         size="sm"
                         onClick={() => handleCompleteStage(currentStage.id)}
                         disabled={isProcessing}
-                        className="bg-green-600 hover:bg-green-700"
+                        className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
                       >
-                        <CheckCircle className="h-3 w-3 mr-1" />
+                        <CheckCircle className="h-3 w-3" />
                         Complete
                       </Button>
                     </div>
@@ -230,6 +260,19 @@ export const EnhancedJobCard = ({
                 onQRScan={(stageId) => handleQRScan(stageId, 'start')}
                 isProcessing={isProcessing}
               />
+
+              {/* Mobile Workflow Info */}
+              {job.qr_code_url && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <Smartphone className="h-4 w-4" />
+                    <span className="text-sm font-medium">Mobile Workflow Ready</span>
+                  </div>
+                  <p className="text-xs text-green-700 mt-1">
+                    This job can be tracked using QR code scanning on mobile devices
+                  </p>
+                </div>
+              )}
             </>
           )}
         </CardContent>
