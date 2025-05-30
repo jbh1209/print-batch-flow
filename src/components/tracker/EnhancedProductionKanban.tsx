@@ -13,11 +13,11 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertTriangle, Play, Pause, CheckCircle } from "lucide-react";
+import { Loader2, AlertTriangle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
-import { useJobStageInstances } from "@/hooks/tracker/useJobStageInstances";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
+import { EnhancedJobCard } from "./EnhancedJobCard";
 
 interface JobWithStages {
   id: string;
@@ -37,89 +37,41 @@ interface JobWithStages {
   }>;
 }
 
-const JobStageCard = ({ job, onStageAction }: { job: JobWithStages; onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete') => void }) => {
-  const activeStage = job.stages.find(s => s.status === 'active');
-  const completedStages = job.stages.filter(s => s.status === 'completed').length;
-  const totalStages = job.stages.length;
-
+const EnhancedJobStageCard = ({ job, onJobUpdate }: { 
+  job: JobWithStages; 
+  onJobUpdate: () => void;
+}) => {
   return (
-    <Card className="mb-3">
-      <CardContent className="p-3">
-        <div className="flex items-start justify-between mb-2">
-          <div>
-            <h4 className="font-medium text-sm">{job.wo_no}</h4>
-            <p className="text-xs text-gray-600">{job.customer}</p>
-            {job.category && (
-              <Badge variant="outline" className="text-xs mt-1">
-                {job.category}
-              </Badge>
-            )}
-          </div>
-          <div className="text-xs text-gray-500">
-            {completedStages}/{totalStages}
-          </div>
-        </div>
-
-        {/* Stage Progress */}
-        <div className="space-y-1 mb-3">
-          {job.stages.map((stage) => (
-            <div
-              key={stage.id}
-              className={`flex items-center gap-2 p-1 rounded text-xs ${
-                stage.status === 'active' 
-                  ? 'bg-blue-100 text-blue-800' 
-                  : stage.status === 'completed'
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-500'
-              }`}
-            >
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: stage.stage_color }}
-              />
-              <span className="flex-1">{stage.stage_name}</span>
-              {stage.status === 'completed' && <CheckCircle className="h-3 w-3" />}
-              {stage.status === 'active' && <Play className="h-3 w-3" />}
-            </div>
-          ))}
-        </div>
-
-        {/* Action Button */}
-        {activeStage && (
-          <Button
-            size="sm"
-            className="w-full"
-            onClick={() => onStageAction(job.id, activeStage.production_stage_id, 'complete')}
-          >
-            Complete {activeStage.stage_name}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+    <div className="mb-3">
+      <EnhancedJobCard
+        job={{
+          id: job.id,
+          wo_no: job.wo_no,
+          customer: job.customer,
+          category: job.category,
+          category_id: job.category_id,
+          due_date: job.due_date,
+          status: job.status
+        }}
+        jobTableName="production_jobs"
+        onJobUpdate={onJobUpdate}
+      />
+    </div>
   );
 };
 
-const StageColumn = ({ stage, jobs, onStageAction }: { 
+const StageColumn = ({ stage, jobs, onJobUpdate }: { 
   stage: any; 
   jobs: JobWithStages[]; 
-  onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete') => void;
+  onJobUpdate: () => void;
 }) => {
-  // Filter jobs that have this stage
+  // Filter jobs that have stages matching this production stage
   const stageJobs = jobs.filter(job => 
-    job.stages.some(s => s.production_stage_id === stage.id)
-  );
-
-  // Further filter by stage status for this column
-  const activeJobs = stageJobs.filter(job => 
     job.stages.some(s => s.production_stage_id === stage.id && s.status === 'active')
   );
 
-  const pendingJobs = stageJobs.filter(job => 
-    job.stages.some(s => s.production_stage_id === stage.id && s.status === 'pending')
-  );
-
   return (
-    <div className="bg-gray-50 rounded-lg p-4 min-w-[300px]">
+    <div className="bg-gray-50 rounded-lg p-4 min-w-[350px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div
@@ -129,31 +81,20 @@ const StageColumn = ({ stage, jobs, onStageAction }: {
           <h3 className="font-medium">{stage.name}</h3>
         </div>
         <Badge variant="outline">
-          {activeJobs.length + pendingJobs.length}
+          {stageJobs.length}
         </Badge>
       </div>
 
       <div className="space-y-2 max-h-[600px] overflow-y-auto">
-        {/* Active Jobs */}
-        {activeJobs.map(job => (
-          <JobStageCard
-            key={`${job.id}-active`}
+        {stageJobs.map(job => (
+          <EnhancedJobStageCard
+            key={job.id}
             job={job}
-            onStageAction={onStageAction}
+            onJobUpdate={onJobUpdate}
           />
         ))}
 
-        {/* Pending Jobs */}
-        {pendingJobs.map(job => (
-          <div key={`${job.id}-pending`} className="opacity-60">
-            <JobStageCard
-              job={job}
-              onStageAction={onStageAction}
-            />
-          </div>
-        ))}
-
-        {activeJobs.length === 0 && pendingJobs.length === 0 && (
+        {stageJobs.length === 0 && (
           <div className="text-center py-8 text-gray-400 text-sm">
             No jobs in this stage
           </div>
@@ -164,19 +105,18 @@ const StageColumn = ({ stage, jobs, onStageAction }: {
 };
 
 export const EnhancedProductionKanban = () => {
-  const { jobs, isLoading, error } = useProductionJobs();
+  const { jobs, isLoading, error, fetchJobs } = useProductionJobs();
   const { stages } = useProductionStages();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Transform jobs to include stage information with proper type handling
+  // Transform jobs to include stage information
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
-    // For now, we'll simulate stage data since we need to integrate with the actual job stage instances
-    // In a real implementation, you'd fetch job_stage_instances for each job
     return jobs.map(job => ({
       ...job,
-      customer: job.customer || 'Unknown Customer', // Ensure customer is always a string
-      category: job.category || 'General', // Ensure category is always a string
-      due_date: job.due_date || undefined, // Keep due_date as optional
+      customer: job.customer || 'Unknown Customer',
+      category: job.category || 'General',
+      due_date: job.due_date || undefined,
+      // For now, simulate stage data - in real implementation, you'd fetch actual job_stage_instances
       stages: stages.slice(0, 3).map((stage, index) => ({
         id: `${job.id}-${stage.id}`,
         production_stage_id: stage.id,
@@ -188,17 +128,9 @@ export const EnhancedProductionKanban = () => {
     }));
   }, [jobs, stages]);
 
-  const handleStageAction = useCallback(async (jobId: string, stageId: string, action: 'start' | 'complete') => {
-    console.log(`${action} stage ${stageId} for job ${jobId}`);
-    
-    // Here you would call the advanceJobStage function
-    // const success = await advanceJobStage(stageId);
-    // if (success) {
-    //   toast.success(`Stage ${action}d successfully`);
-    // }
-    
-    toast.success(`Stage ${action}d successfully`);
-  }, []);
+  const handleJobUpdate = useCallback(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -235,8 +167,16 @@ export const EnhancedProductionKanban = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold">Enhanced Production Workflow</h2>
-        <p className="text-gray-600">Track jobs through multi-stage production workflows</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Enhanced Production Workflow</h2>
+            <p className="text-gray-600">Track jobs through multi-stage production workflows with QR scanning</p>
+          </div>
+          <Button variant="outline" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Configure Workflows
+          </Button>
+        </div>
         <div className="mt-2 text-sm text-gray-500">
           Total jobs: {jobsWithStages.length} | Active stages: {stages.filter(s => s.is_active).length}
         </div>
@@ -251,7 +191,7 @@ export const EnhancedProductionKanban = () => {
               key={stage.id}
               stage={stage}
               jobs={jobsWithStages}
-              onStageAction={handleStageAction}
+              onJobUpdate={handleJobUpdate}
             />
           ))}
       </div>

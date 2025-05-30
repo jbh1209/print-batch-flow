@@ -1,11 +1,15 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Workflow, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ProductionKanban } from "@/components/tracker/ProductionKanban";
+import { EnhancedProductionKanban } from "@/components/tracker/EnhancedProductionKanban";
 
 const TrackerKanban = () => {
+  const [activeTab, setActiveTab] = useState("enhanced");
+
   return (
     <div className="h-full flex flex-col">
       <div className="mb-6 flex-shrink-0">
@@ -17,13 +21,35 @@ const TrackerKanban = () => {
             </Link>
           </Button>
         </div>
-        <h1 className="text-3xl font-bold">Kanban Board</h1>
-        <p className="text-gray-600">Drag and drop jobs to update their status</p>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Production Kanban Board</h1>
+            <p className="text-gray-600">Manage jobs through production workflows</p>
+          </div>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <ProductionKanban />
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="enhanced" className="flex items-center gap-2">
+            <Workflow className="h-4 w-4" />
+            Enhanced Workflow
+          </TabsTrigger>
+          <TabsTrigger value="basic" className="flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4" />
+            Basic Kanban
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="enhanced" className="flex-1 overflow-hidden mt-4">
+          <EnhancedProductionKanban />
+        </TabsContent>
+
+        <TabsContent value="basic" className="flex-1 overflow-hidden mt-4">
+          <ProductionKanban />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
