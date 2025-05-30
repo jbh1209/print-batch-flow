@@ -98,6 +98,28 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
     }
   };
 
+  const handleWorkflowInitialize = async (job: any, categoryId: string) => {
+    try {
+      // Update job with category
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ 
+          category_id: categoryId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.id);
+
+      if (error) throw error;
+
+      toast.success('Workflow initialized successfully');
+      setWorkflowInitJob(null);
+      onJobUpdated();
+    } catch (err) {
+      console.error('Error initializing workflow:', err);
+      toast.error('Failed to initialize workflow');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     if (status === 'completed') return 'bg-green-100 text-green-800';
     if (status === 'in-progress') return 'bg-blue-100 text-blue-800';
@@ -316,7 +338,7 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
           job={workflowInitJob}
           categories={categories}
           onClose={() => setWorkflowInitJob(null)}
-          onWorkflowInitialized={onJobUpdated}
+          onInitialize={handleWorkflowInitialize}
         />
       )}
 
