@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { 
   Table, 
@@ -27,7 +28,8 @@ import {
   CheckCircle,
   Package,
   RefreshCw,
-  Smartphone
+  Smartphone,
+  Tags
 } from "lucide-react";
 import { JobEditModal } from "./JobEditModal";
 import { CategoryAssignModal } from "./CategoryAssignModal";
@@ -36,6 +38,7 @@ import { BulkJobOperations } from "./BulkJobOperations";
 import { JobSyncDialog } from "./JobSyncDialog";
 import { MobileJobActions } from "./MobileJobActions";
 import { QRCodeManager } from "../QRCodeManager";
+import { QRLabelsManager } from "../QRLabelsManager";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -60,6 +63,7 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
   const [workflowInitJob, setWorkflowInitJob] = useState<any>(null);
   const [syncingJob, setSyncingJob] = useState<any>(null);
   const [showBulkOperations, setShowBulkOperations] = useState(false);
+  const [showQRLabels, setShowQRLabels] = useState(false);
 
   const handleSelectJob = (job: any, selected: boolean) => {
     if (selected) {
@@ -126,6 +130,15 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
             >
               <Package className="h-4 w-4" />
               Bulk Operations
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowQRLabels(true)}
+              className="flex items-center gap-2"
+              variant="outline"
+            >
+              <Tags className="h-4 w-4" />
+              QR Labels ({selectedJobs.length})
             </Button>
             <Button
               size="sm"
@@ -303,10 +316,7 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
           job={workflowInitJob}
           categories={categories}
           onClose={() => setWorkflowInitJob(null)}
-          onInitialize={(job, categoryId) => {
-            // Handle workflow initialization
-            onJobUpdated();
-          }}
+          onWorkflowInitialized={onJobUpdated}
         />
       )}
 
@@ -326,6 +336,11 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
         onClose={() => setSyncingJob(null)}
         job={syncingJob}
         onJobUpdated={onJobUpdated}
+      />
+
+      <QRLabelsManager
+        selectedJobs={selectedJobs}
+        onClose={() => setShowQRLabels(false)}
       />
     </>
   );
