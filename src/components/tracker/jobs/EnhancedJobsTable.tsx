@@ -150,6 +150,8 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
                 </TableHead>
                 <TableHead>WO Number</TableHead>
                 <TableHead>Customer</TableHead>
+                <TableHead>Reference</TableHead>
+                <TableHead>Qty</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Current Stage</TableHead>
@@ -169,6 +171,8 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
                   </TableCell>
                   <TableCell className="font-medium">{job.wo_no}</TableCell>
                   <TableCell>{job.customer || 'No customer'}</TableCell>
+                  <TableCell>{job.reference || '-'}</TableCell>
+                  <TableCell>{job.qty || '-'}</TableCell>
                   <TableCell>
                     {job.category ? (
                       <Badge variant="outline">{job.category}</Badge>
