@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -175,6 +174,7 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
             <QRCodeManager 
               job={jobData} 
               onQRCodeGenerated={handleQRCodeGenerated}
+              compact={true}
             />
           </div>
         </div>

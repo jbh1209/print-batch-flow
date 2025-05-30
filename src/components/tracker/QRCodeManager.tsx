@@ -10,7 +10,7 @@ import { toast } from "sonner";
 interface QRCodeManagerProps {
   job: any;
   compact?: boolean;
-  onQRCodeGenerated?: () => void;
+  onQRCodeGenerated?: (qrData: string, qrUrl: string) => void;
 }
 
 export const QRCodeManager: React.FC<QRCodeManagerProps> = ({
@@ -41,6 +41,7 @@ export const QRCodeManager: React.FC<QRCodeManagerProps> = ({
         .from('production_jobs')
         .update({ 
           qr_code_url: qrCodeDataURL,
+          qr_code_data: qrData,
           updated_at: new Date().toISOString()
         })
         .eq('id', job.id);
@@ -51,7 +52,7 @@ export const QRCodeManager: React.FC<QRCodeManagerProps> = ({
       toast.success('QR code generated successfully');
       
       if (onQRCodeGenerated) {
-        onQRCodeGenerated();
+        onQRCodeGenerated(qrData, qrCodeDataURL);
       }
     } catch (error) {
       console.error('Error generating QR code:', error);
