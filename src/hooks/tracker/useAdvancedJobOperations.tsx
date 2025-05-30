@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -163,13 +162,7 @@ export const useAdvancedJobOperations = () => {
         .from('production_jobs')
         .select(`
           *,
-          category:categories(name, color),
-          job_stages:job_stage_instances(
-            status,
-            started_at,
-            completed_at,
-            production_stage:production_stages(name)
-          )
+          category:categories(name, color)
         `)
         .in('id', jobIds);
 
@@ -178,7 +171,7 @@ export const useAdvancedJobOperations = () => {
       // Create CSV content
       const csvHeaders = [
         'WO Number', 'Customer', 'Category', 'Status', 'Due Date', 
-        'Created Date', 'Current Stage', 'Progress'
+        'Created Date', 'Reference'
       ];
       
       const csvRows = jobs?.map(job => [
@@ -188,8 +181,7 @@ export const useAdvancedJobOperations = () => {
         job.status,
         job.due_date || '',
         new Date(job.created_at).toLocaleDateString(),
-        job.job_stages?.find(s => s.status === 'active')?.production_stage?.name || '',
-        `${job.job_stages?.filter(s => s.status === 'completed').length || 0}/${job.job_stages?.length || 0}`
+        job.reference || ''
       ]);
 
       const csvContent = [csvHeaders, ...(csvRows || [])].map(row => 

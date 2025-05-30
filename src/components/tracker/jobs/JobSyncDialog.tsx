@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   Dialog,
@@ -15,12 +14,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Sync, 
+  RefreshCw, 
   Upload, 
   FileText, 
   AlertCircle,
   CheckCircle,
-  RefreshCw
+  RotateCcw
 } from "lucide-react";
 import { useAdvancedJobOperations } from "@/hooks/tracker/useAdvancedJobOperations";
 import { toast } from "sonner";
@@ -130,7 +129,7 @@ export const JobSyncDialog: React.FC<JobSyncDialogProps> = ({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sync className="h-5 w-5 text-blue-600" />
+            <RefreshCw className="h-5 w-5 text-blue-600" />
             Sync Job Data
           </DialogTitle>
           <DialogDescription>

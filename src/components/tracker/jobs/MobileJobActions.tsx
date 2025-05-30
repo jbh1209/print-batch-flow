@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,7 @@ import {
   Share2,
   Edit,
   MoreVertical,
-  Sync
+  RefreshCw
 } from "lucide-react";
 import { useJobStageManagement } from "@/hooks/tracker/useJobStageManagement";
 import { useMobileQRScanner } from "@/hooks/tracker/useMobileQRScanner";
@@ -199,7 +198,7 @@ export const MobileJobActions: React.FC<MobileJobActionsProps> = ({
                 onClick={onSyncJob}
                 className="w-full flex items-center gap-2"
               >
-                <Sync className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
                 Sync Data
               </Button>
             </CardContent>

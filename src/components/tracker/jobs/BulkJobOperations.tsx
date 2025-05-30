@@ -20,7 +20,7 @@ import {
   Download, 
   Copy, 
   Archive, 
-  Sync,
+  RefreshCw,
   Calendar,
   Tag,
   Users

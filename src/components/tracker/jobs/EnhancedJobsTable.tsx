@@ -26,7 +26,7 @@ import {
   Play,
   CheckCircle,
   Package,
-  Sync,
+  RefreshCw,
   Smartphone
 } from "lucide-react";
 import { JobEditModal } from "./JobEditModal";
@@ -241,7 +241,7 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
                               Edit Job
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setSyncingJob(job)}>
-                              <Sync className="h-4 w-4 mr-2" />
+                              <RefreshCw className="h-4 w-4 mr-2" />
                               Sync Data
                             </DropdownMenuItem>
                             {!job.category_id && (
@@ -277,28 +277,34 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
       </div>
 
       {/* Modals */}
-      <JobEditModal
-        isOpen={!!editingJob}
-        onClose={() => setEditingJob(null)}
-        job={editingJob}
-        categories={categories}
-        onJobUpdated={onJobUpdated}
-      />
+      {editingJob && (
+        <JobEditModal
+          job={editingJob}
+          onClose={() => setEditingJob(null)}
+          onSave={onJobUpdated}
+        />
+      )}
 
-      <CategoryAssignModal
-        isOpen={!!categoryAssignJob}
-        onClose={() => setCategoryAssignJob(null)}
-        job={categoryAssignJob}
-        categories={categories}
-        onJobUpdated={onJobUpdated}
-      />
+      {categoryAssignJob && (
+        <CategoryAssignModal
+          job={categoryAssignJob}
+          categories={categories}
+          onClose={() => setCategoryAssignJob(null)}
+          onAssign={onJobUpdated}
+        />
+      )}
 
-      <WorkflowInitModal
-        isOpen={!!workflowInitJob}
-        onClose={() => setWorkflowInitJob(null)}
-        job={workflowInitJob}
-        onWorkflowInitialized={onJobUpdated}
-      />
+      {workflowInitJob && (
+        <WorkflowInitModal
+          job={workflowInitJob}
+          categories={categories}
+          onClose={() => setWorkflowInitJob(null)}
+          onInitialize={(job, categoryId) => {
+            // Handle workflow initialization
+            onJobUpdated();
+          }}
+        />
+      )}
 
       <BulkJobOperations
         isOpen={showBulkOperations}
