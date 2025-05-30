@@ -211,15 +211,15 @@ export const useWorkflowAnalytics = (dateRange?: { from: Date; to: Date }) => {
       const performanceData: CategoryPerformance[] = await Promise.all(
         (categoryData || []).map(async (category) => {
           // Get job stage instances for this category
-          const { data: stageInstances } = await supabase
+          const { data: categoryStageInstances } = await supabase
             .from('job_stage_instances')
             .select('*')
             .eq('category_id', category.id);
 
-          const totalJobs = new Set(stageInstances?.map(si => si.job_id) || []).size;
+          const totalJobs = new Set(categoryStageInstances?.map(si => si.job_id) || []).size;
           
           // Calculate category-level metrics
-          const completedStages = stageInstances?.filter(si => si.status === 'completed') || [];
+          const completedStages = categoryStageInstances?.filter(si => si.status === 'completed') || [];
           const avgCompletionTime = completedStages.length > 0
             ? completedStages
                 .filter(si => si.started_at && si.completed_at)
@@ -231,7 +231,7 @@ export const useWorkflowAnalytics = (dateRange?: { from: Date; to: Date }) => {
 
           // Calculate stage analytics for this category
           const stageAnalytics: StageAnalytics[] = category.category_production_stages.map(cps => {
-            const stageInstances = (stageInstances || []).filter(si => si.production_stage_id === cps.production_stage_id);
+            const stageInstances = (categoryStageInstances || []).filter(si => si.production_stage_id === cps.production_stage_id);
             const completedCount = stageInstances.filter(si => si.status === 'completed').length;
             const activeCount = stageInstances.filter(si => si.status === 'active').length;
             

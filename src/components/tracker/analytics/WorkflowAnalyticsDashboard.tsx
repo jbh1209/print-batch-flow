@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -391,7 +390,7 @@ export const WorkflowAnalyticsDashboard = () => {
                     {category.stages.slice(0, 3).map(stage => (
                       <div key={stage.stage_id} className="flex items-center justify-between text-xs">
                         <span>{stage.stage_name}</span>
-                        <Badge variant="outline" size="sm">
+                        <Badge variant="outline">
                           {stage.completion_rate.toFixed(0)}%
                         </Badge>
                       </div>
