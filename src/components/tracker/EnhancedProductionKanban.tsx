@@ -169,12 +169,14 @@ export const EnhancedProductionKanban = () => {
   const { stages } = useProductionStages();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Transform jobs to include stage information
+  // Transform jobs to include stage information with proper type handling
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
     // For now, we'll simulate stage data since we need to integrate with the actual job stage instances
     // In a real implementation, you'd fetch job_stage_instances for each job
     return jobs.map(job => ({
       ...job,
+      customer: job.customer || 'Unknown Customer', // Ensure customer is always a string
+      category: job.category || 'General', // Ensure category is always a string
       stages: stages.slice(0, 3).map((stage, index) => ({
         id: `${job.id}-${stage.id}`,
         production_stage_id: stage.id,

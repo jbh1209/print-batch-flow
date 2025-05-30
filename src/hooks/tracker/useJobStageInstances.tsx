@@ -62,7 +62,20 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       }
 
       console.log('✅ Job stage instances fetched successfully:', data?.length || 0);
-      setJobStages(data || []);
+      
+      // Type-safe mapping to ensure status is correctly typed
+      const typedData: JobStageInstance[] = (data || []).map(item => ({
+        ...item,
+        status: item.status as 'pending' | 'active' | 'completed' | 'skipped',
+        production_stage: item.production_stage as {
+          id: string;
+          name: string;
+          color: string;
+          description?: string;
+        }
+      }));
+      
+      setJobStages(typedData);
     } catch (err) {
       console.error('❌ Error fetching job stage instances:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load job stage instances";
