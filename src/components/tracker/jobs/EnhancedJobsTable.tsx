@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { JobSelectionControls } from "./JobSelectionControls";
 import { JobsTable } from "./JobsTable";
 import { JobEditModal } from "./JobEditModal";
@@ -34,21 +34,21 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
   const [showBulkOperations, setShowBulkOperations] = useState(false);
   const [showQRLabels, setShowQRLabels] = useState(false);
 
-  const handleSelectJob = (job: any, selected: boolean) => {
+  const handleSelectJob = useCallback((job: any, selected: boolean) => {
     if (selected) {
       setSelectedJobs(prev => [...prev, job]);
     } else {
       setSelectedJobs(prev => prev.filter(j => j.id !== job.id));
     }
-  };
+  }, []);
 
-  const handleSelectAll = (selected: boolean) => {
+  const handleSelectAll = useCallback((selected: boolean) => {
     if (selected) {
       setSelectedJobs(jobs);
     } else {
       setSelectedJobs([]);
     }
-  };
+  }, [jobs]);
 
   const handleDeleteJob = async (jobId: string) => {
     try {
@@ -61,6 +61,9 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
 
       toast.success('Job deleted successfully');
       onJobDeleted();
+      
+      // Clear selection if deleted job was selected
+      setSelectedJobs(prev => prev.filter(j => j.id !== jobId));
     } catch (err) {
       console.error('Error deleting job:', err);
       toast.error('Failed to delete job');
@@ -69,7 +72,6 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
 
   const handleWorkflowInitialize = async (job: any, categoryId: string) => {
     try {
-      // Update job with category
       const { error } = await supabase
         .from('production_jobs')
         .update({ 
@@ -88,6 +90,14 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
       toast.error('Failed to initialize workflow');
     }
   };
+
+  const handleModalClose = useCallback((modalSetter: (value: any) => void) => {
+    return () => {
+      modalSetter(null);
+      // Refresh jobs to ensure UI is in sync
+      onJobUpdated();
+    };
+  }, [onJobUpdated]);
 
   if (isLoading) {
     return <div className="text-center py-8">Loading jobs...</div>;
@@ -121,8 +131,11 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
       {editingJob && (
         <JobEditModal
           job={editingJob}
-          onClose={() => setEditingJob(null)}
-          onSave={onJobUpdated}
+          onClose={handleModalClose(setEditingJob)}
+          onSave={() => {
+            setEditingJob(null);
+            onJobUpdated();
+          }}
         />
       )}
 
@@ -130,8 +143,11 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
         <CategoryAssignModal
           job={categoryAssignJob}
           categories={categories}
-          onClose={() => setCategoryAssignJob(null)}
-          onAssign={onJobUpdated}
+          onClose={handleModalClose(setCategoryAssignJob)}
+          onAssign={() => {
+            setCategoryAssignJob(null);
+            onJobUpdated();
+          }}
         />
       )}
 
@@ -139,7 +155,7 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
         <WorkflowInitModal
           job={workflowInitJob}
           categories={categories}
-          onClose={() => setWorkflowInitJob(null)}
+          onClose={handleModalClose(setWorkflowInitJob)}
           onInitialize={handleWorkflowInitialize}
         />
       )}
@@ -162,10 +178,12 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
         onJobUpdated={onJobUpdated}
       />
 
-      <QRLabelsManager
-        selectedJobs={selectedJobs}
-        onClose={() => setShowQRLabels(false)}
-      />
+      {showQRLabels && (
+        <QRLabelsManager
+          selectedJobs={selectedJobs}
+          onClose={() => setShowQRLabels(false)}
+        />
+      )}
     </>
   );
 };

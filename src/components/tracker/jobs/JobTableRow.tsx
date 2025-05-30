@@ -4,7 +4,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Play } from "lucide-react";
+import { Play, QrCode } from "lucide-react";
 import { QRCodeManager } from "../QRCodeManager";
 import { JobTableActions } from "./JobTableActions";
 
@@ -95,11 +95,18 @@ export const JobTableRow: React.FC<JobTableRowProps> = ({
       </TableCell>
       <TableCell>{formatDate(job.due_date)}</TableCell>
       <TableCell>
-        <QRCodeManager 
-          job={job} 
-          compact={true}
-          onQRCodeGenerated={onJobUpdate}
-        />
+        <Button
+          size="sm"
+          variant="ghost"
+          className="p-1"
+          title="QR Code"
+        >
+          <QRCodeManager 
+            job={job} 
+            compact={true}
+            onQRCodeGenerated={onJobUpdate}
+          />
+        </Button>
       </TableCell>
       <TableCell>
         <JobTableActions
