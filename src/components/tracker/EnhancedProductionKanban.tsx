@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from "react";
 import {
   DndContext,
@@ -25,7 +24,7 @@ interface JobWithStages {
   wo_no: string;
   customer: string;
   category: string;
-  due_date: string;
+  due_date?: string; // Make optional to match ProductionJob type
   status: string;
   category_id?: string;
   stages: Array<{
@@ -177,6 +176,7 @@ export const EnhancedProductionKanban = () => {
       ...job,
       customer: job.customer || 'Unknown Customer', // Ensure customer is always a string
       category: job.category || 'General', // Ensure category is always a string
+      due_date: job.due_date || undefined, // Keep due_date as optional
       stages: stages.slice(0, 3).map((stage, index) => ({
         id: `${job.id}-${stage.id}`,
         production_stage_id: stage.id,
