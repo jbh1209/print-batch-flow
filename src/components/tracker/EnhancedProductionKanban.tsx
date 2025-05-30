@@ -1,15 +1,5 @@
+
 import React, { useState, useCallback } from "react";
-import {
-  DndContext,
-  DragEndEvent,
-  DragStartEvent,
-  closestCorners,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,7 +97,6 @@ const StageColumn = ({ stage, jobs, onJobUpdate }: {
 export const EnhancedProductionKanban = () => {
   const { jobs, isLoading, error, fetchJobs } = useProductionJobs();
   const { stages } = useProductionStages();
-  const [activeId, setActiveId] = useState<string | null>(null);
 
   // Transform jobs to include stage information
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
@@ -131,13 +120,6 @@ export const EnhancedProductionKanban = () => {
   const handleJobUpdate = useCallback(() => {
     fetchJobs();
   }, [fetchJobs]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   if (isLoading) {
     return (
