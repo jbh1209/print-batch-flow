@@ -91,13 +91,28 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
     }
   };
 
-  const handleModalClose = useCallback((modalSetter: (value: any) => void) => {
-    return () => {
-      modalSetter(null);
-      // Refresh jobs to ensure UI is in sync
-      onJobUpdated();
-    };
+  // Simplified modal close handlers
+  const handleEditModalClose = useCallback(() => {
+    setEditingJob(null);
+  }, []);
+
+  const handleEditModalSave = useCallback(() => {
+    setEditingJob(null);
+    onJobUpdated();
   }, [onJobUpdated]);
+
+  const handleCategoryAssignModalClose = useCallback(() => {
+    setCategoryAssignJob(null);
+  }, []);
+
+  const handleCategoryAssignModalSave = useCallback(() => {
+    setCategoryAssignJob(null);
+    onJobUpdated();
+  }, [onJobUpdated]);
+
+  const handleWorkflowInitModalClose = useCallback(() => {
+    setWorkflowInitJob(null);
+  }, []);
 
   if (isLoading) {
     return <div className="text-center py-8">Loading jobs...</div>;
@@ -131,11 +146,8 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
       {editingJob && (
         <JobEditModal
           job={editingJob}
-          onClose={handleModalClose(setEditingJob)}
-          onSave={() => {
-            setEditingJob(null);
-            onJobUpdated();
-          }}
+          onClose={handleEditModalClose}
+          onSave={handleEditModalSave}
         />
       )}
 
@@ -143,11 +155,8 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
         <CategoryAssignModal
           job={categoryAssignJob}
           categories={categories}
-          onClose={handleModalClose(setCategoryAssignJob)}
-          onAssign={() => {
-            setCategoryAssignJob(null);
-            onJobUpdated();
-          }}
+          onClose={handleCategoryAssignModalClose}
+          onAssign={handleCategoryAssignModalSave}
         />
       )}
 
@@ -155,7 +164,7 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
         <WorkflowInitModal
           job={workflowInitJob}
           categories={categories}
-          onClose={handleModalClose(setWorkflowInitJob)}
+          onClose={handleWorkflowInitModalClose}
           onInitialize={handleWorkflowInitialize}
         />
       )}
