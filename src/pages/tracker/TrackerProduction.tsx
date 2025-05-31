@@ -3,6 +3,7 @@ import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, Settings } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
+import { toast } from "sonner";
 import { DynamicProductionSidebar } from "@/components/tracker/production/DynamicProductionSidebar";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
@@ -14,7 +15,7 @@ interface TrackerProductionContext {
 
 const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
-  const { jobs, isLoading } = useEnhancedProductionJobs();
+  const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<any>({});
 
@@ -42,6 +43,32 @@ const TrackerProduction = () => {
 
   const handleFilterChange = (filters: any) => {
     setActiveFilters(filters);
+  };
+
+  const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => {
+    try {
+      console.log(`Stage action: ${action} for job ${jobId}, stage ${stageId}`);
+      
+      // Here you would implement the actual stage action logic
+      // For now, we'll just show a toast and refresh jobs
+      switch (action) {
+        case 'start':
+          toast.success('Stage started successfully');
+          break;
+        case 'complete':
+          toast.success('Stage completed successfully');
+          break;
+        case 'qr-scan':
+          toast.info('QR code scanned');
+          break;
+      }
+
+      // Refresh jobs to get updated stage data
+      refreshJobs();
+    } catch (error) {
+      console.error('Error performing stage action:', error);
+      toast.error('Failed to perform stage action');
+    }
   };
 
   return (
@@ -89,6 +116,7 @@ const TrackerProduction = () => {
             jobs={filteredJobs}
             selectedStage={activeFilters.stage}
             isLoading={isLoading}
+            onStageAction={handleStageAction}
           />
         </div>
       </div>
