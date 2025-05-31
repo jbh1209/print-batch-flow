@@ -39,12 +39,22 @@ const EnhancedJobStageCard = ({ job, onJobUpdate }: {
           wo_no: job.wo_no,
           customer: job.customer,
           category: job.category,
-          category_id: job.category_id,
           due_date: job.due_date,
           status: job.status
         }}
-        jobTableName="production_jobs"
-        onJobUpdate={onJobUpdate}
+        stages={job.stages.map(stage => ({
+          id: stage.id,
+          name: stage.stage_name,
+          status: stage.status === 'active' ? 'in-progress' : stage.status,
+          startTime: undefined,
+          endTime: undefined
+        }))}
+        onJobClick={(job) => {
+          console.log('Job clicked:', job);
+        }}
+        onStageClick={(jobId, stageId) => {
+          console.log('Stage clicked:', jobId, stageId);
+        }}
       />
     </div>
   );
