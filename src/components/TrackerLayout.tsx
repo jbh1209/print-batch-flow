@@ -44,7 +44,7 @@ const TrackerLayout = () => {
       'setup': '/tracker/admin'
     };
     
-    const route = tabRoutes[tab] || '/tracker';
+    const route = tabRoutes[tab] || '/tracker/jobs';
     navigate(route);
   };
 

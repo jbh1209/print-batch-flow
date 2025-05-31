@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, Upload, Users, QrCode } from "lucide-react";
-import { Link, useOutletContext } from "react-router-dom";
+import { Link, useOutletContext, useNavigate } from "react-router-dom";
 import { ResponsiveJobsTable } from "@/components/tracker/jobs/ResponsiveJobsTable";
 import { JobSelectionModal } from "@/components/tracker/jobs/JobSelectionModal";
 import { WorkflowInitializationModal } from "@/components/tracker/jobs/WorkflowInitializationModal";
@@ -18,6 +18,7 @@ interface TrackerJobsContext {
 
 const TrackerJobs = () => {
   const context = useOutletContext<TrackerJobsContext>();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const filters = context?.filters || {};
   
@@ -95,6 +96,22 @@ const TrackerJobs = () => {
     refreshJobs();
   };
 
+  const handleAddJob = () => {
+    // Navigate to job creation - could be improved to show a modal for selecting job type
+    navigate('/tracker/admin');
+    toast.info('Please use the Excel upload feature to add new jobs');
+  };
+
+  const handleQRScanner = () => {
+    if (isMobile) {
+      // Mobile QR scanner is already visible
+      toast.info('QR scanner is available in the header');
+    } else {
+      // Navigate to a dedicated QR scanner page or show modal
+      toast.info('QR scanner functionality - to be implemented');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header - Responsive */}
@@ -153,13 +170,22 @@ const TrackerJobs = () => {
             
             {/* Desktop QR Scanner */}
             {!isMobile && (
-              <Button variant="outline" size="sm" className="w-full sm:w-auto">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full sm:w-auto"
+                onClick={handleQRScanner}
+              >
                 <QrCode className="mr-2 h-4 w-4" />
                 QR Scanner
               </Button>
             )}
             
-            <Button size="sm" className="w-full sm:w-auto">
+            <Button 
+              size="sm" 
+              className="w-full sm:w-auto"
+              onClick={handleAddJob}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add Job
             </Button>

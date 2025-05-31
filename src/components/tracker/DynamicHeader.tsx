@@ -25,6 +25,14 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
     { id: "setup", label: "SETUP" }
   ];
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   return (
     <header className="bg-white border-b flex items-center justify-between px-6 py-3 h-16">
       <div className="flex items-center space-x-6">
@@ -38,7 +46,7 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
               <TabsTrigger 
                 key={tab.id} 
                 value={tab.id}
-                className="text-sm font-medium px-6 py-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+                className="text-sm font-medium px-6 py-2 data-[state=active]:bg-green-600 data-[state=active]:text-white cursor-pointer"
               >
                 {tab.label}
               </TabsTrigger>
@@ -54,7 +62,7 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
         <Button variant="ghost" size="icon">
           <HelpCircle size={20} />
         </Button>
-        <Button variant="ghost" size="icon" onClick={signOut}>
+        <Button variant="ghost" size="icon" onClick={handleSignOut}>
           <LogOut size={20} />
         </Button>
         <Button 

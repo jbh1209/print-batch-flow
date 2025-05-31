@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, Settings, QrCode, Users } from "lucide-react";
-import { Link, useOutletContext } from "react-router-dom";
+import { Link, useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
 import { JobSelectionModal } from "@/components/tracker/jobs/JobSelectionModal";
@@ -21,6 +21,7 @@ interface TrackerProductionContext {
 
 const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { 
     jobs, 
@@ -124,6 +125,20 @@ const TrackerProduction = () => {
     refreshJobs();
   };
 
+  const handleConfigureStages = () => {
+    navigate('/tracker/admin');
+  };
+
+  const handleQRScanner = () => {
+    if (isMobile) {
+      // Mobile QR scanner is already visible
+      toast.info('QR scanner is available in the header');
+    } else {
+      // Navigate to a dedicated QR scanner page or show modal
+      toast.info('QR scanner functionality - to be implemented');
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -154,7 +169,11 @@ const TrackerProduction = () => {
               />
             )}
             
-            <Button variant="outline" size={isMobile ? "sm" : "default"}>
+            <Button 
+              variant="outline" 
+              size={isMobile ? "sm" : "default"}
+              onClick={handleConfigureStages}
+            >
               <Settings className="mr-2 h-4 w-4" />
               {isMobile ? "" : "Configure Stages"}
             </Button>
@@ -175,7 +194,10 @@ const TrackerProduction = () => {
 
             {/* Desktop QR Scanner */}
             {!isMobile && (
-              <Button variant="outline">
+              <Button 
+                variant="outline"
+                onClick={handleQRScanner}
+              >
                 <QrCode className="mr-2 h-4 w-4" />
                 QR Scanner
               </Button>
