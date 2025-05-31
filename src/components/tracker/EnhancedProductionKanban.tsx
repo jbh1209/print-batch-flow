@@ -45,7 +45,9 @@ const EnhancedJobStageCard = ({ job, onJobUpdate }: {
         stages={job.stages.map(stage => ({
           id: stage.id,
           name: stage.stage_name,
-          status: stage.status === 'active' ? 'in-progress' : stage.status,
+          status: stage.status === 'active' ? 'in-progress' : 
+                  stage.status === 'skipped' ? 'on-hold' : 
+                  stage.status,
           startTime: undefined,
           endTime: undefined
         }))}
