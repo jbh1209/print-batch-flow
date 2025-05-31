@@ -1,23 +1,28 @@
 
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { 
-  Clock, 
-  User, 
   Calendar, 
-  QrCode,
-  Play,
+  User, 
+  Package, 
+  MapPin, 
+  Clock,
   CheckCircle,
-  AlertTriangle,
-  Smartphone
+  AlertCircle,
+  Play,
+  Pause
 } from "lucide-react";
-import { useJobStageManagement } from "@/hooks/tracker/useJobStageManagement";
-import { JobStageProgress } from "./JobStageProgress";
-import { QRStageScanner } from "./QRStageScanner";
-import { QRCodeManager } from "./QRCodeManager";
+
+interface JobStage {
+  id: string;
+  name: string;
+  status: 'pending' | 'in-progress' | 'completed' | 'on-hold';
+  startTime?: string;
+  endTime?: string;
+}
 
 interface EnhancedJobCardProps {
   job: {
@@ -25,267 +30,160 @@ interface EnhancedJobCardProps {
     wo_no: string;
     customer?: string;
     category?: string;
-    category_id?: string;
+    qty?: number;
     due_date?: string;
     status: string;
-    qr_code_data?: string;
-    qr_code_url?: string;
+    location?: string;
+    current_stage?: string;
   };
-  jobTableName: string;
-  onJobUpdate?: () => void;
+  stages?: JobStage[];
+  onJobClick?: (job: any) => void;
+  onStageClick?: (jobId: string, stageId: string) => void;
 }
 
-export const EnhancedJobCard = ({ 
-  job, 
-  jobTableName, 
-  onJobUpdate 
-}: EnhancedJobCardProps) => {
-  const [showQRScanner, setShowQRScanner] = useState(false);
-  const [scannerMode, setScannerMode] = useState<'start' | 'complete'>('start');
-  const [selectedStage, setSelectedStage] = useState<any>(null);
-
-  const {
-    jobStages,
-    isLoading,
-    error,
-    isProcessing,
-    initializeJobWorkflow,
-    startStage,
-    completeStage,
-    getCurrentStage,
-    getWorkflowProgress
-  } = useJobStageManagement({
-    jobId: job.id,
-    jobTableName,
-    categoryId: job.category_id
-  });
-
-  const currentStage = getCurrentStage();
-  const progress = getWorkflowProgress();
-
-  const handleInitializeWorkflow = async () => {
-    const success = await initializeJobWorkflow();
-    if (success && onJobUpdate) {
-      onJobUpdate();
+export const EnhancedJobCard: React.FC<EnhancedJobCardProps> = ({
+  job,
+  stages = [],
+  onJobClick,
+  onStageClick
+}) => {
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'in-progress':
+        return <Play className="h-4 w-4 text-blue-500" />;
+      case 'on-hold':
+        return <Pause className="h-4 w-4 text-yellow-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-400" />;
     }
   };
 
-  const handleStartStage = async (stageId: string) => {
-    const success = await startStage(stageId);
-    if (success && onJobUpdate) {
-      onJobUpdate();
+  const getStageStatus = (stage: JobStage) => {
+    switch (stage.status) {
+      case 'completed':
+        return 'bg-green-500';
+      case 'in-progress':
+        return 'bg-blue-500';
+      case 'on-hold':
+        return 'bg-yellow-500';
+      default:
+        return 'bg-gray-300';
     }
   };
 
-  const handleCompleteStage = async (stageId: string, notes?: string) => {
-    const success = await completeStage(stageId, notes);
-    if (success && onJobUpdate) {
-      onJobUpdate();
-    }
+  const calculateProgress = () => {
+    if (stages.length === 0) return 0;
+    const completedStages = stages.filter(stage => stage.status === 'completed').length;
+    return (completedStages / stages.length) * 100;
   };
 
-  const handleQRScan = (stageId: string, mode: 'start' | 'complete' = 'start') => {
-    const stage = jobStages.find(s => s.id === stageId);
-    if (stage) {
-      setSelectedStage(stage);
-      setScannerMode(mode);
-      setShowQRScanner(true);
-    }
-  };
-
-  const handleQRScanComplete = async (stageId: string, qrData: any, notes?: string) => {
-    if (scannerMode === 'start') {
-      await startStage(stageId, qrData);
-    } else {
-      await completeStage(stageId, notes);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    if (status === 'completed') return 'bg-green-100 text-green-800 border-green-200';
-    if (status === 'pending') return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    return 'bg-blue-100 text-blue-800 border-blue-200';
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'No due date';
-    return new Date(dateString).toLocaleDateString();
-  };
+  const isOverdue = job.due_date && new Date(job.due_date) < new Date();
+  const isDueSoon = job.due_date && !isOverdue && 
+    new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
   return (
-    <>
-      <Card className="w-full">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-lg">{job.wo_no}</CardTitle>
-                {job.qr_code_url && (
-                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
-                    <QrCode className="h-3 w-3 mr-1" />
-                    QR Ready
-                  </Badge>
-                )}
-              </div>
-              {job.customer && (
-                <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
-                  <User className="h-3 w-3" />
-                  {job.customer}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className={getStatusColor(job.status)}>
-                {job.status}
-              </Badge>
-            </div>
+    <Card 
+      className={`hover:shadow-md transition-shadow cursor-pointer ${
+        isOverdue ? 'border-red-400 bg-red-50' : 
+        isDueSoon ? 'border-orange-400 bg-orange-50' : 
+        'border-gray-200 bg-white'
+      }`}
+      onClick={() => onJobClick?.(job)}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="font-semibold text-lg">{job.wo_no}</h3>
+            {job.category && (
+              <Badge variant="outline" className="mt-1">{job.category}</Badge>
+            )}
           </div>
+          <div className="flex items-center gap-2">
+            {getStatusIcon(job.status)}
+            <Badge 
+              variant={job.status === 'completed' ? 'default' : 'secondary'}
+              className={job.status === 'completed' ? 'bg-green-500' : ''}
+            >
+              {job.status}
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 gap-2 text-sm">
+          {job.customer && (
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-gray-400" />
+              <span className="font-medium">{job.customer}</span>
+            </div>
+          )}
           
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              {job.category && (
-                <span>{job.category}</span>
-              )}
-              {job.due_date && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {formatDate(job.due_date)}
-                </div>
-              )}
+          {job.qty && (
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-gray-400" />
+              <span>Qty: {job.qty}</span>
+            </div>
+          )}
+
+          {job.due_date && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-gray-400" />
+              <span className={`${
+                isOverdue ? 'text-red-600 font-medium' : 
+                isDueSoon ? 'text-orange-600 font-medium' : 
+                'text-gray-600'
+              }`}>
+                Due: {new Date(job.due_date).toLocaleDateString()}
+              </span>
+            </div>
+          )}
+
+          {job.location && (
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-gray-400" />
+              <span>{job.location}</span>
+            </div>
+          )}
+        </div>
+
+        {stages.length > 0 && (
+          <div className="space-y-3 pt-3 border-t">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Production Progress</span>
+              <span className="text-sm text-gray-500">{Math.round(calculateProgress())}%</span>
             </div>
             
-            {/* QR Code Manager */}
-            <QRCodeManager 
-              job={job} 
-              compact={true}
-              onQRCodeGenerated={onJobUpdate}
-            />
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="text-sm">{error}</span>
-            </div>
-          )}
-
-          {isLoading ? (
-            <div className="text-center py-4 text-gray-500">
-              Loading workflow...
-            </div>
-          ) : jobStages.length === 0 ? (
-            <div className="text-center py-4 space-y-3">
-              <div className="text-gray-500">
-                {job.category_id ? 
-                  'No workflow initialized' : 
-                  'No category assigned'
-                }
-              </div>
-              {job.category_id && (
-                <Button
-                  onClick={handleInitializeWorkflow}
-                  disabled={isProcessing}
-                  className="flex items-center gap-2"
+            <Progress value={calculateProgress()} className="h-2" />
+            
+            <div className="space-y-2">
+              {stages.map((stage, index) => (
+                <div 
+                  key={stage.id}
+                  className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStageClick?.(job.id, stage.id);
+                  }}
                 >
-                  <Play className="h-4 w-4" />
-                  Initialize Workflow
-                </Button>
-              )}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${getStageStatus(stage)}`} />
+                    <span className="text-sm font-medium">{stage.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {stage.status === 'in-progress' && job.current_stage === stage.name && (
+                      <Badge variant="default" className="text-xs bg-blue-500">Current</Badge>
+                    )}
+                    {getStatusIcon(stage.status)}
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : (
-            <>
-              {/* Workflow Progress Summary */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">Workflow Progress</span>
-                  <span className="text-gray-600">
-                    {progress.completed}/{progress.total} stages
-                  </span>
-                </div>
-                <Progress value={progress.percentage} className="w-full" />
-              </div>
-
-              {/* Current Stage Info */}
-              {currentStage && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-blue-900">
-                        Current: {currentStage.production_stage.name}
-                      </div>
-                      <div className="text-sm text-blue-700 flex items-center gap-1">
-                        Stage {currentStage.stage_order} of {jobStages.length}
-                        {job.qr_code_url && (
-                          <span className="flex items-center gap-1 ml-2">
-                            <Smartphone className="h-3 w-3" />
-                            Scan Ready
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleQRScan(currentStage.id, 'complete')}
-                        disabled={isProcessing}
-                        className="flex items-center gap-1"
-                      >
-                        <QrCode className="h-3 w-3" />
-                        Scan
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleCompleteStage(currentStage.id)}
-                        disabled={isProcessing}
-                        className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
-                      >
-                        <CheckCircle className="h-3 w-3" />
-                        Complete
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Full Stage Progress */}
-              <JobStageProgress
-                jobStages={jobStages}
-                currentStage={currentStage}
-                progress={progress}
-                onStartStage={handleStartStage}
-                onCompleteStage={handleCompleteStage}
-                onQRScan={(stageId) => handleQRScan(stageId, 'start')}
-                isProcessing={isProcessing}
-              />
-
-              {/* Mobile Workflow Info */}
-              {job.qr_code_url && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-green-800">
-                    <Smartphone className="h-4 w-4" />
-                    <span className="text-sm font-medium">Mobile Workflow Ready</span>
-                  </div>
-                  <p className="text-xs text-green-700 mt-1">
-                    This job can be tracked using QR code scanning on mobile devices
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* QR Scanner Dialog */}
-      <QRStageScanner
-        isOpen={showQRScanner}
-        onClose={() => setShowQRScanner(false)}
-        onScan={handleQRScanComplete}
-        stage={selectedStage}
-        mode={scannerMode}
-      />
-    </>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
