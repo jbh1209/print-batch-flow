@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -64,6 +65,7 @@ import TrackerDashboard from "./pages/tracker/TrackerDashboard";
 import TrackerUpload from "./pages/tracker/TrackerUpload";
 import TrackerKanban from "./pages/tracker/TrackerKanban";
 import TrackerJobs from "./pages/tracker/TrackerJobs";
+import TrackerProduction from "./pages/tracker/TrackerProduction";
 import TrackerWorkSheets from "./pages/tracker/TrackerWorkSheets";
 import TrackerLabels from "./pages/tracker/TrackerLabels";
 import TrackerAdmin from "./pages/tracker/TrackerAdmin";
@@ -247,6 +249,7 @@ function App() {
                 }>
                   <Route index element={<TrackerDashboard />} />
                   <Route path="upload" element={<TrackerUpload />} />
+                  <Route path="production" element={<TrackerProduction />} />
                   <Route path="kanban" element={<TrackerKanban />} />
                   <Route path="jobs" element={<TrackerJobs />} />
                   <Route path="worksheets" element={<TrackerWorkSheets />} />
