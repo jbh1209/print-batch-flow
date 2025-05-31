@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { DynamicProductionSidebar } from "@/components/tracker/production/DynamicProductionSidebar";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
+import { useWorkflowInitialization } from "@/hooks/tracker/useWorkflowInitialization";
 
 interface TrackerProductionContext {
   activeTab: string;
@@ -15,7 +16,15 @@ interface TrackerProductionContext {
 
 const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
-  const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
+  const { 
+    jobs, 
+    isLoading, 
+    refreshJobs, 
+    startStage, 
+    completeStage, 
+    recordQRScan 
+  } = useEnhancedProductionJobs();
+  const { initializeWorkflow, isInitializing } = useWorkflowInitialization();
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<any>({});
 
@@ -49,26 +58,33 @@ const TrackerProduction = () => {
     try {
       console.log(`Stage action: ${action} for job ${jobId}, stage ${stageId}`);
       
-      // Here you would implement the actual stage action logic
-      // For now, we'll just show a toast and refresh jobs
+      let success = false;
+      
       switch (action) {
         case 'start':
-          toast.success('Stage started successfully');
+          success = await startStage(jobId, stageId);
           break;
         case 'complete':
-          toast.success('Stage completed successfully');
+          success = await completeStage(jobId, stageId);
           break;
         case 'qr-scan':
-          toast.info('QR code scanned');
+          success = await recordQRScan(jobId, stageId);
           break;
       }
 
-      // Refresh jobs to get updated stage data
-      refreshJobs();
+      if (success) {
+        // Refresh will happen automatically via the hook's real-time subscription
+      }
     } catch (error) {
       console.error('Error performing stage action:', error);
       toast.error('Failed to perform stage action');
     }
+  };
+
+  const handleInitializeWorkflow = async () => {
+    // This would typically be triggered from a job selection modal
+    // For now, we'll show a message about implementing the selection UI
+    toast.info('Workflow initialization will be available once job selection is implemented');
   };
 
   return (
@@ -95,9 +111,9 @@ const TrackerProduction = () => {
               <Settings className="mr-2 h-4 w-4" />
               Configure Stages
             </Button>
-            <Button>
+            <Button onClick={handleInitializeWorkflow} disabled={isInitializing}>
               <Plus className="mr-2 h-4 w-4" />
-              Initialize Workflow
+              {isInitializing ? 'Initializing...' : 'Initialize Workflow'}
             </Button>
           </div>
         </div>

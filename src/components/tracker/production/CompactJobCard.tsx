@@ -15,7 +15,8 @@ import {
   Clock,
   Play,
   CheckCircle,
-  MoreHorizontal
+  MoreHorizontal,
+  QrCode
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -23,7 +24,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { JobStageProgress } from "../JobStageProgress";
+
+interface JobStageInstance {
+  id: string;
+  production_stage_id: string;
+  stage_order: number;
+  status: 'pending' | 'active' | 'completed' | 'skipped';
+  started_at?: string;
+  completed_at?: string;
+  production_stage: {
+    id: string;
+    name: string;
+    color: string;
+  };
+}
 
 interface CompactJobCardProps {
   job: {
@@ -38,28 +52,21 @@ interface CompactJobCardProps {
     reference?: string;
     current_stage?: string;
     has_workflow?: boolean;
+    stages?: JobStageInstance[];
   };
-  stages?: Array<{
-    id: string;
-    production_stage: {
-      id: string;
-      name: string;
-      color: string;
-    };
-    stage_order: number;
-    status: 'pending' | 'active' | 'completed' | 'skipped';
-    started_at?: string;
-    completed_at?: string;
-  }>;
+  stages?: JobStageInstance[];
   onStageAction?: (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => void;
 }
 
 export const CompactJobCard: React.FC<CompactJobCardProps> = ({
   job,
-  stages = [],
+  stages,
   onStageAction
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Use stages from job data if available, otherwise use the stages prop
+  const jobStages = job.stages || stages || [];
   
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'No date';
@@ -82,12 +89,12 @@ export const CompactJobCard: React.FC<CompactJobCardProps> = ({
   };
 
   const calculateProgress = () => {
-    if (stages.length === 0) return { completed: 0, total: 0, percentage: 0 };
-    const completed = stages.filter(stage => stage.status === 'completed').length;
+    if (jobStages.length === 0) return { completed: 0, total: 0, percentage: 0 };
+    const completed = jobStages.filter(stage => stage.status === 'completed').length;
     return {
       completed,
-      total: stages.length,
-      percentage: (completed / stages.length) * 100
+      total: jobStages.length,
+      percentage: (completed / jobStages.length) * 100
     };
   };
 
@@ -95,6 +102,10 @@ export const CompactJobCard: React.FC<CompactJobCardProps> = ({
   const isOverdue = job.due_date && new Date(job.due_date) < new Date();
   const isDueSoon = job.due_date && !isOverdue && 
     new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+  const activeStage = jobStages.find(stage => stage.status === 'active');
+  const canStartStage = jobStages.find(stage => stage.status === 'pending');
+  const canCompleteStage = activeStage;
 
   const handleStageAction = (stageId: string, action: 'start' | 'complete' | 'qr-scan') => {
     onStageAction?.(job.id, stageId, action);
@@ -165,7 +176,7 @@ export const CompactJobCard: React.FC<CompactJobCardProps> = ({
                 </div>
 
                 {/* Progress Bar - Only if has workflow */}
-                {job.has_workflow && stages.length > 0 && (
+                {job.has_workflow && jobStages.length > 0 && (
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-500">Production Progress</span>
@@ -178,14 +189,50 @@ export const CompactJobCard: React.FC<CompactJobCardProps> = ({
 
               <div className="flex items-center gap-2 ml-3">
                 {/* Quick Action Buttons */}
-                {!isExpanded && (
+                {!isExpanded && job.has_workflow && (
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                      <Play className="h-3 w-3" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                      <CheckCircle className="h-3 w-3" />
-                    </Button>
+                    {canStartStage && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStageAction(canStartStage.id, 'start');
+                        }}
+                        title="Start next stage"
+                      >
+                        <Play className="h-3 w-3" />
+                      </Button>
+                    )}
+                    {canCompleteStage && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStageAction(canCompleteStage.id, 'complete');
+                        }}
+                        title="Complete current stage"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                      </Button>
+                    )}
+                    {activeStage && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStageAction(activeStage.id, 'qr-scan');
+                        }}
+                        title="Scan QR code"
+                      >
+                        <QrCode className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 )}
 
@@ -198,7 +245,9 @@ export const CompactJobCard: React.FC<CompactJobCardProps> = ({
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem>View Details</DropdownMenuItem>
                     <DropdownMenuItem>Edit Job</DropdownMenuItem>
-                    <DropdownMenuItem>Advance Stage</DropdownMenuItem>
+                    {!job.has_workflow && (
+                      <DropdownMenuItem>Initialize Workflow</DropdownMenuItem>
+                    )}
                     <DropdownMenuItem>Generate QR</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -237,17 +286,80 @@ export const CompactJobCard: React.FC<CompactJobCardProps> = ({
               </div>
 
               {/* Stage Progress - Expanded View */}
-              {job.has_workflow && stages.length > 0 && (
+              {job.has_workflow && jobStages.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-xs font-medium text-gray-700">Production Stages</h4>
-                  <JobStageProgress
-                    jobStages={stages}
-                    progress={progress}
-                    onStartStage={(stageId) => handleStageAction(stageId, 'start')}
-                    onCompleteStage={(stageId) => handleStageAction(stageId, 'complete')}
-                    onQRScan={(stageId) => handleStageAction(stageId, 'qr-scan')}
-                    isProcessing={false}
-                  />
+                  <div className="space-y-1">
+                    {jobStages.map((stage, index) => (
+                      <div 
+                        key={stage.id}
+                        className={`flex items-center justify-between p-2 rounded text-xs ${
+                          stage.status === 'completed' ? 'bg-green-50 border border-green-200' :
+                          stage.status === 'active' ? 'bg-blue-50 border border-blue-200' :
+                          'bg-gray-50 border border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-2 h-2 rounded-full flex-shrink-0" 
+                            style={{ backgroundColor: stage.production_stage.color }}
+                          />
+                          <span className="font-medium">{stage.production_stage.name}</span>
+                          {stage.status === 'completed' && stage.completed_at && (
+                            <span className="text-gray-500">
+                              ({formatDate(stage.completed_at)})
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          {stage.status === 'active' && (
+                            <>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleStageAction(stage.id, 'complete')}
+                                title="Complete stage"
+                              >
+                                <CheckCircle className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleStageAction(stage.id, 'qr-scan')}
+                                title="Scan QR"
+                              >
+                                <QrCode className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                          {stage.status === 'pending' && index === jobStages.findIndex(s => s.status === 'pending') && (
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-6 w-6 p-0"
+                              onClick={() => handleStageAction(stage.id, 'start')}
+                              title="Start stage"
+                            >
+                              <Play className="h-3 w-3" />
+                            </Button>
+                          )}
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              stage.status === 'completed' ? 'border-green-300 text-green-700' :
+                              stage.status === 'active' ? 'border-blue-300 text-blue-700' :
+                              'border-gray-300 text-gray-700'
+                            }`}
+                          >
+                            {stage.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
