@@ -30,7 +30,12 @@ const TrackerLayout = () => {
   useEffect(() => {
     const currentTab = routeToTab[location.pathname] || 'orders';
     setActiveTab(currentTab);
-  }, [location.pathname]);
+    
+    // Redirect /tracker to /tracker/jobs to show the orders page by default
+    if (location.pathname === '/tracker') {
+      navigate('/tracker/jobs', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
