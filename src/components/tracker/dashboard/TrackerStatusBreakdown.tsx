@@ -2,47 +2,31 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  BarChart3, 
-  FileSpreadsheet, 
-  TrendingUp,
-  Package,
-  CheckCircle,
-  Truck
-} from "lucide-react";
-
-const STATUSES = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
+import { Package } from "lucide-react";
 
 interface TrackerStatusBreakdownProps {
   stats: {
     total: number;
     statusCounts: Record<string, number>;
+    stages: Array<{ id: string; name: string; color: string }>;
   };
 }
 
 export const TrackerStatusBreakdown = ({ stats }: TrackerStatusBreakdownProps) => {
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Pre-Press": return <FileSpreadsheet className="h-4 w-4" />;
-      case "Printing": return <BarChart3 className="h-4 w-4" />;
-      case "Finishing": return <TrendingUp className="h-4 w-4" />;
-      case "Packaging": return <Package className="h-4 w-4" />;
-      case "Shipped": return <Truck className="h-4 w-4" />;
-      case "Completed": return <CheckCircle className="h-4 w-4" />;
-      default: return <Package className="h-4 w-4" />;
-    }
-  };
+  // Get all stages plus fallback statuses
+  const allStagesAndStatuses = [
+    { name: "Pre-Press", color: "#3B82F6" },
+    ...stats.stages.map(stage => ({ name: stage.name, color: stage.color }))
+  ];
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      "Pre-Press": "bg-blue-100 text-blue-800",
-      "Printing": "bg-yellow-100 text-yellow-800",
-      "Finishing": "bg-purple-100 text-purple-800", 
-      "Packaging": "bg-orange-100 text-orange-800",
-      "Shipped": "bg-green-100 text-green-800",
-      "Completed": "bg-gray-100 text-gray-800"
-    };
-    return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
+  // Remove duplicates
+  const uniqueStagesAndStatuses = allStagesAndStatuses.filter((item, index, self) => 
+    index === self.findIndex(t => t.name === item.name)
+  );
+
+  const getStatusColor = (color: string) => {
+    // Convert hex color to Tailwind-like classes
+    return `bg-blue-100 text-blue-800 border-blue-200`;
   };
 
   return (
@@ -53,14 +37,17 @@ export const TrackerStatusBreakdown = ({ stats }: TrackerStatusBreakdownProps) =
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {STATUSES.map(status => {
-            const count = stats.statusCounts[status] || 0;
+          {uniqueStagesAndStatuses.map(item => {
+            const count = stats.statusCounts[item.name] || 0;
             return (
-              <div key={status} className="text-center">
-                <Badge className={`mb-2 ${getStatusColor(status)}`}>
+              <div key={item.name} className="text-center">
+                <Badge 
+                  className={`mb-2 ${getStatusColor(item.color)} border`}
+                  style={{ backgroundColor: `${item.color}20`, color: item.color, borderColor: `${item.color}40` }}
+                >
                   <span className="flex items-center gap-1">
-                    {getStatusIcon(status)}
-                    {status}
+                    <Package className="h-3 w-3" />
+                    {item.name}
                   </span>
                 </Badge>
                 <div className="text-2xl font-bold">{count}</div>

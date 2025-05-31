@@ -6,22 +6,15 @@ import { Package, Clock, CheckCircle, FileSpreadsheet } from "lucide-react";
 interface TrackerOverviewStatsProps {
   stats: {
     total: number;
+    inProgress: number;
+    completed: number;
+    prePress: number;
     statusCounts: Record<string, number>;
+    stages: Array<{ id: string; name: string; color: string }>;
   };
 }
 
 export const TrackerOverviewStats = ({ stats }: TrackerOverviewStatsProps) => {
-  const inProgressCount = 
-    (stats.statusCounts["Printing"] || 0) + 
-    (stats.statusCounts["Finishing"] || 0) + 
-    (stats.statusCounts["Packaging"] || 0);
-
-  const completedCount = 
-    (stats.statusCounts["Completed"] || 0) + 
-    (stats.statusCounts["Shipped"] || 0);
-
-  const prePressCount = stats.statusCounts["Pre-Press"] || 0;
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
       <Card>
@@ -41,7 +34,7 @@ export const TrackerOverviewStats = ({ stats }: TrackerOverviewStatsProps) => {
           <Clock className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{inProgressCount}</div>
+          <div className="text-2xl font-bold">{stats.inProgress}</div>
           <p className="text-xs text-muted-foreground">Jobs being processed</p>
         </CardContent>
       </Card>
@@ -52,7 +45,7 @@ export const TrackerOverviewStats = ({ stats }: TrackerOverviewStatsProps) => {
           <CheckCircle className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{completedCount}</div>
+          <div className="text-2xl font-bold">{stats.completed}</div>
           <p className="text-xs text-muted-foreground">Finished jobs</p>
         </CardContent>
       </Card>
@@ -63,7 +56,7 @@ export const TrackerOverviewStats = ({ stats }: TrackerOverviewStatsProps) => {
           <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{prePressCount}</div>
+          <div className="text-2xl font-bold">{stats.prePress}</div>
           <p className="text-xs text-muted-foreground">Awaiting processing</p>
         </CardContent>
       </Card>
