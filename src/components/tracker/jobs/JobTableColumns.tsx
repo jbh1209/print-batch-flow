@@ -14,14 +14,17 @@ export const JobTableColumns: React.FC<JobTableColumnsProps> = ({
   totalCount,
   onSelectAll
 }) => {
+  const isAllSelected = selectedCount === totalCount && totalCount > 0;
+  const isPartiallySelected = selectedCount > 0 && selectedCount < totalCount;
+
   return (
     <TableHeader>
       <TableRow className="border-b">
         <TableHead className="w-12 px-2">
           <Checkbox
-            checked={selectedCount === totalCount && totalCount > 0}
-            indeterminate={selectedCount > 0 && selectedCount < totalCount}
+            checked={isAllSelected}
             onCheckedChange={onSelectAll}
+            className={isPartiallySelected ? "opacity-50" : ""}
           />
         </TableHead>
         <TableHead className="min-w-[120px] font-medium">WO Number</TableHead>
