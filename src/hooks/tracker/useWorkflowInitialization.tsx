@@ -25,11 +25,12 @@ export const useWorkflowInitialization = () => {
         return true;
       }
 
-      // Get production stages for the category
+      // Get production stages for the category using the correct table relationship
       const { data: categoryStages, error: stagesError } = await supabase
-        .from('category_stages')
+        .from('category_production_stages')
         .select(`
           stage_order,
+          estimated_duration_hours,
           production_stage:production_stages(
             id,
             name,
@@ -37,7 +38,7 @@ export const useWorkflowInitialization = () => {
           )
         `)
         .eq('category_id', categoryId)
-        .eq('is_active', true)
+        .eq('is_required', true)
         .order('stage_order');
 
       if (stagesError) throw stagesError;
