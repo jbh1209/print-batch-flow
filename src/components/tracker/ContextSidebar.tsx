@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,79 +146,22 @@ export const ContextSidebar: React.FC<ContextSidebarProps> = ({
     </div>
   );
 
+  // For production tab, we don't need the sidebar since we have the dynamic one
   const renderProductionContent = () => (
     <div className="space-y-6">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Production Stages
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {[
-            { id: 'pre-press', label: 'Pre-Press', count: 5, color: '#8B5CF6' },
-            { id: 'printing', label: 'Printing', count: 3, color: '#3B82F6' },
-            { id: 'finishing', label: 'Finishing', count: 7, color: '#10B981' },
-            { id: 'quality', label: 'Quality Check', count: 2, color: '#F59E0B' },
-            { id: 'packaging', label: 'Packaging', count: 4, color: '#EF4444' }
-          ].map(stage => (
-            <Button 
-              key={stage.id}
-              variant={selectedFilters.includes(stage.id) ? "default" : "ghost"} 
-              size="sm" 
-              className="w-full justify-start"
-              onClick={() => handleFilterToggle(stage.id)}
-            >
-              <div 
-                className="w-3 h-3 rounded-full mr-2" 
-                style={{ backgroundColor: stage.color }}
-              />
-              {stage.label}
-              <Badge variant="secondary" className="ml-auto">{stage.count}</Badge>
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Equipment Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {[
-            { name: 'Press 1', status: 'Active', color: 'bg-green-500' },
-            { name: 'Press 2', status: 'Idle', color: 'bg-gray-400' },
-            { name: 'Cutter A', status: 'Active', color: 'bg-green-500' },
-            { name: 'Laminator', status: 'Maintenance', color: 'bg-red-500' },
-            { name: 'Folder', status: 'Active', color: 'bg-green-500' }
-          ].map((equipment, index) => (
-            <div key={index} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50">
-              <span className="text-sm font-medium">{equipment.name}</span>
-              <Badge className={`text-white ${equipment.color}`}>
-                {equipment.status}
-              </Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Production Analytics</CardTitle>
+          <CardTitle className="text-sm">Production Tools</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <Button variant="outline" size="sm" className="w-full justify-start">
-            Workflow Efficiency
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Bottleneck Analysis
+            Workflow Analytics
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start">
             Stage Timing Report
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start">
+            Bottleneck Analysis
           </Button>
         </CardContent>
       </Card>
