@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, Settings, QrCode, Users } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
-import { DynamicProductionSidebar } from "@/components/tracker/production/DynamicProductionSidebar";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
 import { JobSelectionModal } from "@/components/tracker/jobs/JobSelectionModal";
 import { WorkflowInitializationModal } from "@/components/tracker/jobs/WorkflowInitializationModal";
@@ -15,6 +14,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 interface TrackerProductionContext {
   activeTab: string;
   filters: any;
+  selectedStageId?: string;
+  onStageSelect?: (stageId: string | null) => void;
+  onFilterChange?: (filters: any) => void;
 }
 
 const TrackerProduction = () => {
@@ -29,41 +31,38 @@ const TrackerProduction = () => {
     recordQRScan 
   } = useEnhancedProductionJobs();
   
-  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<any>({});
   const [isJobSelectionOpen, setIsJobSelectionOpen] = useState(false);
   const [isWorkflowInitOpen, setIsWorkflowInitOpen] = useState(false);
   const [selectedJobs, setSelectedJobs] = useState<any[]>([]);
 
+  // Use context filters or local filters
+  const currentFilters = context?.filters || activeFilters;
+  const selectedStageId = context?.selectedStageId;
+
   // Filter jobs based on selected stage or other filters
   const filteredJobs = useMemo(() => {
     let filtered = jobs;
 
-    if (activeFilters.stage) {
-      filtered = filtered.filter(job => job.current_stage === activeFilters.stage);
-    } else if (activeFilters.status) {
+    if (currentFilters.stage) {
+      filtered = filtered.filter(job => job.current_stage === currentFilters.stage);
+    } else if (currentFilters.status) {
       filtered = filtered.filter(job => 
-        job.status?.toLowerCase() === activeFilters.status.toLowerCase()
+        job.status?.toLowerCase() === currentFilters.status.toLowerCase()
       );
     }
 
     return filtered;
-  }, [jobs, activeFilters]);
+  }, [jobs, currentFilters]);
 
   // Get jobs without workflow for bulk initialization
   const jobsWithoutWorkflow = useMemo(() => {
     return jobs.filter(job => !job.has_workflow);
   }, [jobs]);
 
-  const handleStageSelect = (stageId: string | null) => {
-    setSelectedStageId(stageId);
-    if (!stageId) {
-      setActiveFilters({});
-    }
-  };
-
   const handleFilterChange = (filters: any) => {
     setActiveFilters(filters);
+    context?.onFilterChange?.(filters);
   };
 
   const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => {
@@ -211,18 +210,12 @@ const TrackerProduction = () => {
         </div>
       </div>
 
-      {/* Main Content with Sidebar */}
-      <div className="flex-1 flex overflow-hidden">
-        <DynamicProductionSidebar
-          selectedStageId={selectedStageId}
-          onStageSelect={handleStageSelect}
-          onFilterChange={handleFilterChange}
-        />
-        
-        <div className="flex-1 overflow-auto bg-white">
+      {/* Main Content - Now takes full width */}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full overflow-auto bg-white rounded-lg border">
           <FilteredJobsView
             jobs={filteredJobs}
-            selectedStage={activeFilters.stage}
+            selectedStage={currentFilters.stage}
             isLoading={isLoading}
             onStageAction={handleStageAction}
           />
