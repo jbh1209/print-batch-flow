@@ -68,6 +68,37 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
   const isDueSoon = job.due_date && !isOverdue && 
     new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onEditJob(job);
+  };
+
+  const handleCategoryAssignClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCategoryAssign(job);
+  };
+
+  const handleWorkflowInitClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onWorkflowInit(job);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDeleteJob(job.id);
+  };
+
+  const handleQRCodeClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('QR Code action for job:', job.id);
+    // TODO: Implement QR code functionality
+  };
+
   return (
     <TableRow className={`
       ${isOverdue ? 'bg-red-50 border-red-100' : ''}
@@ -96,7 +127,7 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => onCategoryAssign(job)}
+            onClick={handleCategoryAssignClick}
             className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
           >
             Assign
@@ -127,7 +158,7 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => onWorkflowInit(job)}
+            onClick={handleWorkflowInitClick}
             className="h-6 px-2 text-xs text-green-600 hover:text-green-700"
           >
             <Play className="h-3 w-3 mr-1" />
@@ -137,38 +168,45 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
       </TableCell>
       
       <TableCell>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
               <MoreHorizontal className="h-3 w-3" />
+              <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-white border shadow-lg z-50">
+          <DropdownMenuContent align="end" className="w-48" sideOffset={5}>
             <DropdownMenuLabel className="text-xs">Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onEditJob(job)} className="text-xs">
+            
+            <DropdownMenuItem onClick={handleEditClick} className="text-xs cursor-pointer">
               <Edit className="h-3 w-3 mr-2" />
               Edit Job
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs">
+            
+            <DropdownMenuItem onClick={handleQRCodeClick} className="text-xs cursor-pointer">
               <QrCode className="h-3 w-3 mr-2" />
               QR Code
             </DropdownMenuItem>
+            
             {!job.category && (
-              <DropdownMenuItem onClick={() => onCategoryAssign(job)} className="text-xs">
+              <DropdownMenuItem onClick={handleCategoryAssignClick} className="text-xs cursor-pointer">
                 <FolderOpen className="h-3 w-3 mr-2" />
                 Assign Category
               </DropdownMenuItem>
             )}
-            {!job.has_workflow && (
-              <DropdownMenuItem onClick={() => onWorkflowInit(job)} className="text-xs">
+            
+            {!job.has_workflow && job.category && (
+              <DropdownMenuItem onClick={handleWorkflowInitClick} className="text-xs cursor-pointer">
                 <Play className="h-3 w-3 mr-2" />
                 Initialize Workflow
               </DropdownMenuItem>
             )}
+            
             <DropdownMenuSeparator />
+            
             <DropdownMenuItem 
-              onClick={() => onDeleteJob(job.id)} 
-              className="text-xs text-red-600 hover:text-red-700"
+              onClick={handleDeleteClick} 
+              className="text-xs text-red-600 hover:text-red-700 cursor-pointer"
             >
               <Trash2 className="h-3 w-3 mr-2" />
               Delete
