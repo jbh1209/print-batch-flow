@@ -140,48 +140,10 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
     }
   };
 
-  const handleCategoryAssignSave = async (categoryId: string) => {
-    try {
-      if (selectedJobs.length > 1) {
-        // Bulk assignment
-        const updates = selectedJobs.map(job => ({
-          id: job.id,
-          category_id: categoryId,
-          updated_at: new Date().toISOString()
-        }));
-
-        for (const update of updates) {
-          const { error } = await supabase
-            .from('production_jobs')
-            .update({ category_id: update.category_id, updated_at: update.updated_at })
-            .eq('id', update.id);
-
-          if (error) throw error;
-        }
-
-        toast.success(`Category assigned to ${selectedJobs.length} jobs`);
-        setSelectedJobs([]);
-      } else if (categoryAssignJob) {
-        // Single assignment
-        const { error } = await supabase
-          .from('production_jobs')
-          .update({ 
-            category_id: categoryId,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', categoryAssignJob.id);
-
-        if (error) throw error;
-
-        toast.success('Category assigned successfully');
-      }
-
-      setCategoryAssignJob(null);
-      refreshJobs();
-    } catch (err) {
-      console.error('Error assigning category:', err);
-      toast.error('Failed to assign category');
-    }
+  const handleCategoryAssignComplete = () => {
+    setCategoryAssignJob(null);
+    refreshJobs();
+    setSelectedJobs([]);
   };
 
   const handleEditJobSave = () => {
@@ -291,10 +253,9 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
       {categoryAssignJob && (
         <CategoryAssignModal
           job={categoryAssignJob}
-          jobs={selectedJobs.length > 1 ? selectedJobs : [categoryAssignJob]}
           categories={categories}
           onClose={() => setCategoryAssignJob(null)}
-          onAssign={handleCategoryAssignSave}
+          onAssign={handleCategoryAssignComplete}
         />
       )}
 
