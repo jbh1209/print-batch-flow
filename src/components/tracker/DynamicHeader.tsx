@@ -18,6 +18,7 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
   const { user, signOut } = useAuth();
 
   const tabs = [
+    { id: "dashboard", label: "DASHBOARD" },
     { id: "orders", label: "ORDERS" },
     { id: "production", label: "PRODUCTION" },
     { id: "kanban", label: "KANBAN" },
@@ -33,15 +34,25 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
     }
   };
 
+  const handleLogoClick = () => {
+    onTabChange("dashboard");
+  };
+
   return (
     <header className="bg-white border-b flex items-center justify-between px-6 py-3 h-16">
       <div className="flex items-center space-x-6">
         <div className="flex items-center space-x-2">
-          <h1 className="text-xl font-bold text-green-600">Tracker</h1>
+          <h1 
+            className="text-xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors"
+            onClick={handleLogoClick}
+            title="Go to Dashboard"
+          >
+            Tracker
+          </h1>
         </div>
         
         <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
-          <TabsList className="grid grid-cols-5 w-auto bg-gray-100">
+          <TabsList className="grid grid-cols-6 w-auto bg-gray-100">
             {tabs.map((tab) => (
               <TabsTrigger 
                 key={tab.id} 

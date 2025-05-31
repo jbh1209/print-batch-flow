@@ -16,7 +16,7 @@ const TrackerLayout = () => {
 
   // Map routes to tabs
   const routeToTab = {
-    '/tracker': 'orders',
+    '/tracker': 'dashboard',
     '/tracker/jobs': 'orders',
     '/tracker/production': 'production',
     '/tracker/kanban': 'kanban',
@@ -28,13 +28,8 @@ const TrackerLayout = () => {
 
   // Update active tab based on current route
   useEffect(() => {
-    const currentTab = routeToTab[location.pathname] || 'orders';
+    const currentTab = routeToTab[location.pathname] || 'dashboard';
     setActiveTab(currentTab);
-    
-    // Redirect /tracker to /tracker/jobs to show the orders page by default
-    if (location.pathname === '/tracker') {
-      navigate('/tracker/jobs', { replace: true });
-    }
   }, [location.pathname, navigate]);
 
   const handleTabChange = (tab: string) => {
@@ -42,6 +37,7 @@ const TrackerLayout = () => {
     
     // Navigate to appropriate route based on tab
     const tabRoutes = {
+      'dashboard': '/tracker',
       'orders': '/tracker/jobs',
       'production': '/tracker/production',
       'kanban': '/tracker/kanban',
@@ -49,7 +45,7 @@ const TrackerLayout = () => {
       'setup': '/tracker/admin'
     };
     
-    const route = tabRoutes[tab] || '/tracker/jobs';
+    const route = tabRoutes[tab] || '/tracker';
     navigate(route);
   };
 
