@@ -1,16 +1,41 @@
 
 import React from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 
 const TrackerDashboard = () => {
-  const { jobs, isLoading, error, getJobStats } = useProductionJobs();
+  const { jobs, isLoading, error } = useEnhancedProductionJobs();
   
-  // Get stats directly from the hook
+  // Calculate real-time stats from actual production jobs
+  const getJobStats = () => {
+    const statusCounts: Record<string, number> = {};
+    
+    // Initialize all statuses with 0
+    const allStatuses = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
+    allStatuses.forEach(status => {
+      statusCounts[status] = 0;
+    });
+    
+    // Count actual jobs by status
+    jobs.forEach(job => {
+      const status = job.status || 'Pre-Press';
+      if (statusCounts.hasOwnProperty(status)) {
+        statusCounts[status]++;
+      } else {
+        statusCounts[status] = 1;
+      }
+    });
+
+    return {
+      total: jobs.length,
+      statusCounts
+    };
+  };
+
   const stats = getJobStats();
 
   console.log("TrackerDashboard render - isLoading:", isLoading, "jobs count:", jobs.length, "error:", error);
