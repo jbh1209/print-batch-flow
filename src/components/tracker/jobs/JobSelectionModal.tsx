@@ -76,14 +76,14 @@ export const JobSelectionModal: React.FC<JobSelectionModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+      <DialogContent className="w-full max-w-4xl h-[90vh] sm:h-[80vh] flex flex-col p-4 sm:p-6">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="text-lg sm:text-xl">{title}</DialogTitle>
+          <DialogDescription className="text-sm sm:text-base">{description}</DialogDescription>
         </DialogHeader>
 
         {/* Search */}
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search jobs..."
@@ -94,13 +94,13 @@ export const JobSelectionModal: React.FC<JobSelectionModalProps> = ({
         </div>
 
         {/* Selection Count */}
-        <div className="flex items-center justify-between text-sm text-gray-600">
+        <div className="flex items-center justify-between text-sm text-gray-600 flex-shrink-0">
           <span>{selectedJobs.length} selected</span>
           <span>{filteredJobs.length} jobs available</span>
         </div>
 
         {/* Jobs List */}
-        <ScrollArea className="flex-1 min-h-[300px]">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="space-y-2 pr-4">
             {filteredJobs.map((job) => (
               <div 
@@ -114,13 +114,13 @@ export const JobSelectionModal: React.FC<JobSelectionModalProps> = ({
                   <Checkbox
                     checked={isJobSelected(job)}
                     onChange={() => {}} // Handled by parent click
-                    className="mt-1"
+                    className="mt-1 flex-shrink-0"
                   />
                   
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-2 gap-2">
                       <h4 className="font-medium text-sm truncate">{job.wo_no}</h4>
-                      <Badge className={`text-xs ${getStatusColor(job.status)}`}>
+                      <Badge className={`text-xs flex-shrink-0 ${getStatusColor(job.status)}`}>
                         {job.status}
                       </Badge>
                     </div>
@@ -128,20 +128,20 @@ export const JobSelectionModal: React.FC<JobSelectionModalProps> = ({
                     <div className="space-y-1 text-xs text-gray-600">
                       {job.customer && (
                         <div className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
+                          <User className="h-3 w-3 flex-shrink-0" />
                           <span className="truncate">{job.customer}</span>
                         </div>
                       )}
                       
                       {job.qty && (
                         <div className="flex items-center gap-1">
-                          <Package className="h-3 w-3" />
+                          <Package className="h-3 w-3 flex-shrink-0" />
                           <span>Qty: {job.qty}</span>
                         </div>
                       )}
                       
                       <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
+                        <Calendar className="h-3 w-3 flex-shrink-0" />
                         <span>Due: {formatDate(job.due_date)}</span>
                       </div>
                       
@@ -168,7 +168,7 @@ export const JobSelectionModal: React.FC<JobSelectionModalProps> = ({
           </div>
         </ScrollArea>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex-shrink-0 flex-col sm:flex-row gap-2 pt-4">
           <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
             Cancel
           </Button>

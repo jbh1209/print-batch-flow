@@ -8,7 +8,15 @@ import { Search, RefreshCw, Filter } from "lucide-react";
 import { JobTableColumns } from "./JobTableColumns";
 import { ResponsiveJobTableRow } from "./ResponsiveJobTableRow";
 import { JobBulkActions } from "./JobBulkActions";
+import { JobEditModal } from "./JobEditModal";
+import { CategoryAssignModal } from "./CategoryAssignModal";
+import { WorkflowInitModal } from "./WorkflowInitModal";
+import { BulkJobOperations } from "./BulkJobOperations";
+import { QRLabelsManager } from "../QRLabelsManager";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
+import { useCategories } from "@/hooks/tracker/useCategories";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ResponsiveJobsTableProps {
   filters?: {
@@ -20,9 +28,17 @@ interface ResponsiveJobsTableProps {
 export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({ 
   filters = {} 
 }) => {
-  const { jobs, categories, isLoading, refreshJobs } = useEnhancedProductionJobs();
+  const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
+  const { categories } = useCategories();
   const [selectedJobs, setSelectedJobs] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState(filters.search || '');
+  
+  // Modal states
+  const [editingJob, setEditingJob] = useState<any>(null);
+  const [categoryAssignJob, setCategoryAssignJob] = useState<any>(null);
+  const [workflowInitJob, setWorkflowInitJob] = useState<any>(null);
+  const [showBulkOperations, setShowBulkOperations] = useState(false);
+  const [showQRLabels, setShowQRLabels] = useState(false);
 
   const handleSelectJob = (job: any, selected: boolean) => {
     if (selected) {
@@ -58,28 +74,119 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
     return true;
   });
 
-  const handleCategoryAssign = () => {
-    console.log('Category assign for selected jobs:', selectedJobs);
+  const handleCategoryAssign = (job?: any) => {
+    if (job) {
+      setCategoryAssignJob(job);
+    } else if (selectedJobs.length > 0) {
+      // Bulk category assignment - use first job for modal
+      setCategoryAssignJob(selectedJobs[0]);
+    }
   };
 
   const handleBulkOperations = () => {
-    console.log('Bulk operations for selected jobs:', selectedJobs);
+    setShowBulkOperations(true);
   };
 
   const handleQRLabels = () => {
-    console.log('QR labels for selected jobs:', selectedJobs);
+    setShowQRLabels(true);
   };
 
   const handleEditJob = (job: any) => {
-    console.log('Edit job:', job);
+    setEditingJob(job);
   };
 
-  const handleDeleteJob = (jobId: string) => {
-    console.log('Delete job:', jobId);
+  const handleDeleteJob = async (jobId: string) => {
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .delete()
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      toast.success('Job deleted successfully');
+      refreshJobs();
+      
+      // Clear selection if deleted job was selected
+      setSelectedJobs(prev => prev.filter(j => j.id !== jobId));
+    } catch (err) {
+      console.error('Error deleting job:', err);
+      toast.error('Failed to delete job');
+    }
   };
 
   const handleWorkflowInit = (job: any) => {
-    console.log('Initialize workflow for job:', job);
+    setWorkflowInitJob(job);
+  };
+
+  const handleWorkflowInitialize = async (job: any, categoryId: string) => {
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ 
+          category_id: categoryId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.id);
+
+      if (error) throw error;
+
+      toast.success('Workflow initialized successfully');
+      setWorkflowInitJob(null);
+      refreshJobs();
+    } catch (err) {
+      console.error('Error initializing workflow:', err);
+      toast.error('Failed to initialize workflow');
+    }
+  };
+
+  const handleCategoryAssignSave = async (categoryId: string) => {
+    try {
+      if (selectedJobs.length > 1) {
+        // Bulk assignment
+        const updates = selectedJobs.map(job => ({
+          id: job.id,
+          category_id: categoryId,
+          updated_at: new Date().toISOString()
+        }));
+
+        for (const update of updates) {
+          const { error } = await supabase
+            .from('production_jobs')
+            .update({ category_id: update.category_id, updated_at: update.updated_at })
+            .eq('id', update.id);
+
+          if (error) throw error;
+        }
+
+        toast.success(`Category assigned to ${selectedJobs.length} jobs`);
+        setSelectedJobs([]);
+      } else if (categoryAssignJob) {
+        // Single assignment
+        const { error } = await supabase
+          .from('production_jobs')
+          .update({ 
+            category_id: categoryId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', categoryAssignJob.id);
+
+        if (error) throw error;
+
+        toast.success('Category assigned successfully');
+      }
+
+      setCategoryAssignJob(null);
+      refreshJobs();
+    } catch (err) {
+      console.error('Error assigning category:', err);
+      toast.error('Failed to assign category');
+    }
+  };
+
+  const handleEditJobSave = () => {
+    setEditingJob(null);
+    refreshJobs();
   };
 
   if (isLoading) {
@@ -130,7 +237,7 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
       {/* Bulk Actions */}
       <JobBulkActions
         selectedCount={selectedJobs.length}
-        onCategoryAssign={handleCategoryAssign}
+        onCategoryAssign={() => handleCategoryAssign()}
         onBulkOperations={handleBulkOperations}
         onQRLabels={handleQRLabels}
         onClearSelection={() => setSelectedJobs([])}
@@ -171,6 +278,52 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      {editingJob && (
+        <JobEditModal
+          job={editingJob}
+          onClose={() => setEditingJob(null)}
+          onSave={handleEditJobSave}
+        />
+      )}
+
+      {categoryAssignJob && (
+        <CategoryAssignModal
+          job={categoryAssignJob}
+          jobs={selectedJobs.length > 1 ? selectedJobs : [categoryAssignJob]}
+          categories={categories}
+          onClose={() => setCategoryAssignJob(null)}
+          onAssign={handleCategoryAssignSave}
+        />
+      )}
+
+      {workflowInitJob && (
+        <WorkflowInitModal
+          job={workflowInitJob}
+          categories={categories}
+          onClose={() => setWorkflowInitJob(null)}
+          onInitialize={handleWorkflowInitialize}
+        />
+      )}
+
+      <BulkJobOperations
+        isOpen={showBulkOperations}
+        onClose={() => setShowBulkOperations(false)}
+        selectedJobs={selectedJobs}
+        categories={categories}
+        onOperationComplete={() => {
+          setSelectedJobs([]);
+          refreshJobs();
+        }}
+      />
+
+      {showQRLabels && (
+        <QRLabelsManager
+          selectedJobs={selectedJobs}
+          onClose={() => setShowQRLabels(false)}
+        />
+      )}
     </div>
   );
 };
