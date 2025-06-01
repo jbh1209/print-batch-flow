@@ -42,7 +42,7 @@ export const generateQRLabelPDF = async (jobs: QRLabelData[]): Promise<Uint8Arra
       const qrImageBytes = await fetch(qrCodeDataURL).then(res => res.arrayBuffer());
       const qrImage = await pdfDoc.embedPng(qrImageBytes);
       
-      // Draw label border
+      // Draw label border for visual clarity
       currentPage.drawRectangle({
         x: 0,
         y: 0,
@@ -143,9 +143,11 @@ export const downloadQRLabelsPDF = async (jobs: QRLabelData[], filename?: string
   try {
     const pdfBytes = await generateQRLabelPDF(jobs);
     
+    // Create blob with PDF content type
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     
+    // Create download link and trigger download
     const link = document.createElement('a');
     link.href = url;
     link.download = filename || `qr-labels-${new Date().toISOString().split('T')[0]}.pdf`;
@@ -153,6 +155,7 @@ export const downloadQRLabelsPDF = async (jobs: QRLabelData[], filename?: string
     link.click();
     document.body.removeChild(link);
     
+    // Clean up the URL object
     URL.revokeObjectURL(url);
     
     return true;
