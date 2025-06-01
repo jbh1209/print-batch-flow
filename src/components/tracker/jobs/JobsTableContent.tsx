@@ -57,69 +57,72 @@ export const JobsTableContent: React.FC<JobsTableContentProps> = ({
                   <Checkbox
                     checked={isAllSelected}
                     ref={(el) => {
-                      if (el) el.indeterminate = isPartiallySelected;
+                      if (el && el.querySelector('button')) {
+                        const button = el.querySelector('button') as HTMLButtonElement;
+                        (button as any).indeterminate = isPartiallySelected;
+                      }
                     }}
                     onCheckedChange={onSelectAll}
                   />
                 </th>
                 <SortableTableHead
-                  field="wo_no"
-                  currentSort={sortField}
-                  currentOrder={sortOrder}
+                  sortKey="wo_no"
+                  currentSortField={sortField}
+                  currentSortOrder={sortOrder}
                   onSort={onSort}
                   className="px-6 py-3"
                 >
                   WO Number
                 </SortableTableHead>
                 <SortableTableHead
-                  field="customer"
-                  currentSort={sortField}
-                  currentOrder={sortOrder}
+                  sortKey="customer"
+                  currentSortField={sortField}
+                  currentSortOrder={sortOrder}
                   onSort={onSort}
                   className="px-6 py-3"
                 >
                   Customer
                 </SortableTableHead>
                 <SortableTableHead
-                  field="reference"
-                  currentSort={sortField}
-                  currentOrder={sortOrder}
+                  sortKey="reference"
+                  currentSortField={sortField}
+                  currentSortOrder={sortOrder}
                   onSort={onSort}
                   className="px-6 py-3"
                 >
                   Reference
                 </SortableTableHead>
                 <SortableTableHead
-                  field="qty"
-                  currentSort={sortField}
-                  currentOrder={sortOrder}
+                  sortKey="qty"
+                  currentSortField={sortField}
+                  currentSortOrder={sortOrder}
                   onSort={onSort}
                   className="px-6 py-3"
                 >
                   Qty
                 </SortableTableHead>
                 <SortableTableHead
-                  field="category_name"
-                  currentSort={sortField}
-                  currentOrder={sortOrder}
+                  sortKey="category_name"
+                  currentSortField={sortField}
+                  currentSortOrder={sortOrder}
                   onSort={onSort}
                   className="px-6 py-3"
                 >
                   Category
                 </SortableTableHead>
                 <SortableTableHead
-                  field="status"
-                  currentSort={sortField}
-                  currentOrder={sortOrder}
+                  sortKey="status"
+                  currentSortField={sortField}
+                  currentSortOrder={sortOrder}
                   onSort={onSort}
                   className="px-6 py-3"
                 >
                   Status
                 </SortableTableHead>
                 <SortableTableHead
-                  field="due_date"
-                  currentSort={sortField}
-                  currentOrder={sortOrder}
+                  sortKey="due_date"
+                  currentSortField={sortField}
+                  currentSortOrder={sortOrder}
                   onSort={onSort}
                   className="px-6 py-3"
                 >

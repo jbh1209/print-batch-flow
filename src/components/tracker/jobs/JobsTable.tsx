@@ -65,13 +65,11 @@ export const JobsTable: React.FC<JobsTableProps> = ({
               key={job.id}
               job={job}
               isSelected={selectedJobs.some(j => j.id === job.id)}
-              onSelectJob={onSelectJob}
-              onJobUpdate={onJobUpdate}
-              onEditJob={onEditJob}
-              onSyncJob={onSyncJob}
+              onSelect={onSelectJob}
+              onEdit={onEditJob}
               onCategoryAssign={onCategoryAssign}
-              onWorkflowInit={onWorkflowInit}
-              onDeleteJob={onDeleteJob}
+              onCustomWorkflow={onWorkflowInit}
+              onDelete={onDeleteJob}
             />
           ))}
         </TableBody>
