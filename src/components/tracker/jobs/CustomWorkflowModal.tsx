@@ -138,11 +138,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         }
       }
 
-      // Mark the job as having a custom workflow
+      // Mark the job as having a custom workflow and set category to "Custom"
       const { error: updateError } = await supabase
         .from('production_jobs')
         .update({ 
           has_custom_workflow: true,
+          category_id: 'custom',
           updated_at: new Date().toISOString()
         })
         .eq('id', job.id);
