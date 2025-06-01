@@ -111,29 +111,48 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         return;
       }
 
-      const stageIds = selectedStages.map(s => s.id);
-      const stageOrders = selectedStages.map(s => s.order);
+      // Create stage instances directly using individual inserts
+      console.log('🔄 Creating stage instances directly...');
+      
+      for (let i = 0; i < selectedStages.length; i++) {
+        const stage = selectedStages[i];
+        const isFirstStage = i === 0;
+        
+        console.log(`Creating stage ${i + 1}:`, stage);
+        
+        const { error: insertError } = await supabase
+          .from('job_stage_instances')
+          .insert({
+            job_id: job.id,
+            job_table_name: 'production_jobs',
+            production_stage_id: stage.id,
+            stage_order: stage.order,
+            status: isFirstStage ? 'active' : 'pending',
+            started_at: isFirstStage ? new Date().toISOString() : null,
+            started_by: isFirstStage ? (await supabase.auth.getUser()).data.user?.id : null
+          });
 
-      console.log('🔄 Calling initialize_custom_job_stages with:', {
-        p_job_id: job.id,
-        p_job_table_name: 'production_jobs',
-        p_stage_ids: stageIds,
-        p_stage_orders: stageOrders
-      });
-
-      const { data, error } = await supabase.rpc('initialize_custom_job_stages', {
-        p_job_id: job.id,
-        p_job_table_name: 'production_jobs',
-        p_stage_ids: stageIds,
-        p_stage_orders: stageOrders
-      });
-
-      if (error) {
-        console.error('❌ Custom workflow initialization error:', error);
-        throw error;
+        if (insertError) {
+          console.error(`❌ Error inserting stage ${stage.name}:`, insertError);
+          throw insertError;
+        }
       }
 
-      console.log('✅ Custom workflow initialized successfully', data);
+      // Mark the job as having a custom workflow
+      const { error: updateError } = await supabase
+        .from('production_jobs')
+        .update({ 
+          has_custom_workflow: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.id);
+
+      if (updateError) {
+        console.error('❌ Error updating job:', updateError);
+        throw updateError;
+      }
+
+      console.log('✅ Custom workflow initialized successfully');
       toast.success("Custom workflow initialized successfully");
       onSuccess();
       onClose();
