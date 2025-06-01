@@ -23,14 +23,15 @@ const TrackerLayout = () => {
     '/tracker/worksheets': 'worksheets',
     '/tracker/admin': 'setup',
     '/tracker/upload': 'setup',
-    '/tracker/analytics': 'setup'
+    '/tracker/analytics': 'setup',
+    '/tracker/labels': 'setup'
   };
 
   // Update active tab based on current route
   useEffect(() => {
     const currentTab = routeToTab[location.pathname] || 'dashboard';
     setActiveTab(currentTab);
-  }, [location.pathname, navigate]);
+  }, [location.pathname]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -42,7 +43,7 @@ const TrackerLayout = () => {
       'production': '/tracker/production',
       'kanban': '/tracker/kanban',
       'worksheets': '/tracker/worksheets',
-      'setup': '/tracker/admin'
+      'setup': '/tracker/upload'
     };
     
     const route = tabRoutes[tab] || '/tracker';
@@ -62,7 +63,7 @@ const TrackerLayout = () => {
   const isProductionTab = activeTab === 'production';
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 w-full">
       <div className="flex flex-col flex-1 overflow-hidden">
         <DynamicHeader 
           activeTab={activeTab}

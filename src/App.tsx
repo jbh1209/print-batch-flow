@@ -12,6 +12,7 @@ import TrackerDashboard from "./pages/tracker/TrackerDashboard";
 import TrackerJobs from "./pages/tracker/TrackerJobs";
 import TrackerLabels from "./pages/tracker/TrackerLabels";
 import TrackerUpload from "./pages/tracker/TrackerUpload";
+import TrackerLayout from "./components/TrackerLayout";
 import { AuthProvider } from "./hooks/useAuth";
 import { Toaster } from "sonner";
 import TrackerMobileScanner from "./pages/tracker/TrackerMobileScanner";
@@ -55,46 +56,24 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            
+            {/* Tracker routes with layout */}
             <Route
-              path="/tracker"
+              path="/tracker/*"
               element={
                 <ProtectedRoute>
-                  <TrackerDashboard />
+                  <TrackerLayout />
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="/tracker/jobs"
-              element={
-                <ProtectedRoute>
-                  <TrackerJobs />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tracker/labels"
-              element={
-                <ProtectedRoute>
-                  <TrackerLabels />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tracker/upload"
-              element={
-                <ProtectedRoute>
-                  <TrackerUpload />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tracker/mobile"
-              element={
-                <ProtectedRoute>
-                  <TrackerMobileScanner />
-                </ProtectedRoute>
-              }
-            />
+            >
+              <Route index element={<TrackerDashboard />} />
+              <Route path="jobs" element={<TrackerJobs />} />
+              <Route path="labels" element={<TrackerLabels />} />
+              <Route path="upload" element={<TrackerUpload />} />
+              <Route path="mobile" element={<TrackerMobileScanner />} />
+            </Route>
+            
+            {/* Factory Floor - separate from main tracker layout */}
             <Route
               path="/tracker/factory-floor"
               element={
