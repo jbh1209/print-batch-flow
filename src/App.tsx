@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -17,6 +16,8 @@ import { AuthProvider } from "./hooks/useAuth";
 import { Toaster } from "sonner";
 import TrackerMobileScanner from "./pages/tracker/TrackerMobileScanner";
 import FactoryFloor from "./pages/tracker/FactoryFloor";
+import Auth from "./pages/Auth";
+import AppSelector from "./pages/AppSelector";
 
 function App() {
   const [session, setSession] = useState(null);
@@ -33,7 +34,7 @@ function App() {
 
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     if (!session) {
-      return <Navigate to="/login" />;
+      return <Navigate to="/auth" />;
     }
 
     return <>{children}</>;
@@ -45,30 +46,12 @@ function App() {
         <Toaster richColors />
         <Router>
           <Routes>
-            <Route
-              path="/login"
-              element={
-                <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                  <div className="max-w-md w-full space-y-8">
-                    <div>
-                      <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        Sign in to your account
-                      </h2>
-                    </div>
-                    <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-                      <p className="text-center text-gray-600">
-                        Please configure authentication to access the tracker system.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              }
-            />
+            <Route path="/auth" element={<Auth />} />
             <Route
               path="/"
               element={
                 <ProtectedRoute>
-                  <TrackerDashboard />
+                  <AppSelector />
                 </ProtectedRoute>
               }
             />
@@ -128,4 +111,3 @@ function App() {
 }
 
 export default App;
-
