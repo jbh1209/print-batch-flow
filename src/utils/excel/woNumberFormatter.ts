@@ -27,36 +27,30 @@ export const formatWONumber = (woNo: any, logger: ExcelImportDebugger): string =
     return "";
   }
   
-  // If it already has D prefix, normalize it
+  // If it already has D prefix, normalize it and ensure proper padding
   if (cleaned.toUpperCase().startsWith('D')) {
-    const normalized = cleaned.toUpperCase();
-    logger.addDebugInfo(`WO Number already has D prefix: ${cleaned} -> ${normalized}`);
-    return normalized;
+    const numberPart = cleaned.substring(1);
+    if (/^\d+$/.test(numberPart)) {
+      // Pad to 6 digits if less than 6
+      const paddedNumber = numberPart.length < 6 ? numberPart.padStart(6, '0') : numberPart;
+      const formatted = `D${paddedNumber}`;
+      logger.addDebugInfo(`WO Number with D prefix: ${cleaned} -> ${formatted}`);
+      return formatted;
+    } else {
+      const normalized = cleaned.toUpperCase();
+      logger.addDebugInfo(`WO Number already has D prefix: ${cleaned} -> ${normalized}`);
+      return normalized;
+    }
   }
   
-  // If it looks like a 6+ digit number, add D prefix
-  if (/^\d{6,}$/.test(cleaned)) {
-    const formatted = enforceWOPrefix(cleaned);
-    logger.addDebugInfo(`WO Number ${cleaned.length} digits: ${cleaned} -> ${formatted}`);
-    return formatted;
-  }
-  
-  // Extract only numbers and pad if needed, then add D prefix
+  // Extract only numbers and format with D prefix
   const numbersOnly = cleaned.replace(/[^0-9]/g, '');
   
   if (numbersOnly && numbersOnly.length > 0) {
-    let processedNumber;
-    // Only pad if it's less than 6 digits
-    if (numbersOnly.length < 6) {
-      processedNumber = numbersOnly.padStart(6, '0');
-      logger.addDebugInfo(`WO Number "${cleaned}" -> "${numbersOnly}" -> "${processedNumber}" (padded)`);
-    } else {
-      processedNumber = numbersOnly;
-      logger.addDebugInfo(`WO Number "${cleaned}" -> "${numbersOnly}" (no padding needed)`);
-    }
-    
-    const formatted = enforceWOPrefix(processedNumber);
-    logger.addDebugInfo(`Final WO Number: ${processedNumber} -> ${formatted}`);
+    // Pad to 6 digits if less than 6
+    const paddedNumber = numbersOnly.length < 6 ? numbersOnly.padStart(6, '0') : numbersOnly;
+    const formatted = `D${paddedNumber}`;
+    logger.addDebugInfo(`WO Number "${cleaned}" -> numbers: "${numbersOnly}" -> padded: "${paddedNumber}" -> final: "${formatted}"`);
     return formatted;
   }
   

@@ -14,9 +14,17 @@ export const formatWONumber = (woNo: any): string => {
     return "";
   }
   
-  // If it already has a "D" prefix, return as-is
+  // If it already has a "D" prefix, ensure proper formatting
   if (cleaned.toUpperCase().startsWith('D')) {
-    return cleaned.toUpperCase();
+    const numberPart = cleaned.substring(1);
+    if (/^\d+$/.test(numberPart)) {
+      // Pad to 6 digits if less than 6
+      const paddedNumber = numberPart.length < 6 ? numberPart.padStart(6, '0') : numberPart;
+      return `D${paddedNumber}`;
+    } else {
+      // Return as-is if it has D but not just numbers after
+      return cleaned.toUpperCase();
+    }
   }
   
   // Extract only numbers
