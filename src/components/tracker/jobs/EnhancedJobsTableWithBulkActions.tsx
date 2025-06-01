@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,8 @@ import {
   Filter,
   MoreHorizontal,
   Edit,
-  Trash2
+  Trash2,
+  CheckCircle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -160,6 +160,29 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
           selectedIds: selectedJobs
         });
       }
+    }
+  };
+
+  const handleBulkStatusUpdate = async (newStatus: string) => {
+    if (selectedJobs.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', selectedJobs);
+
+      if (error) throw error;
+
+      toast.success(`Successfully updated ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''} to ${newStatus}`);
+      setSelectedJobs([]);
+      refreshJobs();
+    } catch (err) {
+      console.error('Error updating job status:', err);
+      toast.error('Failed to update job status');
     }
   };
 
@@ -304,6 +327,17 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
               >
                 <Edit className="h-4 w-4" />
                 Assign Category
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkStatusUpdate('Completed')}
+                disabled={isDeleting}
+                className="flex items-center gap-2 text-green-700 border-green-200 hover:bg-green-50"
+              >
+                <CheckCircle className="h-4 w-4" />
+                Mark as Completed
               </Button>
               
               <Button
