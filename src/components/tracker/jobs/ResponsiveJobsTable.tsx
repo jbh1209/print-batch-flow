@@ -246,6 +246,11 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
     }
   };
 
+  const handleCustomWorkflow = () => {
+    // Placeholder for custom workflow functionality
+    toast.info('Custom workflow feature coming soon');
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -291,6 +296,8 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
         onBulkStatusUpdate={handleBulkStatusUpdate}
         onBulkDelete={handleBulkDelete}
         onClearSelection={() => setSelectedJobs([])}
+        onCustomWorkflow={handleCustomWorkflow}
+        selectedJobs={selectedJobs}
       />
 
       {/* Jobs Table */}
