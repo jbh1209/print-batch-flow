@@ -32,6 +32,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { JobsBulkActions } from "./JobsBulkActions";
 import { BulkDeleteConfirmDialog } from "./BulkDeleteConfirmDialog";
+import { SortableTableHead } from "./SortableTableHead";
+import { ColumnFilters } from "./ColumnFilters";
+import { useJobsTableFilters } from "./JobsTableFilters";
+import { useJobsTableSorting } from "./JobsTableSorting";
 
 export const EnhancedJobsTableWithBulkActions: React.FC = () => {
   const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
@@ -39,16 +43,35 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showColumnFilters, setShowColumnFilters] = useState(false);
 
-  // Filter jobs based on search
-  const filteredJobs = jobs.filter(job => {
-    if (!searchQuery) return true;
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      job.wo_no.toLowerCase().includes(searchLower) ||
-      job.customer?.toLowerCase().includes(searchLower) ||
-      job.reference?.toLowerCase().includes(searchLower)
-    );
+  // Sorting state
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Column filters state
+  const [columnFilters, setColumnFilters] = useState({
+    woNumber: '',
+    customer: '',
+    reference: '',
+    category: '',
+    status: '',
+    dueDate: '',
+    currentStage: ''
+  });
+
+  // Use filtering hook
+  const { filteredJobs, availableCategories, availableStatuses, availableStages } = useJobsTableFilters({
+    jobs,
+    searchQuery,
+    columnFilters
+  });
+
+  // Use sorting hook
+  const filteredAndSortedJobs = useJobsTableSorting({
+    jobs: filteredJobs,
+    sortField,
+    sortOrder
   });
 
   const handleSelectJob = (jobId: string, checked: boolean) => {
@@ -61,10 +84,38 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedJobs(filteredJobs.map(job => job.id));
+      setSelectedJobs(filteredAndSortedJobs.map(job => job.id));
     } else {
       setSelectedJobs([]);
     }
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const handleColumnFilterChange = (key: string, value: string) => {
+    setColumnFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleClearColumnFilters = () => {
+    setColumnFilters({
+      woNumber: '',
+      customer: '',
+      reference: '',
+      category: '',
+      status: '',
+      dueDate: '',
+      currentStage: ''
+    });
   };
 
   const handleBulkDelete = () => {
@@ -149,7 +200,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Production Jobs ({filteredJobs.length})</CardTitle>
+            <CardTitle>Production Jobs ({filteredAndSortedJobs.length})</CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -164,10 +215,33 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowColumnFilters(!showColumnFilters)}
+                className={showColumnFilters ? "bg-blue-50 border-blue-200" : ""}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+              </Button>
             </div>
           </div>
         </CardHeader>
       </Card>
+
+      {/* Column Filters */}
+      {showColumnFilters && (
+        <Card>
+          <ColumnFilters
+            filters={columnFilters}
+            onFilterChange={handleColumnFilterChange}
+            onClearFilters={handleClearColumnFilters}
+            availableCategories={availableCategories}
+            availableStatuses={availableStatuses}
+            availableStages={availableStages}
+          />
+        </Card>
+      )}
 
       {/* Bulk Actions */}
       <JobsBulkActions
@@ -186,23 +260,79 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedJobs.length === filteredJobs.length && filteredJobs.length > 0}
+                      checked={selectedJobs.length === filteredAndSortedJobs.length && filteredAndSortedJobs.length > 0}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>WO Number</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Current Stage</TableHead>
+                  <SortableTableHead
+                    sortKey="wo_no"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  >
+                    WO Number
+                  </SortableTableHead>
+                  <SortableTableHead
+                    sortKey="customer"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  >
+                    Customer
+                  </SortableTableHead>
+                  <SortableTableHead
+                    sortKey="reference"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  >
+                    Reference
+                  </SortableTableHead>
+                  <SortableTableHead
+                    sortKey="qty"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  >
+                    Qty
+                  </SortableTableHead>
+                  <SortableTableHead
+                    sortKey="category"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  >
+                    Category
+                  </SortableTableHead>
+                  <SortableTableHead
+                    sortKey="status"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  >
+                    Status
+                  </SortableTableHead>
+                  <SortableTableHead
+                    sortKey="due_date"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  >
+                    Due Date
+                  </SortableTableHead>
+                  <SortableTableHead
+                    sortKey="current_stage"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  >
+                    Current Stage
+                  </SortableTableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredJobs.map((job) => (
+                {filteredAndSortedJobs.map((job) => (
                   <TableRow key={job.id}>
                     <TableCell>
                       <Checkbox
@@ -259,7 +389,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
               </TableBody>
             </Table>
 
-            {filteredJobs.length === 0 && (
+            {filteredAndSortedJobs.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-gray-500 text-lg">No jobs found</p>
                 <p className="text-gray-400">
