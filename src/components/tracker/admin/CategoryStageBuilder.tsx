@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +36,7 @@ interface CategoryStageBuilderProps {
 }
 
 export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStageBuilderProps) => {
-  const { categoryStages, isLoading, error, addStageToCategory, updateCategoryStage, removeCategoryStage, reorderCategoryStages } = useCategoryStages(categoryId);
+  const { categoryStages, isLoading, error, addStageToCategory, updateCategoryStage, removeCategoryStage, reorderCategoryStages, fixStageOrdering } = useCategoryStages(categoryId);
   const { stages: availableStages } = useProductionStages();
   
   const [selectedStageId, setSelectedStageId] = useState<string>("");
@@ -148,6 +147,15 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
     });
   };
 
+  const handleFixOrdering = async () => {
+    const success = await fixStageOrdering(categoryId);
+    if (success) {
+      toast.success("Stage ordering fixed successfully");
+    } else {
+      toast.error("Failed to fix stage ordering");
+    }
+  };
+
   // Filter out stages that are already added to this category
   const usedStageIds = categoryStages.map(cs => cs.production_stage_id);
   const availableStagesFiltered = availableStages.filter(stage => 
@@ -198,6 +206,16 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
               {metrics.complexity}
             </Badge>
+            {validation.warnings.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleFixOrdering}
+                className="text-orange-600 border-orange-200 hover:bg-orange-50"
+              >
+                Fix Ordering
+              </Button>
+            )}
           </CardTitle>
           <p className="text-sm text-gray-600">
             Build the production workflow by adding and ordering stages. Jobs in this category will follow this exact sequence.

@@ -27,14 +27,12 @@ export const validateWorkflow = (stages: WorkflowStage[]): ValidationResult => {
     return { isValid: false, errors, warnings };
   }
 
-  // Check stage order consistency - more robust gap detection
+  // Check stage order consistency - more helpful messaging
   const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order);
-  for (let i = 0; i < sortedStages.length; i++) {
-    const expectedOrder = i + 1;
-    const actualOrder = sortedStages[i].stage_order;
-    if (actualOrder !== expectedOrder) {
-      errors.push(`Stage order gap detected. Expected ${expectedOrder}, found ${actualOrder}`);
-    }
+  const hasGaps = sortedStages.some((stage, index) => stage.stage_order !== index + 1);
+  
+  if (hasGaps) {
+    warnings.push("Stage ordering issues detected. Consider using the 'Fix Ordering' feature to resolve gaps in stage sequence.");
   }
 
   // Check for duplicate stages

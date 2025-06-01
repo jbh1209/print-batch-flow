@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -97,6 +95,49 @@ export const useCategoryStages = (categoryId?: string) => {
     }
   };
 
+  const fixStageOrdering = async (categoryId: string) => {
+    try {
+      console.log('🔄 Fixing stage ordering for category...');
+      
+      // Get all stages for this category, sorted by current order
+      const { data: stages, error: fetchError } = await supabase
+        .from('category_production_stages')
+        .select('id, stage_order')
+        .eq('category_id', categoryId)
+        .order('stage_order');
+
+      if (fetchError) throw fetchError;
+      if (!stages || stages.length === 0) return true;
+
+      // Update each stage to have sequential order (1, 2, 3, ...)
+      for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
+        const correctOrder = i + 1;
+        
+        if (stage.stage_order !== correctOrder) {
+          const { error: updateError } = await supabase
+            .from('category_production_stages')
+            .update({ 
+              stage_order: correctOrder,
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', stage.id);
+
+          if (updateError) {
+            console.error('❌ Error fixing stage order:', updateError);
+            throw updateError;
+          }
+        }
+      }
+
+      console.log('✅ Stage ordering fixed successfully');
+      return true;
+    } catch (err) {
+      console.error('❌ Error fixing stage ordering:', err);
+      return false;
+    }
+  };
+
   const addStageToCategory = async (categoryId: string, stageData: CategoryStageInput) => {
     try {
       console.log('🔄 Adding stage to category...');
@@ -182,35 +223,8 @@ export const useCategoryStages = (categoryId?: string) => {
         throw new Error(`Failed to remove category stage: ${deleteError.message}`);
       }
 
-      // Get remaining stages that need reordering (those with higher order than deleted stage)
-      const stagesToReorder = categoryStages
-        .filter(stage => stage.id !== id && stage.stage_order > stageToDelete.stage_order)
-        .sort((a, b) => a.stage_order - b.stage_order);
-
-      // Reorder the remaining stages sequentially to avoid constraint violations
-      if (stagesToReorder.length > 0) {
-        console.log('🔄 Reordering remaining stages...');
-        
-        // Update each stage individually to avoid constraint conflicts
-        // Set new orders to be sequential starting from the deleted stage's position
-        for (let i = 0; i < stagesToReorder.length; i++) {
-          const stage = stagesToReorder[i];
-          const newOrder = stageToDelete.stage_order + i; // This creates sequential order
-          
-          const { error: updateError } = await supabase
-            .from('category_production_stages')
-            .update({ 
-              stage_order: newOrder, 
-              updated_at: new Date().toISOString() 
-            })
-            .eq('id', stage.id);
-
-          if (updateError) {
-            console.error('❌ Stage reorder error:', updateError);
-            throw new Error(`Failed to reorder stage ${stage.id}: ${updateError.message}`);
-          }
-        }
-      }
+      // Fix the ordering for the entire category to ensure sequential order
+      await fixStageOrdering(stageToDelete.category_id);
 
       console.log('✅ Category stage removed successfully');
       toast.success("Category stage removed successfully");
@@ -284,6 +298,7 @@ export const useCategoryStages = (categoryId?: string) => {
     addStageToCategory,
     updateCategoryStage,
     removeCategoryStage,
-    reorderCategoryStages
+    reorderCategoryStages,
+    fixStageOrdering
   };
 };
