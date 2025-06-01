@@ -43,7 +43,11 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
   const [estimatedHours, setEstimatedHours] = useState<number>(24);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -56,19 +60,29 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
-      const oldIndex = categoryStages.findIndex(stage => stage.id === active.id);
-      const newIndex = categoryStages.findIndex(stage => stage.id === over?.id);
+    if (!over || active.id === over.id) {
+      return;
+    }
 
-      const reorderedStages = arrayMove(categoryStages, oldIndex, newIndex);
-      
-      // Update stage orders
-      const reorderData = reorderedStages.map((stage, index) => ({
-        id: stage.id,
-        stage_order: index + 1
-      }));
+    const oldIndex = categoryStages.findIndex(stage => stage.id === String(active.id));
+    const newIndex = categoryStages.findIndex(stage => stage.id === String(over.id));
 
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    const reorderedStages = arrayMove(categoryStages, oldIndex, newIndex);
+    
+    // Update stage orders based on new positions
+    const reorderData = reorderedStages.map((stage, index) => ({
+      id: stage.id,
+      stage_order: index + 1
+    }));
+
+    try {
       await reorderCategoryStages(categoryId, reorderData);
+    } catch (error) {
+      console.error('Failed to reorder stages:', error);
     }
   };
 
@@ -132,6 +146,9 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
       </Card>
     );
   }
+
+  // Create a sorted list of stages for consistent ordering
+  const sortedCategoryStages = [...categoryStages].sort((a, b) => a.stage_order - b.stage_order);
 
   return (
     <div className="space-y-6">
@@ -229,7 +246,7 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium">Current Workflow</h3>
-              {categoryStages.length > 0 && (
+              {sortedCategoryStages.length > 0 && (
                 <div className="flex items-center gap-4 text-sm text-gray-600">
                   <span>{metrics.totalStages} stages</span>
                   <span>{metrics.totalDuration}h total</span>
@@ -238,7 +255,7 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
               )}
             </div>
 
-            {categoryStages.length === 0 ? (
+            {sortedCategoryStages.length === 0 ? (
               <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                 <div className="space-y-2">
                   <div className="text-lg font-medium">No stages added yet</div>
@@ -252,19 +269,19 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
-                  items={categoryStages.map(stage => stage.id)}
+                  items={sortedCategoryStages.map(stage => stage.id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-3">
-                    {categoryStages.map((stage, index) => (
+                    {sortedCategoryStages.map((stage, index) => (
                       <WorkflowStageCard
                         key={stage.id}
                         stage={stage}
                         onUpdate={handleUpdateStage}
                         onRemove={handleRemoveStage}
                         isFirst={index === 0}
-                        isLast={index === categoryStages.length - 1}
-                        totalStages={categoryStages.length}
+                        isLast={index === sortedCategoryStages.length - 1}
+                        totalStages={sortedCategoryStages.length}
                       />
                     ))}
                   </div>
@@ -276,7 +293,7 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
       </Card>
 
       {/* Workflow Preview */}
-      <WorkflowPreview categoryName={categoryName} stages={categoryStages} />
+      <WorkflowPreview categoryName={categoryName} stages={sortedCategoryStages} />
     </div>
   );
 };
