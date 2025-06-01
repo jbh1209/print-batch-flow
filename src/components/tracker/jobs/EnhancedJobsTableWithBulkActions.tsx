@@ -1,9 +1,9 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Table,
   TableBody,
@@ -251,10 +251,10 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
         isDeleting={isDeleting}
       />
 
-      {/* Jobs Table */}
+      {/* Jobs Table with ScrollArea */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <ScrollArea className="h-[600px] w-full">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -397,7 +397,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
                 </p>
               </div>
             )}
-          </div>
+          </ScrollArea>
         </CardContent>
       </Card>
 
