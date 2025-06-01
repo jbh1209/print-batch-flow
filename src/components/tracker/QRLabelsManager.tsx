@@ -46,11 +46,11 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
 
       await downloadQRLabelsPDF(labelData, `qr-labels-${selectedJobs.length}-jobs.pdf`);
       
-      toast.success(`Successfully generated QR labels for ${selectedJobs.length} jobs`);
+      toast.success(`Successfully generated QR labels PDF for ${selectedJobs.length} jobs`);
       handleClose();
     } catch (error) {
       console.error('Error generating QR labels:', error);
-      toast.error('Failed to generate QR labels');
+      toast.error('Failed to generate QR labels PDF');
     } finally {
       setIsGenerating(false);
     }
@@ -62,7 +62,7 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5" />
-            QR Labels Generator
+            QR Labels PDF Generator
           </DialogTitle>
         </DialogHeader>
 
@@ -70,7 +70,7 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
           {/* Summary */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Label Generation Summary</CardTitle>
+              <CardTitle className="text-lg">PDF Generation Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -89,8 +89,8 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
                   <span className="text-sm text-gray-600">1 label per page</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Format:</span>
-                  <span className="text-sm text-gray-600">PDF ({selectedJobs.length} pages)</span>
+                  <span className="text-sm font-medium">Output:</span>
+                  <span className="text-sm text-gray-600">Multi-page PDF ({selectedJobs.length} pages)</span>
                 </div>
               </div>
             </CardContent>
@@ -137,7 +137,7 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
           {/* Label Features */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Label Features</CardTitle>
+              <CardTitle className="text-sm font-medium">PDF Label Features</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -147,7 +147,7 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Centered QR code for scanning</span>
+                  <span>Centered QR code (25mm)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -180,7 +180,7 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              {isGenerating ? 'Generating...' : 'Download PDF'}
+              {isGenerating ? 'Generating PDF...' : 'Download PDF'}
             </Button>
           </div>
 
@@ -189,12 +189,12 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
             <div className="flex items-start gap-3">
               <FileText className="h-5 w-5 text-blue-600 mt-0.5" />
               <div className="space-y-2">
-                <p className="text-sm font-medium text-blue-800">Printing Instructions</p>
+                <p className="text-sm font-medium text-blue-800">PDF Printing Instructions</p>
                 <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• Each label is exactly 100mm × 50mm on its own page</li>
-                  <li>• PDF contains {selectedJobs.length} page{selectedJobs.length > 1 ? 's' : ''} for easy printing</li>
-                  <li>• Use your label printer's standard settings</li>
-                  <li>• Apply labels to job tickets for factory scanning</li>
+                  <li>• Multi-page PDF with {selectedJobs.length} label{selectedJobs.length > 1 ? 's' : ''}</li>
+                  <li>• Each page contains one 100mm × 50mm label</li>
+                  <li>• Print at 100% scale (no scaling)</li>
+                  <li>• Use label stock or cut to size after printing</li>
                 </ul>
               </div>
             </div>
