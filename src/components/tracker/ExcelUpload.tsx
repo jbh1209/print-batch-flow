@@ -135,7 +135,7 @@ export const ExcelUpload = () => {
         .from('production_jobs')
         .upsert(jobsWithUserId, { 
           onConflict: 'wo_no,user_id',
-          ignoreDuplicates: false 
+          ignoreDuplicates: true 
         })
         .select();
 
@@ -146,7 +146,7 @@ export const ExcelUpload = () => {
         return;
       }
 
-      debugLogger.addDebugInfo(`Successfully inserted ${data?.length || 0} jobs`);
+      debugLogger.addDebugInfo(`Successfully inserted ${data?.length || 0} jobs (duplicates were ignored)`);
 
       // Update QR codes with actual job IDs if QR generation was enabled
       if (generateQRCodes && data) {
@@ -176,8 +176,15 @@ export const ExcelUpload = () => {
         }
       }
 
+      const duplicatesSkipped = jobsWithUserId.length - (data?.length || 0);
       const qrMessage = generateQRCodes ? " with QR codes" : "";
-      toast.success(`Successfully uploaded ${jobsWithUserId.length} jobs${qrMessage}`);
+      
+      if (duplicatesSkipped > 0) {
+        toast.success(`Successfully uploaded ${data?.length || 0} new jobs${qrMessage}. ${duplicatesSkipped} duplicate work orders were skipped.`);
+      } else {
+        toast.success(`Successfully uploaded ${data?.length || 0} jobs${qrMessage}`);
+      }
+      
       setParsedJobs([]);
       setFileName("");
       setImportStats(null);
@@ -218,7 +225,7 @@ export const ExcelUpload = () => {
             Upload an Excel file (.xlsx, .xls) containing production jobs. 
             Expected columns: WO No., Status, Date, Rep, Category, Customer, Reference, Qty, Due Date, Location.
             <br />
-            <span className="text-blue-600 font-medium">Note: Blank cells are allowed for all fields except WO Number and Customer.</span>
+            <span className="text-blue-600 font-medium">Note: Blank cells are allowed for all fields except WO Number and Customer. Duplicate work orders will be ignored.</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -331,7 +338,7 @@ export const ExcelUpload = () => {
               Review the parsed jobs before uploading to the database
               {generateQRCodes && " (QR codes will be generated automatically)"}
               <br />
-              <span className="text-sm text-gray-600">Blank cells are shown as "-" and are acceptable</span>
+              <span className="text-sm text-gray-600">Blank cells are shown as "-" and are acceptable. Duplicate work orders will be ignored during upload.</span>
             </CardDescription>
           </CardHeader>
           <CardContent>
