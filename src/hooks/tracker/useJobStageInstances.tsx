@@ -1,27 +1,38 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface JobStageInstance {
+export interface JobStageInstance {
   id: string;
   job_id: string;
   job_table_name: string;
-  category_id: string;
+  category_id: string | null;
   production_stage_id: string;
   stage_order: number;
-  status: 'pending' | 'active' | 'completed' | 'skipped';
-  started_at?: string;
-  completed_at?: string;
-  started_by?: string;
-  completed_by?: string;
-  notes?: string;
+  status: 'pending' | 'active' | 'completed' | 'reworked';
+  started_at: string | null;
+  completed_at: string | null;
+  started_by: string | null;
+  completed_by: string | null;
+  notes: string | null;
+  part_name: string | null;
+  part_order: number | null;
+  printer_id: string | null;
   qr_scan_data: any;
+  rework_count: number | null;
+  rework_reason: string | null;
+  previous_stage_id: string | null;
+  is_rework: boolean | null;
+  created_at: string;
+  updated_at: string;
   production_stage: {
     id: string;
     name: string;
-    color: string;
-    description?: string;
+    description: string | null;
+    color: string | null;
+    is_multi_part: boolean;
+    part_definitions: any;
   };
 }
 

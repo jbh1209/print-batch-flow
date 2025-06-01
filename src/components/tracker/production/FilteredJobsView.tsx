@@ -197,13 +197,17 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
                   </div>
                 ) : jobStages.length > 0 ? (
                   <JobStageProgress
-                    jobStages={jobStages}
-                    currentStage={jobStages.find(stage => stage.status === 'active')}
-                    progress={job.workflow_progress || { completed: 0, total: 0, percentage: 0 }}
-                    onStartStage={(stageId) => handleStageAction(stageId, 'start')}
-                    onCompleteStage={(stageId) => handleStageAction(stageId, 'complete')}
-                    onQRScan={(stageId) => handleStageAction(stageId, 'qr-scan')}
-                    isProcessing={processingStages.size > 0}
+                    job={{
+                      id: job.id,
+                      wo_no: job.wo_no,
+                      category_id: job.category_id
+                    }}
+                    jobTableName="production_jobs"
+                    onStageAction={(action, stageId) => {
+                      if (action === 'start') handleStageAction(stageId, 'start');
+                      else if (action === 'complete') handleStageAction(stageId, 'complete');
+                      else if (action === 'qr-scan') handleStageAction(stageId, 'qr-scan');
+                    }}
                   />
                 ) : (
                   <div className="text-center py-8 text-gray-500">

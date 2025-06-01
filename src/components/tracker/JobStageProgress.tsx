@@ -192,7 +192,7 @@ export const JobStageProgress: React.FC<JobStageProgressProps> = ({
                 
                 <div>
                   <div className="font-medium">{stage.production_stage.name}</div>
-                  {stage.rework_count > 0 && (
+                  {(stage.rework_count || 0) > 0 && (
                     <div className="text-xs text-orange-600">
                       Reworked {stage.rework_count} time{stage.rework_count !== 1 ? 's' : ''}
                     </div>
