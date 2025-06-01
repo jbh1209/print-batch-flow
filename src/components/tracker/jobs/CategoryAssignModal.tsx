@@ -19,6 +19,8 @@ interface ProductionJob {
   id: string;
   wo_no: string;
   category_id?: string | null;
+  isMultiple?: boolean;
+  selectedIds?: string[];
 }
 
 interface Category {
@@ -43,6 +45,8 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState(job.category_id || '');
   const [isLoading, setIsLoading] = useState(false);
 
+  const isMultipleJobs = job.isMultiple && job.selectedIds && job.selectedIds.length > 1;
+
   const handleAssign = async () => {
     if (!selectedCategoryId) {
       toast.error('Please select a category');
@@ -51,37 +55,82 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
     setIsLoading(true);
     try {
-      // If job already has a category, we need to handle workflow reset
-      if (job.category_id && job.category_id !== selectedCategoryId) {
-        // Delete existing job stage instances
-        await supabase
-          .from('job_stage_instances')
-          .delete()
-          .eq('job_id', job.id)
-          .eq('job_table_name', 'production_jobs');
+      if (isMultipleJobs && job.selectedIds) {
+        // Handle multiple jobs
+        console.log('Assigning category to multiple jobs:', job.selectedIds);
+        
+        // Delete existing job stage instances for all selected jobs
+        for (const jobId of job.selectedIds) {
+          await supabase
+            .from('job_stage_instances')
+            .delete()
+            .eq('job_id', jobId)
+            .eq('job_table_name', 'production_jobs');
+        }
+
+        // Update all selected jobs with new category
+        const { error: updateError } = await supabase
+          .from('production_jobs')
+          .update({ 
+            category_id: selectedCategoryId,
+            updated_at: new Date().toISOString()
+          })
+          .in('id', job.selectedIds);
+
+        if (updateError) throw updateError;
+
+        // Initialize new workflow for all selected jobs
+        for (const jobId of job.selectedIds) {
+          const { error: initError } = await supabase.rpc('initialize_job_stages', {
+            p_job_id: jobId,
+            p_job_table_name: 'production_jobs',
+            p_category_id: selectedCategoryId
+          });
+
+          if (initError) {
+            console.error(`Failed to initialize workflow for job ${jobId}:`, initError);
+            // Continue with other jobs even if one fails
+          }
+        }
+
+        toast.success(`Category assigned and workflows initialized for ${job.selectedIds.length} jobs`);
+      } else {
+        // Handle single job
+        console.log('Assigning category to single job:', job.id);
+        
+        // If job already has a category, we need to handle workflow reset
+        if (job.category_id && job.category_id !== selectedCategoryId) {
+          // Delete existing job stage instances
+          await supabase
+            .from('job_stage_instances')
+            .delete()
+            .eq('job_id', job.id)
+            .eq('job_table_name', 'production_jobs');
+        }
+
+        // Update the job with new category
+        const { error: updateError } = await supabase
+          .from('production_jobs')
+          .update({ 
+            category_id: selectedCategoryId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', job.id);
+
+        if (updateError) throw updateError;
+
+        // Initialize new workflow
+        const { error: initError } = await supabase.rpc('initialize_job_stages', {
+          p_job_id: job.id,
+          p_job_table_name: 'production_jobs',
+          p_category_id: selectedCategoryId
+        });
+
+        if (initError) throw initError;
+
+        toast.success(`Category assigned and workflow initialized for job ${job.wo_no}`);
       }
-
-      // Update the job with new category
-      const { error: updateError } = await supabase
-        .from('production_jobs')
-        .update({ 
-          category_id: selectedCategoryId,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', job.id);
-
-      if (updateError) throw updateError;
-
-      // Initialize new workflow
-      const { error: initError } = await supabase.rpc('initialize_job_stages', {
-        p_job_id: job.id,
-        p_job_table_name: 'production_jobs',
-        p_category_id: selectedCategoryId
-      });
-
-      if (initError) throw initError;
-
-      toast.success(`Category assigned and workflow initialized for job ${job.wo_no}`);
+      
       onAssign();
       onClose();
     } catch (error) {
@@ -99,10 +148,14 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {job.category_id ? 'Change Category' : 'Assign Category'}
+            {isMultipleJobs ? `Assign Category to ${job.selectedIds?.length} Jobs` : 
+             job.category_id ? 'Change Category' : 'Assign Category'}
           </DialogTitle>
           <DialogDescription>
-            Select a category for job {job.wo_no}. This will determine the workflow stages.
+            {isMultipleJobs ? 
+              `Select a category for ${job.selectedIds?.length} selected jobs. This will determine the workflow stages for all jobs.` :
+              `Select a category for job ${job.wo_no}. This will determine the workflow stages.`
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -112,7 +165,10 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
             <div className="text-sm">
               <p className="font-medium text-amber-800">Warning</p>
               <p className="text-amber-700">
-                Changing the category will reset the current workflow progress. All stage instances will be deleted and recreated.
+                {isMultipleJobs ? 
+                  'Changing the category will reset the current workflow progress for all selected jobs. All stage instances will be deleted and recreated.' :
+                  'Changing the category will reset the current workflow progress. All stage instances will be deleted and recreated.'
+                }
               </p>
             </div>
           </div>
@@ -151,7 +207,9 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
             onClick={handleAssign} 
             disabled={isLoading || !selectedCategoryId}
           >
-            {isLoading ? "Processing..." : (job.category_id ? "Change Category" : "Assign & Initialize")}
+            {isLoading ? "Processing..." : 
+             isMultipleJobs ? `Assign to ${job.selectedIds?.length} Jobs` :
+             job.category_id ? "Change Category" : "Assign & Initialize"}
           </Button>
         </DialogFooter>
       </DialogContent>
