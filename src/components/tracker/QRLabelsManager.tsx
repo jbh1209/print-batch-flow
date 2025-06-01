@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +36,7 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
     setIsGenerating(true);
     try {
       console.log("Starting PDF generation for", selectedJobs.length, "jobs");
+      console.log("Function being called: downloadQRLabelsPDF");
       
       const labelData: QRLabelData[] = selectedJobs.map(job => ({
         id: job.id,
@@ -46,8 +48,9 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
       }));
 
       console.log("Label data prepared:", labelData);
+      console.log("About to call downloadQRLabelsPDF...");
       
-      // This should generate a PDF, not PNG files
+      // EXPLICITLY call the PDF generation function
       const result = await downloadQRLabelsPDF(labelData, `qr-labels-${selectedJobs.length}-jobs.pdf`);
       
       console.log("PDF generation result:", result);
