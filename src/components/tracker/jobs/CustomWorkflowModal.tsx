@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -113,19 +114,43 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
   };
 
   const handleDragEnd = (result: any) => {
-    if (!result.destination) return;
+    // Safely handle drag result
+    if (!result || !result.destination) {
+      console.log('Drag cancelled or no destination');
+      return;
+    }
 
-    const items = Array.from(selectedStages);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
+    console.log('Drag result:', result);
 
-    // Update order numbers
-    const reorderedStages = items.map((stage, index) => ({
-      ...stage,
-      order: index + 1
-    }));
+    const { source, destination } = result;
+    
+    // Return if dropped in the same position
+    if (source.index === destination.index) {
+      return;
+    }
 
-    setSelectedStages(reorderedStages);
+    try {
+      // Create a copy of the current selected stages
+      const items = Array.from(selectedStages);
+      
+      // Remove the dragged item from source position
+      const [reorderedItem] = items.splice(source.index, 1);
+      
+      // Insert the item at the destination position
+      items.splice(destination.index, 0, reorderedItem);
+
+      // Update order numbers to reflect new positions
+      const reorderedStages = items.map((stage, index) => ({
+        ...stage,
+        order: index + 1
+      }));
+
+      console.log('Reordered stages:', reorderedStages);
+      setSelectedStages(reorderedStages);
+    } catch (error) {
+      console.error('Error during drag and drop:', error);
+      toast.error("Error reordering stages");
+    }
   };
 
   const handleRemoveStage = (stageId: string) => {
@@ -303,22 +328,33 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
               ) : (
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="selected-stages">
-                    {(provided) => (
+                    {(provided, snapshot) => (
                       <div
                         {...provided.droppableProps}
                         ref={provided.innerRef}
-                        className="space-y-2"
+                        className={`space-y-2 min-h-[100px] ${
+                          snapshot.isDraggingOver ? 'bg-blue-50 rounded-lg' : ''
+                        }`}
                       >
                         {selectedStages.map((stage, index) => (
-                          <Draggable key={stage.id} draggableId={stage.id} index={index}>
-                            {(provided) => (
+                          <Draggable 
+                            key={stage.id} 
+                            draggableId={stage.id} 
+                            index={index}
+                          >
+                            {(provided, snapshot) => (
                               <div
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
-                                className="flex items-center space-x-3 p-3 border rounded bg-white"
+                                className={`flex items-center space-x-3 p-3 border rounded bg-white transition-all ${
+                                  snapshot.isDragging ? 'shadow-lg rotate-2' : 'shadow-sm'
+                                }`}
+                                style={{
+                                  ...provided.draggableProps.style,
+                                }}
                               >
                                 <div {...provided.dragHandleProps}>
-                                  <GripVertical className="h-4 w-4 text-gray-400" />
+                                  <GripVertical className="h-4 w-4 text-gray-400 cursor-grab" />
                                 </div>
                                 <div className="flex-1 flex items-center space-x-2">
                                   <span className="text-sm font-medium text-gray-500">
