@@ -28,9 +28,11 @@ const TrackerJobs = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" size="sm">
-              <Upload className="mr-2 h-4 w-4" />
-              Import Excel
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/tracker/upload" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Import Excel
+              </Link>
             </Button>
             
             <Button variant="outline" size="sm">
