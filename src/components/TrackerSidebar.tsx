@@ -9,7 +9,8 @@ import {
   Home,
   ChevronLeft,
   Package2,
-  Settings
+  Settings,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
