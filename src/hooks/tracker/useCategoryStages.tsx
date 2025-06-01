@@ -153,21 +153,38 @@ export const useCategoryStages = (categoryId?: string) => {
     try {
       console.log('🔄 Reordering category stages...');
       
-      // Update all stages with new order
-      const updates = reorderedStages.map(stage => 
+      // First, set all stage orders to temporary negative values to avoid conflicts
+      const tempUpdates = reorderedStages.map((stage, index) => 
+        supabase
+          .from('category_production_stages')
+          .update({ stage_order: -(index + 1), updated_at: new Date().toISOString() })
+          .eq('id', stage.id)
+      );
+
+      const tempResults = await Promise.all(tempUpdates);
+      
+      // Check if any temp updates failed
+      const tempErrors = tempResults.filter(result => result.error);
+      if (tempErrors.length > 0) {
+        console.error('❌ Category stage temp reorder errors:', tempErrors);
+        throw new Error('Failed to prepare category stages for reordering');
+      }
+
+      // Then update to final order values
+      const finalUpdates = reorderedStages.map(stage => 
         supabase
           .from('category_production_stages')
           .update({ stage_order: stage.stage_order, updated_at: new Date().toISOString() })
           .eq('id', stage.id)
       );
 
-      const results = await Promise.all(updates);
+      const finalResults = await Promise.all(finalUpdates);
       
-      // Check if any updates failed
-      const errors = results.filter(result => result.error);
-      if (errors.length > 0) {
-        console.error('❌ Category stage reorder errors:', errors);
-        throw new Error('Failed to reorder some category stages');
+      // Check if any final updates failed
+      const finalErrors = finalResults.filter(result => result.error);
+      if (finalErrors.length > 0) {
+        console.error('❌ Category stage final reorder errors:', finalErrors);
+        throw new Error('Failed to finalize category stages reordering');
       }
 
       console.log('✅ Category stages reordered successfully');
