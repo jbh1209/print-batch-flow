@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +34,8 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
 
     setIsGenerating(true);
     try {
+      console.log("Starting PDF generation for", selectedJobs.length, "jobs");
+      
       const labelData: QRLabelData[] = selectedJobs.map(job => ({
         id: job.id,
         wo_no: job.wo_no,
@@ -44,12 +45,17 @@ export const QRLabelsManager: React.FC<QRLabelsManagerProps> = ({
         reference: job.reference
       }));
 
-      await downloadQRLabelsPDF(labelData, `qr-labels-${selectedJobs.length}-jobs.pdf`);
+      console.log("Label data prepared:", labelData);
+      
+      // This should generate a PDF, not PNG files
+      const result = await downloadQRLabelsPDF(labelData, `qr-labels-${selectedJobs.length}-jobs.pdf`);
+      
+      console.log("PDF generation result:", result);
       
       toast.success(`Successfully generated QR labels PDF for ${selectedJobs.length} jobs`);
       handleClose();
     } catch (error) {
-      console.error('Error generating QR labels:', error);
+      console.error('Error generating QR labels PDF:', error);
       toast.error('Failed to generate QR labels PDF');
     } finally {
       setIsGenerating(false);

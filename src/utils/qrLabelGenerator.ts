@@ -13,6 +13,8 @@ export interface QRLabelData {
 }
 
 export const generateQRLabelPDF = async (jobs: QRLabelData[]): Promise<Uint8Array> => {
+  console.log('Starting PDF generation for', jobs.length, 'jobs');
+  
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -21,8 +23,11 @@ export const generateQRLabelPDF = async (jobs: QRLabelData[]): Promise<Uint8Arra
   const labelWidth = mmToPoints(100);
   const labelHeight = mmToPoints(50);
 
+  console.log('Label dimensions:', { labelWidth, labelHeight });
+
   for (let jobIndex = 0; jobIndex < jobs.length; jobIndex++) {
     const job = jobs[jobIndex];
+    console.log(`Processing job ${jobIndex + 1}/${jobs.length}: ${job.wo_no}`);
     
     // Create a new page for each label with exact dimensions
     const currentPage = pdfDoc.addPage([labelWidth, labelHeight]);
@@ -136,21 +141,36 @@ export const generateQRLabelPDF = async (jobs: QRLabelData[]): Promise<Uint8Arra
     }
   }
 
+  console.log('PDF generation complete, saving document');
   return await pdfDoc.save();
 };
 
-export const downloadQRLabelsPDF = async (jobs: QRLabelData[], filename?: string) => {
+export const downloadQRLabelsPDF = async (jobs: QRLabelData[], filename?: string): Promise<boolean> => {
   try {
+    console.log('Starting PDF download process for', jobs.length, 'jobs');
+    
     const pdfBytes = await generateQRLabelPDF(jobs);
+    
+    console.log('PDF generated successfully, size:', pdfBytes.length, 'bytes');
     
     // Create blob with PDF content type
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     
+    console.log('Blob created, starting download');
+    
     // Create download link and trigger download
     const link = document.createElement('a');
     link.href = url;
     link.download = filename || `qr-labels-${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    // Make sure the filename ends with .pdf
+    if (!link.download.endsWith('.pdf')) {
+      link.download += '.pdf';
+    }
+    
+    console.log('Download filename:', link.download);
+    
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -158,6 +178,7 @@ export const downloadQRLabelsPDF = async (jobs: QRLabelData[], filename?: string
     // Clean up the URL object
     URL.revokeObjectURL(url);
     
+    console.log('Download triggered successfully');
     return true;
   } catch (error) {
     console.error('Error generating QR labels PDF:', error);
