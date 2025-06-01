@@ -12,12 +12,13 @@ import {
   QrCode,
   Download
 } from "lucide-react";
+import { QRLabelsManager } from "../QRLabelsManager";
 
 interface JobsTableBulkActionsBarProps {
   selectedJobsCount: number;
   isDeleting: boolean;
   onBulkCategoryAssign: () => void;
-  onBulkStatusUpdate: () => void;
+  onBulkStatusUpdate: (newStatus: string) => void | Promise<void>;
   onBulkDelete: () => void;
   onClearSelection: () => void;
   onCustomWorkflow: () => void;
@@ -42,6 +43,11 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
     setShowQRLabels(true);
   };
 
+  const handleStatusUpdate = () => {
+    // For now, we'll update to "printing" status - this could be made configurable
+    onBulkStatusUpdate("printing");
+  };
+
   return (
     <>
       <Card className="border-blue-200 bg-blue-50">
@@ -64,7 +70,7 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
                 <Button 
                   size="sm" 
                   variant="outline"
-                  onClick={onBulkStatusUpdate}
+                  onClick={handleStatusUpdate}
                   className="flex items-center gap-1"
                 >
                   <RotateCcw className="h-3 w-3" />
@@ -116,68 +122,10 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
 
       {/* QR Labels Manager Modal */}
       {showQRLabels && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <QrCode className="h-5 w-5" />
-                QR Labels PDF Generator
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowQRLabels(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <Download className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <p className="font-medium text-blue-800">Ready to generate PDF</p>
-                    <p className="text-sm text-blue-700">
-                      {selectedJobsCount} job{selectedJobsCount > 1 ? 's' : ''} selected for QR label generation
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowQRLabels(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    // Import and call the PDF generation function
-                    import("@/utils/qrLabelGenerator").then(({ downloadQRLabelsPDF }) => {
-                      const labelData = selectedJobs.map(job => ({
-                        id: job.id,
-                        wo_no: job.wo_no,
-                        customer: job.customer,
-                        due_date: job.due_date,
-                        status: job.status || 'pending',
-                        reference: job.reference || job.customer
-                      }));
-                      
-                      downloadQRLabelsPDF(labelData, `qr-labels-${selectedJobsCount}-jobs.pdf`);
-                      setShowQRLabels(false);
-                    });
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Generate PDF
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <QRLabelsManager 
+          selectedJobs={selectedJobs}
+          onClose={() => setShowQRLabels(false)}
+        />
       )}
     </>
   );
