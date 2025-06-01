@@ -261,31 +261,37 @@ export type Database = {
       }
       category_production_stages: {
         Row: {
+          applies_to_parts: Json | null
           category_id: string
           created_at: string
           estimated_duration_hours: number | null
           id: string
           is_required: boolean
+          part_rule_type: string | null
           production_stage_id: string
           stage_order: number
           updated_at: string
         }
         Insert: {
+          applies_to_parts?: Json | null
           category_id: string
           created_at?: string
           estimated_duration_hours?: number | null
           id?: string
           is_required?: boolean
+          part_rule_type?: string | null
           production_stage_id: string
           stage_order: number
           updated_at?: string
         }
         Update: {
+          applies_to_parts?: Json | null
           category_id?: string
           created_at?: string
           estimated_duration_hours?: number | null
           id?: string
           is_required?: boolean
+          part_rule_type?: string | null
           production_stage_id?: string
           stage_order?: number
           updated_at?: string

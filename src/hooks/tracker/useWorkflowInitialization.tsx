@@ -9,7 +9,7 @@ export const useWorkflowInitialization = () => {
   const initializeWorkflow = async (jobId: string, jobTableName: string, categoryId: string) => {
     try {
       setIsInitializing(true);
-      console.log('🔄 Initializing workflow with multi-part support...', { jobId, jobTableName, categoryId });
+      console.log('🔄 Initializing workflow with multi-part and part-specific support...', { jobId, jobTableName, categoryId });
 
       // First, check if workflow already exists
       const { data: existingStages, error: checkError } = await supabase
@@ -25,7 +25,7 @@ export const useWorkflowInitialization = () => {
         return true;
       }
 
-      // Use the new multi-part initialization function
+      // Use the enhanced multi-part initialization function that respects part-specific rules
       const { data, error } = await supabase.rpc('initialize_job_stages_with_parts', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
@@ -34,8 +34,8 @@ export const useWorkflowInitialization = () => {
 
       if (error) throw error;
 
-      console.log('✅ Workflow initialized successfully with multi-part support');
-      toast.success('Production workflow initialized successfully');
+      console.log('✅ Workflow initialized successfully with multi-part and part-specific support');
+      toast.success('Production workflow initialized with part-specific rules');
       return true;
     } catch (err) {
       console.error('❌ Error initializing workflow:', err);

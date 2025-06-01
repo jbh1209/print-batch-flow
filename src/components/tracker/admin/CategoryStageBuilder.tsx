@@ -28,6 +28,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { WorkflowStageCard } from "./WorkflowStageCard";
 import { WorkflowPreview } from "./WorkflowPreview";
+import { PartSpecificStageConfig } from "./PartSpecificStageConfig";
 import { validateWorkflow, getWorkflowMetrics } from "@/utils/tracker/workflowValidation";
 
 interface CategoryStageBuilderProps {
@@ -41,6 +42,13 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
   
   const [selectedStageId, setSelectedStageId] = useState<string>("");
   const [estimatedHours, setEstimatedHours] = useState<number>(24);
+  const [partConfig, setPartConfig] = useState<{
+    part_rule_type: 'all_parts' | 'specific_parts' | 'exclude_parts';
+    applies_to_parts: string[];
+  }>({
+    part_rule_type: 'all_parts',
+    applies_to_parts: []
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -56,6 +64,20 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
   // Validation
   const validation = validateWorkflow(categoryStages);
   const metrics = getWorkflowMetrics(categoryStages);
+
+  // Get all unique part definitions from multi-part stages
+  const getAllAvailableParts = () => {
+    const allParts = new Set<string>();
+    availableStages.forEach(stage => {
+      if (stage.is_multi_part && stage.part_definitions) {
+        stage.part_definitions.forEach(part => allParts.add(part));
+      }
+    });
+    return Array.from(allParts);
+  };
+
+  const availableParts = getAllAvailableParts();
+  const selectedStage = availableStages.find(stage => stage.id === selectedStageId);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -95,12 +117,17 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
       production_stage_id: selectedStageId,
       stage_order: nextOrder,
       estimated_duration_hours: estimatedHours,
-      is_required: true
+      is_required: true,
+      ...partConfig
     });
 
     if (success) {
       setSelectedStageId("");
       setEstimatedHours(24);
+      setPartConfig({
+        part_rule_type: 'all_parts',
+        applies_to_parts: []
+      });
     }
   };
 
@@ -110,6 +137,15 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
 
   const handleRemoveStage = async (id: string) => {
     await removeCategoryStage(id);
+  };
+
+  const handleStageSelection = (stageId: string) => {
+    setSelectedStageId(stageId);
+    // Reset part config when changing stages
+    setPartConfig({
+      part_rule_type: 'all_parts',
+      applies_to_parts: []
+    });
   };
 
   // Filter out stages that are already added to this category
@@ -196,50 +232,66 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
           )}
 
           {/* Add New Stage */}
-          <div className="flex items-end gap-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <div className="flex-1">
-              <Label htmlFor="stage-select">Add Production Stage</Label>
-              <Select value={selectedStageId} onValueChange={setSelectedStageId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a production stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableStagesFiltered.map(stage => (
-                    <SelectItem key={stage.id} value={stage.id}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: stage.color }}
-                        />
-                        {stage.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 space-y-4">
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <Label htmlFor="stage-select">Add Production Stage</Label>
+                <Select value={selectedStageId} onValueChange={handleStageSelection}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a production stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableStagesFiltered.map(stage => (
+                      <SelectItem key={stage.id} value={stage.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          {stage.name}
+                          {stage.is_multi_part && (
+                            <Badge variant="outline" className="text-xs">Multi-part</Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="duration">Estimated Hours</Label>
+                <Input
+                  id="duration"
+                  type="number"
+                  value={estimatedHours}
+                  onChange={(e) => setEstimatedHours(parseInt(e.target.value) || 24)}
+                  className="w-24"
+                  min="1"
+                  max="168"
+                />
+              </div>
+              
+              <Button 
+                onClick={handleAddStage} 
+                disabled={!selectedStageId}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Stage
+              </Button>
             </div>
-            
-            <div>
-              <Label htmlFor="duration">Estimated Hours</Label>
-              <Input
-                id="duration"
-                type="number"
-                value={estimatedHours}
-                onChange={(e) => setEstimatedHours(parseInt(e.target.value) || 24)}
-                className="w-24"
-                min="1"
-                max="168"
+
+            {/* Part-Specific Configuration */}
+            {selectedStageId && availableParts.length > 0 && (
+              <PartSpecificStageConfig
+                selectedStageId={selectedStageId}
+                availableParts={availableParts}
+                currentConfig={partConfig}
+                onConfigChange={setPartConfig}
+                stageName={selectedStage?.name}
               />
-            </div>
-            
-            <Button 
-              onClick={handleAddStage} 
-              disabled={!selectedStageId}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Stage
-            </Button>
+            )}
           </div>
 
           {/* Current Workflow */}

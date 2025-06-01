@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -10,11 +9,15 @@ interface CategoryStage {
   stage_order: number;
   estimated_duration_hours: number;
   is_required: boolean;
+  applies_to_parts: string[];
+  part_rule_type: 'all_parts' | 'specific_parts' | 'exclude_parts';
   production_stage: {
     id: string;
     name: string;
     color: string;
     description?: string;
+    is_multi_part: boolean;
+    part_definitions: string[];
   };
 }
 
@@ -23,6 +26,8 @@ interface CategoryStageInput {
   stage_order: number;
   estimated_duration_hours?: number;
   is_required?: boolean;
+  applies_to_parts?: string[];
+  part_rule_type?: 'all_parts' | 'specific_parts' | 'exclude_parts';
 }
 
 export const useCategoryStages = (categoryId?: string) => {
@@ -49,7 +54,9 @@ export const useCategoryStages = (categoryId?: string) => {
             id,
             name,
             color,
-            description
+            description,
+            is_multi_part,
+            part_definitions
           )
         `)
         .eq('category_id', categoryId)
@@ -61,7 +68,21 @@ export const useCategoryStages = (categoryId?: string) => {
       }
 
       console.log('✅ Category stages fetched successfully:', data?.length || 0);
-      setCategoryStages(data || []);
+      
+      // Transform the data to ensure proper types
+      const transformedData = data?.map(stage => ({
+        ...stage,
+        applies_to_parts: Array.isArray(stage.applies_to_parts) ? stage.applies_to_parts : [],
+        part_rule_type: stage.part_rule_type || 'all_parts',
+        production_stage: {
+          ...stage.production_stage,
+          part_definitions: Array.isArray(stage.production_stage?.part_definitions) 
+            ? stage.production_stage.part_definitions 
+            : []
+        }
+      })) || [];
+      
+      setCategoryStages(transformedData);
     } catch (err) {
       console.error('❌ Error fetching category stages:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load category stages";
@@ -80,7 +101,9 @@ export const useCategoryStages = (categoryId?: string) => {
         .from('category_production_stages')
         .insert({
           category_id: categoryId,
-          ...stageData
+          ...stageData,
+          applies_to_parts: JSON.stringify(stageData.applies_to_parts || []),
+          part_rule_type: stageData.part_rule_type || 'all_parts'
         });
 
       if (error) {
@@ -103,9 +126,19 @@ export const useCategoryStages = (categoryId?: string) => {
     try {
       console.log('🔄 Updating category stage...');
       
+      const updateData: any = { 
+        ...stageData, 
+        updated_at: new Date().toISOString() 
+      };
+      
+      // Handle part-specific fields
+      if (stageData.applies_to_parts !== undefined) {
+        updateData.applies_to_parts = JSON.stringify(stageData.applies_to_parts);
+      }
+      
       const { error } = await supabase
         .from('category_production_stages')
-        .update({ ...stageData, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq('id', id);
 
       if (error) {

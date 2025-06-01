@@ -1,13 +1,11 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, GripVertical, Clock, CheckCircle, AlertCircle } from "lucide-react";
-import {
-  useSortable,
-} from "@dnd-kit/sortable";
+import { Badge } from "@/components/ui/badge";
+import { GripVertical, Clock, Trash2, Check, X, Edit, Settings } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 interface WorkflowStageCardProps {
@@ -16,17 +14,21 @@ interface WorkflowStageCardProps {
     stage_order: number;
     estimated_duration_hours: number;
     is_required: boolean;
+    applies_to_parts: string[];
+    part_rule_type: 'all_parts' | 'specific_parts' | 'exclude_parts';
     production_stage: {
       id: string;
       name: string;
       color: string;
       description?: string;
+      is_multi_part: boolean;
+      part_definitions: string[];
     };
   };
   onUpdate: (id: string, duration: number) => void;
   onRemove: (id: string) => void;
-  isFirst?: boolean;
-  isLast?: boolean;
+  isFirst: boolean;
+  isLast: boolean;
   totalStages: number;
 }
 
@@ -34,10 +36,13 @@ export const WorkflowStageCard = ({
   stage, 
   onUpdate, 
   onRemove, 
-  isFirst = false, 
-  isLast = false,
+  isFirst, 
+  isLast, 
   totalStages 
 }: WorkflowStageCardProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDuration, setEditDuration] = useState(stage.estimated_duration_hours);
+
   const {
     attributes,
     listeners,
@@ -52,102 +57,167 @@ export const WorkflowStageCard = ({
     transition,
   };
 
+  const handleSave = () => {
+    onUpdate(stage.id, editDuration);
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditDuration(stage.estimated_duration_hours);
+    setIsEditing(false);
+  };
+
+  const getPartRuleDescription = () => {
+    const { part_rule_type, applies_to_parts, production_stage } = stage;
+    
+    if (!production_stage.is_multi_part || part_rule_type === 'all_parts') {
+      return null;
+    }
+
+    switch (part_rule_type) {
+      case 'specific_parts':
+        return applies_to_parts.length > 0 
+          ? `Only: ${applies_to_parts.join(', ')}`
+          : 'No parts selected';
+      case 'exclude_parts':
+        return applies_to_parts.length > 0 
+          ? `All except: ${applies_to_parts.join(', ')}`
+          : 'All parts';
+      default:
+        return null;
+    }
+  };
+
+  const getEffectiveParts = () => {
+    const { part_rule_type, applies_to_parts, production_stage } = stage;
+    
+    if (!production_stage.is_multi_part) {
+      return [];
+    }
+
+    switch (part_rule_type) {
+      case 'all_parts':
+        return production_stage.part_definitions;
+      case 'specific_parts':
+        return applies_to_parts;
+      case 'exclude_parts':
+        return production_stage.part_definitions.filter(part => !applies_to_parts.includes(part));
+      default:
+        return [];
+    }
+  };
+
+  const partRuleDescription = getPartRuleDescription();
+  const effectiveParts = getEffectiveParts();
+
   return (
-    <div
+    <Card 
       ref={setNodeRef}
       style={style}
-      className={`relative ${isDragging ? 'opacity-50 z-50' : ''}`}
+      className={`transition-all duration-200 ${isDragging ? 'opacity-50 shadow-lg scale-105' : 'hover:shadow-md'}`}
     >
-      {/* Connection Line */}
-      {!isLast && (
-        <div className="absolute left-8 top-full w-0.5 h-4 bg-gray-300 z-10" />
-      )}
-      
-      <Card className={`bg-white border-2 ${isDragging ? 'border-blue-500 shadow-lg' : 'border-gray-200'} hover:border-gray-300 transition-colors`}>
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            {/* Drag Handle */}
-            <div
-              {...attributes}
-              {...listeners}
-              className="cursor-grab active:cursor-grabbing flex-shrink-0 mt-1"
-            >
-              <GripVertical className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-            </div>
-            
-            {/* Stage Indicator */}
-            <div className="flex-shrink-0 flex flex-col items-center">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm"
-                style={{ backgroundColor: stage.production_stage.color }}
-              >
-                {stage.stage_order}
-              </div>
-              {isFirst && (
-                <Badge variant="outline" className="text-xs mt-1 bg-green-50 text-green-700 border-green-200">
-                  Start
-                </Badge>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-3">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600"
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+
+          {/* Stage Order Badge */}
+          <Badge variant="outline" className="min-w-[2rem] justify-center">
+            {stage.stage_order}
+          </Badge>
+
+          {/* Stage Color Indicator */}
+          <div
+            className="w-4 h-4 rounded-full flex-shrink-0"
+            style={{ backgroundColor: stage.production_stage.color }}
+          />
+
+          {/* Stage Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h4 className="font-medium text-sm truncate">{stage.production_stage.name}</h4>
+              {stage.production_stage.is_multi_part && (
+                <Badge variant="secondary" className="text-xs">Multi-part</Badge>
               )}
-              {isLast && (
-                <Badge variant="outline" className="text-xs mt-1 bg-blue-50 text-blue-700 border-blue-200">
-                  Final
-                </Badge>
+              {!stage.is_required && (
+                <Badge variant="outline" className="text-xs">Optional</Badge>
               )}
             </div>
             
-            {/* Stage Details */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h4 className="font-medium text-gray-900 truncate">
-                  {stage.production_stage.name}
-                </h4>
-                {stage.is_required && (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                )}
+            {stage.production_stage.description && (
+              <p className="text-xs text-gray-500 truncate">{stage.production_stage.description}</p>
+            )}
+
+            {/* Part-specific information */}
+            {partRuleDescription && (
+              <div className="mt-1">
+                <span className="text-xs text-blue-600 font-medium">{partRuleDescription}</span>
               </div>
-              
-              {stage.production_stage.description && (
-                <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                  {stage.production_stage.description}
-                </p>
-              )}
-              
-              {/* Duration Input */}
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-gray-400" />
+            )}
+
+            {effectiveParts.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {effectiveParts.map(part => (
+                  <Badge key={part} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    {part}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Duration */}
+          <div className="flex items-center gap-2">
+            <Clock className="h-3 w-3 text-gray-400" />
+            {isEditing ? (
+              <div className="flex items-center gap-1">
                 <Input
                   type="number"
-                  value={stage.estimated_duration_hours}
-                  onChange={(e) => onUpdate(stage.id, parseInt(e.target.value) || 1)}
-                  className="w-20 h-8"
+                  value={editDuration}
+                  onChange={(e) => setEditDuration(parseInt(e.target.value) || 0)}
+                  className="w-16 h-7 text-xs"
                   min="1"
                   max="168"
                 />
-                <span className="text-sm text-gray-500">hours</span>
+                <Button size="sm" variant="ghost" onClick={handleSave} className="h-7 w-7 p-0">
+                  <Check className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleCancel} className="h-7 w-7 p-0">
+                  <X className="h-3 w-3" />
+                </Button>
               </div>
-              
-              {/* Stage Metrics */}
-              <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span>Step {stage.stage_order} of {totalStages}</span>
-                <span>•</span>
-                <span>{stage.estimated_duration_hours}h estimated</span>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium">{stage.estimated_duration_hours}h</span>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => setIsEditing(true)}
+                  className="h-6 w-6 p-0"
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
               </div>
-            </div>
-            
-            {/* Actions */}
-            <div className="flex-shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onRemove(stage.id)}
-                className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+
+          {/* Remove Button */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onRemove(stage.id)}
+            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
