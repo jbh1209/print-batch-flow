@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,7 +46,7 @@ interface EnhancedJobsTableViewProps {
 export const EnhancedJobsTableView: React.FC<EnhancedJobsTableViewProps> = ({ 
   filters = {} 
 }) => {
-  const { jobs, categories, isLoading, refreshJobs } = useEnhancedProductionJobs();
+  const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
