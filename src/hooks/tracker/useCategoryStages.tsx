@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -169,7 +170,7 @@ export const useCategoryStages = (categoryId?: string) => {
         throw new Error('Stage not found');
       }
 
-      // Delete the stage
+      // Delete the stage first
       const { error: deleteError } = await supabase
         .from('category_production_stages')
         .delete()
@@ -185,27 +186,27 @@ export const useCategoryStages = (categoryId?: string) => {
         .filter(stage => stage.id !== id && stage.stage_order > stageToDelete.stage_order)
         .sort((a, b) => a.stage_order - b.stage_order);
 
-      // Reorder the remaining stages to close the gap
+      // Reorder the remaining stages sequentially to avoid constraint violations
       if (stagesToReorder.length > 0) {
         console.log('🔄 Reordering remaining stages...');
         
-        const reorderUpdates = stagesToReorder.map((stage, index) => 
-          supabase
+        // Update each stage individually to avoid constraint conflicts
+        for (let i = 0; i < stagesToReorder.length; i++) {
+          const stage = stagesToReorder[i];
+          const newOrder = stageToDelete.stage_order + i;
+          
+          const { error: updateError } = await supabase
             .from('category_production_stages')
             .update({ 
-              stage_order: stageToDelete.stage_order + index, 
+              stage_order: newOrder, 
               updated_at: new Date().toISOString() 
             })
-            .eq('id', stage.id)
-        );
+            .eq('id', stage.id);
 
-        const reorderResults = await Promise.all(reorderUpdates);
-        
-        // Check if any reorder updates failed
-        const reorderErrors = reorderResults.filter(result => result.error);
-        if (reorderErrors.length > 0) {
-          console.error('❌ Stage reorder errors:', reorderErrors);
-          throw new Error('Failed to reorder stages after deletion');
+          if (updateError) {
+            console.error('❌ Stage reorder error:', updateError);
+            throw new Error(`Failed to reorder stage ${stage.id}: ${updateError.message}`);
+          }
         }
       }
 
