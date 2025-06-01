@@ -3,7 +3,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, MoveUp, MoveDown } from "lucide-react";
+import { Trash2, Edit, MoveUp, MoveDown, Plus } from "lucide-react";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { ProductionStageForm } from "./ProductionStageForm";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -78,7 +78,13 @@ export const ProductionStagesManagement = () => {
           <CardTitle>Production Stages Management</CardTitle>
           <ProductionStageForm 
             onSave={() => window.location.reload()} 
-            onCancel={() => {}} 
+            onCancel={() => {}}
+            trigger={
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Stage
+              </Button>
+            }
           />
         </CardHeader>
         <CardContent>

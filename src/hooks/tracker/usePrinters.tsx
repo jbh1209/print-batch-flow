@@ -39,7 +39,14 @@ export const usePrinters = () => {
       }
 
       console.log('✅ Printers fetched successfully:', data?.length || 0);
-      setPrinters(data || []);
+      
+      // Transform the data to ensure proper typing
+      const transformedData = data?.map(printer => ({
+        ...printer,
+        status: printer.status as 'active' | 'maintenance' | 'offline'
+      })) || [];
+      
+      setPrinters(transformedData);
     } catch (err) {
       console.error('❌ Error fetching printers:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load printers";

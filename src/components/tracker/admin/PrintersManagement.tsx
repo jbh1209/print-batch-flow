@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,21 +21,23 @@ interface PrinterFormData {
   max_paper_size: string;
   supported_paper_types: string[];
   notes: string;
+  capabilities: any;
 }
 
 const PrinterForm: React.FC<{
   printer?: PrinterType;
-  onSave: (data: Omit<PrinterType, 'id' | 'created_at' | 'updated_at' | 'capabilities'>) => Promise<void>;
+  onSave: (data: Omit<PrinterType, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   onCancel: () => void;
 }> = ({ printer, onSave, onCancel }) => {
   const [formData, setFormData] = useState<PrinterFormData>({
     name: printer?.name || '',
     type: printer?.type || '',
     location: printer?.location || '',
-    status: (printer?.status as 'active' | 'maintenance' | 'offline') || 'active',
+    status: printer?.status || 'active',
     max_paper_size: printer?.max_paper_size || '',
     supported_paper_types: printer?.supported_paper_types || [],
-    notes: printer?.notes || ''
+    notes: printer?.notes || '',
+    capabilities: printer?.capabilities || {}
   });
 
   const [newPaperType, setNewPaperType] = useState('');
@@ -47,10 +48,7 @@ const PrinterForm: React.FC<{
     setIsSubmitting(true);
     
     try {
-      await onSave({
-        ...formData,
-        capabilities: {}
-      });
+      await onSave(formData);
     } catch (error) {
       console.error('Error saving printer:', error);
     } finally {
@@ -196,7 +194,7 @@ export const PrintersManagement: React.FC = () => {
   const [selectedPrinter, setSelectedPrinter] = useState<PrinterType | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  const handleSave = async (data: Omit<PrinterType, 'id' | 'created_at' | 'updated_at' | 'capabilities'>) => {
+  const handleSave = async (data: Omit<PrinterType, 'id' | 'created_at' | 'updated_at'>) => {
     if (selectedPrinter) {
       await updatePrinter(selectedPrinter.id, data);
     } else {

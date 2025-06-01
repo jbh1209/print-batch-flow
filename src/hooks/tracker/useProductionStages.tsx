@@ -45,7 +45,9 @@ export const useProductionStages = () => {
         part_definitions: Array.isArray(stage.part_definitions) 
           ? stage.part_definitions 
           : stage.part_definitions 
-            ? JSON.parse(stage.part_definitions as string) 
+            ? (typeof stage.part_definitions === 'string' 
+                ? JSON.parse(stage.part_definitions) 
+                : [])
             : []
       })) || [];
       

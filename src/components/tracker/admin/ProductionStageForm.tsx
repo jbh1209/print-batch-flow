@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MultiPartStageBuilder } from "./MultiPartStageBuilder";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,12 +25,14 @@ interface ProductionStageFormProps {
   stage?: ProductionStage;
   onSave: () => void;
   onCancel: () => void;
+  trigger?: React.ReactNode;
 }
 
 export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
   stage,
   onSave,
-  onCancel
+  onCancel,
+  trigger
 }) => {
   const [formData, setFormData] = useState<ProductionStage>({
     name: stage?.name || '',
@@ -42,6 +45,7 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (stage) {
@@ -86,6 +90,7 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
         toast.success('Production stage created successfully');
       }
 
+      setIsOpen(false);
       onSave();
     } catch (err) {
       console.error('Error saving production stage:', err);
@@ -95,7 +100,7 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
     }
   };
 
-  return (
+  const formContent = (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Card>
         <CardHeader>
@@ -166,7 +171,7 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
       />
 
       <div className="flex gap-2 justify-end">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+        <Button type="button" variant="outline" onClick={() => { setIsOpen(false); onCancel(); }} disabled={isLoading}>
           Cancel
         </Button>
         <Button type="submit" disabled={isLoading}>
@@ -175,4 +180,24 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
       </div>
     </form>
   );
+
+  if (trigger) {
+    return (
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {stage?.id ? 'Edit Production Stage' : 'Create New Production Stage'}
+            </DialogTitle>
+          </DialogHeader>
+          {formContent}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return formContent;
 };
