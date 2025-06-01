@@ -52,42 +52,20 @@ export const generateQRLabelPDF = async (jobs: QRLabelData[]): Promise<Uint8Arra
         borderWidth: 1,
       });
 
-      // Header with job number (with D prefix)
-      const jobNumber = `D${job.wo_no}`;
-      currentPage.drawText(jobNumber, {
-        x: 10,
-        y: labelHeight - 20,
-        size: 12,
+      // Order number at the top (ensure D prefix)
+      const orderNumber = job.wo_no.startsWith('D') ? job.wo_no : `D${job.wo_no}`;
+      currentPage.drawText(orderNumber, {
+        x: labelWidth / 2 - boldFont.widthOfTextAtSize(orderNumber, 14) / 2,
+        y: labelHeight - 15,
+        size: 14,
         font: boldFont,
         color: rgb(0, 0, 0),
       });
 
-      // Status badge if available
-      if (job.status) {
-        const statusText = job.status.toUpperCase();
-        const statusWidth = boldFont.widthOfTextAtSize(statusText, 8);
-        currentPage.drawRectangle({
-          x: labelWidth - statusWidth - 20,
-          y: labelHeight - 25,
-          width: statusWidth + 10,
-          height: 15,
-          color: rgb(0.9, 0.9, 0.9),
-          borderColor: rgb(0.5, 0.5, 0.5),
-          borderWidth: 0.5,
-        });
-        currentPage.drawText(statusText, {
-          x: labelWidth - statusWidth - 15,
-          y: labelHeight - 22,
-          size: 8,
-          font: boldFont,
-          color: rgb(0, 0, 0),
-        });
-      }
-
       // QR Code - centered
       const qrSize = mmToPoints(25); // 25mm QR code
       const qrX = (labelWidth - qrSize) / 2;
-      const qrY = (labelHeight - qrSize) / 2 - 5;
+      const qrY = (labelHeight - qrSize) / 2 - 2;
       
       currentPage.drawImage(qrImage, {
         x: qrX,
@@ -96,60 +74,40 @@ export const generateQRLabelPDF = async (jobs: QRLabelData[]): Promise<Uint8Arra
         height: qrSize,
       });
 
-      // Customer info (if available)
+      // Additional info at bottom if available
+      let bottomY = 8;
+      
       if (job.customer) {
-        const customerText = job.customer.length > 25 ? 
-          job.customer.substring(0, 22) + '...' : 
+        const customerText = job.customer.length > 30 ? 
+          job.customer.substring(0, 27) + '...' : 
           job.customer;
+        const customerWidth = font.widthOfTextAtSize(customerText, 8);
         currentPage.drawText(customerText, {
-          x: 10,
-          y: 25,
+          x: labelWidth / 2 - customerWidth / 2,
+          y: bottomY,
           size: 8,
           font: font,
-          color: rgb(0, 0, 0),
+          color: rgb(0.4, 0.4, 0.4),
         });
+        bottomY -= 10;
       }
 
-      // Due date and reference on bottom
-      const bottomY = 10;
       if (job.due_date) {
         const dueDateText = `Due: ${new Date(job.due_date).toLocaleDateString()}`;
+        const dueDateWidth = font.widthOfTextAtSize(dueDateText, 7);
         currentPage.drawText(dueDateText, {
-          x: 10,
+          x: labelWidth / 2 - dueDateWidth / 2,
           y: bottomY,
           size: 7,
           font: font,
-          color: rgb(0.3, 0.3, 0.3),
+          color: rgb(0.5, 0.5, 0.5),
         });
       }
-
-      if (job.reference) {
-        const refText = job.reference.length > 15 ? 
-          job.reference.substring(0, 12) + '...' : 
-          job.reference;
-        currentPage.drawText(refText, {
-          x: labelWidth - 60,
-          y: bottomY,
-          size: 7,
-          font: font,
-          color: rgb(0.3, 0.3, 0.3),
-        });
-      }
-
-      // Generation timestamp
-      const timestamp = new Date().toLocaleDateString();
-      currentPage.drawText(timestamp, {
-        x: labelWidth - 50,
-        y: 5,
-        size: 6,
-        font: font,
-        color: rgb(0.5, 0.5, 0.5),
-      });
 
     } catch (error) {
       console.error(`Error generating QR code for job ${job.wo_no}:`, error);
       
-      // Draw error placeholder
+      // Draw error placeholder with order number
       currentPage.drawRectangle({
         x: 0,
         y: 0,
@@ -159,16 +117,17 @@ export const generateQRLabelPDF = async (jobs: QRLabelData[]): Promise<Uint8Arra
         borderWidth: 1,
       });
       
-      currentPage.drawText(`D${job.wo_no}`, {
-        x: 10,
-        y: labelHeight - 20,
-        size: 12,
+      const errorOrderNumber = job.wo_no.startsWith('D') ? job.wo_no : `D${job.wo_no}`;
+      currentPage.drawText(errorOrderNumber, {
+        x: labelWidth / 2 - boldFont.widthOfTextAtSize(errorOrderNumber, 14) / 2,
+        y: labelHeight - 15,
+        size: 14,
         font: boldFont,
         color: rgb(0, 0, 0),
       });
       
-      currentPage.drawText('QR Error', {
-        x: 10,
+      currentPage.drawText('QR Generation Error', {
+        x: labelWidth / 2 - font.widthOfTextAtSize('QR Generation Error', 10) / 2,
         y: labelHeight / 2,
         size: 10,
         font: font,
