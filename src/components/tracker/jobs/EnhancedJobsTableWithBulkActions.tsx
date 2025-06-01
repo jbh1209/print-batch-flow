@@ -1,45 +1,21 @@
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { 
-  RefreshCw, 
-  Search, 
-  Filter,
-  MoreHorizontal,
-  Edit,
-  Trash2,
-  CheckCircle
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
+import React from "react";
+import { Card } from "@/components/ui/card";
+import { RefreshCw } from "lucide-react";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
 import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { JobsBulkActions } from "./JobsBulkActions";
 import { BulkDeleteConfirmDialog } from "./BulkDeleteConfirmDialog";
-import { SortableTableHead } from "./SortableTableHead";
 import { ColumnFilters } from "./ColumnFilters";
 import { JobEditModal } from "./JobEditModal";
 import { CategoryAssignModal } from "./CategoryAssignModal";
 import { useJobsTableFilters } from "./JobsTableFilters";
 import { useJobsTableSorting } from "./JobsTableSorting";
+import { useJobsTableState } from "./useJobsTableState";
+import { EnhancedJobsTableHeader } from "./EnhancedJobsTableHeader";
+import { JobsTableBulkActionsBar } from "./JobsTableBulkActionsBar";
+import { JobsTableContent } from "./JobsTableContent";
 
 interface EnhancedJobsTableWithBulkActionsProps {
   statusFilter?: string | null;
@@ -50,30 +26,31 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
 }) => {
   const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
   const { categories } = useProductionCategories();
-  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [showColumnFilters, setShowColumnFilters] = useState(false);
   
-  // Modal states
-  const [editingJob, setEditingJob] = useState<any>(null);
-  const [categoryAssignJob, setCategoryAssignJob] = useState<any>(null);
-
-  // Sorting state
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-
-  // Column filters state
-  const [columnFilters, setColumnFilters] = useState({
-    woNumber: '',
-    customer: '',
-    reference: '',
-    category: '',
-    status: '',
-    dueDate: '',
-    currentStage: ''
-  });
+  const {
+    selectedJobs,
+    setSelectedJobs,
+    searchQuery,
+    setSearchQuery,
+    showDeleteDialog,
+    setShowDeleteDialog,
+    isDeleting,
+    setIsDeleting,
+    showColumnFilters,
+    setShowColumnFilters,
+    editingJob,
+    setEditingJob,
+    categoryAssignJob,
+    setCategoryAssignJob,
+    sortField,
+    sortOrder,
+    columnFilters,
+    handleSelectJob,
+    handleSelectAll,
+    handleSort,
+    handleColumnFilterChange,
+    handleClearColumnFilters
+  } = useJobsTableState();
 
   // Apply status filter from sidebar
   const getFilteredJobsByStatus = () => {
@@ -117,50 +94,6 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     sortField,
     sortOrder
   });
-
-  const handleSelectJob = (jobId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedJobs(prev => [...prev, jobId]);
-    } else {
-      setSelectedJobs(prev => prev.filter(id => id !== jobId));
-    }
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedJobs(filteredAndSortedJobs.map(job => job.id));
-    } else {
-      setSelectedJobs([]);
-    }
-  };
-
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
-    }
-  };
-
-  const handleColumnFilterChange = (key: string, value: string) => {
-    setColumnFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-
-  const handleClearColumnFilters = () => {
-    setColumnFilters({
-      woNumber: '',
-      customer: '',
-      reference: '',
-      category: '',
-      status: '',
-      dueDate: '',
-      currentStage: ''
-    });
-  };
 
   const handleEditJob = (job: any) => {
     setEditingJob(job);
@@ -263,32 +196,13 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusLower = status?.toLowerCase() || 'unknown';
-    const variants = {
-      'completed': 'default' as const,
-      'production': 'default' as const,
-      'pre-press': 'secondary' as const,
-      'printing': 'default' as const,
-      'finishing': 'default' as const,
-      'packaging': 'default' as const,
-      'shipped': 'default' as const
-    };
-    
-    return (
-      <Badge variant={variants[statusLower] || 'secondary'}>
-        {status}
-      </Badge>
-    );
-  };
-
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-12">
           <RefreshCw className="h-8 w-8 animate-spin" />
           <span className="ml-2">Loading jobs...</span>
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -296,37 +210,14 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   return (
     <div className="space-y-4">
       {/* Header and Search */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Production Jobs ({filteredAndSortedJobs.length})</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search jobs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
-              <Button variant="outline" size="sm" onClick={refreshJobs}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowColumnFilters(!showColumnFilters)}
-                className={showColumnFilters ? "bg-blue-50 border-blue-200" : ""}
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+      <EnhancedJobsTableHeader
+        jobCount={filteredAndSortedJobs.length}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onRefresh={refreshJobs}
+        showColumnFilters={showColumnFilters}
+        setShowColumnFilters={setShowColumnFilters}
+      />
 
       {/* Column Filters */}
       {showColumnFilters && (
@@ -343,224 +234,28 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       )}
 
       {/* Enhanced Bulk Actions - Always visible when jobs are selected */}
-      {selectedJobs.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-blue-900">
-                {selectedJobs.length} job{selectedJobs.length > 1 ? 's' : ''} selected
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBulkCategoryAssign}
-                disabled={isDeleting}
-                className="flex items-center gap-2"
-              >
-                <Edit className="h-4 w-4" />
-                Assign Category
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleBulkStatusUpdate('Completed')}
-                disabled={isDeleting}
-                className="flex items-center gap-2 text-green-700 border-green-200 hover:bg-green-50"
-              >
-                <CheckCircle className="h-4 w-4" />
-                Mark as Completed
-              </Button>
-              
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleBulkDelete}
-                disabled={isDeleting}
-                className="flex items-center gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                {isDeleting ? 'Deleting...' : `Delete ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''}`}
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedJobs([])}
-                disabled={isDeleting}
-              >
-                Clear Selection
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <JobsTableBulkActionsBar
+        selectedJobsCount={selectedJobs.length}
+        isDeleting={isDeleting}
+        onBulkCategoryAssign={handleBulkCategoryAssign}
+        onBulkStatusUpdate={handleBulkStatusUpdate}
+        onBulkDelete={handleBulkDelete}
+        onClearSelection={() => setSelectedJobs([])}
+      />
 
       {/* Jobs Table with ScrollArea */}
-      <Card>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[600px] w-full">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectedJobs.length === filteredAndSortedJobs.length && filteredAndSortedJobs.length > 0}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <SortableTableHead
-                    sortKey="wo_no"
-                    currentSortField={sortField}
-                    currentSortOrder={sortOrder}
-                    onSort={handleSort}
-                  >
-                    WO Number
-                  </SortableTableHead>
-                  <SortableTableHead
-                    sortKey="customer"
-                    currentSortField={sortField}
-                    currentSortOrder={sortOrder}
-                    onSort={handleSort}
-                  >
-                    Customer
-                  </SortableTableHead>
-                  <SortableTableHead
-                    sortKey="reference"
-                    currentSortField={sortField}
-                    currentSortOrder={sortOrder}
-                    onSort={handleSort}
-                  >
-                    Reference
-                  </SortableTableHead>
-                  <SortableTableHead
-                    sortKey="qty"
-                    currentSortField={sortField}
-                    currentSortOrder={sortOrder}
-                    onSort={handleSort}
-                  >
-                    Qty
-                  </SortableTableHead>
-                  <SortableTableHead
-                    sortKey="category"
-                    currentSortField={sortField}
-                    currentSortOrder={sortOrder}
-                    onSort={handleSort}
-                  >
-                    Category
-                  </SortableTableHead>
-                  <SortableTableHead
-                    sortKey="status"
-                    currentSortField={sortField}
-                    currentSortOrder={sortOrder}
-                    onSort={handleSort}
-                  >
-                    Status
-                  </SortableTableHead>
-                  <SortableTableHead
-                    sortKey="due_date"
-                    currentSortField={sortField}
-                    currentSortOrder={sortOrder}
-                    onSort={handleSort}
-                  >
-                    Due Date
-                  </SortableTableHead>
-                  <SortableTableHead
-                    sortKey="current_stage"
-                    currentSortField={sortField}
-                    currentSortOrder={sortOrder}
-                    onSort={handleSort}
-                  >
-                    Current Stage
-                  </SortableTableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAndSortedJobs.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedJobs.includes(job.id)}
-                        onCheckedChange={(checked) => handleSelectJob(job.id, checked as boolean)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{job.wo_no}</TableCell>
-                    <TableCell>{job.customer || 'Unknown'}</TableCell>
-                    <TableCell>{job.reference || '-'}</TableCell>
-                    <TableCell>{job.qty || '-'}</TableCell>
-                    <TableCell>
-                      {job.category ? (
-                        <Badge variant="outline">{job.category}</Badge>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCategoryAssign(job)}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          Assign Category
-                        </Button>
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(job.status)}</TableCell>
-                    <TableCell>
-                      {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'No due date'}
-                    </TableCell>
-                    <TableCell>
-                      {job.current_stage ? (
-                        <Badge className="bg-blue-500">{job.current_stage}</Badge>
-                      ) : (
-                        <span className="text-gray-400">No workflow</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditJob(job)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit Job
-                          </DropdownMenuItem>
-                          {!job.category && (
-                            <DropdownMenuItem onClick={() => handleCategoryAssign(job)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Assign Category
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            className="text-red-600"
-                            onClick={() => handleDeleteSingleJob(job.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            {filteredAndSortedJobs.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">No production jobs found</p>
-                <p className="text-gray-400">
-                  {searchQuery ? 'Try adjusting your search' : 'All jobs in production status will appear here'}
-                </p>
-              </div>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
+      <JobsTableContent
+        jobs={filteredAndSortedJobs}
+        selectedJobs={selectedJobs}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSelectJob={handleSelectJob}
+        onSelectAll={(checked) => handleSelectAll(checked, filteredAndSortedJobs)}
+        onSort={handleSort}
+        onEditJob={handleEditJob}
+        onCategoryAssign={handleCategoryAssign}
+        onDeleteSingleJob={handleDeleteSingleJob}
+      />
 
       {/* Bulk Delete Confirmation Dialog */}
       <BulkDeleteConfirmDialog
