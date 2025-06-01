@@ -7,7 +7,6 @@ import {
   Navigate,
 } from "react-router-dom";
 import { supabase } from "./integrations/supabase/client";
-import "./App.css";
 import TrackerDashboard from "./pages/tracker/TrackerDashboard";
 import TrackerJobs from "./pages/tracker/TrackerJobs";
 import TrackerLabels from "./pages/tracker/TrackerLabels";
@@ -47,7 +46,7 @@ function App() {
 
   return (
     <AuthProvider>
-      <div className="App">
+      <div className="h-screen overflow-hidden">
         <Toaster richColors />
         <Router>
           <Routes>
