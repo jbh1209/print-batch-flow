@@ -82,29 +82,29 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl">Initialize Production Workflow</DialogTitle>
+        <DialogContent className="max-w-2xl w-[90vw] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="text-lg">Initialize Production Workflow</DialogTitle>
             <DialogDescription className="text-sm">
               Choose how to set up the production workflow for {jobs.length} selected job{jobs.length > 1 ? 's' : ''}.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 sm:space-y-6">
+          <div className="flex-1 overflow-y-auto space-y-4">
             {/* Workflow Type Selection */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Card 
                 className={`cursor-pointer transition-all ${workflowType === 'category' ? 'ring-2 ring-green-500' : 'hover:bg-gray-50'}`}
                 onClick={() => setWorkflowType('category')}
               >
-                <CardHeader className="pb-2 sm:pb-3">
+                <CardHeader className="pb-2">
                   <div className="flex items-center space-x-2">
-                    <FolderOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                    <CardTitle className="text-base sm:text-lg">Category Template</CardTitle>
+                    <FolderOpen className="h-4 w-4 text-blue-600" />
+                    <CardTitle className="text-base">Category Template</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="text-xs sm:text-sm">
+                  <CardDescription className="text-xs">
                     Use predefined stages from a product category. Best for standard jobs that fit existing workflows.
                   </CardDescription>
                 </CardContent>
@@ -114,14 +114,14 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
                 className={`cursor-pointer transition-all ${workflowType === 'custom' ? 'ring-2 ring-green-500' : 'hover:bg-gray-50'} ${!isSingleJob ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onClick={() => isSingleJob && setWorkflowType('custom')}
               >
-                <CardHeader className="pb-2 sm:pb-3">
+                <CardHeader className="pb-2">
                   <div className="flex items-center space-x-2">
-                    <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
-                    <CardTitle className="text-base sm:text-lg">Custom Workflow</CardTitle>
+                    <Settings className="h-4 w-4 text-purple-600" />
+                    <CardTitle className="text-base">Custom Workflow</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="text-xs sm:text-sm">
+                  <CardDescription className="text-xs">
                     Manually select and order production stages. Perfect for unique jobs that don't fit standard categories.
                     {!isSingleJob && (
                       <span className="block mt-2 text-red-600 text-xs">
@@ -135,7 +135,7 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
 
             {/* Category Selection (when category workflow is selected) */}
             {workflowType === 'category' && (
-              <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium mb-2 block">
                     Select Category
@@ -165,9 +165,9 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
                 </div>
 
                 {selectedCategory && (
-                  <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-medium mb-2 text-sm sm:text-base">Category Details</h4>
-                    <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm text-gray-600">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium mb-2 text-sm">Category Details</h4>
+                    <div className="space-y-1 text-xs text-gray-600">
                       <p><strong>SLA Target:</strong> {selectedCategory.sla_target_days} days</p>
                       {selectedCategory.description && (
                         <p><strong>Description:</strong> {selectedCategory.description}</p>
@@ -180,9 +180,9 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
 
             {/* Custom Workflow Info */}
             {workflowType === 'custom' && (
-              <div className="p-3 sm:p-4 bg-purple-50 rounded-lg">
-                <h4 className="font-medium mb-2 text-sm sm:text-base">Custom Workflow</h4>
-                <p className="text-xs sm:text-sm text-gray-600 mb-3">
+              <div className="p-3 bg-purple-50 rounded-lg">
+                <h4 className="font-medium mb-2 text-sm">Custom Workflow</h4>
+                <p className="text-xs text-gray-600 mb-3">
                   You'll be able to select individual production stages and arrange them in your preferred order.
                 </p>
                 <div className="flex items-center space-x-2">
@@ -194,7 +194,7 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
+          <div className="flex-shrink-0 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
             <Button 
               variant="outline" 
               onClick={onClose} 
@@ -211,8 +211,7 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
                 className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto order-1 sm:order-2"
               >
                 {isInitializing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <span className="hidden sm:inline">Initialize with Category</span>
-                <span className="sm:hidden">Initialize</span>
+                Initialize with Category
               </Button>
             ) : (
               <Button 
@@ -220,8 +219,7 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
                 disabled={!isSingleJob}
                 className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto order-1 sm:order-2"
               >
-                <span className="hidden sm:inline">Create Custom Workflow</span>
-                <span className="sm:hidden">Create Custom</span>
+                Create Custom Workflow
               </Button>
             )}
           </div>
