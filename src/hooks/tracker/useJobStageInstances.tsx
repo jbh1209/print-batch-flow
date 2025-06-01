@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -60,7 +59,9 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
             id,
             name,
             color,
-            description
+            description,
+            is_multi_part,
+            part_definitions
           )
         `)
         .eq('job_id', jobId)
@@ -77,12 +78,14 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       // Type-safe mapping to ensure status is correctly typed
       const typedData: JobStageInstance[] = (data || []).map(item => ({
         ...item,
-        status: item.status as 'pending' | 'active' | 'completed' | 'skipped',
+        status: item.status as 'pending' | 'active' | 'completed' | 'reworked',
         production_stage: item.production_stage as {
           id: string;
           name: string;
-          color: string;
-          description?: string;
+          description: string | null;
+          color: string | null;
+          is_multi_part: boolean;
+          part_definitions: any;
         }
       }));
       
