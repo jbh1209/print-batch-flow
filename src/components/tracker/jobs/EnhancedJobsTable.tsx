@@ -8,6 +8,7 @@ import { WorkflowInitModal } from "./WorkflowInitModal";
 import { BulkJobOperations } from "./BulkJobOperations";
 import { JobSyncDialog } from "./JobSyncDialog";
 import { QRLabelsManager } from "../QRLabelsManager";
+import { CustomWorkflowModal } from "./CustomWorkflowModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -33,6 +34,7 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
   const [syncingJob, setSyncingJob] = useState<any>(null);
   const [showBulkOperations, setShowBulkOperations] = useState(false);
   const [showQRLabels, setShowQRLabels] = useState(false);
+  const [showCustomWorkflow, setShowCustomWorkflow] = useState(false);
 
   const handleSelectJob = useCallback((job: any, selected: boolean) => {
     if (selected) {
@@ -91,6 +93,20 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
     }
   };
 
+  const handleCustomWorkflow = () => {
+    if (selectedJobs.length !== 1) {
+      toast.error("Custom workflows can only be created for individual jobs");
+      return;
+    }
+    setShowCustomWorkflow(true);
+  };
+
+  const handleCustomWorkflowSuccess = () => {
+    setShowCustomWorkflow(false);
+    setSelectedJobs([]);
+    onJobUpdated();
+  };
+
   // Simplified modal close handlers
   const handleEditModalClose = useCallback(() => {
     setEditingJob(null);
@@ -126,6 +142,7 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
           onBulkOperations={() => setShowBulkOperations(true)}
           onQRLabels={() => setShowQRLabels(true)}
           onClearSelection={() => setSelectedJobs([])}
+          onCustomWorkflow={handleCustomWorkflow}
         />
 
         <JobsTable
@@ -191,6 +208,15 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
         <QRLabelsManager
           selectedJobs={selectedJobs}
           onClose={() => setShowQRLabels(false)}
+        />
+      )}
+
+      {showCustomWorkflow && selectedJobs.length === 1 && (
+        <CustomWorkflowModal
+          isOpen={showCustomWorkflow}
+          onClose={() => setShowCustomWorkflow(false)}
+          job={selectedJobs[0]}
+          onSuccess={handleCustomWorkflowSuccess}
         />
       )}
     </>
