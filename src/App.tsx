@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -12,7 +13,6 @@ import TrackerDashboard from "./pages/tracker/TrackerDashboard";
 import TrackerJobs from "./pages/tracker/TrackerJobs";
 import TrackerLabels from "./pages/tracker/TrackerLabels";
 import TrackerUpload from "./pages/tracker/TrackerUpload";
-import ProductionJobDetails from "./pages/tracker/ProductionJobDetails";
 import { AuthProvider } from "./hooks/useAuth";
 import { Toaster } from "sonner";
 import TrackerMobileScanner from "./pages/tracker/TrackerMobileScanner";
@@ -105,14 +105,6 @@ function App() {
               }
             />
             <Route
-              path="/tracker/job/:id"
-              element={
-                <ProtectedRoute>
-                  <ProductionJobDetails />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/tracker/mobile"
               element={
                 <ProtectedRoute>
@@ -136,3 +128,4 @@ function App() {
 }
 
 export default App;
+
