@@ -1,72 +1,56 @@
-
 import React from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Kanban, Table, FileSpreadsheet } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Barcode, File, ListChecks, Upload, Users, Zap } from "lucide-react";
 
 export const TrackerQuickActions = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-blue-600" />
-            Upload Excel
-          </CardTitle>
-          <CardDescription>Import jobs from Excel file</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild className="w-full">
-            <Link to="/tracker/upload">Upload File</Link>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Zap className="h-5 w-5" />
+          Quick Actions
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 gap-3">
+          <Button asChild variant="outline" className="justify-start">
+            <Link to="/tracker/upload" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Upload Excel
+            </Link>
           </Button>
-        </CardContent>
-      </Card>
 
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Kanban className="h-5 w-5 text-green-600" />
-            Kanban Board
-          </CardTitle>
-          <CardDescription>Drag & drop job management</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild variant="outline" className="w-full">
-            <Link to="/tracker/kanban">Open Kanban</Link>
+          <Button asChild variant="outline" className="justify-start">
+            <Link to="/tracker/jobs" className="flex items-center gap-2">
+              <ListChecks className="h-4 w-4" />
+              Manage Jobs
+            </Link>
           </Button>
-        </CardContent>
-      </Card>
 
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Table className="h-5 w-5 text-purple-600" />
-            Jobs Table
-          </CardTitle>
-          <CardDescription>Tabular view of all jobs</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild variant="outline" className="w-full">
-            <Link to="/tracker/jobs">View Table</Link>
+          <Button asChild variant="outline" className="justify-start">
+            <Link to="/tracker/labels" className="flex items-center gap-2">
+              <Barcode className="h-4 w-4" />
+              Barcode Labels
+            </Link>
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5 text-orange-600" />
-            Work Sheets
-          </CardTitle>
-          <CardDescription>Generate work documents</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild variant="outline" className="w-full">
-            <Link to="/tracker/worksheets">Open Sheets</Link>
+          
+          <Button asChild variant="outline" className="justify-start">
+            <Link to="/tracker/factory-floor" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Factory Floor Dashboard
+            </Link>
           </Button>
-        </CardContent>
-      </Card>
-    </div>
+          
+          <Button asChild variant="outline" className="justify-start">
+            <Link to="/tracker/export" className="flex items-center gap-2">
+              <File className="h-4 w-4" />
+              Export Data
+            </Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 };

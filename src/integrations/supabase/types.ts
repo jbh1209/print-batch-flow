@@ -9,6 +9,51 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      active_job_assignments: {
+        Row: {
+          department_id: string
+          id: string
+          job_id: string
+          job_table_name: string
+          stage_id: string | null
+          started_at: string | null
+          user_id: string
+        }
+        Insert: {
+          department_id: string
+          id?: string
+          job_id: string
+          job_table_name: string
+          stage_id?: string | null
+          started_at?: string | null
+          user_id: string
+        }
+        Update: {
+          department_id?: string
+          id?: string
+          job_id?: string
+          job_table_name?: string
+          stage_id?: string | null
+          started_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "active_job_assignments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "active_job_assignments_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           created_at: string
@@ -36,6 +81,42 @@ export type Database = {
           sla_target_days?: number
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      barcode_scan_log: {
+        Row: {
+          action_taken: string | null
+          barcode_data: string
+          created_at: string | null
+          id: string
+          job_id: string | null
+          job_table_name: string | null
+          scan_result: string
+          stage_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action_taken?: string | null
+          barcode_data: string
+          created_at?: string | null
+          id?: string
+          job_id?: string | null
+          job_table_name?: string | null
+          scan_result: string
+          stage_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action_taken?: string | null
+          barcode_data?: string
+          created_at?: string | null
+          id?: string
+          job_id?: string | null
+          job_table_name?: string | null
+          scan_result?: string
+          stage_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -381,6 +462,39 @@ export type Database = {
           },
         ]
       }
+      departments: {
+        Row: {
+          allows_concurrent_jobs: boolean | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          max_concurrent_jobs: number | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          allows_concurrent_jobs?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          max_concurrent_jobs?: number | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          allows_concurrent_jobs?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          max_concurrent_jobs?: number | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       flyer_jobs: {
         Row: {
           batch_id: string | null
@@ -439,6 +553,47 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_priority_overrides: {
+        Row: {
+          created_at: string | null
+          department_id: string
+          id: string
+          job_id: string
+          job_table_name: string
+          priority_order: number
+          reason: string | null
+          set_by: string
+        }
+        Insert: {
+          created_at?: string | null
+          department_id: string
+          id?: string
+          job_id: string
+          job_table_name: string
+          priority_order: number
+          reason?: string | null
+          set_by: string
+        }
+        Update: {
+          created_at?: string | null
+          department_id?: string
+          id?: string
+          job_id?: string
+          job_table_name?: string
+          priority_order?: number
+          reason?: string | null
+          set_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_priority_overrides_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
         ]
@@ -1184,6 +1339,38 @@ export type Database = {
           },
         ]
       }
+      user_department_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          department_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          department_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          department_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_department_assignments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_group_memberships: {
         Row: {
           assigned_at: string
@@ -1290,6 +1477,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      can_user_start_new_job: {
+        Args: { p_user_id: string; p_department_id: string }
+        Returns: boolean
+      }
       check_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -1358,6 +1549,21 @@ export type Database = {
           last_sign_in_at: string
         }[]
       }
+      get_department_job_queue: {
+        Args: { p_department_id: string }
+        Returns: {
+          job_id: string
+          job_table_name: string
+          wo_no: string
+          customer: string
+          due_date: string
+          status: string
+          priority_order: number
+          has_priority_override: boolean
+          current_stage: string
+          is_blocked: boolean
+        }[]
+      }
       get_job_rework_history: {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: {
@@ -1370,6 +1576,16 @@ export type Database = {
       get_next_active_stage: {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: string
+      }
+      get_user_departments: {
+        Args: { p_user_id?: string }
+        Returns: {
+          department_id: string
+          department_name: string
+          department_color: string
+          allows_concurrent_jobs: boolean
+          max_concurrent_jobs: number
+        }[]
       }
       get_user_role_safe: {
         Args: { user_id_param: string }
