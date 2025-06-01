@@ -58,13 +58,21 @@ export const useEnhancedProductionJobs = () => {
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
 
+      // Check if jobsData is an array before processing
+      if (!Array.isArray(jobsData)) {
+        console.error("Expected array but got:", jobsData);
+        setJobs([]);
+        setIsLoading(false);
+        return;
+      }
+
       // Process jobs and ensure WO numbers have proper formatting
-      const processedJobs = (jobsData || []).map(job => {
+      const processedJobs = jobsData.map(job => {
         // Ensure WO number has proper D prefix formatting
         const formattedWoNo = formatWONumber(job.wo_no);
         
         // Calculate workflow status
-        const stages = job.job_stage_instances || [];
+        const stages = Array.isArray(job.job_stage_instances) ? job.job_stage_instances : [];
         const hasWorkflow = stages.length > 0;
         const currentStage = stages.find(s => s.status === 'active');
         const completedStages = stages.filter(s => s.status === 'completed').length;
@@ -96,6 +104,80 @@ export const useEnhancedProductionJobs = () => {
       setIsLoading(false);
     }
   }, [user?.id]);
+
+  // Stage management functions
+  const startStage = useCallback(async (jobId: string, stageId: string) => {
+    try {
+      console.log('Starting stage:', { jobId, stageId });
+      
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .update({ 
+          status: 'active',
+          started_at: new Date().toISOString(),
+          started_by: user?.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stageId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      toast.success("Stage started successfully");
+      await fetchJobs();
+      return true;
+    } catch (err) {
+      console.error('Error starting stage:', err);
+      toast.error("Failed to start stage");
+      return false;
+    }
+  }, [user?.id, fetchJobs]);
+
+  const completeStage = useCallback(async (jobId: string, stageId: string) => {
+    try {
+      console.log('Completing stage:', { jobId, stageId });
+      
+      const { error } = await supabase.rpc('advance_job_stage', {
+        p_job_id: jobId,
+        p_job_table_name: 'production_jobs',
+        p_current_stage_id: stageId
+      });
+
+      if (error) throw error;
+
+      toast.success("Stage completed successfully");
+      await fetchJobs();
+      return true;
+    } catch (err) {
+      console.error('Error completing stage:', err);
+      toast.error("Failed to complete stage");
+      return false;
+    }
+  }, [fetchJobs]);
+
+  const recordQRScan = useCallback(async (jobId: string, stageId: string, qrData?: any) => {
+    try {
+      console.log('Recording QR scan:', { jobId, stageId, qrData });
+      
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .update({ 
+          qr_scan_data: qrData || { scanned_at: new Date().toISOString() },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stageId);
+
+      if (error) throw error;
+
+      toast.success("QR scan recorded successfully");
+      await fetchJobs();
+      return true;
+    } catch (err) {
+      console.error('Error recording QR scan:', err);
+      toast.error("Failed to record QR scan");
+      return false;
+    }
+  }, [fetchJobs]);
 
   // Initial data load
   useEffect(() => {
@@ -153,6 +235,9 @@ export const useEnhancedProductionJobs = () => {
     jobs,
     isLoading: isLoading || authLoading,
     error,
-    refreshJobs
+    refreshJobs,
+    startStage,
+    completeStage,
+    recordQRScan
   };
 };
