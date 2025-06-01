@@ -10,6 +10,8 @@ interface ProductionStage {
   order_index: number;
   color: string;
   is_active: boolean;
+  is_multi_part: boolean;
+  part_definitions: string[];
   created_at: string;
   updated_at: string;
 }
@@ -36,7 +38,18 @@ export const useProductionStages = () => {
       }
 
       console.log('✅ Production stages fetched successfully:', data?.length || 0);
-      setStages(data || []);
+      
+      // Transform the data to ensure part_definitions is always an array
+      const transformedData = data?.map(stage => ({
+        ...stage,
+        part_definitions: Array.isArray(stage.part_definitions) 
+          ? stage.part_definitions 
+          : stage.part_definitions 
+            ? JSON.parse(stage.part_definitions as string) 
+            : []
+      })) || [];
+      
+      setStages(transformedData);
     } catch (err) {
       console.error('❌ Error fetching production stages:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load production stages";
@@ -53,7 +66,10 @@ export const useProductionStages = () => {
       
       const { error } = await supabase
         .from('production_stages')
-        .insert(stageData);
+        .insert({
+          ...stageData,
+          part_definitions: JSON.stringify(stageData.part_definitions)
+        });
 
       if (error) {
         console.error('❌ Production stage creation error:', error);
@@ -75,9 +91,19 @@ export const useProductionStages = () => {
     try {
       console.log('🔄 Updating production stage with updated RLS policies...');
       
+      const updateData = {
+        ...stageData,
+        updated_at: new Date().toISOString()
+      };
+
+      // Convert part_definitions to JSON string if it's an array
+      if (stageData.part_definitions) {
+        updateData.part_definitions = JSON.stringify(stageData.part_definitions);
+      }
+
       const { error } = await supabase
         .from('production_stages')
-        .update({ ...stageData, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq('id', id);
 
       if (error) {
