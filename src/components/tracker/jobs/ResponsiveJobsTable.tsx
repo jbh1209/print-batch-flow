@@ -35,6 +35,10 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
   const [searchQuery, setSearchQuery] = useState(filters.search || '');
   const [showColumnFilters, setShowColumnFilters] = useState(false);
   
+  // Sorting state
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
   // Column filters state
   const [columnFilters, setColumnFilters] = useState({
     woNumber: '',
@@ -79,7 +83,7 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
 
   const handleSelectAll = (selected: boolean) => {
     if (selected) {
-      setSelectedJobs(filteredJobs);
+      setSelectedJobs(filteredAndSortedJobs);
     } else {
       setSelectedJobs([]);
     }
@@ -102,6 +106,15 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
       dueDate: '',
       currentStage: ''
     });
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
   };
 
   // Enhanced filtering logic
@@ -177,6 +190,62 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
       return true;
     });
   }, [jobs, searchQuery, columnFilters]);
+
+  // Sorting logic
+  const filteredAndSortedJobs = useMemo(() => {
+    if (!sortField) return filteredJobs;
+
+    return [...filteredJobs].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'wo_no':
+          aValue = a.wo_no || '';
+          bValue = b.wo_no || '';
+          break;
+        case 'customer':
+          aValue = a.customer || '';
+          bValue = b.customer || '';
+          break;
+        case 'reference':
+          aValue = a.reference || '';
+          bValue = b.reference || '';
+          break;
+        case 'qty':
+          aValue = a.qty || 0;
+          bValue = b.qty || 0;
+          break;
+        case 'category':
+          aValue = a.category || '';
+          bValue = b.category || '';
+          break;
+        case 'status':
+          aValue = a.status || '';
+          bValue = b.status || '';
+          break;
+        case 'due_date':
+          aValue = a.due_date ? new Date(a.due_date).getTime() : 0;
+          bValue = b.due_date ? new Date(b.due_date).getTime() : 0;
+          break;
+        case 'current_stage':
+          aValue = a.current_stage || '';
+          bValue = b.current_stage || '';
+          break;
+        default:
+          return 0;
+      }
+
+      // Handle numeric sorting
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+
+      // Handle string sorting
+      const comparison = String(aValue).localeCompare(String(bValue));
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [filteredJobs, sortField, sortOrder]);
 
   const handleCategoryAssign = (job?: any) => {
     if (job) {
@@ -272,7 +341,7 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <CardTitle className="text-lg">Production Jobs ({filteredJobs.length})</CardTitle>
+            <CardTitle className="text-lg">Production Jobs ({filteredAndSortedJobs.length})</CardTitle>
             
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <div className="relative">
@@ -335,11 +404,14 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
             <Table>
               <JobTableColumns
                 selectedCount={selectedJobs.length}
-                totalCount={filteredJobs.length}
+                totalCount={filteredAndSortedJobs.length}
                 onSelectAll={handleSelectAll}
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={handleSort}
               />
               <TableBody>
-                {filteredJobs.map((job) => (
+                {filteredAndSortedJobs.map((job) => (
                   <ResponsiveJobTableRow
                     key={job.id}
                     job={job}
@@ -354,7 +426,7 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
               </TableBody>
             </Table>
 
-            {filteredJobs.length === 0 && (
+            {filteredAndSortedJobs.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-gray-500 text-lg">No jobs found</p>
                 <p className="text-gray-400">Try adjusting your search or filters</p>
