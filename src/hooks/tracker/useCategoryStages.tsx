@@ -69,15 +69,17 @@ export const useCategoryStages = (categoryId?: string) => {
 
       console.log('✅ Category stages fetched successfully:', data?.length || 0);
       
-      // Transform the data to ensure proper types
-      const transformedData = data?.map(stage => ({
+      // Transform the data to ensure proper types with safe casting
+      const transformedData: CategoryStage[] = data?.map(stage => ({
         ...stage,
-        applies_to_parts: Array.isArray(stage.applies_to_parts) ? stage.applies_to_parts : [],
-        part_rule_type: stage.part_rule_type || 'all_parts',
+        applies_to_parts: Array.isArray(stage.applies_to_parts) 
+          ? (stage.applies_to_parts as any[]).map(part => String(part)).filter(part => typeof part === 'string' && part.length > 0)
+          : [],
+        part_rule_type: (stage.part_rule_type as 'all_parts' | 'specific_parts' | 'exclude_parts') || 'all_parts',
         production_stage: {
           ...stage.production_stage,
           part_definitions: Array.isArray(stage.production_stage?.part_definitions) 
-            ? stage.production_stage.part_definitions 
+            ? (stage.production_stage.part_definitions as any[]).map(part => String(part)).filter(part => typeof part === 'string' && part.length > 0)
             : []
         }
       })) || [];
