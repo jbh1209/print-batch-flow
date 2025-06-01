@@ -1,11 +1,11 @@
 
 import type { ExcelImportDebugger } from './debugger';
 
-// Helper function to add "D" prefix to work order numbers consistently
-const formatWorkOrderNumber = (woNo: string): string => {
+// Enhanced WO number formatter with consistent D prefix enforcement
+const enforceWOPrefix = (woNo: string): string => {
   if (!woNo) return '';
   // Check if it already has a "D" prefix
-  if (woNo.startsWith('D')) return woNo;
+  if (woNo.toUpperCase().startsWith('D')) return woNo.toUpperCase();
   // Add "D" prefix
   return `D${woNo}`;
 };
@@ -27,16 +27,16 @@ export const formatWONumber = (woNo: any, logger: ExcelImportDebugger): string =
     return "";
   }
   
-  // If it looks like a 6-digit number, pad if needed and add D prefix
-  if (/^\d{6}$/.test(cleaned)) {
-    const formatted = formatWorkOrderNumber(cleaned);
-    logger.addDebugInfo(`WO Number 6 digits: ${cleaned} -> ${formatted}`);
-    return formatted;
+  // If it already has D prefix, normalize it
+  if (cleaned.toUpperCase().startsWith('D')) {
+    const normalized = cleaned.toUpperCase();
+    logger.addDebugInfo(`WO Number already has D prefix: ${cleaned} -> ${normalized}`);
+    return normalized;
   }
   
-  // If it's a longer number, don't pad it but add D prefix
-  if (/^\d+$/.test(cleaned) && cleaned.length >= 6) {
-    const formatted = formatWorkOrderNumber(cleaned);
+  // If it looks like a 6+ digit number, add D prefix
+  if (/^\d{6,}$/.test(cleaned)) {
+    const formatted = enforceWOPrefix(cleaned);
     logger.addDebugInfo(`WO Number ${cleaned.length} digits: ${cleaned} -> ${formatted}`);
     return formatted;
   }
@@ -55,7 +55,7 @@ export const formatWONumber = (woNo: any, logger: ExcelImportDebugger): string =
       logger.addDebugInfo(`WO Number "${cleaned}" -> "${numbersOnly}" (no padding needed)`);
     }
     
-    const formatted = formatWorkOrderNumber(processedNumber);
+    const formatted = enforceWOPrefix(processedNumber);
     logger.addDebugInfo(`Final WO Number: ${processedNumber} -> ${formatted}`);
     return formatted;
   }
