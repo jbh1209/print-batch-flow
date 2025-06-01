@@ -128,14 +128,50 @@ export const useCategoryStages = (categoryId?: string) => {
     try {
       console.log('🔄 Removing category stage...');
       
-      const { error } = await supabase
+      // Get the stage being deleted to know its order
+      const stageToDelete = categoryStages.find(stage => stage.id === id);
+      if (!stageToDelete) {
+        throw new Error('Stage not found');
+      }
+
+      // Delete the stage
+      const { error: deleteError } = await supabase
         .from('category_production_stages')
         .delete()
         .eq('id', id);
 
-      if (error) {
-        console.error('❌ Category stage deletion error:', error);
-        throw new Error(`Failed to remove category stage: ${error.message}`);
+      if (deleteError) {
+        console.error('❌ Category stage deletion error:', deleteError);
+        throw new Error(`Failed to remove category stage: ${deleteError.message}`);
+      }
+
+      // Get remaining stages that need reordering (those with higher order than deleted stage)
+      const stagesToReorder = categoryStages
+        .filter(stage => stage.id !== id && stage.stage_order > stageToDelete.stage_order)
+        .sort((a, b) => a.stage_order - b.stage_order);
+
+      // Reorder the remaining stages to close the gap
+      if (stagesToReorder.length > 0) {
+        console.log('🔄 Reordering remaining stages...');
+        
+        const reorderUpdates = stagesToReorder.map((stage, index) => 
+          supabase
+            .from('category_production_stages')
+            .update({ 
+              stage_order: stageToDelete.stage_order + index, 
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', stage.id)
+        );
+
+        const reorderResults = await Promise.all(reorderUpdates);
+        
+        // Check if any reorder updates failed
+        const reorderErrors = reorderResults.filter(result => result.error);
+        if (reorderErrors.length > 0) {
+          console.error('❌ Stage reorder errors:', reorderErrors);
+          throw new Error('Failed to reorder stages after deletion');
+        }
       }
 
       console.log('✅ Category stage removed successfully');
