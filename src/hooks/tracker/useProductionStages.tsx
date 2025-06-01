@@ -93,7 +93,8 @@ export const useProductionStages = () => {
     try {
       console.log('🔄 Updating production stage with updated RLS policies...');
       
-      const updateData = {
+      // Create the update data object for the database
+      const updateData: any = {
         ...stageData,
         updated_at: new Date().toISOString()
       };
