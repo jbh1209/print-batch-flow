@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +30,7 @@ import { WorkflowStageCard } from "./WorkflowStageCard";
 import { WorkflowPreview } from "./WorkflowPreview";
 import { PartSpecificStageConfig } from "./PartSpecificStageConfig";
 import { validateWorkflow, getWorkflowMetrics } from "@/utils/tracker/workflowValidation";
+import { WorkflowSyncDialog } from "./WorkflowSyncDialog";
 
 interface CategoryStageBuilderProps {
   categoryId: string;
@@ -50,6 +50,7 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
     part_rule_type: 'all_parts',
     applies_to_parts: []
   });
+  const [showSyncDialog, setShowSyncDialog] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -80,6 +81,49 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
   const availableParts = getAllAvailableParts();
   const selectedStage = availableStages.find(stage => stage.id === selectedStageId);
 
+  const handleStageOperationComplete = () => {
+    // Automatically check for workflow changes after any stage operation
+    setShowSyncDialog(true);
+  };
+
+  const handleAddStage = async () => {
+    if (!selectedStageId) return;
+
+    const nextOrder = Math.max(...categoryStages.map(s => s.stage_order), 0) + 1;
+    
+    const success = await addStageToCategory(categoryId, {
+      production_stage_id: selectedStageId,
+      stage_order: nextOrder,
+      estimated_duration_hours: estimatedHours,
+      is_required: true,
+      ...partConfig
+    });
+
+    if (success) {
+      setSelectedStageId("");
+      setEstimatedHours(24);
+      setPartConfig({
+        part_rule_type: 'all_parts',
+        applies_to_parts: []
+      });
+      handleStageOperationComplete();
+    }
+  };
+
+  const handleUpdateStage = async (id: string, duration: number) => {
+    const success = await updateCategoryStage(id, { estimated_duration_hours: duration });
+    if (success) {
+      handleStageOperationComplete();
+    }
+  };
+
+  const handleRemoveStage = async (id: string) => {
+    const success = await removeCategoryStage(id);
+    if (success) {
+      handleStageOperationComplete();
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -103,41 +147,13 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
     }));
 
     try {
-      await reorderCategoryStages(categoryId, reorderData);
+      const success = await reorderCategoryStages(categoryId, reorderData);
+      if (success) {
+        handleStageOperationComplete();
+      }
     } catch (error) {
       console.error('Failed to reorder stages:', error);
     }
-  };
-
-  const handleAddStage = async () => {
-    if (!selectedStageId) return;
-
-    const nextOrder = Math.max(...categoryStages.map(s => s.stage_order), 0) + 1;
-    
-    const success = await addStageToCategory(categoryId, {
-      production_stage_id: selectedStageId,
-      stage_order: nextOrder,
-      estimated_duration_hours: estimatedHours,
-      is_required: true,
-      ...partConfig
-    });
-
-    if (success) {
-      setSelectedStageId("");
-      setEstimatedHours(24);
-      setPartConfig({
-        part_rule_type: 'all_parts',
-        applies_to_parts: []
-      });
-    }
-  };
-
-  const handleUpdateStage = async (id: string, duration: number) => {
-    await updateCategoryStage(id, { estimated_duration_hours: duration });
-  };
-
-  const handleRemoveStage = async (id: string) => {
-    await removeCategoryStage(id);
   };
 
   const handleStageSelection = (stageId: string) => {
@@ -218,6 +234,14 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
                 Fix Ordering
               </Button>
             )}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowSyncDialog(true)}
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            >
+              Sync Jobs
+            </Button>
           </CardTitle>
           <p className="text-sm text-gray-600">
             Build the production workflow by adding and ordering stages. Jobs in this category will follow this exact sequence.
@@ -366,6 +390,18 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
 
       {/* Workflow Preview */}
       <WorkflowPreview categoryName={categoryName} stages={sortedCategoryStages} />
+
+      {/* Workflow Sync Dialog */}
+      <WorkflowSyncDialog
+        isOpen={showSyncDialog}
+        onClose={() => setShowSyncDialog(false)}
+        categoryId={categoryId}
+        categoryName={categoryName}
+        onSyncComplete={() => {
+          // Optionally refresh data or show success message
+          console.log('Workflow sync completed');
+        }}
+      />
     </div>
   );
 };
