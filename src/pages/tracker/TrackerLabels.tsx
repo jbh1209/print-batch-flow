@@ -1,9 +1,9 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Printer, Download } from "lucide-react";
-import { barcode } from "lucide-react";
+import { ArrowLeft, Printer, Download, Barcode } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,8 +16,8 @@ interface ProductionJob {
   wo_no: string;
   customer?: string;
   due_date?: string;
-  barcode_data?: string;
-  barcode_url?: string;
+  qr_code_data?: string;
+  qr_code_url?: string;
 }
 
 const TrackerLabels = () => {
@@ -38,7 +38,7 @@ const TrackerLabels = () => {
     try {
       const { data, error } = await supabase
         .from('production_jobs')
-        .select('id, wo_no, customer, due_date, barcode_data, barcode_url')
+        .select('id, wo_no, customer, due_date, qr_code_data, qr_code_url')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -53,7 +53,7 @@ const TrackerLabels = () => {
   };
 
   const generateMissingBarcodes = async () => {
-    const jobsNeedingBarcode = jobs.filter(job => !job.barcode_url && selectedJobs.has(job.id));
+    const jobsNeedingBarcode = jobs.filter(job => !job.qr_code_url && selectedJobs.has(job.id));
     
     if (jobsNeedingBarcode.length === 0) return;
 
@@ -72,15 +72,15 @@ const TrackerLabels = () => {
         await supabase
           .from('production_jobs')
           .update({
-            barcode_data: barcodeData,
-            barcode_url: barcodeUrl
+            qr_code_data: barcodeData,
+            qr_code_url: barcodeUrl
           })
           .eq('id', job.id);
 
         // Update local state
         setJobs(prev => prev.map(j => 
           j.id === job.id 
-            ? { ...j, barcode_data: barcodeData, barcode_url: barcodeUrl }
+            ? { ...j, qr_code_data: barcodeData, qr_code_url: barcodeUrl }
             : j
         ));
       }
@@ -155,8 +155,8 @@ const TrackerLabels = () => {
   }
 
   const selectedJobsData = jobs.filter(job => selectedJobs.has(job.id));
-  const selectedWithBarcode = selectedJobsData.filter(job => job.barcode_url);
-  const selectedWithoutBarcode = selectedJobsData.filter(job => !job.barcode_url);
+  const selectedWithBarcode = selectedJobsData.filter(job => job.qr_code_url);
+  const selectedWithoutBarcode = selectedJobsData.filter(job => !job.qr_code_url);
 
   return (
     <div className="container mx-auto">
@@ -208,13 +208,13 @@ const TrackerLabels = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {job.barcode_url ? (
-                        <barcode className="h-4 w-4 text-green-500" />
+                      {job.qr_code_url ? (
+                        <Barcode className="h-4 w-4 text-green-500" />
                       ) : (
-                        <barcode className="h-4 w-4 text-gray-300" />
+                        <Barcode className="h-4 w-4 text-gray-300" />
                       )}
                       <span className="text-xs text-gray-500">
-                        {job.barcode_url ? 'Barcode Ready' : 'No Barcode'}
+                        {job.qr_code_url ? 'Barcode Ready' : 'No Barcode'}
                       </span>
                     </div>
                   </div>
@@ -243,7 +243,7 @@ const TrackerLabels = () => {
                   disabled={generating}
                   className="w-full flex items-center gap-2"
                 >
-                  <barcode className="h-4 w-4" />
+                  <Barcode className="h-4 w-4" />
                   {generating ? 'Generating...' : `Generate ${selectedWithoutBarcode.length} Barcodes`}
                 </Button>
               )}

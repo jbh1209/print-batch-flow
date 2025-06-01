@@ -1,13 +1,11 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, Printer, FileText, Loader2 } from "lucide-react";
+import { Download, Printer, FileText, Loader2, Barcode } from "lucide-react";
 import { downloadBarcodeLabelsPDF, BarcodeLabelData } from "@/utils/barcodeLabelGenerator";
 import { toast } from "sonner";
-import { barcode } from "lucide-react";
 
 interface BarcodeLabelsManagerProps {
   selectedJobs: any[];
@@ -71,7 +69,7 @@ export const BarcodeLabelsManager: React.FC<BarcodeLabelsManagerProps> = ({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <barcode className="h-5 w-5" />
+            <Barcode className="h-5 w-5" />
             Barcode Labels PDF Generator
           </DialogTitle>
         </DialogHeader>

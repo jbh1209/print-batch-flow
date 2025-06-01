@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,9 +17,9 @@ import {
   CheckCircle, 
   AlertCircle,
   History,
-  Smartphone
+  Smartphone,
+  Barcode
 } from "lucide-react";
-import { barcode } from "lucide-react";
 import { useMobileBarcodeScanner } from "@/hooks/tracker/useMobileBarcodeScanner";
 import { toast } from "sonner";
 
@@ -84,7 +83,7 @@ export const MobileBarcodeScanner: React.FC<MobileBarcodeScannerProps> = ({
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" size="sm">
-          <barcode className="h-4 w-4 mr-2" />
+          <Barcode className="h-4 w-4 mr-2" />
           Barcode Scanner
         </Button>
       </SheetTrigger>
@@ -101,6 +100,7 @@ export const MobileBarcodeScanner: React.FC<MobileBarcodeScannerProps> = ({
         </SheetHeader>
 
         <div className="py-6 space-y-6">
+          
           {/* Scan Mode Toggle */}
           <Card>
             <CardHeader className="pb-3">
@@ -190,7 +190,7 @@ export const MobileBarcodeScanner: React.FC<MobileBarcodeScannerProps> = ({
                     }}
                   />
                   <Button onClick={handleManualScan} className="w-full">
-                    <barcode className="h-4 w-4 mr-2" />
+                    <Barcode className="h-4 w-4 mr-2" />
                     Process Barcode Data
                   </Button>
                 </div>

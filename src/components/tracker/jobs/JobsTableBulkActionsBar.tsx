@@ -9,9 +9,9 @@ import {
   RotateCcw, 
   X, 
   Workflow, 
-  Download
+  Download,
+  Barcode
 } from "lucide-react";
-import { barcode } from "lucide-react";
 import { BarcodeLabelsManager } from "../BarcodeLabelsManager";
 
 interface JobsTableBulkActionsBarProps {
@@ -92,7 +92,7 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
                   onClick={handleBarcodeLabelsClick}
                   className="flex items-center gap-1"
                 >
-                  <barcode className="h-3 w-3" />
+                  <Barcode className="h-3 w-3" />
                   Barcode Labels PDF
                 </Button>
                 <Button 
