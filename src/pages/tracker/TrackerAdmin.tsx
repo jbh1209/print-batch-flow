@@ -9,6 +9,8 @@ import { ProductionStagesManagement } from "@/components/tracker/admin/Productio
 import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
 import { PrintersManagement } from "@/components/tracker/admin/PrintersManagement";
 import { UserGroupManager } from "@/components/tracker/UserGroupManager";
+import { UserManagementProvider } from "@/contexts/UserManagementContext";
+import { SimpleUserManagement } from "@/components/users/SimpleUserManagement";
 
 const TrackerAdmin = () => {
   const [activeTab, setActiveTab] = useState("stages");
@@ -30,12 +32,12 @@ const TrackerAdmin = () => {
           <h1 className="text-2xl font-bold">Tracker Administration</h1>
         </div>
         <p className="text-gray-600">
-          Manage production stages, categories, printers, and system settings
+          Manage production stages, categories, printers, users and system settings
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="stages" className="flex items-center gap-2">
             <Layers className="h-4 w-4" />
             Production Stages
@@ -48,9 +50,13 @@ const TrackerAdmin = () => {
             <Printer className="h-4 w-4" />
             Printers
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2">
+          <TabsTrigger value="groups" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             User Groups
+          </TabsTrigger>
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Users
           </TabsTrigger>
         </TabsList>
 
@@ -66,8 +72,14 @@ const TrackerAdmin = () => {
           <PrintersManagement />
         </TabsContent>
 
+        <TabsContent value="groups" className="space-y-6">
+          <UserGroupManager showAllUsers={true} />
+        </TabsContent>
+
         <TabsContent value="users" className="space-y-6">
-          <UserGroupManager />
+          <UserManagementProvider>
+            <SimpleUserManagement />
+          </UserManagementProvider>
         </TabsContent>
       </Tabs>
     </div>

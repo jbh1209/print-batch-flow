@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -22,6 +21,7 @@ import TrackerMobileScanner from "./pages/tracker/TrackerMobileScanner";
 import FactoryFloor from "./pages/tracker/FactoryFloor";
 import Auth from "./pages/Auth";
 import AppSelector from "./pages/AppSelector";
+import TrackerUsers from "./pages/tracker/TrackerUsers";
 
 function App() {
   const [session, setSession] = useState(null);
@@ -75,6 +75,7 @@ function App() {
               <Route path="kanban" element={<TrackerKanban />} />
               <Route path="worksheets" element={<TrackerWorkSheets />} />
               <Route path="admin" element={<TrackerAdmin />} />
+              <Route path="users" element={<TrackerUsers />} />
               <Route path="labels" element={<TrackerLabels />} />
               <Route path="upload" element={<TrackerUpload />} />
               <Route path="mobile" element={<TrackerMobileScanner />} />

@@ -110,6 +110,12 @@ const TrackerSidebar = () => {
                 label={collapsed ? "" : "Administration"} 
                 isActive={location.pathname === "/tracker/admin"} 
               />
+              <NavItem 
+                to="/tracker/users" 
+                icon={<Users size={20} />} 
+                label={collapsed ? "" : "Users"} 
+                isActive={location.pathname === "/tracker/users"} 
+              />
             </>
           )}
         </nav>

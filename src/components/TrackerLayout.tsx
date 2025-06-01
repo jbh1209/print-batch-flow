@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { DynamicHeader } from "./tracker/DynamicHeader";
@@ -14,7 +13,7 @@ const TrackerLayout = () => {
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [filters, setFilters] = useState<any>({});
 
-  // Map routes to tabs - updated with all routes
+  // Map routes to tabs - updated with all routes including users
   const routeToTab = {
     '/tracker': 'dashboard',
     '/tracker/jobs': 'orders',
@@ -22,6 +21,7 @@ const TrackerLayout = () => {
     '/tracker/kanban': 'kanban',
     '/tracker/worksheets': 'worksheets',
     '/tracker/admin': 'setup',
+    '/tracker/users': 'setup',
     '/tracker/upload': 'setup',
     '/tracker/labels': 'setup',
     '/tracker/mobile': 'setup'
