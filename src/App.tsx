@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -5,17 +6,16 @@ import {
   Routes,
   Navigate,
 } from "react-router-dom";
-import { Auth } from "@supabase/ui";
 import { supabase } from "./integrations/supabase/client";
 import "./App.css";
-import Tracker from "./pages/tracker/Tracker";
+import TrackerDashboard from "./pages/tracker/TrackerDashboard";
 import TrackerJobs from "./pages/tracker/TrackerJobs";
 import TrackerLabels from "./pages/tracker/TrackerLabels";
-import UploadExcel from "./pages/tracker/UploadExcel";
+import TrackerUpload from "./pages/tracker/TrackerUpload";
 import ProductionJobDetails from "./pages/tracker/ProductionJobDetails";
 import { AuthProvider } from "./hooks/useAuth";
 import { Toaster } from "sonner";
-import MobileTracker from "./pages/tracker/MobileTracker";
+import TrackerMobileScanner from "./pages/tracker/TrackerMobileScanner";
 import FactoryFloor from "./pages/tracker/FactoryFloor";
 
 function App() {
@@ -47,13 +47,28 @@ function App() {
           <Routes>
             <Route
               path="/login"
-              element={<Auth supabaseClient={supabase} />}
+              element={
+                <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                  <div className="max-w-md w-full space-y-8">
+                    <div>
+                      <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                        Sign in to your account
+                      </h2>
+                    </div>
+                    <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                      <p className="text-center text-gray-600">
+                        Please configure authentication to access the tracker system.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              }
             />
             <Route
               path="/"
               element={
                 <ProtectedRoute>
-                  <Tracker />
+                  <TrackerDashboard />
                 </ProtectedRoute>
               }
             />
@@ -61,7 +76,7 @@ function App() {
               path="/tracker"
               element={
                 <ProtectedRoute>
-                  <Tracker />
+                  <TrackerDashboard />
                 </ProtectedRoute>
               }
             />
@@ -85,7 +100,7 @@ function App() {
               path="/tracker/upload"
               element={
                 <ProtectedRoute>
-                  <UploadExcel />
+                  <TrackerUpload />
                 </ProtectedRoute>
               }
             />
@@ -101,7 +116,7 @@ function App() {
               path="/tracker/mobile"
               element={
                 <ProtectedRoute>
-                  <MobileTracker />
+                  <TrackerMobileScanner />
                 </ProtectedRoute>
               }
             />
