@@ -1,60 +1,37 @@
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useJobTableState } from "@/hooks/tracker/useJobTableState";
 
 export const useResponsiveJobsTable = (refreshJobs: () => void) => {
-  const [selectedJobs, setSelectedJobs] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showColumnFilters, setShowColumnFilters] = useState(false);
-  
-  // Sorting state
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  
-  // Column filters state
-  const [columnFilters, setColumnFilters] = useState({
-    woNumber: '',
-    customer: '',
-    reference: '',
-    category: '',
-    status: '',
-    dueDate: '',
-    currentStage: ''
-  });
-  
-  // Modal states
-  const [editingJob, setEditingJob] = useState<any>(null);
-  const [categoryAssignJob, setCategoryAssignJob] = useState<any>(null);
-  const [workflowInitJob, setWorkflowInitJob] = useState<any>(null);
-  const [showBulkOperations, setShowBulkOperations] = useState(false);
-  const [showQRLabels, setShowQRLabels] = useState(false);
+  const tableState = useJobTableState();
 
   const handleSelectJob = useCallback((job: any, selected: boolean) => {
     if (selected) {
-      setSelectedJobs(prev => [...prev, job]);
+      tableState.setSelectedJobs(prev => [...prev, job]);
     } else {
-      setSelectedJobs(prev => prev.filter(j => j.id !== job.id));
+      tableState.setSelectedJobs(prev => prev.filter(j => j.id !== job.id));
     }
-  }, []);
+  }, [tableState.setSelectedJobs]);
 
   const handleSelectAll = useCallback((selected: boolean, jobs: any[]) => {
     if (selected) {
-      setSelectedJobs(jobs);
+      tableState.setSelectedJobs(jobs);
     } else {
-      setSelectedJobs([]);
+      tableState.setSelectedJobs([]);
     }
-  }, []);
+  }, [tableState.setSelectedJobs]);
 
   const handleColumnFilterChange = useCallback((key: string, value: string) => {
-    setColumnFilters(prev => ({
+    tableState.setColumnFilters(prev => ({
       ...prev,
       [key]: value
     }));
-  }, []);
+  }, [tableState.setColumnFilters]);
 
   const handleClearColumnFilters = useCallback(() => {
-    setColumnFilters({
+    tableState.setColumnFilters({
       woNumber: '',
       customer: '',
       reference: '',
@@ -63,16 +40,16 @@ export const useResponsiveJobsTable = (refreshJobs: () => void) => {
       dueDate: '',
       currentStage: ''
     });
-  }, []);
+  }, [tableState.setColumnFilters]);
 
   const handleSort = useCallback((field: string) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    if (tableState.sortField === field) {
+      tableState.setSortOrder(tableState.sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortField(field);
-      setSortOrder('asc');
+      tableState.setSortField(field);
+      tableState.setSortOrder('asc');
     }
-  }, [sortField, sortOrder]);
+  }, [tableState.sortField, tableState.sortOrder, tableState.setSortField, tableState.setSortOrder]);
 
   const handleDeleteJob = useCallback(async (jobId: string) => {
     try {
@@ -87,15 +64,15 @@ export const useResponsiveJobsTable = (refreshJobs: () => void) => {
       refreshJobs();
       
       // Clear selection if deleted job was selected
-      setSelectedJobs(prev => prev.filter(j => j.id !== jobId));
+      tableState.setSelectedJobs(prev => prev.filter(j => j.id !== jobId));
     } catch (err) {
       console.error('Error deleting job:', err);
       toast.error('Failed to delete job');
     }
-  }, [refreshJobs]);
+  }, [refreshJobs, tableState.setSelectedJobs]);
 
   const handleBulkStatusUpdate = useCallback(async (newStatus: string) => {
-    if (selectedJobs.length === 0) return;
+    if (tableState.selectedJobs.length === 0) return;
 
     try {
       const { error } = await supabase
@@ -104,67 +81,46 @@ export const useResponsiveJobsTable = (refreshJobs: () => void) => {
           status: newStatus,
           updated_at: new Date().toISOString()
         })
-        .in('id', selectedJobs.map(j => j.id));
+        .in('id', tableState.selectedJobs.map(j => j.id));
 
       if (error) throw error;
 
-      toast.success(`Successfully updated ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''} to ${newStatus}`);
-      setSelectedJobs([]);
+      toast.success(`Successfully updated ${tableState.selectedJobs.length} job${tableState.selectedJobs.length > 1 ? 's' : ''} to ${newStatus}`);
+      tableState.setSelectedJobs([]);
       refreshJobs();
     } catch (err) {
       console.error('Error updating job status:', err);
       toast.error('Failed to update job status');
     }
-  }, [selectedJobs, refreshJobs]);
+  }, [tableState.selectedJobs, refreshJobs, tableState.setSelectedJobs]);
 
   const handleBulkDelete = useCallback(async () => {
-    if (selectedJobs.length === 0) return;
+    if (tableState.selectedJobs.length === 0) return;
 
     try {
       const { error } = await supabase
         .from('production_jobs')
         .delete()
-        .in('id', selectedJobs.map(j => j.id));
+        .in('id', tableState.selectedJobs.map(j => j.id));
 
       if (error) throw error;
 
-      toast.success(`Successfully deleted ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''}`);
-      setSelectedJobs([]);
+      toast.success(`Successfully deleted ${tableState.selectedJobs.length} job${tableState.selectedJobs.length > 1 ? 's' : ''}`);
+      tableState.setSelectedJobs([]);
       refreshJobs();
     } catch (err) {
       console.error('Error deleting jobs:', err);
       toast.error('Failed to delete jobs');
     }
-  }, [selectedJobs, refreshJobs]);
+  }, [tableState.selectedJobs, refreshJobs, tableState.setSelectedJobs]);
 
   const handleCustomWorkflow = useCallback(() => {
     toast.info('Custom workflow feature coming soon');
   }, []);
 
   return {
-    // State
-    selectedJobs,
-    setSelectedJobs,
-    searchQuery,
-    setSearchQuery,
-    showColumnFilters,
-    setShowColumnFilters,
-    sortField,
-    setSortField,
-    sortOrder,
-    setSortOrder,
-    columnFilters,
-    setColumnFilters,
-    editingJob,
-    setEditingJob,
-    categoryAssignJob,
-    setCategoryAssignJob,
-    workflowInitJob,
-    setWorkflowInitJob,
-    showBulkOperations,
-    setShowBulkOperations,
-    showQRLabels,
-    setShowQRLabels,
+    // Spread all table state
+    ...tableState,
     
     // Handlers
     handleSelectJob,

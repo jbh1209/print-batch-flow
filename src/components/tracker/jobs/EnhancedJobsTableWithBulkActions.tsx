@@ -6,7 +6,6 @@ import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProduction
 import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { BulkDeleteConfirmDialog } from "./BulkDeleteConfirmDialog";
 import { ColumnFilters } from "./ColumnFilters";
 import { JobEditModal } from "./JobEditModal";
 import { CategoryAssignModal } from "./CategoryAssignModal";
@@ -14,6 +13,8 @@ import { CustomWorkflowModal } from "./CustomWorkflowModal";
 import { useJobsTableFilters } from "./JobsTableFilters";
 import { useJobsTableSorting } from "./JobsTableSorting";
 import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
+import { useJobStatusFiltering } from "@/hooks/tracker/useJobStatusFiltering";
+import { BulkDeleteHandler } from "./BulkDeleteHandler";
 import { EnhancedJobsTableHeader } from "./EnhancedJobsTableHeader";
 import { JobsTableBulkActionsBar } from "./JobsTableBulkActionsBar";
 import { JobsTableContent } from "./JobsTableContent";
@@ -65,37 +66,9 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   // Add custom workflow state
   const [showCustomWorkflow, setShowCustomWorkflow] = React.useState(false);
   const [customWorkflowJob, setCustomWorkflowJob] = React.useState<any>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
-  const [isDeleting, setIsDeleting] = React.useState(false);
 
   // Apply status filter from sidebar
-  const getFilteredJobsByStatus = () => {
-    if (!statusFilter) {
-      // Default: show production jobs (excluding completed)
-      return jobs.filter(job => job.status?.toLowerCase() !== 'completed');
-    }
-    
-    switch (statusFilter) {
-      case 'completed':
-        return jobs.filter(job => job.status?.toLowerCase() === 'completed');
-      case 'in-progress':
-        return jobs.filter(job => 
-          job.status && ['printing', 'finishing', 'production', 'pre-press', 'packaging'].includes(job.status.toLowerCase())
-        );
-      case 'pending':
-        return jobs.filter(job => 
-          job.status?.toLowerCase() === 'pending' || !job.status
-        );
-      case 'overdue':
-        return jobs.filter(job => 
-          job.due_date && new Date(job.due_date) < new Date() && job.status?.toLowerCase() !== 'completed'
-        );
-      default:
-        return jobs.filter(job => job.status?.toLowerCase() !== 'completed');
-    }
-  };
-
-  const statusFilteredJobs = getFilteredJobsByStatus();
+  const { statusFilteredJobs } = useJobStatusFiltering({ jobs, statusFilter });
 
   // Use filtering hook with status filtered jobs
   const { filteredJobs, availableCategories, availableStatuses, availableStages } = useJobsTableFilters({
@@ -134,13 +107,8 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     refreshJobs();
   };
 
-  const handleBulkDeleteClick = () => {
-    setShowDeleteDialog(true);
-  };
-
   const handleBulkCategoryAssign = () => {
     if (selectedJobs.length > 0) {
-      // Use first selected job for modal, but will apply to all selected
       const firstJob = jobs.find(job => job.id === selectedJobs[0]);
       if (firstJob) {
         setCategoryAssignJob({
@@ -171,28 +139,6 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     refreshJobs();
   };
 
-  const handleConfirmBulkDelete = async () => {
-    setIsDeleting(true);
-    try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .delete()
-        .in('id', selectedJobs);
-
-      if (error) throw error;
-
-      toast.success(`Successfully deleted ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''}`);
-      setSelectedJobs([]);
-      setShowDeleteDialog(false);
-      refreshJobs();
-    } catch (err) {
-      console.error('Error deleting jobs:', err);
-      toast.error('Failed to delete jobs');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleDeleteSingleJob = async (jobId: string) => {
     try {
       const { error } = await supabase
@@ -211,6 +157,11 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       console.error('Error deleting job:', err);
       toast.error('Failed to delete job');
     }
+  };
+
+  const handleBulkDeleteComplete = () => {
+    setSelectedJobs([]);
+    refreshJobs();
   };
 
   if (isLoading) {
@@ -251,16 +202,23 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       )}
 
       {/* Bulk Actions */}
-      <JobsTableBulkActionsBar
-        selectedJobsCount={selectedJobs.length}
-        isDeleting={isDeleting}
-        onBulkCategoryAssign={handleBulkCategoryAssign}
-        onBulkStatusUpdate={handleBulkStatusUpdate}
-        onBulkDelete={handleBulkDeleteClick}
-        onClearSelection={() => setSelectedJobs([])}
-        onCustomWorkflow={handleCustomWorkflow}
-        selectedJobs={jobs.filter(job => selectedJobs.includes(job.id))}
-      />
+      <BulkDeleteHandler
+        selectedJobs={selectedJobs}
+        onDeleteComplete={handleBulkDeleteComplete}
+      >
+        {({ onShowDialog }) => (
+          <JobsTableBulkActionsBar
+            selectedJobsCount={selectedJobs.length}
+            isDeleting={false}
+            onBulkCategoryAssign={handleBulkCategoryAssign}
+            onBulkStatusUpdate={handleBulkStatusUpdate}
+            onBulkDelete={onShowDialog}
+            onClearSelection={() => setSelectedJobs([])}
+            onCustomWorkflow={handleCustomWorkflow}
+            selectedJobs={jobs.filter(job => selectedJobs.includes(job.id))}
+          />
+        )}
+      </BulkDeleteHandler>
 
       {/* Jobs Table with ScrollArea */}
       <JobsTableContent
@@ -275,15 +233,6 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         onCategoryAssign={handleCategoryAssign}
         onDeleteSingleJob={handleDeleteSingleJob}
         onCustomWorkflow={handleCustomWorkflowFromTable}
-      />
-
-      {/* Bulk Delete Confirmation Dialog */}
-      <BulkDeleteConfirmDialog
-        isOpen={showDeleteDialog}
-        onClose={() => setShowDeleteDialog(false)}
-        onConfirm={handleConfirmBulkDelete}
-        jobCount={selectedJobs.length}
-        isDeleting={isDeleting}
       />
 
       {/* Edit Job Modal */}

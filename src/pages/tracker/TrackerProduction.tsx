@@ -1,13 +1,14 @@
 
 import React, { useState, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Settings, QrCode } from "lucide-react";
-import { Link, useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
-import { MobileQRScanner } from "@/components/tracker/mobile/MobileQRScanner";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
+import { ProductionStats } from "@/components/tracker/production/ProductionStats";
+import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
+import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
 
 interface TrackerProductionContext {
   activeTab: string;
@@ -121,10 +122,8 @@ const TrackerProduction = () => {
 
   const handleQRScanner = () => {
     if (isMobile) {
-      // Mobile QR scanner is already visible
       toast.info('QR scanner is available in the header');
     } else {
-      // Navigate to a dedicated QR scanner page or show modal
       toast.info('QR scanner functionality - to be implemented');
     }
   };
@@ -141,109 +140,31 @@ const TrackerProduction = () => {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="mb-6 flex-shrink-0">
-        <div className="flex items-center gap-4 mb-4">
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/tracker" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-        </div>
-        
-        <div className="flex justify-between items-start gap-4">
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold">Production Workflow</h1>
-            <p className="text-gray-600 text-sm sm:text-base">
-              Monitor and manage production stages with real-time tracking
-            </p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-2">
-            {/* Mobile QR Scanner - Always visible on mobile */}
-            {isMobile && (
-              <MobileQRScanner
-                onScanSuccess={handleQRScan}
-                onJobAction={handleStageAction}
-              />
-            )}
-            
-            <Button 
-              variant="outline" 
-              size={isMobile ? "sm" : "default"}
-              onClick={handleConfigureStages}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              {isMobile ? "" : "Configure Stages"}
-            </Button>
-
-            {/* Desktop QR Scanner */}
-            {!isMobile && (
-              <Button 
-                variant="outline"
-                onClick={handleQRScanner}
-              >
-                <QrCode className="mr-2 h-4 w-4" />
-                QR Scanner
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
+      <ProductionHeader
+        isMobile={isMobile}
+        onQRScan={handleQRScan}
+        onStageAction={handleStageAction}
+        onConfigureStages={handleConfigureStages}
+        onQRScanner={handleQRScanner}
+      />
 
       {/* Statistics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg border p-3">
-          <div className="text-2xl font-bold text-blue-600">{jobs.length}</div>
-          <div className="text-xs text-gray-600">Total Jobs</div>
-        </div>
-        <div className="bg-white rounded-lg border p-3">
-          <div className="text-2xl font-bold text-green-600">
-            {jobs.filter(j => j.has_workflow).length}
-          </div>
-          <div className="text-xs text-gray-600">With Workflow</div>
-        </div>
-        <div className="bg-white rounded-lg border p-3">
-          <div className="text-2xl font-bold text-orange-600">
-            {jobs.filter(j => j.current_stage).length}
-          </div>
-          <div className="text-xs text-gray-600">In Progress</div>
-        </div>
-        <div className="bg-white rounded-lg border p-3">
-          <div className="text-2xl font-bold text-red-600">
-            {jobsWithoutCategory.length}
-          </div>
-          <div className="text-xs text-gray-600">Need Category</div>
-        </div>
-      </div>
+      <ProductionStats 
+        jobs={jobs}
+        jobsWithoutCategory={jobsWithoutCategory}
+      />
 
       {/* Info Banner */}
-      {jobsWithoutCategory.length > 0 && (
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <p className="text-sm text-amber-700">
-            <strong>{jobsWithoutCategory.length} jobs</strong> need category assignment. 
-            Once a category is assigned, the due date will be calculated automatically and workflow stages will start immediately.
-          </p>
-        </div>
-      )}
+      <CategoryInfoBanner 
+        jobsWithoutCategoryCount={jobsWithoutCategory.length}
+      />
 
       {/* Sorting Controls */}
-      <div className="mb-4 flex gap-2">
-        <Button
-          variant={sortBy === 'wo_no' ? "default" : "outline"}
-          size="sm"
-          onClick={() => handleSort('wo_no')}
-        >
-          Sort by Job Number {sortBy === 'wo_no' && (sortOrder === 'asc' ? '↑' : '↓')}
-        </Button>
-        <Button
-          variant={sortBy === 'due_date' ? "default" : "outline"}
-          size="sm"
-          onClick={() => handleSort('due_date')}
-        >
-          Sort by Date Required {sortBy === 'due_date' && (sortOrder === 'asc' ? '↑' : '↓')}
-        </Button>
-      </div>
+      <ProductionSorting
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+      />
 
       {/* Main Content - Now takes full width */}
       <div className="flex-1 overflow-hidden">
