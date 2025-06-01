@@ -27,15 +27,6 @@ interface ProductionJob {
   updated_at?: string;
 }
 
-// Helper function to add "D" prefix to work order numbers
-const formatWorkOrderNumber = (woNo: string): string => {
-  if (!woNo) return '';
-  // Check if it already has a "D" prefix
-  if (woNo.startsWith('D')) return woNo;
-  // Add "D" prefix
-  return `D${woNo}`;
-};
-
 export const useProductionJobs = () => {
   const { user, isLoading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
@@ -65,14 +56,9 @@ export const useProductionJobs = () => {
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
 
-      // Format work order numbers with "D" prefix
-      const formattedJobs = (data || []).map(job => ({
-        ...job,
-        wo_no: formatWorkOrderNumber(job.wo_no)
-      }));
-
-      console.log("Production jobs fetched:", formattedJobs?.length || 0, "jobs");
-      setJobs(formattedJobs);
+      // Jobs are now stored with D prefix already, no need to format
+      console.log("Production jobs fetched:", data?.length || 0, "jobs");
+      setJobs(data || []);
     } catch (err) {
       console.error('Error fetching production jobs:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load jobs";
@@ -115,8 +101,7 @@ export const useProductionJobs = () => {
               prevJobs.map(job => 
                 job.id === payload.new.id ? { 
                   ...job, 
-                  ...payload.new,
-                  wo_no: formatWorkOrderNumber(payload.new.wo_no)
+                  ...payload.new
                 } : job
               )
             );

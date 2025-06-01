@@ -34,15 +34,6 @@ interface EnhancedProductionJob {
   qr_code_data?: string;
 }
 
-// Helper function to add "D" prefix to work order numbers
-const formatWorkOrderNumber = (woNo: string): string => {
-  if (!woNo) return '';
-  // Check if it already has a "D" prefix
-  if (woNo.startsWith('D')) return woNo;
-  // Add "D" prefix
-  return `D${woNo}`;
-};
-
 export const useEnhancedProductionJobs = () => {
   const [jobs, setJobs] = useState<EnhancedProductionJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,7 +94,7 @@ export const useEnhancedProductionJobs = () => {
         return acc;
       }, {} as Record<string, any[]>);
 
-      // Enhance jobs with workflow information and format work order numbers
+      // Enhance jobs with workflow information - WO numbers are already formatted with D prefix
       const enhancedJobs: EnhancedProductionJob[] = (jobsData || []).map(job => {
         const jobStages = stagesByJob[job.id] || [];
         const hasWorkflow = jobStages.length > 0;
@@ -119,7 +110,6 @@ export const useEnhancedProductionJobs = () => {
 
         return {
           ...job,
-          wo_no: formatWorkOrderNumber(job.wo_no), // Format with "D" prefix
           category: job.categories?.name || null,
           has_workflow: hasWorkflow,
           current_stage: currentStage,
