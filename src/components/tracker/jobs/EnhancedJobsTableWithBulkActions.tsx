@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { RefreshCw } from "lucide-react";
@@ -263,6 +262,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         onBulkDelete={handleBulkDelete}
         onClearSelection={() => setSelectedJobs([])}
         onCustomWorkflow={handleCustomWorkflow}
+        selectedJobs={jobs.filter(job => selectedJobs.includes(job.id))}
       />
 
       {/* Jobs Table with ScrollArea */}

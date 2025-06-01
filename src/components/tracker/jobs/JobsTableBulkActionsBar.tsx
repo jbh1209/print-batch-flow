@@ -12,6 +12,7 @@ interface JobsTableBulkActionsBarProps {
   onBulkDelete: () => void;
   onClearSelection: () => void;
   onCustomWorkflow?: () => void;
+  selectedJobs?: any[]; // Add this to check job properties
 }
 
 export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = ({
@@ -21,11 +22,14 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
   onBulkStatusUpdate,
   onBulkDelete,
   onClearSelection,
-  onCustomWorkflow
+  onCustomWorkflow,
+  selectedJobs = []
 }) => {
   if (selectedJobsCount === 0) return null;
 
   const isSingleJob = selectedJobsCount === 1;
+  const selectedJob = isSingleJob ? selectedJobs[0] : null;
+  const hasCustomWorkflow = selectedJob?.has_custom_workflow || selectedJob?.category_id === 'custom';
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
@@ -36,15 +40,17 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
           </Badge>
           
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onBulkCategoryAssign}
-              className="flex items-center gap-2"
-            >
-              <Tags className="h-4 w-4" />
-              Assign Category
-            </Button>
+            {!hasCustomWorkflow && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBulkCategoryAssign}
+                className="flex items-center gap-2"
+              >
+                <Tags className="h-4 w-4" />
+                Assign Category
+              </Button>
+            )}
 
             {isSingleJob && onCustomWorkflow && (
               <Button
@@ -54,7 +60,7 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
                 className="flex items-center gap-2 text-purple-600 border-purple-200 hover:bg-purple-50"
               >
                 <Settings className="h-4 w-4" />
-                Custom Workflow
+                {hasCustomWorkflow ? 'Edit Custom Workflow' : 'Custom Workflow'}
               </Button>
             )}
 

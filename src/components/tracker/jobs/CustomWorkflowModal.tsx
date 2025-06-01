@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +33,66 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
   const { stages, isLoading } = useProductionStages();
   const [selectedStages, setSelectedStages] = useState<SelectedStage[]>([]);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+  const [hasExistingWorkflow, setHasExistingWorkflow] = useState(false);
+
+  // Load existing workflow stages when modal opens
+  useEffect(() => {
+    if (isOpen && job?.id) {
+      loadExistingWorkflow();
+    }
+  }, [isOpen, job?.id]);
+
+  const loadExistingWorkflow = async () => {
+    setIsLoadingExisting(true);
+    try {
+      console.log('🔄 Loading existing workflow for job:', job.id);
+
+      const { data: existingStages, error } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          id,
+          stage_order,
+          status,
+          production_stage:production_stages(
+            id,
+            name,
+            color
+          )
+        `)
+        .eq('job_id', job.id)
+        .eq('job_table_name', 'production_jobs')
+        .order('stage_order');
+
+      if (error) {
+        console.error('❌ Error loading existing stages:', error);
+        throw error;
+      }
+
+      if (existingStages && existingStages.length > 0) {
+        console.log('✅ Found existing stages:', existingStages.length);
+        setHasExistingWorkflow(true);
+        
+        const mappedStages: SelectedStage[] = existingStages.map(stage => ({
+          id: stage.production_stage.id,
+          name: stage.production_stage.name,
+          color: stage.production_stage.color,
+          order: stage.stage_order
+        }));
+        
+        setSelectedStages(mappedStages);
+      } else {
+        console.log('ℹ️ No existing stages found');
+        setHasExistingWorkflow(false);
+        setSelectedStages([]);
+      }
+    } catch (err) {
+      console.error('❌ Error loading existing workflow:', err);
+      toast.error("Failed to load existing workflow");
+    } finally {
+      setIsLoadingExisting(false);
+    }
+  };
 
   const handleStageToggle = (stage: any, checked: boolean) => {
     if (checked) {
@@ -89,30 +148,29 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
 
     setIsInitializing(true);
     try {
-      console.log('🔄 Initializing custom workflow...', { 
+      console.log('🔄 Initializing/updating custom workflow...', { 
         jobId: job.id, 
-        selectedStages: selectedStages.length 
+        selectedStages: selectedStages.length,
+        hasExistingWorkflow
       });
 
-      // First, check if the job already has workflow stages
-      const { data: existingStages, error: checkError } = await supabase
-        .from('job_stage_instances')
-        .select('id')
-        .eq('job_id', job.id)
-        .eq('job_table_name', 'production_jobs');
+      // If there are existing stages, delete them first
+      if (hasExistingWorkflow) {
+        console.log('🗑️ Deleting existing stages...');
+        const { error: deleteError } = await supabase
+          .from('job_stage_instances')
+          .delete()
+          .eq('job_id', job.id)
+          .eq('job_table_name', 'production_jobs');
 
-      if (checkError) {
-        console.error('❌ Error checking existing stages:', checkError);
-        throw checkError;
+        if (deleteError) {
+          console.error('❌ Error deleting existing stages:', deleteError);
+          throw deleteError;
+        }
       }
 
-      if (existingStages && existingStages.length > 0) {
-        toast.error("This job already has workflow stages. Please delete existing stages first.");
-        return;
-      }
-
-      // Create stage instances directly using individual inserts
-      console.log('🔄 Creating stage instances directly...');
+      // Create new stage instances
+      console.log('🔄 Creating new stage instances...');
       
       for (let i = 0; i < selectedStages.length; i++) {
         const stage = selectedStages[i];
@@ -153,12 +211,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         throw updateError;
       }
 
-      console.log('✅ Custom workflow initialized successfully');
-      toast.success("Custom workflow initialized successfully");
+      console.log('✅ Custom workflow initialized/updated successfully');
+      toast.success(hasExistingWorkflow ? "Custom workflow updated successfully" : "Custom workflow initialized successfully");
       onSuccess();
       onClose();
     } catch (err) {
-      console.error('❌ Error initializing custom workflow:', err);
+      console.error('❌ Error initializing/updating custom workflow:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to initialize custom workflow";
       toast.error(errorMessage);
     } finally {
@@ -170,12 +228,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     return selectedStages.some(s => s.id === stageId);
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingExisting) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl">
           <div className="flex items-center justify-center p-8">
-            <div className="text-center">Loading stages...</div>
+            <div className="text-center">Loading...</div>
           </div>
         </DialogContent>
       </Dialog>
@@ -186,9 +244,15 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Custom Workflow</DialogTitle>
+          <DialogTitle>
+            {hasExistingWorkflow ? 'Edit Custom Workflow' : 'Create Custom Workflow'}
+          </DialogTitle>
           <DialogDescription>
-            Select and order production stages for job {job?.wo_no || 'Unknown'}. This job will bypass category templates and use your custom workflow.
+            Select and order production stages for job {job?.wo_no || 'Unknown'}. 
+            {hasExistingWorkflow 
+              ? 'You can modify the existing custom workflow below.' 
+              : 'This job will bypass category templates and use your custom workflow.'
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -302,7 +366,10 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
             disabled={selectedStages.length === 0 || isInitializing}
             className="bg-green-600 hover:bg-green-700"
           >
-            {isInitializing ? "Initializing..." : "Initialize Custom Workflow"}
+            {isInitializing 
+              ? (hasExistingWorkflow ? "Updating..." : "Initializing...") 
+              : (hasExistingWorkflow ? "Update Custom Workflow" : "Initialize Custom Workflow")
+            }
           </Button>
         </DialogFooter>
       </DialogContent>

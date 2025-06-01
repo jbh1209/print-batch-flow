@@ -143,6 +143,7 @@ export const EnhancedJobsTable: React.FC<EnhancedJobsTableProps> = ({
           onQRLabels={() => setShowQRLabels(true)}
           onClearSelection={() => setSelectedJobs([])}
           onCustomWorkflow={handleCustomWorkflow}
+          selectedJobs={selectedJobs}
         />
 
         <JobsTable
