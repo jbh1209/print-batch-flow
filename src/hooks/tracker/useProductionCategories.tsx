@@ -7,7 +7,7 @@ interface ProductionCategory {
   id: string;
   name: string;
   description?: string;
-  color?: string;
+  color: string; // Made required to match Category interface
   sla_target_days: number;
   created_at: string;
   updated_at: string;
@@ -30,7 +30,13 @@ export const useProductionCategories = () => {
 
       if (error) throw error;
 
-      setCategories(data || []);
+      // Ensure all categories have a color property
+      const categoriesWithColor = (data || []).map(category => ({
+        ...category,
+        color: category.color || '#3B82F6' // Default blue color if none provided
+      }));
+
+      setCategories(categoriesWithColor);
     } catch (err) {
       console.error('Error fetching categories:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load categories";
