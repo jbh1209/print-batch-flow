@@ -12,6 +12,10 @@ import TrackerDashboard from "./pages/tracker/TrackerDashboard";
 import TrackerJobs from "./pages/tracker/TrackerJobs";
 import TrackerLabels from "./pages/tracker/TrackerLabels";
 import TrackerUpload from "./pages/tracker/TrackerUpload";
+import TrackerProduction from "./pages/tracker/TrackerProduction";
+import TrackerKanban from "./pages/tracker/TrackerKanban";
+import TrackerWorkSheets from "./pages/tracker/TrackerWorkSheets";
+import TrackerAdmin from "./pages/tracker/TrackerAdmin";
 import TrackerLayout from "./components/TrackerLayout";
 import { AuthProvider } from "./hooks/useAuth";
 import { Toaster } from "sonner";
@@ -68,6 +72,10 @@ function App() {
             >
               <Route index element={<TrackerDashboard />} />
               <Route path="jobs" element={<TrackerJobs />} />
+              <Route path="production" element={<TrackerProduction />} />
+              <Route path="kanban" element={<TrackerKanban />} />
+              <Route path="worksheets" element={<TrackerWorkSheets />} />
+              <Route path="admin" element={<TrackerAdmin />} />
               <Route path="labels" element={<TrackerLabels />} />
               <Route path="upload" element={<TrackerUpload />} />
               <Route path="mobile" element={<TrackerMobileScanner />} />

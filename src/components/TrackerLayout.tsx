@@ -14,7 +14,7 @@ const TrackerLayout = () => {
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [filters, setFilters] = useState<any>({});
 
-  // Map routes to tabs
+  // Map routes to tabs - updated with all routes
   const routeToTab = {
     '/tracker': 'dashboard',
     '/tracker/jobs': 'orders',
@@ -23,8 +23,8 @@ const TrackerLayout = () => {
     '/tracker/worksheets': 'worksheets',
     '/tracker/admin': 'setup',
     '/tracker/upload': 'setup',
-    '/tracker/analytics': 'setup',
-    '/tracker/labels': 'setup'
+    '/tracker/labels': 'setup',
+    '/tracker/mobile': 'setup'
   };
 
   // Update active tab based on current route
@@ -43,7 +43,7 @@ const TrackerLayout = () => {
       'production': '/tracker/production',
       'kanban': '/tracker/kanban',
       'worksheets': '/tracker/worksheets',
-      'setup': '/tracker/upload'
+      'setup': '/tracker/admin'
     };
     
     const route = tabRoutes[tab] || '/tracker';
