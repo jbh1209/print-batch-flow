@@ -1,12 +1,10 @@
 
 import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Settings, QrCode, Users } from "lucide-react";
+import { ArrowLeft, Settings, QrCode } from "lucide-react";
 import { Link, useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
-import { JobSelectionModal } from "@/components/tracker/jobs/JobSelectionModal";
-import { WorkflowInitializationModal } from "@/components/tracker/jobs/WorkflowInitializationModal";
 import { MobileQRScanner } from "@/components/tracker/mobile/MobileQRScanner";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -33,15 +31,11 @@ const TrackerProduction = () => {
   } = useEnhancedProductionJobs();
   
   const [activeFilters, setActiveFilters] = useState<any>({});
-  const [isJobSelectionOpen, setIsJobSelectionOpen] = useState(false);
-  const [isWorkflowInitOpen, setIsWorkflowInitOpen] = useState(false);
-  const [selectedJobs, setSelectedJobs] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
-  const selectedStageId = context?.selectedStageId;
 
   // Filter and sort jobs based on selected stage or other filters
   const filteredJobs = useMemo(() => {
@@ -78,9 +72,9 @@ const TrackerProduction = () => {
     return filtered;
   }, [jobs, currentFilters, sortBy, sortOrder]);
 
-  // Get jobs without workflow for bulk initialization
-  const jobsWithoutWorkflow = useMemo(() => {
-    return jobs.filter(job => !job.has_workflow);
+  // Get jobs without categories (need category assignment instead of workflow init)
+  const jobsWithoutCategory = useMemo(() => {
+    return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
   const handleFilterChange = (filters: any) => {
@@ -119,32 +113,6 @@ const TrackerProduction = () => {
     if (data?.jobId && data?.stageId) {
       handleStageAction(data.jobId, data.stageId, data.action || 'qr-scan');
     }
-  };
-
-  const handleInitializeWorkflow = () => {
-    if (jobsWithoutWorkflow.length === 0) {
-      toast.info('All jobs already have workflows initialized');
-      return;
-    }
-    setIsJobSelectionOpen(true);
-  };
-
-  const handleJobSelect = (job: any, selected: boolean) => {
-    if (selected) {
-      setSelectedJobs(prev => [...prev, job]);
-    } else {
-      setSelectedJobs(prev => prev.filter(j => j.id !== job.id));
-    }
-  };
-
-  const handleConfirmJobSelection = () => {
-    setIsJobSelectionOpen(false);
-    setIsWorkflowInitOpen(true);
-  };
-
-  const handleWorkflowSuccess = () => {
-    setSelectedJobs([]);
-    refreshJobs();
   };
 
   const handleConfigureStages = () => {
@@ -208,20 +176,6 @@ const TrackerProduction = () => {
               <Settings className="mr-2 h-4 w-4" />
               {isMobile ? "" : "Configure Stages"}
             </Button>
-            
-            <Button 
-              onClick={handleInitializeWorkflow} 
-              size={isMobile ? "sm" : "default"}
-              disabled={jobsWithoutWorkflow.length === 0}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              {isMobile ? "Init" : "Initialize Workflow"}
-              {jobsWithoutWorkflow.length > 0 && (
-                <span className="ml-1 bg-white text-blue-600 rounded-full px-1.5 py-0.5 text-xs font-medium">
-                  {jobsWithoutWorkflow.length}
-                </span>
-              )}
-            </Button>
 
             {/* Desktop QR Scanner */}
             {!isMobile && (
@@ -257,11 +211,21 @@ const TrackerProduction = () => {
         </div>
         <div className="bg-white rounded-lg border p-3">
           <div className="text-2xl font-bold text-red-600">
-            {jobsWithoutWorkflow.length}
+            {jobsWithoutCategory.length}
           </div>
-          <div className="text-xs text-gray-600">Need Setup</div>
+          <div className="text-xs text-gray-600">Need Category</div>
         </div>
       </div>
+
+      {/* Info Banner */}
+      {jobsWithoutCategory.length > 0 && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-sm text-amber-700">
+            <strong>{jobsWithoutCategory.length} jobs</strong> need category assignment. 
+            Once a category is assigned, the due date will be calculated automatically and workflow stages will start immediately.
+          </p>
+        </div>
+      )}
 
       {/* Sorting Controls */}
       <div className="mb-4 flex gap-2">
@@ -292,33 +256,6 @@ const TrackerProduction = () => {
           />
         </div>
       </div>
-
-      {/* Job Selection Modal */}
-      <JobSelectionModal
-        isOpen={isJobSelectionOpen}
-        onClose={() => {
-          setIsJobSelectionOpen(false);
-          setSelectedJobs([]);
-        }}
-        jobs={jobsWithoutWorkflow}
-        selectedJobs={selectedJobs}
-        onJobSelect={handleJobSelect}
-        onConfirm={handleConfirmJobSelection}
-        title="Select Jobs for Workflow"
-        description="Choose jobs to initialize with production workflow"
-        confirmText="Initialize Selected"
-      />
-
-      {/* Workflow Initialization Modal */}
-      <WorkflowInitializationModal
-        isOpen={isWorkflowInitOpen}
-        onClose={() => {
-          setIsWorkflowInitOpen(false);
-          setSelectedJobs([]);
-        }}
-        jobs={selectedJobs}
-        onSuccess={handleWorkflowSuccess}
-      />
     </div>
   );
 };

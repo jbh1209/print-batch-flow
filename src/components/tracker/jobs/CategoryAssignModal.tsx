@@ -1,37 +1,14 @@
 
 import React, { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { AlertTriangle } from "lucide-react";
-import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-
-interface ProductionJob {
-  id: string;
-  wo_no: string;
-  category_id?: string | null;
-  isMultiple?: boolean;
-  selectedIds?: string[];
-}
-
-interface Category {
-  id: string;
-  name: string;
-  color: string;
-}
+import { toast } from "sonner";
 
 interface CategoryAssignModalProps {
-  job: ProductionJob;
-  categories: Category[];
+  job: any;
+  categories: any[];
   onClose: () => void;
   onAssign: () => void;
 }
@@ -42,73 +19,54 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   onClose,
   onAssign
 }) => {
-  const [selectedCategoryId, setSelectedCategoryId] = useState(job.category_id || '');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const isMultipleJobs = job.isMultiple && job.selectedIds && job.selectedIds.length > 1;
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const handleAssign = async () => {
     if (!selectedCategoryId) {
-      toast.error('Please select a category');
+      toast.error("Please select a category");
       return;
     }
 
-    setIsLoading(true);
+    setIsAssigning(true);
     try {
-      if (isMultipleJobs && job.selectedIds) {
-        // Handle multiple jobs
-        console.log('Assigning category to multiple jobs:', job.selectedIds);
-        
-        // Delete existing job stage instances for all selected jobs
+      console.log('🔄 Assigning category and initializing workflow...', {
+        jobId: job.id,
+        categoryId: selectedCategoryId,
+        isMultiple: job.isMultiple
+      });
+
+      if (job.isMultiple && job.selectedIds) {
+        // Bulk category assignment
         for (const jobId of job.selectedIds) {
-          await supabase
-            .from('job_stage_instances')
-            .delete()
-            .eq('job_id', jobId)
-            .eq('job_table_name', 'production_jobs');
-        }
+          // Update job with category
+          const { error: updateError } = await supabase
+            .from('production_jobs')
+            .update({ 
+              category_id: selectedCategoryId,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', jobId);
 
-        // Update all selected jobs with new category
-        const { error: updateError } = await supabase
-          .from('production_jobs')
-          .update({ 
-            category_id: selectedCategoryId,
-            updated_at: new Date().toISOString()
-          })
-          .in('id', job.selectedIds);
+          if (updateError) throw updateError;
 
-        if (updateError) throw updateError;
-
-        // Initialize new workflow for all selected jobs
-        for (const jobId of job.selectedIds) {
-          const { error: initError } = await supabase.rpc('initialize_job_stages', {
+          // Auto-initialize workflow stages using the new function
+          const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
             p_job_id: jobId,
             p_job_table_name: 'production_jobs',
             p_category_id: selectedCategoryId
           });
 
-          if (initError) {
-            console.error(`Failed to initialize workflow for job ${jobId}:`, initError);
-            // Continue with other jobs even if one fails
+          if (stageError) {
+            console.error('Error initializing stages for job:', jobId, stageError);
+            // Don't throw here to allow other jobs to process
           }
         }
 
-        toast.success(`Category assigned and workflows initialized for ${job.selectedIds.length} jobs`);
+        toast.success(`Successfully assigned category and initialized workflows for ${job.selectedIds.length} jobs`);
       } else {
-        // Handle single job
-        console.log('Assigning category to single job:', job.id);
-        
-        // If job already has a category, we need to handle workflow reset
-        if (job.category_id && job.category_id !== selectedCategoryId) {
-          // Delete existing job stage instances
-          await supabase
-            .from('job_stage_instances')
-            .delete()
-            .eq('job_id', job.id)
-            .eq('job_table_name', 'production_jobs');
-        }
-
-        // Update the job with new category
+        // Single job assignment
+        // Update job with category
         const { error: updateError } = await supabase
           .from('production_jobs')
           .update({ 
@@ -119,99 +77,88 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
         if (updateError) throw updateError;
 
-        // Initialize new workflow
-        const { error: initError } = await supabase.rpc('initialize_job_stages', {
+        // Auto-initialize workflow stages using the new function
+        const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
           p_job_id: job.id,
           p_job_table_name: 'production_jobs',
           p_category_id: selectedCategoryId
         });
 
-        if (initError) throw initError;
-
-        toast.success(`Category assigned and workflow initialized for job ${job.wo_no}`);
+        if (stageError) {
+          console.error('Error initializing stages:', stageError);
+          toast.error('Category assigned but workflow initialization failed');
+        } else {
+          toast.success('Category assigned and workflow initialized successfully');
+        }
       }
-      
+
       onAssign();
       onClose();
-    } catch (error) {
-      console.error('Error assigning category:', error);
+    } catch (err) {
+      console.error('Error assigning category:', err);
       toast.error('Failed to assign category');
     } finally {
-      setIsLoading(false);
+      setIsAssigning(false);
     }
   };
 
-  const isChangingCategory = job.category_id && job.category_id !== selectedCategoryId;
+  const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {isMultipleJobs ? `Assign Category to ${job.selectedIds?.length} Jobs` : 
-             job.category_id ? 'Change Category' : 'Assign Category'}
+            Assign Category {job.isMultiple ? `(${job.selectedIds?.length} jobs)` : `- ${job.wo_no}`}
           </DialogTitle>
-          <DialogDescription>
-            {isMultipleJobs ? 
-              `Select a category for ${job.selectedIds?.length} selected jobs. This will determine the workflow stages for all jobs.` :
-              `Select a category for job ${job.wo_no}. This will determine the workflow stages.`
-            }
-          </DialogDescription>
         </DialogHeader>
 
-        {isChangingCategory && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm">
-              <p className="font-medium text-amber-800">Warning</p>
-              <p className="text-amber-700">
-                {isMultipleJobs ? 
-                  'Changing the category will reset the current workflow progress for all selected jobs. All stage instances will be deleted and recreated.' :
-                  'Changing the category will reset the current workflow progress. All stage instances will be deleted and recreated.'
-                }
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Select Category</label>
+            <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a category..." />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <span>{category.name}</span>
+                      <span className="text-xs text-gray-500">
+                        ({category.sla_target_days} days SLA)
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedCategory && (
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Due Date:</strong> Will be calculated automatically based on {selectedCategory.sla_target_days} day SLA
+              </p>
+              <p className="text-sm text-blue-600 mt-1">
+                Workflow will be initialized automatically and the first stage will start immediately.
               </p>
             </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={onClose} disabled={isAssigning}>
+              Cancel
+            </Button>
+            <Button onClick={handleAssign} disabled={isAssigning || !selectedCategoryId}>
+              {isAssigning ? "Assigning..." : "Assign Category & Start Workflow"}
+            </Button>
           </div>
-        )}
-
-        <div className="py-4">
-          <Label className="text-base font-medium">Select Category</Label>
-          <RadioGroup 
-            value={selectedCategoryId} 
-            onValueChange={setSelectedCategoryId}
-            className="mt-3"
-          >
-            {categories.map((category) => (
-              <div key={category.id} className="flex items-center space-x-2">
-                <RadioGroupItem value={category.id} id={category.id} />
-                <Label 
-                  htmlFor={category.id} 
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: category.color }}
-                  />
-                  {category.name}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleAssign} 
-            disabled={isLoading || !selectedCategoryId}
-          >
-            {isLoading ? "Processing..." : 
-             isMultipleJobs ? `Assign to ${job.selectedIds?.length} Jobs` :
-             job.category_id ? "Change Category" : "Assign & Initialize"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
