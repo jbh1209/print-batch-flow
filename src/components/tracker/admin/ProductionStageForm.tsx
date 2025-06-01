@@ -1,90 +1,109 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Plus } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MultiPartStageBuilder } from "./MultiPartStageBuilder";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ProductionStage {
-  id: string;
+  id?: string;
   name: string;
   description?: string;
-  order_index: number;
   color: string;
+  order_index: number;
   is_active: boolean;
+  is_multi_part: boolean;
+  part_definitions: string[];
 }
 
 interface ProductionStageFormProps {
   stage?: ProductionStage;
-  onSubmit: (data: Omit<ProductionStage, 'id' | 'created_at' | 'updated_at'>) => Promise<boolean>;
-  maxOrderIndex: number;
-  trigger?: React.ReactNode;
+  onSave: () => void;
+  onCancel: () => void;
 }
 
-export const ProductionStageForm = ({ stage, onSubmit, maxOrderIndex, trigger }: ProductionStageFormProps) => {
-  const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
+  stage,
+  onSave,
+  onCancel
+}) => {
+  const [formData, setFormData] = useState<ProductionStage>({
     name: stage?.name || '',
     description: stage?.description || '',
-    order_index: stage?.order_index || maxOrderIndex + 1,
     color: stage?.color || '#6B7280',
-    is_active: stage?.is_active ?? true
+    order_index: stage?.order_index || 0,
+    is_active: stage?.is_active ?? true,
+    is_multi_part: stage?.is_multi_part || false,
+    part_definitions: stage?.part_definitions || []
   });
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (stage) {
+      setFormData({
+        name: stage.name,
+        description: stage.description || '',
+        color: stage.color,
+        order_index: stage.order_index,
+        is_active: stage.is_active,
+        is_multi_part: stage.is_multi_part || false,
+        part_definitions: stage.part_definitions || []
+      });
+    }
+  }, [stage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    
+    setIsLoading(true);
+
     try {
-      const success = await onSubmit(formData);
-      if (success) {
-        setOpen(false);
-        if (!stage) {
-          setFormData({ 
-            name: '', 
-            description: '', 
-            order_index: maxOrderIndex + 1, 
-            color: '#6B7280', 
-            is_active: true 
-          });
-        }
+      const stageData = {
+        ...formData,
+        part_definitions: JSON.stringify(formData.part_definitions)
+      };
+
+      if (stage?.id) {
+        // Update existing stage
+        const { error } = await supabase
+          .from('production_stages')
+          .update(stageData)
+          .eq('id', stage.id);
+
+        if (error) throw error;
+        toast.success('Production stage updated successfully');
+      } else {
+        // Create new stage
+        const { error } = await supabase
+          .from('production_stages')
+          .insert([stageData]);
+
+        if (error) throw error;
+        toast.success('Production stage created successfully');
       }
-    } catch (error) {
-      console.error('Error submitting production stage form:', error);
+
+      onSave();
+    } catch (err) {
+      console.error('Error saving production stage:', err);
+      toast.error('Failed to save production stage');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Production Stage
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>
-            {stage ? 'Edit Production Stage' : 'Add New Production Stage'}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="name">Stage Name</Label>
             <Input
               id="name"
               value={formData.name}
@@ -92,8 +111,8 @@ export const ProductionStageForm = ({ stage, onSubmit, maxOrderIndex, trigger }:
               required
             />
           </div>
-          
-          <div className="space-y-2">
+
+          <div>
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
@@ -102,56 +121,58 @@ export const ProductionStageForm = ({ stage, onSubmit, maxOrderIndex, trigger }:
               rows={3}
             />
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="order_index">Order Index</Label>
-            <Input
-              id="order_index"
-              type="number"
-              min="1"
-              value={formData.order_index}
-              onChange={(e) => setFormData(prev => ({ ...prev, order_index: parseInt(e.target.value) }))}
-              required
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="color">Color</Label>
-            <div className="flex items-center gap-2">
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="color">Color</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="color"
+                  type="color"
+                  value={formData.color}
+                  onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                  className="w-20"
+                />
+                <Input
+                  value={formData.color}
+                  onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                  placeholder="#6B7280"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="order_index">Order Index</Label>
               <Input
-                id="color"
-                type="color"
-                value={formData.color}
-                onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                className="w-16 h-10"
-              />
-              <Input
-                value={formData.color}
-                onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                placeholder="#6B7280"
+                id="order_index"
+                type="number"
+                value={formData.order_index}
+                onChange={(e) => setFormData(prev => ({ ...prev, order_index: parseInt(e.target.value) || 0 }))}
               />
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="is_active"
-              checked={formData.is_active}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: !!checked }))}
-            />
-            <Label htmlFor="is_active">Active</Label>
-          </div>
-          
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : stage ? 'Update' : 'Create'}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <MultiPartStageBuilder
+        isMultiPart={formData.is_multi_part}
+        partDefinitions={formData.part_definitions}
+        onMultiPartChange={(isMultiPart) => 
+          setFormData(prev => ({ ...prev, is_multi_part: isMultiPart }))
+        }
+        onPartDefinitionsChange={(parts) => 
+          setFormData(prev => ({ ...prev, part_definitions: parts }))
+        }
+      />
+
+      <div className="flex gap-2 justify-end">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? 'Saving...' : stage?.id ? 'Update' : 'Create'} Stage
+        </Button>
+      </div>
+    </form>
   );
 };

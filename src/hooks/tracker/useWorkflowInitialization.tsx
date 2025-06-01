@@ -9,7 +9,7 @@ export const useWorkflowInitialization = () => {
   const initializeWorkflow = async (jobId: string, jobTableName: string, categoryId: string) => {
     try {
       setIsInitializing(true);
-      console.log('🔄 Initializing workflow...', { jobId, jobTableName, categoryId });
+      console.log('🔄 Initializing workflow with multi-part support...', { jobId, jobTableName, categoryId });
 
       // First, check if workflow already exists
       const { data: existingStages, error: checkError } = await supabase
@@ -25,46 +25,16 @@ export const useWorkflowInitialization = () => {
         return true;
       }
 
-      // Get production stages for the category using the correct table relationship
-      const { data: categoryStages, error: stagesError } = await supabase
-        .from('category_production_stages')
-        .select(`
-          stage_order,
-          estimated_duration_hours,
-          production_stage:production_stages(
-            id,
-            name,
-            color
-          )
-        `)
-        .eq('category_id', categoryId)
-        .eq('is_required', true)
-        .order('stage_order');
+      // Use the new multi-part initialization function
+      const { data, error } = await supabase.rpc('initialize_job_stages_with_parts', {
+        p_job_id: jobId,
+        p_job_table_name: jobTableName,
+        p_category_id: categoryId
+      });
 
-      if (stagesError) throw stagesError;
+      if (error) throw error;
 
-      if (!categoryStages || categoryStages.length === 0) {
-        throw new Error('No production stages found for this category');
-      }
-
-      // Create job stage instances
-      const stageInstances = categoryStages.map((cs, index) => ({
-        job_id: jobId,
-        job_table_name: jobTableName,
-        category_id: categoryId,
-        production_stage_id: cs.production_stage.id,
-        stage_order: cs.stage_order,
-        status: index === 0 ? 'active' : 'pending', // First stage is active
-        started_at: index === 0 ? new Date().toISOString() : null
-      }));
-
-      const { error: insertError } = await supabase
-        .from('job_stage_instances')
-        .insert(stageInstances);
-
-      if (insertError) throw insertError;
-
-      console.log('✅ Workflow initialized successfully');
+      console.log('✅ Workflow initialized successfully with multi-part support');
       toast.success('Production workflow initialized successfully');
       return true;
     } catch (err) {

@@ -447,6 +447,9 @@ export type Database = {
           job_id: string
           job_table_name: string
           notes: string | null
+          part_name: string | null
+          part_order: number | null
+          printer_id: string | null
           production_stage_id: string
           qr_scan_data: Json | null
           stage_order: number
@@ -464,6 +467,9 @@ export type Database = {
           job_id: string
           job_table_name: string
           notes?: string | null
+          part_name?: string | null
+          part_order?: number | null
+          printer_id?: string | null
           production_stage_id: string
           qr_scan_data?: Json | null
           stage_order: number
@@ -481,6 +487,9 @@ export type Database = {
           job_id?: string
           job_table_name?: string
           notes?: string | null
+          part_name?: string | null
+          part_order?: number | null
+          printer_id?: string | null
           production_stage_id?: string
           qr_scan_data?: Json | null
           stage_order?: number
@@ -495,6 +504,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_printer_id_fkey"
+            columns: ["printer_id"]
+            isOneToOne: false
+            referencedRelation: "printers"
             referencedColumns: ["id"]
           },
           {
@@ -638,6 +654,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      printers: {
+        Row: {
+          capabilities: Json | null
+          created_at: string
+          id: string
+          location: string | null
+          max_paper_size: string | null
+          name: string
+          notes: string | null
+          status: string
+          supported_paper_types: string[] | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          capabilities?: Json | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          max_paper_size?: string | null
+          name: string
+          notes?: string | null
+          status?: string
+          supported_paper_types?: string[] | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          capabilities?: Json | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          max_paper_size?: string | null
+          name?: string
+          notes?: string | null
+          status?: string
+          supported_paper_types?: string[] | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       product_field_options: {
         Row: {
@@ -934,8 +992,10 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_multi_part: boolean
           name: string
           order_index: number
+          part_definitions: Json | null
           updated_at: string
         }
         Insert: {
@@ -944,8 +1004,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_multi_part?: boolean
           name: string
           order_index?: number
+          part_definitions?: Json | null
           updated_at?: string
         }
         Update: {
@@ -954,8 +1016,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_multi_part?: boolean
           name?: string
           order_index?: number
+          part_definitions?: Json | null
           updated_at?: string
         }
         Relationships: []
@@ -1294,6 +1358,14 @@ export type Database = {
         Returns: boolean
       }
       initialize_job_stages: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_category_id: string
+        }
+        Returns: boolean
+      }
+      initialize_job_stages_with_parts: {
         Args: {
           p_job_id: string
           p_job_table_name: string
