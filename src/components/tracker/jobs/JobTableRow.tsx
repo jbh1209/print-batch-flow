@@ -60,9 +60,14 @@ export const JobTableRow: React.FC<JobTableRowProps> = ({
     if (job.has_custom_workflow || job.category_id === 'custom') {
       return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Custom</Badge>;
     }
-    if (job.category_name) {
-      return <Badge variant="outline">{job.category_name}</Badge>;
+    
+    // Check for category name from different possible fields
+    const categoryName = job.categories?.name || job.category_name || job.category;
+    
+    if (categoryName) {
+      return <Badge variant="outline">{categoryName}</Badge>;
     }
+    
     return (
       <Button
         variant="link"
