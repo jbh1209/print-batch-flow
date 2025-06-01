@@ -1,18 +1,15 @@
 import React, { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody } from "@/components/ui/table";
-import { Search, RefreshCw, Filter } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { JobTableColumns } from "./JobTableColumns";
 import { ResponsiveJobTableRow } from "./ResponsiveJobTableRow";
 import { JobBulkActions } from "./JobBulkActions";
-import { JobEditModal } from "./JobEditModal";
-import { CategoryAssignModal } from "./CategoryAssignModal";
-import { WorkflowInitModal } from "./WorkflowInitModal";
-import { BulkJobOperations } from "./BulkJobOperations";
-import { QRLabelsManager } from "../QRLabelsManager";
+import { JobsTableHeader } from "./JobsTableHeader";
+import { JobsTableModals } from "./JobsTableModals";
 import { ColumnFilters } from "./ColumnFilters";
+import { useJobsTableFilters } from "./JobsTableFilters";
+import { useJobsTableSorting } from "./JobsTableSorting";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,21 +54,19 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
   const [showBulkOperations, setShowBulkOperations] = useState(false);
   const [showQRLabels, setShowQRLabels] = useState(false);
 
-  // Extract unique values for filter dropdowns
-  const availableCategories = useMemo(() => {
-    const categories = [...new Set(jobs.map(job => job.category).filter(Boolean))];
-    return categories.sort();
-  }, [jobs]);
+  // Use filtering hook
+  const { filteredJobs, availableCategories, availableStatuses, availableStages } = useJobsTableFilters({
+    jobs,
+    searchQuery,
+    columnFilters
+  });
 
-  const availableStatuses = useMemo(() => {
-    const statuses = [...new Set(jobs.map(job => job.status).filter(Boolean))];
-    return statuses.sort();
-  }, [jobs]);
-
-  const availableStages = useMemo(() => {
-    const stages = [...new Set(jobs.map(job => job.current_stage).filter(Boolean))];
-    return stages.sort();
-  }, [jobs]);
+  // Use sorting hook
+  const filteredAndSortedJobs = useJobsTableSorting({
+    jobs: filteredJobs,
+    sortField,
+    sortOrder
+  });
 
   const handleSelectJob = (job: any, selected: boolean) => {
     if (selected) {
@@ -116,136 +111,6 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
       setSortOrder('asc');
     }
   };
-
-  // Enhanced filtering logic
-  const filteredJobs = useMemo(() => {
-    return jobs.filter(job => {
-      // Search filter
-      if (searchQuery) {
-        const searchLower = searchQuery.toLowerCase();
-        const matchesSearch = 
-          job.wo_no?.toLowerCase().includes(searchLower) ||
-          job.customer?.toLowerCase().includes(searchLower) ||
-          job.reference?.toLowerCase().includes(searchLower) ||
-          job.category?.toLowerCase().includes(searchLower);
-        
-        if (!matchesSearch) return false;
-      }
-
-      // Column filters
-      if (columnFilters.woNumber && !job.wo_no?.toLowerCase().includes(columnFilters.woNumber.toLowerCase())) {
-        return false;
-      }
-
-      if (columnFilters.customer && !job.customer?.toLowerCase().includes(columnFilters.customer.toLowerCase())) {
-        return false;
-      }
-
-      if (columnFilters.reference && !job.reference?.toLowerCase().includes(columnFilters.reference.toLowerCase())) {
-        return false;
-      }
-
-      if (columnFilters.category && job.category !== columnFilters.category) {
-        return false;
-      }
-
-      if (columnFilters.status && job.status !== columnFilters.status) {
-        return false;
-      }
-
-      if (columnFilters.currentStage && job.current_stage !== columnFilters.currentStage) {
-        return false;
-      }
-
-      // Due date filter
-      if (columnFilters.dueDate && job.due_date) {
-        const dueDate = new Date(job.due_date);
-        const today = new Date();
-        
-        switch (columnFilters.dueDate) {
-          case 'overdue':
-            if (!isBefore(dueDate, startOfDay(today))) return false;
-            break;
-          case 'today':
-            if (!isToday(dueDate)) return false;
-            break;
-          case 'thisWeek':
-            const weekStart = startOfWeek(today);
-            const weekEnd = endOfWeek(today);
-            if (isBefore(dueDate, weekStart) || isAfter(dueDate, weekEnd)) return false;
-            break;
-          case 'nextWeek':
-            const nextWeekStart = startOfWeek(addWeeks(today, 1));
-            const nextWeekEnd = endOfWeek(addWeeks(today, 1));
-            if (isBefore(dueDate, nextWeekStart) || isAfter(dueDate, nextWeekEnd)) return false;
-            break;
-          case 'noDate':
-            if (job.due_date) return false;
-            break;
-        }
-      } else if (columnFilters.dueDate === 'noDate' && job.due_date) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [jobs, searchQuery, columnFilters]);
-
-  // Sorting logic
-  const filteredAndSortedJobs = useMemo(() => {
-    if (!sortField) return filteredJobs;
-
-    return [...filteredJobs].sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-
-      switch (sortField) {
-        case 'wo_no':
-          aValue = a.wo_no || '';
-          bValue = b.wo_no || '';
-          break;
-        case 'customer':
-          aValue = a.customer || '';
-          bValue = b.customer || '';
-          break;
-        case 'reference':
-          aValue = a.reference || '';
-          bValue = b.reference || '';
-          break;
-        case 'qty':
-          aValue = a.qty || 0;
-          bValue = b.qty || 0;
-          break;
-        case 'category':
-          aValue = a.category || '';
-          bValue = b.category || '';
-          break;
-        case 'status':
-          aValue = a.status || '';
-          bValue = b.status || '';
-          break;
-        case 'due_date':
-          aValue = a.due_date ? new Date(a.due_date).getTime() : 0;
-          bValue = b.due_date ? new Date(b.due_date).getTime() : 0;
-          break;
-        case 'current_stage':
-          aValue = a.current_stage || '';
-          bValue = b.current_stage || '';
-          break;
-        default:
-          return 0;
-      }
-
-      // Handle numeric sorting
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-
-      // Handle string sorting
-      const comparison = String(aValue).localeCompare(String(bValue));
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-  }, [filteredJobs, sortField, sortOrder]);
 
   const handleCategoryAssign = (job?: any) => {
     if (job) {
@@ -338,41 +203,14 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
   return (
     <div className="space-y-4">
       {/* Search and Actions */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <CardTitle className="text-lg">Production Jobs ({filteredAndSortedJobs.length})</CardTitle>
-            
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search jobs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 w-full sm:w-64"
-                />
-              </div>
-              
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={refreshJobs}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowColumnFilters(!showColumnFilters)}
-                  className={showColumnFilters ? "bg-blue-50 border-blue-200" : ""}
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+      <JobsTableHeader
+        jobCount={filteredAndSortedJobs.length}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onRefresh={refreshJobs}
+        showColumnFilters={showColumnFilters}
+        onToggleColumnFilters={() => setShowColumnFilters(!showColumnFilters)}
+      />
 
       {/* Column Filters */}
       {showColumnFilters && (
@@ -437,49 +275,27 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
       </Card>
 
       {/* Modals */}
-      {editingJob && (
-        <JobEditModal
-          job={editingJob}
-          onClose={() => setEditingJob(null)}
-          onSave={handleEditJobSave}
-        />
-      )}
-
-      {categoryAssignJob && (
-        <CategoryAssignModal
-          job={categoryAssignJob}
-          categories={categories}
-          onClose={() => setCategoryAssignJob(null)}
-          onAssign={handleCategoryAssignComplete}
-        />
-      )}
-
-      {workflowInitJob && (
-        <WorkflowInitModal
-          job={workflowInitJob}
-          categories={categories}
-          onClose={() => setWorkflowInitJob(null)}
-          onInitialize={handleWorkflowInitialize}
-        />
-      )}
-
-      <BulkJobOperations
-        isOpen={showBulkOperations}
-        onClose={() => setShowBulkOperations(false)}
+      <JobsTableModals
+        editingJob={editingJob}
+        categoryAssignJob={categoryAssignJob}
+        workflowInitJob={workflowInitJob}
+        showBulkOperations={showBulkOperations}
+        showQRLabels={showQRLabels}
         selectedJobs={selectedJobs}
         categories={categories}
+        onCloseEditJob={() => setEditingJob(null)}
+        onCloseCategoryAssign={() => setCategoryAssignJob(null)}
+        onCloseWorkflowInit={() => setWorkflowInitJob(null)}
+        onCloseBulkOperations={() => setShowBulkOperations(false)}
+        onCloseQRLabels={() => setShowQRLabels(false)}
+        onEditJobSave={handleEditJobSave}
+        onCategoryAssignComplete={handleCategoryAssignComplete}
+        onWorkflowInitialize={handleWorkflowInitialize}
         onOperationComplete={() => {
           setSelectedJobs([]);
           refreshJobs();
         }}
       />
-
-      {showQRLabels && (
-        <QRLabelsManager
-          selectedJobs={selectedJobs}
-          onClose={() => setShowQRLabels(false)}
-        />
-      )}
     </div>
   );
 };
