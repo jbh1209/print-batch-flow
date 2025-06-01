@@ -10,6 +10,7 @@ import { BulkDeleteConfirmDialog } from "./BulkDeleteConfirmDialog";
 import { ColumnFilters } from "./ColumnFilters";
 import { JobEditModal } from "./JobEditModal";
 import { CategoryAssignModal } from "./CategoryAssignModal";
+import { CustomWorkflowModal } from "./CustomWorkflowModal";
 import { useJobsTableFilters } from "./JobsTableFilters";
 import { useJobsTableSorting } from "./JobsTableSorting";
 import { useJobsTableState } from "./useJobsTableState";
@@ -51,6 +52,9 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     handleColumnFilterChange,
     handleClearColumnFilters
   } = useJobsTableState();
+
+  // Add custom workflow state
+  const [showCustomWorkflow, setShowCustomWorkflow] = React.useState(false);
 
   // Apply status filter from sidebar
   const getFilteredJobsByStatus = () => {
@@ -131,6 +135,20 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     }
   };
 
+  const handleCustomWorkflow = () => {
+    if (selectedJobs.length !== 1) {
+      toast.error("Custom workflows can only be created for individual jobs");
+      return;
+    }
+    setShowCustomWorkflow(true);
+  };
+
+  const handleCustomWorkflowSuccess = () => {
+    setShowCustomWorkflow(false);
+    setSelectedJobs([]);
+    refreshJobs();
+  };
+
   const handleBulkStatusUpdate = async (newStatus: string) => {
     if (selectedJobs.length === 0) return;
 
@@ -207,6 +225,9 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     );
   }
 
+  // Get the selected job for custom workflow
+  const selectedJob = selectedJobs.length === 1 ? jobs.find(job => job.id === selectedJobs[0]) : null;
+
   return (
     <div className="space-y-4">
       {/* Header and Search - No status filters here */}
@@ -241,6 +262,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         onBulkStatusUpdate={handleBulkStatusUpdate}
         onBulkDelete={handleBulkDelete}
         onClearSelection={() => setSelectedJobs([])}
+        onCustomWorkflow={handleCustomWorkflow}
       />
 
       {/* Jobs Table with ScrollArea */}
@@ -282,6 +304,16 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
           categories={categories}
           onClose={() => setCategoryAssignJob(null)}
           onAssign={handleCategoryAssignComplete}
+        />
+      )}
+
+      {/* Custom Workflow Modal */}
+      {showCustomWorkflow && selectedJob && (
+        <CustomWorkflowModal
+          isOpen={showCustomWorkflow}
+          onClose={() => setShowCustomWorkflow(false)}
+          job={selectedJob}
+          onSuccess={handleCustomWorkflowSuccess}
         />
       )}
     </div>
