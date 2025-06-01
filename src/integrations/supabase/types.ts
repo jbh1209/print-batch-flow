@@ -450,14 +450,18 @@ export type Database = {
           completed_by: string | null
           created_at: string
           id: string
+          is_rework: boolean | null
           job_id: string
           job_table_name: string
           notes: string | null
           part_name: string | null
           part_order: number | null
+          previous_stage_id: string | null
           printer_id: string | null
           production_stage_id: string
           qr_scan_data: Json | null
+          rework_count: number | null
+          rework_reason: string | null
           stage_order: number
           started_at: string | null
           started_by: string | null
@@ -470,14 +474,18 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           id?: string
+          is_rework?: boolean | null
           job_id: string
           job_table_name: string
           notes?: string | null
           part_name?: string | null
           part_order?: number | null
+          previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id: string
           qr_scan_data?: Json | null
+          rework_count?: number | null
+          rework_reason?: string | null
           stage_order: number
           started_at?: string | null
           started_by?: string | null
@@ -490,14 +498,18 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           id?: string
+          is_rework?: boolean | null
           job_id?: string
           job_table_name?: string
           notes?: string | null
           part_name?: string | null
           part_order?: number | null
+          previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id?: string
           qr_scan_data?: Json | null
+          rework_count?: number | null
+          rework_reason?: string | null
           stage_order?: number
           started_at?: string | null
           started_by?: string | null
@@ -1346,6 +1358,15 @@ export type Database = {
           last_sign_in_at: string
         }[]
       }
+      get_job_rework_history: {
+        Args: { p_job_id: string; p_job_table_name: string }
+        Returns: {
+          stage_name: string
+          rework_count: number
+          last_rework_reason: string
+          total_reworks: number
+        }[]
+      }
       get_next_active_stage: {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: string
@@ -1397,6 +1418,17 @@ export type Database = {
       }
       revoke_user_role: {
         Args: { target_user_id: string }
+        Returns: boolean
+      }
+      rework_job_stage: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_current_stage_id: string
+          p_target_stage_id: string
+          p_rework_reason?: string
+          p_reworked_by?: string
+        }
         Returns: boolean
       }
       set_user_role: {

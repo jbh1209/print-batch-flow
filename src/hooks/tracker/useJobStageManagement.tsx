@@ -1,8 +1,8 @@
-
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useJobStageInstances } from "./useJobStageInstances";
+import { useStageRework } from "./useStageRework";
 
 interface JobStageManagementOptions {
   jobId: string;
@@ -27,6 +27,8 @@ export const useJobStageManagement = ({
     updateStageNotes,
     recordQRScan
   } = useJobStageInstances(jobId, jobTableName);
+
+  const { reworkStage, fetchReworkHistory, reworkHistory, isReworking } = useStageRework();
 
   // Initialize job with workflow stages based on category
   const initializeJobWorkflow = useCallback(async () => {
@@ -132,6 +134,28 @@ export const useJobStageManagement = ({
     }
   }, [advanceJobStage, recordQRScan]);
 
+  // Send stage back for rework
+  const sendBackForRework = useCallback(async (
+    currentStageId: string, 
+    targetStageId: string, 
+    reworkReason?: string
+  ) => {
+    const success = await reworkStage(
+      jobId, 
+      jobTableName, 
+      currentStageId, 
+      targetStageId, 
+      reworkReason
+    );
+    
+    if (success) {
+      await fetchJobStages();
+      await updateJobStatusToCurrentStage();
+    }
+    
+    return success;
+  }, [reworkStage, jobId, jobTableName, fetchJobStages]);
+
   // Update job status to reflect current active stage
   const updateJobStatusToCurrentStage = useCallback(async () => {
     try {
@@ -182,6 +206,17 @@ export const useJobStageManagement = ({
     return jobStages.find(stage => stage.status === 'pending') || null;
   }, [jobStages]);
 
+  // Get available stages for rework (previous stages that can be reactivated)
+  const getAvailableReworkStages = useCallback((currentStageId: string) => {
+    const currentStage = jobStages.find(stage => stage.production_stage_id === currentStageId);
+    if (!currentStage) return [];
+    
+    return jobStages.filter(stage => 
+      stage.stage_order < currentStage.stage_order &&
+      ['completed', 'reworked'].includes(stage.status)
+    );
+  }, [jobStages]);
+
   // Check if stage can be advanced (validation rules)
   const canAdvanceStage = useCallback((stageId: string) => {
     const currentStage = jobStages.find(stage => stage.id === stageId);
@@ -190,6 +225,16 @@ export const useJobStageManagement = ({
     // Can only advance if stage is currently active
     return currentStage.status === 'active';
   }, [jobStages]);
+
+  // Check if stage can be sent back for rework
+  const canReworkStage = useCallback((stageId: string) => {
+    const currentStage = jobStages.find(stage => stage.id === stageId);
+    if (!currentStage) return false;
+
+    // Can only rework if stage is currently active and there are previous stages
+    return currentStage.status === 'active' && 
+           getAvailableReworkStages(currentStage.production_stage_id).length > 0;
+  }, [jobStages, getAvailableReworkStages]);
 
   // Get workflow progress
   const getWorkflowProgress = useCallback(() => {
@@ -202,25 +247,36 @@ export const useJobStageManagement = ({
     return { completed, total, percentage };
   }, [jobStages]);
 
+  // Load rework history
+  const loadReworkHistory = useCallback(async () => {
+    return await fetchReworkHistory(jobId, jobTableName);
+  }, [fetchReworkHistory, jobId, jobTableName]);
+
   return {
     // State
     jobStages,
     isLoading,
     error,
     isProcessing,
+    isReworking,
+    reworkHistory,
     
     // Actions
     initializeJobWorkflow,
     startStage,
     completeStage,
+    sendBackForRework,
     updateStageNotes,
     recordQRScan,
     
     // Helpers
     getCurrentStage,
     getNextStage,
+    getAvailableReworkStages,
     canAdvanceStage,
+    canReworkStage,
     getWorkflowProgress,
+    loadReworkHistory,
     refreshStages: fetchJobStages
   };
 };
