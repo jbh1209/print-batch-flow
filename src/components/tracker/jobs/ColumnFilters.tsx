@@ -87,13 +87,13 @@ export const ColumnFilters: React.FC<ColumnFiltersProps> = ({
           <label className="text-xs font-medium text-gray-700 mb-1 block">Category</label>
           <Select
             value={filters.category}
-            onValueChange={(value) => onFilterChange('category', value)}
+            onValueChange={(value) => onFilterChange('category', value === "all_categories" ? "" : value)}
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="All categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All categories</SelectItem>
+              <SelectItem value="all_categories">All categories</SelectItem>
               {availableCategories.map(category => (
                 <SelectItem key={category} value={category}>
                   {category}
@@ -107,13 +107,13 @@ export const ColumnFilters: React.FC<ColumnFiltersProps> = ({
           <label className="text-xs font-medium text-gray-700 mb-1 block">Status</label>
           <Select
             value={filters.status}
-            onValueChange={(value) => onFilterChange('status', value)}
+            onValueChange={(value) => onFilterChange('status', value === "all_statuses" ? "" : value)}
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All statuses</SelectItem>
+              <SelectItem value="all_statuses">All statuses</SelectItem>
               {availableStatuses.map(status => (
                 <SelectItem key={status} value={status}>
                   {status}
@@ -127,13 +127,13 @@ export const ColumnFilters: React.FC<ColumnFiltersProps> = ({
           <label className="text-xs font-medium text-gray-700 mb-1 block">Due Date</label>
           <Select
             value={filters.dueDate}
-            onValueChange={(value) => onFilterChange('dueDate', value)}
+            onValueChange={(value) => onFilterChange('dueDate', value === "all_dates" ? "" : value)}
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="All dates" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All dates</SelectItem>
+              <SelectItem value="all_dates">All dates</SelectItem>
               <SelectItem value="overdue">Overdue</SelectItem>
               <SelectItem value="today">Due today</SelectItem>
               <SelectItem value="thisWeek">Due this week</SelectItem>
@@ -147,13 +147,13 @@ export const ColumnFilters: React.FC<ColumnFiltersProps> = ({
           <label className="text-xs font-medium text-gray-700 mb-1 block">Current Stage</label>
           <Select
             value={filters.currentStage}
-            onValueChange={(value) => onFilterChange('currentStage', value)}
+            onValueChange={(value) => onFilterChange('currentStage', value === "all_stages" ? "" : value)}
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="All stages" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All stages</SelectItem>
+              <SelectItem value="all_stages">All stages</SelectItem>
               {availableStages.map(stage => (
                 <SelectItem key={stage} value={stage}>
                   {stage}
