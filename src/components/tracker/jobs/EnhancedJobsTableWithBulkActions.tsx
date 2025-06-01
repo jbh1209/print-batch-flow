@@ -28,22 +28,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
+import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { JobsBulkActions } from "./JobsBulkActions";
 import { BulkDeleteConfirmDialog } from "./BulkDeleteConfirmDialog";
 import { SortableTableHead } from "./SortableTableHead";
 import { ColumnFilters } from "./ColumnFilters";
+import { JobEditModal } from "./JobEditModal";
+import { CategoryAssignModal } from "./CategoryAssignModal";
 import { useJobsTableFilters } from "./JobsTableFilters";
 import { useJobsTableSorting } from "./JobsTableSorting";
 
 export const EnhancedJobsTableWithBulkActions: React.FC = () => {
   const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
+  const { categories } = useProductionCategories();
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showColumnFilters, setShowColumnFilters] = useState(false);
+  
+  // Modal states
+  const [editingJob, setEditingJob] = useState<any>(null);
+  const [categoryAssignJob, setCategoryAssignJob] = useState<any>(null);
 
   // Sorting state
   const [sortField, setSortField] = useState<string | null>(null);
@@ -116,6 +124,24 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
       dueDate: '',
       currentStage: ''
     });
+  };
+
+  const handleEditJob = (job: any) => {
+    setEditingJob(job);
+  };
+
+  const handleCategoryAssign = (job: any) => {
+    setCategoryAssignJob(job);
+  };
+
+  const handleEditJobSave = () => {
+    setEditingJob(null);
+    refreshJobs();
+  };
+
+  const handleCategoryAssignComplete = () => {
+    setCategoryAssignJob(null);
+    refreshJobs();
   };
 
   const handleBulkDelete = () => {
@@ -348,7 +374,14 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
                       {job.category ? (
                         <Badge variant="outline">{job.category}</Badge>
                       ) : (
-                        <Badge variant="secondary">No Category</Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCategoryAssign(job)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          Assign Category
+                        </Button>
                       )}
                     </TableCell>
                     <TableCell>{getStatusBadge(job.status)}</TableCell>
@@ -370,10 +403,16 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditJob(job)}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit Job
                           </DropdownMenuItem>
+                          {!job.category && (
+                            <DropdownMenuItem onClick={() => handleCategoryAssign(job)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Assign Category
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem 
                             className="text-red-600"
                             onClick={() => handleDeleteSingleJob(job.id)}
@@ -409,6 +448,25 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
         jobCount={selectedJobs.length}
         isDeleting={isDeleting}
       />
+
+      {/* Edit Job Modal */}
+      {editingJob && (
+        <JobEditModal
+          job={editingJob}
+          onClose={() => setEditingJob(null)}
+          onSave={handleEditJobSave}
+        />
+      )}
+
+      {/* Category Assign Modal */}
+      {categoryAssignJob && (
+        <CategoryAssignModal
+          job={categoryAssignJob}
+          categories={categories}
+          onClose={() => setCategoryAssignJob(null)}
+          onAssign={handleCategoryAssignComplete}
+        />
+      )}
     </div>
   );
 };
