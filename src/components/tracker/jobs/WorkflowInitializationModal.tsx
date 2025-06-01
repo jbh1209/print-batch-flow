@@ -82,15 +82,15 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[600px] w-[95vw] max-w-[95vw] mx-auto max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="w-full max-w-2xl mx-auto h-[80vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0 pb-4">
             <DialogTitle>Initialize Production Workflow</DialogTitle>
             <DialogDescription>
               Choose how to set up the production workflow for {jobs.length} selected job{jobs.length > 1 ? 's' : ''}.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4">
             {/* Workflow Type Selection */}
             <div className="grid grid-cols-1 gap-3">
               <Card 
@@ -194,7 +194,7 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
+          <div className="flex-shrink-0 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
             <Button 
               variant="outline" 
               onClick={onClose} 
