@@ -54,6 +54,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
 
   // Add custom workflow state
   const [showCustomWorkflow, setShowCustomWorkflow] = React.useState(false);
+  const [customWorkflowJob, setCustomWorkflowJob] = React.useState<any>(null);
 
   // Apply status filter from sidebar
   const getFilteredJobsByStatus = () => {
@@ -106,6 +107,11 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     setCategoryAssignJob(job);
   };
 
+  const handleCustomWorkflowFromTable = (job: any) => {
+    setCustomWorkflowJob(job);
+    setShowCustomWorkflow(true);
+  };
+
   const handleEditJobSave = () => {
     setEditingJob(null);
     refreshJobs();
@@ -139,11 +145,16 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       toast.error("Custom workflows can only be created for individual jobs");
       return;
     }
-    setShowCustomWorkflow(true);
+    const selectedJob = jobs.find(job => job.id === selectedJobs[0]);
+    if (selectedJob) {
+      setCustomWorkflowJob(selectedJob);
+      setShowCustomWorkflow(true);
+    }
   };
 
   const handleCustomWorkflowSuccess = () => {
     setShowCustomWorkflow(false);
+    setCustomWorkflowJob(null);
     setSelectedJobs([]);
     refreshJobs();
   };
@@ -224,9 +235,6 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     );
   }
 
-  // Get the selected job for custom workflow
-  const selectedJob = selectedJobs.length === 1 ? jobs.find(job => job.id === selectedJobs[0]) : null;
-
   return (
     <div className="space-y-4">
       {/* Header and Search - No status filters here */}
@@ -277,6 +285,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         onEditJob={handleEditJob}
         onCategoryAssign={handleCategoryAssign}
         onDeleteSingleJob={handleDeleteSingleJob}
+        onCustomWorkflow={handleCustomWorkflowFromTable}
       />
 
       {/* Bulk Delete Confirmation Dialog */}
@@ -308,11 +317,14 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       )}
 
       {/* Custom Workflow Modal */}
-      {showCustomWorkflow && selectedJob && (
+      {showCustomWorkflow && customWorkflowJob && (
         <CustomWorkflowModal
           isOpen={showCustomWorkflow}
-          onClose={() => setShowCustomWorkflow(false)}
-          job={selectedJob}
+          onClose={() => {
+            setShowCustomWorkflow(false);
+            setCustomWorkflowJob(null);
+          }}
+          job={customWorkflowJob}
           onSuccess={handleCustomWorkflowSuccess}
         />
       )}

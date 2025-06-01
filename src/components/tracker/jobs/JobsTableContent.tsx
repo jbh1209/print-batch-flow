@@ -1,42 +1,23 @@
 
 import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { 
-  MoreHorizontal,
-  Edit,
-  Trash2
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import { JobTableRow } from "./JobTableRow";
 import { SortableTableHead } from "./SortableTableHead";
 
 interface JobsTableContentProps {
   jobs: any[];
   selectedJobs: string[];
-  sortField: string | null;
+  sortField: string;
   sortOrder: 'asc' | 'desc';
-  onSelectJob: (jobId: string, checked: boolean) => void;
+  onSelectJob: (jobId: string, selected: boolean) => void;
   onSelectAll: (checked: boolean) => void;
   onSort: (field: string) => void;
   onEditJob: (job: any) => void;
   onCategoryAssign: (job: any) => void;
   onDeleteSingleJob: (jobId: string) => void;
+  onCustomWorkflow?: (job: any) => void;
 }
 
 export const JobsTableContent: React.FC<JobsTableContentProps> = ({
@@ -49,188 +30,126 @@ export const JobsTableContent: React.FC<JobsTableContentProps> = ({
   onSort,
   onEditJob,
   onCategoryAssign,
-  onDeleteSingleJob
+  onDeleteSingleJob,
+  onCustomWorkflow
 }) => {
-  const getStatusBadge = (status: string) => {
-    const statusLower = status?.toLowerCase() || 'unknown';
-    const variants = {
-      'completed': 'default' as const,
-      'production': 'default' as const,
-      'pre-press': 'secondary' as const,
-      'printing': 'default' as const,
-      'finishing': 'default' as const,
-      'packaging': 'default' as const,
-      'shipped': 'default' as const
-    };
-    
-    return (
-      <Badge variant={variants[statusLower] || 'secondary'}>
-        {status}
-      </Badge>
-    );
+  const isAllSelected = jobs.length > 0 && selectedJobs.length === jobs.length;
+  const isPartiallySelected = selectedJobs.length > 0 && selectedJobs.length < jobs.length;
+
+  const handleSelectJob = (job: any, selected: boolean) => {
+    onSelectJob(job.id, selected);
+  };
+
+  const handleCustomWorkflow = (job: any) => {
+    if (onCustomWorkflow) {
+      onCustomWorkflow(job);
+    }
   };
 
   return (
     <Card>
-      <CardContent className="p-0">
-        <ScrollArea className="h-[600px] w-full">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
+      <ScrollArea className="h-[600px]">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0 z-10">
+              <tr>
+                <th className="px-6 py-3 text-left">
                   <Checkbox
-                    checked={selectedJobs.length === jobs.length && jobs.length > 0}
+                    checked={isAllSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isPartiallySelected;
+                    }}
                     onCheckedChange={onSelectAll}
                   />
-                </TableHead>
+                </th>
                 <SortableTableHead
-                  sortKey="wo_no"
-                  currentSortField={sortField}
-                  currentSortOrder={sortOrder}
+                  field="wo_no"
+                  currentSort={sortField}
+                  currentOrder={sortOrder}
                   onSort={onSort}
+                  className="px-6 py-3"
                 >
                   WO Number
                 </SortableTableHead>
                 <SortableTableHead
-                  sortKey="customer"
-                  currentSortField={sortField}
-                  currentSortOrder={sortOrder}
+                  field="customer"
+                  currentSort={sortField}
+                  currentOrder={sortOrder}
                   onSort={onSort}
+                  className="px-6 py-3"
                 >
                   Customer
                 </SortableTableHead>
                 <SortableTableHead
-                  sortKey="reference"
-                  currentSortField={sortField}
-                  currentSortOrder={sortOrder}
+                  field="reference"
+                  currentSort={sortField}
+                  currentOrder={sortOrder}
                   onSort={onSort}
+                  className="px-6 py-3"
                 >
                   Reference
                 </SortableTableHead>
                 <SortableTableHead
-                  sortKey="qty"
-                  currentSortField={sortField}
-                  currentSortOrder={sortOrder}
+                  field="qty"
+                  currentSort={sortField}
+                  currentOrder={sortOrder}
                   onSort={onSort}
+                  className="px-6 py-3"
                 >
                   Qty
                 </SortableTableHead>
                 <SortableTableHead
-                  sortKey="category"
-                  currentSortField={sortField}
-                  currentSortOrder={sortOrder}
+                  field="category_name"
+                  currentSort={sortField}
+                  currentOrder={sortOrder}
                   onSort={onSort}
+                  className="px-6 py-3"
                 >
                   Category
                 </SortableTableHead>
                 <SortableTableHead
-                  sortKey="status"
-                  currentSortField={sortField}
-                  currentSortOrder={sortOrder}
+                  field="status"
+                  currentSort={sortField}
+                  currentOrder={sortOrder}
                   onSort={onSort}
+                  className="px-6 py-3"
                 >
                   Status
                 </SortableTableHead>
                 <SortableTableHead
-                  sortKey="due_date"
-                  currentSortField={sortField}
-                  currentSortOrder={sortOrder}
+                  field="due_date"
+                  currentSort={sortField}
+                  currentOrder={sortOrder}
                   onSort={onSort}
+                  className="px-6 py-3"
                 >
                   Due Date
                 </SortableTableHead>
-                <SortableTableHead
-                  sortKey="current_stage"
-                  currentSortField={sortField}
-                  currentSortOrder={sortOrder}
-                  onSort={onSort}
-                >
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Current Stage
-                </SortableTableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
               {jobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedJobs.includes(job.id)}
-                      onCheckedChange={(checked) => onSelectJob(job.id, checked as boolean)}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{job.wo_no}</TableCell>
-                  <TableCell>{job.customer || 'Unknown'}</TableCell>
-                  <TableCell>{job.reference || '-'}</TableCell>
-                  <TableCell>{job.qty || '-'}</TableCell>
-                  <TableCell>
-                    {job.category ? (
-                      <Badge variant="outline">{job.category}</Badge>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onCategoryAssign(job)}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        Assign Category
-                      </Button>
-                    )}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(job.status)}</TableCell>
-                  <TableCell>
-                    {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'No due date'}
-                  </TableCell>
-                  <TableCell>
-                    {job.current_stage ? (
-                      <Badge className="bg-blue-500">{job.current_stage}</Badge>
-                    ) : (
-                      <span className="text-gray-400">No workflow</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEditJob(job)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Job
-                        </DropdownMenuItem>
-                        {!job.category && (
-                          <DropdownMenuItem onClick={() => onCategoryAssign(job)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Assign Category
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem 
-                          className="text-red-600"
-                          onClick={() => onDeleteSingleJob(job.id)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
+                <JobTableRow
+                  key={job.id}
+                  job={job}
+                  isSelected={selectedJobs.includes(job.id)}
+                  onSelect={handleSelectJob}
+                  onEdit={onEditJob}
+                  onCategoryAssign={onCategoryAssign}
+                  onCustomWorkflow={handleCustomWorkflow}
+                  onDelete={onDeleteSingleJob}
+                />
               ))}
-            </TableBody>
-          </Table>
-
-          {jobs.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No production jobs found</p>
-              <p className="text-gray-400">
-                All jobs in production status will appear here
-              </p>
-            </div>
-          )}
-        </ScrollArea>
-      </CardContent>
+            </tbody>
+          </table>
+        </div>
+      </ScrollArea>
     </Card>
   );
 };

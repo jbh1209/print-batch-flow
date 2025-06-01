@@ -1,124 +1,172 @@
 
 import React from "react";
-import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Play, QrCode } from "lucide-react";
-import { QRCodeManager } from "../QRCodeManager";
-import { JobTableActions } from "./JobTableActions";
+import { Button } from "@/components/ui/button";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Edit, Tags, QrCode, Trash2, Settings } from "lucide-react";
+import { format } from "date-fns";
 
 interface JobTableRowProps {
   job: any;
   isSelected: boolean;
-  onSelectJob: (job: any, selected: boolean) => void;
-  onJobUpdate: () => void;
-  onEditJob: (job: any) => void;
-  onSyncJob: (job: any) => void;
+  onSelect: (job: any, selected: boolean) => void;
+  onEdit: (job: any) => void;
   onCategoryAssign: (job: any) => void;
-  onWorkflowInit: (job: any) => void;
-  onDeleteJob: (jobId: string) => void;
+  onCustomWorkflow: (job: any) => void;
+  onDelete: (jobId: string) => void;
 }
 
 export const JobTableRow: React.FC<JobTableRowProps> = ({
   job,
   isSelected,
-  onSelectJob,
-  onJobUpdate,
-  onEditJob,
-  onSyncJob,
+  onSelect,
+  onEdit,
   onCategoryAssign,
-  onWorkflowInit,
-  onDeleteJob
+  onCustomWorkflow,
+  onDelete
 }) => {
-  const getStatusColor = (status: string) => {
-    if (status === 'completed') return 'bg-green-100 text-green-800';
-    if (status === 'in-progress') return 'bg-blue-100 text-blue-800';
-    if (status === 'on-hold') return 'bg-yellow-100 text-yellow-800';
-    return 'bg-gray-100 text-gray-800';
+  const handleCheckboxChange = (checked: boolean) => {
+    onSelect(job, checked);
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'No date';
-    return new Date(dateString).toLocaleDateString();
+  const handleMenuItemClick = (action: () => void) => {
+    // Prevent event bubbling and add a small delay to ensure the dropdown closes
+    return (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setTimeout(() => {
+        action();
+      }, 100);
+    };
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "No due date";
+    try {
+      return format(new Date(dateString), "M/d/yyyy");
+    } catch {
+      return "Invalid date";
+    }
+  };
+
+  const getCategoryDisplay = () => {
+    if (job.has_custom_workflow || job.category_id === 'custom') {
+      return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Custom</Badge>;
+    }
+    if (job.category_name) {
+      return <Badge variant="outline">{job.category_name}</Badge>;
+    }
+    return (
+      <Button
+        variant="link"
+        size="sm"
+        className="text-blue-600 hover:text-blue-800 p-0 h-auto"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCategoryAssign(job);
+        }}
+      >
+        Assign Category
+      </Button>
+    );
+  };
+
+  const getCurrentStage = () => {
+    if (!job.current_stage) return "Not Started";
+    return job.current_stage;
   };
 
   return (
-    <TableRow key={job.id}>
-      <TableCell>
+    <tr className="hover:bg-gray-50">
+      <td className="px-6 py-4 whitespace-nowrap">
         <Checkbox
           checked={isSelected}
-          onCheckedChange={(checked) => onSelectJob(job, checked as boolean)}
+          onCheckedChange={handleCheckboxChange}
         />
-      </TableCell>
-      <TableCell className="font-medium">{job.wo_no}</TableCell>
-      <TableCell>{job.customer || 'No customer'}</TableCell>
-      <TableCell>{job.reference || '-'}</TableCell>
-      <TableCell>{job.qty || '-'}</TableCell>
-      <TableCell>
-        {job.category ? (
-          <Badge variant="outline">{job.category}</Badge>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onCategoryAssign(job)}
-            className="text-xs"
-          >
-            Assign Category
-          </Button>
-        )}
-      </TableCell>
-      <TableCell>
-        <Badge className={getStatusColor(job.status)}>
-          {job.status}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="font-medium text-gray-900">{job.wo_no}</div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="text-sm text-gray-900">{job.customer || "N/A"}</div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="text-sm text-gray-900">{job.reference || "N/A"}</div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900">{job.qty || "N/A"}</div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        {getCategoryDisplay()}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <Badge variant={job.status === 'completed' ? 'default' : 'secondary'}>
+          {job.status || 'Pre-Press'}
         </Badge>
-      </TableCell>
-      <TableCell>
-        {job.current_stage ? (
-          <Badge variant="outline" className="text-xs">
-            {job.current_stage}
-          </Badge>
-        ) : job.has_workflow ? (
-          <span className="text-sm text-gray-500">No active stage</span>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onWorkflowInit(job)}
-            className="text-xs"
-          >
-            <Play className="h-3 w-3 mr-1" />
-            Init Workflow
-          </Button>
-        )}
-      </TableCell>
-      <TableCell>{formatDate(job.due_date)}</TableCell>
-      <TableCell>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="p-1"
-          title="QR Code"
-        >
-          <QRCodeManager 
-            job={job} 
-            compact={true}
-            onQRCodeGenerated={onJobUpdate}
-          />
-        </Button>
-      </TableCell>
-      <TableCell>
-        <JobTableActions
-          job={job}
-          onJobUpdate={onJobUpdate}
-          onEditJob={onEditJob}
-          onSyncJob={onSyncJob}
-          onCategoryAssign={onCategoryAssign}
-          onWorkflowInit={onWorkflowInit}
-          onDeleteJob={onDeleteJob}
-        />
-      </TableCell>
-    </TableRow>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900">{formatDate(job.due_date)}</div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <Badge variant="outline" className="text-xs">
+          {getCurrentStage()}
+        </Badge>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={handleMenuItemClick(() => onEdit(job))}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Job
+            </DropdownMenuItem>
+            
+            {(job.has_custom_workflow || job.category_id === 'custom') ? (
+              <DropdownMenuItem onClick={handleMenuItemClick(() => onCustomWorkflow(job))}>
+                <Settings className="h-4 w-4 mr-2" />
+                Edit Custom Workflow
+              </DropdownMenuItem>
+            ) : (
+              <>
+                <DropdownMenuItem onClick={handleMenuItemClick(() => onCategoryAssign(job))}>
+                  <Tags className="h-4 w-4 mr-2" />
+                  Assign Category
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleMenuItemClick(() => onCustomWorkflow(job))}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Custom Workflow
+                </DropdownMenuItem>
+              </>
+            )}
+            
+            <DropdownMenuItem>
+              <QrCode className="h-4 w-4 mr-2" />
+              Generate QR
+            </DropdownMenuItem>
+            
+            <DropdownMenuSeparator />
+            
+            <DropdownMenuItem 
+              onClick={handleMenuItemClick(() => onDelete(job.id))}
+              className="text-red-600 focus:text-red-600"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Job
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </td>
+    </tr>
   );
 };
