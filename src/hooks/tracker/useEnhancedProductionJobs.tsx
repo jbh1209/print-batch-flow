@@ -23,6 +23,7 @@ export const useEnhancedProductionJobs = () => {
       setError(null);
       console.log("Fetching enhanced production jobs for user:", user.id);
 
+      // First fetch the production jobs with categories
       const { data: jobsData, error: fetchError } = await supabase
         .from('production_jobs')
         .select(`
@@ -33,22 +34,6 @@ export const useEnhancedProductionJobs = () => {
             description,
             color,
             sla_target_days
-          ),
-          job_stage_instances (
-            id,
-            production_stage_id,
-            stage_order,
-            status,
-            started_at,
-            completed_at,
-            part_name,
-            production_stages (
-              id,
-              name,
-              description,
-              color,
-              is_multi_part
-            )
           )
         `)
         .eq('user_id', user.id)
@@ -66,17 +51,45 @@ export const useEnhancedProductionJobs = () => {
         return;
       }
 
-      // Process jobs and ensure WO numbers have proper formatting
+      // Then fetch job stage instances for all jobs
+      const jobIds = jobsData.map(job => job.id);
+      let stagesData: any[] = [];
+      
+      if (jobIds.length > 0) {
+        const { data: stagesResult, error: stagesError } = await supabase
+          .from('job_stage_instances')
+          .select(`
+            *,
+            production_stages (
+              id,
+              name,
+              description,
+              color,
+              is_multi_part
+            )
+          `)
+          .in('job_id', jobIds)
+          .eq('job_table_name', 'production_jobs')
+          .order('stage_order', { ascending: true });
+
+        if (stagesError) {
+          console.error("Error fetching stages:", stagesError);
+        } else {
+          stagesData = stagesResult || [];
+        }
+      }
+
+      // Process jobs and combine with stage data
       const processedJobs = jobsData.map(job => {
         // Ensure WO number has proper D prefix formatting
         const formattedWoNo = formatWONumber(job.wo_no);
         
-        // Calculate workflow status
-        const stages = Array.isArray(job.job_stage_instances) ? job.job_stage_instances : [];
-        const hasWorkflow = stages.length > 0;
-        const currentStage = stages.find(s => s.status === 'active');
-        const completedStages = stages.filter(s => s.status === 'completed').length;
-        const totalStages = stages.length;
+        // Get stages for this job
+        const jobStages = stagesData.filter(stage => stage.job_id === job.id);
+        const hasWorkflow = jobStages.length > 0;
+        const currentStage = jobStages.find(s => s.status === 'active');
+        const completedStages = jobStages.filter(s => s.status === 'completed').length;
+        const totalStages = jobStages.length;
         
         return {
           ...job,
@@ -85,7 +98,8 @@ export const useEnhancedProductionJobs = () => {
           current_stage: currentStage?.production_stages?.name || null,
           current_stage_id: currentStage?.production_stage_id || null,
           workflow_progress: totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0,
-          stages: stages.map(stage => ({
+          job_stage_instances: jobStages,
+          stages: jobStages.map(stage => ({
             ...stage,
             stage_name: stage.production_stages?.name || 'Unknown Stage',
             stage_color: stage.production_stages?.color || '#6B7280'
