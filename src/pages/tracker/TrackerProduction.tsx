@@ -36,15 +36,18 @@ const TrackerProduction = () => {
   const [isJobSelectionOpen, setIsJobSelectionOpen] = useState(false);
   const [isWorkflowInitOpen, setIsWorkflowInitOpen] = useState(false);
   const [selectedJobs, setSelectedJobs] = useState<any[]>([]);
+  const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
   const selectedStageId = context?.selectedStageId;
 
-  // Filter jobs based on selected stage or other filters
+  // Filter and sort jobs based on selected stage or other filters
   const filteredJobs = useMemo(() => {
     let filtered = jobs;
 
+    // Apply stage filter
     if (currentFilters.stage) {
       filtered = filtered.filter(job => job.current_stage === currentFilters.stage);
     } else if (currentFilters.status) {
@@ -52,9 +55,28 @@ const TrackerProduction = () => {
         job.status?.toLowerCase() === currentFilters.status.toLowerCase()
       );
     }
+    // If no filters are applied, show all jobs
+
+    // Sort the filtered jobs
+    filtered = [...filtered].sort((a, b) => {
+      let aValue, bValue;
+      
+      if (sortBy === 'wo_no') {
+        aValue = a.wo_no || '';
+        bValue = b.wo_no || '';
+        const comparison = aValue.localeCompare(bValue);
+        return sortOrder === 'asc' ? comparison : -comparison;
+      } else if (sortBy === 'due_date') {
+        aValue = a.due_date ? new Date(a.due_date).getTime() : 0;
+        bValue = b.due_date ? new Date(b.due_date).getTime() : 0;
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      
+      return 0;
+    });
 
     return filtered;
-  }, [jobs, currentFilters]);
+  }, [jobs, currentFilters, sortBy, sortOrder]);
 
   // Get jobs without workflow for bulk initialization
   const jobsWithoutWorkflow = useMemo(() => {
@@ -136,6 +158,15 @@ const TrackerProduction = () => {
     } else {
       // Navigate to a dedicated QR scanner page or show modal
       toast.info('QR scanner functionality - to be implemented');
+    }
+  };
+
+  const handleSort = (field: 'wo_no' | 'due_date') => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
     }
   };
 
@@ -230,6 +261,24 @@ const TrackerProduction = () => {
           </div>
           <div className="text-xs text-gray-600">Need Setup</div>
         </div>
+      </div>
+
+      {/* Sorting Controls */}
+      <div className="mb-4 flex gap-2">
+        <Button
+          variant={sortBy === 'wo_no' ? "default" : "outline"}
+          size="sm"
+          onClick={() => handleSort('wo_no')}
+        >
+          Sort by Job Number {sortBy === 'wo_no' && (sortOrder === 'asc' ? '↑' : '↓')}
+        </Button>
+        <Button
+          variant={sortBy === 'due_date' ? "default" : "outline"}
+          size="sm"
+          onClick={() => handleSort('due_date')}
+        >
+          Sort by Date Required {sortBy === 'due_date' && (sortOrder === 'asc' ? '↑' : '↓')}
+        </Button>
       </div>
 
       {/* Main Content - Now takes full width */}

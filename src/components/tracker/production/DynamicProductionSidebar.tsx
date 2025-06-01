@@ -42,10 +42,16 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
   const handleStageClick = (stageId: string, stageName: string) => {
     if (selectedStageId === stageId) {
       onStageSelect(null); // Deselect if already selected
+      onFilterChange?.({ stage: null }); // Clear stage filter
     } else {
       onStageSelect(stageId);
       onFilterChange?.({ stage: stageName });
     }
+  };
+
+  const handleAllJobsClick = () => {
+    onStageSelect(null);
+    onFilterChange?.({ stage: null }); // Clear all filters to show all jobs
   };
 
   const handleStatusFilter = (status: string) => {
@@ -82,7 +88,7 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
             variant={!selectedStageId ? "default" : "ghost"} 
             size="sm" 
             className="w-full justify-start text-xs h-8"
-            onClick={() => onStageSelect(null)}
+            onClick={handleAllJobsClick}
           >
             All Jobs
             <Badge variant="secondary" className="ml-auto text-xs">
