@@ -99,7 +99,7 @@ export const useProductionStages = () => {
       };
 
       // Convert part_definitions to JSON string if it's an array
-      if (stageData.part_definitions) {
+      if (stageData.part_definitions && Array.isArray(stageData.part_definitions)) {
         updateData.part_definitions = JSON.stringify(stageData.part_definitions);
       }
 
