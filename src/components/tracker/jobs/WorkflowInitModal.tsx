@@ -50,8 +50,8 @@ export const WorkflowInitModal: React.FC<WorkflowInitModalProps> = ({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="w-[90vw] max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Play className="h-5 w-5 text-blue-600" />
             Initialize Workflow
@@ -61,7 +61,7 @@ export const WorkflowInitModal: React.FC<WorkflowInitModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="flex-1 overflow-y-auto py-4 min-h-0">
           <Label className="text-base font-medium">Select Category</Label>
           <RadioGroup 
             value={selectedCategoryId} 
@@ -117,7 +117,7 @@ export const WorkflowInitModal: React.FC<WorkflowInitModalProps> = ({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 pt-4 border-t">
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             Cancel
           </Button>
