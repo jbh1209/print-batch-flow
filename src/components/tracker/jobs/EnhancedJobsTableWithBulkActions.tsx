@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,20 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
     setShowDeleteDialog(true);
   };
 
+  const handleBulkCategoryAssign = () => {
+    if (selectedJobs.length > 0) {
+      // Use first selected job for modal, but will apply to all selected
+      const firstJob = jobs.find(job => job.id === selectedJobs[0]);
+      if (firstJob) {
+        setCategoryAssignJob({
+          ...firstJob,
+          isMultiple: true,
+          selectedIds: selectedJobs
+        });
+      }
+    }
+  };
+
   const handleConfirmBulkDelete = async () => {
     setIsDeleting(true);
     try {
@@ -269,13 +284,51 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
         </Card>
       )}
 
-      {/* Bulk Actions */}
-      <JobsBulkActions
-        selectedCount={selectedJobs.length}
-        onBulkDelete={handleBulkDelete}
-        onClearSelection={() => setSelectedJobs([])}
-        isDeleting={isDeleting}
-      />
+      {/* Enhanced Bulk Actions - Always visible when jobs are selected */}
+      {selectedJobs.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-blue-900">
+                {selectedJobs.length} job{selectedJobs.length > 1 ? 's' : ''} selected
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkCategoryAssign}
+                disabled={isDeleting}
+                className="flex items-center gap-2"
+              >
+                <Edit className="h-4 w-4" />
+                Assign Category
+              </Button>
+              
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={isDeleting}
+                className="flex items-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                {isDeleting ? 'Deleting...' : `Delete ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''}`}
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedJobs([])}
+                disabled={isDeleting}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Jobs Table with ScrollArea */}
       <Card>
