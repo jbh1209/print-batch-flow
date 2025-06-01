@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Settings, Users, Layers, Printer } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
 import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
 import { PrintersManagement } from "@/components/tracker/admin/PrintersManagement";
 import { UserGroupManager } from "@/components/tracker/UserGroupManager";
+import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManagement";
 import { UserManagementProvider } from "@/contexts/UserManagementContext";
 import { SimpleUserManagement } from "@/components/users/SimpleUserManagement";
 
@@ -37,7 +37,7 @@ const TrackerAdmin = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="stages" className="flex items-center gap-2">
             <Layers className="h-4 w-4" />
             Production Stages
@@ -50,9 +50,13 @@ const TrackerAdmin = () => {
             <Printer className="h-4 w-4" />
             Printers
           </TabsTrigger>
-          <TabsTrigger value="groups" className="flex items-center gap-2">
+          <TabsTrigger value="user-groups" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             User Groups
+          </TabsTrigger>
+          <TabsTrigger value="group-assignments" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Group Assignments
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -72,7 +76,11 @@ const TrackerAdmin = () => {
           <PrintersManagement />
         </TabsContent>
 
-        <TabsContent value="groups" className="space-y-6">
+        <TabsContent value="user-groups" className="space-y-6">
+          <UserGroupsManagement />
+        </TabsContent>
+
+        <TabsContent value="group-assignments" className="space-y-6">
           <UserGroupManager showAllUsers={true} />
         </TabsContent>
 
