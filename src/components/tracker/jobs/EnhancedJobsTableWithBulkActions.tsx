@@ -12,7 +12,7 @@ import { CategoryAssignModal } from "./CategoryAssignModal";
 import { CustomWorkflowModal } from "./CustomWorkflowModal";
 import { useJobsTableFilters } from "./JobsTableFilters";
 import { useJobsTableSorting } from "./JobsTableSorting";
-import { useJobsTableState } from "./useJobsTableState";
+import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
 import { EnhancedJobsTableHeader } from "./EnhancedJobsTableHeader";
 import { JobsTableBulkActionsBar } from "./JobsTableBulkActionsBar";
 import { JobsTableContent } from "./JobsTableContent";
@@ -32,29 +32,40 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     setSelectedJobs,
     searchQuery,
     setSearchQuery,
-    showDeleteDialog,
-    setShowDeleteDialog,
-    isDeleting,
-    setIsDeleting,
     showColumnFilters,
     setShowColumnFilters,
+    sortField,
+    setSortField,
+    sortOrder,
+    setSortOrder,
+    columnFilters,
+    setColumnFilters,
     editingJob,
     setEditingJob,
     categoryAssignJob,
     setCategoryAssignJob,
-    sortField,
-    sortOrder,
-    columnFilters,
+    workflowInitJob,
+    setWorkflowInitJob,
+    showBulkOperations,
+    setShowBulkOperations,
+    showQRLabels,
+    setShowQRLabels,
     handleSelectJob,
     handleSelectAll,
-    handleSort,
     handleColumnFilterChange,
-    handleClearColumnFilters
-  } = useJobsTableState();
+    handleClearColumnFilters,
+    handleSort,
+    handleDeleteJob,
+    handleBulkStatusUpdate,
+    handleBulkDelete,
+    handleCustomWorkflow
+  } = useResponsiveJobsTable(refreshJobs);
 
   // Add custom workflow state
   const [showCustomWorkflow, setShowCustomWorkflow] = React.useState(false);
   const [customWorkflowJob, setCustomWorkflowJob] = React.useState<any>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   // Apply status filter from sidebar
   const getFilteredJobsByStatus = () => {
@@ -157,29 +168,6 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     setCustomWorkflowJob(null);
     setSelectedJobs([]);
     refreshJobs();
-  };
-
-  const handleBulkStatusUpdate = async (newStatus: string) => {
-    if (selectedJobs.length === 0) return;
-
-    try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-        .in('id', selectedJobs);
-
-      if (error) throw error;
-
-      toast.success(`Successfully updated ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''} to ${newStatus}`);
-      setSelectedJobs([]);
-      refreshJobs();
-    } catch (err) {
-      console.error('Error updating job status:', err);
-      toast.error('Failed to update job status');
-    }
   };
 
   const handleConfirmBulkDelete = async () => {
