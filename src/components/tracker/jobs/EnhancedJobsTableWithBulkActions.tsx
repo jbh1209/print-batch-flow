@@ -209,7 +209,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
 
   return (
     <div className="space-y-4">
-      {/* Header and Search */}
+      {/* Header and Search - No status filters here */}
       <EnhancedJobsTableHeader
         jobCount={filteredAndSortedJobs.length}
         searchQuery={searchQuery}
@@ -233,7 +233,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         </Card>
       )}
 
-      {/* Enhanced Bulk Actions - Always visible when jobs are selected */}
+      {/* Bulk Actions */}
       <JobsTableBulkActionsBar
         selectedJobsCount={selectedJobs.length}
         isDeleting={isDeleting}
