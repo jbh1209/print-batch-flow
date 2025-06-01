@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { RefreshCw } from "lucide-react";
@@ -57,8 +58,8 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     handleSort,
     handleDeleteJob,
     handleBulkStatusUpdate,
-    handleBulkDelete,
-    handleCustomWorkflow
+    handleBulkDelete: hookHandleBulkDelete,
+    handleCustomWorkflow: hookHandleCustomWorkflow
   } = useResponsiveJobsTable(refreshJobs);
 
   // Add custom workflow state
@@ -133,7 +134,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     refreshJobs();
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDeleteClick = () => {
     setShowDeleteDialog(true);
   };
 
@@ -255,7 +256,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         isDeleting={isDeleting}
         onBulkCategoryAssign={handleBulkCategoryAssign}
         onBulkStatusUpdate={handleBulkStatusUpdate}
-        onBulkDelete={handleBulkDelete}
+        onBulkDelete={handleBulkDeleteClick}
         onClearSelection={() => setSelectedJobs([])}
         onCustomWorkflow={handleCustomWorkflow}
         selectedJobs={jobs.filter(job => selectedJobs.includes(job.id))}
