@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -191,9 +192,10 @@ export const useCategoryStages = (categoryId?: string) => {
         console.log('🔄 Reordering remaining stages...');
         
         // Update each stage individually to avoid constraint conflicts
+        // Set new orders to be sequential starting from the deleted stage's position
         for (let i = 0; i < stagesToReorder.length; i++) {
           const stage = stagesToReorder[i];
-          const newOrder = stageToDelete.stage_order + i;
+          const newOrder = stageToDelete.stage_order + i; // This creates sequential order
           
           const { error: updateError } = await supabase
             .from('category_production_stages')

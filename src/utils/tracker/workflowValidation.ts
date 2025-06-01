@@ -1,4 +1,3 @@
-
 interface WorkflowStage {
   id: string;
   stage_order: number;
@@ -28,11 +27,13 @@ export const validateWorkflow = (stages: WorkflowStage[]): ValidationResult => {
     return { isValid: false, errors, warnings };
   }
 
-  // Check stage order consistency
-  const orders = stages.map(s => s.stage_order).sort((a, b) => a - b);
-  for (let i = 0; i < orders.length; i++) {
-    if (orders[i] !== i + 1) {
-      errors.push(`Stage order gap detected. Expected ${i + 1}, found ${orders[i]}`);
+  // Check stage order consistency - more robust gap detection
+  const sortedStages = [...stages].sort((a, b) => a.stage_order - b.stage_order);
+  for (let i = 0; i < sortedStages.length; i++) {
+    const expectedOrder = i + 1;
+    const actualOrder = sortedStages[i].stage_order;
+    if (actualOrder !== expectedOrder) {
+      errors.push(`Stage order gap detected. Expected ${expectedOrder}, found ${actualOrder}`);
     }
   }
 
