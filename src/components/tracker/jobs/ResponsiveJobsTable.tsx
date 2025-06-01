@@ -99,6 +99,9 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
     sortOrder
   });
 
+  // Get selected jobs data for QR generation
+  const selectedJobsData = jobs.filter(job => selectedJobs.includes(job.id));
+
   if (isLoading) {
     return (
       <Card>
@@ -145,7 +148,7 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
         onBulkDelete={handleBulkDelete}
         onClearSelection={() => setSelectedJobs([])}
         onCustomWorkflow={handleCustomWorkflow}
-        selectedJobs={selectedJobs}
+        selectedJobs={selectedJobsData}
       />
 
       {/* Jobs Table */}
@@ -170,7 +173,7 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
         workflowInitJob={workflowInitJob}
         showBulkOperations={showBulkOperations}
         showQRLabels={showQRLabels}
-        selectedJobs={selectedJobs}
+        selectedJobs={selectedJobsData}
         categories={categories}
         onCloseEditJob={() => setEditingJob(null)}
         onCloseCategoryAssign={() => setCategoryAssignJob(null)}

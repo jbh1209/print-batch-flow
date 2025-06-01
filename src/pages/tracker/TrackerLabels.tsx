@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { QRCodeLabel } from "@/components/tracker/QRCodeLabel";
 import { generateQRCodeData, generateQRCodeImage } from "@/utils/qrCodeGenerator";
+import { downloadQRLabelsPDF, QRLabelData } from "@/utils/qrLabelGenerator";
 import { toast } from "sonner";
 
 interface ProductionJob {
@@ -26,6 +26,7 @@ const TrackerLabels = () => {
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -93,6 +94,44 @@ const TrackerLabels = () => {
     }
   };
 
+  const downloadPDFLabels = async () => {
+    const selectedJobsData = jobs.filter(job => selectedJobs.has(job.id) && job.qr_code_url);
+    
+    if (selectedJobsData.length === 0) {
+      toast.error('No jobs with QR codes selected');
+      return;
+    }
+
+    setDownloadingPDF(true);
+    try {
+      console.log("Converting jobs to QR label data format");
+      
+      const labelData: QRLabelData[] = selectedJobsData.map(job => ({
+        id: job.id,
+        wo_no: job.wo_no,
+        customer: job.customer,
+        due_date: job.due_date,
+        status: 'pending', // Default status since it's not in the ProductionJob interface
+        reference: job.customer // Use customer as reference for now
+      }));
+
+      console.log("Calling downloadQRLabelsPDF with", labelData.length, "jobs");
+      
+      const success = await downloadQRLabelsPDF(labelData, `qr-labels-${selectedJobsData.length}-jobs.pdf`);
+      
+      if (success) {
+        toast.success(`Successfully downloaded PDF with ${selectedJobsData.length} QR labels`);
+      } else {
+        toast.error('Failed to generate PDF labels');
+      }
+    } catch (error) {
+      console.error('Error downloading PDF labels:', error);
+      toast.error('Failed to download PDF labels');
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
+
   const toggleJobSelection = (jobId: string) => {
     const newSelection = new Set(selectedJobs);
     if (newSelection.has(jobId)) {
@@ -111,7 +150,8 @@ const TrackerLabels = () => {
     setSelectedJobs(new Set());
   };
 
-  const printSelectedLabels = () => {
+  // Keep the old print function for comparison, but mark it as legacy
+  const printSelectedLabelsLegacy = () => {
     const selectedJobsData = jobs.filter(job => selectedJobs.has(job.id) && job.qr_code_url);
     
     if (selectedJobsData.length === 0) {
@@ -259,12 +299,22 @@ const TrackerLabels = () => {
               )}
 
               <Button 
-                onClick={printSelectedLabels}
+                onClick={downloadPDFLabels}
+                disabled={selectedWithQR.length === 0 || downloadingPDF}
+                className="w-full flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {downloadingPDF ? 'Generating PDF...' : `Download PDF (${selectedWithQR.length} Labels)`}
+              </Button>
+
+              <Button 
+                onClick={printSelectedLabelsLegacy}
                 disabled={selectedWithQR.length === 0}
+                variant="outline"
                 className="w-full flex items-center gap-2"
               >
                 <Printer className="h-4 w-4" />
-                Print {selectedWithQR.length} Labels
+                Legacy Print {selectedWithQR.length} Labels
               </Button>
             </CardContent>
           </Card>
