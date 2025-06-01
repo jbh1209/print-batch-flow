@@ -4,7 +4,7 @@ import { Table, TableBody } from "@/components/ui/table";
 import { RefreshCw } from "lucide-react";
 import { JobTableColumns } from "./JobTableColumns";
 import { ResponsiveJobTableRow } from "./ResponsiveJobTableRow";
-import { JobBulkActions } from "./JobBulkActions";
+import { JobsTableBulkActionsBar } from "./JobsTableBulkActionsBar";
 import { JobsTableHeader } from "./JobsTableHeader";
 import { JobsTableModals } from "./JobsTableModals";
 import { ColumnFilters } from "./ColumnFilters";
@@ -189,6 +189,63 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
     refreshJobs();
   };
 
+  const handleBulkCategoryAssign = () => {
+    if (selectedJobs.length > 0) {
+      // Use first selected job for modal, but will apply to all selected
+      const firstJob = selectedJobs[0];
+      if (firstJob) {
+        setCategoryAssignJob({
+          ...firstJob,
+          isMultiple: true,
+          selectedIds: selectedJobs.map(j => j.id)
+        });
+      }
+    }
+  };
+
+  const handleBulkStatusUpdate = async (newStatus: string) => {
+    if (selectedJobs.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', selectedJobs.map(j => j.id));
+
+      if (error) throw error;
+
+      toast.success(`Successfully updated ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''} to ${newStatus}`);
+      setSelectedJobs([]);
+      refreshJobs();
+    } catch (err) {
+      console.error('Error updating job status:', err);
+      toast.error('Failed to update job status');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedJobs.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .delete()
+        .in('id', selectedJobs.map(j => j.id));
+
+      if (error) throw error;
+
+      toast.success(`Successfully deleted ${selectedJobs.length} job${selectedJobs.length > 1 ? 's' : ''}`);
+      setSelectedJobs([]);
+      refreshJobs();
+    } catch (err) {
+      console.error('Error deleting jobs:', err);
+      toast.error('Failed to delete jobs');
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -227,11 +284,12 @@ export const ResponsiveJobsTable: React.FC<ResponsiveJobsTableProps> = ({
       )}
 
       {/* Bulk Actions */}
-      <JobBulkActions
-        selectedCount={selectedJobs.length}
-        onCategoryAssign={() => handleCategoryAssign()}
-        onBulkOperations={handleBulkOperations}
-        onQRLabels={handleQRLabels}
+      <JobsTableBulkActionsBar
+        selectedJobsCount={selectedJobs.length}
+        isDeleting={false}
+        onBulkCategoryAssign={handleBulkCategoryAssign}
+        onBulkStatusUpdate={handleBulkStatusUpdate}
+        onBulkDelete={handleBulkDelete}
         onClearSelection={() => setSelectedJobs([])}
       />
 
