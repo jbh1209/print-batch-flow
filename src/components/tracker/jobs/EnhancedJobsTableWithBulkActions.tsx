@@ -69,9 +69,14 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
     currentStage: ''
   });
 
-  // Use filtering hook
+  // Filter out completed jobs by default
+  const productionJobs = jobs.filter(job => 
+    job.status?.toLowerCase() !== 'completed'
+  );
+
+  // Use filtering hook with production jobs (excluding completed)
   const { filteredJobs, availableCategories, availableStatuses, availableStages } = useJobsTableFilters({
-    jobs,
+    jobs: productionJobs,
     searchQuery,
     columnFilters
   });
@@ -517,9 +522,9 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
 
             {filteredAndSortedJobs.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">No jobs found</p>
+                <p className="text-gray-500 text-lg">No production jobs found</p>
                 <p className="text-gray-400">
-                  {searchQuery ? 'Try adjusting your search' : 'No jobs available'}
+                  {searchQuery ? 'Try adjusting your search' : 'All jobs in production status will appear here'}
                 </p>
               </div>
             )}
