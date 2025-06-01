@@ -1,25 +1,14 @@
 
 import React, { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Play, Package, Clock, AlertTriangle } from "lucide-react";
+import { Loader2, Settings, FolderOpen } from "lucide-react";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { useWorkflowInitialization } from "@/hooks/tracker/useWorkflowInitialization";
+import { CustomWorkflowModal } from "./CustomWorkflowModal";
 import { toast } from "sonner";
 
 interface WorkflowInitializationModalProps {
@@ -35,179 +24,215 @@ export const WorkflowInitializationModal: React.FC<WorkflowInitializationModalPr
   jobs,
   onSuccess
 }) => {
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const { categories, isLoading: categoriesLoading } = useCategories();
   const { initializeWorkflow, isInitializing } = useWorkflowInitialization();
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [workflowType, setWorkflowType] = useState<"category" | "custom">("category");
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [selectedJobForCustom, setSelectedJobForCustom] = useState<any>(null);
 
-  const handleInitialize = async () => {
+  const selectedCategory = categories.find(c => c.id === selectedCategoryId);
+  const isSingleJob = jobs.length === 1;
+
+  const handleCategoryWorkflow = async () => {
     if (!selectedCategoryId) {
-      toast.error('Please select a category');
+      toast.error("Please select a category");
       return;
     }
 
-    console.log('Initializing workflow for jobs:', jobs);
-    
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const job of jobs) {
-      try {
+    try {
+      let successCount = 0;
+      
+      for (const job of jobs) {
         const success = await initializeWorkflow(job.id, 'production_jobs', selectedCategoryId);
-        if (success) {
-          successCount++;
-        } else {
-          errorCount++;
-        }
-      } catch (error) {
-        console.error(`Failed to initialize workflow for job ${job.wo_no}:`, error);
-        errorCount++;
+        if (success) successCount++;
       }
-    }
 
-    if (successCount > 0) {
-      toast.success(`Workflow initialized for ${successCount} job(s)`);
+      if (successCount === jobs.length) {
+        toast.success(`Successfully initialized ${successCount} job${jobs.length > 1 ? 's' : ''} with category workflow`);
+        onSuccess();
+        onClose();
+      } else {
+        toast.warning(`Initialized ${successCount} of ${jobs.length} jobs. Some may have already had workflows.`);
+        onSuccess();
+      }
+    } catch (err) {
+      console.error('Error in bulk workflow initialization:', err);
+      toast.error("Failed to initialize workflows");
     }
-    
-    if (errorCount > 0) {
-      toast.error(`Failed to initialize ${errorCount} job(s)`);
-    }
-
-    onSuccess();
-    onClose();
-    setSelectedCategoryId("");
   };
 
-  const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
-  const jobsWithoutCategory = jobs.filter(job => !job.category_id);
-  const jobsWithCategory = jobs.filter(job => job.category_id);
+  const handleCustomWorkflow = () => {
+    if (!isSingleJob) {
+      toast.error("Custom workflows can only be created for individual jobs");
+      return;
+    }
+    
+    setSelectedJobForCustom(jobs[0]);
+    setShowCustomModal(true);
+  };
+
+  const handleCustomWorkflowSuccess = () => {
+    setShowCustomModal(false);
+    setSelectedJobForCustom(null);
+    onSuccess();
+    onClose();
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Play className="h-5 w-5" />
-            Initialize Production Workflow
-          </DialogTitle>
-          <DialogDescription>
-            Set up production stages for the selected jobs
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Initialize Production Workflow</DialogTitle>
+            <DialogDescription>
+              Choose how to set up the production workflow for {jobs.length} selected job{jobs.length > 1 ? 's' : ''}.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Job Summary */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium">Selected Jobs ({jobs.length})</h4>
-            
-            {jobsWithoutCategory.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-xs text-green-600">✓ Ready for workflow initialization:</div>
-                <div className="space-y-1">
-                  {jobsWithoutCategory.slice(0, 3).map((job) => (
-                    <div key={job.id} className="flex items-center gap-2 text-sm">
-                      <Package className="h-3 w-3 text-gray-400" />
-                      <span className="font-medium">{job.wo_no}</span>
-                      {job.customer && <span className="text-gray-600">- {job.customer}</span>}
-                    </div>
-                  ))}
-                  {jobsWithoutCategory.length > 3 && (
-                    <div className="text-xs text-gray-500 ml-5">
-                      +{jobsWithoutCategory.length - 3} more jobs
-                    </div>
-                  )}
+          <div className="space-y-6">
+            {/* Workflow Type Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card 
+                className={`cursor-pointer transition-all ${workflowType === 'category' ? 'ring-2 ring-green-500' : 'hover:bg-gray-50'}`}
+                onClick={() => setWorkflowType('category')}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center space-x-2">
+                    <FolderOpen className="h-5 w-5 text-blue-600" />
+                    <CardTitle className="text-lg">Category Template</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription>
+                    Use predefined stages from a product category. Best for standard jobs that fit existing workflows.
+                  </CardDescription>
+                </CardContent>
+              </Card>
+
+              <Card 
+                className={`cursor-pointer transition-all ${workflowType === 'custom' ? 'ring-2 ring-green-500' : 'hover:bg-gray-50'} ${!isSingleJob ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => isSingleJob && setWorkflowType('custom')}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center space-x-2">
+                    <Settings className="h-5 w-5 text-purple-600" />
+                    <CardTitle className="text-lg">Custom Workflow</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription>
+                    Manually select and order production stages. Perfect for unique jobs that don't fit standard categories.
+                    {!isSingleJob && (
+                      <span className="block mt-2 text-red-600 text-sm">
+                        * Only available for single jobs
+                      </span>
+                    )}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Category Selection (when category workflow is selected) */}
+            {workflowType === 'category' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Select Category
+                  </label>
+                  <Select 
+                    value={selectedCategoryId} 
+                    onValueChange={setSelectedCategoryId}
+                    disabled={categoriesLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a category..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(category => (
+                        <SelectItem key={category.id} value={category.id}>
+                          <div className="flex items-center space-x-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: category.color }}
+                            />
+                            <span>{category.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {selectedCategory && (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium mb-2">Category Details</h4>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <p><strong>SLA Target:</strong> {selectedCategory.sla_target_days} days</p>
+                      {selectedCategory.description && (
+                        <p><strong>Description:</strong> {selectedCategory.description}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {jobsWithCategory.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-1 text-xs text-amber-600">
-                  <AlertTriangle className="h-3 w-3" />
-                  Already have categories (will be skipped):
-                </div>
-                <div className="space-y-1">
-                  {jobsWithCategory.slice(0, 2).map((job) => (
-                    <div key={job.id} className="flex items-center gap-2 text-sm">
-                      <Package className="h-3 w-3 text-gray-400" />
-                      <span className="font-medium">{job.wo_no}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {job.category}
-                      </Badge>
-                    </div>
-                  ))}
-                  {jobsWithCategory.length > 2 && (
-                    <div className="text-xs text-gray-500 ml-5">
-                      +{jobsWithCategory.length - 2} more jobs
-                    </div>
-                  )}
+            {/* Custom Workflow Info */}
+            {workflowType === 'custom' && (
+              <div className="p-4 bg-purple-50 rounded-lg">
+                <h4 className="font-medium mb-2">Custom Workflow</h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  You'll be able to select individual production stages and arrange them in your preferred order.
+                </p>
+                <div className="flex items-center space-x-2">
+                  <Badge variant="outline" className="text-purple-700 border-purple-300">
+                    Job: {jobs[0]?.wo_no}
+                  </Badge>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Category Selection */}
-          {jobsWithoutCategory.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Select Production Category</h4>
-              <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a category..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full flex-shrink-0" 
-                          style={{ backgroundColor: category.color }}
-                        />
-                        <span>{category.name}</span>
-                        <span className="text-xs text-gray-500">
-                          ({category.sla_target_days} days SLA)
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button variant="outline" onClick={onClose} disabled={isInitializing}>
+              Cancel
+            </Button>
+            
+            {workflowType === 'category' ? (
+              <Button 
+                onClick={handleCategoryWorkflow}
+                disabled={!selectedCategoryId || isInitializing || categoriesLoading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isInitializing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Initialize with Category
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleCustomWorkflow}
+                disabled={!isSingleJob}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                Create Custom Workflow
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-              {selectedCategory && (
-                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-start gap-2">
-                    <Clock className="h-4 w-4 text-blue-600 mt-0.5" />
-                    <div className="text-sm">
-                      <div className="font-medium text-blue-900">
-                        {selectedCategory.name}
-                      </div>
-                      <div className="text-blue-700">
-                        Target completion: {selectedCategory.sla_target_days} days
-                      </div>
-                      {selectedCategory.description && (
-                        <div className="text-blue-600 mt-1">
-                          {selectedCategory.description}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleInitialize}
-            disabled={isInitializing || categoriesLoading || (jobsWithoutCategory.length > 0 && !selectedCategoryId)}
-            className="w-full sm:w-auto"
-          >
-            {isInitializing ? 'Initializing...' : `Initialize Workflow${jobsWithoutCategory.length > 0 ? ` (${jobsWithoutCategory.length})` : ''}`}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {/* Custom Workflow Modal */}
+      {showCustomModal && selectedJobForCustom && (
+        <CustomWorkflowModal
+          isOpen={showCustomModal}
+          onClose={() => {
+            setShowCustomModal(false);
+            setSelectedJobForCustom(null);
+          }}
+          job={selectedJobForCustom}
+          onSuccess={handleCustomWorkflowSuccess}
+        />
+      )}
+    </>
   );
 };

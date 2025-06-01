@@ -1,57 +1,43 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useProductionStages } from "./useProductionStages";
 
-interface ProductionJob {
+interface EnhancedProductionJob {
   id: string;
   wo_no: string;
-  status: string;
-  customer?: string | null;
-  category?: string | null;
-  category_id?: string | null;
-  qty?: number | null;
-  due_date?: string | null;
-  location?: string | null;
-  rep?: string | null;
-  reference?: string | null;
-  highlighted?: boolean;
-  qr_code_url?: string | null;
-  so_no?: string | null;
-  qt_no?: string | null;
-  user_name?: string | null;
-  has_workflow?: boolean;
-  current_stage?: string | null;
-  stages?: JobStageInstance[];
-}
-
-interface JobStageInstance {
-  id: string;
-  production_stage_id: string;
-  stage_order: number;
-  status: 'pending' | 'active' | 'completed' | 'skipped';
-  started_at?: string;
-  completed_at?: string;
-  production_stage: {
-    id: string;
-    name: string;
-    color: string;
+  customer?: string;
+  reference?: string;
+  qty?: number;
+  due_date?: string;
+  status?: string;
+  category?: string;
+  category_id?: string;
+  has_custom_workflow?: boolean;
+  current_stage?: string;
+  has_workflow: boolean;
+  workflow_progress?: {
+    completed: number;
+    total: number;
+    percentage: number;
   };
-}
-
-interface Category {
-  id: string;
-  name: string;
-  color: string;
-  description?: string;
-  sla_target_days: number;
+  user_id: string;
+  user_name?: string;
+  so_no?: string;
+  qt_no?: string;
+  rep?: string;
+  location?: string;
+  date?: string;
+  highlighted?: boolean;
+  qr_code_url?: string;
+  qr_code_data?: string;
 }
 
 export const useEnhancedProductionJobs = () => {
-  const [jobs, setJobs] = useState<ProductionJob[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [jobs, setJobs] = useState<EnhancedProductionJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { stages } = useProductionStages();
 
   const fetchJobs = async () => {
     try {
@@ -59,12 +45,12 @@ export const useEnhancedProductionJobs = () => {
       setError(null);
       console.log('🔄 Fetching enhanced production jobs...');
 
-      // Fetch jobs with category information and stage instances
+      // Fetch jobs with their stage instances
       const { data: jobsData, error: jobsError } = await supabase
         .from('production_jobs')
         .select(`
           *,
-          category:categories(
+          categories!production_jobs_category_id_fkey(
             id,
             name,
             color
@@ -72,107 +58,104 @@ export const useEnhancedProductionJobs = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (jobsError) throw jobsError;
+      if (jobsError) {
+        console.error('❌ Jobs fetch error:', jobsError);
+        throw jobsError;
+      }
 
-      // For each job, get the stage instances if it has workflow
-      const jobsWithWorkflow = await Promise.all(
-        (jobsData || []).map(async (job) => {
-          let currentStage = null;
-          let hasWorkflow = false;
-          let stages: JobStageInstance[] = [];
+      // Fetch stage instances for all jobs
+      const { data: stageInstances, error: stageError } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          job_id,
+          status,
+          stage_order,
+          production_stage:production_stages(
+            id,
+            name,
+            color
+          )
+        `)
+        .eq('job_table_name', 'production_jobs')
+        .order('stage_order');
 
-          if (job.category_id) {
-            // Check if job has stage instances (workflow initialized)
-            const { data: stageInstances, error: stageError } = await supabase
-              .from('job_stage_instances')
-              .select(`
-                id,
-                production_stage_id,
-                stage_order,
-                status,
-                started_at,
-                completed_at,
-                production_stage:production_stages(
-                  id,
-                  name,
-                  color
-                )
-              `)
-              .eq('job_id', job.id)
-              .eq('job_table_name', 'production_jobs')
-              .order('stage_order');
+      if (stageError) {
+        console.error('❌ Stage instances fetch error:', stageError);
+        throw stageError;
+      }
 
-            if (!stageError && stageInstances && stageInstances.length > 0) {
-              hasWorkflow = true;
-              stages = stageInstances as JobStageInstance[];
-              const activeStage = stageInstances.find(si => si.status === 'active');
-              if (activeStage && activeStage.production_stage) {
-                currentStage = activeStage.production_stage.name;
-              }
-            }
+      // Group stage instances by job_id
+      const stagesByJob = (stageInstances || []).reduce((acc, instance) => {
+        if (!acc[instance.job_id]) {
+          acc[instance.job_id] = [];
+        }
+        acc[instance.job_id].push(instance);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      // Enhance jobs with workflow information
+      const enhancedJobs: EnhancedProductionJob[] = (jobsData || []).map(job => {
+        const jobStages = stagesByJob[job.id] || [];
+        const hasWorkflow = jobStages.length > 0;
+        
+        // Find current active stage
+        const activeStage = jobStages.find(stage => stage.status === 'active');
+        const currentStage = activeStage?.production_stage?.name || null;
+        
+        // Calculate workflow progress
+        const completedStages = jobStages.filter(stage => stage.status === 'completed').length;
+        const totalStages = jobStages.length;
+        const progressPercentage = totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
+
+        return {
+          ...job,
+          category: job.categories?.name || null,
+          has_workflow: hasWorkflow,
+          current_stage: currentStage,
+          workflow_progress: {
+            completed: completedStages,
+            total: totalStages,
+            percentage: progressPercentage
           }
+        };
+      });
 
-          return {
-            ...job,
-            category: job.category?.name || null,
-            has_workflow: hasWorkflow,
-            current_stage: currentStage,
-            stages
-          };
-        })
-      );
-
-      console.log('✅ Enhanced production jobs fetched successfully:', jobsWithWorkflow.length);
-      setJobs(jobsWithWorkflow);
+      console.log('✅ Enhanced production jobs fetched successfully:', enhancedJobs.length);
+      setJobs(enhancedJobs);
     } catch (err) {
       console.error('❌ Error fetching enhanced production jobs:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load jobs');
-      toast.error('Failed to load production jobs');
+      const errorMessage = err instanceof Error ? err.message : "Failed to load production jobs";
+      setError(errorMessage);
+      toast.error("Failed to load production jobs");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      console.log('🔄 Fetching categories...');
-
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('*')
-        .order('name');
-
-      if (categoriesError) throw categoriesError;
-
-      console.log('✅ Categories fetched successfully:', categoriesData?.length || 0);
-      setCategories(categoriesData || []);
-    } catch (err) {
-      console.error('❌ Error fetching categories:', err);
-      toast.error('Failed to load categories');
     }
   };
 
   const startStage = async (jobId: string, stageId: string) => {
     try {
       console.log('🔄 Starting stage...', { jobId, stageId });
-
+      
       const { error } = await supabase
         .from('job_stage_instances')
-        .update({
+        .update({ 
           status: 'active',
-          started_at: new Date().toISOString()
+          started_at: new Date().toISOString(),
+          started_by: (await supabase.auth.getUser()).data.user?.id,
+          updated_at: new Date().toISOString()
         })
-        .eq('id', stageId);
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .eq('production_stage_id', stageId)
+        .eq('status', 'pending');
 
       if (error) throw error;
 
       console.log('✅ Stage started successfully');
-      toast.success('Stage started successfully');
-      await fetchJobs();
+      await fetchJobs(); // Refresh data
       return true;
     } catch (err) {
       console.error('❌ Error starting stage:', err);
-      toast.error('Failed to start stage');
       return false;
     }
   };
@@ -180,81 +163,72 @@ export const useEnhancedProductionJobs = () => {
   const completeStage = async (jobId: string, stageId: string) => {
     try {
       console.log('🔄 Completing stage...', { jobId, stageId });
-
-      const { error } = await supabase
-        .from('job_stage_instances')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', stageId);
+      
+      const { data, error } = await supabase.rpc('advance_job_stage', {
+        p_job_id: jobId,
+        p_job_table_name: 'production_jobs',
+        p_current_stage_id: stageId
+      });
 
       if (error) throw error;
-
-      // Advance to next stage if available
-      const job = jobs.find(j => j.id === jobId);
-      if (job?.stages) {
-        const currentStageIndex = job.stages.findIndex(s => s.id === stageId);
-        const nextStage = job.stages[currentStageIndex + 1];
-        
-        if (nextStage) {
-          await supabase
-            .from('job_stage_instances')
-            .update({ status: 'active' })
-            .eq('id', nextStage.id);
-        }
-      }
+      if (!data) throw new Error('Stage advancement failed');
 
       console.log('✅ Stage completed successfully');
-      toast.success('Stage completed successfully');
-      await fetchJobs();
+      await fetchJobs(); // Refresh data
       return true;
     } catch (err) {
       console.error('❌ Error completing stage:', err);
-      toast.error('Failed to complete stage');
       return false;
     }
   };
 
-  const recordQRScan = async (jobId: string, stageId: string) => {
+  const recordQRScan = async (jobId: string, stageId: string, qrData?: any) => {
     try {
       console.log('🔄 Recording QR scan...', { jobId, stageId });
-
-      const qrData = {
-        scanned_at: new Date().toISOString(),
-        job_id: jobId,
-        stage_id: stageId
-      };
-
+      
       const { error } = await supabase
         .from('job_stage_instances')
-        .update({
-          qr_scan_data: qrData
+        .update({ 
+          qr_scan_data: {
+            ...qrData,
+            scan_type: 'qr_scan',
+            scanned_at: new Date().toISOString()
+          },
+          updated_at: new Date().toISOString()
         })
-        .eq('id', stageId);
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .eq('production_stage_id', stageId);
 
       if (error) throw error;
 
       console.log('✅ QR scan recorded successfully');
-      toast.success('QR code scanned successfully');
-      await fetchJobs();
+      await fetchJobs(); // Refresh data
       return true;
     } catch (err) {
       console.error('❌ Error recording QR scan:', err);
-      toast.error('Failed to record QR scan');
       return false;
     }
   };
 
+  // Set up real-time subscription
   useEffect(() => {
     fetchJobs();
-    fetchCategories();
-  }, []);
 
-  // Set up real-time subscription for stage changes
-  useEffect(() => {
     const channel = supabase
-      .channel('job_stage_instances_changes')
+      .channel('production-jobs-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'production_jobs'
+        },
+        () => {
+          console.log('🔄 Production jobs changed, refetching...');
+          fetchJobs();
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -262,9 +236,9 @@ export const useEnhancedProductionJobs = () => {
           schema: 'public',
           table: 'job_stage_instances'
         },
-        (payload) => {
-          console.log('Stage instance changed:', payload);
-          fetchJobs(); // Refresh jobs when stages change
+        () => {
+          console.log('🔄 Job stage instances changed, refetching...');
+          fetchJobs();
         }
       )
       .subscribe();
@@ -274,22 +248,11 @@ export const useEnhancedProductionJobs = () => {
     };
   }, []);
 
-  const refreshJobs = () => {
-    fetchJobs();
-  };
-
-  const refreshCategories = () => {
-    fetchCategories();
-  };
-
   return {
     jobs,
-    categories,
     isLoading,
     error,
-    refreshJobs,
-    refreshCategories,
-    fetchJobs,
+    refreshJobs: fetchJobs,
     startStage,
     completeStage,
     recordQRScan

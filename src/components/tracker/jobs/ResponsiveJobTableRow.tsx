@@ -10,7 +10,8 @@ import {
   QrCode, 
   FolderOpen,
   Play,
-  Trash2
+  Trash2,
+  Settings
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -122,7 +123,15 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
       
       <TableCell>
         {job.category ? (
-          <Badge variant="outline" className="text-xs">{job.category}</Badge>
+          <div className="flex items-center space-x-1">
+            <Badge variant="outline" className="text-xs">{job.category}</Badge>
+            {job.has_custom_workflow && (
+              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                <Settings className="h-3 w-3 mr-1" />
+                Custom
+              </Badge>
+            )}
+          </div>
         ) : (
           <Button
             size="sm"
@@ -149,9 +158,16 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
       
       <TableCell>
         {job.current_stage ? (
-          <Badge variant="outline" className="text-xs">
-            {job.current_stage}
-          </Badge>
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline" className="text-xs">
+              {job.current_stage}
+            </Badge>
+            {job.workflow_progress && (
+              <span className="text-xs text-gray-500">
+                {job.workflow_progress.completed}/{job.workflow_progress.total}
+              </span>
+            )}
+          </div>
         ) : job.has_workflow ? (
           <span className="text-xs text-gray-500">No active stage</span>
         ) : (
@@ -195,10 +211,10 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
               </DropdownMenuItem>
             )}
             
-            {!job.has_workflow && job.category && (
+            {!job.has_workflow && (
               <DropdownMenuItem onClick={handleWorkflowInitClick} className="text-xs cursor-pointer">
                 <Play className="h-3 w-3 mr-2" />
-                Initialize Workflow
+                {job.category ? 'Initialize Workflow' : 'Create Workflow'}
               </DropdownMenuItem>
             )}
             

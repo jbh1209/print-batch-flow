@@ -439,7 +439,7 @@ export type Database = {
       }
       job_stage_instances: {
         Row: {
-          category_id: string
+          category_id: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
@@ -456,7 +456,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          category_id: string
+          category_id?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -473,7 +473,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          category_id?: string
+          category_id?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -852,6 +852,7 @@ export type Database = {
           customer: string | null
           date: string | null
           due_date: string | null
+          has_custom_workflow: boolean | null
           highlighted: boolean | null
           id: string
           location: string | null
@@ -875,6 +876,7 @@ export type Database = {
           customer?: string | null
           date?: string | null
           due_date?: string | null
+          has_custom_workflow?: boolean | null
           highlighted?: boolean | null
           id?: string
           location?: string | null
@@ -898,6 +900,7 @@ export type Database = {
           customer?: string | null
           date?: string | null
           due_date?: string | null
+          has_custom_workflow?: boolean | null
           highlighted?: boolean | null
           id?: string
           location?: string | null
@@ -1280,6 +1283,15 @@ export type Database = {
       get_user_role_safe: {
         Args: { user_id_param: string }
         Returns: string
+      }
+      initialize_custom_job_stages: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_stage_ids: string[]
+          p_stage_orders: number[]
+        }
+        Returns: boolean
       }
       initialize_job_stages: {
         Args: {
