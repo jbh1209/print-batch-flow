@@ -221,12 +221,12 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         }
       }
 
-      // Mark the job as having a custom workflow and set category to "Custom"
+      // Mark the job as having a custom workflow - set category_id to null instead of 'custom'
       const { error: updateError } = await supabase
         .from('production_jobs')
         .update({ 
           has_custom_workflow: true,
-          category_id: 'custom',
+          category_id: null, // Set to null instead of 'custom'
           updated_at: new Date().toISOString()
         })
         .eq('id', job.id);
@@ -257,6 +257,9 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Loading Workflow</DialogTitle>
+          </DialogHeader>
           <div className="flex items-center justify-center p-8">
             <div className="text-center">Loading...</div>
           </div>

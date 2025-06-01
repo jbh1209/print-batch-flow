@@ -57,7 +57,8 @@ export const JobTableRow: React.FC<JobTableRowProps> = ({
   };
 
   const getCategoryDisplay = () => {
-    if (job.has_custom_workflow || job.category_id === 'custom') {
+    // Check if this job has a custom workflow (either flag is true or category_id is null with workflow)
+    if (job.has_custom_workflow || (job.category_id === null && job.has_custom_workflow !== false)) {
       return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Custom</Badge>;
     }
     
@@ -137,7 +138,7 @@ export const JobTableRow: React.FC<JobTableRowProps> = ({
               Edit Job
             </DropdownMenuItem>
             
-            {(job.has_custom_workflow || job.category_id === 'custom') ? (
+            {(job.has_custom_workflow || job.category_id === null) ? (
               <DropdownMenuItem onClick={handleMenuItemClick(() => onCustomWorkflow(job))}>
                 <Settings className="h-4 w-4 mr-2" />
                 Edit Custom Workflow
