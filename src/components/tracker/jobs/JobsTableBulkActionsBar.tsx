@@ -9,10 +9,10 @@ import {
   RotateCcw, 
   X, 
   Workflow, 
-  QrCode,
   Download
 } from "lucide-react";
-import { QRLabelsManager } from "../QRLabelsManager";
+import { barcode } from "lucide-react";
+import { BarcodeLabelsManager } from "../BarcodeLabelsManager";
 
 interface JobsTableBulkActionsBarProps {
   selectedJobsCount: number;
@@ -35,12 +35,12 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
   onCustomWorkflow,
   selectedJobs
 }) => {
-  const [showQRLabels, setShowQRLabels] = React.useState(false);
+  const [showBarcodeLabels, setShowBarcodeLabels] = React.useState(false);
 
   if (selectedJobsCount === 0) return null;
 
-  const handleQRLabelsClick = () => {
-    setShowQRLabels(true);
+  const handleBarcodeLabelsClick = () => {
+    setShowBarcodeLabels(true);
   };
 
   const handleStatusUpdate = () => {
@@ -89,11 +89,11 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
                 <Button 
                   size="sm" 
                   variant="outline"
-                  onClick={handleQRLabelsClick}
+                  onClick={handleBarcodeLabelsClick}
                   className="flex items-center gap-1"
                 >
-                  <QrCode className="h-3 w-3" />
-                  QR Labels PDF
+                  <barcode className="h-3 w-3" />
+                  Barcode Labels PDF
                 </Button>
                 <Button 
                   size="sm" 
@@ -120,11 +120,11 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
         </CardContent>
       </Card>
 
-      {/* QR Labels Manager Modal */}
-      {showQRLabels && (
-        <QRLabelsManager 
+      {/* Barcode Labels Manager Modal */}
+      {showBarcodeLabels && (
+        <BarcodeLabelsManager 
           selectedJobs={selectedJobs}
-          onClose={() => setShowQRLabels(false)}
+          onClose={() => setShowBarcodeLabels(false)}
         />
       )}
     </>

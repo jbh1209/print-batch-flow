@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Printer, Download, QrCode } from "lucide-react";
+import { ArrowLeft, Printer, Download } from "lucide-react";
+import { barcode } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { QRCodeLabel } from "@/components/tracker/QRCodeLabel";
-import { generateQRCodeData, generateQRCodeImage } from "@/utils/qrCodeGenerator";
-import { downloadQRLabelsPDF, QRLabelData } from "@/utils/qrLabelGenerator";
+import { generateBarcodeData, generateBarcodeImage } from "@/utils/barcodeGenerator";
+import { downloadBarcodeLabelsPDF, BarcodeLabelData } from "@/utils/barcodeLabelGenerator";
 import { toast } from "sonner";
 
 interface ProductionJob {
@@ -16,8 +16,8 @@ interface ProductionJob {
   wo_no: string;
   customer?: string;
   due_date?: string;
-  qr_code_data?: string;
-  qr_code_url?: string;
+  barcode_data?: string;
+  barcode_url?: string;
 }
 
 const TrackerLabels = () => {
@@ -38,7 +38,7 @@ const TrackerLabels = () => {
     try {
       const { data, error } = await supabase
         .from('production_jobs')
-        .select('id, wo_no, customer, due_date, qr_code_data, qr_code_url')
+        .select('id, wo_no, customer, due_date, barcode_data, barcode_url')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -52,75 +52,75 @@ const TrackerLabels = () => {
     }
   };
 
-  const generateMissingQRCodes = async () => {
-    const jobsNeedingQR = jobs.filter(job => !job.qr_code_url && selectedJobs.has(job.id));
+  const generateMissingBarcodes = async () => {
+    const jobsNeedingBarcode = jobs.filter(job => !job.barcode_url && selectedJobs.has(job.id));
     
-    if (jobsNeedingQR.length === 0) return;
+    if (jobsNeedingBarcode.length === 0) return;
 
     setGenerating(true);
     try {
-      for (const job of jobsNeedingQR) {
-        const qrData = generateQRCodeData({
+      for (const job of jobsNeedingBarcode) {
+        const barcodeData = generateBarcodeData({
           wo_no: job.wo_no,
           job_id: job.id,
           customer: job.customer,
           due_date: job.due_date
         });
 
-        const qrUrl = await generateQRCodeImage(qrData);
+        const barcodeUrl = await generateBarcodeImage(barcodeData);
 
         await supabase
           .from('production_jobs')
           .update({
-            qr_code_data: qrData,
-            qr_code_url: qrUrl
+            barcode_data: barcodeData,
+            barcode_url: barcodeUrl
           })
           .eq('id', job.id);
 
         // Update local state
         setJobs(prev => prev.map(j => 
           j.id === job.id 
-            ? { ...j, qr_code_data: qrData, qr_code_url: qrUrl }
+            ? { ...j, barcode_data: barcodeData, barcode_url: barcodeUrl }
             : j
         ));
       }
 
-      toast.success(`Generated QR codes for ${jobsNeedingQR.length} jobs`);
+      toast.success(`Generated barcodes for ${jobsNeedingBarcode.length} jobs`);
     } catch (error) {
-      console.error('Error generating QR codes:', error);
-      toast.error('Failed to generate QR codes');
+      console.error('Error generating barcodes:', error);
+      toast.error('Failed to generate barcodes');
     } finally {
       setGenerating(false);
     }
   };
 
   const downloadPDFLabels = async () => {
-    const selectedJobsData = jobs.filter(job => selectedJobs.has(job.id) && job.qr_code_url);
+    const selectedJobsData = jobs.filter(job => selectedJobs.has(job.id));
     
     if (selectedJobsData.length === 0) {
-      toast.error('No jobs with QR codes selected');
+      toast.error('No jobs selected');
       return;
     }
 
     setDownloadingPDF(true);
     try {
-      console.log("Converting jobs to QR label data format");
+      console.log("Converting jobs to barcode label data format");
       
-      const labelData: QRLabelData[] = selectedJobsData.map(job => ({
+      const labelData: BarcodeLabelData[] = selectedJobsData.map(job => ({
         id: job.id,
         wo_no: job.wo_no,
         customer: job.customer,
         due_date: job.due_date,
-        status: 'pending', // Default status since it's not in the ProductionJob interface
-        reference: job.customer // Use customer as reference for now
+        status: 'pending', // Default status
+        reference: job.customer // Use customer as reference
       }));
 
-      console.log("Calling downloadQRLabelsPDF with", labelData.length, "jobs");
+      console.log("Calling downloadBarcodeLabelsPDF with", labelData.length, "jobs");
       
-      const success = await downloadQRLabelsPDF(labelData, `qr-labels-${selectedJobsData.length}-jobs.pdf`);
+      const success = await downloadBarcodeLabelsPDF(labelData, `barcode-labels-${selectedJobsData.length}-jobs.pdf`);
       
       if (success) {
-        toast.success(`Successfully downloaded PDF with ${selectedJobsData.length} QR labels`);
+        toast.success(`Successfully downloaded PDF with ${selectedJobsData.length} barcode labels`);
       } else {
         toast.error('Failed to generate PDF labels');
       }
@@ -150,63 +150,13 @@ const TrackerLabels = () => {
     setSelectedJobs(new Set());
   };
 
-  // Keep the old print function for comparison, but mark it as legacy
-  const printSelectedLabelsLegacy = () => {
-    const selectedJobsData = jobs.filter(job => selectedJobs.has(job.id) && job.qr_code_url);
-    
-    if (selectedJobsData.length === 0) {
-      toast.error('No jobs with QR codes selected');
-      return;
-    }
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const labelsHtml = selectedJobsData.map(job => `
-      <div style="page-break-after: always; display: flex; justify-content: center; align-items: center; height: 50mm;">
-        <div style="width: 100mm; height: 50mm; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5mm; font-family: Arial, sans-serif;">
-          <div style="font-weight: bold; font-size: 12pt; margin-bottom: 2mm;">WO: ${job.wo_no}</div>
-          <img src="${job.qr_code_url}" style="width: 30mm; height: 30mm; margin: 2mm 0;" />
-          ${job.customer ? `<div style="font-size: 8pt; text-align: center; margin-top: 1mm;">${job.customer}</div>` : ''}
-          ${job.due_date ? `<div style="font-size: 8pt;">Due: ${new Date(job.due_date).toLocaleDateString()}</div>` : ''}
-        </div>
-      </div>
-    `).join('');
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>QR Code Labels</title>
-          <style>
-            @media print {
-              body { margin: 0; padding: 0; }
-              .no-print { display: none; }
-            }
-            body { margin: 0; padding: 10px; }
-            @page { size: A4; margin: 10mm; }
-          </style>
-        </head>
-        <body>
-          ${labelsHtml}
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
-            }
-          </script>
-        </body>
-      </html>
-    `);
-  };
-
   if (loading) {
     return <div className="flex items-center justify-center p-8">Loading jobs...</div>;
   }
 
   const selectedJobsData = jobs.filter(job => selectedJobs.has(job.id));
-  const selectedWithQR = selectedJobsData.filter(job => job.qr_code_url);
-  const selectedWithoutQR = selectedJobsData.filter(job => !job.qr_code_url);
+  const selectedWithBarcode = selectedJobsData.filter(job => job.barcode_url);
+  const selectedWithoutBarcode = selectedJobsData.filter(job => !job.barcode_url);
 
   return (
     <div className="container mx-auto">
@@ -219,8 +169,8 @@ const TrackerLabels = () => {
             </Link>
           </Button>
         </div>
-        <h1 className="text-3xl font-bold">QR Code Labels</h1>
-        <p className="text-gray-600">Generate and print QR code labels for work orders</p>
+        <h1 className="text-3xl font-bold">Barcode Labels</h1>
+        <p className="text-gray-600">Generate and print barcode labels for work orders</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -258,13 +208,13 @@ const TrackerLabels = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {job.qr_code_url ? (
-                        <QrCode className="h-4 w-4 text-green-500" />
+                      {job.barcode_url ? (
+                        <barcode className="h-4 w-4 text-green-500" />
                       ) : (
-                        <QrCode className="h-4 w-4 text-gray-300" />
+                        <barcode className="h-4 w-4 text-gray-300" />
                       )}
                       <span className="text-xs text-gray-500">
-                        {job.qr_code_url ? 'QR Ready' : 'No QR'}
+                        {job.barcode_url ? 'Barcode Ready' : 'No Barcode'}
                       </span>
                     </div>
                   </div>
@@ -283,74 +233,31 @@ const TrackerLabels = () => {
             <CardContent className="space-y-3">
               <div className="text-sm space-y-1">
                 <div>Selected: {selectedJobs.size} jobs</div>
-                <div>With QR: {selectedWithQR.length} jobs</div>
-                <div>Without QR: {selectedWithoutQR.length} jobs</div>
+                <div>With Barcode: {selectedWithBarcode.length} jobs</div>
+                <div>Without Barcode: {selectedWithoutBarcode.length} jobs</div>
               </div>
 
-              {selectedWithoutQR.length > 0 && (
+              {selectedWithoutBarcode.length > 0 && (
                 <Button 
-                  onClick={generateMissingQRCodes}
+                  onClick={generateMissingBarcodes}
                   disabled={generating}
                   className="w-full flex items-center gap-2"
                 >
-                  <QrCode className="h-4 w-4" />
-                  {generating ? 'Generating...' : `Generate ${selectedWithoutQR.length} QR Codes`}
+                  <barcode className="h-4 w-4" />
+                  {generating ? 'Generating...' : `Generate ${selectedWithoutBarcode.length} Barcodes`}
                 </Button>
               )}
 
               <Button 
                 onClick={downloadPDFLabels}
-                disabled={selectedWithQR.length === 0 || downloadingPDF}
+                disabled={selectedJobsData.length === 0 || downloadingPDF}
                 className="w-full flex items-center gap-2"
               >
                 <Download className="h-4 w-4" />
-                {downloadingPDF ? 'Generating PDF...' : `Download PDF (${selectedWithQR.length} Labels)`}
-              </Button>
-
-              <Button 
-                onClick={printSelectedLabelsLegacy}
-                disabled={selectedWithQR.length === 0}
-                variant="outline"
-                className="w-full flex items-center gap-2"
-              >
-                <Printer className="h-4 w-4" />
-                Legacy Print {selectedWithQR.length} Labels
+                {downloadingPDF ? 'Generating PDF...' : `Download PDF (${selectedJobsData.length} Labels)`}
               </Button>
             </CardContent>
           </Card>
-
-          {/* Preview */}
-          {selectedWithQR.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Preview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {selectedWithQR.slice(0, 3).map(job => (
-                    <div key={job.id} className="border rounded p-2">
-                      <div 
-                        style={{ transform: 'scale(0.3)', transformOrigin: 'top left' }}
-                        className="overflow-hidden"
-                      >
-                        <QRCodeLabel
-                          woNo={job.wo_no}
-                          qrCodeDataURL={job.qr_code_url!}
-                          customer={job.customer}
-                          dueDate={job.due_date}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  {selectedWithQR.length > 3 && (
-                    <div className="text-sm text-gray-500 text-center">
-                      +{selectedWithQR.length - 3} more labels
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>
