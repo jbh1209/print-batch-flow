@@ -41,7 +41,13 @@ import { CategoryAssignModal } from "./CategoryAssignModal";
 import { useJobsTableFilters } from "./JobsTableFilters";
 import { useJobsTableSorting } from "./JobsTableSorting";
 
-export const EnhancedJobsTableWithBulkActions: React.FC = () => {
+interface EnhancedJobsTableWithBulkActionsProps {
+  statusFilter?: string | null;
+}
+
+export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBulkActionsProps> = ({ 
+  statusFilter 
+}) => {
   const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
   const { categories } = useProductionCategories();
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
@@ -69,14 +75,38 @@ export const EnhancedJobsTableWithBulkActions: React.FC = () => {
     currentStage: ''
   });
 
-  // Filter out completed jobs by default
-  const productionJobs = jobs.filter(job => 
-    job.status?.toLowerCase() !== 'completed'
-  );
+  // Apply status filter from sidebar
+  const getFilteredJobsByStatus = () => {
+    if (!statusFilter) {
+      // Default: show production jobs (excluding completed)
+      return jobs.filter(job => job.status?.toLowerCase() !== 'completed');
+    }
+    
+    switch (statusFilter) {
+      case 'completed':
+        return jobs.filter(job => job.status?.toLowerCase() === 'completed');
+      case 'in-progress':
+        return jobs.filter(job => 
+          job.status && ['printing', 'finishing', 'production', 'pre-press', 'packaging'].includes(job.status.toLowerCase())
+        );
+      case 'pending':
+        return jobs.filter(job => 
+          job.status?.toLowerCase() === 'pending' || !job.status
+        );
+      case 'overdue':
+        return jobs.filter(job => 
+          job.due_date && new Date(job.due_date) < new Date() && job.status?.toLowerCase() !== 'completed'
+        );
+      default:
+        return jobs.filter(job => job.status?.toLowerCase() !== 'completed');
+    }
+  };
 
-  // Use filtering hook with production jobs (excluding completed)
+  const statusFilteredJobs = getFilteredJobsByStatus();
+
+  // Use filtering hook with status filtered jobs
   const { filteredJobs, availableCategories, availableStatuses, availableStages } = useJobsTableFilters({
-    jobs: productionJobs,
+    jobs: statusFilteredJobs,
     searchQuery,
     columnFilters
   });

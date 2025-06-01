@@ -153,7 +153,7 @@ const TrackerJobs = () => {
           </div>
         </div>
 
-        <EnhancedJobsTableWithBulkActions />
+        <EnhancedJobsTableWithBulkActions statusFilter={statusFilter} />
       </div>
     </div>
   );
