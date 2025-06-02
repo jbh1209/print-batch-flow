@@ -22,12 +22,14 @@ export const OperatorDashboard = () => {
 
   // Filter jobs based on user's accessible stages - improved logic
   const accessibleStageIds = accessibleStages.map(stage => stage.stage_id);
+  const accessibleStageNames = accessibleStages.map(stage => stage.stage_name);
   
   console.log("🔍 Operator Dashboard Debug Info:", {
     userId: user?.id,
     totalJobs: jobs.length,
     accessibleStages: accessibleStages.length,
     accessibleStageIds,
+    accessibleStageNames,
     stageNames: accessibleStages.map(s => s.stage_name)
   });
 
@@ -39,15 +41,16 @@ export const OperatorDashboard = () => {
       hasStages: !!job.stages,
       stagesCount: job.stages?.length || 0,
       currentStage: job.current_stage,
-      status: job.status
+      status: job.status,
+      hasWorkflow: job.has_workflow
     });
 
     // Check if job has stage instances that match user's accessible stages
-    const hasAccessibleStages = job.stages?.some(stage => {
+    const hasAccessibleStageInstances = job.stages?.some(stage => {
       const hasAccess = accessibleStageIds.includes(stage.production_stage_id);
       const isActiveOrPending = ['active', 'pending'].includes(stage.status);
       
-      console.log("  📋 Stage check:", {
+      console.log("  📋 Stage instance check:", {
         stageName: stage.stage_name,
         stageId: stage.production_stage_id,
         status: stage.status,
@@ -60,17 +63,26 @@ export const OperatorDashboard = () => {
 
     // Also check jobs without workflow but with accessible current stage
     const hasAccessibleCurrentStage = job.current_stage && 
-      accessibleStages.some(stage => stage.stage_name === job.current_stage);
+      accessibleStageNames.includes(job.current_stage);
+
+    // For jobs without workflow, check if their status matches accessible stage names
+    const statusMatchesAccessibleStage = job.status && 
+      accessibleStageNames.includes(job.status);
 
     // Include jobs that are not yet completed and have accessible stages
     const isNotCompleted = !['completed', 'shipped'].includes(job.status?.toLowerCase() || '');
     
-    const shouldInclude = isNotCompleted && (hasAccessibleStages || hasAccessibleCurrentStage);
+    const shouldInclude = isNotCompleted && (
+      hasAccessibleStageInstances || 
+      hasAccessibleCurrentStage || 
+      statusMatchesAccessibleStage
+    );
     
     console.log("  ✅ Job decision:", {
       woNo: job.wo_no,
-      hasAccessibleStages,
+      hasAccessibleStageInstances,
       hasAccessibleCurrentStage,
+      statusMatchesAccessibleStage,
       isNotCompleted,
       shouldInclude
     });
@@ -86,7 +98,8 @@ export const OperatorDashboard = () => {
       stage.status === 'pending'
     );
     const isPending = job.status?.toLowerCase() === 'pending';
-    return hasPendingStages || isPending;
+    const isDTP = job.status?.toLowerCase() === 'dtp' || job.current_stage?.toLowerCase() === 'dtp';
+    return hasPendingStages || isPending || isDTP;
   });
 
   const inProgressJobs = userJobs.filter(job => {
@@ -263,7 +276,9 @@ export const OperatorDashboard = () => {
               const stageJobs = userJobs.filter(job =>
                 job.stages?.some(jobStage => 
                   jobStage.production_stage_id === stage.stage_id
-                )
+                ) ||
+                job.current_stage === stage.stage_name ||
+                job.status === stage.stage_name
               );
 
               return (
@@ -347,19 +362,27 @@ export const OperatorDashboard = () => {
               </div>
             </div>
             
+            {jobs.length > 0 && (
+              <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                <p><strong>Sample jobs in system:</strong></p>
+                <div className="mt-2 space-y-2">
+                  {jobs.slice(0, 3).map(job => (
+                    <div key={job.id} className="bg-white p-2 rounded text-xs">
+                      <p><strong>WO:</strong> {job.wo_no}</p>
+                      <p><strong>Status:</strong> {job.status}</p>
+                      <p><strong>Current Stage:</strong> {job.current_stage || 'None'}</p>
+                      <p><strong>Has Workflow:</strong> {job.has_workflow ? 'Yes' : 'No'}</p>
+                      <p><strong>Stages Count:</strong> {job.stages?.length || 0}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {jobs.length > 0 && userJobs.length === 0 && (
               <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
                 <p><strong>Troubleshooting:</strong> No jobs match your stage permissions.</p>
-                <p className="mt-1">Sample job data:</p>
-                <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto mt-2 max-h-32">
-                  {JSON.stringify({
-                    wo_no: jobs[0]?.wo_no,
-                    status: jobs[0]?.status,
-                    current_stage: jobs[0]?.current_stage,
-                    stages_count: jobs[0]?.stages?.length,
-                    first_stage: jobs[0]?.stages?.[0]
-                  }, null, 2)}
-                </pre>
+                <p className="mt-1">Check if jobs have the correct status or workflow stages that match your accessible stages: {accessibleStageNames.join(', ')}</p>
               </div>
             )}
           </div>

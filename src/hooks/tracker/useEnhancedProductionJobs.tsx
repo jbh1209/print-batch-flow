@@ -12,18 +12,12 @@ export const useEnhancedProductionJobs = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchJobs = useCallback(async () => {
-    if (!user?.id) {
-      setJobs([]);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
-
     try {
       setError(null);
-      console.log("Fetching enhanced production jobs for user:", user.id);
+      setIsLoading(true);
+      console.log("🔍 Fetching enhanced production jobs...");
 
-      // First fetch the production jobs with categories
+      // First fetch ALL production jobs (not filtered by user_id since this is for the operator dashboard)
       const { data: jobsData, error: fetchError } = await supabase
         .from('production_jobs')
         .select(`
@@ -36,12 +30,13 @@ export const useEnhancedProductionJobs = () => {
             sla_target_days
           )
         `)
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) {
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
+
+      console.log("📊 Raw jobs data:", jobsData?.length || 0, "jobs");
 
       // Check if jobsData is an array before processing
       if (!Array.isArray(jobsData)) {
@@ -73,9 +68,10 @@ export const useEnhancedProductionJobs = () => {
           .order('stage_order', { ascending: true });
 
         if (stagesError) {
-          console.error("Error fetching stages:", stagesError);
+          console.error("❌ Error fetching stages:", stagesError);
         } else {
           stagesData = stagesResult || [];
+          console.log("📊 Job stage instances:", stagesData.length);
         }
       }
 
@@ -91,11 +87,11 @@ export const useEnhancedProductionJobs = () => {
         const completedStages = jobStages.filter(s => s.status === 'completed').length;
         const totalStages = jobStages.length;
         
-        return {
+        const processedJob = {
           ...job,
-          wo_no: formattedWoNo, // Apply formatting
+          wo_no: formattedWoNo,
           has_workflow: hasWorkflow,
-          current_stage: currentStage?.production_stages?.name || null,
+          current_stage: currentStage?.production_stages?.name || job.status || 'DTP',
           current_stage_id: currentStage?.production_stage_id || null,
           workflow_progress: totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0,
           job_stage_instances: jobStages,
@@ -103,21 +99,33 @@ export const useEnhancedProductionJobs = () => {
             ...stage,
             stage_name: stage.production_stages?.name || 'Unknown Stage',
             stage_color: stage.production_stages?.color || '#6B7280'
-          }))
+          })),
+          // Include category_id for filtering
+          category_id: job.category_id || null
         };
+
+        console.log("📋 Processed job:", {
+          woNo: processedJob.wo_no,
+          status: processedJob.status,
+          currentStage: processedJob.current_stage,
+          hasWorkflow: processedJob.has_workflow,
+          stagesCount: processedJob.stages.length
+        });
+
+        return processedJob;
       });
 
-      console.log("Enhanced production jobs fetched:", processedJobs.length, "jobs");
+      console.log("✅ Enhanced production jobs processed:", processedJobs.length, "jobs");
       setJobs(processedJobs);
     } catch (err) {
-      console.error('Error fetching enhanced production jobs:', err);
+      console.error('❌ Error fetching enhanced production jobs:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load jobs";
       setError(errorMessage);
       toast.error("Failed to load production jobs");
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, []); // Remove user dependency to fetch all jobs
 
   // Stage management functions
   const startStage = useCallback(async (jobId: string, stageId: string) => {
@@ -202,19 +210,16 @@ export const useEnhancedProductionJobs = () => {
 
   // Real-time subscription for production jobs
   useEffect(() => {
-    if (!user?.id) return;
-
     console.log("Setting up real-time subscription for enhanced production jobs");
 
     const channel = supabase
-      .channel(`enhanced_production_jobs_${user.id}`)
+      .channel(`enhanced_production_jobs_global`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'production_jobs',
-          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
           console.log('Production jobs changed:', payload.eventType);
@@ -239,7 +244,7 @@ export const useEnhancedProductionJobs = () => {
       console.log("Cleaning up enhanced production jobs real-time subscription");
       supabase.removeChannel(channel);
     };
-  }, [user?.id, fetchJobs]);
+  }, [fetchJobs]);
 
   const refreshJobs = useCallback(() => {
     fetchJobs();
