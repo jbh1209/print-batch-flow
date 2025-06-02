@@ -19,7 +19,7 @@ interface ProductionStageCardProps {
   maxOrderIndex: number;
   onMoveStage: (stageId: string, direction: 'up' | 'down') => Promise<void>;
   onStageUpdate: () => void;
-  onDeleteStage: (stageId: string) => Promise<void>;
+  onDeleteStage: (stageId: string) => Promise<boolean>;
 }
 
 export const ProductionStageCard: React.FC<ProductionStageCardProps> = ({

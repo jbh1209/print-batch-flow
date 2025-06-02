@@ -32,7 +32,7 @@ interface ProductionStageActionsProps {
   maxOrderIndex: number;
   onMoveStage: (stageId: string, direction: 'up' | 'down') => Promise<void>;
   onStageUpdate: () => void;
-  onDeleteStage: (stageId: string) => Promise<void>;
+  onDeleteStage: (stageId: string) => Promise<boolean>;
 }
 
 export const ProductionStageActions: React.FC<ProductionStageActionsProps> = ({
@@ -42,6 +42,10 @@ export const ProductionStageActions: React.FC<ProductionStageActionsProps> = ({
   onStageUpdate,
   onDeleteStage
 }) => {
+  const handleDelete = async () => {
+    await onDeleteStage(stage.id);
+  };
+
   return (
     <div className="flex items-center gap-2">
       <div className="flex flex-col gap-1">
@@ -91,7 +95,7 @@ export const ProductionStageActions: React.FC<ProductionStageActionsProps> = ({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => onDeleteStage(stage.id)}>
+            <AlertDialogAction onClick={handleDelete}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
