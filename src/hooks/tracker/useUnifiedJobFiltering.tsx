@@ -21,14 +21,21 @@ export const useUnifiedJobFiltering = ({
   const { user } = useAuth();
   const { accessibleStages, isLoading: permissionsLoading } = useUserStagePermissions(user?.id);
 
+  // Extract accessible stage information outside of useMemo
+  const accessibleStageIds = useMemo(() => 
+    accessibleStages.map(stage => stage.stage_id), 
+    [accessibleStages]
+  );
+  
+  const accessibleStageNames = useMemo(() => 
+    accessibleStages.map(stage => stage.stage_name.toLowerCase()), 
+    [accessibleStages]
+  );
+
   const filteredJobs = useMemo(() => {
     if (permissionsLoading || !user) {
       return [];
     }
-
-    // Extract accessible stage information
-    const accessibleStageIds = accessibleStages.map(stage => stage.stage_id);
-    const accessibleStageNames = accessibleStages.map(stage => stage.stage_name.toLowerCase());
 
     console.log("🔍 Unified Job Filtering Debug:", {
       userId: user.id,
@@ -103,7 +110,7 @@ export const useUnifiedJobFiltering = ({
 
       return true;
     });
-  }, [jobs, accessibleStages, accessibleStageIds, accessibleStageNames, statusFilter, searchQuery, categoryFilter, stageFilter, permissionsLoading, user]);
+  }, [jobs, accessibleStageIds, accessibleStageNames, statusFilter, searchQuery, categoryFilter, stageFilter, permissionsLoading, user]);
 
   // Calculate job statistics based on filtered jobs
   const jobStats = useMemo(() => {
