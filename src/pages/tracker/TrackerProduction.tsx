@@ -4,6 +4,7 @@ import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
+import { useUnifiedJobFiltering } from "@/hooks/tracker/useUnifiedJobFiltering";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
@@ -24,7 +25,7 @@ const TrackerProduction = () => {
   const isMobile = useIsMobile();
   const { 
     jobs, 
-    isLoading, 
+    isLoading: jobsLoading, 
     refreshJobs, 
     startStage, 
     completeStage, 
@@ -38,22 +39,22 @@ const TrackerProduction = () => {
   // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
 
-  // Filter and sort jobs based on selected stage or other filters
-  const filteredJobs = useMemo(() => {
-    let filtered = jobs;
+  // Use unified filtering to get user's accessible jobs
+  const { 
+    filteredJobs, 
+    jobStats, 
+    accessibleStages, 
+    isLoading: filteringLoading 
+  } = useUnifiedJobFiltering({
+    jobs,
+    statusFilter: currentFilters.status,
+    stageFilter: currentFilters.stage,
+    categoryFilter: currentFilters.category
+  });
 
-    // Apply stage filter
-    if (currentFilters.stage) {
-      filtered = filtered.filter(job => job.current_stage === currentFilters.stage);
-    } else if (currentFilters.status) {
-      filtered = filtered.filter(job => 
-        job.status?.toLowerCase() === currentFilters.status.toLowerCase()
-      );
-    }
-    // If no filters are applied, show all jobs
-
-    // Sort the filtered jobs
-    filtered = [...filtered].sort((a, b) => {
+  // Apply additional sorting to the filtered jobs
+  const sortedJobs = useMemo(() => {
+    return [...filteredJobs].sort((a, b) => {
       let aValue, bValue;
       
       if (sortBy === 'wo_no') {
@@ -69,9 +70,7 @@ const TrackerProduction = () => {
       
       return 0;
     });
-
-    return filtered;
-  }, [jobs, currentFilters, sortBy, sortOrder]);
+  }, [filteredJobs, sortBy, sortOrder]);
 
   // Get jobs without categories (need category assignment instead of workflow init)
   const jobsWithoutCategory = useMemo(() => {
@@ -137,6 +136,16 @@ const TrackerProduction = () => {
     }
   };
 
+  const isLoading = jobsLoading || filteringLoading;
+
+  console.log("🔍 TrackerProduction - Unified Filtering Results:", {
+    totalJobs: jobs.length,
+    filteredJobs: filteredJobs.length,
+    sortedJobs: sortedJobs.length,
+    currentFilters,
+    accessibleStages: accessibleStages.length
+  });
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -150,7 +159,7 @@ const TrackerProduction = () => {
 
       {/* Statistics */}
       <ProductionStats 
-        jobs={jobs}
+        jobs={filteredJobs} // Use filtered jobs for stats
         jobsWithoutCategory={jobsWithoutCategory}
       />
 
@@ -166,11 +175,11 @@ const TrackerProduction = () => {
         onSort={handleSort}
       />
 
-      {/* Main Content - Now takes full width */}
+      {/* Main Content */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-auto bg-white rounded-lg border">
           <FilteredJobsView
-            jobs={filteredJobs}
+            jobs={sortedJobs}
             selectedStage={currentFilters.stage}
             isLoading={isLoading}
             onStageAction={handleStageAction}

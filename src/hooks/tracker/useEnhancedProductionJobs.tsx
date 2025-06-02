@@ -16,7 +16,7 @@ export const useEnhancedProductionJobs = () => {
       setIsLoading(true);
       console.log("🔍 Fetching enhanced production jobs...");
 
-      // First fetch ALL production jobs (not filtered by user_id since this is for the operator dashboard)
+      // Fetch ALL production jobs
       const { data: jobsData, error: fetchError } = await supabase
         .from('production_jobs')
         .select(`
@@ -37,7 +37,6 @@ export const useEnhancedProductionJobs = () => {
 
       console.log("📊 Raw jobs data:", jobsData?.length || 0, "jobs");
 
-      // Check if jobsData is an array before processing
       if (!Array.isArray(jobsData)) {
         console.error("Expected array but got:", jobsData);
         setJobs([]);
@@ -45,7 +44,7 @@ export const useEnhancedProductionJobs = () => {
         return;
       }
 
-      // Then fetch job stage instances for all jobs
+      // Fetch job stage instances for all jobs
       const jobIds = jobsData.map(job => job.id);
       let stagesData: any[] = [];
       
@@ -74,24 +73,42 @@ export const useEnhancedProductionJobs = () => {
         }
       }
 
-      // Process jobs and combine with stage data
+      // Process jobs with enhanced stage information
       const processedJobs = jobsData.map(job => {
-        // Ensure WO number has proper D prefix formatting
         const formattedWoNo = formatWONumber(job.wo_no);
         
         // Get stages for this job
         const jobStages = stagesData.filter(stage => stage.job_id === job.id);
         const hasWorkflow = jobStages.length > 0;
-        const currentStage = jobStages.find(s => s.status === 'active');
-        const completedStages = jobStages.filter(s => s.status === 'completed').length;
-        const totalStages = jobStages.length;
         
-        // Create properly structured stages array with consistent field naming
+        // Find current active stage
+        const activeStage = jobStages.find(s => s.status === 'active');
+        const pendingStages = jobStages.filter(s => s.status === 'pending');
+        const completedStages = jobStages.filter(s => s.status === 'completed');
+        
+        // Determine current stage - prioritize active stage, then first pending, then fallback to job status
+        let currentStage = job.status || 'Unknown';
+        let currentStageId = null;
+        
+        if (activeStage) {
+          currentStage = activeStage.production_stages?.name || 'Active Stage';
+          currentStageId = activeStage.production_stage_id;
+        } else if (pendingStages.length > 0) {
+          // If no active stage, the first pending stage is current
+          const firstPending = pendingStages.sort((a, b) => a.stage_order - b.stage_order)[0];
+          currentStage = firstPending.production_stages?.name || 'Pending Stage';
+          currentStageId = firstPending.production_stage_id;
+        }
+        
+        // Calculate workflow progress
+        const totalStages = jobStages.length;
+        const workflowProgress = totalStages > 0 ? Math.round((completedStages.length / totalStages) * 100) : 0;
+        
+        // Create properly structured stages array
         const processedStages = jobStages.map(stage => ({
           ...stage,
-          // Ensure we have the correct stage ID field for filtering
           production_stage_id: stage.production_stage_id,
-          stage_id: stage.production_stage_id, // Add alias for compatibility
+          stage_id: stage.production_stage_id, // Alias for compatibility
           stage_name: stage.production_stages?.name || 'Unknown Stage',
           stage_color: stage.production_stages?.color || '#6B7280',
           status: stage.status
@@ -101,26 +118,31 @@ export const useEnhancedProductionJobs = () => {
           ...job,
           wo_no: formattedWoNo,
           has_workflow: hasWorkflow,
-          current_stage: currentStage?.production_stages?.name || job.status || 'DTP',
-          current_stage_id: currentStage?.production_stage_id || null,
-          workflow_progress: totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0,
+          current_stage: currentStage,
+          current_stage_id: currentStageId,
+          workflow_progress: workflowProgress,
           job_stage_instances: jobStages,
           stages: processedStages,
-          // Include category_id for filtering
-          category_id: job.category_id || null
+          category_id: job.category_id || null,
+          // Ensure we have consistent status handling
+          status: job.status || currentStage,
+          // Add computed fields for easier filtering
+          is_active: activeStage ? true : false,
+          is_pending: !activeStage && pendingStages.length > 0,
+          is_completed: jobStages.length > 0 && completedStages.length === totalStages,
+          stage_status: activeStage ? 'active' : (pendingStages.length > 0 ? 'pending' : 'unknown')
         };
 
-        console.log("📋 Processed job:", {
+        console.log("📋 Enhanced job processing:", {
           woNo: processedJob.wo_no,
-          status: processedJob.status,
+          originalStatus: job.status,
           currentStage: processedJob.current_stage,
+          currentStageId: processedJob.current_stage_id?.substring(0, 8),
           hasWorkflow: processedJob.has_workflow,
           stagesCount: processedJob.stages.length,
-          stageIds: processedJob.stages.map(s => ({ 
-            id: s.production_stage_id, 
-            name: s.stage_name, 
-            status: s.status 
-          }))
+          workflowProgress: processedJob.workflow_progress,
+          isActive: processedJob.is_active,
+          isPending: processedJob.is_pending
         });
 
         return processedJob;
@@ -136,7 +158,7 @@ export const useEnhancedProductionJobs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []); // Remove user dependency to fetch all jobs
+  }, []);
 
   // Stage management functions
   const startStage = useCallback(async (jobId: string, stageId: string) => {

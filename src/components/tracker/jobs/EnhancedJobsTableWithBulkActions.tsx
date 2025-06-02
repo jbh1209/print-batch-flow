@@ -1,8 +1,8 @@
-
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { RefreshCw } from "lucide-react";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
+import { useUnifiedJobFiltering } from "@/hooks/tracker/useUnifiedJobFiltering";
 import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,7 +13,6 @@ import { CustomWorkflowModal } from "./CustomWorkflowModal";
 import { useJobsTableFilters } from "./JobsTableFilters";
 import { useJobsTableSorting } from "./JobsTableSorting";
 import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
-import { useJobStatusFiltering } from "@/hooks/tracker/useJobStatusFiltering";
 import { BulkDeleteHandler } from "./BulkDeleteHandler";
 import { EnhancedJobsTableHeader } from "./EnhancedJobsTableHeader";
 import { JobsTableBulkActionsBar } from "./JobsTableBulkActionsBar";
@@ -26,9 +25,18 @@ interface EnhancedJobsTableWithBulkActionsProps {
 export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBulkActionsProps> = ({ 
   statusFilter 
 }) => {
-  const { jobs, isLoading, refreshJobs } = useEnhancedProductionJobs();
+  const { jobs, isLoading: jobsLoading, refreshJobs } = useEnhancedProductionJobs();
   const { categories } = useProductionCategories();
   
+  // Use unified filtering to get user's accessible jobs
+  const { 
+    filteredJobs: accessibleJobs, 
+    isLoading: filteringLoading 
+  } = useUnifiedJobFiltering({
+    jobs,
+    statusFilter
+  });
+
   const {
     selectedJobs,
     setSelectedJobs,
@@ -67,12 +75,9 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   const [showCustomWorkflow, setShowCustomWorkflow] = React.useState(false);
   const [customWorkflowJob, setCustomWorkflowJob] = React.useState<any>(null);
 
-  // Apply status filter from sidebar
-  const { statusFilteredJobs } = useJobStatusFiltering({ jobs, statusFilter });
-
-  // Use filtering hook with status filtered jobs
+  // Apply additional filtering to accessible jobs (search, column filters)
   const { filteredJobs, availableCategories, availableStatuses, availableStages } = useJobsTableFilters({
-    jobs: statusFilteredJobs,
+    jobs: accessibleJobs, // Use accessible jobs instead of all jobs
     searchQuery,
     columnFilters
   });
@@ -82,6 +87,16 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     jobs: filteredJobs,
     sortField,
     sortOrder
+  });
+
+  console.log("🔍 EnhancedJobsTable - Processing:", {
+    totalJobs: jobs.length,
+    accessibleJobs: accessibleJobs.length,
+    filteredJobs: filteredJobs.length,
+    finalJobs: filteredAndSortedJobs.length,
+    statusFilter,
+    searchQuery,
+    columnFilters
   });
 
   const handleEditJob = (job: any) => {
@@ -164,6 +179,8 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     refreshJobs();
   };
 
+  const isLoading = jobsLoading || filteringLoading;
+
   if (isLoading) {
     return (
       <Card>
@@ -177,7 +194,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
 
   return (
     <div className="space-y-4">
-      {/* Header and Search - No status filters here */}
+      {/* Header and Search */}
       <EnhancedJobsTableHeader
         jobCount={filteredAndSortedJobs.length}
         searchQuery={searchQuery}
@@ -215,12 +232,12 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
             onBulkDelete={onShowDialog}
             onClearSelection={() => setSelectedJobs([])}
             onCustomWorkflow={handleCustomWorkflow}
-            selectedJobs={jobs.filter(job => selectedJobs.includes(job.id))}
+            selectedJobs={accessibleJobs.filter(job => selectedJobs.includes(job.id))}
           />
         )}
       </BulkDeleteHandler>
 
-      {/* Jobs Table with ScrollArea */}
+      {/* Jobs Table */}
       <JobsTableContent
         jobs={filteredAndSortedJobs}
         selectedJobs={selectedJobs}
