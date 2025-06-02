@@ -100,6 +100,9 @@ export const QuickStagePermissionCheck = () => {
 
         if (error) throw error;
       } else {
+        // Get current user ID
+        const { data: { user } } = await supabase.auth.getUser();
+        
         // Create new permission
         const newPermission = {
           user_group_id: groupId,
@@ -108,7 +111,7 @@ export const QuickStagePermissionCheck = () => {
           can_edit: permissionType === 'can_edit' ? value : false,
           can_work: permissionType === 'can_work' ? value : false,
           can_manage: permissionType === 'can_manage' ? value : false,
-          assigned_by: (await supabase.auth.getUser()).data.user?.id
+          assigned_by: user?.id || null
         };
 
         const { error } = await supabase
@@ -129,7 +132,9 @@ export const QuickStagePermissionCheck = () => {
 
   const grantBasicAccessToGroup = async (groupId: string) => {
     try {
-      const promises = productionStages.map(stage => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const promises = productionStages.map(async (stage) => {
         const existing = getPermissionForGroupAndStage(groupId, stage.id);
         if (!existing) {
           return supabase
@@ -141,7 +146,7 @@ export const QuickStagePermissionCheck = () => {
               can_work: true,
               can_edit: false,
               can_manage: false,
-              assigned_by: (supabase.auth.getUser()).then(u => u.data.user?.id)
+              assigned_by: user?.id || null
             });
         }
         return Promise.resolve();

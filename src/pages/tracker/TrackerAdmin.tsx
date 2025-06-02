@@ -88,7 +88,10 @@ const TrackerAdmin = () => {
               <CardTitle>Barcode & QR Labels</CardTitle>
             </CardHeader>
             <CardContent>
-              <BarcodeLabelsManager />
+              <BarcodeLabelsManager 
+                selectedJobs={[]} 
+                onClose={() => {}}
+              />
             </CardContent>
           </Card>
         </TabsContent>
