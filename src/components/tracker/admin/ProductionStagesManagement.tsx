@@ -1,29 +1,18 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, MoveUp, MoveDown, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { ProductionStageForm } from "./ProductionStageForm";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
-import { StagePermissionsManager } from "./StagePermissionsManager";
+import { ProductionStagesList } from "./ProductionStagesList";
 
 export const ProductionStagesManagement = () => {
-  const { stages, isLoading, error, createStage, updateStage, deleteStage } = useProductionStages();
+  const { stages, isLoading, error, updateStage, deleteStage } = useProductionStages();
 
   const moveStage = async (stageId: string, direction: 'up' | 'down') => {
     const currentStage = stages.find(s => s.id === stageId);
@@ -40,7 +29,9 @@ export const ProductionStagesManagement = () => {
     await updateStage(targetStage.id, { order_index: currentIndex });
   };
 
-  const maxOrderIndex = Math.max(...stages.map(s => s.order_index), 0);
+  const handleStageUpdate = () => {
+    window.location.reload();
+  };
 
   if (isLoading) {
     return (
@@ -77,7 +68,7 @@ export const ProductionStagesManagement = () => {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Production Stages Management</CardTitle>
           <ProductionStageForm 
-            onSave={() => window.location.reload()} 
+            onSave={handleStageUpdate} 
             onCancel={() => {}}
             trigger={
               <Button>
@@ -88,95 +79,12 @@ export const ProductionStagesManagement = () => {
           />
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {stages.map((stage) => (
-              <div key={stage.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => moveStage(stage.id, 'up')}
-                      disabled={stage.order_index === 1}
-                    >
-                      <MoveUp className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => moveStage(stage.id, 'down')}
-                      disabled={stage.order_index === maxOrderIndex}
-                    >
-                      <MoveDown className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: stage.color }}
-                  />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium">{stage.name}</h3>
-                      <Badge variant="outline">Order: {stage.order_index}</Badge>
-                      {!stage.is_active && <Badge variant="secondary">Inactive</Badge>}
-                      {stage.is_multi_part && <Badge variant="default">Multi-Part</Badge>}
-                    </div>
-                    {stage.description && (
-                      <p className="text-sm text-gray-600">{stage.description}</p>
-                    )}
-                    {stage.is_multi_part && stage.part_definitions.length > 0 && (
-                      <div className="flex gap-1 mt-1">
-                        {stage.part_definitions.map((part, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            {part}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <StagePermissionsManager stage={stage} />
-                  <ProductionStageForm 
-                    stage={stage} 
-                    onSave={() => window.location.reload()}
-                    onCancel={() => {}}
-                    trigger={
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    }
-                  />
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Production Stage</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{stage.name}"? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteStage(stage.id)}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-            ))}
-            {stages.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No production stages found. Create your first stage to get started.
-              </div>
-            )}
-          </div>
+          <ProductionStagesList
+            stages={stages}
+            onMoveStage={moveStage}
+            onStageUpdate={handleStageUpdate}
+            onDeleteStage={deleteStage}
+          />
         </CardContent>
       </Card>
     </ErrorBoundary>
