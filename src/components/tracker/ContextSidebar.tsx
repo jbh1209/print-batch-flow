@@ -1,23 +1,27 @@
-import React, { useState } from "react";
+
+import React from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { 
-  Filter, 
-  Calendar, 
-  User, 
+  Users, 
   Package, 
+  BarChart3, 
+  FileSpreadsheet, 
   Settings,
-  Play,
+  Filter,
+  Calendar,
   Clock,
-  CheckCircle,
   AlertCircle,
-  Search,
-  Download,
-  Upload,
-  QrCode
+  CheckCircle,
+  Layers,
+  Factory
 } from "lucide-react";
 
 interface ContextSidebarProps {
@@ -25,356 +29,483 @@ interface ContextSidebarProps {
   onFilterChange?: (filters: any) => void;
 }
 
-export const ContextSidebar: React.FC<ContextSidebarProps> = ({ 
-  activeTab, 
-  onFilterChange 
-}) => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-
-  const handleFilterToggle = (filter: string) => {
-    const newFilters = selectedFilters.includes(filter)
-      ? selectedFilters.filter(f => f !== filter)
-      : [...selectedFilters, filter];
-    
-    setSelectedFilters(newFilters);
-    onFilterChange?.({ search: searchQuery, filters: newFilters });
+export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProps) => {
+  const handleFilterChange = (filterType: string, value: any) => {
+    if (onFilterChange) {
+      onFilterChange({ [filterType]: value });
+    }
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    onFilterChange?.({ search: value, filters: selectedFilters });
-  };
+  const renderDashboardSidebar = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5" />
+          Quick Stats
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="text-center p-2 bg-blue-50 rounded">
+            <div className="text-lg font-bold text-blue-600">142</div>
+            <div className="text-xs text-gray-600">Active Jobs</div>
+          </div>
+          <div className="text-center p-2 bg-green-50 rounded">
+            <div className="text-lg font-bold text-green-600">28</div>
+            <div className="text-xs text-gray-600">Completed</div>
+          </div>
+        </div>
+        <Separator />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">On Schedule</span>
+            <Badge variant="secondary">85%</Badge>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Overdue</span>
+            <Badge variant="destructive">12</Badge>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
-  const renderOrdersContent = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Search className="h-4 w-4" />
-            Quick Search
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Input
-            placeholder="Search jobs, customers..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full"
+  const renderOrdersSidebar = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Filter className="h-5 w-5" />
+          Filters
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="status-filter">Status</Label>
+          <Select onValueChange={(value) => handleFilterChange('status', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="on-hold">On Hold</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="priority-filter">Priority</Label>
+          <Select onValueChange={(value) => handleFilterChange('priority', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Priorities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="date-filter">Due Date</Label>
+          <Select onValueChange={(value) => handleFilterChange('dueDate', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Dates" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Dates</SelectItem>
+              <SelectItem value="today">Due Today</SelectItem>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="overdue">Overdue</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="search">Search Jobs</Label>
+          <Input 
+            id="search"
+            placeholder="Job number, customer..."
+            onChange={(e) => handleFilterChange('search', e.target.value)}
           />
-        </CardContent>
-      </Card>
+        </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            Status Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {[
-            { id: 'completed', label: 'Completed', icon: CheckCircle, color: 'text-green-500', count: 12 },
-            { id: 'in-progress', label: 'In Progress', icon: Play, color: 'text-blue-500', count: 8 },
-            { id: 'pending', label: 'Pending', icon: Clock, color: 'text-yellow-500', count: 15 },
-            { id: 'overdue', label: 'Overdue', icon: AlertCircle, color: 'text-red-500', count: 3 }
-          ].map(status => (
-            <Button 
-              key={status.id}
-              variant={selectedFilters.includes(status.id) ? "default" : "ghost"} 
-              size="sm" 
-              className="w-full justify-start"
-              onClick={() => handleFilterToggle(status.id)}
-            >
-              <status.icon className={`h-4 w-4 mr-2 ${status.color}`} />
-              {status.label} 
-              <Badge variant="secondary" className="ml-auto">{status.count}</Badge>
+        <Separator />
+        
+        <div className="space-y-2">
+          <Label>Quick Filters</Label>
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="urgent" onCheckedChange={(checked) => handleFilterChange('urgent', checked)} />
+              <Label htmlFor="urgent" className="text-sm">Urgent Only</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="my-jobs" onCheckedChange={(checked) => handleFilterChange('myJobs', checked)} />
+              <Label htmlFor="my-jobs" className="text-sm">My Jobs</Label>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderProductionSidebar = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Package className="h-5 w-5" />
+          Production Overview
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              Design
+            </span>
+            <Badge variant="secondary">24</Badge>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              Printing
+            </span>
+            <Badge variant="secondary">18</Badge>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm flex items-center gap-2">
+              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+              Finishing
+            </span>
+            <Badge variant="secondary">12</Badge>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              Quality Check
+            </span>
+            <Badge variant="secondary">8</Badge>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Label>Filter by Stage</Label>
+          <Select onValueChange={(value) => handleFilterChange('stage', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Stages" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Stages</SelectItem>
+              <SelectItem value="design">Design</SelectItem>
+              <SelectItem value="printing">Printing</SelectItem>
+              <SelectItem value="finishing">Finishing</SelectItem>
+              <SelectItem value="quality">Quality Check</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Filter by Operator</Label>
+          <Select onValueChange={(value) => handleFilterChange('operator', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Operators" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Operators</SelectItem>
+              <SelectItem value="john">John Smith</SelectItem>
+              <SelectItem value="sarah">Sarah Johnson</SelectItem>
+              <SelectItem value="mike">Mike Wilson</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderKanbanSidebar = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Layers className="h-5 w-5" />
+          Kanban Controls
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>View Mode</Label>
+          <Select defaultValue="all" onValueChange={(value) => handleFilterChange('viewMode', value)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Jobs</SelectItem>
+              <SelectItem value="my-jobs">My Jobs Only</SelectItem>
+              <SelectItem value="urgent">Urgent Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Group By</Label>
+          <Select defaultValue="stage" onValueChange={(value) => handleFilterChange('groupBy', value)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="stage">Production Stage</SelectItem>
+              <SelectItem value="priority">Priority</SelectItem>
+              <SelectItem value="operator">Operator</SelectItem>
+              <SelectItem value="due-date">Due Date</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Label>Quick Actions</Label>
+          <div className="space-y-1">
+            <Button variant="outline" size="sm" className="w-full justify-start">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Mark Complete
             </Button>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Due Dates
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {[
-            { id: 'today', label: 'Due Today', count: 2, variant: 'destructive' as const },
-            { id: 'week', label: 'This Week', count: 7, variant: 'secondary' as const },
-            { id: 'next-week', label: 'Next Week', count: 12, variant: 'secondary' as const }
-          ].map(period => (
-            <Button 
-              key={period.id}
-              variant={selectedFilters.includes(period.id) ? "default" : "ghost"} 
-              size="sm" 
-              className="w-full justify-start"
-              onClick={() => handleFilterToggle(period.id)}
-            >
-              {period.label} 
-              <Badge variant={period.variant} className="ml-auto">{period.count}</Badge>
+            <Button variant="outline" size="sm" className="w-full justify-start">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Report Issue
             </Button>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <QrCode className="h-4 w-4" />
-            Quick Actions
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Upload className="h-4 w-4 mr-2" />
-            Import Jobs
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Download className="h-4 w-4 mr-2" />
-            Export Data
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <QrCode className="h-4 w-4 mr-2" />
-            Print QR Labels
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  // For production tab, we don't need the sidebar since we have the dynamic one
-  const renderProductionContent = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Production Tools</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Workflow Analytics
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Stage Timing Report
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Bottleneck Analysis
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const renderKanbanContent = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Board Configuration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button 
-            variant={selectedFilters.includes('group-status') ? "default" : "ghost"} 
-            size="sm" 
-            className="w-full justify-start"
-            onClick={() => handleFilterToggle('group-status')}
-          >
-            Group by Status
-          </Button>
-          <Button 
-            variant={selectedFilters.includes('group-category') ? "default" : "ghost"} 
-            size="sm" 
-            className="w-full justify-start"
-            onClick={() => handleFilterToggle('group-category')}
-          >
-            Group by Category
-          </Button>
-          <Button 
-            variant={selectedFilters.includes('group-priority') ? "default" : "ghost"} 
-            size="sm" 
-            className="w-full justify-start"
-            onClick={() => handleFilterToggle('group-priority')}
-          >
-            Group by Priority
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">View Options</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Compact View
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Detailed View
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Timeline View
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Board Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Download className="h-4 w-4 mr-2" />
-            Export Board
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Settings className="h-4 w-4 mr-2" />
-            Configure Columns
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const renderWorksheetsContent = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Worksheet Types</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Daily Production
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Quality Control
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Time Tracking
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            Material Usage
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Generate Reports</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Download className="h-4 w-4 mr-2" />
-            Daily Summary
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Download className="h-4 w-4 mr-2" />
-            Weekly Report
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Download className="h-4 w-4 mr-2" />
-            Monthly Analysis
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const renderSetupContent = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Configuration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Settings className="h-4 w-4 mr-2" />
-            Categories
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Settings className="h-4 w-4 mr-2" />
-            Production Stages
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <User className="h-4 w-4 mr-2" />
-            User Management
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Package className="h-4 w-4 mr-2" />
-            Equipment Setup
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Data Management</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Upload className="h-4 w-4 mr-2" />
-            Import Excel
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Download className="h-4 w-4 mr-2" />
-            Export Data
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start">
-            <Settings className="h-4 w-4 mr-2" />
-            Backup Settings
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">System Status</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Database</span>
-            <Badge className="bg-green-500 text-white">Online</Badge>
+            <Button variant="outline" size="sm" className="w-full justify-start">
+              <Clock className="h-4 w-4 mr-2" />
+              Update Status
+            </Button>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">QR Scanner</span>
-            <Badge className="bg-green-500 text-white">Ready</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Real-time Sync</span>
-            <Badge className="bg-green-500 text-white">Active</Badge>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 
-  const getContent = () => {
+  const renderFactoryFloorSidebar = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Factory className="h-5 w-5" />
+          Factory Floor
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Department</Label>
+          <Select onValueChange={(value) => handleFilterChange('department', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              <SelectItem value="design">Design</SelectItem>
+              <SelectItem value="printing">Printing</SelectItem>
+              <SelectItem value="finishing">Finishing</SelectItem>
+              <SelectItem value="quality">Quality Control</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Shift</Label>
+          <Select onValueChange={(value) => handleFilterChange('shift', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Current Shift" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">Current Shift</SelectItem>
+              <SelectItem value="morning">Morning (6AM-2PM)</SelectItem>
+              <SelectItem value="afternoon">Afternoon (2PM-10PM)</SelectItem>
+              <SelectItem value="night">Night (10PM-6AM)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Label>Live Status</Label>
+          <div className="space-y-1 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                Active Operators
+              </span>
+              <Badge variant="secondary">12</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                On Break
+              </span>
+              <Badge variant="secondary">3</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                Machine Issues
+              </span>
+              <Badge variant="secondary">1</Badge>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderWorksheetsSidebar = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileSpreadsheet className="h-5 w-5" />
+          Worksheets
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Worksheet Type</Label>
+          <Select onValueChange={(value) => handleFilterChange('worksheetType', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="production">Production</SelectItem>
+              <SelectItem value="quality">Quality Control</SelectItem>
+              <SelectItem value="maintenance">Maintenance</SelectItem>
+              <SelectItem value="inventory">Inventory</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Date Range</Label>
+          <Select onValueChange={(value) => handleFilterChange('dateRange', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="This Week" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Label>Quick Actions</Label>
+          <div className="space-y-1">
+            <Button variant="outline" size="sm" className="w-full justify-start">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              New Worksheet
+            </Button>
+            <Button variant="outline" size="sm" className="w-full justify-start">
+              <Calendar className="h-4 w-4 mr-2" />
+              Schedule Report
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderSetupSidebar = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Settings className="h-5 w-5" />
+          Administration
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Quick Access</Label>
+          <div className="space-y-1">
+            <Button variant="outline" size="sm" className="w-full justify-start" asChild>
+              <Link to="/tracker/users">
+                <Users className="h-4 w-4 mr-2" />
+                User Management
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="w-full justify-start">
+              <Package className="h-4 w-4 mr-2" />
+              Product Categories
+            </Button>
+            <Button variant="outline" size="sm" className="w-full justify-start">
+              <Settings className="h-4 w-4 mr-2" />
+              System Settings
+            </Button>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Label>System Status</Label>
+          <div className="space-y-1 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                Database
+              </span>
+              <Badge variant="secondary">Online</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                Printers
+              </span>
+              <Badge variant="secondary">4/4</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                Backup
+              </span>
+              <Badge variant="secondary">2h ago</Badge>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const getSidebarContent = () => {
     switch (activeTab) {
-      case "orders":
-        return renderOrdersContent();
-      case "production":
-        return renderProductionContent();
-      case "kanban":
-        return renderKanbanContent();
-      case "worksheets":
-        return renderWorksheetsContent();
-      case "setup":
-        return renderSetupContent();
+      case 'dashboard':
+        return renderDashboardSidebar();
+      case 'orders':
+        return renderOrdersSidebar();
+      case 'production':
+        return renderProductionSidebar();
+      case 'kanban':
+        return renderKanbanSidebar();
+      case 'factory-floor':
+        return renderFactoryFloorSidebar();
+      case 'worksheets':
+        return renderWorksheetsSidebar();
+      case 'setup':
+        return renderSetupSidebar();
       default:
-        return renderOrdersContent();
+        return renderDashboardSidebar();
     }
   };
 
   return (
-    <div className="w-64 bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto">
-      <div className="mb-4">
-        <h3 className="font-semibold text-gray-800 mb-2">
-          {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Tools
-        </h3>
-        <Separator />
-      </div>
-      {getContent()}
+    <div className="w-80 border-r border-gray-200 bg-white p-4 overflow-y-auto">
+      {getSidebarContent()}
     </div>
   );
 };
