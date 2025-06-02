@@ -3,15 +3,17 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { RefreshCw, Clock, CheckCircle, AlertTriangle, Bug } from "lucide-react";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
 import { useUnifiedJobFiltering } from "@/hooks/tracker/useUnifiedJobFiltering";
 import { useAuth } from "@/hooks/useAuth";
+import { DataFlowDiagnostic } from "../diagnostics/DataFlowDiagnostic";
 
 export const OperatorDashboard = () => {
   const { user } = useAuth();
   const { jobs, isLoading: jobsLoading, refreshJobs } = useEnhancedProductionJobs();
   const [refreshing, setRefreshing] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // Use unified filtering to get user's accessible jobs
   const { 
@@ -39,6 +41,10 @@ export const OperatorDashboard = () => {
 
   const isLoading = jobsLoading || filteringLoading;
 
+  if (showDiagnostics) {
+    return <DataFlowDiagnostic />;
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8 h-full">
@@ -58,6 +64,14 @@ export const OperatorDashboard = () => {
             <p className="text-gray-600 text-center">
               You don't have access to any production stages. Please contact your administrator to assign you to the appropriate user groups.
             </p>
+            <Button 
+              onClick={() => setShowDiagnostics(true)}
+              variant="outline"
+              className="mt-4 flex items-center gap-2"
+            >
+              <Bug className="h-4 w-4" />
+              Run Diagnostics
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -76,15 +90,25 @@ export const OperatorDashboard = () => {
           </p>
         </div>
         
-        <Button 
-          variant="outline" 
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowDiagnostics(true)}
+            className="flex items-center gap-2"
+          >
+            <Bug className="h-4 w-4" />
+            Debug
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Quick Stats */}
@@ -200,9 +224,17 @@ export const OperatorDashboard = () => {
             <div className="text-center py-8">
               <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Jobs Found</h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-4">
                 No jobs are currently available for your accessible stages.
               </p>
+              <Button 
+                onClick={() => setShowDiagnostics(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Bug className="h-4 w-4" />
+                Run Diagnostics
+              </Button>
             </div>
           </CardContent>
         </Card>
