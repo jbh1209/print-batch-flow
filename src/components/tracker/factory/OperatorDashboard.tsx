@@ -20,35 +20,83 @@ export const OperatorDashboard = () => {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  // Filter jobs based on user's accessible stages
+  // Filter jobs based on user's accessible stages - improved logic
   const accessibleStageIds = accessibleStages.map(stage => stage.stage_id);
   
-  const userJobs = jobs.filter(job => {
-    // Check if job has stage instances that match user's accessible stages
-    return job.stages?.some(stage => 
-      accessibleStageIds.includes(stage.production_stage_id) && 
-      (stage.status === 'active' || stage.status === 'pending')
-    ) || 
-    // Fallback: check if job's current stage is accessible
-    (job.current_stage && accessibleStageIds.some(stageId => {
-      const stage = accessibleStages.find(s => s.stage_id === stageId);
-      return stage?.stage_name === job.current_stage;
-    }));
+  console.log("🔍 Operator Dashboard Debug Info:", {
+    userId: user?.id,
+    totalJobs: jobs.length,
+    accessibleStages: accessibleStages.length,
+    accessibleStageIds,
+    stageNames: accessibleStages.map(s => s.stage_name)
   });
 
-  const pendingJobs = userJobs.filter(job => 
-    job.stages?.some(stage => 
+  const userJobs = jobs.filter(job => {
+    // Debug each job
+    console.log("🔍 Checking job:", {
+      woNo: job.wo_no,
+      jobId: job.id,
+      hasStages: !!job.stages,
+      stagesCount: job.stages?.length || 0,
+      currentStage: job.current_stage,
+      status: job.status
+    });
+
+    // Check if job has stage instances that match user's accessible stages
+    const hasAccessibleStages = job.stages?.some(stage => {
+      const hasAccess = accessibleStageIds.includes(stage.production_stage_id);
+      const isActiveOrPending = ['active', 'pending'].includes(stage.status);
+      
+      console.log("  📋 Stage check:", {
+        stageName: stage.stage_name,
+        stageId: stage.production_stage_id,
+        status: stage.status,
+        hasAccess,
+        isActiveOrPending
+      });
+      
+      return hasAccess && isActiveOrPending;
+    });
+
+    // Also check jobs without workflow but with accessible current stage
+    const hasAccessibleCurrentStage = job.current_stage && 
+      accessibleStages.some(stage => stage.stage_name === job.current_stage);
+
+    // Include jobs that are not yet completed and have accessible stages
+    const isNotCompleted = !['completed', 'shipped'].includes(job.status?.toLowerCase() || '');
+    
+    const shouldInclude = isNotCompleted && (hasAccessibleStages || hasAccessibleCurrentStage);
+    
+    console.log("  ✅ Job decision:", {
+      woNo: job.wo_no,
+      hasAccessibleStages,
+      hasAccessibleCurrentStage,
+      isNotCompleted,
+      shouldInclude
+    });
+
+    return shouldInclude;
+  });
+
+  console.log("📊 Final user jobs:", userJobs.length);
+
+  const pendingJobs = userJobs.filter(job => {
+    const hasPendingStages = job.stages?.some(stage => 
       accessibleStageIds.includes(stage.production_stage_id) && 
       stage.status === 'pending'
-    ) || job.status === 'pending'
-  );
+    );
+    const isPending = job.status?.toLowerCase() === 'pending';
+    return hasPendingStages || isPending;
+  });
 
-  const inProgressJobs = userJobs.filter(job => 
-    job.stages?.some(stage => 
+  const inProgressJobs = userJobs.filter(job => {
+    const hasActiveStages = job.stages?.some(stage => 
       accessibleStageIds.includes(stage.production_stage_id) && 
       stage.status === 'active'
-    ) || job.status === 'in-progress'
-  );
+    );
+    const isInProgress = ['in-progress', 'active'].includes(job.status?.toLowerCase() || '');
+    return hasActiveStages || isInProgress;
+  });
 
   const completedTodayJobs = userJobs.filter(job => {
     const today = new Date().toDateString();
@@ -147,6 +195,60 @@ export const OperatorDashboard = () => {
         </Card>
       </div>
 
+      {/* Accessible Jobs List */}
+      {userJobs.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Your Jobs
+              <Badge variant="outline">{userJobs.length} jobs</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {userJobs.slice(0, 10).map((job) => (
+                <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <h4 className="font-medium">{job.wo_no}</h4>
+                      {job.current_stage && (
+                        <Badge variant="outline" className="text-xs">
+                          {job.current_stage}
+                        </Badge>
+                      )}
+                      {job.status && (
+                        <Badge variant="secondary" className="text-xs">
+                          {job.status}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      {job.customer && <span>Customer: {job.customer}</span>}
+                      {job.reference && <span> • Reference: {job.reference}</span>}
+                      {job.due_date && (
+                        <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {job.workflow_progress > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {job.workflow_progress}% Complete
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {userJobs.length > 10 && (
+                <p className="text-sm text-gray-500 text-center">
+                  And {userJobs.length - 10} more jobs...
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Accessible Stages */}
       <Card>
         <CardHeader>
@@ -213,29 +315,56 @@ export const OperatorDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Debug Information */}
-      {userJobs.length === 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-orange-600">Debug Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <p><strong>Total jobs in system:</strong> {jobs.length}</p>
-              <p><strong>Accessible stages:</strong> {accessibleStages.map(s => s.stage_name).join(', ')}</p>
-              <p><strong>Stage IDs:</strong> {accessibleStageIds.join(', ')}</p>
-              {jobs.length > 0 && (
-                <div>
-                  <p><strong>Sample job stages:</strong></p>
-                  <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto">
-                    {JSON.stringify(jobs[0], null, 2)}
-                  </pre>
-                </div>
-              )}
+      {/* Enhanced Debug Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-orange-600">Debug Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p><strong>User ID:</strong> {user?.id}</p>
+                <p><strong>Total jobs in system:</strong> {jobs.length}</p>
+                <p><strong>Jobs matching criteria:</strong> {userJobs.length}</p>
+                <p><strong>Accessible stages:</strong> {accessibleStages.length}</p>
+              </div>
+              <div>
+                <p><strong>Pending jobs:</strong> {pendingJobs.length}</p>
+                <p><strong>In-progress jobs:</strong> {inProgressJobs.length}</p>
+                <p><strong>Completed today:</strong> {completedTodayJobs.length}</p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            
+            <div>
+              <p><strong>Accessible stage names:</strong></p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {accessibleStages.map(s => (
+                  <Badge key={s.stage_id} variant="outline" className="text-xs">
+                    {s.stage_name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            
+            {jobs.length > 0 && userJobs.length === 0 && (
+              <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
+                <p><strong>Troubleshooting:</strong> No jobs match your stage permissions.</p>
+                <p className="mt-1">Sample job data:</p>
+                <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto mt-2 max-h-32">
+                  {JSON.stringify({
+                    wo_no: jobs[0]?.wo_no,
+                    status: jobs[0]?.status,
+                    current_stage: jobs[0]?.current_stage,
+                    stages_count: jobs[0]?.stages?.length,
+                    first_stage: jobs[0]?.stages?.[0]
+                  }, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
