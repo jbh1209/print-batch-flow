@@ -40,7 +40,7 @@ export const checkJobAccess = (
     return stageAccessible;
   }) || false;
 
-  // Step 2: Check current stage by name for jobs with/without workflows
+  // Step 2: Check current stage by name for jobs with/without workflows (ENHANCED)
   const currentStageAccessible = job.current_stage && 
     accessibleStageNames.includes(job.current_stage.toLowerCase());
 
@@ -48,28 +48,45 @@ export const checkJobAccess = (
   const statusBasedAccess = job.status && 
     accessibleStageNames.includes(job.status.toLowerCase());
 
-  // Step 4: Special handling for jobs without workflows
+  // Step 4: ENHANCED - Special handling for jobs without workflows
   const noWorkflowAccess = !job.has_workflow && (
     currentStageAccessible || 
     statusBasedAccess ||
     // Default access for DTP users on jobs with no specific stage
-    (!job.current_stage && !job.status && accessibleStageNames.includes('dtp'))
+    (!job.current_stage && !job.status && accessibleStageNames.includes('dtp')) ||
+    // Fallback for jobs with generic statuses that should be accessible to DTP
+    (job.status?.toLowerCase() === 'pre-press' && accessibleStageNames.includes('dtp'))
   );
+
+  // NEW Step 5: Direct stage name matching for current_stage
+  const directStageAccess = job.current_stage && 
+    accessibleStageNames.some(name => 
+      name.toLowerCase() === job.current_stage.toLowerCase()
+    );
 
   // Combine all access checks
   const isAccessible = hasAccessibleWorkflowStages || 
                       currentStageAccessible || 
                       statusBasedAccess ||
-                      noWorkflowAccess;
+                      noWorkflowAccess ||
+                      directStageAccess;
 
   const accessReasons = {
     hasAccessibleWorkflowStages,
     currentStageAccessible,
     statusBasedAccess,
-    noWorkflowAccess
+    noWorkflowAccess,
+    directStageAccess
   };
 
-  return { isAccessible, accessReasons };
+  console.log(`  🎯 Access check result for ${job.wo_no}:`, {
+    isAccessible,
+    accessReasons,
+    currentStage: job.current_stage,
+    userStageNames: accessibleStageNames
+  });
+
+  return { isAccessible, accessReasons: accessReasons };
 };
 
 export const isJobCompleted = (job: any): boolean => {

@@ -86,18 +86,29 @@ export const useEnhancedProductionJobs = () => {
         const pendingStages = jobStages.filter(s => s.status === 'pending');
         const completedStages = jobStages.filter(s => s.status === 'completed');
         
-        // Determine current stage - prioritize active stage, then first pending, then fallback to job status
+        // CRITICAL FIX: Properly determine current stage
         let currentStage = job.status || 'Unknown';
         let currentStageId = null;
         
         if (activeStage) {
+          // Use the active stage name
           currentStage = activeStage.production_stages?.name || 'Active Stage';
           currentStageId = activeStage.production_stage_id;
+          console.log(`🎯 Job ${job.wo_no}: Active stage = ${currentStage}`);
         } else if (pendingStages.length > 0) {
           // If no active stage, the first pending stage is current
           const firstPending = pendingStages.sort((a, b) => a.stage_order - b.stage_order)[0];
           currentStage = firstPending.production_stages?.name || 'Pending Stage';
           currentStageId = firstPending.production_stage_id;
+          console.log(`🎯 Job ${job.wo_no}: First pending stage = ${currentStage}`);
+        } else if (hasWorkflow && completedStages.length === jobStages.length && jobStages.length > 0) {
+          // All stages completed
+          currentStage = 'Completed';
+          console.log(`🎯 Job ${job.wo_no}: All stages completed`);
+        } else if (!hasWorkflow) {
+          // No workflow - use job status or fallback
+          currentStage = job.status || 'DTP';
+          console.log(`🎯 Job ${job.wo_no}: No workflow, using status = ${currentStage}`);
         }
         
         // Calculate workflow progress
@@ -118,7 +129,7 @@ export const useEnhancedProductionJobs = () => {
           ...job,
           wo_no: formattedWoNo,
           has_workflow: hasWorkflow,
-          current_stage: currentStage,
+          current_stage: currentStage, // This is now properly set!
           current_stage_id: currentStageId,
           workflow_progress: workflowProgress,
           job_stage_instances: jobStages,
@@ -136,7 +147,7 @@ export const useEnhancedProductionJobs = () => {
         console.log("📋 Enhanced job processing:", {
           woNo: processedJob.wo_no,
           originalStatus: job.status,
-          currentStage: processedJob.current_stage,
+          currentStage: processedJob.current_stage, // This should now be the stage name
           currentStageId: processedJob.current_stage_id?.substring(0, 8),
           hasWorkflow: processedJob.has_workflow,
           stagesCount: processedJob.stages.length,

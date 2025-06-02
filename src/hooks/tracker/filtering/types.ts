@@ -22,5 +22,6 @@ export interface AccessCheckResult {
     currentStageAccessible: boolean;
     statusBasedAccess: boolean;
     noWorkflowAccess: boolean;
+    directStageAccess?: boolean;
   };
 }
