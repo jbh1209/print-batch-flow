@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -103,6 +104,8 @@ export async function createUser(userData: UserFormData): Promise<User> {
 // Update user profile
 export async function updateUserProfile(userId: string, userData: UserFormData): Promise<void> {
   try {
+    console.log('🔄 Updating user profile for:', userId, userData);
+
     // Update profile if full_name provided
     if (userData.full_name !== undefined) {
       const { error: profileError } = await supabase
@@ -117,20 +120,29 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
         console.error('Error updating profile:', profileError);
         throw profileError;
       }
+      console.log('✅ Profile updated successfully');
     }
     
     // Update role if provided
     if (userData.role) {
       await updateUserRole(userId, userData.role);
+      console.log('✅ Role updated successfully');
     }
     
     // Update group memberships if provided
     if (userData.groups !== undefined) {
+      console.log('🔄 Updating group memberships:', userData.groups);
+      
       // Remove existing memberships
-      await supabase
+      const { error: deleteError } = await supabase
         .from('user_group_memberships')
         .delete()
         .eq('user_id', userId);
+      
+      if (deleteError) {
+        console.error('Error removing existing memberships:', deleteError);
+        throw deleteError;
+      }
       
       // Add new memberships
       if (userData.groups.length > 0) {
@@ -139,31 +151,46 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
           group_id: groupId
         }));
         
-        await supabase
+        const { error: insertError } = await supabase
           .from('user_group_memberships')
           .insert(memberships);
+        
+        if (insertError) {
+          console.error('Error inserting new memberships:', insertError);
+          throw insertError;
+        }
       }
+      console.log('✅ Group memberships updated successfully');
     }
   } catch (error) {
-    console.error('Error updating user profile:', error);
+    console.error('❌ Error updating user profile:', error);
     throw error;
   }
 }
 
-// Update user role
+// Update user role with proper upsert handling
 export async function updateUserRole(userId: string, role: UserRole): Promise<void> {
   try {
+    console.log('🔄 Updating user role:', userId, role);
+    
     const { error } = await supabase
       .from('user_roles')
       .upsert({
         user_id: userId,
         role: role,
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
       });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating user role:', error);
+      throw error;
+    }
+    
+    console.log('✅ User role updated successfully');
   } catch (error) {
-    console.error('Error updating user role:', error);
+    console.error('❌ Error updating user role:', error);
     throw error;
   }
 }
@@ -173,9 +200,11 @@ export async function assignRole(userId: string, role: UserRole): Promise<void> 
   try {
     const { error } = await supabase
       .from('user_roles')
-      .insert({
+      .upsert({
         user_id: userId,
         role: role
+      }, {
+        onConflict: 'user_id'
       });
     
     if (error) throw error;
