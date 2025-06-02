@@ -41,8 +41,8 @@ export const UserGroupManager = ({ userId, showAllUsers = false }: UserGroupMana
         ) : (
           users[0] && (
             <SingleUserGroups 
-              user={users[0]}
-              onRemoveFromGroup={removeUserFromGroup}
+              userId={users[0].id}
+              userEmail={users[0].email || 'No email'}
             />
           )
         )}
