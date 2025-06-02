@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
+import { StagePermissionsManager } from "./StagePermissionsManager";
 
 export const ProductionStagesManagement = () => {
   const { stages, isLoading, error, createStage, updateStage, deleteStage } = useProductionStages();
@@ -136,6 +136,7 @@ export const ProductionStagesManagement = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <StagePermissionsManager stage={stage} />
                   <ProductionStageForm 
                     stage={stage} 
                     onSave={() => window.location.reload()}

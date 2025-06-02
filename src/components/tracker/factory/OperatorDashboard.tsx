@@ -1,348 +1,160 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Play, 
-  Square, 
-  CheckCircle, 
-  Clock, 
-  AlertTriangle,
-  Barcode,
-  User,
-  RefreshCw
-} from "lucide-react";
-import { useDepartments } from "@/hooks/tracker/useDepartments";
-import { useFactoryFloor } from "@/hooks/tracker/useFactoryFloor";
+import { RefreshCw, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
 import { useAuth } from "@/hooks/useAuth";
-import { GlobalBarcodeListener } from "./GlobalBarcodeListener";
-import { toast } from "sonner";
 
-interface OperatorDashboardProps {
-  selectedDepartmentId?: string;
-}
-
-export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
-  selectedDepartmentId
-}) => {
+export const OperatorDashboard = () => {
   const { user } = useAuth();
-  const { userDepartments, isLoading: departmentsLoading } = useDepartments();
-  const [activeDepartment, setActiveDepartment] = useState<string | undefined>(selectedDepartmentId);
-  
-  const {
-    jobQueue,
-    activeJobs,
-    canStartNewJob,
-    isLoading,
-    startJob,
-    completeJob,
-    refreshQueue,
-    refreshActiveJobs
-  } = useFactoryFloor(activeDepartment);
+  const { accessibleStages, isLoading, canWorkWithStage } = useUserStagePermissions(user?.id);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Auto-select first department if user has only one
-  useEffect(() => {
-    if (!activeDepartment && userDepartments.length === 1) {
-      setActiveDepartment(userDepartments[0].department_id);
-    }
-  }, [userDepartments, activeDepartment]);
-
-  const handleStartJob = async (jobId: string, jobTableName: string) => {
-    const success = await startJob(jobId, jobTableName);
-    if (success) {
-      await refreshQueue();
-    }
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // Add refresh logic here
+    setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const handleCompleteJob = async (activeJobId: string) => {
-    const success = await completeJob(activeJobId);
-    if (success) {
-      await refreshActiveJobs();
-    }
-  };
-
-  const handleBarcodeDetected = (barcodeData: string) => {
-    toast.info(`Barcode detected: ${barcodeData}`);
-    // Here you would implement the barcode-to-job logic
-  };
-
-  const getJobStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'pre-press': return 'bg-blue-100 text-blue-800';
-      case 'printing': return 'bg-yellow-100 text-yellow-800';
-      case 'finishing': return 'bg-purple-100 text-purple-800';
-      case 'packaging': return 'bg-orange-100 text-orange-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  if (departmentsLoading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center p-8 h-full">
         <RefreshCw className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading operator dashboard...</span>
       </div>
     );
   }
 
-  if (userDepartments.length === 0) {
+  if (accessibleStages.length === 0) {
     return (
-      <Card className="max-w-md mx-auto mt-8">
-        <CardContent className="text-center py-8">
-          <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-orange-500" />
-          <h3 className="text-lg font-medium mb-2">No Department Assigned</h3>
-          <p className="text-gray-600">
-            You are not assigned to any departments. Please contact your manager to get assigned to a department.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
+            <h2 className="text-xl font-semibold mb-2">No Stage Access</h2>
+            <p className="text-gray-600 text-center">
+              You don't have access to any production stages. Please contact your administrator to assign you to the appropriate user groups.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
-  const currentDepartment = userDepartments.find(d => d.department_id === activeDepartment);
-
   return (
-    <div className="p-4 max-w-6xl mx-auto space-y-6">
-      <GlobalBarcodeListener onBarcodeDetected={handleBarcodeDetected} />
-      
+    <div className="p-6 space-y-6 h-full overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Operator Dashboard</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <User className="h-4 w-4" />
-            <span className="text-gray-600">{user?.email}</span>
-          </div>
+          <p className="text-gray-600">Manage your assigned production tasks</p>
         </div>
         
-        <Button
-          variant="outline"
-          onClick={() => {
-            refreshQueue();
-            refreshActiveJobs();
-          }}
+        <Button 
+          variant="outline" 
+          onClick={handleRefresh}
+          disabled={refreshing}
           className="flex items-center gap-2"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
-      {/* Department Selection */}
-      {userDepartments.length > 1 && (
+      {/* Accessible Stages */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Your Production Stages
+            <Badge variant="outline">{accessibleStages.length} stages</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {accessibleStages.map((stage) => (
+              <Card key={stage.stage_id} className="border-2 hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: stage.stage_color }}
+                    />
+                    <h3 className="font-medium">{stage.stage_name}</h3>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1">
+                      {stage.can_view && (
+                        <Badge variant="secondary" className="text-xs">View</Badge>
+                      )}
+                      {stage.can_edit && (
+                        <Badge variant="secondary" className="text-xs">Edit</Badge>
+                      )}
+                      {stage.can_work && (
+                        <Badge variant="default" className="text-xs">Work</Badge>
+                      )}
+                      {stage.can_manage && (
+                        <Badge variant="destructive" className="text-xs">Manage</Badge>
+                      )}
+                    </div>
+                    
+                    <div className="pt-2">
+                      <Button 
+                        size="sm" 
+                        className="w-full"
+                        disabled={!canWorkWithStage(stage.stage_id)}
+                      >
+                        View Jobs
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Select Department</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 flex-wrap">
-              {userDepartments.map((dept) => (
-                <Button
-                  key={dept.department_id}
-                  variant={activeDepartment === dept.department_id ? 'default' : 'outline'}
-                  onClick={() => setActiveDepartment(dept.department_id)}
-                  className="flex items-center gap-2"
-                >
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: dept.department_color }}
-                  />
-                  {dept.department_name}
-                </Button>
-              ))}
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Clock className="h-8 w-8 text-orange-500" />
+              <div>
+                <p className="text-sm text-gray-600">Pending Jobs</p>
+                <p className="text-2xl font-bold">0</p>
+              </div>
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {activeDepartment && (
-        <>
-          {/* Active Jobs */}
-          {activeJobs.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <Play className="h-5 w-5 text-green-600" />
-                  Active Jobs ({activeJobs.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {activeJobs.map((activeJob) => {
-                    const queueJob = jobQueue.find(j => j.job_id === activeJob.job_id);
-                    return (
-                      <div 
-                        key={activeJob.id}
-                        className="flex items-center justify-between p-4 border rounded-lg bg-blue-50"
-                      >
-                        <div className="flex-1">
-                          <div className="font-medium">{queueJob?.wo_no || 'Unknown Job'}</div>
-                          <div className="text-sm text-gray-600">
-                            {queueJob?.customer && `Customer: ${queueJob.customer}`}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Started: {new Date(activeJob.started_at).toLocaleTimeString()}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                          {queueJob?.current_stage && (
-                            <Badge variant="outline">
-                              {queueJob.current_stage}
-                            </Badge>
-                          )}
-                          
-                          <Button
-                            onClick={() => handleCompleteJob(activeJob.id)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Complete
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Job Queue */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Job Queue ({jobQueue.length})
-                </div>
-                {currentDepartment && (
-                  <Badge variant="outline" className="text-xs">
-                    {currentDepartment.allows_concurrent_jobs 
-                      ? `Max ${currentDepartment.max_concurrent_jobs} concurrent`
-                      : 'Single job only'
-                    }
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-                  <p>Loading jobs...</p>
-                </div>
-              ) : jobQueue.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="h-8 w-8 mx-auto mb-2" />
-                  <p>No jobs in queue</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {jobQueue.map((job, index) => {
-                    const isActive = activeJobs.some(aj => aj.job_id === job.job_id);
-                    const canStart = canStartNewJob && !isActive && !job.is_blocked;
-                    
-                    return (
-                      <div 
-                        key={job.job_id}
-                        className={`flex items-center justify-between p-4 border rounded-lg transition-all ${
-                          isActive ? 'bg-blue-50 border-blue-200' :
-                          job.is_blocked ? 'bg-gray-50 opacity-50' :
-                          index === 0 && canStart ? 'bg-green-50 border-green-200' :
-                          'bg-white hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <div className="font-medium text-lg">{job.wo_no}</div>
-                            <Badge 
-                              variant="outline" 
-                              className="text-xs"
-                            >
-                              #{job.priority_order}
-                            </Badge>
-                            {job.has_priority_override && (
-                              <Badge variant="outline" className="text-xs bg-orange-50">
-                                Priority Override
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          <div className="text-sm text-gray-600 mt-1">
-                            {job.customer && `Customer: ${job.customer}`}
-                          </div>
-                          
-                          <div className="flex items-center gap-4 mt-2">
-                            <Badge className={getJobStatusColor(job.status)}>
-                              {job.status}
-                            </Badge>
-                            
-                            {job.current_stage && (
-                              <span className="text-xs text-gray-500">
-                                Stage: {job.current_stage}
-                              </span>
-                            )}
-                            
-                            {job.due_date && (
-                              <span className="text-xs text-gray-500">
-                                Due: {new Date(job.due_date).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          {isActive ? (
-                            <Badge className="bg-blue-600 text-white">
-                              In Progress
-                            </Badge>
-                          ) : job.is_blocked ? (
-                            <Badge variant="outline" className="text-orange-600">
-                              <AlertTriangle className="h-3 w-3 mr-1" />
-                              Blocked
-                            </Badge>
-                          ) : canStart ? (
-                            <Button
-                              onClick={() => handleStartJob(job.job_id, job.job_table_name)}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <Play className="h-4 w-4 mr-2" />
-                              Start Job
-                            </Button>
-                          ) : (
-                            <Button variant="outline" disabled>
-                              <Clock className="h-4 w-4 mr-2" />
-                              Waiting
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Barcode Scanner Help */}
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Barcode className="h-6 w-6 text-blue-600" />
-                <div>
-                  <div className="font-medium text-blue-900">Barcode Scanner Ready</div>
-                  <div className="text-sm text-blue-700">
-                    Scan any job barcode to quickly navigate to that job and see available actions.
-                  </div>
-                </div>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="h-8 w-8 text-blue-500" />
+              <div>
+                <p className="text-sm text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold">0</p>
               </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-8 w-8 text-green-500" />
+              <div>
+                <p className="text-sm text-gray-600">Completed Today</p>
+                <p className="text-2xl font-bold">0</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

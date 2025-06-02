@@ -1403,6 +1403,60 @@ export type Database = {
           },
         ]
       }
+      user_group_stage_permissions: {
+        Row: {
+          assigned_by: string | null
+          can_edit: boolean
+          can_manage: boolean
+          can_view: boolean
+          can_work: boolean
+          created_at: string
+          id: string
+          production_stage_id: string
+          updated_at: string
+          user_group_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          can_edit?: boolean
+          can_manage?: boolean
+          can_view?: boolean
+          can_work?: boolean
+          created_at?: string
+          id?: string
+          production_stage_id: string
+          updated_at?: string
+          user_group_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          can_edit?: boolean
+          can_manage?: boolean
+          can_view?: boolean
+          can_work?: boolean
+          created_at?: string
+          id?: string
+          production_stage_id?: string
+          updated_at?: string
+          user_group_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_group_stage_permissions_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_group_stage_permissions_user_group_id_fkey"
+            columns: ["user_group_id"]
+            isOneToOne: false
+            referencedRelation: "user_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_groups: {
         Row: {
           created_at: string
@@ -1576,6 +1630,18 @@ export type Database = {
       get_next_active_stage: {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: string
+      }
+      get_user_accessible_stages: {
+        Args: { p_user_id?: string }
+        Returns: {
+          stage_id: string
+          stage_name: string
+          stage_color: string
+          can_view: boolean
+          can_edit: boolean
+          can_work: boolean
+          can_manage: boolean
+        }[]
       }
       get_user_departments: {
         Args: { p_user_id?: string }
