@@ -89,6 +89,10 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
     
     try {
       await onSubmit(data);
+      // Reset form after successful creation
+      if (!isEditing) {
+        form.reset();
+      }
     } catch (error: any) {
       setServerError(error.message || "An unexpected error occurred");
     } finally {

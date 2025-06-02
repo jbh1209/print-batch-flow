@@ -65,17 +65,19 @@ export async function addAdminRole(userId: string): Promise<void> {
   }
 }
 
-// Create a new user
+// Create a new user using admin functions
 export async function createUser(userData: UserFormData): Promise<User> {
   try {
-    const { data, error } = await supabase.auth.signUp({
+    // Get current session to preserve it
+    const { data: currentSession } = await supabase.auth.getSession();
+    
+    // Create user via admin API
+    const { data, error } = await supabase.auth.admin.createUser({
       email: userData.email!,
       password: userData.password!,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: {
-          full_name: userData.full_name
-        }
+      email_confirm: true, // Auto-confirm email to avoid verification flow
+      user_metadata: {
+        full_name: userData.full_name
       }
     });
     
@@ -85,9 +87,41 @@ export async function createUser(userData: UserFormData): Promise<User> {
       throw new Error('User creation failed');
     }
     
+    // Update profile if full_name provided
+    if (userData.full_name) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: data.user.id,
+          full_name: userData.full_name,
+          updated_at: new Date().toISOString()
+        });
+      
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+      }
+    }
+    
     // Assign role if needed
     if (userData.role && userData.role !== 'user') {
       await assignRole(data.user.id, userData.role);
+    }
+    
+    // Assign to groups if provided
+    if (userData.groups && userData.groups.length > 0) {
+      for (const groupId of userData.groups) {
+        await supabase
+          .from('user_group_memberships')
+          .insert({
+            user_id: data.user.id,
+            group_id: groupId
+          });
+      }
+    }
+    
+    // Restore the current session if it was lost during user creation
+    if (currentSession?.session) {
+      await supabase.auth.setSession(currentSession.session);
     }
     
     return {
@@ -122,6 +156,27 @@ export async function updateUserProfile(userId: string, userData: UserFormData):
     // Update role if provided
     if (userData.role) {
       await updateUserRole(userId, userData.role);
+    }
+    
+    // Update group memberships if provided
+    if (userData.groups !== undefined) {
+      // Remove existing memberships
+      await supabase
+        .from('user_group_memberships')
+        .delete()
+        .eq('user_id', userId);
+      
+      // Add new memberships
+      if (userData.groups.length > 0) {
+        const memberships = userData.groups.map(groupId => ({
+          user_id: userId,
+          group_id: groupId
+        }));
+        
+        await supabase
+          .from('user_group_memberships')
+          .insert(memberships);
+      }
     }
   } catch (error) {
     console.error('Error updating user profile:', error);
