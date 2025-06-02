@@ -37,95 +37,102 @@ export const useUnifiedJobFiltering = ({
       return [];
     }
 
-    console.log("🔍 Unified Job Filtering Debug:", {
+    console.log("🔍 Unified Job Filtering Debug (Post-Consolidation):", {
       userId: user.id,
       totalJobs: jobs.length,
       accessibleStages: accessibleStages.length,
       accessibleStageIds: accessibleStageIds.slice(0, 3).map(id => id.substring(0, 8)),
       accessibleStageNames,
-      sampleJobs: jobs.slice(0, 3).map(job => ({
+      sampleJobs: jobs.slice(0, 2).map(job => ({
         woNo: job.wo_no,
         status: job.status,
         currentStage: job.current_stage,
-        hasStages: !!job.stages,
+        hasWorkflow: job.has_workflow,
         stagesCount: job.stages?.length || 0
       }))
     });
 
     return jobs.filter(job => {
-      console.log(`🔍 Checking job ${job.wo_no}:`, {
+      console.log(`🔍 Processing job ${job.wo_no}:`, {
         status: job.status,
         currentStage: job.current_stage,
         hasWorkflow: job.has_workflow,
-        stages: job.stages?.map((s: any) => ({
+        stagesInfo: job.stages?.map((s: any) => ({
           name: s.stage_name || s.production_stages?.name,
           status: s.status,
-          stageId: s.production_stage_id || s.stage_id
+          stageId: s.production_stage_id?.substring(0, 8)
         }))
       });
 
-      // Step 1: Check if job has workflow stages that user can access
-      const hasAccessibleStageInstances = job.stages?.some((stage: any) => {
+      // Step 1: Check workflow stage instances (now with consolidated stage IDs)
+      const hasAccessibleWorkflowStages = job.stages?.some((stage: any) => {
         const stageId = stage.production_stage_id || stage.stage_id;
         const stageName = stage.stage_name || stage.production_stages?.name;
-        const hasIdAccess = accessibleStageIds.includes(stageId);
+        
+        // ID-based check (now using consolidated IDs)
+        const hasIdAccess = stageId && accessibleStageIds.includes(stageId);
+        
+        // Name-based fallback (case-insensitive)
         const hasNameAccess = stageName && accessibleStageNames.includes(stageName.toLowerCase());
-        const isActiveOrPending = ['active', 'pending'].includes(stage.status);
         
-        console.log(`  Stage check: ${stageName}`, {
-          stageId: stageId?.substring(0, 8),
-          hasIdAccess,
-          hasNameAccess,
-          isActiveOrPending,
-          status: stage.status
-        });
+        // Stage must be active or pending to be workable
+        const isWorkableStatus = ['active', 'pending'].includes(stage.status);
         
-        return (hasIdAccess || hasNameAccess) && isActiveOrPending;
-      });
+        const stageAccessible = (hasIdAccess || hasNameAccess) && isWorkableStatus;
+        
+        if (stageAccessible) {
+          console.log(`  ✅ Stage accessible: ${stageName} (ID: ${stageId?.substring(0, 8)}, Status: ${stage.status})`);
+        }
+        
+        return stageAccessible;
+      }) || false;
 
-      // Step 2: Check jobs by current stage name (case-insensitive)
-      const hasAccessibleCurrentStage = job.current_stage && 
+      // Step 2: Check current stage by name for jobs with/without workflows
+      const currentStageAccessible = job.current_stage && 
         accessibleStageNames.includes(job.current_stage.toLowerCase());
 
-      // Step 3: Check jobs by status matching accessible stage names
-      const statusMatchesAccessibleStage = job.status && 
+      // Step 3: Check status field for stage-based access
+      const statusBasedAccess = job.status && 
         accessibleStageNames.includes(job.status.toLowerCase());
 
-      // Step 4: For jobs without workflows, check if their status/current_stage matches user's stages
-      const jobWithoutWorkflowAccess = !job.has_workflow && (
-        (job.status && accessibleStageNames.includes(job.status.toLowerCase())) ||
-        (job.current_stage && accessibleStageNames.includes(job.current_stage.toLowerCase())) ||
-        // Default to DTP if no specific stage and user has DTP access
+      // Step 4: Special handling for jobs without workflows
+      const noWorkflowAccess = !job.has_workflow && (
+        currentStageAccessible || 
+        statusBasedAccess ||
+        // Default access for DTP users on jobs with no specific stage
         (!job.current_stage && !job.status && accessibleStageNames.includes('dtp'))
       );
 
-      // Step 5: Include job if it matches any accessibility criteria
-      const isAccessible = hasAccessibleStageInstances || 
-                          hasAccessibleCurrentStage || 
-                          statusMatchesAccessibleStage ||
-                          jobWithoutWorkflowAccess;
+      // Combine all access checks
+      const isAccessible = hasAccessibleWorkflowStages || 
+                          currentStageAccessible || 
+                          statusBasedAccess ||
+                          noWorkflowAccess;
 
-      // Step 6: Check if job is not completed (allow more statuses)
-      const isNotCompleted = !['completed', 'shipped', 'delivered', 'cancelled'].includes(job.status?.toLowerCase() || '');
+      // Filter out completed jobs
+      const isNotCompleted = !['completed', 'shipped', 'delivered', 'cancelled', 'finished'].includes(
+        job.status?.toLowerCase() || ''
+      );
 
-      console.log(`  Final decision for ${job.wo_no}:`, {
+      const finalDecision = isAccessible && isNotCompleted;
+
+      console.log(`  Decision for ${job.wo_no}: ${finalDecision ? '✅ INCLUDED' : '❌ EXCLUDED'}`, {
         isAccessible,
         isNotCompleted,
-        included: isAccessible && isNotCompleted,
-        reasons: {
-          hasAccessibleStageInstances,
-          hasAccessibleCurrentStage,
-          statusMatchesAccessibleStage,
-          jobWithoutWorkflowAccess
+        accessReasons: {
+          hasAccessibleWorkflowStages,
+          currentStageAccessible,
+          statusBasedAccess,
+          noWorkflowAccess
         }
       });
 
-      // Base accessibility check
-      if (!isAccessible || !isNotCompleted) {
+      // Apply base accessibility and completion filters
+      if (!finalDecision) {
         return false;
       }
 
-      // Apply additional filters
+      // Apply additional user filters
       if (statusFilter && job.status?.toLowerCase() !== statusFilter.toLowerCase()) {
         return false;
       }
@@ -205,11 +212,15 @@ export const useUnifiedJobFiltering = ({
     return stats;
   }, [filteredJobs]);
 
-  console.log("🔍 Final Unified Job Filtering Results:", {
-    totalJobs: jobs.length,
-    filteredJobs: filteredJobs.length,
-    jobStats,
-    accessibleStages: accessibleStages.length
+  console.log("🔍 Final Results (Post-Stage-Consolidation):", {
+    totalJobsInput: jobs.length,
+    filteredJobsOutput: filteredJobs.length,
+    accessibleStagesCount: accessibleStages.length,
+    jobStats: {
+      total: jobStats.total,
+      pending: jobStats.pending,
+      inProgress: jobStats.inProgress
+    }
   });
 
   return {
