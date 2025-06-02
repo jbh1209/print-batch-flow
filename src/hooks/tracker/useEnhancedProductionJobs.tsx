@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -87,6 +86,17 @@ export const useEnhancedProductionJobs = () => {
         const completedStages = jobStages.filter(s => s.status === 'completed').length;
         const totalStages = jobStages.length;
         
+        // Create properly structured stages array with consistent field naming
+        const processedStages = jobStages.map(stage => ({
+          ...stage,
+          // Ensure we have the correct stage ID field for filtering
+          production_stage_id: stage.production_stage_id,
+          stage_id: stage.production_stage_id, // Add alias for compatibility
+          stage_name: stage.production_stages?.name || 'Unknown Stage',
+          stage_color: stage.production_stages?.color || '#6B7280',
+          status: stage.status
+        }));
+        
         const processedJob = {
           ...job,
           wo_no: formattedWoNo,
@@ -95,11 +105,7 @@ export const useEnhancedProductionJobs = () => {
           current_stage_id: currentStage?.production_stage_id || null,
           workflow_progress: totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0,
           job_stage_instances: jobStages,
-          stages: jobStages.map(stage => ({
-            ...stage,
-            stage_name: stage.production_stages?.name || 'Unknown Stage',
-            stage_color: stage.production_stages?.color || '#6B7280'
-          })),
+          stages: processedStages,
           // Include category_id for filtering
           category_id: job.category_id || null
         };
@@ -109,7 +115,12 @@ export const useEnhancedProductionJobs = () => {
           status: processedJob.status,
           currentStage: processedJob.current_stage,
           hasWorkflow: processedJob.has_workflow,
-          stagesCount: processedJob.stages.length
+          stagesCount: processedJob.stages.length,
+          stageIds: processedJob.stages.map(s => ({ 
+            id: s.production_stage_id, 
+            name: s.stage_name, 
+            status: s.status 
+          }))
         });
 
         return processedJob;
