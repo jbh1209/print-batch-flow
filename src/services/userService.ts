@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, UserFormData, UserProfile, UserRole, UserWithRole } from '@/types/user-types';
 
@@ -65,72 +64,39 @@ export async function addAdminRole(userId: string): Promise<void> {
   }
 }
 
-// Create a new user using admin functions
+// Create a new user using edge function
 export async function createUser(userData: UserFormData): Promise<User> {
   try {
-    // Get current session to preserve it
-    const { data: currentSession } = await supabase.auth.getSession();
+    console.log('Creating user via edge function:', userData);
     
-    // Create user via admin API
-    const { data, error } = await supabase.auth.admin.createUser({
-      email: userData.email!,
-      password: userData.password!,
-      email_confirm: true, // Auto-confirm email to avoid verification flow
-      user_metadata: {
-        full_name: userData.full_name
+    const { data, error } = await supabase.functions.invoke('create-user-admin', {
+      body: {
+        email: userData.email,
+        password: userData.password,
+        full_name: userData.full_name,
+        role: userData.role || 'user',
+        groups: userData.groups || []
       }
     });
     
-    if (error) throw error;
-    
-    if (!data.user) {
-      throw new Error('User creation failed');
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(error.message || 'Failed to create user');
     }
     
-    // Update profile if full_name provided
-    if (userData.full_name) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: data.user.id,
-          full_name: userData.full_name,
-          updated_at: new Date().toISOString()
-        });
-      
-      if (profileError) {
-        console.error('Error updating profile:', profileError);
-      }
+    if (!data || !data.user) {
+      throw new Error('User creation failed - no user data returned');
     }
     
-    // Assign role if needed
-    if (userData.role && userData.role !== 'user') {
-      await assignRole(data.user.id, userData.role);
-    }
-    
-    // Assign to groups if provided
-    if (userData.groups && userData.groups.length > 0) {
-      for (const groupId of userData.groups) {
-        await supabase
-          .from('user_group_memberships')
-          .insert({
-            user_id: data.user.id,
-            group_id: groupId
-          });
-      }
-    }
-    
-    // Restore the current session if it was lost during user creation
-    if (currentSession?.session) {
-      await supabase.auth.setSession(currentSession.session);
-    }
+    console.log('User created successfully:', data.user);
     
     return {
       id: data.user.id,
       email: data.user.email
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating user:', error);
-    throw error;
+    throw new Error(error.message || 'Failed to create user');
   }
 }
 
