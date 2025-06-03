@@ -211,7 +211,9 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                       {job.due_date && (
                         <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
                       )}
-                      <span> • Status: {job.status}</span>
+                      {job.reference && (
+                        <span> • Reference: {job.reference}</span>
+                      )}
                       <span> • Stages: {job.completed_stages}/{job.total_stages}</span>
                     </div>
                   </div>

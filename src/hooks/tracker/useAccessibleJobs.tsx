@@ -45,7 +45,7 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       // First, let's try a simple query to see if the basic connection works
       const { data: testData, error: testError } = await supabase
         .from('production_jobs')
-        .select('id, wo_no, customer, status')
+        .select('id, wo_no, customer, status, reference')
         .limit(5);
 
       if (testError) {
@@ -91,6 +91,7 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
           customer: job.customer || 'Unknown',
           status: job.status || 'Unknown',
           due_date: job.due_date || '',
+          reference: job.reference || null,
           category_id: job.category_id,
           category_name: job.categories?.name || '',
           category_color: job.categories?.color || '',
