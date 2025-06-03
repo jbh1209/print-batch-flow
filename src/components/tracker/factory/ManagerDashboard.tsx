@@ -1,278 +1,262 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { 
   Users, 
-  Settings, 
-  BarChart3, 
-  RefreshCw,
+  TrendingUp, 
+  Clock, 
   AlertTriangle,
-  Clock,
   CheckCircle,
-  Play
+  BarChart3,
+  Settings,
+  Activity
 } from "lucide-react";
-import { useDepartments } from "@/hooks/tracker/useDepartments";
-import { useFactoryFloor } from "@/hooks/tracker/useFactoryFloor";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 
-interface ManagerDashboardProps {
-  selectedDepartmentId?: string;
-}
+export const ManagerDashboard: React.FC = () => {
+  const { jobs, isLoading } = useAccessibleJobs();
 
-export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({
-  selectedDepartmentId
-}) => {
-  const { departments, isLoading: departmentsLoading } = useDepartments();
-  const [activeDepartment, setActiveDepartment] = useState<string | undefined>(selectedDepartmentId);
-  
-  const {
-    jobQueue,
-    activeJobs,
-    isLoading,
-    updateJobPriority,
-    refreshQueue
-  } = useFactoryFloor(activeDepartment);
-
-  const handleDragEnd = async (result: any) => {
-    if (!result.destination || !activeDepartment) return;
-
-    const sourceIndex = result.source.index;
-    const destinationIndex = result.destination.index;
+  // Calculate dashboard metrics
+  const metrics = React.useMemo(() => {
+    const activeJobs = jobs.filter(j => j.current_stage_status === 'active');
+    const pendingJobs = jobs.filter(j => j.current_stage_status === 'pending');
+    const urgentJobs = jobs.filter(j => {
+      const isOverdue = j.due_date && new Date(j.due_date) < new Date();
+      const isDueSoon = j.due_date && !isOverdue && 
+        new Date(j.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      return isOverdue || isDueSoon;
+    });
     
-    if (sourceIndex === destinationIndex) return;
+    const totalProgress = jobs.reduce((sum, job) => sum + job.workflow_progress, 0);
+    const avgProgress = jobs.length > 0 ? totalProgress / jobs.length : 0;
 
-    const draggedJob = jobQueue[sourceIndex];
-    const newPriority = destinationIndex + 1;
-
-    const success = await updateJobPriority(
-      draggedJob.job_id, 
-      draggedJob.job_table_name, 
-      newPriority,
-      'Manual reorder by manager'
-    );
-
-    if (success) {
-      await refreshQueue();
-    }
-  };
-
-  const getDepartmentStats = (deptId: string) => {
-    // This would normally come from a proper hook/API
     return {
-      totalJobs: jobQueue.length,
+      totalJobs: jobs.length,
       activeJobs: activeJobs.length,
-      completedToday: 0,
-      averageTime: '2.5h'
+      pendingJobs: pendingJobs.length,
+      urgentJobs: urgentJobs.length,
+      averageProgress: Math.round(avgProgress),
+      efficiency: 85 // Mock data - would calculate from actual metrics
     };
-  };
+  }, [jobs]);
 
-  if (departmentsLoading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-4 sm:p-8 h-full">
-        <RefreshCw className="h-6 w-6 sm:h-8 sm:w-8 animate-spin" />
-        <span className="ml-2 text-sm sm:text-base">Loading manager dashboard...</span>
+      <div className="p-6">
+        <div className="animate-pulse space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-24 bg-gray-200 rounded-lg"></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 h-full overflow-y-auto">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold truncate">Manager Dashboard</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage production flow and job priorities</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900">Manager Dashboard</h2>
+          <p className="text-gray-600">Production overview and team performance</p>
         </div>
-        
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-          <Button variant="outline" onClick={refreshQueue} className="w-full sm:w-auto">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            <span className="sm:inline">Refresh</span>
-          </Button>
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Settings className="h-4 w-4 mr-2" />
-            <span className="sm:inline">Settings</span>
-          </Button>
-        </div>
+        <Badge variant="outline" className="text-sm">
+          <Activity className="h-4 w-4 mr-1" />
+          Live Data
+        </Badge>
       </div>
 
-      {/* Department Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
-        {departments.map((dept) => {
-          const stats = getDepartmentStats(dept.id);
-          return (
-            <Card 
-              key={dept.id}
-              className={`cursor-pointer transition-all hover:shadow-md ${
-                activeDepartment === dept.id ? 'ring-2 ring-blue-500' : ''
-              }`}
-              onClick={() => setActiveDepartment(dept.id)}
-            >
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div 
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: dept.color }}
-                  />
-                  <span className="font-medium text-xs sm:text-sm truncate">{dept.name}</span>
-                </div>
-                
-                <div className="space-y-1 sm:space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Active:</span>
-                    <span className="font-medium">{stats.activeJobs}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Queue:</span>
-                    <span className="font-medium">{stats.totalJobs}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Avg Time:</span>
-                    <span className="font-medium">{stats.averageTime}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Total Jobs</p>
+                <p className="text-3xl font-bold text-blue-900">{metrics.totalJobs}</p>
+              </div>
+              <BarChart3 className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Active Jobs</p>
+                <p className="text-3xl font-bold text-green-900">{metrics.activeJobs}</p>
+              </div>
+              <Activity className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-orange-600">Urgent Jobs</p>
+                <p className="text-3xl font-bold text-orange-900">{metrics.urgentJobs}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-600">Efficiency</p>
+                <p className="text-3xl font-bold text-purple-900">{metrics.efficiency}%</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {activeDepartment && (
-        <>
-          {/* Department Header */}
-          <Card>
-            <CardHeader className="pb-3 sm:pb-4">
-              <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
-                  <span className="truncate">
-                    {departments.find(d => d.id === activeDepartment)?.name} Department
-                  </span>
-                  <Badge variant="outline" className="w-fit">
-                    {jobQueue.length} jobs in queue
-                  </Badge>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 text-sm w-full sm:w-auto">
-                  <div className="flex items-center gap-2">
-                    <Play className="h-4 w-4 text-blue-600" />
-                    <span>{activeJobs.length} Active</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-orange-600" />
-                    <span>{jobQueue.length - activeJobs.length} Waiting</span>
-                  </div>
-                </div>
-              </CardTitle>
-            </CardHeader>
-          </Card>
+      {/* Progress Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Production Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+                <span className="text-sm font-bold text-gray-900">{metrics.averageProgress}%</span>
+              </div>
+              <Progress value={metrics.averageProgress} className="h-3" />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-gray-900">{metrics.pendingJobs}</div>
+                <div className="text-sm text-gray-600">Pending Start</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-gray-900">{metrics.activeJobs}</div>
+                <div className="text-sm text-gray-600">In Progress</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Draggable Job Queue */}
-          <Card className="flex-1 overflow-hidden">
-            <CardHeader className="pb-3 sm:pb-4">
-              <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  <span>Job Priority Queue</span>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Team Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Mock team data - would come from actual user activity */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    A
+                  </div>
+                  <span className="font-medium">Alex Smith</span>
                 </div>
-                <Badge variant="outline" className="text-xs w-fit">
-                  Drag to reorder
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-[400px] sm:h-[500px] overflow-y-auto">
-              {isLoading ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-                  <p>Loading job queue...</p>
+                <Badge className="bg-green-600">3 Active</Badge>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    M
+                  </div>
+                  <span className="font-medium">Maria Garcia</span>
                 </div>
-              ) : (
-                <DragDropContext onDragEnd={handleDragEnd}>
-                  <Droppable droppableId="job-queue">
-                    {(provided) => (
-                      <div
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className="space-y-2"
-                      >
-                        {jobQueue.map((job, index) => {
-                          const isActive = activeJobs.some(aj => aj.job_id === job.job_id);
-                          
-                          return (
-                            <Draggable 
-                              key={job.job_id} 
-                              draggableId={job.job_id} 
-                              index={index}
-                            >
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`p-3 sm:p-4 border rounded-lg transition-all ${
-                                    snapshot.isDragging ? 'shadow-lg rotate-2' :
-                                    isActive ? 'bg-blue-50 border-blue-200' :
-                                    'bg-white hover:bg-gray-50'
-                                  }`}
-                                >
-                                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                                        <span className="font-mono text-base sm:text-lg font-medium">
-                                          #{job.priority_order}
-                                        </span>
-                                        <span className="font-medium truncate">{job.wo_no}</span>
-                                        
-                                        <div className="flex flex-wrap gap-1 sm:gap-2">
-                                          {job.has_priority_override && (
-                                            <Badge variant="outline" className="text-xs bg-orange-50">
-                                              Manual Priority
-                                            </Badge>
-                                          )}
-                                          
-                                          {isActive && (
-                                            <Badge className="bg-blue-600 text-white text-xs">
-                                              <Play className="h-3 w-3 mr-1" />
-                                              In Progress
-                                            </Badge>
-                                          )}
-                                        </div>
-                                      </div>
-                                      
-                                      <div className="text-xs sm:text-sm text-gray-600 mt-1 truncate">
-                                        {job.customer && `Customer: ${job.customer}`}
-                                        {job.current_stage && ` • Stage: ${job.current_stage}`}
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                                      <Badge variant="outline" className="w-fit">
-                                        {job.status}
-                                      </Badge>
-                                      
-                                      {job.due_date && (
-                                        <span className="text-xs text-gray-500 truncate">
-                                          Due: {new Date(job.due_date).toLocaleDateString()}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          );
-                        })}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </DragDropContext>
+                <Badge className="bg-blue-600">2 Active</Badge>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    J
+                  </div>
+                  <span className="font-medium">John Doe</span>
+                </div>
+                <Badge variant="outline">Available</Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Activity & Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Recent Completions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {jobs.filter(j => j.workflow_progress > 80).slice(0, 5).map((job) => (
+                <div key={job.job_id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div>
+                    <div className="font-medium">{job.wo_no}</div>
+                    <div className="text-sm text-gray-600">{job.customer}</div>
+                  </div>
+                  <Badge className="bg-green-600">{job.workflow_progress}%</Badge>
+                </div>
+              ))}
+              {jobs.filter(j => j.workflow_progress > 80).length === 0 && (
+                <div className="text-center text-gray-500 py-4">
+                  No recent completions
+                </div>
               )}
-            </CardContent>
-          </Card>
-        </>
-      )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              Attention Required
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {jobs.filter(j => {
+                const isOverdue = j.due_date && new Date(j.due_date) < new Date();
+                return isOverdue;
+              }).slice(0, 5).map((job) => (
+                <div key={job.job_id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                  <div>
+                    <div className="font-medium">{job.wo_no}</div>
+                    <div className="text-sm text-red-600">
+                      Overdue: {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'No date'}
+                    </div>
+                  </div>
+                  <Badge variant="destructive">Overdue</Badge>
+                </div>
+              ))}
+              {jobs.filter(j => j.due_date && new Date(j.due_date) < new Date()).length === 0 && (
+                <div className="text-center text-gray-500 py-4">
+                  No overdue jobs
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
