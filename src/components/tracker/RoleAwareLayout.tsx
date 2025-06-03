@@ -1,11 +1,11 @@
 
 import React, { useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import TrackerLayout from "@/components/TrackerLayout";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
-const RoleAwareLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const RoleAwareLayout: React.FC = () => {
   const { userRole, isLoading, isOperator, isDtpOperator } = useUserRole();
   const navigate = useNavigate();
   const location = useLocation();
@@ -36,11 +36,11 @@ const RoleAwareLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   // For operators, don't show the full tracker layout
   if (isOperator && location.pathname.includes('/factory-floor')) {
-    return <>{children}</>;
+    return <Outlet />;
   }
 
   // For managers and admins, show the full tracker layout
-  return <TrackerLayout>{children}</TrackerLayout>;
+  return <TrackerLayout />;
 };
 
 export default RoleAwareLayout;
