@@ -42,18 +42,6 @@ export const tableSchemas: Record<ExistingTableName, string[]> = {
     'id', 'user_id', 'name', 'job_number', 'quantity', 'due_date',
     'paper_type', 'lamination_type', 'double_sided', 'pdf_url', 'file_name',
     'status', 'batch_id', 'uploaded_at', 'created_at', 'updated_at'
-  ],
-  'batches': [
-    'id', 'name', 'status', 'lamination_type', 'date_created', 'due_date',
-    'sheets_required', 'created_by', 'created_at', 'updated_at', 'sla_target_days',
-    'needs_overview_pdf', 'front_pdf_url', 'back_pdf_url', 'paper_weight',
-    'paper_type', 'printer_type', 'sheet_size', 'overview_pdf_url'
-  ],
-  'profiles': [
-    'id', 'created_at', 'updated_at', 'full_name', 'avatar_url'
-  ],
-  'user_roles': [
-    'id', 'user_id', 'role', 'created_at', 'updated_at'
   ]
 };
 

@@ -45,4 +45,5 @@ export interface FlyerJob {
   user_id: string;
   created_at: string;
   updated_at: string;
+  reference?: string; // Add missing reference property
 }

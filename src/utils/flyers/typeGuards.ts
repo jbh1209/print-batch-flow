@@ -1,5 +1,6 @@
-import { BaseJob } from "@/config/productTypes";
-import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+
+import { BaseJob, BaseBatch } from "@/config/productTypes";
+import { FlyerJob, FlyerBatch } from "@/components/batches/types/FlyerTypes";
 
 export const isFlyerJob = (job: BaseJob): job is FlyerJob => {
   return (
@@ -82,7 +83,38 @@ export const transformToGenericJob = (flyerJob: FlyerJob): BaseJob => {
       status: flyerJob.status,
       pdf_url: flyerJob.pdf_url || '',
       file_name: flyerJob.file_name,
-      reference: flyerJob.reference,
       batch_id: flyerJob.batch_id
   };
+};
+
+// Add the missing conversion functions
+export const convertFlyerBatchToBatchDetails = (batch: FlyerBatch): BaseBatch => {
+  return {
+    id: batch.id,
+    name: batch.name,
+    status: batch.status,
+    due_date: batch.due_date,
+    created_at: batch.created_at,
+    updated_at: batch.updated_at,
+    sheets_required: batch.sheets_required,
+    lamination_type: batch.lamination_type,
+    front_pdf_url: batch.front_pdf_url,
+    back_pdf_url: batch.back_pdf_url,
+    overview_pdf_url: batch.overview_pdf_url,
+    paper_type: batch.paper_type,
+    paper_weight: batch.paper_weight,
+    sides: batch.sheet_size,
+    created_by: batch.created_by
+  };
+};
+
+export const convertFlyerJobsToJobs = (jobs: FlyerJob[]): any[] => {
+  return jobs.map(job => ({
+    ...job,
+    // Convert to the expected format for BatchDetailsContent
+  }));
+};
+
+export const convertFlyerJobsToBaseJobs = (jobs: FlyerJob[]): BaseJob[] => {
+  return jobs.map(job => transformToGenericJob(job));
 };

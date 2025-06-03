@@ -1,5 +1,3 @@
-
-
 import { JobStatus } from "@/components/business-cards/JobsTable";
 
 // Export all the types that are being imported elsewhere
@@ -39,8 +37,8 @@ export interface ProductConfig {
     batchesPath?: string;
     newJobPath?: string;
     basePath?: string;
-    jobDetailPath?: (id: string) => string;
-    jobEditPath?: (id: string) => string;
+    jobDetailPath?: string | ((id: string) => string);
+    jobEditPath?: string | ((id: string) => string);
   };
   availablePaperTypes?: string[];
   availablePaperWeights?: string[];
@@ -119,8 +117,8 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/business-cards",
       newJobPath: "/batches/business-cards/jobs/new",
       basePath: "/batches/business-cards",
-      jobDetailPath: "/batches/business-cards/jobs/",
-      jobEditPath: "/batches/business-cards/jobs/edit/"
+      jobDetailPath: (id: string) => `/batches/business-cards/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/business-cards/jobs/edit/${id}`
     },
     availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"]
   },
@@ -151,8 +149,8 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/flyers",
       newJobPath: "/batches/flyers/jobs/new",
       basePath: "/batches/flyers",
-      jobDetailPath: "/batches/flyers/jobs/",
-      jobEditPath: "/batches/flyers/jobs/edit/"
+      jobDetailPath: (id: string) => `/batches/flyers/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/flyers/jobs/edit/${id}`
     },
     availablePaperTypes: ["Matt", "Gloss"],
     availablePaperWeights: ["130gsm", "150gsm", "200gsm"],
@@ -186,8 +184,8 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/postcards",
       newJobPath: "/batches/postcards/jobs/new",
       basePath: "/batches/postcards",
-      jobDetailPath: "/batches/postcards/jobs/",
-      jobEditPath: "/batches/postcards/jobs/edit/"
+      jobDetailPath: (id: string) => `/batches/postcards/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/postcards/jobs/edit/${id}`
     },
     availablePaperTypes: ["Matt", "Gloss"],
     availablePaperWeights: ["300gsm", "350gsm"],
@@ -221,8 +219,8 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/posters",
       newJobPath: "/batches/posters/jobs/new",
       basePath: "/batches/posters",
-      jobDetailPath: "/batches/posters/jobs/",
-      jobEditPath: "/batches/posters/jobs/edit/"
+      jobDetailPath: (id: string) => `/batches/posters/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/posters/jobs/edit/${id}`
     },
     availablePaperTypes: ["Matt", "Gloss", "Canvas"],
     availablePaperWeights: ["200gsm", "250gsm", "300gsm"],
@@ -252,8 +250,8 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/sleeves",
       newJobPath: "/batches/sleeves/jobs/new",
       basePath: "/batches/sleeves",
-      jobDetailPath: "/batches/sleeves/jobs/",
-      jobEditPath: "/batches/sleeves/jobs/edit/"
+      jobDetailPath: (id: string) => `/batches/sleeves/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/sleeves/jobs/edit/${id}`
     },
     availablePaperTypes: ["Premium", "Standard"],
     availablePaperWeights: ["350gsm"],
@@ -284,8 +282,8 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/boxes",
       newJobPath: "/batches/boxes/jobs/new",
       basePath: "/batches/boxes",
-      jobDetailPath: "/batches/boxes/jobs/",
-      jobEditPath: "/batches/boxes/jobs/edit/"
+      jobDetailPath: (id: string) => `/batches/boxes/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/boxes/jobs/edit/${id}`
     },
     availablePaperTypes: ["Cardboard", "Corrugated"],
     availablePaperWeights: ["300gsm", "400gsm", "500gsm"],
@@ -322,8 +320,8 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/covers",
       newJobPath: "/batches/covers/jobs/new",
       basePath: "/batches/covers",
-      jobDetailPath: "/batches/covers/jobs/",
-      jobEditPath: "/batches/covers/jobs/edit/"
+      jobDetailPath: (id: string) => `/batches/covers/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/covers/jobs/edit/${id}`
     },
     availablePaperTypes: ["Matt", "Gloss", "Textured"],
     availablePaperWeights: ["250gsm", "300gsm", "350gsm"],
@@ -356,8 +354,8 @@ export const productConfigs: Record<string, ProductConfig> = {
       batchesPath: "/batches/stickers",
       newJobPath: "/batches/stickers/jobs/new",
       basePath: "/batches/stickers",
-      jobDetailPath: "/batches/stickers/jobs/",
-      jobEditPath: "/batches/stickers/jobs/edit/"
+      jobDetailPath: (id: string) => `/batches/stickers/jobs/${id}`,
+      jobEditPath: (id: string) => `/batches/stickers/jobs/edit/${id}`
     },
     availablePaperTypes: ["Vinyl", "Paper", "Clear"],
     availablePaperWeights: ["80gsm", "100gsm"],
@@ -367,4 +365,3 @@ export const productConfigs: Record<string, ProductConfig> = {
 
 // Export JobStatus from the original location to maintain compatibility
 export type { JobStatus };
-
