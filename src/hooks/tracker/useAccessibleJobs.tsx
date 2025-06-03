@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { formatWONumber } from "@/utils/woNumberFormatter";
 
 export interface AccessibleJob {
   job_id: string;
@@ -70,11 +71,37 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       });
 
       if (fetchError) {
+        console.error("Database function error:", fetchError);
         throw new Error(`Failed to fetch accessible jobs: ${fetchError.message}`);
       }
 
-      console.log("✅ Accessible jobs fetched:", data?.length || 0);
-      setJobs(data || []);
+      console.log("✅ Raw database response:", data);
+
+      // Transform and normalize the data
+      const normalizedJobs = (data || []).map((job: any) => ({
+        job_id: job.job_id || job.id,
+        wo_no: formatWONumber(job.wo_no), // Normalize WO numbers
+        customer: job.customer || 'Unknown',
+        status: job.status || 'Unknown',
+        due_date: job.due_date || '',
+        category_id: job.category_id || null,
+        category_name: job.category_name || null,
+        category_color: job.category_color || null,
+        current_stage_id: job.current_stage_id || null,
+        current_stage_name: job.current_stage_name || null,
+        current_stage_color: job.current_stage_color || null,
+        current_stage_status: job.current_stage_status || null,
+        user_can_view: Boolean(job.user_can_view),
+        user_can_edit: Boolean(job.user_can_edit),
+        user_can_work: Boolean(job.user_can_work),
+        user_can_manage: Boolean(job.user_can_manage),
+        workflow_progress: Number(job.workflow_progress) || 0,
+        total_stages: Number(job.total_stages) || 0,
+        completed_stages: Number(job.completed_stages) || 0
+      }));
+
+      console.log("✅ Normalized accessible jobs:", normalizedJobs.length);
+      setJobs(normalizedJobs);
       
     } catch (err) {
       console.error('❌ Error fetching accessible jobs:', err);
