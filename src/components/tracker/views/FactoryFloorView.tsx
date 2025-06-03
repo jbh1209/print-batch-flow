@@ -7,9 +7,18 @@ import { RefreshCw, AlertTriangle, Play, CheckCircle } from "lucide-react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 
-export const FactoryFloorView = () => {
+interface FactoryFloorViewProps {
+  stageFilter?: string | null;
+  isDtpOperator?: boolean;
+}
+
+export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({ 
+  stageFilter, 
+  isDtpOperator = false 
+}) => {
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobs({
-    permissionType: 'work'
+    permissionType: 'work',
+    stageFilter: stageFilter || undefined
   });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -45,13 +54,23 @@ export const FactoryFloorView = () => {
     );
   }
 
+  const getHeaderTitle = () => {
+    if (isDtpOperator) return "DTP & Proofing Jobs";
+    return "Factory Floor";
+  };
+
+  const getHeaderSubtitle = () => {
+    if (isDtpOperator) return "Jobs ready for DTP and proofing work";
+    return "Jobs you can work on";
+  };
+
   return (
     <div className="p-6 space-y-6 h-full overflow-y-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Factory Floor</h1>
-          <p className="text-gray-600">Jobs you can work on</p>
+          <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
+          <p className="text-gray-600">{getHeaderSubtitle()}</p>
           <p className="text-sm text-gray-500 mt-1">
             Found {jobs.length} accessible job{jobs.length !== 1 ? 's' : ''}
           </p>
@@ -166,7 +185,10 @@ export const FactoryFloorView = () => {
             <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
             <h3 className="text-xl font-semibold mb-2">No Jobs Available</h3>
             <p className="text-gray-600 text-center">
-              You don't have any jobs that you can work on right now.
+              {isDtpOperator 
+                ? "You don't have any DTP or proofing jobs available right now."
+                : "You don't have any jobs that you can work on right now."
+              }
             </p>
           </CardContent>
         </Card>

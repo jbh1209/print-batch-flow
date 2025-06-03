@@ -2,9 +2,10 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, HelpCircle, LogOut, Home } from "lucide-react";
+import { Bell, HelpCircle, LogOut, Home, Factory } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
 
 interface DynamicHeaderProps {
   activeTab: string;
@@ -16,6 +17,7 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
   onTabChange
 }) => {
   const { user, signOut } = useAuth();
+  const { isManager, isAdmin } = useUserRole();
 
   const tabs = [
     { id: "dashboard", label: "DASHBOARD" },
@@ -67,6 +69,14 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
       </div>
 
       <div className="flex items-center space-x-4">
+        {(isManager || isAdmin) && (
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/tracker/factory-floor" className="flex items-center gap-2">
+              <Factory size={16} />
+              Factory Floor
+            </Link>
+          </Button>
+        )}
         <Button variant="ghost" size="icon">
           <Bell size={20} />
         </Button>

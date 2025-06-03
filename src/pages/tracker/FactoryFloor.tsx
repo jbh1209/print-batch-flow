@@ -3,18 +3,26 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useDepartments } from "@/hooks/tracker/useDepartments";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { OperatorDashboard } from "@/components/tracker/factory/OperatorDashboard";
 import { ManagerDashboard } from "@/components/tracker/factory/ManagerDashboard";
 
 const FactoryFloor = () => {
   const { user } = useAuth();
-  const { userDepartments } = useDepartments();
+  const { userRole, isManager, isDtpOperator } = useUserRole();
   const [viewMode, setViewMode] = useState<'operator' | 'manager'>('operator');
 
-  // Check if user has manager privileges (admin role or specific permissions)
-  const canAccessManagerView = true; // This should check actual permissions
+  // Determine the appropriate title based on user role
+  const getTitle = () => {
+    if (isDtpOperator) return "DTP Workstation";
+    return "Factory Floor";
+  };
+
+  const getSubtitle = () => {
+    if (isDtpOperator) return "DTP and Proofing jobs";
+    return "Production tracking and job management";
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 w-full">
@@ -23,23 +31,25 @@ const FactoryFloor = () => {
         <div className="w-full max-w-[95vw] mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
-              <Button variant="outline" size="sm" asChild className="w-fit">
-                <Link to="/tracker" className="flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Back to Dashboard</span>
-                  <span className="sm:hidden">Back</span>
-                </Link>
-              </Button>
+              {!isDtpOperator && (
+                <Button variant="outline" size="sm" asChild className="w-fit">
+                  <Link to="/tracker" className="flex items-center gap-2">
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Back to Dashboard</span>
+                    <span className="sm:hidden">Back</span>
+                  </Link>
+                </Button>
+              )}
               
               <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold truncate">Factory Floor</h1>
+                <h1 className="text-xl sm:text-2xl font-bold truncate">{getTitle()}</h1>
                 <p className="text-sm sm:text-base text-gray-600 truncate">
-                  Production tracking and job management
+                  {getSubtitle()}
                 </p>
               </div>
             </div>
             
-            {canAccessManagerView && (
+            {isManager && (
               <div className="flex border rounded-md w-full sm:w-auto">
                 <Button
                   variant={viewMode === 'operator' ? 'default' : 'ghost'}
@@ -68,7 +78,7 @@ const FactoryFloor = () => {
       {/* Main Content */}
       <div className="w-full max-w-[95vw] mx-auto h-[calc(100vh-73px)] sm:h-[calc(100vh-81px)] overflow-hidden">
         <div className="h-full overflow-y-auto">
-          {viewMode === 'operator' ? (
+          {viewMode === 'operator' || !isManager ? (
             <OperatorDashboard />
           ) : (
             <ManagerDashboard />

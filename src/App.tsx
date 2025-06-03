@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -14,7 +15,7 @@ import TrackerProduction from "./pages/tracker/TrackerProduction";
 import TrackerKanban from "./pages/tracker/TrackerKanban";
 import TrackerWorkSheets from "./pages/tracker/TrackerWorkSheets";
 import TrackerAdmin from "./pages/tracker/TrackerAdmin";
-import TrackerLayout from "./components/TrackerLayout";
+import RoleAwareLayout from "./components/tracker/RoleAwareLayout";
 import { AuthProvider } from "./hooks/useAuth";
 import { Toaster } from "sonner";
 import TrackerMobileScanner from "./pages/tracker/TrackerMobileScanner";
@@ -60,33 +61,26 @@ function App() {
               }
             />
             
-            {/* Tracker routes with layout */}
+            {/* Tracker routes with role-aware layout */}
             <Route
               path="/tracker/*"
               element={
                 <ProtectedRoute>
-                  <TrackerLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<TrackerDashboard />} />
-              <Route path="jobs" element={<TrackerJobs />} />
-              <Route path="production" element={<TrackerProduction />} />
-              <Route path="kanban" element={<TrackerKanban />} />
-              <Route path="worksheets" element={<TrackerWorkSheets />} />
-              <Route path="admin" element={<TrackerAdmin />} />
-              <Route path="users" element={<TrackerUsers />} />
-              <Route path="labels" element={<TrackerLabels />} />
-              <Route path="upload" element={<TrackerUpload />} />
-              <Route path="mobile" element={<TrackerMobileScanner />} />
-            </Route>
-            
-            {/* Factory Floor - separate from main tracker layout */}
-            <Route
-              path="/tracker/factory-floor"
-              element={
-                <ProtectedRoute>
-                  <FactoryFloor />
+                  <RoleAwareLayout>
+                    <Routes>
+                      <Route index element={<TrackerDashboard />} />
+                      <Route path="jobs" element={<TrackerJobs />} />
+                      <Route path="production" element={<TrackerProduction />} />
+                      <Route path="kanban" element={<TrackerKanban />} />
+                      <Route path="worksheets" element={<TrackerWorkSheets />} />
+                      <Route path="admin" element={<TrackerAdmin />} />
+                      <Route path="users" element={<TrackerUsers />} />
+                      <Route path="labels" element={<TrackerLabels />} />
+                      <Route path="upload" element={<TrackerUpload />} />
+                      <Route path="mobile" element={<TrackerMobileScanner />} />
+                      <Route path="factory-floor" element={<FactoryFloor />} />
+                    </Routes>
+                  </RoleAwareLayout>
                 </ProtectedRoute>
               }
             />
