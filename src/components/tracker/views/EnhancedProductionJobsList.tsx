@@ -208,10 +208,12 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                     </div>
                     <div className="text-sm text-gray-600 mt-1">
                       <span>Customer: {job.customer || 'Unknown'}</span>
+                      {job.reference && (
+                        <span> • Reference: {job.reference}</span>
+                      )}
                       {job.due_date && (
                         <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
                       )}
-                      <span> • Status: {job.status}</span>
                       <span> • Stages: {job.completed_stages}/{job.total_stages}</span>
                     </div>
                   </div>
