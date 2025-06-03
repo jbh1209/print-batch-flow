@@ -29,58 +29,105 @@ export const useSimpleJobAccess = () => {
       setIsLoading(true);
       setError(null);
 
-      console.log("🔍 Fetching jobs with direct database query...");
+      console.log("🔍 Fetching jobs with corrected database query...");
 
-      // Direct query: Get all jobs where user has 'can_work' permission on current stage
-      const { data, error: queryError } = await supabase
+      // Step 1: Get user's groups
+      const { data: userGroups, error: groupsError } = await supabase
+        .from('user_group_memberships')
+        .select('group_id')
+        .eq('user_id', user.id);
+
+      if (groupsError) {
+        throw new Error(`Failed to get user groups: ${groupsError.message}`);
+      }
+
+      if (!userGroups || userGroups.length === 0) {
+        console.log("❌ User has no group memberships");
+        setJobs([]);
+        return;
+      }
+
+      const groupIds = userGroups.map(ug => ug.group_id);
+      console.log("👥 User groups:", groupIds);
+
+      // Step 2: Get stages user can work on
+      const { data: workableStages, error: stagesError } = await supabase
+        .from('user_group_stage_permissions')
+        .select('production_stage_id')
+        .in('user_group_id', groupIds)
+        .eq('can_work', true);
+
+      if (stagesError) {
+        throw new Error(`Failed to get workable stages: ${stagesError.message}`);
+      }
+
+      if (!workableStages || workableStages.length === 0) {
+        console.log("❌ User has no workable stage permissions");
+        setJobs([]);
+        return;
+      }
+
+      const stageIds = workableStages.map(ws => ws.production_stage_id);
+      console.log("🎯 Workable stages:", stageIds);
+
+      // Step 3: Get job stage instances for these stages
+      const { data: jobStageInstances, error: instancesError } = await supabase
         .from('job_stage_instances')
         .select(`
-          id,
           job_id,
+          job_table_name,
           production_stage_id,
           status,
           production_stages!inner (
             id,
-            name,
-            color
-          ),
-          production_jobs!inner (
-            id,
-            wo_no,
-            customer,
-            status,
-            due_date
-          ),
-          user_group_stage_permissions!inner (
-            can_work,
-            user_group_id,
-            user_group_memberships!inner (
-              user_id
-            )
+            name
           )
         `)
-        .eq('user_group_stage_permissions.user_group_memberships.user_id', user.id)
-        .eq('user_group_stage_permissions.can_work', true)
-        .in('status', ['active', 'pending']);
+        .in('production_stage_id', stageIds)
+        .in('status', ['active', 'pending'])
+        .eq('job_table_name', 'production_jobs'); // Focus on production_jobs only for now
 
-      if (queryError) {
-        throw new Error(`Database query failed: ${queryError.message}`);
+      if (instancesError) {
+        throw new Error(`Failed to get job instances: ${instancesError.message}`);
       }
 
-      console.log("📊 Raw accessible jobs data:", data?.length || 0);
+      console.log("📋 Job stage instances:", jobStageInstances?.length || 0);
 
-      // Transform the data into simple job objects
-      const accessibleJobs = (data || []).map(item => ({
-        id: item.production_jobs.id,
-        wo_no: item.production_jobs.wo_no,
-        customer: item.production_jobs.customer || 'Unknown',
-        status: item.production_jobs.status || 'Unknown',
-        due_date: item.production_jobs.due_date || '',
-        current_stage_name: item.production_stages.name,
-        current_stage_id: item.production_stage_id,
-        stage_status: item.status as 'active' | 'pending',
-        can_work: true // This is guaranteed true from our query
-      }));
+      if (!jobStageInstances || jobStageInstances.length === 0) {
+        setJobs([]);
+        return;
+      }
+
+      // Step 4: Get the actual job details
+      const jobIds = jobStageInstances.map(jsi => jsi.job_id);
+      const { data: productionJobs, error: jobsError } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, customer, status, due_date')
+        .in('id', jobIds);
+
+      if (jobsError) {
+        throw new Error(`Failed to get production jobs: ${jobsError.message}`);
+      }
+
+      console.log("🏭 Production jobs:", productionJobs?.length || 0);
+
+      // Step 5: Combine the data
+      const accessibleJobs = (jobStageInstances || []).map(instance => {
+        const job = productionJobs?.find(pj => pj.id === instance.job_id);
+        if (!job) return null;
+
+        return {
+          id: job.id,
+          wo_no: job.wo_no,
+          customer: job.customer || 'Unknown',
+          status: job.status || 'Unknown',
+          due_date: job.due_date || '',
+          current_stage_name: instance.production_stages.name,
+          current_stage_id: instance.production_stage_id,
+          stage_status: instance.status as 'active' | 'pending',
+          can_work: true
+        };
+      }).filter(Boolean) as SimpleJob[];
 
       // Remove duplicates by job ID (in case job has multiple accessible stages)
       const uniqueJobs = accessibleJobs.reduce((acc, job) => {
@@ -94,7 +141,7 @@ export const useSimpleJobAccess = () => {
         return acc;
       }, [] as SimpleJob[]);
 
-      console.log("✅ Processed accessible jobs:", uniqueJobs.length);
+      console.log("✅ Final accessible jobs:", uniqueJobs.length);
       setJobs(uniqueJobs);
       
     } catch (err) {
