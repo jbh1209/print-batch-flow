@@ -10,6 +10,7 @@ export interface ExtendedJob {
   urgency: string;
   job_number: string;
   reference?: string;
+  pdf_url?: string;
 }
 
 export const useAllPendingJobs = () => {
@@ -73,13 +74,24 @@ const fetchBusinessCards = async (): Promise<ExtendedJob[]> => {
             tableName: 'business_cards',
             hasSize: false,
             hasPaperType: false,
+            slaTargetDays: 3,
             ui: {
               color: '#624cf5',
+              title: 'Business Cards',
+              batchFormTitle: 'Create Business Card Batch',
+              jobFormTitle: 'New Business Card Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/business-cards/jobs',
+              batches: '/batches/business-cards',
+              newJob: '/batches/business-cards/jobs/new'
+            }
           },
           urgency: 'critical',
           job_number: 'BC-001',
           reference: 'Client Ref BC-001',
+          pdf_url: 'https://example.com/bc-001.pdf'
         },
         {
           id: '2',
@@ -91,13 +103,24 @@ const fetchBusinessCards = async (): Promise<ExtendedJob[]> => {
             tableName: 'business_cards',
             hasSize: false,
             hasPaperType: false,
+            slaTargetDays: 3,
             ui: {
               color: '#624cf5',
+              title: 'Business Cards',
+              batchFormTitle: 'Create Business Card Batch',
+              jobFormTitle: 'New Business Card Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/business-cards/jobs',
+              batches: '/batches/business-cards',
+              newJob: '/batches/business-cards/jobs/new'
+            }
           },
           urgency: 'high',
           job_number: 'BC-002',
           reference: 'Client Ref BC-002',
+          pdf_url: 'https://example.com/bc-002.pdf'
         },
       ];
       resolve(mockBusinessCards);
@@ -119,13 +142,24 @@ const fetchFlyers = async (): Promise<ExtendedJob[]> => {
             tableName: 'flyers',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 5,
             ui: {
               color: '#f54c82',
+              title: 'Flyers',
+              batchFormTitle: 'Create Flyer Batch',
+              jobFormTitle: 'New Flyer Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/flyers/jobs',
+              batches: '/batches/flyers',
+              newJob: '/batches/flyers/jobs/new'
+            }
           },
           urgency: 'medium',
           job_number: 'FL-001',
           reference: 'Client Ref FL-001',
+          pdf_url: 'https://example.com/fl-001.pdf'
         },
         {
           id: '4',
@@ -137,13 +171,24 @@ const fetchFlyers = async (): Promise<ExtendedJob[]> => {
             tableName: 'flyers',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 5,
             ui: {
               color: '#f54c82',
+              title: 'Flyers',
+              batchFormTitle: 'Create Flyer Batch',
+              jobFormTitle: 'New Flyer Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/flyers/jobs',
+              batches: '/batches/flyers',
+              newJob: '/batches/flyers/jobs/new'
+            }
           },
           urgency: 'low',
           job_number: 'FL-002',
           reference: 'Client Ref FL-002',
+          pdf_url: 'https://example.com/fl-002.pdf'
         },
       ];
       resolve(mockFlyers);
@@ -165,13 +210,24 @@ const fetchPostcards = async (): Promise<ExtendedJob[]> => {
             tableName: 'postcards',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 4,
             ui: {
               color: '#f5a74c',
+              title: 'Postcards',
+              batchFormTitle: 'Create Postcard Batch',
+              jobFormTitle: 'New Postcard Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/postcards/jobs',
+              batches: '/batches/postcards',
+              newJob: '/batches/postcards/jobs/new'
+            }
           },
           urgency: 'high',
           job_number: 'PC-001',
           reference: 'Client Ref PC-001',
+          pdf_url: 'https://example.com/pc-001.pdf'
         },
         {
           id: '6',
@@ -183,13 +239,24 @@ const fetchPostcards = async (): Promise<ExtendedJob[]> => {
             tableName: 'postcards',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 4,
             ui: {
               color: '#f5a74c',
+              title: 'Postcards',
+              batchFormTitle: 'Create Postcard Batch',
+              jobFormTitle: 'New Postcard Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/postcards/jobs',
+              batches: '/batches/postcards',
+              newJob: '/batches/postcards/jobs/new'
+            }
           },
           urgency: 'medium',
           job_number: 'PC-002',
           reference: 'Client Ref PC-002',
+          pdf_url: 'https://example.com/pc-002.pdf'
         },
       ];
       resolve(mockPostcards);
@@ -211,13 +278,24 @@ const fetchPosters = async (): Promise<ExtendedJob[]> => {
             tableName: 'posters',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 7,
             ui: {
               color: '#4cf598',
+              title: 'Posters',
+              batchFormTitle: 'Create Poster Batch',
+              jobFormTitle: 'New Poster Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/posters/jobs',
+              batches: '/batches/posters',
+              newJob: '/batches/posters/jobs/new'
+            }
           },
           urgency: 'critical',
           job_number: 'PO-001',
           reference: 'Client Ref PO-001',
+          pdf_url: 'https://example.com/po-001.pdf'
         },
         {
           id: '8',
@@ -229,13 +307,24 @@ const fetchPosters = async (): Promise<ExtendedJob[]> => {
             tableName: 'posters',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 7,
             ui: {
               color: '#4cf598',
+              title: 'Posters',
+              batchFormTitle: 'Create Poster Batch',
+              jobFormTitle: 'New Poster Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/posters/jobs',
+              batches: '/batches/posters',
+              newJob: '/batches/posters/jobs/new'
+            }
           },
           urgency: 'high',
           job_number: 'PO-002',
           reference: 'Client Ref PO-002',
+          pdf_url: 'https://example.com/po-002.pdf'
         },
       ];
       resolve(mockPosters);
@@ -257,13 +346,24 @@ const fetchSleeves = async (): Promise<ExtendedJob[]> => {
             tableName: 'sleeves',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 5,
             ui: {
               color: '#4c87f5',
+              title: 'Sleeves',
+              batchFormTitle: 'Create Sleeve Batch',
+              jobFormTitle: 'New Sleeve Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/sleeves/jobs',
+              batches: '/batches/sleeves',
+              newJob: '/batches/sleeves/jobs/new'
+            }
           },
           urgency: 'medium',
           job_number: 'SL-001',
           reference: 'Client Ref SL-001',
+          pdf_url: 'https://example.com/sl-001.pdf'
         },
         {
           id: '10',
@@ -275,13 +375,24 @@ const fetchSleeves = async (): Promise<ExtendedJob[]> => {
             tableName: 'sleeves',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 5,
             ui: {
               color: '#4c87f5',
+              title: 'Sleeves',
+              batchFormTitle: 'Create Sleeve Batch',
+              jobFormTitle: 'New Sleeve Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/sleeves/jobs',
+              batches: '/batches/sleeves',
+              newJob: '/batches/sleeves/jobs/new'
+            }
           },
           urgency: 'low',
           job_number: 'SL-002',
           reference: 'Client Ref SL-002',
+          pdf_url: 'https://example.com/sl-002.pdf'
         },
       ];
       resolve(mockSleeves);
@@ -303,13 +414,24 @@ const fetchBoxes = async (): Promise<ExtendedJob[]> => {
             tableName: 'boxes',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 10,
             ui: {
               color: '#f54cca',
+              title: 'Boxes',
+              batchFormTitle: 'Create Box Batch',
+              jobFormTitle: 'New Box Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/boxes/jobs',
+              batches: '/batches/boxes',
+              newJob: '/batches/boxes/jobs/new'
+            }
           },
           urgency: 'critical',
           job_number: 'BX-001',
           reference: 'Client Ref BX-001',
+          pdf_url: 'https://example.com/bx-001.pdf'
         },
         {
           id: '12',
@@ -321,13 +443,24 @@ const fetchBoxes = async (): Promise<ExtendedJob[]> => {
             tableName: 'boxes',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 10,
             ui: {
               color: '#f54cca',
+              title: 'Boxes',
+              batchFormTitle: 'Create Box Batch',
+              jobFormTitle: 'New Box Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/boxes/jobs',
+              batches: '/batches/boxes',
+              newJob: '/batches/boxes/jobs/new'
+            }
           },
           urgency: 'high',
           job_number: 'BX-002',
           reference: 'Client Ref BX-002',
+          pdf_url: 'https://example.com/bx-002.pdf'
         },
       ];
       resolve(mockBoxes);
@@ -349,13 +482,24 @@ const fetchCovers = async (): Promise<ExtendedJob[]> => {
             tableName: 'covers',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 6,
             ui: {
               color: '#caf54c',
+              title: 'Covers',
+              batchFormTitle: 'Create Cover Batch',
+              jobFormTitle: 'New Cover Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/covers/jobs',
+              batches: '/batches/covers',
+              newJob: '/batches/covers/jobs/new'
+            }
           },
           urgency: 'medium',
           job_number: 'CV-001',
           reference: 'Client Ref CV-001',
+          pdf_url: 'https://example.com/cv-001.pdf'
         },
         {
           id: '14',
@@ -367,13 +511,24 @@ const fetchCovers = async (): Promise<ExtendedJob[]> => {
             tableName: 'covers',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 6,
             ui: {
               color: '#caf54c',
+              title: 'Covers',
+              batchFormTitle: 'Create Cover Batch',
+              jobFormTitle: 'New Cover Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/covers/jobs',
+              batches: '/batches/covers',
+              newJob: '/batches/covers/jobs/new'
+            }
           },
           urgency: 'low',
           job_number: 'CV-002',
           reference: 'Client Ref CV-002',
+          pdf_url: 'https://example.com/cv-002.pdf'
         },
       ];
       resolve(mockCovers);
@@ -395,13 +550,24 @@ const fetchStickers = async (): Promise<ExtendedJob[]> => {
             tableName: 'stickers',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 4,
             ui: {
               color: '#4cf5f0',
+              title: 'Stickers',
+              batchFormTitle: 'Create Sticker Batch',
+              jobFormTitle: 'New Sticker Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/stickers/jobs',
+              batches: '/batches/stickers',
+              newJob: '/batches/stickers/jobs/new'
+            }
           },
           urgency: 'high',
           job_number: 'ST-001',
           reference: 'Client Ref ST-001',
+          pdf_url: 'https://example.com/st-001.pdf'
         },
         {
           id: '16',
@@ -413,13 +579,24 @@ const fetchStickers = async (): Promise<ExtendedJob[]> => {
             tableName: 'stickers',
             hasSize: true,
             hasPaperType: true,
+            slaTargetDays: 4,
             ui: {
               color: '#4cf5f0',
+              title: 'Stickers',
+              batchFormTitle: 'Create Sticker Batch',
+              jobFormTitle: 'New Sticker Job'
             },
+            fields: {},
+            routes: {
+              jobs: '/batches/stickers/jobs',
+              batches: '/batches/stickers',
+              newJob: '/batches/stickers/jobs/new'
+            }
           },
           urgency: 'medium',
           job_number: 'ST-002',
           reference: 'Client Ref ST-002',
+          pdf_url: 'https://example.com/st-002.pdf'
         },
       ];
       resolve(mockStickers);

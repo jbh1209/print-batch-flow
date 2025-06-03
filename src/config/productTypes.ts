@@ -1,15 +1,24 @@
 
+
 import { JobStatus } from "@/components/business-cards/JobsTable";
 
 // Export all the types that are being imported elsewhere
 export type BatchStatus = "pending" | "processing" | "completed" | "cancelled" | "sent_to_print";
 export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
 
+// Add missing type exports
+export type TableName = string;
+export type ExistingTableName = "business_card_jobs" | "flyer_jobs" | "postcard_jobs" | "poster_jobs" | "sleeve_jobs" | "box_jobs" | "cover_jobs" | "sticker_jobs";
+
 export interface ProductConfig {
   productType: string;
   tableName: string;
   hasSize: boolean;
   hasPaperType: boolean;
+  hasPaperWeight?: boolean;
+  hasLamination?: boolean;
+  hasSides?: boolean;
+  hasUVVarnish?: boolean;
   slaTargetDays: number;
   ui: {
     color: string;
@@ -26,11 +35,19 @@ export interface ProductConfig {
     jobs: string;
     batches: string;
     newJob: string;
+    jobsPath?: string;
+    batchesPath?: string;
+    newJobPath?: string;
+    basePath?: string;
+    jobDetailPath?: string;
+    jobEditPath?: string;
   };
   availablePaperTypes?: string[];
   availablePaperWeights?: string[];
   availableLaminationTypes?: LaminationType[];
   availableSizes?: string[];
+  availableUVVarnishTypes?: string[];
+  availableSidesTypes?: string[];
 }
 
 export interface BaseJob {
@@ -67,6 +84,10 @@ export interface BaseBatch {
   front_pdf_url: string | null;
   back_pdf_url: string | null;
   overview_pdf_url: string | null;
+  paper_type?: string;
+  paper_weight?: string;
+  sides?: string;
+  created_by?: string;
 }
 
 // Product configurations
@@ -90,7 +111,13 @@ export const productConfigs: Record<string, ProductConfig> = {
     routes: {
       jobs: "/batches/business-cards/jobs",
       batches: "/batches/business-cards",
-      newJob: "/batches/business-cards/jobs/new"
+      newJob: "/batches/business-cards/jobs/new",
+      jobsPath: "/batches/business-cards/jobs",
+      batchesPath: "/batches/business-cards",
+      newJobPath: "/batches/business-cards/jobs/new",
+      basePath: "/batches/business-cards",
+      jobDetailPath: "/batches/business-cards/jobs/",
+      jobEditPath: "/batches/business-cards/jobs/edit/"
     },
     availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"]
   },
@@ -99,6 +126,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     tableName: "flyer_jobs",
     hasSize: true,
     hasPaperType: true,
+    hasPaperWeight: true,
+    hasLamination: true,
     slaTargetDays: 5,
     ui: {
       color: "#f54c82",
@@ -114,7 +143,13 @@ export const productConfigs: Record<string, ProductConfig> = {
     routes: {
       jobs: "/batches/flyers/jobs",
       batches: "/batches/flyers",
-      newJob: "/batches/flyers/jobs/new"
+      newJob: "/batches/flyers/jobs/new",
+      jobsPath: "/batches/flyers/jobs",
+      batchesPath: "/batches/flyers",
+      newJobPath: "/batches/flyers/jobs/new",
+      basePath: "/batches/flyers",
+      jobDetailPath: "/batches/flyers/jobs/",
+      jobEditPath: "/batches/flyers/jobs/edit/"
     },
     availablePaperTypes: ["Matt", "Gloss"],
     availablePaperWeights: ["130gsm", "150gsm", "200gsm"],
@@ -126,6 +161,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     tableName: "postcard_jobs",
     hasSize: true,
     hasPaperType: true,
+    hasPaperWeight: true,
+    hasLamination: true,
     slaTargetDays: 4,
     ui: {
       color: "#f5a74c",
@@ -141,7 +178,13 @@ export const productConfigs: Record<string, ProductConfig> = {
     routes: {
       jobs: "/batches/postcards/jobs",
       batches: "/batches/postcards",
-      newJob: "/batches/postcards/jobs/new"
+      newJob: "/batches/postcards/jobs/new",
+      jobsPath: "/batches/postcards/jobs",
+      batchesPath: "/batches/postcards",
+      newJobPath: "/batches/postcards/jobs/new",
+      basePath: "/batches/postcards",
+      jobDetailPath: "/batches/postcards/jobs/",
+      jobEditPath: "/batches/postcards/jobs/edit/"
     },
     availablePaperTypes: ["Matt", "Gloss"],
     availablePaperWeights: ["300gsm", "350gsm"],
@@ -153,6 +196,8 @@ export const productConfigs: Record<string, ProductConfig> = {
     tableName: "poster_jobs",
     hasSize: true,
     hasPaperType: true,
+    hasPaperWeight: true,
+    hasLamination: true,
     slaTargetDays: 7,
     ui: {
       color: "#4cf598",
@@ -168,7 +213,13 @@ export const productConfigs: Record<string, ProductConfig> = {
     routes: {
       jobs: "/batches/posters/jobs",
       batches: "/batches/posters",
-      newJob: "/batches/posters/jobs/new"
+      newJob: "/batches/posters/jobs/new",
+      jobsPath: "/batches/posters/jobs",
+      batchesPath: "/batches/posters",
+      newJobPath: "/batches/posters/jobs/new",
+      basePath: "/batches/posters",
+      jobDetailPath: "/batches/posters/jobs/",
+      jobEditPath: "/batches/posters/jobs/edit/"
     },
     availablePaperTypes: ["Matt", "Gloss", "Canvas"],
     availablePaperWeights: ["200gsm", "250gsm", "300gsm"],
@@ -193,7 +244,13 @@ export const productConfigs: Record<string, ProductConfig> = {
     routes: {
       jobs: "/batches/sleeves/jobs",
       batches: "/batches/sleeves",
-      newJob: "/batches/sleeves/jobs/new"
+      newJob: "/batches/sleeves/jobs/new",
+      jobsPath: "/batches/sleeves/jobs",
+      batchesPath: "/batches/sleeves",
+      newJobPath: "/batches/sleeves/jobs/new",
+      basePath: "/batches/sleeves",
+      jobDetailPath: "/batches/sleeves/jobs/",
+      jobEditPath: "/batches/sleeves/jobs/edit/"
     },
     availablePaperTypes: ["Premium", "Standard"],
     availablePaperWeights: ["350gsm"],
@@ -204,6 +261,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     tableName: "box_jobs",
     hasSize: true,
     hasPaperType: true,
+    hasLamination: true,
     slaTargetDays: 10,
     ui: {
       color: "#f54cca",
@@ -218,7 +276,13 @@ export const productConfigs: Record<string, ProductConfig> = {
     routes: {
       jobs: "/batches/boxes/jobs",
       batches: "/batches/boxes",
-      newJob: "/batches/boxes/jobs/new"
+      newJob: "/batches/boxes/jobs/new",
+      jobsPath: "/batches/boxes/jobs",
+      batchesPath: "/batches/boxes",
+      newJobPath: "/batches/boxes/jobs/new",
+      basePath: "/batches/boxes",
+      jobDetailPath: "/batches/boxes/jobs/",
+      jobEditPath: "/batches/boxes/jobs/edit/"
     },
     availablePaperTypes: ["Cardboard", "Corrugated"],
     availablePaperWeights: ["300gsm", "400gsm", "500gsm"],
@@ -229,6 +293,10 @@ export const productConfigs: Record<string, ProductConfig> = {
     tableName: "cover_jobs",
     hasSize: true,
     hasPaperType: true,
+    hasPaperWeight: true,
+    hasLamination: true,
+    hasSides: true,
+    hasUVVarnish: true,
     slaTargetDays: 6,
     ui: {
       color: "#caf54c",
@@ -246,17 +314,26 @@ export const productConfigs: Record<string, ProductConfig> = {
     routes: {
       jobs: "/batches/covers/jobs",
       batches: "/batches/covers",
-      newJob: "/batches/covers/jobs/new"
+      newJob: "/batches/covers/jobs/new",
+      jobsPath: "/batches/covers/jobs",
+      batchesPath: "/batches/covers",
+      newJobPath: "/batches/covers/jobs/new",
+      basePath: "/batches/covers",
+      jobDetailPath: "/batches/covers/jobs/",
+      jobEditPath: "/batches/covers/jobs/edit/"
     },
     availablePaperTypes: ["Matt", "Gloss", "Textured"],
     availablePaperWeights: ["250gsm", "300gsm", "350gsm"],
-    availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"]
+    availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"],
+    availableUVVarnishTypes: ["none", "spot", "flood"],
+    availableSidesTypes: ["single", "double"]
   },
   "Stickers": {
     productType: "Stickers",
     tableName: "sticker_jobs",
     hasSize: true,
     hasPaperType: true,
+    hasLamination: true,
     slaTargetDays: 4,
     ui: {
       color: "#4cf5f0",
@@ -271,7 +348,13 @@ export const productConfigs: Record<string, ProductConfig> = {
     routes: {
       jobs: "/batches/stickers/jobs",
       batches: "/batches/stickers",
-      newJob: "/batches/stickers/jobs/new"
+      newJob: "/batches/stickers/jobs/new",
+      jobsPath: "/batches/stickers/jobs",
+      batchesPath: "/batches/stickers",
+      newJobPath: "/batches/stickers/jobs/new",
+      basePath: "/batches/stickers",
+      jobDetailPath: "/batches/stickers/jobs/",
+      jobEditPath: "/batches/stickers/jobs/edit/"
     },
     availablePaperTypes: ["Vinyl", "Paper", "Clear"],
     availablePaperWeights: ["80gsm", "100gsm"],
@@ -280,4 +363,5 @@ export const productConfigs: Record<string, ProductConfig> = {
 };
 
 // Export JobStatus from the original location to maintain compatibility
-export { JobStatus };
+export type { JobStatus };
+

@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { format, isPast } from 'date-fns';
 import { ArrowUpDown } from 'lucide-react';
@@ -8,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ExtendedJob } from '@/hooks/useAllPendingJobs';
 import { getUrgencyBackgroundClass } from '@/utils/dateCalculations';
 import JobActions from './JobActions';
+
+type UrgencyLevel = 'low' | 'medium' | 'high' | 'critical';
 
 interface JobsTableProps {
   jobs: ExtendedJob[];
@@ -108,7 +111,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
             jobs.map((job) => (
               <TableRow 
                 key={`${job.productConfig.tableName}-${job.id}`}
-                className={`${getUrgencyBackgroundClass(job.urgency)} hover:bg-muted/50`}
+                className={`${getUrgencyBackgroundClass(job.urgency as UrgencyLevel)} hover:bg-muted/50`}
                 style={{ 
                   borderLeft: `4px solid ${job.productConfig.ui.color || '#888'}` 
                 }}
@@ -160,3 +163,4 @@ const JobsTable: React.FC<JobsTableProps> = ({
 };
 
 export default JobsTable;
+
