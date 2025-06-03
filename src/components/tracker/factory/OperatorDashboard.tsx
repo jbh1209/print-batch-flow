@@ -1,7 +1,7 @@
 
 import React from "react";
-import { SimpleFactoryFloor } from "./SimpleFactoryFloor";
+import { FactoryFloorView } from "@/components/tracker/views/FactoryFloorView";
 
 export const OperatorDashboard = () => {
-  return <SimpleFactoryFloor />;
+  return <FactoryFloorView />;
 };
