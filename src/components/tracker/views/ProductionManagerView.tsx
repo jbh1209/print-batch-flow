@@ -2,11 +2,17 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefreshCw, AlertTriangle, Eye, BarChart3 } from "lucide-react";
-import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
-import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
+import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { useCategories } from "@/hooks/tracker/useCategories";
+import { EnhancedProductionJobsList } from "./EnhancedProductionJobsList";
+import { JobEditModal } from "@/components/tracker/jobs/JobEditModal";
+import { CategoryAssignModal } from "@/components/tracker/jobs/CategoryAssignModal";
+import { CustomWorkflowModal } from "@/components/tracker/jobs/CustomWorkflowModal";
+import { BarcodeLabelsManager } from "@/components/tracker/BarcodeLabelsManager";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const ProductionManagerView = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -14,12 +20,117 @@ export const ProductionManagerView = () => {
     permissionType: 'manage',
     statusFilter
   });
+  const { categories } = useCategories();
   const [refreshing, setRefreshing] = useState(false);
+
+  // Modal states
+  const [editingJob, setEditingJob] = useState<AccessibleJob | null>(null);
+  const [categoryAssignJob, setCategoryAssignJob] = useState<AccessibleJob | null>(null);
+  const [customWorkflowJob, setCustomWorkflowJob] = useState<AccessibleJob | null>(null);
+  const [showCustomWorkflow, setShowCustomWorkflow] = useState(false);
+  const [showBarcodeLabels, setShowBarcodeLabels] = useState(false);
+  const [selectedJobsForBarcodes, setSelectedJobsForBarcodes] = useState<AccessibleJob[]>([]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await refreshJobs();
     setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  const handleEditJob = (job: AccessibleJob) => {
+    setEditingJob(job);
+  };
+
+  const handleCategoryAssign = (job: AccessibleJob) => {
+    setCategoryAssignJob(job);
+  };
+
+  const handleCustomWorkflow = (job: AccessibleJob) => {
+    setCustomWorkflowJob(job);
+    setShowCustomWorkflow(true);
+  };
+
+  const handleDeleteJob = async (jobId: string) => {
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .delete()
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      toast.success('Job deleted successfully');
+      await refreshJobs();
+    } catch (err) {
+      console.error('Error deleting job:', err);
+      toast.error('Failed to delete job');
+    }
+  };
+
+  const handleBulkCategoryAssign = (selectedJobs: AccessibleJob[]) => {
+    if (selectedJobs.length > 0) {
+      const firstJob = {
+        ...selectedJobs[0],
+        isMultiple: true,
+        selectedIds: selectedJobs.map(j => j.job_id)
+      };
+      setCategoryAssignJob(firstJob as any);
+    }
+  };
+
+  const handleBulkStatusUpdate = async (selectedJobs: AccessibleJob[], status: string) => {
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ status })
+        .in('id', selectedJobs.map(j => j.job_id));
+
+      if (error) throw error;
+
+      toast.success(`Updated ${selectedJobs.length} job(s) to ${status} status`);
+      await refreshJobs();
+    } catch (err) {
+      console.error('Error updating job status:', err);
+      toast.error('Failed to update job status');
+    }
+  };
+
+  const handleBulkDelete = async (selectedJobs: AccessibleJob[]) => {
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .delete()
+        .in('id', selectedJobs.map(j => j.job_id));
+
+      if (error) throw error;
+
+      toast.success(`Deleted ${selectedJobs.length} job(s) successfully`);
+      await refreshJobs();
+    } catch (err) {
+      console.error('Error deleting jobs:', err);
+      toast.error('Failed to delete jobs');
+    }
+  };
+
+  const handleGenerateBarcodes = (selectedJobs: AccessibleJob[]) => {
+    setSelectedJobsForBarcodes(selectedJobs);
+    setShowBarcodeLabels(true);
+  };
+
+  const handleEditJobSave = () => {
+    setEditingJob(null);
+    refreshJobs();
+  };
+
+  const handleCategoryAssignComplete = () => {
+    setCategoryAssignJob(null);
+    refreshJobs();
+  };
+
+  const handleCustomWorkflowSuccess = () => {
+    setShowCustomWorkflow(false);
+    setCustomWorkflowJob(null);
+    refreshJobs();
   };
 
   if (isLoading) {
@@ -144,60 +255,21 @@ export const ProductionManagerView = () => {
         </Card>
       </div>
 
-      {/* Jobs Overview */}
+      {/* Enhanced Jobs List */}
       {jobs.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Production Jobs Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {jobs.map((job) => (
-                <div key={job.job_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                      {job.category_name && (
-                        <Badge variant="secondary" style={{ backgroundColor: job.category_color || '#6B7280', color: 'white' }}>
-                          {job.category_name}
-                        </Badge>
-                      )}
-                      {job.current_stage_name && (
-                        <Badge 
-                          variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
-                          style={{ 
-                            backgroundColor: job.current_stage_status === 'active' ? job.current_stage_color || '#22C55E' : 'transparent',
-                            borderColor: job.current_stage_color || '#6B7280',
-                            color: job.current_stage_status === 'active' ? 'white' : job.current_stage_color || '#6B7280'
-                          }}
-                        >
-                          {job.current_stage_name}
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="text-xs">
-                        {job.workflow_progress}% Complete
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      <span>Customer: {job.customer || 'Unknown'}</span>
-                      {job.due_date && (
-                        <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
-                      )}
-                      <span> • Status: {job.status}</span>
-                      <span> • Stages: {job.completed_stages}/{job.total_stages}</span>
-                    </div>
-                  </div>
-                  
-                  <JobActionButtons
-                    job={job}
-                    onStart={startJob}
-                    onComplete={completeJob}
-                  />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <EnhancedProductionJobsList
+          jobs={jobs}
+          onStartJob={startJob}
+          onCompleteJob={completeJob}
+          onEditJob={handleEditJob}
+          onCategoryAssign={handleCategoryAssign}
+          onCustomWorkflow={handleCustomWorkflow}
+          onDeleteJob={handleDeleteJob}
+          onBulkCategoryAssign={handleBulkCategoryAssign}
+          onBulkStatusUpdate={handleBulkStatusUpdate}
+          onBulkDelete={handleBulkDelete}
+          onGenerateBarcodes={handleGenerateBarcodes}
+        />
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center p-12">
@@ -208,6 +280,46 @@ export const ProductionManagerView = () => {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Modals */}
+      {editingJob && (
+        <JobEditModal
+          job={editingJob}
+          onClose={() => setEditingJob(null)}
+          onSave={handleEditJobSave}
+        />
+      )}
+
+      {categoryAssignJob && (
+        <CategoryAssignModal
+          job={categoryAssignJob}
+          categories={categories}
+          onClose={() => setCategoryAssignJob(null)}
+          onAssign={handleCategoryAssignComplete}
+        />
+      )}
+
+      {showCustomWorkflow && customWorkflowJob && (
+        <CustomWorkflowModal
+          isOpen={showCustomWorkflow}
+          onClose={() => {
+            setShowCustomWorkflow(false);
+            setCustomWorkflowJob(null);
+          }}
+          job={customWorkflowJob}
+          onSuccess={handleCustomWorkflowSuccess}
+        />
+      )}
+
+      {showBarcodeLabels && (
+        <BarcodeLabelsManager 
+          selectedJobs={selectedJobsForBarcodes}
+          onClose={() => {
+            setShowBarcodeLabels(false);
+            setSelectedJobsForBarcodes([]);
+          }}
+        />
       )}
     </div>
   );
