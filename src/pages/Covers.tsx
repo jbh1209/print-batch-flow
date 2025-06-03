@@ -2,14 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, Plus, ArrowLeft } from "lucide-react";
+import { Book, Plus, ArrowLeft } from "lucide-react";
 import { productConfigs } from "@/config/productTypes";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
 import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 import GenericJobsTable from "@/components/generic/GenericJobsTable";
 import { GenericBatchesList } from "@/components/generic/GenericBatchesList";
 import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';
-import { getJobDetailRoute } from '@/utils/routeHelpers';
 
 const Covers = () => {
   const navigate = useNavigate();
@@ -49,9 +48,8 @@ const Covers = () => {
     : 0;
 
   const handleViewJob = (jobId: string) => {
-    const route = getJobDetailRoute(config, jobId);
-    if (route) {
-      navigate(route);
+    if (config.routes.jobDetailPath) {
+      navigate(config.routes.jobDetailPath(jobId));
     }
   };
 
@@ -69,7 +67,7 @@ const Covers = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="flex items-center">
-            <FileText className="h-6 w-6 mr-2 text-primary" />
+            <Book className="h-6 w-6 mr-2 text-primary" />
             <h1 className="text-2xl font-bold tracking-tight">{config.ui.title}</h1>
           </div>
           <p className="text-gray-500 mt-1">Manage cover batches and jobs</p>
@@ -154,7 +152,7 @@ const Covers = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate("/batches/covers/jobs/new")}
+                onClick={() => navigate("/batchflow/batches/covers/jobs/new")}
               >
                 Add New Job
               </Button>
@@ -166,18 +164,23 @@ const Covers = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4">
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Paper Types</h4>
+                <h4 className="text-sm font-medium text-gray-500">Paper Type Options</h4>
                 <p>{config.availablePaperTypes?.join(", ")}</p>
               </div>
               
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Lamination Options</h4>
-                <p>{config.availableLaminationTypes?.map(l => l.replace("_", " ")).join(", ")}</p>
+                <p>{config.availableLaminationTypes?.map(l => l === "none" ? "None" : l.charAt(0).toUpperCase() + l.slice(1)).join(", ")}</p>
               </div>
               
               <div>
                 <h4 className="text-sm font-medium text-gray-500">UV Varnish Options</h4>
-                <p>{config.availableUVVarnishTypes?.join(", ")}</p>
+                <p>{config.availableUVVarnishTypes?.map(l => l === "none" ? "None" : l.charAt(0).toUpperCase() + l.slice(1)).join(", ")}</p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Sides Options</h4>
+                <p>{config.availableSidesTypes?.map(s => s === "single" ? "Single Sided" : "Double Sided").join(", ")}</p>
               </div>
             </div>
           </div>
@@ -189,7 +192,7 @@ const Covers = () => {
               <h2 className="text-xl font-semibold">Cover Jobs</h2>
               <div className="flex space-x-2">
                 <Button onClick={() => handleCreateBatch(jobs.filter(job => job.status === 'queued'))}>
-                  <FileText className="mr-2 h-4 w-4" />
+                  <Book className="mr-2 h-4 w-4" />
                   Batch Jobs
                 </Button>
                 <Button onClick={() => navigate(config.routes.newJobPath)}>

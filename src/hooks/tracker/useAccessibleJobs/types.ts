@@ -3,7 +3,6 @@ export interface AccessibleJob {
   job_id: string;
   wo_no: string;
   customer: string;
-  reference?: string;
   status: string;
   due_date: string;
   category_id: string | null;

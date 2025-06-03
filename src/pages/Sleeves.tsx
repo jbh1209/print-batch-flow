@@ -9,7 +9,6 @@ import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 import GenericJobsTable from "@/components/generic/GenericJobsTable";
 import { GenericBatchesList } from "@/components/generic/GenericBatchesList";
 import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';
-import { getJobDetailRoute } from '@/utils/routeHelpers';
 
 const Sleeves = () => {
   const navigate = useNavigate();
@@ -49,9 +48,8 @@ const Sleeves = () => {
     : 0;
 
   const handleViewJob = (jobId: string) => {
-    const route = getJobDetailRoute(config, jobId);
-    if (route) {
-      navigate(route);
+    if (config.routes.jobDetailPath) {
+      navigate(config.routes.jobDetailPath(jobId));
     }
   };
 
@@ -70,7 +68,7 @@ const Sleeves = () => {
         <div>
           <div className="flex items-center">
             <Package className="h-6 w-6 mr-2 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">{config.ui.title}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Shipper Box Sleeves</h1>
           </div>
           <p className="text-gray-500 mt-1">Manage sleeve batches and jobs</p>
         </div>
@@ -166,18 +164,23 @@ const Sleeves = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-4">
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Paper Type Options</h4>
-                <p>{config.availablePaperTypes?.join(", ")}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Paper Weight</h4>
-                <p>{config.availablePaperWeights?.join(", ")}</p>
+                <h4 className="text-sm font-medium text-gray-500">Stock Type Options</h4>
+                <p>Premium, Standard</p>
               </div>
               
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Default Printer</h4>
-                <p>HP Indigo 12000</p>
+                <p>HP 12000</p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Default Sheet Size</h4>
+                <p>530x750mm</p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Batching Strategy</h4>
+                <p>Grouped by stock type and size</p>
               </div>
             </div>
           </div>

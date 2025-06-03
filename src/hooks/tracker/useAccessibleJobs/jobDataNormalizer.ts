@@ -9,7 +9,6 @@ export const normalizeJobData = (job: any, index: number): AccessibleJob => {
       job_id: String(job.job_id || ''),
       wo_no: formatWONumber(job.wo_no) || '',
       customer: String(job.customer || 'Unknown'),
-      reference: job.reference ? String(job.reference) : undefined,
       status: String(job.status || 'Unknown'),
       due_date: String(job.due_date || ''),
       category_id: job.category_id ? String(job.category_id) : null,

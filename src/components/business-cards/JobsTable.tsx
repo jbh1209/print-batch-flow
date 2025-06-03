@@ -22,7 +22,6 @@ export interface Job {
   status: JobStatus;
   pdf_url: string;
   double_sided?: boolean;
-  reference?: string;
 }
 
 interface JobsTableProps {
@@ -68,7 +67,7 @@ const JobsTable = ({
   if (isLoading) {
     return (
       <TableRow>
-        <TableCell colSpan={10} className="h-24">
+        <TableCell colSpan={9} className="h-24">
           <EmptyState type="loading" entityName="jobs" />
         </TableCell>
       </TableRow>
@@ -78,7 +77,7 @@ const JobsTable = ({
   if (error) {
     return (
       <TableRow>
-        <TableCell colSpan={10} className="h-64">
+        <TableCell colSpan={9} className="h-64">
           <EmptyState 
             type="error" 
             entityName="jobs" 
@@ -93,7 +92,7 @@ const JobsTable = ({
   if (jobs.length === 0) {
     return (
       <TableRow>
-        <TableCell colSpan={10} className="h-64">
+        <TableCell colSpan={9} className="h-64">
           <EmptyState 
             type="empty" 
             entityName="jobs"
@@ -116,7 +115,7 @@ const JobsTable = ({
             disabled={selectableJobsCount === 0}
           />
         </TableCell>
-        <TableCell colSpan={9} className="text-xs text-muted-foreground">
+        <TableCell colSpan={8} className="text-xs text-muted-foreground">
           {selectableJobsCount === 0 ? (
             "No jobs available for batching"
           ) : (
@@ -155,9 +154,6 @@ const JobsTable = ({
             <TableCell>
               {job.lamination_type === 'none' ? 'None' : 
                 job.lamination_type.charAt(0).toUpperCase() + job.lamination_type.slice(1)}
-            </TableCell>
-            <TableCell>
-              {job.reference || '-'}
             </TableCell>
             <TableCell>
               {job.due_date ? <DueDateIndicator dueDate={job.due_date} /> : 'No date set'}

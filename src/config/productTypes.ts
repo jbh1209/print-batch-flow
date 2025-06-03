@@ -1,367 +1,319 @@
-import { JobStatus } from "@/components/business-cards/JobsTable";
 
-// Export all the types that are being imported elsewhere
-export type BatchStatus = "pending" | "processing" | "completed" | "cancelled" | "sent_to_print";
-export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
-
-// Add missing type exports
+export type LaminationType = 'none' | 'matt' | 'gloss' | 'soft_touch' | 'front_gloss_lam' | 'front_matt_lam' | 'no_lam';
+export type JobStatus = 'queued' | 'batched' | 'completed' | 'error' | 'cancelled';
+export type BatchStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'sent_to_print';
 export type TableName = string;
-export type ExistingTableName = "business_card_jobs" | "flyer_jobs" | "postcard_jobs" | "poster_jobs" | "sleeve_jobs" | "box_jobs" | "cover_jobs" | "sticker_jobs";
-
-export interface ProductConfig {
-  productType: string;
-  tableName: string;
-  hasSize: boolean;
-  hasPaperType: boolean;
-  hasPaperWeight?: boolean;
-  hasLamination?: boolean;
-  hasSides?: boolean;
-  hasUVVarnish?: boolean;
-  slaTargetDays: number;
-  ui: {
-    color: string;
-    title: string;
-    batchFormTitle: string;
-    jobFormTitle: string;
-  };
-  fields: {
-    [key: string]: {
-      label: string;
-    };
-  };
-  routes: {
-    jobs: string;
-    batches: string;
-    newJob: string;
-    jobsPath?: string;
-    batchesPath?: string;
-    newJobPath?: string;
-    basePath?: string;
-    jobDetailPath?: string | ((id: string) => string);
-    jobEditPath?: string | ((id: string) => string);
-  };
-  availablePaperTypes?: string[];
-  availablePaperWeights?: string[];
-  availableLaminationTypes?: LaminationType[];
-  availableSizes?: string[];
-  availableUVVarnishTypes?: string[];
-  availableSidesTypes?: string[];
-}
-
-export interface BaseJob {
-  id: string;
-  name: string;
-  file_name: string;
-  quantity: number;
-  due_date: string;
-  created_at: string;
-  status: JobStatus;
-  pdf_url: string;
-  reference?: string;
-  // Optional fields that may exist on some job types
-  size?: string;
-  paper_type?: string;
-  paper_weight?: string;
-  lamination_type?: string;
-  job_number?: string;
-  updated_at?: string;
-  user_id?: string;
-  double_sided?: boolean;
-  uv_varnish?: string;
-  sides?: string;
-  batch_id?: string;
-  stock_type?: string;
-}
+export type UVVarnishType = 'none' | 'gloss';
+export type ExistingTableName = 'flyer_jobs' | 'postcard_jobs' | 'business_card_jobs' | 'poster_jobs' | 'sleeve_jobs' | 'box_jobs' | 'cover_jobs' | 'sticker_jobs' | 'batches' | 'profiles' | 'user_roles';
 
 export interface BaseBatch {
   id: string;
   name: string;
   status: BatchStatus;
-  due_date: string;
-  created_at: string;
-  updated_at?: string;
   sheets_required: number;
-  lamination_type: LaminationType;
   front_pdf_url: string | null;
   back_pdf_url: string | null;
   overview_pdf_url: string | null;
+  due_date: string;
+  created_at: string;
+  created_by: string;
+  lamination_type: LaminationType;
   paper_type?: string;
   paper_weight?: string;
+  updated_at?: string;
   sides?: string;
-  created_by?: string;
+  uv_varnish?: UVVarnishType;
 }
 
-// Product configurations
+export interface BaseJob {
+  id: string;
+  name: string;
+  job_number: string;
+  quantity: number;
+  due_date: string;
+  status: JobStatus | string;
+  user_id: string;
+  batch_id?: string | null;
+  pdf_url: string;
+  file_name: string;
+  created_at: string;
+  updated_at: string;
+  paper_type?: string;
+  paper_weight?: string;
+  lamination_type?: LaminationType;
+  size?: string;
+  sides?: string;
+  stock_type?: string;
+  single_sided?: boolean;
+  double_sided?: boolean;
+  uv_varnish?: UVVarnishType;
+}
+
+export interface ProductConfig {
+  productType: string;
+  tableName: TableName;
+  jobNumberPrefix?: string;
+  availablePaperTypes?: string[];
+  availableLaminationTypes?: LaminationType[];
+  availablePaperWeights?: string[];
+  availableSizes?: string[];
+  availableSidesTypes?: string[];
+  availableUVVarnishTypes?: UVVarnishType[];
+  hasSize?: boolean;
+  hasPaperType?: boolean;
+  hasPaperWeight?: boolean;
+  hasLamination?: boolean;
+  hasSides?: boolean;
+  hasUVVarnish?: boolean;
+  slaTargetDays: number;
+  routes: {
+    indexPath: string;
+    jobsPath: string;
+    newJobPath: string;
+    batchesPath: string;
+    basePath?: string;
+    jobDetailPath?: (id: string) => string;
+    jobEditPath?: (id: string) => string;
+  };
+  ui: {
+    icon: string;
+    color: string;
+    jobFormTitle: string;
+    title?: string;
+    batchFormTitle?: string;
+  };
+}
+
 export const productConfigs: Record<string, ProductConfig> = {
   "BusinessCards": {
-    productType: "Business Cards",
+    productType: "BusinessCards",
     tableName: "business_card_jobs",
-    hasSize: false,
-    hasPaperType: false,
+    jobNumberPrefix: "BC",
+    availablePaperTypes: ["350gsm Matt", "350gsm Silk", "400gsm Matt", "400gsm Silk"],
+    availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"],
+    hasPaperType: true,
+    hasLamination: true,
     slaTargetDays: 3,
-    ui: {
-      color: "#624cf5",
-      title: "Business Cards",
-      batchFormTitle: "Create Business Card Batch",
-      jobFormTitle: "New Business Card Job"
-    },
-    fields: {
-      lamination_type: { label: "Lamination Type" },
-      quantity: { label: "Quantity" }
-    },
     routes: {
-      jobs: "/batches/business-cards/jobs",
-      batches: "/batches/business-cards",
-      newJob: "/batches/business-cards/jobs/new",
-      jobsPath: "/batches/business-cards/jobs",
-      batchesPath: "/batches/business-cards",
-      newJobPath: "/batches/business-cards/jobs/new",
-      basePath: "/batches/business-cards",
-      jobDetailPath: (id: string) => `/batches/business-cards/jobs/${id}`,
-      jobEditPath: (id: string) => `/batches/business-cards/jobs/edit/${id}`
+      indexPath: "/batchflow/batches/business-cards",
+      jobsPath: "/batchflow/batches/business-cards/jobs",
+      newJobPath: "/batchflow/batches/business-cards/jobs/new",
+      batchesPath: "/batchflow/batches/business-cards/batches",
+      basePath: "/batchflow/batches/business-cards",
+      jobDetailPath: (id) => `/batchflow/batches/business-cards/jobs/${id}`,
+      jobEditPath: (id) => `/batchflow/batches/business-cards/jobs/edit/${id}`,
     },
-    availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"]
+    ui: {
+      icon: "card",
+      color: "blue",
+      jobFormTitle: "Business Card Job",
+      title: "Business Cards",
+      batchFormTitle: "Business Card Batch"
+    }
   },
   "Flyers": {
     productType: "Flyers",
     tableName: "flyer_jobs",
+    jobNumberPrefix: "FL",
+    availableSizes: ["A6", "A5", "A4", "DL"],
+    availablePaperTypes: ["Matt", "Gloss"],
+    availablePaperWeights: ["115gsm", "130gsm", "170gsm", "200gsm", "250gsm"],
     hasSize: true,
     hasPaperType: true,
     hasPaperWeight: true,
-    hasLamination: true,
-    slaTargetDays: 5,
-    ui: {
-      color: "#f54c82",
-      title: "Flyers",
-      batchFormTitle: "Create Flyer Batch",
-      jobFormTitle: "New Flyer Job"
-    },
-    fields: {
-      size: { label: "Size" },
-      paper_type: { label: "Paper Type" },
-      paper_weight: { label: "Paper Weight" }
-    },
+    slaTargetDays: 3,
     routes: {
-      jobs: "/batches/flyers/jobs",
-      batches: "/batches/flyers",
-      newJob: "/batches/flyers/jobs/new",
-      jobsPath: "/batches/flyers/jobs",
-      batchesPath: "/batches/flyers",
-      newJobPath: "/batches/flyers/jobs/new",
-      basePath: "/batches/flyers",
-      jobDetailPath: (id: string) => `/batches/flyers/jobs/${id}`,
-      jobEditPath: (id: string) => `/batches/flyers/jobs/edit/${id}`
+      indexPath: "/batchflow/batches/flyers",
+      jobsPath: "/batchflow/batches/flyers/jobs",
+      newJobPath: "/batchflow/batches/flyers/jobs/new",
+      batchesPath: "/batchflow/batches/flyers/batches",
+      basePath: "/batchflow/batches/flyers",
+      jobDetailPath: (id) => `/batchflow/batches/flyers/jobs/${id}`,
+      jobEditPath: (id) => `/batchflow/batches/flyers/jobs/edit/${id}`,
     },
-    availablePaperTypes: ["Matt", "Gloss"],
-    availablePaperWeights: ["130gsm", "150gsm", "200gsm"],
-    availableLaminationTypes: ["none", "gloss", "matt"],
-    availableSizes: ["A5", "A4", "DL", "A3"]
+    ui: {
+      icon: "package",
+      color: "orange",
+      jobFormTitle: "Flyer Job",
+      title: "Flyers",
+      batchFormTitle: "Flyer Batch"
+    }
   },
-  "Postcards": {
+   "Postcards": {
     productType: "Postcards",
     tableName: "postcard_jobs",
+    jobNumberPrefix: "PC",
+    availableSizes: ["A6", "A5", "A4", "DL"],
+    availablePaperTypes: ["Gloss", "Silk", "Uncoated"],
+    availablePaperWeights: ["115gsm", "130gsm", "170gsm", "250gsm", "300gsm", "350gsm"],
+    availableSidesTypes: ["single", "double"],
+    availableLaminationTypes: ["front_gloss_lam", "front_matt_lam", "no_lam"],
     hasSize: true,
     hasPaperType: true,
     hasPaperWeight: true,
+    hasSides: true,
     hasLamination: true,
-    slaTargetDays: 4,
+    slaTargetDays: 3,
+    routes: {
+      indexPath: "/batchflow/batches/postcards",
+      jobsPath: "/batchflow/batches/postcards/jobs",
+      newJobPath: "/batchflow/batches/postcards/jobs/new",
+      batchesPath: "/batchflow/batches/postcards/batches",
+      basePath: "/batchflow/batches/postcards",
+      jobDetailPath: (id) => `/batchflow/batches/postcards/jobs/${id}`,
+      jobEditPath: (id) => `/batchflow/batches/postcards/jobs/edit/${id}`,
+    },
     ui: {
-      color: "#f5a74c",
+      icon: "mail",
+      color: "amber",
+      jobFormTitle: "Postcard Job",
       title: "Postcards",
-      batchFormTitle: "Create Postcard Batch",
-      jobFormTitle: "New Postcard Job"
-    },
-    fields: {
-      size: { label: "Size" },
-      paper_type: { label: "Paper Type" },
-      paper_weight: { label: "Paper Weight" }
-    },
-    routes: {
-      jobs: "/batches/postcards/jobs",
-      batches: "/batches/postcards",
-      newJob: "/batches/postcards/jobs/new",
-      jobsPath: "/batches/postcards/jobs",
-      batchesPath: "/batches/postcards",
-      newJobPath: "/batches/postcards/jobs/new",
-      basePath: "/batches/postcards",
-      jobDetailPath: (id: string) => `/batches/postcards/jobs/${id}`,
-      jobEditPath: (id: string) => `/batches/postcards/jobs/edit/${id}`
-    },
-    availablePaperTypes: ["Matt", "Gloss"],
-    availablePaperWeights: ["300gsm", "350gsm"],
-    availableLaminationTypes: ["none", "gloss", "matt"],
-    availableSizes: ["A6", "A5"]
-  },
-  "Posters": {
-    productType: "Posters",
-    tableName: "poster_jobs",
-    hasSize: true,
-    hasPaperType: true,
-    hasPaperWeight: true,
-    hasLamination: true,
-    slaTargetDays: 7,
-    ui: {
-      color: "#4cf598",
-      title: "Posters",
-      batchFormTitle: "Create Poster Batch",
-      jobFormTitle: "New Poster Job"
-    },
-    fields: {
-      size: { label: "Size" },
-      paper_type: { label: "Paper Type" },
-      paper_weight: { label: "Paper Weight" }
-    },
-    routes: {
-      jobs: "/batches/posters/jobs",
-      batches: "/batches/posters",
-      newJob: "/batches/posters/jobs/new",
-      jobsPath: "/batches/posters/jobs",
-      batchesPath: "/batches/posters",
-      newJobPath: "/batches/posters/jobs/new",
-      basePath: "/batches/posters",
-      jobDetailPath: (id: string) => `/batches/posters/jobs/${id}`,
-      jobEditPath: (id: string) => `/batches/posters/jobs/edit/${id}`
-    },
-    availablePaperTypes: ["Matt", "Gloss", "Canvas"],
-    availablePaperWeights: ["200gsm", "250gsm", "300gsm"],
-    availableLaminationTypes: ["none", "gloss", "matt"],
-    availableSizes: ["A3", "A2", "A1", "A0"]
+      batchFormTitle: "Postcard Batch"
+    }
   },
   "Sleeves": {
     productType: "Sleeves",
     tableName: "sleeve_jobs",
-    hasSize: true,
+    jobNumberPrefix: "SL",
+    availablePaperTypes: ["Kraft", "White"],
     hasPaperType: true,
     slaTargetDays: 5,
+    routes: {
+      indexPath: "/batchflow/batches/sleeves",
+      jobsPath: "/batchflow/batches/sleeves/jobs",
+      newJobPath: "/batchflow/batches/sleeves/jobs/new",
+      batchesPath: "/batchflow/batches/sleeves/batches",
+      basePath: "/batchflow/batches/sleeves",
+      jobDetailPath: (id) => `/batchflow/batches/sleeves/jobs/${id}`,
+      jobEditPath: (id) => `/batchflow/batches/sleeves/jobs/edit/${id}`,
+    },
     ui: {
-      color: "#4c87f5",
+      icon: "box",
+      color: "violet",
+      jobFormTitle: "Sleeve Job",
       title: "Sleeves",
-      batchFormTitle: "Create Sleeve Batch",
-      jobFormTitle: "New Sleeve Job"
-    },
-    fields: {
-      stock_type: { label: "Stock Type" }
-    },
-    routes: {
-      jobs: "/batches/sleeves/jobs",
-      batches: "/batches/sleeves",
-      newJob: "/batches/sleeves/jobs/new",
-      jobsPath: "/batches/sleeves/jobs",
-      batchesPath: "/batches/sleeves",
-      newJobPath: "/batches/sleeves/jobs/new",
-      basePath: "/batches/sleeves",
-      jobDetailPath: (id: string) => `/batches/sleeves/jobs/${id}`,
-      jobEditPath: (id: string) => `/batches/sleeves/jobs/edit/${id}`
-    },
-    availablePaperTypes: ["Premium", "Standard"],
-    availablePaperWeights: ["350gsm"],
-    availableLaminationTypes: ["none"]
-  },
-  "Boxes": {
-    productType: "Boxes",
-    tableName: "box_jobs",
-    hasSize: true,
-    hasPaperType: true,
-    hasLamination: true,
-    slaTargetDays: 10,
-    ui: {
-      color: "#f54cca",
-      title: "Boxes",
-      batchFormTitle: "Create Box Batch",
-      jobFormTitle: "New Box Job"
-    },
-    fields: {
-      paper_type: { label: "Paper Type" },
-      lamination_type: { label: "Lamination Type" }
-    },
-    routes: {
-      jobs: "/batches/boxes/jobs",
-      batches: "/batches/boxes",
-      newJob: "/batches/boxes/jobs/new",
-      jobsPath: "/batches/boxes/jobs",
-      batchesPath: "/batches/boxes",
-      newJobPath: "/batches/boxes/jobs/new",
-      basePath: "/batches/boxes",
-      jobDetailPath: (id: string) => `/batches/boxes/jobs/${id}`,
-      jobEditPath: (id: string) => `/batches/boxes/jobs/edit/${id}`
-    },
-    availablePaperTypes: ["Cardboard", "Corrugated"],
-    availablePaperWeights: ["300gsm", "400gsm", "500gsm"],
-    availableLaminationTypes: ["none", "gloss", "matt"]
-  },
-  "Covers": {
-    productType: "Covers",
-    tableName: "cover_jobs",
-    hasSize: true,
-    hasPaperType: true,
-    hasPaperWeight: true,
-    hasLamination: true,
-    hasSides: true,
-    hasUVVarnish: true,
-    slaTargetDays: 6,
-    ui: {
-      color: "#caf54c",
-      title: "Covers",
-      batchFormTitle: "Create Cover Batch",
-      jobFormTitle: "New Cover Job"
-    },
-    fields: {
-      paper_type: { label: "Paper Type" },
-      paper_weight: { label: "Paper Weight" },
-      lamination_type: { label: "Lamination Type" },
-      uv_varnish: { label: "UV Varnish" },
-      sides: { label: "Sides" }
-    },
-    routes: {
-      jobs: "/batches/covers/jobs",
-      batches: "/batches/covers",
-      newJob: "/batches/covers/jobs/new",
-      jobsPath: "/batches/covers/jobs",
-      batchesPath: "/batches/covers",
-      newJobPath: "/batches/covers/jobs/new",
-      basePath: "/batches/covers",
-      jobDetailPath: (id: string) => `/batches/covers/jobs/${id}`,
-      jobEditPath: (id: string) => `/batches/covers/jobs/edit/${id}`
-    },
-    availablePaperTypes: ["Matt", "Gloss", "Textured"],
-    availablePaperWeights: ["250gsm", "300gsm", "350gsm"],
-    availableLaminationTypes: ["none", "gloss", "matt", "soft_touch"],
-    availableUVVarnishTypes: ["none", "spot", "flood"],
-    availableSidesTypes: ["single", "double"]
+      batchFormTitle: "Sleeve Batch"
+    }
   },
   "Stickers": {
     productType: "Stickers",
     tableName: "sticker_jobs",
-    hasSize: true,
+    jobNumberPrefix: "STK",
+    availablePaperTypes: ["Paper", "Vinyl"],
+    availableLaminationTypes: ["none", "matt", "gloss"],
     hasPaperType: true,
     hasLamination: true,
-    slaTargetDays: 4,
-    ui: {
-      color: "#4cf5f0",
-      title: "Stickers",
-      batchFormTitle: "Create Sticker Batch",
-      jobFormTitle: "New Sticker Job"
-    },
-    fields: {
-      paper_type: { label: "Paper Type" },
-      lamination_type: { label: "Lamination Type" }
-    },
+    slaTargetDays: 3,
     routes: {
-      jobs: "/batches/stickers/jobs",
-      batches: "/batches/stickers",
-      newJob: "/batches/stickers/jobs/new",
-      jobsPath: "/batches/stickers/jobs",
-      batchesPath: "/batches/stickers",
-      newJobPath: "/batches/stickers/jobs/new",
-      basePath: "/batches/stickers",
-      jobDetailPath: (id: string) => `/batches/stickers/jobs/${id}`,
-      jobEditPath: (id: string) => `/batches/stickers/jobs/edit/${id}`
+      indexPath: "/batchflow/batches/stickers",
+      jobsPath: "/batchflow/batches/stickers/jobs",
+      newJobPath: "/batchflow/batches/stickers/jobs/new",
+      batchesPath: "/batchflow/batches/stickers/batches",
+      basePath: "/batchflow/batches/stickers",
+      jobDetailPath: (id) => `/batchflow/batches/stickers/jobs/${id}`,
+      jobEditPath: (id) => `/batchflow/batches/stickers/jobs/edit/${id}`,
     },
-    availablePaperTypes: ["Vinyl", "Paper", "Clear"],
-    availablePaperWeights: ["80gsm", "100gsm"],
-    availableLaminationTypes: ["none", "gloss", "matt"]
-  }
+    ui: {
+      icon: "sticker",
+      color: "emerald",
+      jobFormTitle: "Sticker Job",
+      title: "Stickers",
+      batchFormTitle: "Sticker Batch"
+    }
+  },
+  "Posters": {
+    productType: "Posters",
+    tableName: "poster_jobs",
+    jobNumberPrefix: "POST",
+    availableSizes: ["A4", "A3"],
+    availablePaperTypes: ["Matt", "Gloss"],
+    availablePaperWeights: ["80gsm bond", "115gsm", "130gsm", "170gsm", "200gsm", "250gsm", "300gsm", "350gsm"],
+    availableSidesTypes: ["single", "double"],
+    hasSize: true,
+    hasPaperType: true,
+    hasPaperWeight: true,
+    hasSides: true,
+    slaTargetDays: 3,
+    routes: {
+      indexPath: "/batchflow/batches/posters",
+      jobsPath: "/batchflow/batches/posters/jobs",
+      newJobPath: "/batchflow/batches/posters/jobs/new",
+      batchesPath: "/batchflow/batches/posters/batches",
+      basePath: "/batchflow/batches/posters",
+      jobDetailPath: (id) => `/batchflow/batches/posters/jobs/${id}`,
+      jobEditPath: (id) => `/batchflow/batches/posters/jobs/edit/${id}`,
+    },
+    ui: {
+      icon: "image",
+      color: "pink",
+      jobFormTitle: "Poster Job",
+      title: "Posters",
+      batchFormTitle: "Poster Batch"
+    }
+  },
+  "Covers": {
+    productType: "Covers",
+    tableName: "cover_jobs",
+    jobNumberPrefix: "COV",
+    availablePaperTypes: [
+      "250gsm Gloss", 
+      "250gsm Matt", 
+      "300gsm Gloss", 
+      "300gsm Matt",
+      "FBB"
+    ],
+    availablePaperWeights: ["230gsm", "250gsm", "300gsm"],
+    availableLaminationTypes: ["none", "matt", "gloss"],
+    availableUVVarnishTypes: ["none", "gloss"],
+    availableSidesTypes: ["single", "double"],
+    hasSize: false,
+    hasPaperType: true,
+    hasPaperWeight: true,
+    hasLamination: true,
+    hasUVVarnish: true,
+    hasSides: true,
+    slaTargetDays: 3,
+    routes: {
+      indexPath: "/batchflow/batches/covers",
+      jobsPath: "/batchflow/batches/covers/jobs",
+      newJobPath: "/batchflow/batches/covers/jobs/new",
+      batchesPath: "/batchflow/batches/covers/batches",
+      basePath: "/batchflow/batches/covers",
+      jobDetailPath: (id) => `/batchflow/batches/covers/jobs/${id}`,
+      jobEditPath: (id) => `/batchflow/batches/covers/jobs/edit/${id}`,
+    },
+    ui: {
+      icon: "book",
+      color: "indigo",
+      jobFormTitle: "Cover Job",
+      title: "Covers",
+      batchFormTitle: "Cover Batch"
+    }
+  },
+  "Boxes": {
+    productType: "Boxes",
+    tableName: "box_jobs",
+    jobNumberPrefix: "PB",
+    availablePaperTypes: ["FBB 230gsm", "FBB 300gsm", "300gsm matt"],
+    availableLaminationTypes: ["soft_touch", "matt", "gloss"],
+    hasPaperType: true,
+    hasLamination: true,
+    slaTargetDays: 5,
+    routes: {
+      indexPath: "/batchflow/batches/boxes",
+      jobsPath: "/batchflow/batches/boxes/jobs",
+      newJobPath: "/batchflow/batches/boxes/jobs/new",
+      batchesPath: "/batchflow/batches/boxes/batches",
+      basePath: "/batchflow/batches/boxes",
+      jobDetailPath: (id) => `/batchflow/batches/boxes/jobs/${id}`,
+      jobEditPath: (id) => `/batchflow/batches/boxes/jobs/edit/${id}`,
+    },
+    ui: {
+      icon: "package",
+      color: "slate",
+      jobFormTitle: "Box Job",
+      title: "Boxes",
+      batchFormTitle: "Box Batch"
+    }
+  },
 };
-
-// Export JobStatus from the original location to maintain compatibility
-export type { JobStatus };

@@ -9,7 +9,10 @@ export const existingTables: ExistingTableName[] = [
   'sleeve_jobs',
   'box_jobs',
   'cover_jobs',
-  'sticker_jobs'
+  'sticker_jobs',
+  'batches',
+  'profiles',
+  'user_roles'
 ];
 
 export function isExistingTable(tableName: string): tableName is ExistingTableName {

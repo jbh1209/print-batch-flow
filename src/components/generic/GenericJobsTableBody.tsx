@@ -44,7 +44,7 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
   if (isLoading) {
     return (
       <TableRow>
-        <TableCell colSpan={10} className="h-24 text-center">
+        <TableCell colSpan={9} className="h-24 text-center">
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
@@ -56,7 +56,7 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
   if (error) {
     return (
       <TableRow>
-        <TableCell colSpan={10} className="h-24 text-center">
+        <TableCell colSpan={9} className="h-24 text-center">
           <div className="flex flex-col items-center justify-center h-full">
             <p className="text-red-500">{error}</p>
             <Button variant="outline" size="sm" className="mt-2">
@@ -71,7 +71,7 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
   if (jobs.length === 0) {
     return (
       <TableRow>
-        <TableCell colSpan={10} className="h-24 text-center">
+        <TableCell colSpan={9} className="h-24 text-center">
           <div className="flex flex-col items-center justify-center h-full">
             <p className="text-gray-500">No jobs found</p>
           </div>
@@ -123,7 +123,6 @@ const GenericJobsTableBody: React.FC<GenericJobsTableBodyProps> = ({
                   : job.lamination_type.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
               </TableCell>
             )}
-            <TableCell>{job.reference || "-"}</TableCell>
             <TableCell>
               <div className="flex items-center">
                 <div className={`w-2 h-2 rounded-full mr-2 ${

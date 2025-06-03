@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -170,7 +171,7 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
                         ${job?.status === 'queued' ? 'bg-blue-100 text-blue-800' : 
                           job?.status === 'batched' ? 'bg-yellow-100 text-yellow-800' :
                           job?.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          job?.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          job?.status === 'error' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'}`}>
                         {job?.status?.charAt(0).toUpperCase() + job?.status?.slice(1)}
                       </span>
