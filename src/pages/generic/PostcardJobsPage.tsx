@@ -30,8 +30,11 @@ const PostcardJobsPage = () => {
   };
 
   const handleViewJob = (jobId: string) => {
-    if (config.routes.jobDetailPath) {
-      navigate(config.routes.jobDetailPath(jobId));
+    const jobDetailPath = config.routes.jobDetailPath;
+    if (typeof jobDetailPath === 'function') {
+      navigate(jobDetailPath(jobId));
+    } else if (typeof jobDetailPath === 'string') {
+      navigate(`${jobDetailPath}/${jobId}`);
     }
   };
 

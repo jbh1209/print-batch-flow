@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -65,12 +64,23 @@ const GenericJobsTable = ({
   }, [selectedJobIds, jobs]);
   
   const handleViewJob = (id: string) => {
-    navigate(config.routes.jobDetailPath(id));
+    const jobDetailPath = config.routes.jobDetailPath;
+    if (typeof jobDetailPath === 'function') {
+      navigate(jobDetailPath(id));
+    } else if (typeof jobDetailPath === 'string') {
+      navigate(`${jobDetailPath}/${id}`);
+    }
   };
   
   const handleEditJob = (id: string) => {
-    navigate(config.routes.jobEditPath(id));
+    const jobEditPath = config.routes.jobEditPath;
+    if (typeof jobEditPath === 'function') {
+      navigate(jobEditPath(id));
+    } else if (typeof jobEditPath === 'string') {
+      navigate(`${jobEditPath}/${id}`);
+    }
   };
+  
   
   const confirmDelete = async () => {
     if (!jobToDelete) return;

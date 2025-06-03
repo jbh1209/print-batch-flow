@@ -9,6 +9,7 @@ import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 import GenericJobsTable from "@/components/generic/GenericJobsTable";
 import { GenericBatchesList } from "@/components/generic/GenericBatchesList";
 import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';
+import { getJobDetailRoute } from '@/utils/routeHelpers';
 
 const Posters = () => {
   const navigate = useNavigate();
@@ -48,8 +49,9 @@ const Posters = () => {
     : 0;
 
   const handleViewJob = (jobId: string) => {
-    if (config.routes.jobDetailPath) {
-      navigate(config.routes.jobDetailPath(jobId));
+    const route = getJobDetailRoute(config, jobId);
+    if (route) {
+      navigate(route);
     }
   };
 
