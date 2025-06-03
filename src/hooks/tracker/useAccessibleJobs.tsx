@@ -77,10 +77,10 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
 
       console.log("✅ Raw database response:", data);
 
-      // Transform and normalize the data
+      // Transform and normalize the data to match our interface
       const normalizedJobs = (data || []).map((job: any) => ({
-        job_id: job.job_id || job.id,
-        wo_no: formatWONumber(job.wo_no), // Normalize WO numbers
+        job_id: job.job_id,
+        wo_no: formatWONumber(job.wo_no),
         customer: job.customer || 'Unknown',
         status: job.status || 'Unknown',
         due_date: job.due_date || '',
