@@ -31,8 +31,19 @@ export const ProductionManagerView = () => {
   const [showBarcodeLabels, setShowBarcodeLabels] = useState(false);
   const [selectedJobsForBarcodes, setSelectedJobsForBarcodes] = useState<AccessibleJob[]>([]);
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log("📊 ProductionManagerView state:", {
+      isLoading,
+      error,
+      jobsCount: jobs.length,
+      statusFilter
+    });
+  }, [isLoading, error, jobs, statusFilter]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
+    console.log("🔄 Manual refresh triggered");
     await refreshJobs();
     setTimeout(() => setRefreshing(false), 1000);
   };
@@ -136,8 +147,21 @@ export const ProductionManagerView = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8 h-full">
-        <RefreshCw className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading production overview...</span>
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <span className="text-lg">Loading production overview...</span>
+          <p className="text-sm text-gray-500 mt-2">
+            Fetching jobs and permissions...
+          </p>
+          <Button 
+            onClick={handleRefresh} 
+            variant="outline" 
+            size="sm"
+            className="mt-4"
+          >
+            Try Again
+          </Button>
+        </div>
       </div>
     );
   }
@@ -261,14 +285,74 @@ export const ProductionManagerView = () => {
           jobs={jobs}
           onStartJob={startJob}
           onCompleteJob={completeJob}
-          onEditJob={handleEditJob}
-          onCategoryAssign={handleCategoryAssign}
-          onCustomWorkflow={handleCustomWorkflow}
-          onDeleteJob={handleDeleteJob}
-          onBulkCategoryAssign={handleBulkCategoryAssign}
-          onBulkStatusUpdate={handleBulkStatusUpdate}
-          onBulkDelete={handleBulkDelete}
-          onGenerateBarcodes={handleGenerateBarcodes}
+          onEditJob={setEditingJob}
+          onCategoryAssign={setCategoryAssignJob}
+          onCustomWorkflow={(job) => {
+            setCustomWorkflowJob(job);
+            setShowCustomWorkflow(true);
+          }}
+          onDeleteJob={async (jobId) => {
+            try {
+              const { error } = await supabase
+                .from('production_jobs')
+                .delete()
+                .eq('id', jobId);
+
+              if (error) throw error;
+
+              toast.success('Job deleted successfully');
+              await refreshJobs();
+            } catch (err) {
+              console.error('Error deleting job:', err);
+              toast.error('Failed to delete job');
+            }
+          }}
+          onBulkCategoryAssign={(selectedJobs) => {
+            if (selectedJobs.length > 0) {
+              const firstJob = {
+                ...selectedJobs[0],
+                isMultiple: true,
+                selectedIds: selectedJobs.map(j => j.job_id)
+              };
+              setCategoryAssignJob(firstJob as any);
+            }
+          }}
+          onBulkStatusUpdate={async (selectedJobs, status) => {
+            try {
+              const { error } = await supabase
+                .from('production_jobs')
+                .update({ status })
+                .in('id', selectedJobs.map(j => j.job_id));
+
+              if (error) throw error;
+
+              toast.success(`Updated ${selectedJobs.length} job(s) to ${status} status`);
+              await refreshJobs();
+            } catch (err) {
+              console.error('Error updating job status:', err);
+              toast.error('Failed to update job status');
+            }
+          }}
+          onBulkDelete={async (selectedJobs) => {
+            try {
+              const { error } = await supabase
+                .from('production_jobs')
+                .delete()
+                .in('id', selectedJobs.map(j => j.job_id));
+
+              if (error) throw error;
+
+              toast.success(`Deleted ${selectedJobs.length} job(s) successfully`);
+              await refreshJobs();
+            } catch (err) {
+              console.error('Error deleting jobs:', err);
+              toast.error('Failed to delete jobs');
+            }
+          }}
+          onGenerateBarcodes={(selectedJobs) => {
+            setSelectedJobsForBarcodes(selectedJobs);
+            setShowBarcodeLabels(true);
+          }}
         />
       ) : (
         <Card>
@@ -287,7 +371,10 @@ export const ProductionManagerView = () => {
         <JobEditModal
           job={editingJob}
           onClose={() => setEditingJob(null)}
-          onSave={handleEditJobSave}
+          onSave={() => {
+            setEditingJob(null);
+            refreshJobs();
+          }}
         />
       )}
 
@@ -296,7 +383,10 @@ export const ProductionManagerView = () => {
           job={categoryAssignJob}
           categories={categories}
           onClose={() => setCategoryAssignJob(null)}
-          onAssign={handleCategoryAssignComplete}
+          onAssign={() => {
+            setCategoryAssignJob(null);
+            refreshJobs();
+          }}
         />
       )}
 
@@ -308,7 +398,11 @@ export const ProductionManagerView = () => {
             setCustomWorkflowJob(null);
           }}
           job={customWorkflowJob}
-          onSuccess={handleCustomWorkflowSuccess}
+          onSuccess={() => {
+            setShowCustomWorkflow(false);
+            setCustomWorkflowJob(null);
+            refreshJobs();
+          }}
         />
       )}
 
