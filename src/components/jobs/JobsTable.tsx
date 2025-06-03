@@ -84,6 +84,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
             </TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Quantity</TableHead>
+            <TableHead>Reference</TableHead>
             <TableHead
               className="cursor-pointer"
               onClick={() => toggleSort('due_date')}
@@ -99,7 +100,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
         <TableBody>
           {jobs.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                 No jobs found matching your filters
               </TableCell>
             </TableRow>
@@ -132,6 +133,7 @@ const JobsTable: React.FC<JobsTableProps> = ({
                 </TableCell>
                 <TableCell>{job.name}</TableCell>
                 <TableCell>{job.quantity}</TableCell>
+                <TableCell>{job.reference || '-'}</TableCell>
                 <TableCell>{format(new Date(job.due_date), 'MMM dd, yyyy')}</TableCell>
                 <TableCell>
                   <span className="font-medium">
