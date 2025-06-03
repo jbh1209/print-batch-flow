@@ -4,20 +4,25 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatWONumber } from "@/utils/woNumberFormatter";
 
-export const useEnhancedProductionJobs = () => {
+interface UseEnhancedProductionJobsOptions {
+  fetchAllJobs?: boolean; // New option to fetch all jobs instead of user-specific
+}
+
+export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOptions = {}) => {
   const { user, isLoading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { fetchAllJobs = false } = options;
 
   const fetchJobs = useCallback(async () => {
     try {
       setError(null);
       setIsLoading(true);
-      console.log("🔍 Fetching enhanced production jobs...");
+      console.log("🔍 Fetching enhanced production jobs...", { fetchAllJobs, userId: user?.id });
 
-      // Fetch ALL production jobs
-      const { data: jobsData, error: fetchError } = await supabase
+      // Build the query - conditionally add user filter
+      let query = supabase
         .from('production_jobs')
         .select(`
           *,
@@ -31,11 +36,18 @@ export const useEnhancedProductionJobs = () => {
         `)
         .order('created_at', { ascending: false });
 
+      // Only filter by user if fetchAllJobs is false
+      if (!fetchAllJobs && user?.id) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data: jobsData, error: fetchError } = await query;
+
       if (fetchError) {
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
 
-      console.log("📊 Raw jobs data:", jobsData?.length || 0, "jobs");
+      console.log("📊 Raw jobs data:", jobsData?.length || 0, "jobs", { fetchAllJobs });
 
       if (!Array.isArray(jobsData)) {
         console.error("Expected array but got:", jobsData);
@@ -169,7 +181,7 @@ export const useEnhancedProductionJobs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchAllJobs, user?.id]);
 
   // Stage management functions
   const startStage = useCallback(async (jobId: string, stageId: string) => {

@@ -11,7 +11,10 @@ import { DataFlowDiagnostic } from "../diagnostics/DataFlowDiagnostic";
 
 export const OperatorDashboard = () => {
   const { user } = useAuth();
-  const { jobs, isLoading: jobsLoading, refreshJobs } = useEnhancedProductionJobs();
+  // CRITICAL FIX: Fetch ALL jobs in Factory Floor context, not just user's jobs
+  const { jobs, isLoading: jobsLoading, refreshJobs } = useEnhancedProductionJobs({ 
+    fetchAllJobs: true // This ensures we see all jobs, not just user-created ones
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
