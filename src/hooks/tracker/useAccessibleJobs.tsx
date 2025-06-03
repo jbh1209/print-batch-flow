@@ -135,12 +135,10 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     }
   };
 
-  // Initial data load
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
 
-  // Real-time subscription
   useEffect(() => {
     console.log("Setting up real-time subscription for accessible jobs");
 
