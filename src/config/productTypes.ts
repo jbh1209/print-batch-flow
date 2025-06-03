@@ -39,8 +39,8 @@ export interface ProductConfig {
     batchesPath?: string;
     newJobPath?: string;
     basePath?: string;
-    jobDetailPath?: string;
-    jobEditPath?: string;
+    jobDetailPath?: (id: string) => string;
+    jobEditPath?: (id: string) => string;
   };
   availablePaperTypes?: string[];
   availablePaperWeights?: string[];
@@ -71,6 +71,8 @@ export interface BaseJob {
   double_sided?: boolean;
   uv_varnish?: string;
   sides?: string;
+  batch_id?: string;
+  stock_type?: string;
 }
 
 export interface BaseBatch {
@@ -79,6 +81,7 @@ export interface BaseBatch {
   status: BatchStatus;
   due_date: string;
   created_at: string;
+  updated_at?: string;
   sheets_required: number;
   lamination_type: LaminationType;
   front_pdf_url: string | null;

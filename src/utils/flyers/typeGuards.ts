@@ -1,129 +1,88 @@
+import { BaseJob } from "@/config/productTypes";
+import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 
-import { FlyerJob, FlyerBatch } from '@/components/batches/types/FlyerTypes';
-import { Job, BatchDetailsType } from '@/components/batches/types/BatchTypes';
-import { BaseJob } from '@/config/productTypes';
-
-// Type guard for FlyerJob
-export function isValidFlyerJob(obj: any): obj is FlyerJob {
+export const isFlyerJob = (job: BaseJob): job is FlyerJob => {
   return (
-    obj &&
-    typeof obj.id === 'string' &&
-    typeof obj.name === 'string' &&
-    typeof obj.quantity === 'number' &&
-    typeof obj.due_date === 'string' &&
-    typeof obj.status === 'string' &&
-    typeof obj.pdf_url === 'string'
+    typeof job.name === "string" &&
+    typeof job.job_number === "string" &&
+    typeof job.size === "string" &&
+    typeof job.paper_weight === "string" &&
+    typeof job.paper_type === "string" &&
+    typeof job.quantity === "number" &&
+    typeof job.due_date === "string" &&
+    (job.status === "queued" ||
+      job.status === "batched" ||
+      job.status === "completed" ||
+      job.status === "cancelled") &&
+    typeof job.pdf_url === "string" &&
+    typeof job.file_name === "string" &&
+    typeof job.user_id === "string" &&
+    typeof job.created_at === "string" &&
+    typeof job.updated_at === "string"
   );
-}
+};
 
-// Type guard for FlyerBatch
-export function isValidFlyerBatch(obj: any): obj is FlyerBatch {
-  return (
-    obj &&
-    typeof obj.id === 'string' &&
-    typeof obj.name === 'string' &&
-    typeof obj.status === 'string' &&
-    typeof obj.due_date === 'string' &&
-    typeof obj.created_at === 'string'
-  );
-}
-
-// Safe converter from FlyerJob to Job
-export function convertFlyerJobToJob(flyerJob: FlyerJob): Job {
-  try {
-    return {
-      id: flyerJob.id,
-      name: flyerJob.name,
-      file_name: flyerJob.file_name || flyerJob.name || "",
-      quantity: flyerJob.quantity,
-      lamination_type: "none",
-      due_date: flyerJob.due_date,
-      uploaded_at: flyerJob.created_at,
-      status: flyerJob.status,
-      pdf_url: flyerJob.pdf_url,
-      user_id: flyerJob.user_id || "",
-      updated_at: flyerJob.updated_at || "",
-      job_number: flyerJob.job_number || flyerJob.name || ""
-    };
-  } catch (error) {
-    console.error('Error converting FlyerJob to Job:', error);
-    throw new Error(`Failed to convert job ${flyerJob.id}`);
+export const transformBaseJobToFlyerJob = (job: BaseJob): FlyerJob => {
+  if (!isFlyerJob(job)) {
+    throw new Error("Job is not a FlyerJob");
   }
-}
 
-// Safe converter from FlyerJob to BaseJob
-export function convertFlyerJobToBaseJob(flyerJob: FlyerJob): BaseJob {
-  try {
-    return {
+  const flyerJob: FlyerJob = {
+    id: job.id,
+    name: job.name,
+    job_number: job.job_number,
+    size: job.size,
+    paper_weight: job.paper_weight,
+    paper_type: job.paper_type,
+    quantity: job.quantity,
+    due_date: job.due_date,
+    batch_id: job.batch_id,
+    status: job.status,
+    pdf_url: job.pdf_url,
+    file_name: job.file_name,
+    user_id: job.user_id,
+    created_at: job.created_at,
+    updated_at: job.updated_at,
+  };
+
+  return flyerJob;
+};
+
+export const transformToFlyerJob = (job: any): FlyerJob => {
+  return {
+    id: job.id,
+    name: job.name,
+    job_number: job.job_number,
+    size: job.size,
+    paper_weight: job.paper_weight,
+    quantity: job.quantity,
+    paper_type: job.paper_type,
+    due_date: job.due_date,
+    created_at: job.created_at,
+    status: job.status,
+    pdf_url: job.pdf_url || '',
+    file_name: job.file_name,
+    user_id: job.user_id,
+    updated_at: job.updated_at,
+    batch_id: job.batch_id
+  };
+};
+
+export const transformToGenericJob = (flyerJob: FlyerJob): BaseJob => {
+  return {
       id: flyerJob.id,
       name: flyerJob.name,
-      quantity: flyerJob.quantity,
-      due_date: flyerJob.due_date,
-      status: flyerJob.status,
-      pdf_url: flyerJob.pdf_url,
-      user_id: flyerJob.user_id,
-      created_at: flyerJob.created_at,
-      updated_at: flyerJob.updated_at,
-      batch_id: flyerJob.batch_id,
-      file_name: flyerJob.file_name,
       job_number: flyerJob.job_number,
-      paper_type: flyerJob.paper_type,
+      size: flyerJob.size,
       paper_weight: flyerJob.paper_weight,
-      size: flyerJob.size
-    };
-  } catch (error) {
-    console.error('Error converting FlyerJob to BaseJob:', error);
-    throw new Error(`Failed to convert job ${flyerJob.id} to BaseJob`);
-  }
-}
-
-// Safe converter from FlyerBatch to BatchDetailsType
-export function convertFlyerBatchToBatchDetails(flyerBatch: FlyerBatch): BatchDetailsType {
-  try {
-    return {
-      id: flyerBatch.id,
-      name: flyerBatch.name,
-      lamination_type: flyerBatch.lamination_type,
-      sheets_required: flyerBatch.sheets_required,
-      front_pdf_url: flyerBatch.front_pdf_url,
-      back_pdf_url: flyerBatch.back_pdf_url,
-      overview_pdf_url: flyerBatch.overview_pdf_url || flyerBatch.back_pdf_url,
-      due_date: flyerBatch.due_date,
-      created_at: flyerBatch.created_at,
-      status: flyerBatch.status
-    };
-  } catch (error) {
-    console.error('Error converting FlyerBatch to BatchDetailsType:', error);
-    throw new Error(`Failed to convert batch ${flyerBatch.id}`);
-  }
-}
-
-// Safe batch converter for arrays
-export function convertFlyerJobsToJobs(flyerJobs: FlyerJob[]): Job[] {
-  return flyerJobs
-    .filter(isValidFlyerJob)
-    .map(job => {
-      try {
-        return convertFlyerJobToJob(job);
-      } catch (error) {
-        console.error(`Skipping invalid job ${job.id}:`, error);
-        return null;
-      }
-    })
-    .filter((job): job is Job => job !== null);
-}
-
-// Safe batch converter for BaseJob arrays
-export function convertFlyerJobsToBaseJobs(flyerJobs: FlyerJob[]): BaseJob[] {
-  return flyerJobs
-    .filter(isValidFlyerJob)
-    .map(job => {
-      try {
-        return convertFlyerJobToBaseJob(job);
-      } catch (error) {
-        console.error(`Skipping invalid job ${job.id}:`, error);
-        return null;
-      }
-    })
-    .filter((job): job is BaseJob => job !== null);
-}
+      quantity: flyerJob.quantity,
+      paper_type: flyerJob.paper_type,
+      due_date: flyerJob.due_date,
+      created_at: flyerJob.created_at,
+      status: flyerJob.status,
+      pdf_url: flyerJob.pdf_url || '',
+      file_name: flyerJob.file_name,
+      reference: flyerJob.reference,
+      batch_id: flyerJob.batch_id
+  };
+};
