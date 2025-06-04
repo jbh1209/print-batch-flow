@@ -26,10 +26,24 @@ export const EnhancedOperatorDashboard = () => {
   });
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterMode, setFilterMode] = useState<'all' | 'my-active' | 'available' | 'urgent'>('available');
+  const [filterMode, setFilterMode] = useState<'all' | 'my-active' | 'available' | 'urgent'>(isDtpOperator ? 'my-active' : 'available');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Filter stages for DTP operators
+  console.log("🔍 EnhancedOperatorDashboard Debug:", {
+    isDtpOperator,
+    totalJobs: jobs.length,
+    accessibleStages: accessibleStages.length,
+    accessibleStageNames: accessibleStages.map(s => s.stage_name),
+    sampleJobs: jobs.slice(0, 3).map(job => ({
+      woNo: job.wo_no,
+      currentStageId: job.current_stage_id,
+      currentStageName: job.current_stage_name,
+      currentStageStatus: job.current_stage_status,
+      userCanWork: job.user_can_work
+    }))
+  });
+
+  // Filter stages for DTP operators - get stage IDs that DTP operators can access
   const relevantStageIds = isDtpOperator 
     ? accessibleStages
         .filter(stage => 
@@ -39,20 +53,56 @@ export const EnhancedOperatorDashboard = () => {
         .map(stage => stage.stage_id)
     : accessibleStages.map(stage => stage.stage_id);
 
-  // Filter jobs based on search and filter mode
+  console.log("🎯 DTP Stage Filtering:", {
+    isDtpOperator,
+    relevantStageIds: relevantStageIds.map(id => id.substring(0, 8)),
+    totalAccessibleStages: accessibleStages.length
+  });
+
+  // Filter jobs based on search, filter mode, and DTP operator stage access
   const filteredJobs = React.useMemo(() => {
     let filtered = jobs;
 
+    console.log("🔍 Starting job filtering with", filtered.length, "jobs");
+
+    // FIRST: Apply DTP operator stage filtering if needed
+    if (isDtpOperator && relevantStageIds.length > 0) {
+      const beforeDtpFilter = filtered.length;
+      filtered = filtered.filter(job => {
+        // Check if job's current stage is one the DTP operator can work on
+        const hasMatchingStage = job.current_stage_id && relevantStageIds.includes(job.current_stage_id);
+        
+        // Also check by stage name as fallback
+        const hasMatchingStageName = job.current_stage_name && 
+          (job.current_stage_name.toLowerCase().includes('dtp') || 
+           job.current_stage_name.toLowerCase().includes('proof'));
+
+        const isAccessible = hasMatchingStage || hasMatchingStageName;
+        
+        if (!isAccessible) {
+          console.log(`❌ Filtering out job ${job.wo_no}: stage ${job.current_stage_name} (${job.current_stage_id?.substring(0, 8)}) not in DTP stages`);
+        } else {
+          console.log(`✅ Including DTP job ${job.wo_no}: stage ${job.current_stage_name} (${job.current_stage_id?.substring(0, 8)})`);
+        }
+        
+        return isAccessible;
+      });
+      console.log(`🎯 DTP stage filter: ${beforeDtpFilter} → ${filtered.length} jobs`);
+    }
+
     // Apply search filter
     if (searchQuery) {
+      const beforeSearch = filtered.length;
       filtered = filtered.filter(job =>
         job.wo_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (job.customer && job.customer.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (job.reference && job.reference.toLowerCase().includes(searchQuery.toLowerCase()))
       );
+      console.log(`🔍 Search filter: ${beforeSearch} → ${filtered.length} jobs`);
     }
 
     // Apply mode filter
+    const beforeModeFilter = filtered.length;
     switch (filterMode) {
       case 'my-active':
         filtered = filtered.filter(job => 
@@ -73,6 +123,7 @@ export const EnhancedOperatorDashboard = () => {
         });
         break;
     }
+    console.log(`📊 Mode filter (${filterMode}): ${beforeModeFilter} → ${filtered.length} jobs`);
 
     // Sort: active jobs first, then by urgency, then by due date
     return filtered.sort((a, b) => {
@@ -90,7 +141,7 @@ export const EnhancedOperatorDashboard = () => {
       
       return 0;
     });
-  }, [jobs, searchQuery, filterMode]);
+  }, [jobs, searchQuery, filterMode, isDtpOperator, relevantStageIds]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -111,7 +162,7 @@ export const EnhancedOperatorDashboard = () => {
 
   const handleScanSuccess = useCallback((data: string) => {
     // Find job by WO number or other identifier
-    const job = jobs.find(j => 
+    const job = filteredJobs.find(j => 
       j.wo_no.toLowerCase().includes(data.toLowerCase()) ||
       (j.reference && j.reference.toLowerCase().includes(data.toLowerCase()))
     );
@@ -123,14 +174,28 @@ export const EnhancedOperatorDashboard = () => {
     } else {
       toast.warning(`No job found for: ${data}`);
     }
-  }, [jobs]);
+  }, [filteredJobs]);
 
+  // Calculate filter counts based on DTP-filtered jobs
   const getFilterCounts = () => {
+    // Start with the DTP-filtered jobs if applicable
+    let baseJobs = jobs;
+    
+    if (isDtpOperator && relevantStageIds.length > 0) {
+      baseJobs = jobs.filter(job => {
+        const hasMatchingStage = job.current_stage_id && relevantStageIds.includes(job.current_stage_id);
+        const hasMatchingStageName = job.current_stage_name && 
+          (job.current_stage_name.toLowerCase().includes('dtp') || 
+           job.current_stage_name.toLowerCase().includes('proof'));
+        return hasMatchingStage || hasMatchingStageName;
+      });
+    }
+
     return {
-      all: jobs.length,
-      available: jobs.filter(j => j.current_stage_status === 'pending' && j.user_can_work).length,
-      'my-active': jobs.filter(j => j.current_stage_status === 'active' && j.user_can_work).length,
-      urgent: jobs.filter(j => {
+      all: baseJobs.length,
+      available: baseJobs.filter(j => j.current_stage_status === 'pending' && j.user_can_work).length,
+      'my-active': baseJobs.filter(j => j.current_stage_status === 'active' && j.user_can_work).length,
+      urgent: baseJobs.filter(j => {
         const isOverdue = j.due_date && new Date(j.due_date) < new Date();
         const isDueSoon = j.due_date && !isOverdue && 
           new Date(j.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
@@ -179,6 +244,12 @@ export const EnhancedOperatorDashboard = () => {
             <p className="text-gray-600">
               {isDtpOperator ? "Jobs ready for DTP and proofing work" : "Jobs you can work on"}
             </p>
+            <p className="text-sm text-gray-500">
+              {isDtpOperator && relevantStageIds.length > 0 
+                ? `Filtered to ${relevantStageIds.length} DTP/Proof stages • Showing ${filteredJobs.length} jobs`
+                : `Showing ${filteredJobs.length} jobs`
+              }
+            </p>
           </div>
           
           <div className="flex gap-2">
@@ -211,10 +282,10 @@ export const EnhancedOperatorDashboard = () => {
         {/* Filter Buttons */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {[
-            { key: 'available', label: 'Available', icon: Clock, count: filterCounts.available },
-            { key: 'my-active', label: 'My Active', icon: Play, count: filterCounts['my-active'] },
+            { key: 'my-active', label: isDtpOperator ? 'My DTP Active' : 'My Active', icon: Play, count: filterCounts['my-active'] },
+            { key: 'available', label: isDtpOperator ? 'DTP Available' : 'Available', icon: Clock, count: filterCounts.available },
             { key: 'urgent', label: 'Urgent', icon: AlertTriangle, count: filterCounts.urgent },
-            { key: 'all', label: 'All Jobs', icon: CheckCircle, count: filterCounts.all }
+            { key: 'all', label: isDtpOperator ? 'All DTP Jobs' : 'All Jobs', icon: CheckCircle, count: filterCounts.all }
           ].map((filter) => (
             <Button
               key={filter.key}
@@ -239,14 +310,19 @@ export const EnhancedOperatorDashboard = () => {
             <CardContent className="flex flex-col items-center justify-center p-12">
               <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
               <h3 className="text-xl font-semibold mb-2">No Jobs Available</h3>
-              <p className="text-gray-600 text-center">
+              <p className="text-gray-600 text-center mb-4">
                 {searchQuery 
                   ? `No jobs found matching "${searchQuery}"`
                   : isDtpOperator 
-                    ? "You don't have any DTP or proofing jobs available right now."
-                    : "You don't have any jobs that you can work on right now."
+                    ? `No DTP or proofing jobs available in the "${filterMode}" filter.`
+                    : `No jobs available in the "${filterMode}" filter.`
                 }
               </p>
+              {isDtpOperator && filterCounts.all === 0 && (
+                <p className="text-sm text-gray-500 text-center mb-4">
+                  You have access to {relevantStageIds.length} DTP/Proof stages but no jobs are currently at those stages.
+                </p>
+              )}
               {searchQuery && (
                 <Button 
                   variant="outline" 
