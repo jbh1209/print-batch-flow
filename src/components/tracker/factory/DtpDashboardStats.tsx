@@ -7,7 +7,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { categorizeJobs, calculateJobCounts } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+import { categorizeJobs } from "@/utils/tracker/jobProcessing";
 
 interface DtpDashboardStatsProps {
   dtpJobs: AccessibleJob[];
@@ -18,7 +18,6 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
   dtpJobs,
   proofJobs
 }) => {
-  // Use consistent job categorization
   const dtpCategories = categorizeJobs(dtpJobs);
   const proofCategories = categorizeJobs(proofJobs);
   const allJobsCategories = categorizeJobs([...dtpJobs, ...proofJobs]);

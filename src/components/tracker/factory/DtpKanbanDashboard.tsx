@@ -9,7 +9,7 @@ import { DtpJobModal } from "./DtpJobModal";
 import { DtpDashboardHeader } from "./DtpDashboardHeader";
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { DtpDashboardFilters } from "./DtpDashboardFilters";
-import { categorizeJobs, sortJobsByPriority } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+import { categorizeJobs, sortJobsByPriority } from "@/utils/tracker/jobProcessing";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -37,7 +37,6 @@ export const DtpKanbanDashboard = () => {
     }))
   });
 
-  // Use centralized job categorization with error handling
   const { dtpJobs, proofJobs } = useMemo(() => {
     if (!jobs || jobs.length === 0) {
       return { dtpJobs: [], proofJobs: [] };
@@ -46,7 +45,6 @@ export const DtpKanbanDashboard = () => {
     try {
       let filtered = jobs;
 
-      // Apply search filter
       if (searchQuery) {
         filtered = filtered.filter(job =>
           job.wo_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -55,15 +53,12 @@ export const DtpKanbanDashboard = () => {
         );
       }
 
-      // Get categorized and sorted jobs
       const categories = categorizeJobs(filtered);
       
-      console.log("📊 Consistent job categorization:", {
+      console.log("📊 Job categorization:", {
         totalFiltered: filtered.length,
         dtpCount: categories.dtpJobs.length,
-        proofCount: categories.proofJobs.length,
-        dtpJobNumbers: categories.dtpJobs.map(j => j.wo_no),
-        proofJobNumbers: categories.proofJobs.map(j => j.wo_no)
+        proofCount: categories.proofJobs.length
       });
 
       return {
@@ -156,15 +151,12 @@ export const DtpKanbanDashboard = () => {
 
   return (
     <div className="p-4 space-y-4 h-full overflow-hidden bg-gray-50">
-      {/* Header */}
       <DtpDashboardHeader 
         onNavigation={handleNavigation}
         onLogout={handleLogout}
       />
 
-      {/* Content */}
       <div className="flex flex-col gap-4">
-        {/* Filters */}
         <DtpDashboardFilters
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -175,14 +167,12 @@ export const DtpKanbanDashboard = () => {
           proofJobsCount={proofJobs.length}
         />
 
-        {/* Stats */}
         <DtpDashboardStats
           dtpJobs={dtpJobs}
           proofJobs={proofJobs}
         />
       </div>
 
-      {/* Kanban Columns */}
       <div className="flex gap-4 h-full overflow-hidden">
         <DtpKanbanColumn
           title="DTP Jobs"
@@ -205,7 +195,6 @@ export const DtpKanbanDashboard = () => {
         />
       </div>
 
-      {/* Job Detail Modal */}
       {selectedJob && (
         <DtpJobModal
           job={selectedJob}

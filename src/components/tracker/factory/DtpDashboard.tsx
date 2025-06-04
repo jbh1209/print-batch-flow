@@ -17,10 +17,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   categorizeJobs, 
-  calculateJobCounts, 
-  processJobStatus,
+  calculateJobStats,
   sortJobsByPriority
-} from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+} from "@/utils/tracker/jobProcessing";
 
 export const DtpDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -39,7 +38,6 @@ export const DtpDashboard: React.FC = () => {
     permissionType: 'work'
   });
 
-  // Debug user permissions and group memberships
   useEffect(() => {
     const debugUserAccess = async () => {
       if (!user?.id) return;
@@ -47,7 +45,6 @@ export const DtpDashboard: React.FC = () => {
       console.log('🔍 DTP Dashboard Debug - Starting user access check for:', user.id);
       
       try {
-        // Check user groups
         const { data: userGroups, error: groupError } = await supabase
           .from('user_group_memberships')
           .select(`
@@ -60,7 +57,6 @@ export const DtpDashboard: React.FC = () => {
           `)
           .eq('user_id', user.id);
 
-        // Check stage permissions
         const { data: stagePermissions, error: permError } = await supabase
           .from('user_group_stage_permissions')
           .select(`
@@ -77,7 +73,6 @@ export const DtpDashboard: React.FC = () => {
           `)
           .in('user_group_id', userGroups?.map(ug => ug.group_id) || []);
 
-        // Check job stage instances
         const { data: jobInstances, error: instanceError } = await supabase
           .from('job_stage_instances')
           .select(`
@@ -89,7 +84,6 @@ export const DtpDashboard: React.FC = () => {
           .eq('job_table_name', 'production_jobs')
           .in('status', ['active', 'pending']);
 
-        // Test the RPC function directly
         const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_accessible_jobs', {
           p_user_id: user.id,
           p_permission_type: 'work'
@@ -124,7 +118,6 @@ export const DtpDashboard: React.FC = () => {
     debugUserAccess();
   }, [user?.id, jobs.length, error]);
 
-  // Use centralized job categorization with error handling
   const jobCategories = React.useMemo(() => {
     try {
       return categorizeJobs(jobs);
@@ -134,11 +127,11 @@ export const DtpDashboard: React.FC = () => {
     }
   }, [jobs]);
 
-  const jobCounts = React.useMemo(() => {
+  const jobStats = React.useMemo(() => {
     try {
-      return calculateJobCounts(jobs);
+      return calculateJobStats(jobs);
     } catch (error) {
-      console.error("Error calculating job counts:", error);
+      console.error("Error calculating job stats:", error);
       return { total: 0, pending: 0, active: 0, completed: 0 };
     }
   }, [jobs]);
@@ -152,18 +145,11 @@ export const DtpDashboard: React.FC = () => {
     }
   }, [jobs]);
 
-  console.log('🎯 DTP Dashboard Job Categories (Consistent):', {
+  console.log('🎯 DTP Dashboard Job Categories:', {
     totalJobs: jobs.length,
-    pending: jobCounts.pending,
-    active: jobCounts.active,
-    completed: jobCounts.completed,
-    sampleJob: jobs[0] ? {
-      wo_no: jobs[0].wo_no,
-      current_stage_status: jobs[0].current_stage_status,
-      current_stage_name: jobs[0].current_stage_name,
-      processedStatus: processJobStatus(jobs[0]),
-      user_can_work: jobs[0].user_can_work
-    } : null
+    pending: jobStats.pending,
+    active: jobStats.active,
+    completed: jobStats.completed
   });
 
   const handleJobClick = (job: any) => {
@@ -217,7 +203,6 @@ export const DtpDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">DTP Dashboard</h1>
@@ -229,14 +214,13 @@ export const DtpDashboard: React.FC = () => {
         </Button>
       </div>
 
-      {/* Stats Cards - Using consistent job categorization */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Total Jobs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{jobCounts.total}</div>
+            <div className="text-2xl font-bold">{jobStats.total}</div>
           </CardContent>
         </Card>
         
@@ -248,7 +232,7 @@ export const DtpDashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{jobCounts.pending}</div>
+            <div className="text-2xl font-bold text-green-600">{jobStats.pending}</div>
           </CardContent>
         </Card>
         
@@ -260,7 +244,7 @@ export const DtpDashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{jobCounts.active}</div>
+            <div className="text-2xl font-bold text-blue-600">{jobStats.active}</div>
           </CardContent>
         </Card>
         
@@ -272,7 +256,7 @@ export const DtpDashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-600">{jobCounts.completed}</div>
+            <div className="text-2xl font-bold text-gray-600">{jobStats.completed}</div>
           </CardContent>
         </Card>
       </div>
@@ -316,7 +300,6 @@ export const DtpDashboard: React.FC = () => {
         </Card>
       )}
 
-      {/* Jobs List */}
       {jobs.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -335,7 +318,6 @@ export const DtpDashboard: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-6">
-          {/* Ready to Start Jobs */}
           {jobCategories.pendingJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
@@ -357,7 +339,6 @@ export const DtpDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* In Progress Jobs */}
           {jobCategories.activeJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
@@ -379,7 +360,6 @@ export const DtpDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Completed Jobs */}
           {jobCategories.completedJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
@@ -403,7 +383,6 @@ export const DtpDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Job Detail Modal */}
       {selectedJob && (
         <DtpJobModal
           job={selectedJob}

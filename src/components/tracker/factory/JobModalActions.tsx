@@ -6,7 +6,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { canStartJob, canCompleteJob, processJobStatus } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+import { canStartJob, canCompleteJob, getJobStatus } from "@/utils/tracker/jobProcessing";
 
 interface JobModalActionsProps {
   job: AccessibleJob;
@@ -28,7 +28,7 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
     current_stage_id: job.current_stage_id,
     current_stage_name: job.current_stage_name,
     user_can_work: job.user_can_work,
-    processedStatus: processJobStatus(job)
+    processedStatus: getJobStatus(job)
   });
 
   const handleAction = async (action: () => Promise<boolean>) => {
@@ -43,7 +43,6 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
     }
   };
 
-  // Use centralized logic for action availability
   const showStartButton = canStartJob(job);
   const showCompleteButton = canCompleteJob(job);
   const hasStageInfo = job.current_stage_id && job.current_stage_name;
@@ -87,7 +86,6 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
         </>
       )}
       
-      {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && !hasStageInfo && (
         <div className="text-xs text-gray-500 italic">
           No stage info available
