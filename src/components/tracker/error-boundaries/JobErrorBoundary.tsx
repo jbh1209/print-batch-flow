@@ -27,7 +27,6 @@ export class JobErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error(`JobErrorBoundary caught an error for job ${this.props.jobWoNo || this.props.jobId}:`, error, errorInfo);
-    this.setState({ error, errorInfo });
   }
 
   handleRemoveJob = () => {
