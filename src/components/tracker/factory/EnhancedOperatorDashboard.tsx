@@ -1,7 +1,6 @@
-
 import React, { useState, useCallback, useMemo } from "react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
-import { DtpKanbanDashboard } from "./DtpKanbanDashboard";
+import { DtpDashboard } from "./DtpDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +16,11 @@ import {
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { EnhancedOperatorJobCard } from "./EnhancedOperatorJobCard";
 import { BarcodeScannerButton } from "./BarcodeScannerButton";
+import { 
+  categorizeJobs, 
+  calculateJobCounts, 
+  sortJobsByPriority
+} from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { toast } from "sonner";
 
 export const EnhancedOperatorDashboard = () => {
@@ -29,43 +33,23 @@ export const EnhancedOperatorDashboard = () => {
   const [filterMode, setFilterMode] = useState<'all' | 'my-active' | 'available' | 'urgent'>('available');
   const [refreshing, setRefreshing] = useState(false);
 
+  // For DTP operators, show the specialized dashboard
+  if (isDtpOperator) {
+    return <DtpDashboard />;
+  }
+
   // Memoize relevant stage IDs to prevent unnecessary recalculations
   const relevantStageIds = useMemo(() => {
-    if (!isDtpOperator) {
-      return accessibleStages.map(stage => stage.stage_id);
-    }
-    
-    return accessibleStages
-      .filter(stage => 
-        stage.stage_name.toLowerCase().includes('dtp') || 
-        stage.stage_name.toLowerCase().includes('proof')
-      )
-      .map(stage => stage.stage_id);
-  }, [isDtpOperator, accessibleStages]);
+    return accessibleStages.map(stage => stage.stage_id);
+  }, [accessibleStages]);
 
-  // Memoize filtered jobs
+  // Memoize filtered jobs using consistent logic
   const filteredJobs = useMemo(() => {
     if (!jobs || jobs.length === 0) return [];
 
     let filtered = [...jobs];
 
     console.log("🔍 Starting job filtering with", filtered.length, "jobs");
-
-    // Apply DTP operator stage filtering if needed
-    if (isDtpOperator && relevantStageIds.length > 0) {
-      const beforeDtpFilter = filtered.length;
-      filtered = filtered.filter(job => {
-        if (!job.current_stage_id && !job.current_stage_name) return false;
-        
-        const hasMatchingStage = job.current_stage_id && relevantStageIds.includes(job.current_stage_id);
-        const hasMatchingStageName = job.current_stage_name && 
-          (job.current_stage_name.toLowerCase().includes('dtp') || 
-           job.current_stage_name.toLowerCase().includes('proof'));
-
-        return hasMatchingStage || hasMatchingStageName;
-      });
-      console.log(`🎯 DTP stage filter: ${beforeDtpFilter} → ${filtered.length} jobs`);
-    }
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -77,77 +61,45 @@ export const EnhancedOperatorDashboard = () => {
       );
     }
 
+    // Get job categories using consistent logic
+    const jobCategories = categorizeJobs(filtered);
+
     // Apply mode filter
     switch (filterMode) {
       case 'my-active':
-        filtered = filtered.filter(job => 
-          job.current_stage_status === 'active' && job.user_can_work
-        );
+        filtered = jobCategories.activeJobs.filter(job => job.user_can_work);
         break;
       case 'available':
-        filtered = filtered.filter(job => 
-          job.current_stage_status === 'pending' && job.user_can_work
-        );
+        filtered = jobCategories.pendingJobs.filter(job => job.user_can_work);
         break;
       case 'urgent':
-        filtered = filtered.filter(job => {
-          if (!job.due_date) return false;
-          const dueDate = new Date(job.due_date);
-          const now = new Date();
-          const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-          return dueDate < now || (dueDate <= threeDaysFromNow);
-        });
+        filtered = jobCategories.urgentJobs;
+        break;
+      default:
+        // Keep all filtered jobs
         break;
     }
 
-    // Sort jobs
-    return filtered.sort((a, b) => {
-      // Active jobs first
-      if (a.current_stage_status === 'active' && b.current_stage_status !== 'active') return -1;
-      if (b.current_stage_status === 'active' && a.current_stage_status !== 'active') return 1;
-      
-      // Then by due date
-      if (a.due_date && b.due_date) {
-        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-      }
-      
-      return 0;
-    });
-  }, [jobs, searchQuery, filterMode, isDtpOperator, relevantStageIds]);
+    // Sort jobs by priority
+    return sortJobsByPriority(filtered);
+  }, [jobs, searchQuery, filterMode]);
 
-  // Memoize filter counts
+  // Memoize filter counts using consistent logic
   const filterCounts = useMemo(() => {
     if (!jobs || jobs.length === 0) {
       return { all: 0, available: 0, 'my-active': 0, urgent: 0 };
     }
 
-    let baseJobs = [...jobs];
-    
-    if (isDtpOperator && relevantStageIds.length > 0) {
-      baseJobs = jobs.filter(job => {
-        if (!job.current_stage_id && !job.current_stage_name) return false;
-        
-        const hasMatchingStage = job.current_stage_id && relevantStageIds.includes(job.current_stage_id);
-        const hasMatchingStageName = job.current_stage_name && 
-          (job.current_stage_name.toLowerCase().includes('dtp') || 
-           job.current_stage_name.toLowerCase().includes('proof'));
-        return hasMatchingStage || hasMatchingStageName;
-      });
-    }
+    const jobCounts = calculateJobCounts(jobs);
+    const jobCategories = categorizeJobs(jobs);
 
     return {
-      all: baseJobs.length,
-      available: baseJobs.filter(j => j.current_stage_status === 'pending' && j.user_can_work).length,
-      'my-active': baseJobs.filter(j => j.current_stage_status === 'active' && j.user_can_work).length,
-      urgent: baseJobs.filter(j => {
-        if (!j.due_date) return false;
-        const dueDate = new Date(j.due_date);
-        const now = new Date();
-        const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-        return dueDate < now || (dueDate <= threeDaysFromNow);
-      }).length
+      all: jobCounts.total,
+      available: jobCategories.pendingJobs.filter(j => j.user_can_work).length,
+      'my-active': jobCategories.activeJobs.filter(j => j.user_can_work).length,
+      urgent: jobCategories.urgentJobs.length
     };
-  }, [jobs, isDtpOperator, relevantStageIds]);
+  }, [jobs]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -183,11 +135,6 @@ export const EnhancedOperatorDashboard = () => {
       toast.warning(`No job found for: ${data}`);
     }
   }, [filteredJobs]);
-
-  // For DTP operators, show the specialized kanban dashboard
-  if (isDtpOperator) {
-    return <DtpKanbanDashboard />;
-  }
 
   if (isLoading) {
     return (
@@ -255,7 +202,7 @@ export const EnhancedOperatorDashboard = () => {
           />
         </div>
 
-        {/* Filter Buttons */}
+        {/* Filter Buttons - Using consistent counts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {[
             { key: 'my-active', label: 'My Active', icon: Play, count: filterCounts['my-active'] },

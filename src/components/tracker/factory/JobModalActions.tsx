@@ -6,6 +6,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { canStartJob, canCompleteJob, processJobStatus } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 
 interface JobModalActionsProps {
   job: AccessibleJob;
@@ -26,7 +27,8 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
     current_stage_status: job.current_stage_status,
     current_stage_id: job.current_stage_id,
     current_stage_name: job.current_stage_name,
-    user_can_work: job.user_can_work
+    user_can_work: job.user_can_work,
+    processedStatus: processJobStatus(job)
   });
 
   const handleAction = async (action: () => Promise<boolean>) => {
@@ -41,20 +43,16 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
     }
   };
 
-  // FIXED: Corrected action logic to match fixed status logic
-  const canWork = job.user_can_work;
+  // Use centralized logic for action availability
+  const showStartButton = canStartJob(job);
+  const showCompleteButton = canCompleteJob(job);
   const hasStageInfo = job.current_stage_id && job.current_stage_name;
-  const status = job.current_stage_status;
-  
-  const showStartButton = canWork && hasStageInfo && status === 'pending';
-  const showCompleteButton = canWork && hasStageInfo && status === 'active';
 
   console.log(`🎯 Button visibility for ${job.wo_no}:`, {
-    canWork,
-    hasStageInfo,
-    status,
     showStartButton,
-    showCompleteButton
+    showCompleteButton,
+    hasStageInfo,
+    canWork: job.user_can_work
   });
 
   return (
@@ -63,7 +61,7 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
         Close
       </Button>
       
-      {hasStageInfo && canWork && (
+      {hasStageInfo && job.user_can_work && (
         <>
           {showStartButton && (
             <Button 
@@ -96,7 +94,7 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
         </div>
       )}
       
-      {process.env.NODE_ENV === 'development' && !canWork && (
+      {process.env.NODE_ENV === 'development' && !job.user_can_work && (
         <div className="text-xs text-gray-500 italic">
           No work permissions
         </div>

@@ -9,6 +9,7 @@ import { DtpJobModal } from "./DtpJobModal";
 import { DtpDashboardHeader } from "./DtpDashboardHeader";
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { DtpDashboardFilters } from "./DtpDashboardFilters";
+import { categorizeJobs, sortJobsByPriority } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -25,7 +26,7 @@ export const DtpKanbanDashboard = () => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [showJobModal, setShowJobModal] = useState(false);
 
-  console.log("🎯 DTP Dashboard - Raw Jobs:", {
+  console.log("🎯 DTP Kanban Dashboard - Raw Jobs:", {
     totalJobs: jobs.length,
     jobsSample: jobs.slice(0, 3).map(j => ({
       wo_no: j.wo_no,
@@ -35,7 +36,7 @@ export const DtpKanbanDashboard = () => {
     }))
   });
 
-  // Simplified job categorization based on stage names
+  // Use centralized job categorization
   const { dtpJobs, proofJobs } = useMemo(() => {
     let filtered = jobs;
 
@@ -48,48 +49,20 @@ export const DtpKanbanDashboard = () => {
       );
     }
 
-    // Categorize jobs based on current stage name
-    const dtpJobs = filtered.filter(job => {
-      if (!job.current_stage_name) return false;
-      return job.current_stage_name.toLowerCase().includes('dtp');
-    });
-
-    const proofJobs = filtered.filter(job => {
-      if (!job.current_stage_name) return false;
-      return job.current_stage_name.toLowerCase().includes('proof');
-    });
-
-    // Sort jobs: pending first, then active
-    const sortJobs = (jobsList: typeof filtered) => {
-      return jobsList.sort((a, b) => {
-        // Pending jobs first
-        if (a.current_stage_status === 'pending' && b.current_stage_status !== 'pending') return -1;
-        if (b.current_stage_status === 'pending' && a.current_stage_status !== 'pending') return 1;
-        
-        // Active jobs second
-        if (a.current_stage_status === 'active' && b.current_stage_status !== 'active') return -1;
-        if (b.current_stage_status === 'active' && a.current_stage_status !== 'active') return 1;
-        
-        // Then by due date
-        if (a.due_date && b.due_date) {
-          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-        }
-        
-        return 0;
-      });
-    };
-
-    console.log("📊 Job categorization:", {
+    // Get categorized and sorted jobs
+    const categories = categorizeJobs(filtered);
+    
+    console.log("📊 Consistent job categorization:", {
       totalFiltered: filtered.length,
-      dtpCount: dtpJobs.length,
-      proofCount: proofJobs.length,
-      dtpJobNumbers: dtpJobs.map(j => j.wo_no),
-      proofJobNumbers: proofJobs.map(j => j.wo_no)
+      dtpCount: categories.dtpJobs.length,
+      proofCount: categories.proofJobs.length,
+      dtpJobNumbers: categories.dtpJobs.map(j => j.wo_no),
+      proofJobNumbers: categories.proofJobs.map(j => j.wo_no)
     });
 
     return {
-      dtpJobs: sortJobs(dtpJobs),
-      proofJobs: sortJobs(proofJobs)
+      dtpJobs: sortJobsByPriority(categories.dtpJobs),
+      proofJobs: sortJobsByPriority(categories.proofJobs)
     };
   }, [jobs, searchQuery]);
 

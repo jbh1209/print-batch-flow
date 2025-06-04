@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,12 @@ import { DtpJobModal } from "./DtpJobModal";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { 
+  categorizeJobs, 
+  calculateJobCounts, 
+  processJobStatus,
+  sortJobsByPriority
+} from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 
 export const DtpDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -118,27 +123,21 @@ export const DtpDashboard: React.FC = () => {
     debugUserAccess();
   }, [user?.id, jobs.length, error]);
 
-  // FIXED: Correct job categorization based on current_stage_status
-  const readyToStartJobs = jobs.filter(job => job.current_stage_status === 'pending');
-  const inProgressJobs = jobs.filter(job => job.current_stage_status === 'active');
-  
-  // For completed jobs, we look for jobs that were completed today
-  const today = new Date().toDateString();
-  const completedJobs = jobs.filter(job => {
-    // This would need to be enhanced to check actual completion timestamps
-    // For now, we'll use a placeholder logic
-    return job.current_stage_status === 'completed';
-  });
+  // Use centralized job categorization
+  const jobCategories = categorizeJobs(jobs);
+  const jobCounts = calculateJobCounts(jobs);
+  const sortedJobs = sortJobsByPriority(jobs);
 
-  console.log('🎯 DTP Dashboard Job Categories:', {
+  console.log('🎯 DTP Dashboard Job Categories (Consistent):', {
     totalJobs: jobs.length,
-    readyToStart: readyToStartJobs.length,
-    inProgress: inProgressJobs.length,
-    completed: completedJobs.length,
+    pending: jobCounts.pending,
+    active: jobCounts.active,
+    completed: jobCounts.completed,
     sampleJob: jobs[0] ? {
       wo_no: jobs[0].wo_no,
       current_stage_status: jobs[0].current_stage_status,
       current_stage_name: jobs[0].current_stage_name,
+      processedStatus: processJobStatus(jobs[0]),
       user_can_work: jobs[0].user_can_work
     } : null
   });
@@ -197,14 +196,14 @@ export const DtpDashboard: React.FC = () => {
         </Button>
       </div>
 
-      {/* Stats Cards - FIXED: Using corrected job categorization */}
+      {/* Stats Cards - Using consistent job categorization */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Total Jobs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{jobs.length}</div>
+            <div className="text-2xl font-bold">{jobCounts.total}</div>
           </CardContent>
         </Card>
         
@@ -216,7 +215,7 @@ export const DtpDashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{readyToStartJobs.length}</div>
+            <div className="text-2xl font-bold text-green-600">{jobCounts.pending}</div>
           </CardContent>
         </Card>
         
@@ -228,7 +227,7 @@ export const DtpDashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{inProgressJobs.length}</div>
+            <div className="text-2xl font-bold text-blue-600">{jobCounts.active}</div>
           </CardContent>
         </Card>
         
@@ -240,7 +239,7 @@ export const DtpDashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-600">{completedJobs.length}</div>
+            <div className="text-2xl font-bold text-gray-600">{jobCounts.completed}</div>
           </CardContent>
         </Card>
       </div>
@@ -304,14 +303,14 @@ export const DtpDashboard: React.FC = () => {
       ) : (
         <div className="space-y-6">
           {/* Ready to Start Jobs */}
-          {readyToStartJobs.length > 0 && (
+          {jobCategories.pendingJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
                 <Play className="h-5 w-5 mr-2 text-green-600" />
-                Ready to Start ({readyToStartJobs.length})
+                Ready to Start ({jobCategories.pendingJobs.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {readyToStartJobs.map((job) => (
+                {jobCategories.pendingJobs.map((job) => (
                   <CompactDtpJobCard
                     key={job.job_id}
                     job={job}
@@ -326,14 +325,14 @@ export const DtpDashboard: React.FC = () => {
           )}
 
           {/* In Progress Jobs */}
-          {inProgressJobs.length > 0 && (
+          {jobCategories.activeJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
                 <Clock className="h-5 w-5 mr-2 text-blue-600" />
-                In Progress ({inProgressJobs.length})
+                In Progress ({jobCategories.activeJobs.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {inProgressJobs.map((job) => (
+                {jobCategories.activeJobs.map((job) => (
                   <CompactDtpJobCard
                     key={job.job_id}
                     job={job}
@@ -348,14 +347,14 @@ export const DtpDashboard: React.FC = () => {
           )}
 
           {/* Completed Jobs */}
-          {completedJobs.length > 0 && (
+          {jobCategories.completedJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
                 <CheckCircle className="h-5 w-5 mr-2 text-gray-600" />
-                Completed Today ({completedJobs.length})
+                Completed Today ({jobCategories.completedJobs.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {completedJobs.slice(0, 6).map((job) => (
+                {jobCategories.completedJobs.slice(0, 6).map((job) => (
                   <CompactDtpJobCard
                     key={job.job_id}
                     job={job}

@@ -13,6 +13,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { 
+  processJobStatus, 
+  isJobOverdue, 
+  isJobDueSoon, 
+  canStartJob, 
+  canCompleteJob,
+  getJobStatusBadgeInfo
+} from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 
 interface CompactDtpJobCardProps {
   job: AccessibleJob;
@@ -36,34 +44,22 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
     current_stage_id: job.current_stage_id,
     current_stage_name: job.current_stage_name,
     user_can_work: job.user_can_work,
-    showActions
+    showActions,
+    processedStatus: processJobStatus(job)
   });
 
-  const isOverdue = job.due_date && new Date(job.due_date) < new Date();
-  const isDueSoon = job.due_date && !isOverdue && 
-    new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const isOverdue = isJobOverdue(job);
+  const isDueSoon = isJobDueSoon(job);
+  const jobStatus = processJobStatus(job);
 
   const getCardStyle = () => {
-    if (job.current_stage_status === 'active') return "border-blue-500 bg-blue-50 shadow-md";
+    if (jobStatus === 'active') return "border-blue-500 bg-blue-50 shadow-md";
     if (isOverdue) return "border-red-500 bg-red-50";
     if (isDueSoon) return "border-orange-500 bg-orange-50";
     return "border-gray-200 bg-white hover:shadow-sm";
   };
 
-  const getStatusBadge = () => {
-    const status = job.current_stage_status;
-    
-    if (status === 'active') {
-      return <Badge variant="default" className="text-xs px-2 py-0 bg-blue-500">In Progress</Badge>;
-    }
-    
-    if (status === 'completed') {
-      return <Badge variant="default" className="text-xs px-2 py-0 bg-green-500">Completed</Badge>;
-    }
-    
-    // Default to pending - Ready to Start
-    return <Badge variant="secondary" className="text-xs px-2 py-0 bg-green-600 text-white">Ready to Start</Badge>;
-  };
+  const statusBadgeInfo = getJobStatusBadgeInfo(job);
 
   const handleAction = async (action: () => Promise<boolean>) => {
     setIsActionInProgress(true);
@@ -80,16 +76,16 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
     }
   };
 
-  // FIXED: Corrected action logic based on current_stage_status
-  const shouldShowActions = showActions && job.user_can_work && job.current_stage_id;
-  const canStart = job.current_stage_status === 'pending';
-  const canComplete = job.current_stage_status === 'active';
+  // Use centralized logic for action visibility
+  const shouldShowActions = showActions && job.current_stage_id;
+  const showStartButton = canStartJob(job);
+  const showCompleteButton = canCompleteJob(job);
 
   console.log(`🎬 Action visibility for ${job.wo_no}:`, {
     shouldShowActions,
-    canStart,
-    canComplete,
-    current_stage_status: job.current_stage_status
+    showStartButton,
+    showCompleteButton,
+    jobStatus
   });
 
   return (
@@ -115,7 +111,12 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
               )}
             </div>
             <div className="flex items-center gap-1 ml-2">
-              {getStatusBadge()}
+              <Badge 
+                variant={statusBadgeInfo.variant}
+                className={`text-xs px-2 py-0 ${statusBadgeInfo.className}`}
+              >
+                {statusBadgeInfo.text}
+              </Badge>
             </div>
           </div>
 
@@ -146,7 +147,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
                 </div>
               )}
               
-              {job.current_stage_status === 'active' && (
+              {jobStatus === 'active' && (
                 <div className="flex items-center gap-1 text-blue-600">
                   <User className="h-3 w-3" />
                   <span className="font-medium">Working</span>
@@ -158,7 +159,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
           {/* Action Row */}
           {shouldShowActions && (
             <div className="pt-1" onClick={(e) => e.stopPropagation()}>
-              {canStart && (
+              {showStartButton && (
                 <Button 
                   onClick={() => handleAction(() => onStart(job.job_id, job.current_stage_id || 'default'))}
                   size="sm"
@@ -170,7 +171,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
                 </Button>
               )}
               
-              {canComplete && (
+              {showCompleteButton && (
                 <Button 
                   onClick={() => handleAction(() => onComplete(job.job_id, job.current_stage_id || 'default'))}
                   size="sm"
@@ -185,7 +186,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
           )}
 
           {/* Active Timer Indicator */}
-          {job.current_stage_status === 'active' && (
+          {jobStatus === 'active' && (
             <div className="flex items-center gap-1 pt-1 text-xs text-blue-600 bg-blue-50 -mx-3 -mb-3 px-3 py-1 rounded-b">
               <Clock className="h-3 w-3 animate-pulse" />
               <span className="font-medium">Timer Active</span>

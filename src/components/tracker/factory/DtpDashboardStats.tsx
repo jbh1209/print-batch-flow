@@ -7,6 +7,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { categorizeJobs, calculateJobCounts } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 
 interface DtpDashboardStatsProps {
   dtpJobs: AccessibleJob[];
@@ -17,14 +18,10 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
   dtpJobs,
   proofJobs
 }) => {
-  const allJobs = [...dtpJobs, ...proofJobs];
-  
-  const urgentJobsCount = allJobs.filter(j => {
-    const isOverdue = j.due_date && new Date(j.due_date) < new Date();
-    const isDueSoon = j.due_date && !isOverdue && 
-      new Date(j.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-    return isOverdue || isDueSoon;
-  }).length;
+  // Use consistent job categorization
+  const dtpCategories = categorizeJobs(dtpJobs);
+  const proofCategories = categorizeJobs(proofJobs);
+  const allJobsCategories = categorizeJobs([...dtpJobs, ...proofJobs]);
 
   return (
     <div className="grid grid-cols-4 gap-4">
@@ -34,7 +31,7 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
           <span className="text-sm font-medium">DTP Queue</span>
         </div>
         <div className="text-2xl font-bold text-blue-600">
-          {dtpJobs.filter(j => j.current_stage_status === 'pending').length}
+          {dtpCategories.pendingJobs.length}
         </div>
         <div className="text-xs text-gray-500">Available to start</div>
       </div>
@@ -45,7 +42,7 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
           <span className="text-sm font-medium">DTP Active</span>
         </div>
         <div className="text-2xl font-bold text-green-600">
-          {dtpJobs.filter(j => j.current_stage_status === 'active').length}
+          {dtpCategories.activeJobs.length}
         </div>
         <div className="text-xs text-gray-500">In progress</div>
       </div>
@@ -56,7 +53,7 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
           <span className="text-sm font-medium">Proof Queue</span>
         </div>
         <div className="text-2xl font-bold text-purple-600">
-          {proofJobs.filter(j => j.current_stage_status === 'pending').length}
+          {proofCategories.pendingJobs.length}
         </div>
         <div className="text-xs text-gray-500">Ready for proofing</div>
       </div>
@@ -67,7 +64,7 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
           <span className="text-sm font-medium">Urgent</span>
         </div>
         <div className="text-2xl font-bold text-orange-600">
-          {urgentJobsCount}
+          {allJobsCategories.urgentJobs.length}
         </div>
         <div className="text-xs text-gray-500">Due soon/overdue</div>
       </div>
