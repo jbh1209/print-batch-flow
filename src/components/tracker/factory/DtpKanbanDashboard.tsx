@@ -4,11 +4,13 @@ import { AlertTriangle, FileText, CheckCircle } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
-import { DtpKanbanColumn } from "./DtpKanbanColumn";
+import { DtpKanbanColumnWithBoundary } from "./DtpKanbanColumnWithBoundary";
 import { DtpJobModal } from "./DtpJobModal";
 import { DtpDashboardHeader } from "./DtpDashboardHeader";
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { DtpDashboardFilters } from "./DtpDashboardFilters";
+import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
+import { DataLoadingFallback } from "../error-boundaries/DataLoadingFallback";
 import { categorizeJobs, sortJobsByPriority } from "@/utils/tracker/jobProcessing";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -135,49 +137,48 @@ export const DtpKanbanDashboard = () => {
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="flex flex-col items-center justify-center p-8 border border-red-200 bg-red-50 rounded-lg">
-          <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
-          <h2 className="text-xl font-semibold mb-2 text-red-700">Error Loading Jobs</h2>
-          <p className="text-red-600 text-center mb-4">{error}</p>
-          <button 
-            onClick={handleRefresh} 
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-            disabled={refreshing}
-          >
-            {refreshing ? "Retrying..." : "Try Again"}
-          </button>
-        </div>
-      </div>
+      <DataLoadingFallback
+        error={error}
+        componentName="DTP Dashboard"
+        onRetry={handleRefresh}
+        onRefresh={refreshJobs}
+        showDetails={true}
+      />
     );
   }
 
   return (
     <div className="p-4 space-y-4 h-full overflow-hidden bg-gray-50">
-      <DtpDashboardHeader 
-        onNavigation={handleNavigation}
-        onLogout={handleLogout}
-      />
+      <TrackerErrorBoundary componentName="DTP Dashboard Header">
+        <DtpDashboardHeader 
+          onNavigation={handleNavigation}
+          onLogout={handleLogout}
+        />
+      </TrackerErrorBoundary>
 
       <div className="flex flex-col gap-4">
-        <DtpDashboardFilters
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onRefresh={handleRefresh}
-          onScanSuccess={handleScanSuccess}
-          refreshing={refreshing}
-          dtpJobsCount={dtpJobs.length}
-          proofJobsCount={proofJobs.length}
-        />
+        <TrackerErrorBoundary componentName="DTP Dashboard Filters">
+          <DtpDashboardFilters
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onRefresh={handleRefresh}
+            onScanSuccess={handleScanSuccess}
+            refreshing={refreshing}
+            dtpJobsCount={dtpJobs.length}
+            proofJobsCount={proofJobs.length}
+          />
+        </TrackerErrorBoundary>
 
-        <DtpDashboardStats
-          dtpJobs={dtpJobs}
-          proofJobs={proofJobs}
-        />
+        <TrackerErrorBoundary componentName="DTP Dashboard Stats">
+          <DtpDashboardStats
+            dtpJobs={dtpJobs}
+            proofJobs={proofJobs}
+          />
+        </TrackerErrorBoundary>
       </div>
 
       <div className="flex gap-4 h-full overflow-hidden">
-        <DtpKanbanColumn
+        <DtpKanbanColumnWithBoundary
           title="DTP Jobs"
           jobs={dtpJobs}
           onStart={startJob}
@@ -187,7 +188,7 @@ export const DtpKanbanDashboard = () => {
           icon={<FileText className="h-4 w-4" />}
         />
         
-        <DtpKanbanColumn
+        <DtpKanbanColumnWithBoundary
           title="Proofing Jobs"
           jobs={proofJobs}
           onStart={startJob}
@@ -199,13 +200,15 @@ export const DtpKanbanDashboard = () => {
       </div>
 
       {selectedJob && (
-        <DtpJobModal
-          job={selectedJob}
-          isOpen={showJobModal}
-          onClose={handleCloseModal}
-          onStart={startJob}
-          onComplete={completeJob}
-        />
+        <TrackerErrorBoundary componentName="DTP Job Modal">
+          <DtpJobModal
+            job={selectedJob}
+            isOpen={showJobModal}
+            onClose={handleCloseModal}
+            onStart={startJob}
+            onComplete={completeJob}
+          />
+        </TrackerErrorBoundary>
       )}
     </div>
   );

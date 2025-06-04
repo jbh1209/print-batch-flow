@@ -10,6 +10,8 @@ import { ProductionHeader } from "@/components/tracker/production/ProductionHead
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
+import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
+import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
 
 interface TrackerProductionContext {
   activeTab: string;
@@ -146,44 +148,72 @@ const TrackerProduction = () => {
     accessibleStages: accessibleStages.length
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8 h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Loading production data...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <ProductionHeader
-        isMobile={isMobile}
-        onQRScan={handleQRScan}
-        onStageAction={handleStageAction}
-        onConfigureStages={handleConfigureStages}
-        onQRScanner={handleQRScanner}
-      />
+      <TrackerErrorBoundary componentName="Production Header">
+        <ProductionHeader
+          isMobile={isMobile}
+          onQRScan={handleQRScan}
+          onStageAction={handleStageAction}
+          onConfigureStages={handleConfigureStages}
+          onQRScanner={handleQRScanner}
+        />
+      </TrackerErrorBoundary>
 
       {/* Statistics */}
-      <ProductionStats 
-        jobs={filteredJobs} // Use filtered jobs for stats
-        jobsWithoutCategory={jobsWithoutCategory}
-      />
+      <TrackerErrorBoundary componentName="Production Stats">
+        <ProductionStats 
+          jobs={filteredJobs} // Use filtered jobs for stats
+          jobsWithoutCategory={jobsWithoutCategory}
+        />
+      </TrackerErrorBoundary>
 
       {/* Info Banner */}
-      <CategoryInfoBanner 
-        jobsWithoutCategoryCount={jobsWithoutCategory.length}
-      />
+      <TrackerErrorBoundary componentName="Category Info Banner">
+        <CategoryInfoBanner 
+          jobsWithoutCategoryCount={jobsWithoutCategory.length}
+        />
+      </TrackerErrorBoundary>
 
       {/* Sorting Controls */}
-      <ProductionSorting
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSort={handleSort}
-      />
+      <TrackerErrorBoundary componentName="Production Sorting">
+        <ProductionSorting
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+        />
+      </TrackerErrorBoundary>
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-auto bg-white rounded-lg border">
-          <FilteredJobsView
-            jobs={sortedJobs}
-            selectedStage={currentFilters.stage}
-            isLoading={isLoading}
-            onStageAction={handleStageAction}
-          />
+          <TrackerErrorBoundary 
+            componentName="Jobs View"
+            fallback={
+              <DataLoadingFallback
+                componentName="production jobs"
+                onRetry={refreshJobs}
+                showDetails={false}
+              />
+            }
+          >
+            <FilteredJobsView
+              jobs={sortedJobs}
+              selectedStage={currentFilters.stage}
+              isLoading={isLoading}
+              onStageAction={handleStageAction}
+            />
+          </TrackerErrorBoundary>
         </div>
       </div>
     </div>
