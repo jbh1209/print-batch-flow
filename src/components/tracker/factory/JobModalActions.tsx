@@ -22,13 +22,11 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
 }) => {
   const [isActionInProgress, setIsActionInProgress] = useState(false);
 
-  // Enhanced debugging for modal actions
-  console.log(`🎬 Modal Actions Debug for ${job.wo_no}:`, {
+  console.log(`🎬 Modal Actions for ${job.wo_no}:`, {
     current_stage_status: job.current_stage_status,
     current_stage_id: job.current_stage_id,
-    user_can_work: job.user_can_work,
-    user_can_view: job.user_can_view,
-    hasStageId: !!job.current_stage_id
+    current_stage_name: job.current_stage_name,
+    user_can_work: job.user_can_work
   });
 
   const handleAction = async (action: () => Promise<boolean>) => {
@@ -43,12 +41,12 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
     }
   };
 
-  // Enhanced conditions for showing actions
-  const canWork = job.user_can_work || job.user_can_view; // More permissive check
-  const hasStageInfo = job.current_stage_id || job.current_stage_name;
-  const status = job.current_stage_status || 'pending'; // Default to pending
+  // Simplified action logic based on actual stage status
+  const canWork = job.user_can_work;
+  const hasStageInfo = job.current_stage_id && job.current_stage_name;
+  const status = job.current_stage_status;
   
-  const showStartButton = canWork && hasStageInfo && status !== 'active';
+  const showStartButton = canWork && hasStageInfo && status === 'pending';
   const showCompleteButton = canWork && hasStageInfo && status === 'active';
 
   console.log(`🎯 Button visibility for ${job.wo_no}:`, {

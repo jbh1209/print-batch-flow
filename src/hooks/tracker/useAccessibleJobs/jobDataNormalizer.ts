@@ -18,7 +18,8 @@ export const normalizeJobData = (job: any, index: number): AccessibleJob => {
       current_stage_id: job.current_stage_id ? String(job.current_stage_id) : null,
       current_stage_name: job.current_stage_name ? String(job.current_stage_name) : null,
       current_stage_color: job.current_stage_color ? String(job.current_stage_color) : null,
-      current_stage_status: job.current_stage_status ? String(job.current_stage_status) : null,
+      // Use actual database stage status - default to 'pending' for clean state
+      current_stage_status: job.current_stage_status || 'pending',
       user_can_view: Boolean(job.user_can_view),
       user_can_edit: Boolean(job.user_can_edit),
       user_can_work: Boolean(job.user_can_work),
@@ -61,7 +62,7 @@ export const normalizeJobData = (job: any, index: number): AccessibleJob => {
       current_stage_id: null,
       current_stage_name: null,
       current_stage_color: null,
-      current_stage_status: null,
+      current_stage_status: 'pending',
       user_can_view: false,
       user_can_edit: false,
       user_can_work: false,

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from "react";
 import { AlertTriangle, FileText, CheckCircle } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
@@ -24,37 +25,17 @@ export const DtpKanbanDashboard = () => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [showJobModal, setShowJobModal] = useState(false);
 
-  // Enhanced debugging for job data
-  console.log("🎯 DTP Kanban Dashboard Debug:", {
-    isDtpOperator,
+  console.log("🎯 DTP Dashboard - Raw Jobs:", {
     totalJobs: jobs.length,
-    accessibleStages: accessibleStages.length,
-    accessibleStageNames: accessibleStages.map(s => s.stage_name),
-    rawJobsData: jobs.map(j => ({
+    jobsSample: jobs.slice(0, 3).map(j => ({
       wo_no: j.wo_no,
-      current_stage_status: j.current_stage_status,
-      current_stage_id: j.current_stage_id,
       current_stage_name: j.current_stage_name,
-      user_can_work: j.user_can_work,
-      user_can_view: j.user_can_view,
-      status: j.status
+      current_stage_status: j.current_stage_status,
+      user_can_work: j.user_can_work
     }))
   });
 
-  // Filter stages for DTP operators
-  const dtpStageIds = useMemo(() => {
-    return accessibleStages
-      .filter(stage => stage.stage_name.toLowerCase().includes('dtp'))
-      .map(stage => stage.stage_id);
-  }, [accessibleStages]);
-
-  const proofStageIds = useMemo(() => {
-    return accessibleStages
-      .filter(stage => stage.stage_name.toLowerCase().includes('proof'))
-      .map(stage => stage.stage_id);
-  }, [accessibleStages]);
-
-  // Filter and categorize jobs with enhanced logging
+  // Simplified job categorization based on stage names
   const { dtpJobs, proofJobs } = useMemo(() => {
     let filtered = jobs;
 
@@ -67,62 +48,29 @@ export const DtpKanbanDashboard = () => {
       );
     }
 
-    // Separate DTP and Proof jobs with enhanced logic
+    // Categorize jobs based on current stage name
     const dtpJobs = filtered.filter(job => {
-      if (!job.current_stage_id && !job.current_stage_name) {
-        console.log(`⚠️ Job ${job.wo_no} has no stage info - including in DTP by default`);
-        return true; // Include jobs without stage info in DTP by default
-      }
-      
-      const isDtpByStageId = job.current_stage_id && dtpStageIds.includes(job.current_stage_id);
-      const isDtpByName = job.current_stage_name && job.current_stage_name.toLowerCase().includes('dtp');
-      
-      const isDtp = isDtpByStageId || isDtpByName;
-      
-      if (isDtp) {
-        console.log(`✅ Job ${job.wo_no} classified as DTP:`, {
-          stageId: job.current_stage_id?.substring(0, 8),
-          stageName: job.current_stage_name,
-          isDtpByStageId,
-          isDtpByName
-        });
-      }
-      
-      return isDtp;
+      if (!job.current_stage_name) return false;
+      return job.current_stage_name.toLowerCase().includes('dtp');
     });
 
     const proofJobs = filtered.filter(job => {
-      if (!job.current_stage_id && !job.current_stage_name) return false;
-      
-      const isProofByStageId = job.current_stage_id && proofStageIds.includes(job.current_stage_id);
-      const isProofByName = job.current_stage_name && job.current_stage_name.toLowerCase().includes('proof');
-      
-      const isProof = isProofByStageId || isProofByName;
-      
-      if (isProof) {
-        console.log(`✅ Job ${job.wo_no} classified as Proof:`, {
-          stageId: job.current_stage_id?.substring(0, 8),
-          stageName: job.current_stage_name,
-          isProofByStageId,
-          isProofByName
-        });
-      }
-      
-      return isProof;
+      if (!job.current_stage_name) return false;
+      return job.current_stage_name.toLowerCase().includes('proof');
     });
 
-    // Sort jobs: pending first, then active, then by due date
+    // Sort jobs: pending first, then active
     const sortJobs = (jobsList: typeof filtered) => {
       return jobsList.sort((a, b) => {
-        // Enhanced status check
-        const aStatus = a.current_stage_status || 'pending';
-        const bStatus = b.current_stage_status || 'pending';
+        // Pending jobs first
+        if (a.current_stage_status === 'pending' && b.current_stage_status !== 'pending') return -1;
+        if (b.current_stage_status === 'pending' && a.current_stage_status !== 'pending') return 1;
         
-        if (aStatus === 'pending' && bStatus !== 'pending') return -1;
-        if (bStatus === 'pending' && aStatus !== 'pending') return 1;
-        if (aStatus === 'active' && bStatus !== 'active') return -1;
-        if (bStatus === 'active' && aStatus !== 'active') return 1;
+        // Active jobs second
+        if (a.current_stage_status === 'active' && b.current_stage_status !== 'active') return -1;
+        if (b.current_stage_status === 'active' && a.current_stage_status !== 'active') return 1;
         
+        // Then by due date
         if (a.due_date && b.due_date) {
           return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
         }
@@ -131,7 +79,7 @@ export const DtpKanbanDashboard = () => {
       });
     };
 
-    console.log("📊 Job categorization results:", {
+    console.log("📊 Job categorization:", {
       totalFiltered: filtered.length,
       dtpCount: dtpJobs.length,
       proofCount: proofJobs.length,
@@ -143,7 +91,7 @@ export const DtpKanbanDashboard = () => {
       dtpJobs: sortJobs(dtpJobs),
       proofJobs: sortJobs(proofJobs)
     };
-  }, [jobs, searchQuery, dtpStageIds, proofStageIds]);
+  }, [jobs, searchQuery]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

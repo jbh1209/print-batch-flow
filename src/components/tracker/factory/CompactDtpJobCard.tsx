@@ -31,14 +31,12 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
 }) => {
   const [isActionInProgress, setIsActionInProgress] = useState(false);
 
-  // Enhanced debugging for job card
-  console.log(`🃏 Job Card Debug for ${job.wo_no}:`, {
+  console.log(`🃏 Job Card for ${job.wo_no}:`, {
     current_stage_status: job.current_stage_status,
     current_stage_id: job.current_stage_id,
+    current_stage_name: job.current_stage_name,
     user_can_work: job.user_can_work,
-    user_can_view: job.user_can_view,
-    showActions,
-    hasStageId: !!job.current_stage_id
+    showActions
   });
 
   const isOverdue = job.due_date && new Date(job.due_date) < new Date();
@@ -53,17 +51,18 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
   };
 
   const getStatusBadge = () => {
-    // Enhanced status logic with better fallbacks
     const status = job.current_stage_status;
-    
-    console.log(`📊 Status badge for ${job.wo_no}:`, { status, normalized: status || 'pending' });
     
     if (status === 'active') {
       return <Badge variant="default" className="text-xs px-2 py-0 bg-green-500">In Progress</Badge>;
     }
     
-    // Default to pending for any other status (including null, undefined, or 'pending')
-    return <Badge variant="secondary" className="text-xs px-2 py-0">Pending</Badge>;
+    if (status === 'completed') {
+      return <Badge variant="default" className="text-xs px-2 py-0 bg-blue-500">Completed</Badge>;
+    }
+    
+    // Default to pending
+    return <Badge variant="secondary" className="text-xs px-2 py-0">Ready to Start</Badge>;
   };
 
   const handleAction = async (action: () => Promise<boolean>) => {
@@ -81,19 +80,15 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
     }
   };
 
-  // Enhanced conditions for showing action buttons
-  const shouldShowActions = showActions && 
-    (job.user_can_work || job.user_can_view) && // More permissive permission check
-    (job.current_stage_id || job.current_stage_name); // Show if we have either stage ID or name
-
-  const canStart = job.current_stage_status !== 'active'; // Can start if not currently active
-  const canComplete = job.current_stage_status === 'active'; // Can complete if currently active
+  // Simplified action logic based on actual stage status
+  const shouldShowActions = showActions && job.user_can_work && job.current_stage_id;
+  const canStart = job.current_stage_status === 'pending';
+  const canComplete = job.current_stage_status === 'active';
 
   console.log(`🎬 Action visibility for ${job.wo_no}:`, {
     shouldShowActions,
     canStart,
     canComplete,
-    user_can_work: job.user_can_work,
     current_stage_status: job.current_stage_status
   });
 
@@ -129,7 +124,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
             <div className="flex items-center gap-1">
               <span className="text-gray-500">Stage:</span>
               <span className="font-medium text-gray-700">
-                {job.current_stage_name || 'Unknown'}
+                {job.current_stage_name || 'No Workflow'}
               </span>
             </div>
           </div>
@@ -160,7 +155,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
             </div>
           </div>
 
-          {/* Action Row - Enhanced logic for showing buttons */}
+          {/* Action Row */}
           {shouldShowActions && (
             <div className="pt-1" onClick={(e) => e.stopPropagation()}>
               {canStart && (
@@ -189,7 +184,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
             </div>
           )}
 
-          {/* Active Timer Indicator - Only show if actually active */}
+          {/* Active Timer Indicator */}
           {job.current_stage_status === 'active' && (
             <div className="flex items-center gap-1 pt-1 text-xs text-blue-600 bg-blue-50 -mx-3 -mb-3 px-3 py-1 rounded-b">
               <Clock className="h-3 w-3 animate-pulse" />
