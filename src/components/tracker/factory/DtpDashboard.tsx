@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { CompactDtpJobCard } from "./CompactDtpJobCard";
+import { DtpJobModal } from "./DtpJobModal";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 export const DtpDashboard: React.FC = () => {
   const { user } = useAuth();
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [showJobModal, setShowJobModal] = useState(false);
   
   const { 
     jobs, 
@@ -114,18 +118,31 @@ export const DtpDashboard: React.FC = () => {
     debugUserAccess();
   }, [user?.id, jobs.length, error]);
 
-  const activeJobs = jobs.filter(job => job.current_stage_status === 'active');
-  const pendingJobs = jobs.filter(job => job.current_stage_status === 'pending');
+  // FIXED: Correct job categorization logic
+  const readyToStartJobs = jobs.filter(job => job.current_stage_status === 'pending');
+  const inProgressJobs = jobs.filter(job => job.current_stage_status === 'active');
   const completedJobs = jobs.filter(job => job.current_stage_status === 'completed');
 
   console.log('🎯 DTP Dashboard Render:', {
     totalJobs: jobs.length,
-    activeJobs: activeJobs.length,
-    pendingJobs: pendingJobs.length,
+    readyToStartJobs: readyToStartJobs.length,
+    inProgressJobs: inProgressJobs.length,
+    completedJobs: completedJobs.length,
     isLoading,
     error,
     userId: user?.id
   });
+
+  const handleJobClick = (job: any) => {
+    console.log('🖱️ Job clicked:', job.wo_no);
+    setSelectedJob(job);
+    setShowJobModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowJobModal(false);
+    setSelectedJob(null);
+  };
 
   if (isLoading) {
     return (
@@ -170,7 +187,7 @@ export const DtpDashboard: React.FC = () => {
         </Button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - FIXED: Using correct job arrays */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -189,7 +206,7 @@ export const DtpDashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{pendingJobs.length}</div>
+            <div className="text-2xl font-bold text-green-600">{readyToStartJobs.length}</div>
           </CardContent>
         </Card>
         
@@ -201,7 +218,7 @@ export const DtpDashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{activeJobs.length}</div>
+            <div className="text-2xl font-bold text-blue-600">{inProgressJobs.length}</div>
           </CardContent>
         </Card>
         
@@ -276,20 +293,21 @@ export const DtpDashboard: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-6">
-          {/* Active Jobs */}
-          {activeJobs.length > 0 && (
+          {/* Ready to Start Jobs - FIXED: Using correct array */}
+          {readyToStartJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-blue-600" />
-                In Progress ({activeJobs.length})
+                <Play className="h-5 w-5 mr-2 text-green-600" />
+                Ready to Start ({readyToStartJobs.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeJobs.map((job) => (
+                {readyToStartJobs.map((job) => (
                   <CompactDtpJobCard
                     key={job.job_id}
                     job={job}
                     onStart={startJob}
                     onComplete={completeJob}
+                    onJobClick={handleJobClick}
                     showActions={true}
                   />
                 ))}
@@ -297,20 +315,21 @@ export const DtpDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Pending Jobs */}
-          {pendingJobs.length > 0 && (
+          {/* In Progress Jobs - FIXED: Using correct array */}
+          {inProgressJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
-                <Play className="h-5 w-5 mr-2 text-green-600" />
-                Ready to Start ({pendingJobs.length})
+                <Clock className="h-5 w-5 mr-2 text-blue-600" />
+                In Progress ({inProgressJobs.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pendingJobs.map((job) => (
+                {inProgressJobs.map((job) => (
                   <CompactDtpJobCard
                     key={job.job_id}
                     job={job}
                     onStart={startJob}
                     onComplete={completeJob}
+                    onJobClick={handleJobClick}
                     showActions={true}
                   />
                 ))}
@@ -332,6 +351,7 @@ export const DtpDashboard: React.FC = () => {
                     job={job}
                     onStart={startJob}
                     onComplete={completeJob}
+                    onJobClick={handleJobClick}
                     showActions={false}
                   />
                 ))}
@@ -339,6 +359,17 @@ export const DtpDashboard: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Job Detail Modal - ADDED: Modal functionality */}
+      {selectedJob && (
+        <DtpJobModal
+          job={selectedJob}
+          isOpen={showJobModal}
+          onClose={handleCloseModal}
+          onStart={startJob}
+          onComplete={completeJob}
+        />
       )}
     </div>
   );

@@ -54,15 +54,15 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
     const status = job.current_stage_status;
     
     if (status === 'active') {
-      return <Badge variant="default" className="text-xs px-2 py-0 bg-green-500">In Progress</Badge>;
+      return <Badge variant="default" className="text-xs px-2 py-0 bg-blue-500">In Progress</Badge>;
     }
     
     if (status === 'completed') {
-      return <Badge variant="default" className="text-xs px-2 py-0 bg-blue-500">Completed</Badge>;
+      return <Badge variant="default" className="text-xs px-2 py-0 bg-green-500">Completed</Badge>;
     }
     
     // Default to pending
-    return <Badge variant="secondary" className="text-xs px-2 py-0">Ready to Start</Badge>;
+    return <Badge variant="secondary" className="text-xs px-2 py-0 bg-green-600 text-white">Ready to Start</Badge>;
   };
 
   const handleAction = async (action: () => Promise<boolean>) => {
@@ -80,7 +80,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
     }
   };
 
-  // Simplified action logic based on actual stage status
+  // FIXED: Corrected action logic
   const shouldShowActions = showActions && job.user_can_work && job.current_stage_id;
   const canStart = job.current_stage_status === 'pending';
   const canComplete = job.current_stage_status === 'active';

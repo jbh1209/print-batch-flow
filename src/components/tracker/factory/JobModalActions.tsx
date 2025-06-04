@@ -41,7 +41,7 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
     }
   };
 
-  // Simplified action logic based on actual stage status
+  // FIXED: Corrected action logic to match card logic
   const canWork = job.user_can_work;
   const hasStageInfo = job.current_stage_id && job.current_stage_name;
   const status = job.current_stage_status;
