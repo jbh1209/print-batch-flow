@@ -1644,6 +1644,7 @@ export type Database = {
           customer: string
           status: string
           due_date: string
+          reference: string
           category_id: string
           category_name: string
           category_color: string

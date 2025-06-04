@@ -3,35 +3,8 @@ import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-
-export interface AccessibleJob {
-  job_id: string;
-  wo_no: string;
-  customer: string;
-  status: string;
-  due_date: string;
-  reference: string | null;
-  category_id: string | null;
-  category_name: string | null;
-  category_color: string | null;
-  current_stage_id: string | null;
-  current_stage_name: string | null;
-  current_stage_color: string | null;
-  current_stage_status: string;
-  user_can_view: boolean;
-  user_can_edit: boolean;
-  user_can_work: boolean;
-  user_can_manage: boolean;
-  workflow_progress: number;
-  total_stages: number;
-  completed_stages: number;
-}
-
-export interface UseAccessibleJobsOptions {
-  permissionType?: 'view' | 'edit' | 'work' | 'manage';
-  statusFilter?: string | null;
-  stageFilter?: string | null;
-}
+import { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
+import { normalizeJobData } from "./useAccessibleJobs/jobDataNormalizer";
 
 export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
   const { user, isLoading: authLoading } = useAuth();
@@ -82,28 +55,9 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       });
 
       if (data && Array.isArray(data)) {
-        const normalizedJobs = data.map((job, index) => ({
-          job_id: String(job.job_id || ''),
-          wo_no: String(job.wo_no || ''),
-          customer: String(job.customer || 'Unknown'),
-          status: String(job.status || 'Unknown'),
-          due_date: String(job.due_date || ''),
-          reference: job.reference ? String(job.reference) : null,
-          category_id: job.category_id ? String(job.category_id) : null,
-          category_name: job.category_name ? String(job.category_name) : null,
-          category_color: job.category_color ? String(job.category_color) : null,
-          current_stage_id: job.current_stage_id ? String(job.current_stage_id) : null,
-          current_stage_name: job.current_stage_name ? String(job.current_stage_name) : null,
-          current_stage_color: job.current_stage_color ? String(job.current_stage_color) : null,
-          current_stage_status: String(job.current_stage_status || 'pending'),
-          user_can_view: Boolean(job.user_can_view),
-          user_can_edit: Boolean(job.user_can_edit),
-          user_can_work: Boolean(job.user_can_work),
-          user_can_manage: Boolean(job.user_can_manage),
-          workflow_progress: Number(job.workflow_progress) || 0,
-          total_stages: Number(job.total_stages) || 0,
-          completed_stages: Number(job.completed_stages) || 0
-        }));
+        const normalizedJobs = data.map((job, index) => {
+          return normalizeJobData(job, index);
+        });
 
         console.log("✅ Normalized jobs:", normalizedJobs.length);
         setJobs(normalizedJobs);
@@ -284,3 +238,6 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     refreshJobs: fetchJobs
   };
 };
+
+// Re-export the types for convenience
+export type { AccessibleJob, UseAccessibleJobsOptions };
