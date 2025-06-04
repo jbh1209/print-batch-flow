@@ -126,10 +126,10 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     <p>{job.reference}</p>
                   </div>
                 )}
-                {job.category && (
+                {job.category_name && (
                   <div>
                     <label className="text-sm font-medium text-gray-600">Category</label>
-                    <p>{job.category}</p>
+                    <p>{job.category_name}</p>
                   </div>
                 )}
               </div>
