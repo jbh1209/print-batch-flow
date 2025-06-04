@@ -42,20 +42,7 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
         stageFilter
       });
 
-      // First, let's try a simple query to see if the basic connection works
-      const { data: testData, error: testError } = await supabase
-        .from('production_jobs')
-        .select('id, wo_no, customer, status, reference')
-        .limit(5);
-
-      if (testError) {
-        console.error("❌ Basic query failed:", testError);
-        throw new Error(`Database connection failed: ${testError.message}`);
-      }
-
-      console.log("✅ Basic query successful, found", testData?.length, "jobs");
-
-      // Now try the function call
+      // Try the function call with better error handling
       const { data, error: fetchError } = await supabase.rpc('get_user_accessible_jobs', {
         p_user_id: user.id,
         p_permission_type: permissionType,
@@ -65,64 +52,29 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
 
       if (fetchError) {
         console.error("❌ Function call failed:", fetchError);
-        // Fallback to basic query if function fails
-        console.log("🔄 Falling back to basic query...");
-        
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('production_jobs')
-          .select(`
-            *,
-            categories (
-              id,
-              name,
-              color
-            )
-          `)
-          .order('created_at', { ascending: false });
-
-        if (fallbackError) {
-          throw new Error(`Fallback query failed: ${fallbackError.message}`);
-        }
-
-        // Convert fallback data to match expected format
-        const normalizedFallbackJobs = (fallbackData || []).map((job: any) => ({
-          job_id: job.id,
-          wo_no: job.wo_no || '',
-          customer: job.customer || 'Unknown',
-          status: job.status || 'Unknown',
-          due_date: job.due_date || '',
-          reference: job.reference || null,
-          category_id: job.category_id,
-          category_name: job.categories?.name || '',
-          category_color: job.categories?.color || '',
-          current_stage_id: null,
-          current_stage_name: job.status || 'Unknown',
-          current_stage_color: '#6B7280',
-          current_stage_status: 'pending',
-          user_can_view: true,
-          user_can_edit: true,
-          user_can_work: true,
-          user_can_manage: true,
-          workflow_progress: 0,
-          total_stages: 0,
-          completed_stages: 0
-        }));
-
-        console.log("✅ Fallback query successful:", normalizedFallbackJobs.length, "jobs");
-        setJobs(normalizedFallbackJobs);
-        return;
+        throw new Error(`Database function failed: ${fetchError.message}`);
       }
 
       console.log("✅ Function call successful, raw data:", data?.length, "jobs");
 
-      // Validate and normalize the data to match our interface
+      // Validate and normalize the data
       if (!Array.isArray(data)) {
         console.warn("⚠️ Database returned non-array data:", data);
         setJobs([]);
         return;
       }
 
-      const normalizedJobs = data.map(normalizeJobData);
+      const normalizedJobs = data
+        .filter(job => job && typeof job === 'object')
+        .map((job, index) => {
+          try {
+            return normalizeJobData(job, index);
+          } catch (jobError) {
+            console.error(`❌ Error normalizing job at index ${index}:`, jobError);
+            return null;
+          }
+        })
+        .filter(job => job !== null) as AccessibleJob[];
 
       console.log("✅ Normalized accessible jobs:", normalizedJobs.length);
       setJobs(normalizedJobs);
@@ -131,14 +83,19 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       console.error('❌ Error fetching accessible jobs:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load accessible jobs";
       setError(errorMessage);
-      toast.error(errorMessage);
-      setJobs([]); // Set empty array on error to prevent UI crashes
+      // Don't show toast for every error to avoid spam
+      if (!error) {
+        toast.error(errorMessage);
+      }
+      setJobs([]);
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, permissionType, statusFilter, stageFilter]);
+  }, [user?.id, permissionType, statusFilter, stageFilter, error]);
 
   const { startJob, completeJob } = useJobActions(fetchJobs);
+  
+  // Only set up realtime if we have jobs data
   useRealtimeSubscription(fetchJobs);
 
   // Initial data load
@@ -148,10 +105,13 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       userId: user?.id
     });
     
-    if (!authLoading) {
+    if (!authLoading && user?.id) {
       fetchJobs();
+    } else if (!authLoading && !user?.id) {
+      setIsLoading(false);
+      setJobs([]);
     }
-  }, [authLoading, fetchJobs]);
+  }, [authLoading, user?.id, fetchJobs]);
 
   return {
     jobs,

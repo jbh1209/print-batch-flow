@@ -11,39 +11,60 @@ export const useRealtimeSubscription = (fetchJobs: () => Promise<void>) => {
 
     console.log("🔄 Setting up real-time subscription for accessible jobs");
 
-    const channel = supabase
-      .channel(`accessible_jobs_${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'production_jobs',
-        },
-        (payload) => {
-          console.log('📦 Production jobs changed - refetching', payload.eventType);
-          fetchJobs();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'job_stage_instances',
-        },
-        (payload) => {
-          console.log('🎯 Job stage instances changed - refetching', payload.eventType);
-          fetchJobs();
-        }
-      )
-      .subscribe((status) => {
-        console.log("🔄 Real-time subscription status:", status);
-      });
+    let channel: any = null;
+
+    try {
+      channel = supabase
+        .channel(`accessible_jobs_${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'production_jobs',
+          },
+          (payload) => {
+            console.log('📦 Production jobs changed - refetching', payload.eventType);
+            // Add a small delay to prevent race conditions
+            setTimeout(() => {
+              fetchJobs().catch(console.error);
+            }, 100);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'job_stage_instances',
+          },
+          (payload) => {
+            console.log('🎯 Job stage instances changed - refetching', payload.eventType);
+            // Add a small delay to prevent race conditions
+            setTimeout(() => {
+              fetchJobs().catch(console.error);
+            }, 100);
+          }
+        )
+        .subscribe((status) => {
+          console.log("🔄 Real-time subscription status:", status);
+          if (status === 'SUBSCRIPTION_ERROR') {
+            console.warn("⚠️ Real-time subscription error, will continue without real-time updates");
+          }
+        });
+    } catch (error) {
+      console.warn("⚠️ Failed to set up real-time subscription:", error);
+    }
 
     return () => {
-      console.log("🧹 Cleaning up accessible jobs real-time subscription");
-      supabase.removeChannel(channel);
+      if (channel) {
+        console.log("🧹 Cleaning up accessible jobs real-time subscription");
+        try {
+          supabase.removeChannel(channel);
+        } catch (error) {
+          console.warn("⚠️ Error cleaning up real-time channel:", error);
+        }
+      }
     };
   }, [fetchJobs, user?.id]);
 };
