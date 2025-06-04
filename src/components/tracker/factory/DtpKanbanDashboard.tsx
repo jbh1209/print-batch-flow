@@ -9,22 +9,29 @@ import {
   AlertTriangle,
   FileText,
   Play,
-  CheckCircle
+  CheckCircle,
+  LogOut,
+  Menu
 } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useAuth } from "@/hooks/useAuth";
 import { DtpKanbanColumn } from "./DtpKanbanColumn";
 import { BarcodeScannerButton } from "./BarcodeScannerButton";
+import { DtpJobModal } from "./DtpJobModal";
 import { toast } from "sonner";
 
 export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
+  const { signOut } = useAuth();
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobs({
     permissionType: 'work'
   });
   
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [showJobModal, setShowJobModal] = useState(false);
 
   console.log("🎯 DTP Kanban Dashboard Debug:", {
     isDtpOperator,
@@ -46,7 +53,7 @@ export const DtpKanbanDashboard = () => {
       .map(stage => stage.stage_id);
   }, [accessibleStages]);
 
-  // Filter and categorize jobs
+  // Filter and categorize jobs with correct status logic
   const { dtpJobs, proofJobs } = useMemo(() => {
     let filtered = jobs;
 
@@ -120,6 +127,25 @@ export const DtpKanbanDashboard = () => {
     }
   }, [dtpJobs, proofJobs]);
 
+  const handleJobClick = useCallback((job) => {
+    setSelectedJob(job);
+    setShowJobModal(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setShowJobModal(false);
+    setSelectedJob(null);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      toast.error('Logout failed');
+    }
+  }, [signOut]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8 h-full">
@@ -146,32 +172,48 @@ export const DtpKanbanDashboard = () => {
 
   return (
     <div className="p-4 space-y-4 h-full overflow-hidden bg-gray-50">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+      {/* Header with Navigation */}
+      <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm">
+            <Menu className="h-4 w-4 mr-2" />
+            Menu
+          </Button>
           <div>
             <h1 className="text-2xl font-bold">DTP Workstation</h1>
             <p className="text-gray-600">DTP and Proofing jobs</p>
-            <p className="text-sm text-gray-500">
-              Showing {dtpJobs.length} DTP jobs and {proofJobs.length} Proof jobs
-            </p>
-          </div>
-          
-          <div className="flex gap-2">
-            <BarcodeScannerButton 
-              onScanSuccess={handleScanSuccess}
-              className="h-10"
-            />
-            <Button 
-              variant="outline" 
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="h-10"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            </Button>
           </div>
         </div>
+        
+        <div className="flex items-center gap-2">
+          <BarcodeScannerButton 
+            onScanSuccess={handleScanSuccess}
+            className="h-10"
+          />
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="h-10"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleLogout}
+            className="h-10"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-gray-500">
+          Showing {dtpJobs.length} DTP jobs and {proofJobs.length} Proof jobs
+        </p>
 
         {/* Search Bar */}
         <div className="relative">
@@ -244,6 +286,7 @@ export const DtpKanbanDashboard = () => {
           jobs={dtpJobs}
           onStart={startJob}
           onComplete={completeJob}
+          onJobClick={handleJobClick}
           colorClass="bg-blue-600"
           icon={<FileText className="h-4 w-4" />}
         />
@@ -253,10 +296,22 @@ export const DtpKanbanDashboard = () => {
           jobs={proofJobs}
           onStart={startJob}
           onComplete={completeJob}
+          onJobClick={handleJobClick}
           colorClass="bg-purple-600"
           icon={<CheckCircle className="h-4 w-4" />}
         />
       </div>
+
+      {/* Job Detail Modal */}
+      {selectedJob && (
+        <DtpJobModal
+          job={selectedJob}
+          isOpen={showJobModal}
+          onClose={handleCloseModal}
+          onStart={startJob}
+          onComplete={completeJob}
+        />
+      )}
     </div>
   );
 };

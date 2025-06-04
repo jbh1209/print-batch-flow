@@ -10,6 +10,7 @@ interface DtpKanbanColumnProps {
   jobs: AccessibleJob[];
   onStart: (jobId: string, stageId: string) => Promise<boolean>;
   onComplete: (jobId: string, stageId: string) => Promise<boolean>;
+  onJobClick?: (job: AccessibleJob) => void;
   colorClass?: string;
   icon?: React.ReactNode;
 }
@@ -19,6 +20,7 @@ export const DtpKanbanColumn: React.FC<DtpKanbanColumnProps> = ({
   jobs,
   onStart,
   onComplete,
+  onJobClick,
   colorClass = "bg-blue-600",
   icon
 }) => {
@@ -49,6 +51,7 @@ export const DtpKanbanColumn: React.FC<DtpKanbanColumnProps> = ({
                   job={job}
                   onStart={onStart}
                   onComplete={onComplete}
+                  onJobClick={onJobClick}
                 />
               ))
             )}
