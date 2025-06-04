@@ -17,6 +17,7 @@ export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobs({
     permissionType: 'work'
   });
@@ -38,6 +39,10 @@ export const DtpKanbanDashboard = () => {
 
   // Use centralized job categorization
   const { dtpJobs, proofJobs } = useMemo(() => {
+    if (!jobs || jobs.length === 0) {
+      return { dtpJobs: [], proofJobs: [] };
+    }
+
     let filtered = jobs;
 
     // Apply search filter
@@ -66,11 +71,14 @@ export const DtpKanbanDashboard = () => {
     };
   }, [jobs, searchQuery]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refreshJobs();
-    setTimeout(() => setRefreshing(false), 1000);
-  };
+    try {
+      await refreshJobs();
+    } finally {
+      setTimeout(() => setRefreshing(false), 1000);
+    }
+  }, [refreshJobs]);
 
   const handleScanSuccess = useCallback((data: string) => {
     const allJobs = [...dtpJobs, ...proofJobs];

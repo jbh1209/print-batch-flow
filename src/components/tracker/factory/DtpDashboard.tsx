@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -245,7 +246,7 @@ export const DtpDashboard: React.FC = () => {
       </div>
 
       {/* Debug Information */}
-      {debugInfo && (
+      {debugInfo && process.env.NODE_ENV === 'development' && (
         <Card className="border-amber-200 bg-amber-50">
           <CardHeader>
             <CardTitle className="text-sm text-amber-800 flex items-center">
