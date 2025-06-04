@@ -56,6 +56,20 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       }
 
       console.log("✅ Function call successful, raw data:", data?.length, "jobs");
+      
+      // Enhanced debugging - log raw data from database
+      if (data && data.length > 0) {
+        console.log("🔍 Raw database data sample:", data.slice(0, 3).map(job => ({
+          wo_no: job.wo_no,
+          current_stage_status: job.current_stage_status,
+          current_stage_id: job.current_stage_id,
+          current_stage_name: job.current_stage_name,
+          user_can_work: job.user_can_work,
+          user_can_view: job.user_can_view,
+          user_can_edit: job.user_can_edit,
+          status: job.status
+        })));
+      }
 
       // Validate and normalize the data
       if (!Array.isArray(data)) {
@@ -68,7 +82,20 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
         .filter(job => job && typeof job === 'object')
         .map((job, index) => {
           try {
-            return normalizeJobData(job, index);
+            const normalized = normalizeJobData(job, index);
+            
+            // Log normalization for first few jobs
+            if (index < 3) {
+              console.log(`🔄 Job ${normalized.wo_no} normalized:`, {
+                original_status: job.current_stage_status,
+                normalized_status: normalized.current_stage_status,
+                original_can_work: job.user_can_work,
+                normalized_can_work: normalized.user_can_work,
+                stage_id: normalized.current_stage_id
+              });
+            }
+            
+            return normalized;
           } catch (jobError) {
             console.error(`❌ Error normalizing job at index ${index}:`, jobError);
             return null;
@@ -77,6 +104,16 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
         .filter(job => job !== null) as AccessibleJob[];
 
       console.log("✅ Normalized accessible jobs:", normalizedJobs.length);
+      
+      // Log status distribution
+      const statusCounts = normalizedJobs.reduce((acc, job) => {
+        const status = job.current_stage_status || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      console.log("📊 Job status distribution:", statusCounts);
+      
       setJobs(normalizedJobs);
       
     } catch (err) {

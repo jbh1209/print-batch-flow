@@ -22,6 +22,15 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
 }) => {
   const [isActionInProgress, setIsActionInProgress] = useState(false);
 
+  // Enhanced debugging for modal actions
+  console.log(`🎬 Modal Actions Debug for ${job.wo_no}:`, {
+    current_stage_status: job.current_stage_status,
+    current_stage_id: job.current_stage_id,
+    user_can_work: job.user_can_work,
+    user_can_view: job.user_can_view,
+    hasStageId: !!job.current_stage_id
+  });
+
   const handleAction = async (action: () => Promise<boolean>) => {
     setIsActionInProgress(true);
     try {
@@ -34,17 +43,33 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
     }
   };
 
+  // Enhanced conditions for showing actions
+  const canWork = job.user_can_work || job.user_can_view; // More permissive check
+  const hasStageInfo = job.current_stage_id || job.current_stage_name;
+  const status = job.current_stage_status || 'pending'; // Default to pending
+  
+  const showStartButton = canWork && hasStageInfo && status !== 'active';
+  const showCompleteButton = canWork && hasStageInfo && status === 'active';
+
+  console.log(`🎯 Button visibility for ${job.wo_no}:`, {
+    canWork,
+    hasStageInfo,
+    status,
+    showStartButton,
+    showCompleteButton
+  });
+
   return (
     <div className="flex justify-end gap-3 pt-4 border-t">
       <Button variant="outline" onClick={onClose}>
         Close
       </Button>
       
-      {job.user_can_work && job.current_stage_id && (
+      {hasStageInfo && canWork && (
         <>
-          {job.current_stage_status === 'pending' && (
+          {showStartButton && (
             <Button 
-              onClick={() => handleAction(() => onStart(job.job_id, job.current_stage_id!))}
+              onClick={() => handleAction(() => onStart(job.job_id, job.current_stage_id || 'default'))}
               disabled={isActionInProgress}
               className="bg-green-600 hover:bg-green-700"
             >
@@ -53,9 +78,9 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
             </Button>
           )}
           
-          {job.current_stage_status === 'active' && (
+          {showCompleteButton && (
             <Button 
-              onClick={() => handleAction(() => onComplete(job.job_id, job.current_stage_id!))}
+              onClick={() => handleAction(() => onComplete(job.job_id, job.current_stage_id || 'default'))}
               disabled={isActionInProgress}
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -64,6 +89,19 @@ export const JobModalActions: React.FC<JobModalActionsProps> = ({
             </Button>
           )}
         </>
+      )}
+      
+      {/* Debug info in development */}
+      {process.env.NODE_ENV === 'development' && !hasStageInfo && (
+        <div className="text-xs text-gray-500 italic">
+          No stage info available
+        </div>
+      )}
+      
+      {process.env.NODE_ENV === 'development' && !canWork && (
+        <div className="text-xs text-gray-500 italic">
+          No work permissions
+        </div>
       )}
     </div>
   );

@@ -31,6 +31,16 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
 }) => {
   const [isActionInProgress, setIsActionInProgress] = useState(false);
 
+  // Enhanced debugging for job card
+  console.log(`🃏 Job Card Debug for ${job.wo_no}:`, {
+    current_stage_status: job.current_stage_status,
+    current_stage_id: job.current_stage_id,
+    user_can_work: job.user_can_work,
+    user_can_view: job.user_can_view,
+    showActions,
+    hasStageId: !!job.current_stage_id
+  });
+
   const isOverdue = job.due_date && new Date(job.due_date) < new Date();
   const isDueSoon = job.due_date && !isOverdue && 
     new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
@@ -43,11 +53,16 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
   };
 
   const getStatusBadge = () => {
-    // Show proper status based on actual job state
-    if (job.current_stage_status === 'active') {
+    // Enhanced status logic with better fallbacks
+    const status = job.current_stage_status;
+    
+    console.log(`📊 Status badge for ${job.wo_no}:`, { status, normalized: status || 'pending' });
+    
+    if (status === 'active') {
       return <Badge variant="default" className="text-xs px-2 py-0 bg-green-500">In Progress</Badge>;
     }
-    // Default to pending if not explicitly active
+    
+    // Default to pending for any other status (including null, undefined, or 'pending')
     return <Badge variant="secondary" className="text-xs px-2 py-0">Pending</Badge>;
   };
 
@@ -65,6 +80,22 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
       onJobClick(job);
     }
   };
+
+  // Enhanced conditions for showing action buttons
+  const shouldShowActions = showActions && 
+    (job.user_can_work || job.user_can_view) && // More permissive permission check
+    (job.current_stage_id || job.current_stage_name); // Show if we have either stage ID or name
+
+  const canStart = job.current_stage_status !== 'active'; // Can start if not currently active
+  const canComplete = job.current_stage_status === 'active'; // Can complete if currently active
+
+  console.log(`🎬 Action visibility for ${job.wo_no}:`, {
+    shouldShowActions,
+    canStart,
+    canComplete,
+    user_can_work: job.user_can_work,
+    current_stage_status: job.current_stage_status
+  });
 
   return (
     <Card 
@@ -129,30 +160,30 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
             </div>
           </div>
 
-          {/* Action Row - Only show if job has the right permissions and stage */}
-          {showActions && job.user_can_work && job.current_stage_id && (
+          {/* Action Row - Enhanced logic for showing buttons */}
+          {shouldShowActions && (
             <div className="pt-1" onClick={(e) => e.stopPropagation()}>
-              {job.current_stage_status === 'pending' && (
+              {canStart && (
                 <Button 
-                  onClick={() => handleAction(() => onStart(job.job_id, job.current_stage_id!))}
+                  onClick={() => handleAction(() => onStart(job.job_id, job.current_stage_id || 'default'))}
                   size="sm"
-                  className="w-full h-7 text-xs bg-green-600 hover:bg-green-700"
+                  className="w-full h-7 text-xs bg-green-600 hover:bg-green-700 mb-1"
                   disabled={isActionInProgress}
                 >
                   <Play className="h-3 w-3 mr-1" />
-                  Start Job
+                  {isActionInProgress ? "Starting..." : "Start Job"}
                 </Button>
               )}
               
-              {job.current_stage_status === 'active' && (
+              {canComplete && (
                 <Button 
-                  onClick={() => handleAction(() => onComplete(job.job_id, job.current_stage_id!))}
+                  onClick={() => handleAction(() => onComplete(job.job_id, job.current_stage_id || 'default'))}
                   size="sm"
                   className="w-full h-7 text-xs bg-blue-600 hover:bg-blue-700"
                   disabled={isActionInProgress}
                 >
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  Complete
+                  {isActionInProgress ? "Completing..." : "Complete"}
                 </Button>
               )}
             </div>
