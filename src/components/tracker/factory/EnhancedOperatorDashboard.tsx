@@ -1,4 +1,6 @@
-
+import React from "react";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { DtpKanbanDashboard } from "./DtpKanbanDashboard";
 import React, { useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +15,6 @@ import {
   Play,
   CheckCircle
 } from "lucide-react";
-import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { EnhancedOperatorJobCard } from "./EnhancedOperatorJobCard";
 import { BarcodeScannerButton } from "./BarcodeScannerButton";
@@ -21,6 +22,12 @@ import { toast } from "sonner";
 
 export const EnhancedOperatorDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
+
+  // For DTP operators, show the specialized kanban dashboard
+  if (isDtpOperator) {
+    return <DtpKanbanDashboard />;
+  }
+
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobs({
     permissionType: 'work'
   });
