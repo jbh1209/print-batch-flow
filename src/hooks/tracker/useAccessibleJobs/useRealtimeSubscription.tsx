@@ -48,9 +48,6 @@ export const useRealtimeSubscription = (fetchJobs: () => Promise<void>) => {
         )
         .subscribe((status) => {
           console.log("🔄 Real-time subscription status:", status);
-          if (status === 'SUBSCRIPTION_ERROR') {
-            console.warn("⚠️ Real-time subscription error, will continue without real-time updates");
-          }
         });
     } catch (error) {
       console.warn("⚠️ Failed to set up real-time subscription:", error);
