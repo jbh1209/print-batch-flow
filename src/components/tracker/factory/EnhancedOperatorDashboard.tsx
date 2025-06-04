@@ -18,10 +18,12 @@ import { EnhancedOperatorJobCard } from "./EnhancedOperatorJobCard";
 import { BarcodeScannerButton } from "./BarcodeScannerButton";
 import { 
   categorizeJobs, 
-  calculateJobCounts, 
+  calculateFilterCounts, 
   sortJobsByPriority
-} from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+} from "@/hooks/tracker/useAccessibleJobs/pureJobProcessor";
 import { toast } from "sonner";
+import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
+import type { DashboardFilters, FilterCounts } from "./types";
 
 export const EnhancedOperatorDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
@@ -30,7 +32,7 @@ export const EnhancedOperatorDashboard = () => {
   });
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterMode, setFilterMode] = useState<'all' | 'my-active' | 'available' | 'urgent'>('available');
+  const [filterMode, setFilterMode] = useState<DashboardFilters['filterMode']>('available');
   const [refreshing, setRefreshing] = useState(false);
 
   // For DTP operators, show the specialized dashboard
@@ -85,20 +87,8 @@ export const EnhancedOperatorDashboard = () => {
   }, [jobs, searchQuery, filterMode]);
 
   // Memoize filter counts using consistent logic
-  const filterCounts = useMemo(() => {
-    if (!jobs || jobs.length === 0) {
-      return { all: 0, available: 0, 'my-active': 0, urgent: 0 };
-    }
-
-    const jobCounts = calculateJobCounts(jobs);
-    const jobCategories = categorizeJobs(jobs);
-
-    return {
-      all: jobCounts.total,
-      available: jobCategories.pendingJobs.filter(j => j.user_can_work).length,
-      'my-active': jobCategories.activeJobs.filter(j => j.user_can_work).length,
-      urgent: jobCategories.urgentJobs.length
-    };
+  const filterCounts: FilterCounts = useMemo(() => {
+    return calculateFilterCounts(jobs);
   }, [jobs]);
 
   const handleRefresh = useCallback(async () => {
@@ -212,7 +202,7 @@ export const EnhancedOperatorDashboard = () => {
           ].map((filter) => (
             <Button
               key={filter.key}
-              onClick={() => setFilterMode(filter.key as any)}
+              onClick={() => setFilterMode(filter.key as DashboardFilters['filterMode'])}
               variant={filterMode === filter.key ? 'default' : 'outline'}
               className="h-16 flex flex-col items-center justify-center p-2"
             >

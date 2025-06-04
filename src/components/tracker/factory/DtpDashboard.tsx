@@ -17,14 +17,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   categorizeJobs, 
-  calculateJobStats,
+  calculateJobCounts,
   sortJobsByPriority
-} from "@/utils/tracker/jobProcessing";
+} from "@/hooks/tracker/useAccessibleJobs/pureJobProcessor";
+import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 
 export const DtpDashboard: React.FC = () => {
   const { user } = useAuth();
   const [debugInfo, setDebugInfo] = useState<any>(null);
-  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
   
   const { 
@@ -123,16 +124,16 @@ export const DtpDashboard: React.FC = () => {
       return categorizeJobs(jobs);
     } catch (error) {
       console.error("Error categorizing jobs:", error);
-      return { pendingJobs: [], activeJobs: [], completedJobs: [] };
+      return { pendingJobs: [], activeJobs: [], completedJobs: [], urgentJobs: [], dtpJobs: [], proofJobs: [] };
     }
   }, [jobs]);
 
   const jobStats = React.useMemo(() => {
     try {
-      return calculateJobStats(jobs);
+      return calculateJobCounts(jobs);
     } catch (error) {
       console.error("Error calculating job stats:", error);
-      return { total: 0, pending: 0, active: 0, completed: 0 };
+      return { total: 0, pending: 0, active: 0, completed: 0, overdue: 0, dueSoon: 0 };
     }
   }, [jobs]);
 
@@ -152,7 +153,7 @@ export const DtpDashboard: React.FC = () => {
     completed: jobStats.completed
   });
 
-  const handleJobClick = (job: any) => {
+  const handleJobClick = (job: AccessibleJob) => {
     console.log('🖱️ Job clicked:', job.wo_no);
     setSelectedJob(job);
     setShowJobModal(true);
