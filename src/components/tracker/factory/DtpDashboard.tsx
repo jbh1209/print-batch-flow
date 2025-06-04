@@ -118,19 +118,29 @@ export const DtpDashboard: React.FC = () => {
     debugUserAccess();
   }, [user?.id, jobs.length, error]);
 
-  // FIXED: Correct job categorization logic
+  // FIXED: Correct job categorization based on current_stage_status
   const readyToStartJobs = jobs.filter(job => job.current_stage_status === 'pending');
   const inProgressJobs = jobs.filter(job => job.current_stage_status === 'active');
-  const completedJobs = jobs.filter(job => job.current_stage_status === 'completed');
+  
+  // For completed jobs, we look for jobs that were completed today
+  const today = new Date().toDateString();
+  const completedJobs = jobs.filter(job => {
+    // This would need to be enhanced to check actual completion timestamps
+    // For now, we'll use a placeholder logic
+    return job.current_stage_status === 'completed';
+  });
 
-  console.log('🎯 DTP Dashboard Render:', {
+  console.log('🎯 DTP Dashboard Job Categories:', {
     totalJobs: jobs.length,
-    readyToStartJobs: readyToStartJobs.length,
-    inProgressJobs: inProgressJobs.length,
-    completedJobs: completedJobs.length,
-    isLoading,
-    error,
-    userId: user?.id
+    readyToStart: readyToStartJobs.length,
+    inProgress: inProgressJobs.length,
+    completed: completedJobs.length,
+    sampleJob: jobs[0] ? {
+      wo_no: jobs[0].wo_no,
+      current_stage_status: jobs[0].current_stage_status,
+      current_stage_name: jobs[0].current_stage_name,
+      user_can_work: jobs[0].user_can_work
+    } : null
   });
 
   const handleJobClick = (job: any) => {
@@ -187,7 +197,7 @@ export const DtpDashboard: React.FC = () => {
         </Button>
       </div>
 
-      {/* Stats Cards - FIXED: Using correct job arrays */}
+      {/* Stats Cards - FIXED: Using corrected job categorization */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -293,7 +303,7 @@ export const DtpDashboard: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-6">
-          {/* Ready to Start Jobs - FIXED: Using correct array */}
+          {/* Ready to Start Jobs */}
           {readyToStartJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
@@ -315,7 +325,7 @@ export const DtpDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* In Progress Jobs - FIXED: Using correct array */}
+          {/* In Progress Jobs */}
           {inProgressJobs.length > 0 && (
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center">
@@ -361,7 +371,7 @@ export const DtpDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Job Detail Modal - ADDED: Modal functionality */}
+      {/* Job Detail Modal */}
       {selectedJob && (
         <DtpJobModal
           job={selectedJob}

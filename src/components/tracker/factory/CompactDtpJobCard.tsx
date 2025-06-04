@@ -61,7 +61,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
       return <Badge variant="default" className="text-xs px-2 py-0 bg-green-500">Completed</Badge>;
     }
     
-    // Default to pending
+    // Default to pending - Ready to Start
     return <Badge variant="secondary" className="text-xs px-2 py-0 bg-green-600 text-white">Ready to Start</Badge>;
   };
 
@@ -80,7 +80,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
     }
   };
 
-  // FIXED: Corrected action logic
+  // FIXED: Corrected action logic based on current_stage_status
   const shouldShowActions = showActions && job.user_can_work && job.current_stage_id;
   const canStart = job.current_stage_status === 'pending';
   const canComplete = job.current_stage_status === 'active';
