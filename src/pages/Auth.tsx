@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cleanupAuthState } from '@/utils/authCleanup';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -39,6 +40,17 @@ const Auth = () => {
     try {
       console.log("Attempting login for:", email);
       
+      // Clean up any existing auth state first
+      cleanupAuthState();
+      
+      // Attempt global sign out first to clear any stuck sessions
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continue even if this fails
+        console.log('Pre-login signout failed (expected):', err);
+      }
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -49,8 +61,8 @@ const Auth = () => {
       console.log("Login successful, user:", data.user?.id);
       toast.success("Login successful!");
       
-      // Don't force reload, let React Router handle navigation
-      navigate('/');
+      // Force page reload for clean state
+      window.location.href = '/';
     } catch (error: any) {
       console.error("Auth error:", error);
       setErrorMessage(error.message || 'Error signing in');

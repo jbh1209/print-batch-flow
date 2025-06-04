@@ -5,6 +5,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { AuthContext } from './AuthContext';
 import { AuthState } from './types';
 import { loadUserData } from './authUtils';
+import { cleanupAuthState } from '@/utils/authCleanup';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [authState, setAuthState] = useState<AuthState>({
@@ -30,8 +31,64 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change:', event, !!session);
+        
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('Token refreshed successfully');
+        }
+        
+        if (event === 'SIGNED_OUT' || !session) {
+          console.log('User signed out or no session');
+          setAuthState({
+            user: null,
+            session: null,
+            profile: null,
+            loading: false,
+            isAdmin: false
+          });
+          return;
+        }
+        
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('User signed in:', session.user.id);
+          setAuthState(prev => ({
+            ...prev,
+            user: session.user,
+            session,
+            loading: false
+          }));
+          
+          // Defer user data loading to prevent auth deadlocks
+          setTimeout(() => {
+            updateUserData(session.user.id);
+          }, 0);
+          return;
+        }
+        
+        // Update state for any other events
+        setAuthState(prev => ({
+          ...prev,
+          user: session?.user || null,
+          session,
+          loading: false
+        }));
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Session retrieval error:', error);
+        // Clean up on session errors
+        cleanupAuthState();
+        setAuthState(prev => ({ ...prev, loading: false }));
+        return;
+      }
+      
+      console.log('Initial session check:', !!session);
       setAuthState(prev => ({
         ...prev,
         user: session?.user || null,
@@ -42,40 +99,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session?.user) {
         updateUserData(session.user.id);
       }
+    }).catch((error) => {
+      console.error('Session check failed:', error);
+      cleanupAuthState();
+      setAuthState(prev => ({ ...prev, loading: false }));
     });
-
-    // Listen to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setAuthState(prev => ({
-          ...prev,
-          user: session?.user || null,
-          session,
-          loading: false
-        }));
-
-        if (session?.user && event === 'SIGNED_IN') {
-          updateUserData(session.user.id);
-        } else if (!session) {
-          setAuthState({
-            user: null,
-            session: null,
-            profile: null,
-            loading: false,
-            isAdmin: false
-          });
-        }
-      }
-    );
 
     return () => subscription.unsubscribe();
   }, [updateUserData]);
 
   const signOut = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
+      console.log('Signing out...');
+      // Clean up first
+      cleanupAuthState();
+      
+      // Attempt global sign out
+      await supabase.auth.signOut({ scope: 'global' });
+      
+      // Force page reload for clean state
+      window.location.href = '/auth';
     } catch (error) {
       console.error('Error signing out:', error);
+      // Force cleanup and redirect even on error
+      cleanupAuthState();
+      window.location.href = '/auth';
     }
   }, []);
 
