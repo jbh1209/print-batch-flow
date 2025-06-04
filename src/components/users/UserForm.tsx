@@ -60,10 +60,30 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
       email: initialData?.email || "",
       full_name: initialData?.full_name || "",
       role: initialData?.role || "user",
-      groups: initialData?.groups || [],
+      groups: initialData?.groups || [], // This should now work with updated edge function
       ...(isEditing ? {} : { password: "", confirmPassword: "" })
     }
   });
+
+  // Update form when initialData changes (important for edit mode)
+  useEffect(() => {
+    if (initialData) {
+      console.log('🔄 UserForm initialData updated:', {
+        email: initialData.email,
+        full_name: initialData.full_name,
+        role: initialData.role,
+        groups: initialData.groups
+      });
+      
+      form.reset({
+        email: initialData.email || "",
+        full_name: initialData.full_name || "",
+        role: initialData.role || "user",
+        groups: initialData.groups || [],
+        ...(isEditing ? {} : { password: "", confirmPassword: "" })
+      });
+    }
+  }, [initialData, form, isEditing]);
 
   useEffect(() => {
     fetchUserGroups();
@@ -99,6 +119,10 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
       setIsSubmitting(false);
     }
   };
+
+  // Debug: Log current form values
+  const currentGroups = form.watch('groups');
+  console.log('👀 UserForm current groups value:', currentGroups);
 
   return (
     <Form {...form}>
@@ -179,6 +203,9 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
                       control={form.control}
                       name="groups"
                       render={({ field }) => {
+                        const isChecked = field.value?.includes(group.id) || false;
+                        console.log(`🔍 Group ${group.name} (${group.id}) checked: ${isChecked}`);
+                        
                         return (
                           <FormItem
                             key={group.id}
@@ -186,7 +213,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
                           >
                             <FormControl>
                               <Checkbox
-                                checked={field.value?.includes(group.id)}
+                                checked={isChecked}
                                 onCheckedChange={(checked) => {
                                   const current = field.value || [];
                                   if (checked) {

@@ -80,14 +80,43 @@ serve(async (req) => {
       .from('user_roles')
       .select('user_id, role');
 
+    // Fetch all user group memberships with group details
+    const { data: groupMemberships, error: groupError } = await supabase
+      .from('user_group_memberships')
+      .select(`
+        user_id,
+        group_id,
+        user_groups (
+          id,
+          name,
+          description
+        )
+      `);
+
+    if (groupError) {
+      console.error('Error fetching group memberships:', groupError);
+    }
+
     // Create lookup maps
     const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
     const roleMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
+    
+    // Create groups lookup map
+    const userGroupsMap = new Map();
+    if (groupMemberships) {
+      groupMemberships.forEach(membership => {
+        if (!userGroupsMap.has(membership.user_id)) {
+          userGroupsMap.set(membership.user_id, []);
+        }
+        userGroupsMap.get(membership.user_id).push(membership.group_id);
+      });
+    }
 
     // Combine data
     const users = authUsers.users.map(authUser => {
       const profile = profileMap.get(authUser.id);
       const role = roleMap.get(authUser.id) || 'user';
+      const groups = userGroupsMap.get(authUser.id) || [];
       
       return {
         id: authUser.id,
@@ -95,10 +124,13 @@ serve(async (req) => {
         full_name: profile?.full_name || authUser.email || 'No name',
         avatar_url: profile?.avatar_url || null,
         role: role,
+        groups: groups, // Now includes user's group IDs
         created_at: authUser.created_at,
         last_sign_in_at: authUser.last_sign_in_at
       };
     });
+
+    console.log(`✅ Successfully fetched ${users.length} users with group data`);
 
     return new Response(JSON.stringify(users), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
