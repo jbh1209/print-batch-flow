@@ -46,11 +46,13 @@ export const DtpKanbanDashboard = () => {
       let filtered = jobs;
 
       if (searchQuery) {
-        filtered = filtered.filter(job =>
-          job.wo_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (job.customer && job.customer.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (job.reference && job.reference.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
+        filtered = filtered.filter(job => {
+          const woMatch = job.wo_no?.toLowerCase().includes(searchQuery.toLowerCase());
+          const customerMatch = job.customer && job.customer.toLowerCase().includes(searchQuery.toLowerCase());
+          const referenceMatch = job.reference && job.reference.toLowerCase().includes(searchQuery.toLowerCase());
+          
+          return woMatch || customerMatch || referenceMatch;
+        });
       }
 
       const categories = categorizeJobs(filtered);
@@ -85,10 +87,11 @@ export const DtpKanbanDashboard = () => {
 
   const handleScanSuccess = useCallback((data: string) => {
     const allJobs = [...dtpJobs, ...proofJobs];
-    const job = allJobs.find(j => 
-      j.wo_no?.toLowerCase().includes(data.toLowerCase()) ||
-      (j.reference && j.reference.toLowerCase().includes(data.toLowerCase()))
-    );
+    const job = allJobs.find(j => {
+      const woMatch = j.wo_no?.toLowerCase().includes(data.toLowerCase());
+      const referenceMatch = j.reference && j.reference.toLowerCase().includes(data.toLowerCase());
+      return woMatch || referenceMatch;
+    });
     
     if (job) {
       setSearchQuery(data);
