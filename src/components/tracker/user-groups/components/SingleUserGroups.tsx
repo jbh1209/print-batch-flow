@@ -22,21 +22,14 @@ interface UserGroupMembership {
   user_groups: UserGroup;
 }
 
-interface User {
-  id: string;
-  email: string;
-  full_name?: string;
-}
-
 interface SingleUserGroupsProps {
   userId: string;
   userEmail: string;
 }
 
 export const SingleUserGroups: React.FC<SingleUserGroupsProps> = ({ userId, userEmail }) => {
-  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
+  const [allGroups, setAllGroups] = useState<UserGroup[]>([]);
   const [userMemberships, setUserMemberships] = useState<UserGroupMembership[]>([]);
-  const [availableGroups, setAvailableGroups] = useState<UserGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingGroups, setUpdatingGroups] = useState<Set<string>>(new Set());
 
@@ -45,9 +38,10 @@ export const SingleUserGroups: React.FC<SingleUserGroupsProps> = ({ userId, user
   async function fetchData() {
     try {
       setIsLoading(true);
+      console.log('🔍 Fetching user groups for:', { userId, userEmail });
 
       // Fetch all groups
-      const { data: allGroups, error: groupsError } = await supabase
+      const { data: allGroupsData, error: groupsError } = await supabase
         .from('user_groups')
         .select('id, name, description')
         .order('name');
@@ -71,23 +65,20 @@ export const SingleUserGroups: React.FC<SingleUserGroupsProps> = ({ userId, user
 
       if (membershipsError) throw membershipsError;
 
-      console.log('🔍 User group memberships fetched:', {
-        userId,
-        memberships: memberships?.length || 0,
-        membershipData: memberships
+      console.log('📊 User group data fetched:', {
+        allGroups: allGroupsData?.length || 0,
+        userMemberships: memberships?.length || 0,
+        membershipDetails: memberships?.map(m => ({
+          groupId: m.group_id,
+          groupName: m.user_groups?.name
+        })) || []
       });
 
-      const userGroupIds = memberships?.map(m => m.group_id) || [];
-      const userGroupsData = memberships?.map(m => m.user_groups as UserGroup) || [];
-      const availableGroupsData = allGroups?.filter(g => !userGroupIds.includes(g.id)) || [];
-
-      setUserGroups(userGroupsData);
+      setAllGroups(allGroupsData || []);
       setUserMemberships(memberships || []);
-      setAvailableGroups(availableGroupsData);
-      setUserGroups(allGroups || []);
 
     } catch (error) {
-      console.error('Error fetching user groups:', error);
+      console.error('❌ Error fetching user groups:', error);
       toast.error('Failed to load user groups');
     } finally {
       setIsLoading(false);
@@ -104,6 +95,13 @@ export const SingleUserGroups: React.FC<SingleUserGroupsProps> = ({ userId, user
     setUpdatingGroups(prev => new Set([...prev, groupId]));
     
     try {
+      console.log('🔄 Toggling group membership:', {
+        userId,
+        groupId,
+        isCurrentlyMember,
+        action: isCurrentlyMember ? 'remove' : 'add'
+      });
+
       if (isCurrentlyMember) {
         await removeUserFromGroup(userId, groupId);
       } else {
@@ -122,7 +120,9 @@ export const SingleUserGroups: React.FC<SingleUserGroupsProps> = ({ userId, user
   };
 
   const isUserInGroup = (groupId: string): boolean => {
-    return userMemberships.some(membership => membership.group_id === groupId);
+    const isMember = userMemberships.some(membership => membership.group_id === groupId);
+    console.log('🔍 Checking membership:', { groupId, isMember, userMemberships: userMemberships.length });
+    return isMember;
   };
 
   if (isLoading) {
@@ -156,11 +156,11 @@ export const SingleUserGroups: React.FC<SingleUserGroupsProps> = ({ userId, user
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {userGroups.length === 0 ? (
+        {allGroups.length === 0 ? (
           <p className="text-gray-500 text-center py-4">No user groups available</p>
         ) : (
           <div className="space-y-3">
-            {userGroups.map((group) => {
+            {allGroups.map((group) => {
               const isInGroup = isUserInGroup(group.id);
               const isUpdating = updatingGroups.has(group.id);
               
@@ -203,10 +203,10 @@ export const SingleUserGroups: React.FC<SingleUserGroupsProps> = ({ userId, user
         <div className="mt-6 p-3 bg-gray-50 rounded border text-xs">
           <p><strong>Debug Info:</strong></p>
           <p>User ID: {userId}</p>
-          <p>Total Groups: {userGroups.length}</p>
+          <p>Total Groups: {allGroups.length}</p>
           <p>User Memberships: {userMemberships.length}</p>
-          <p>Available Groups: {availableGroups.length}</p>
           <p>Member of: {userMemberships.map(m => m.user_groups?.name || 'Unknown').join(', ') || 'None'}</p>
+          <p>Group IDs: {userMemberships.map(m => m.group_id).join(', ') || 'None'}</p>
         </div>
       </CardContent>
     </Card>
