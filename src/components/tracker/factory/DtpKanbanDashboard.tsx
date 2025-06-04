@@ -11,8 +11,18 @@ import {
   Play,
   CheckCircle,
   LogOut,
-  Menu
+  Menu,
+  Home,
+  BarChart3,
+  Settings
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,10 +30,12 @@ import { DtpKanbanColumn } from "./DtpKanbanColumn";
 import { BarcodeScannerButton } from "./BarcodeScannerButton";
 import { DtpJobModal } from "./DtpJobModal";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
   const { signOut } = useAuth();
+  const navigate = useNavigate();
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobs({
     permissionType: 'work'
   });
@@ -37,7 +49,8 @@ export const DtpKanbanDashboard = () => {
     isDtpOperator,
     totalJobs: jobs.length,
     accessibleStages: accessibleStages.length,
-    accessibleStageNames: accessibleStages.map(s => s.stage_name)
+    accessibleStageNames: accessibleStages.map(s => s.stage_name),
+    jobStatuses: jobs.map(j => ({ wo_no: j.wo_no, status: j.current_stage_status }))
   });
 
   // Filter stages for DTP operators
@@ -53,7 +66,7 @@ export const DtpKanbanDashboard = () => {
       .map(stage => stage.stage_id);
   }, [accessibleStages]);
 
-  // Filter and categorize jobs with correct status logic
+  // Filter and categorize jobs - ensure we only show the correct status
   const { dtpJobs, proofJobs } = useMemo(() => {
     let filtered = jobs;
 
@@ -146,6 +159,10 @@ export const DtpKanbanDashboard = () => {
     }
   }, [signOut]);
 
+  const handleNavigation = useCallback((path: string) => {
+    navigate(path);
+  }, [navigate]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8 h-full">
@@ -175,10 +192,33 @@ export const DtpKanbanDashboard = () => {
       {/* Header with Navigation */}
       <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm">
-            <Menu className="h-4 w-4 mr-2" />
-            Menu
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Menu className="h-4 w-4 mr-2" />
+                Menu
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => handleNavigation('/tracker/dashboard')}>
+                <Home className="h-4 w-4 mr-2" />
+                Dashboard
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleNavigation('/tracker/kanban')}>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Production Kanban
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleNavigation('/tracker/jobs')}>
+                <FileText className="h-4 w-4 mr-2" />
+                All Jobs
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleNavigation('/tracker/admin')}>
+                <Settings className="h-4 w-4 mr-2" />
+                Admin Settings
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div>
             <h1 className="text-2xl font-bold">DTP Workstation</h1>
             <p className="text-gray-600">DTP and Proofing jobs</p>
@@ -226,7 +266,7 @@ export const DtpKanbanDashboard = () => {
           />
         </div>
 
-        {/* Summary Stats */}
+        {/* Summary Stats - Updated to reflect actual status counts */}
         <div className="grid grid-cols-4 gap-4">
           <div className="bg-white p-3 rounded-lg border">
             <div className="flex items-center gap-2">

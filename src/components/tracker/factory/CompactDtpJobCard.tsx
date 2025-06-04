@@ -43,9 +43,11 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
   };
 
   const getStatusBadge = () => {
+    // Show proper status based on actual job state
     if (job.current_stage_status === 'active') {
       return <Badge variant="default" className="text-xs px-2 py-0 bg-green-500">In Progress</Badge>;
     }
+    // Default to pending if not explicitly active
     return <Badge variant="secondary" className="text-xs px-2 py-0">Pending</Badge>;
   };
 
@@ -127,7 +129,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
             </div>
           </div>
 
-          {/* Action Row */}
+          {/* Action Row - Only show if job has the right permissions and stage */}
           {showActions && job.user_can_work && job.current_stage_id && (
             <div className="pt-1" onClick={(e) => e.stopPropagation()}>
               {job.current_stage_status === 'pending' && (
@@ -156,7 +158,7 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
             </div>
           )}
 
-          {/* Active Timer Indicator */}
+          {/* Active Timer Indicator - Only show if actually active */}
           {job.current_stage_status === 'active' && (
             <div className="flex items-center gap-1 pt-1 text-xs text-blue-600 bg-blue-50 -mx-3 -mb-3 px-3 py-1 rounded-b">
               <Clock className="h-3 w-3 animate-pulse" />
