@@ -37,44 +37,52 @@ export const DtpKanbanDashboard = () => {
     }))
   });
 
-  // Use centralized job categorization
+  // Use centralized job categorization with error handling
   const { dtpJobs, proofJobs } = useMemo(() => {
     if (!jobs || jobs.length === 0) {
       return { dtpJobs: [], proofJobs: [] };
     }
 
-    let filtered = jobs;
+    try {
+      let filtered = jobs;
 
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter(job =>
-        job.wo_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (job.customer && job.customer.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (job.reference && job.reference.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+      // Apply search filter
+      if (searchQuery) {
+        filtered = filtered.filter(job =>
+          job.wo_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (job.customer && job.customer.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (job.reference && job.reference.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+      }
+
+      // Get categorized and sorted jobs
+      const categories = categorizeJobs(filtered);
+      
+      console.log("📊 Consistent job categorization:", {
+        totalFiltered: filtered.length,
+        dtpCount: categories.dtpJobs.length,
+        proofCount: categories.proofJobs.length,
+        dtpJobNumbers: categories.dtpJobs.map(j => j.wo_no),
+        proofJobNumbers: categories.proofJobs.map(j => j.wo_no)
+      });
+
+      return {
+        dtpJobs: sortJobsByPriority(categories.dtpJobs),
+        proofJobs: sortJobsByPriority(categories.proofJobs)
+      };
+    } catch (categorizationError) {
+      console.error("Error categorizing jobs:", categorizationError);
+      return { dtpJobs: [], proofJobs: [] };
     }
-
-    // Get categorized and sorted jobs
-    const categories = categorizeJobs(filtered);
-    
-    console.log("📊 Consistent job categorization:", {
-      totalFiltered: filtered.length,
-      dtpCount: categories.dtpJobs.length,
-      proofCount: categories.proofJobs.length,
-      dtpJobNumbers: categories.dtpJobs.map(j => j.wo_no),
-      proofJobNumbers: categories.proofJobs.map(j => j.wo_no)
-    });
-
-    return {
-      dtpJobs: sortJobsByPriority(categories.dtpJobs),
-      proofJobs: sortJobsByPriority(categories.proofJobs)
-    };
   }, [jobs, searchQuery]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await refreshJobs();
+    } catch (error) {
+      console.error("Refresh failed:", error);
+      toast.error("Failed to refresh jobs");
     } finally {
       setTimeout(() => setRefreshing(false), 1000);
     }
@@ -83,7 +91,7 @@ export const DtpKanbanDashboard = () => {
   const handleScanSuccess = useCallback((data: string) => {
     const allJobs = [...dtpJobs, ...proofJobs];
     const job = allJobs.find(j => 
-      j.wo_no.toLowerCase().includes(data.toLowerCase()) ||
+      j.wo_no?.toLowerCase().includes(data.toLowerCase()) ||
       (j.reference && j.reference.toLowerCase().includes(data.toLowerCase()))
     );
     
@@ -134,8 +142,12 @@ export const DtpKanbanDashboard = () => {
           <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
           <h2 className="text-xl font-semibold mb-2 text-red-700">Error Loading Jobs</h2>
           <p className="text-red-600 text-center mb-4">{error}</p>
-          <button onClick={handleRefresh} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
-            Try Again
+          <button 
+            onClick={handleRefresh} 
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            disabled={refreshing}
+          >
+            {refreshing ? "Retrying..." : "Try Again"}
           </button>
         </div>
       </div>

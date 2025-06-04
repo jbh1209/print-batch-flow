@@ -28,6 +28,7 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       console.log("❌ No user ID available, skipping fetch");
       setJobs([]);
       setIsLoading(false);
+      setError(null);
       return;
     }
 
@@ -42,7 +43,7 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
         stageFilter
       });
 
-      // Try the database function
+      // Try the database function with better error handling
       const { data: dbFunctionData, error: functionError } = await supabase.rpc('get_user_accessible_jobs', {
         p_user_id: user.id,
         p_permission_type: permissionType,
@@ -52,7 +53,18 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
 
       if (functionError) {
         console.error("❌ Database function error:", functionError);
-        throw new Error(handleDatabaseError(functionError));
+        
+        // Handle specific error types more gracefully
+        if (functionError.message?.includes('ambiguous')) {
+          setError("Database query error. Please refresh the page or contact support.");
+        } else if (functionError.message?.includes('permission')) {
+          setError("You don't have permission to access this data.");
+        } else {
+          setError(handleDatabaseError(functionError));
+        }
+        
+        setJobs([]);
+        return;
       }
 
       console.log("✅ Database function success:", {
@@ -68,7 +80,14 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       if (dbFunctionData && Array.isArray(dbFunctionData)) {
         const normalizedJobs = dbFunctionData
           .filter(job => job && typeof job === 'object')
-          .map((job, index) => normalizeJobData(job, index))
+          .map((job, index) => {
+            try {
+              return normalizeJobData(job, index);
+            } catch (normalizationError) {
+              console.warn(`Failed to normalize job at index ${index}:`, normalizationError);
+              return null;
+            }
+          })
           .filter(job => job !== null) as AccessibleJob[];
 
         console.log("✅ Normalized jobs:", normalizedJobs.length);
@@ -80,10 +99,18 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       
     } catch (err) {
       console.error('❌ Error in fetchJobs:', err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to load accessible jobs";
+      
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : "Failed to load accessible jobs. Please try again.";
+      
       setError(errorMessage);
       setJobs([]);
-      toast.error(errorMessage);
+      
+      // Only show toast for unexpected errors, not permission/auth issues
+      if (!errorMessage.includes('permission') && !errorMessage.includes('authentication')) {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +121,7 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
   // Only set up realtime if we have jobs data
   useRealtimeSubscription(fetchJobs);
 
-  // Initial data load
+  // Initial data load with better error boundaries
   useEffect(() => {
     console.log("🔄 useAccessibleJobs effect triggered", {
       authLoading,
@@ -102,10 +129,15 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     });
     
     if (!authLoading && user?.id) {
-      fetchJobs();
+      fetchJobs().catch(error => {
+        console.error("Failed to fetch jobs in effect:", error);
+        setError("Failed to load jobs on initial load");
+        setIsLoading(false);
+      });
     } else if (!authLoading && !user?.id) {
       setIsLoading(false);
       setJobs([]);
+      setError(null);
     }
   }, [authLoading, user?.id, fetchJobs]);
 

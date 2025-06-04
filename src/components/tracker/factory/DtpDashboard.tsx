@@ -124,10 +124,33 @@ export const DtpDashboard: React.FC = () => {
     debugUserAccess();
   }, [user?.id, jobs.length, error]);
 
-  // Use centralized job categorization
-  const jobCategories = categorizeJobs(jobs);
-  const jobCounts = calculateJobCounts(jobs);
-  const sortedJobs = sortJobsByPriority(jobs);
+  // Use centralized job categorization with error handling
+  const jobCategories = React.useMemo(() => {
+    try {
+      return categorizeJobs(jobs);
+    } catch (error) {
+      console.error("Error categorizing jobs:", error);
+      return { pendingJobs: [], activeJobs: [], completedJobs: [] };
+    }
+  }, [jobs]);
+
+  const jobCounts = React.useMemo(() => {
+    try {
+      return calculateJobCounts(jobs);
+    } catch (error) {
+      console.error("Error calculating job counts:", error);
+      return { total: 0, pending: 0, active: 0, completed: 0 };
+    }
+  }, [jobs]);
+
+  const sortedJobs = React.useMemo(() => {
+    try {
+      return sortJobsByPriority(jobs);
+    } catch (error) {
+      console.error("Error sorting jobs:", error);
+      return jobs;
+    }
+  }, [jobs]);
 
   console.log('🎯 DTP Dashboard Job Categories (Consistent):', {
     totalJobs: jobs.length,
@@ -176,6 +199,15 @@ export const DtpDashboard: React.FC = () => {
             <div>
               <p className="font-medium">Error loading jobs</p>
               <p className="text-sm text-gray-600">{error}</p>
+              <Button 
+                onClick={refreshJobs} 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
             </div>
           </CardContent>
         </Card>
