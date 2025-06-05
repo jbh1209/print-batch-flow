@@ -7,6 +7,8 @@ import { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/typ
 import { normalizeJobData } from "./useAccessibleJobs/jobDataNormalizer";
 import { jobsCache } from "./useAccessibleJobs/cacheManager";
 import { requestDeduplicator } from "./useAccessibleJobs/requestDeduplicator";
+import { useRealtimeSubscription } from "./useAccessibleJobs/useRealtimeSubscription";
+import { useJobActions } from "./useAccessibleJobs/useJobActions";
 
 export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
   const { user, isLoading: authLoading } = useAuth();
@@ -169,150 +171,42 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     }
   }, [getCacheKey, fetchJobsFromAPI]);
 
-  const startJob = useCallback(async (jobId: string, stageId: string) => {
-    if (!user?.id) {
-      toast.error("User not authenticated");
-      return false;
+  // Handle optimistic updates
+  const handleOptimisticUpdate = useCallback((jobId: string, updates: Partial<AccessibleJob>) => {
+    setJobs(prevJobs => 
+      prevJobs.map(job => 
+        job.job_id === jobId ? { ...job, ...updates } : job
+      )
+    );
+  }, []);
+
+  const handleOptimisticRevert = useCallback((jobId: string, field: keyof AccessibleJob, originalValue: any) => {
+    setJobs(prevJobs => 
+      prevJobs.map(job => 
+        job.job_id === jobId ? { ...job, [field]: originalValue } : job
+      )
+    );
+  }, []);
+
+  // Set up job actions with optimistic updates
+  const { startJob, completeJob, optimisticUpdates, hasOptimisticUpdates } = useJobActions(
+    () => fetchJobs(true),
+    {
+      onOptimisticUpdate: handleOptimisticUpdate,
+      onOptimisticRevert: handleOptimisticRevert
     }
+  );
 
-    try {
-      console.log('🚀 Starting job stage:', { jobId, stageId, userId: user.id });
-      
-      const { data: firstPendingStage, error: findError } = await supabase
-        .from('job_stage_instances')
-        .select('id, production_stage_id, stage_order')
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs')
-        .eq('status', 'pending')
-        .order('stage_order', { ascending: true })
-        .limit(1)
-        .single();
-
-      if (findError || !firstPendingStage) {
-        console.error("❌ No pending stage found:", findError);
-        toast.error("No pending stage found to start");
-        return false;
-      }
-
-      const { error } = await supabase
-        .from('job_stage_instances')
-        .update({ 
-          status: 'active',
-          started_at: new Date().toISOString(),
-          started_by: user.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', firstPendingStage.id);
-
-      if (error) {
-        console.error("❌ Error starting job stage:", error);
-        throw error;
-      }
-
-      console.log("✅ Job stage started successfully");
-      toast.success("Job started successfully");
-      
-      // Invalidate cache and refresh
-      const cacheKey = getCacheKey();
-      if (cacheKey) {
-        jobsCache.invalidateByPattern({ userId: user.id });
-      }
-      await fetchJobs(true);
-      
-      return true;
-    } catch (err) {
-      console.error('❌ Error starting job:', err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to start job";
-      toast.error(errorMessage);
-      return false;
+  // Set up enhanced real-time subscription
+  const { forceUpdate, hasPendingUpdates } = useRealtimeSubscription(
+    () => fetchJobs(false), // Use background refresh for real-time updates
+    {
+      onJobUpdate: (jobId, updateType) => {
+        console.log(`🔔 Real-time update for job ${jobId}: ${updateType}`);
+      },
+      batchDelay: 300 // Shorter delay for real-time feel
     }
-  }, [user?.id, getCacheKey, fetchJobs]);
-
-  const completeJob = useCallback(async (jobId: string, stageId: string) => {
-    if (!user?.id) {
-      toast.error("User not authenticated");
-      return false;
-    }
-
-    try {
-      console.log('✅ Completing job stage:', { jobId, stageId, userId: user.id });
-      
-      const { data: activeStage, error: findError } = await supabase
-        .from('job_stage_instances')
-        .select('id, production_stage_id, stage_order')
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs')
-        .eq('status', 'active')
-        .single();
-
-      if (findError || !activeStage) {
-        console.error("❌ No active stage found:", findError);
-        toast.error("No active stage found to complete");
-        return false;
-      }
-
-      const { error: completeError } = await supabase
-        .from('job_stage_instances')
-        .update({ 
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          completed_by: user.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', activeStage.id);
-
-      if (completeError) {
-        console.error("❌ Error completing stage:", completeError);
-        throw completeError;
-      }
-
-      const { data: nextStage, error: nextError } = await supabase
-        .from('job_stage_instances')
-        .select('id')
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs')
-        .eq('status', 'pending')
-        .gt('stage_order', activeStage.stage_order)
-        .order('stage_order', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (nextError) {
-        console.error("❌ Error finding next stage:", nextError);
-      } else if (nextStage) {
-        const { error: activateError } = await supabase
-          .from('job_stage_instances')
-          .update({ 
-            status: 'active',
-            started_at: new Date().toISOString(),
-            started_by: user.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', nextStage.id);
-
-        if (activateError) {
-          console.error("❌ Error activating next stage:", activateError);
-        }
-      }
-
-      console.log("✅ Job stage completed successfully");
-      toast.success("Job stage completed successfully");
-      
-      // Invalidate cache and refresh
-      const cacheKey = getCacheKey();
-      if (cacheKey) {
-        jobsCache.invalidateByPattern({ userId: user.id });
-      }
-      await fetchJobs(true);
-      
-      return true;
-    } catch (err) {
-      console.error('❌ Error completing job:', err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to complete job";
-      toast.error(errorMessage);
-      return false;
-    }
-  }, [user?.id, getCacheKey, fetchJobs]);
+  );
 
   // Refresh function that forces a fresh fetch
   const refreshJobs = useCallback(async () => {
@@ -357,7 +251,15 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     startJob,
     completeJob,
     refreshJobs,
+    forceUpdate,
     lastFetchTime,
+    
+    // Enhanced capabilities
+    hasOptimisticUpdates,
+    hasPendingUpdates,
+    optimisticUpdates,
+    
+    // Debug utilities
     getCacheStats: () => jobsCache.getStats(),
     getRequestStats: () => requestDeduplicator.getStats()
   };

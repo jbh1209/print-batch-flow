@@ -1,11 +1,89 @@
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import type { AccessibleJob } from "./types";
 
-export const useJobActions = (refreshJobs: () => Promise<void>) => {
+interface OptimisticUpdate {
+  jobId: string;
+  field: keyof AccessibleJob;
+  originalValue: any;
+  newValue: any;
+  timestamp: number;
+}
+
+interface UseJobActionsOptions {
+  onOptimisticUpdate?: (jobId: string, updates: Partial<AccessibleJob>) => void;
+  onOptimisticRevert?: (jobId: string, field: keyof AccessibleJob, originalValue: any) => void;
+}
+
+export const useJobActions = (
+  refreshJobs: () => Promise<void>,
+  options: UseJobActionsOptions = {}
+) => {
   const { user } = useAuth();
+  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, OptimisticUpdate[]>>(new Map());
+  
+  const { onOptimisticUpdate, onOptimisticRevert } = options;
+
+  // Apply optimistic update
+  const applyOptimisticUpdate = useCallback((
+    jobId: string, 
+    field: keyof AccessibleJob, 
+    originalValue: any, 
+    newValue: any
+  ) => {
+    const update: OptimisticUpdate = {
+      jobId,
+      field,
+      originalValue,
+      newValue,
+      timestamp: Date.now()
+    };
+
+    setOptimisticUpdates(prev => {
+      const newMap = new Map(prev);
+      const jobUpdates = newMap.get(jobId) || [];
+      newMap.set(jobId, [...jobUpdates, update]);
+      return newMap;
+    });
+
+    // Notify parent component
+    onOptimisticUpdate?.(jobId, { [field]: newValue });
+  }, [onOptimisticUpdate]);
+
+  // Revert optimistic update
+  const revertOptimisticUpdate = useCallback((jobId: string, field: keyof AccessibleJob) => {
+    setOptimisticUpdates(prev => {
+      const newMap = new Map(prev);
+      const jobUpdates = newMap.get(jobId) || [];
+      const updateToRevert = jobUpdates.find(u => u.field === field);
+      
+      if (updateToRevert) {
+        const filteredUpdates = jobUpdates.filter(u => u.field !== field);
+        if (filteredUpdates.length === 0) {
+          newMap.delete(jobId);
+        } else {
+          newMap.set(jobId, filteredUpdates);
+        }
+        
+        // Notify parent component
+        onOptimisticRevert?.(jobId, field, updateToRevert.originalValue);
+      }
+      
+      return newMap;
+    });
+  }, [onOptimisticRevert]);
+
+  // Clear all optimistic updates for a job
+  const clearOptimisticUpdates = useCallback((jobId: string) => {
+    setOptimisticUpdates(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(jobId);
+      return newMap;
+    });
+  }, []);
 
   const startJob = useCallback(async (jobId: string, stageId: string) => {
     if (!user?.id) {
@@ -14,8 +92,14 @@ export const useJobActions = (refreshJobs: () => Promise<void>) => {
     }
 
     try {
-      console.log('🚀 Starting job stage:', { jobId, stageId, userId: user.id });
+      console.log('🚀 Starting job stage with optimistic update:', { jobId, stageId, userId: user.id });
       
+      // Apply optimistic update
+      applyOptimisticUpdate(jobId, 'current_stage_status', 'pending', 'active');
+      
+      // Show immediate feedback
+      toast.success("Starting job...", { duration: 1000 });
+
       // Find the first pending stage for this job and set it to active
       const { data: firstPendingStage, error: findError } = await supabase
         .from('job_stage_instances')
@@ -29,6 +113,7 @@ export const useJobActions = (refreshJobs: () => Promise<void>) => {
 
       if (findError || !firstPendingStage) {
         console.error("❌ No pending stage found:", findError);
+        revertOptimisticUpdate(jobId, 'current_stage_status');
         toast.error("No pending stage found to start");
         return false;
       }
@@ -46,20 +131,25 @@ export const useJobActions = (refreshJobs: () => Promise<void>) => {
 
       if (error) {
         console.error("❌ Error starting job stage:", error);
+        revertOptimisticUpdate(jobId, 'current_stage_status');
         throw error;
       }
 
       console.log("✅ Job stage started successfully");
       toast.success("Job started successfully");
-      await refreshJobs();
+      
+      // Clear optimistic updates since real data will come from subscription
+      clearOptimisticUpdates(jobId);
+      
       return true;
     } catch (err) {
       console.error('❌ Error starting job:', err);
+      revertOptimisticUpdate(jobId, 'current_stage_status');
       const errorMessage = err instanceof Error ? err.message : "Failed to start job";
       toast.error(errorMessage);
       return false;
     }
-  }, [user?.id, refreshJobs]);
+  }, [user?.id, applyOptimisticUpdate, revertOptimisticUpdate, clearOptimisticUpdates]);
 
   const completeJob = useCallback(async (jobId: string, stageId: string) => {
     if (!user?.id) {
@@ -68,8 +158,14 @@ export const useJobActions = (refreshJobs: () => Promise<void>) => {
     }
 
     try {
-      console.log('✅ Completing job stage:', { jobId, stageId, userId: user.id });
+      console.log('✅ Completing job stage with optimistic update:', { jobId, stageId, userId: user.id });
       
+      // Apply optimistic update
+      applyOptimisticUpdate(jobId, 'current_stage_status', 'active', 'completed');
+      
+      // Show immediate feedback
+      toast.success("Completing stage...", { duration: 1000 });
+
       // Find the active stage for this job
       const { data: activeStage, error: findError } = await supabase
         .from('job_stage_instances')
@@ -81,6 +177,7 @@ export const useJobActions = (refreshJobs: () => Promise<void>) => {
 
       if (findError || !activeStage) {
         console.error("❌ No active stage found:", findError);
+        revertOptimisticUpdate(jobId, 'current_stage_status');
         toast.error("No active stage found to complete");
         return false;
       }
@@ -98,6 +195,7 @@ export const useJobActions = (refreshJobs: () => Promise<void>) => {
 
       if (completeError) {
         console.error("❌ Error completing stage:", completeError);
+        revertOptimisticUpdate(jobId, 'current_stage_status');
         throw completeError;
       }
 
@@ -136,15 +234,25 @@ export const useJobActions = (refreshJobs: () => Promise<void>) => {
 
       console.log("✅ Job stage completed successfully");
       toast.success("Job stage completed successfully");
-      await refreshJobs();
+      
+      // Clear optimistic updates since real data will come from subscription
+      clearOptimisticUpdates(jobId);
+      
       return true;
     } catch (err) {
       console.error('❌ Error completing job:', err);
+      revertOptimisticUpdate(jobId, 'current_stage_status');
       const errorMessage = err instanceof Error ? err.message : "Failed to complete job";
       toast.error(errorMessage);
       return false;
     }
-  }, [user?.id, refreshJobs]);
+  }, [user?.id, applyOptimisticUpdate, revertOptimisticUpdate, clearOptimisticUpdates]);
 
-  return { startJob, completeJob };
+  return { 
+    startJob, 
+    completeJob,
+    optimisticUpdates: Array.from(optimisticUpdates.entries()),
+    clearOptimisticUpdates,
+    hasOptimisticUpdates: (jobId: string) => optimisticUpdates.has(jobId)
+  };
 };
