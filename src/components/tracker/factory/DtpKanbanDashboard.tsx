@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useMemo } from "react";
-import { AlertTriangle, FileText, CheckCircle } from "lucide-react";
+import { AlertTriangle, FileText, CheckCircle, RefreshCw } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,7 @@ import { DtpDashboardFilters } from "./DtpDashboardFilters";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "../error-boundaries/DataLoadingFallback";
 import { categorizeJobs, sortJobsByPriority } from "@/utils/tracker/jobProcessing";
+import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -20,7 +21,16 @@ export const DtpKanbanDashboard = () => {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   
-  const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobs({
+  const { 
+    jobs, 
+    isLoading, 
+    error, 
+    startJob, 
+    completeJob, 
+    refreshJobs,
+    hasOptimisticUpdates,
+    hasPendingUpdates
+  } = useAccessibleJobs({
     permissionType: 'work'
   });
   
@@ -31,6 +41,8 @@ export const DtpKanbanDashboard = () => {
 
   console.log("🎯 DTP Kanban Dashboard - Raw Jobs:", {
     totalJobs: jobs.length,
+    hasOptimistic: hasOptimisticUpdates,
+    hasPending: hasPendingUpdates(),
     jobsSample: jobs.slice(0, 3).map(j => ({
       wo_no: j.wo_no,
       current_stage_name: j.current_stage_name,
@@ -38,6 +50,11 @@ export const DtpKanbanDashboard = () => {
       user_can_work: j.user_can_work
     }))
   });
+
+  // Calculate dashboard metrics for better insights
+  const dashboardMetrics = useMemo(() => {
+    return calculateDashboardMetrics(jobs);
+  }, [jobs]);
 
   const { dtpJobs, proofJobs } = useMemo(() => {
     if (!jobs || jobs.length === 0) {
@@ -62,7 +79,8 @@ export const DtpKanbanDashboard = () => {
       console.log("📊 Job categorization:", {
         totalFiltered: filtered.length,
         dtpCount: categories.dtpJobs.length,
-        proofCount: categories.proofJobs.length
+        proofCount: categories.proofJobs.length,
+        dashboardMetrics
       });
 
       return {
@@ -70,17 +88,19 @@ export const DtpKanbanDashboard = () => {
         proofJobs: sortJobsByPriority(categories.proofJobs)
       };
     } catch (categorizationError) {
-      console.error("Error categorizing jobs:", categorizationError);
+      console.error("❌ Error categorizing jobs:", categorizationError);
+      toast.error("Error processing jobs data");
       return { dtpJobs: [], proofJobs: [] };
     }
-  }, [jobs, searchQuery]);
+  }, [jobs, searchQuery, dashboardMetrics]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await refreshJobs();
+      toast.success("Jobs refreshed successfully");
     } catch (error) {
-      console.error("Refresh failed:", error);
+      console.error("❌ Refresh failed:", error);
       toast.error("Failed to refresh jobs");
     } finally {
       setTimeout(() => setRefreshing(false), 1000);
@@ -117,7 +137,7 @@ export const DtpKanbanDashboard = () => {
     try {
       await signOut();
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Logout failed:', error);
       toast.error('Logout failed');
     }
   }, [signOut]);
@@ -126,23 +146,38 @@ export const DtpKanbanDashboard = () => {
     navigate(path);
   }, [navigate]);
 
+  // Enhanced loading state with progress indication
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8 h-full">
-        <AlertTriangle className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading DTP jobs...</span>
+      <div className="flex flex-col items-center justify-center p-8 h-full space-y-4">
+        <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
+        <div className="text-center">
+          <span className="text-lg font-medium">Loading DTP jobs...</span>
+          <p className="text-sm text-gray-600 mt-2">
+            Fetching your accessible jobs and real-time updates
+          </p>
+        </div>
       </div>
     );
   }
 
+  // Enhanced error handling with recovery options
   if (error) {
     return (
       <DataLoadingFallback
         error={error}
-        componentName="DTP Dashboard"
+        componentName="DTP Kanban Dashboard"
         onRetry={handleRefresh}
         onRefresh={refreshJobs}
         showDetails={true}
+        additionalActions={
+          <button
+            onClick={() => navigate('/tracker')}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            Go to Main Dashboard
+          </button>
+        }
       />
     );
   }
@@ -173,8 +208,19 @@ export const DtpKanbanDashboard = () => {
           <DtpDashboardStats
             dtpJobs={dtpJobs}
             proofJobs={proofJobs}
+            metrics={dashboardMetrics}
           />
         </TrackerErrorBoundary>
+
+        {/* Real-time status indicators */}
+        {(hasOptimisticUpdates || hasPendingUpdates()) && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
+            <span className="text-sm text-blue-700">
+              {hasOptimisticUpdates ? 'Processing updates...' : 'Syncing changes...'}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-4 h-full overflow-hidden">
