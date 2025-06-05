@@ -44,7 +44,7 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
     return null;
   }
 
-  // Updated logic: pending stages can be started, active stages can be completed
+  // Core workflow logic: pending stages can be started, active stages can be completed
   const canStart = currentStage.status === 'pending';
   const canComplete = currentStage.status === 'active';
   const isProofStage = currentStage.production_stage.name.toLowerCase().includes('proof');
@@ -67,7 +67,6 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
       }
 
       toast.success('Proof marked as emailed');
-      // Trigger a refresh of the job data
       window.location.reload();
     } catch (error) {
       console.error('Error marking proof as emailed:', error);
@@ -80,7 +79,6 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
   const handleMarkProofApproved = async () => {
     setIsMarkingProofApproved(true);
     try {
-      // Mark as manually approved
       const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -95,7 +93,6 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         return;
       }
 
-      // Complete the stage and advance to next
       onCompleteJob();
       toast.success('Proof marked as approved and job advanced');
     } catch (error) {
@@ -144,8 +141,8 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         )}
       </div>
 
-      {/* Proof Stage Specific Actions - only show when stage is active */}
-      {isProofStage && currentStage.status === 'active' && (
+      {/* Proof Stage Specific Actions - only show when proof stage is active */}
+      {isProofStage && canComplete && (
         <div className="space-y-2">
           <div className="text-sm font-medium text-gray-700">Proof Actions:</div>
           
@@ -183,7 +180,6 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
             Upload & Send Proof
           </Button>
 
-          {/* Built-in Proof Link Generator */}
           <ProofLinkButton
             stageInstanceId={currentStage.id}
             stageName={currentStage.production_stage.name}
@@ -192,14 +188,12 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         </div>
       )}
 
-      {/* Proof Upload Dialog */}
       <ProofUploadDialog
         isOpen={showProofUpload}
         onClose={() => setShowProofUpload(false)}
         stageInstanceId={currentStage.id}
         onProofSent={() => {
           toast.success('Proof sent to client');
-          // Optionally refresh the job data
         }}
       />
     </div>
