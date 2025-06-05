@@ -20,19 +20,24 @@ const RoleAwareLayout: React.FC = () => {
   useEffect(() => {
     if (isLoading) return;
 
-    // Only redirect operators to factory floor - let everyone else access all routes
-    if (isOperator && !location.pathname.includes('/factory-floor')) {
-      console.log('🔄 Redirecting operator to factory floor view');
-      navigate('/tracker/factory-floor', { replace: true });
-      return;
+    // Only restrict operators - redirect them to factory floor if they try to access other routes
+    if (isOperator) {
+      // If operator is on /tracker root, redirect to factory floor
+      if (location.pathname === '/tracker') {
+        console.log('🔄 Redirecting operator from tracker root to factory floor');
+        navigate('/tracker/factory-floor', { replace: true });
+        return;
+      }
+      
+      // If operator tries to access any non-factory-floor route, redirect them back
+      if (!location.pathname.includes('/factory-floor')) {
+        console.log('🔄 Operator trying to access restricted route, redirecting to factory floor');
+        navigate('/tracker/factory-floor', { replace: true });
+        return;
+      }
     }
 
-    // For operators trying to access non-factory-floor routes, redirect them back
-    if (isOperator && !location.pathname.includes('/factory-floor') && location.pathname !== '/tracker') {
-      console.log('🔄 Operator trying to access restricted route, redirecting to factory floor');
-      navigate('/tracker/factory-floor', { replace: true });
-      return;
-    }
+    // For non-operators (admins, managers, DTP operators), no restrictions - let them access any route
   }, [userRole, isLoading, isOperator, navigate, location.pathname]);
 
   if (isLoading) {
@@ -43,7 +48,7 @@ const RoleAwareLayout: React.FC = () => {
     );
   }
 
-  // For operators on factory floor, show standalone view
+  // For operators on factory floor, show standalone view without TrackerLayout
   if (isOperator && location.pathname.includes('/factory-floor')) {
     return <Outlet />;
   }
