@@ -12,21 +12,29 @@ import {
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
+interface StatusBadgeInfo {
+  text: string;
+  className: string;
+  variant: "default" | "destructive" | "secondary" | "outline";
+}
+
 interface CurrentStageCardProps {
   job: AccessibleJob;
-  statusInfo: {
-    color: string;
-    bg: string;
-    border: string;
-    text: string;
-    icon: React.ReactNode;
-  };
+  statusInfo: StatusBadgeInfo;
 }
 
 export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({ 
   job, 
   statusInfo 
 }) => {
+  // Get appropriate icon based on status
+  const getStatusIcon = (text: string) => {
+    if (text.includes('Progress')) return <Clock className="h-4 w-4" />;
+    if (text.includes('Completed')) return <CheckCircle className="h-4 w-4" />;
+    if (text.includes('Overdue')) return <AlertTriangle className="h-4 w-4" />;
+    return <Play className="h-4 w-4" />;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -53,10 +61,10 @@ export const CurrentStageCard: React.FC<CurrentStageCardProps> = ({
           </div>
           
           <Badge 
-            className={cn(statusInfo.color, statusInfo.bg, statusInfo.border)}
-            variant="outline"
+            className={cn(statusInfo.className)}
+            variant={statusInfo.variant}
           >
-            {statusInfo.icon}
+            {getStatusIcon(statusInfo.text)}
             <span className="ml-1">{statusInfo.text}</span>
           </Badge>
         </div>
