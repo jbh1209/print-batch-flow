@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, FileText, Clock, AlertTriangle } from "lucide-react";
-import { getSignedUrl } from "@/utils/pdf/urlUtils";
 
 const ProofViewer = () => {
   const { token } = useParams<{ token: string }>();
@@ -29,6 +28,8 @@ const ProofViewer = () => {
       }
 
       try {
+        console.log('Loading proof data for token:', token);
+
         // Get proof link data
         const { data: proofLink, error: proofError } = await supabase
           .from('proof_links')
@@ -45,18 +46,23 @@ const ProofViewer = () => {
           .single();
 
         if (proofError || !proofLink) {
+          console.error('Proof link error:', proofError);
           setError("This proof link is invalid or has expired");
           setLoading(false);
           return;
         }
 
+        console.log('Proof link data loaded:', proofLink);
         setProofData(proofLink);
 
         // Get job data from the appropriate table
         let job = null;
         let jobError = null;
 
-        if (proofLink.job_table_name === 'production_jobs') {
+        const tableName = proofLink.job_table_name;
+        console.log('Fetching job data from table:', tableName);
+
+        if (tableName === 'production_jobs') {
           const { data, error } = await supabase
             .from('production_jobs')
             .select('*')
@@ -64,7 +70,7 @@ const ProofViewer = () => {
             .single();
           job = data;
           jobError = error;
-        } else if (proofLink.job_table_name === 'business_card_jobs') {
+        } else if (tableName === 'business_card_jobs') {
           const { data, error } = await supabase
             .from('business_card_jobs')
             .select('*')
@@ -72,7 +78,7 @@ const ProofViewer = () => {
             .single();
           job = data;
           jobError = error;
-        } else if (proofLink.job_table_name === 'flyer_jobs') {
+        } else if (tableName === 'flyer_jobs') {
           const { data, error } = await supabase
             .from('flyer_jobs')
             .select('*')
@@ -80,7 +86,7 @@ const ProofViewer = () => {
             .single();
           job = data;
           jobError = error;
-        } else if (proofLink.job_table_name === 'postcard_jobs') {
+        } else if (tableName === 'postcard_jobs') {
           const { data, error } = await supabase
             .from('postcard_jobs')
             .select('*')
@@ -88,7 +94,7 @@ const ProofViewer = () => {
             .single();
           job = data;
           jobError = error;
-        } else if (proofLink.job_table_name === 'sleeve_jobs') {
+        } else if (tableName === 'sleeve_jobs') {
           const { data, error } = await supabase
             .from('sleeve_jobs')
             .select('*')
@@ -96,7 +102,7 @@ const ProofViewer = () => {
             .single();
           job = data;
           jobError = error;
-        } else if (proofLink.job_table_name === 'cover_jobs') {
+        } else if (tableName === 'cover_jobs') {
           const { data, error } = await supabase
             .from('cover_jobs')
             .select('*')
@@ -104,7 +110,7 @@ const ProofViewer = () => {
             .single();
           job = data;
           jobError = error;
-        } else if (proofLink.job_table_name === 'box_jobs') {
+        } else if (tableName === 'box_jobs') {
           const { data, error } = await supabase
             .from('box_jobs')
             .select('*')
@@ -112,7 +118,7 @@ const ProofViewer = () => {
             .single();
           job = data;
           jobError = error;
-        } else if (proofLink.job_table_name === 'poster_jobs') {
+        } else if (tableName === 'poster_jobs') {
           const { data, error } = await supabase
             .from('poster_jobs')
             .select('*')
@@ -120,7 +126,7 @@ const ProofViewer = () => {
             .single();
           job = data;
           jobError = error;
-        } else if (proofLink.job_table_name === 'sticker_jobs') {
+        } else if (tableName === 'sticker_jobs') {
           const { data, error } = await supabase
             .from('sticker_jobs')
             .select('*')
@@ -131,19 +137,23 @@ const ProofViewer = () => {
         }
 
         if (jobError || !job) {
+          console.error('Job data error:', jobError);
           setError("Unable to load job details");
           setLoading(false);
           return;
         }
 
+        console.log('Job data loaded:', job);
         setJobData(job);
 
-        // Get signed URL for PDF if available
-        if (job.pdf_url) {
-          const signedUrl = await getSignedUrl(job.pdf_url);
-          if (signedUrl) {
-            setPdfUrl(signedUrl);
-          }
+        // Check for proof PDF URL from stage instance first, then fallback to job PDF
+        const proofPdfUrl = proofLink.job_stage_instances?.proof_pdf_url || job.pdf_url;
+        
+        if (proofPdfUrl) {
+          console.log('Setting PDF URL:', proofPdfUrl);
+          setPdfUrl(proofPdfUrl);
+        } else {
+          console.warn('No PDF URL found in proof stage instance or job data');
         }
 
         setLoading(false);
@@ -162,6 +172,8 @@ const ProofViewer = () => {
 
     setIsSubmitting(true);
     try {
+      console.log('Submitting proof response:', response, 'with notes:', notes);
+
       const { data, error } = await supabase.functions.invoke('handle-proof-approval/submit-approval', {
         body: {
           token,
@@ -170,10 +182,13 @@ const ProofViewer = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error submitting response:', error);
+        throw error;
+      }
 
+      console.log('Response submitted successfully:', data);
       setSubmitted(true);
-      console.log('✅ Response submitted:', data);
     } catch (err) {
       console.error('Error submitting response:', err);
       setError("Failed to submit your response. Please try again.");

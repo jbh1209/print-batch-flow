@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ProofUploadDialogProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
   stageInstanceId,
   onProofSent
 }) => {
+  const { user } = useAuth();
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -31,6 +33,7 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
     const file = e.target.files?.[0];
     if (file && file.type === 'application/pdf') {
       setProofFile(file);
+      toast.success(`PDF selected: ${file.name}`);
     } else {
       toast.error('Please select a PDF file');
     }
@@ -42,24 +45,39 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
       return;
     }
 
+    if (!user) {
+      toast.error('You must be logged in to upload proofs');
+      return;
+    }
+
     setIsUploading(true);
     try {
-      // Upload PDF to Supabase storage (assuming a proofs bucket exists)
-      const fileName = `proof_${stageInstanceId}_${Date.now()}.pdf`;
+      // Create a unique filename with user folder structure
+      const fileName = `${user.id}/proof_${stageInstanceId}_${Date.now()}.pdf`;
+      
+      console.log('Uploading proof PDF to bucket: proofs, path:', fileName);
+      
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('proofs')
-        .upload(fileName, proofFile);
+        .upload(fileName, proofFile, {
+          cacheControl: '3600',
+          upsert: true
+        });
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
-        toast.error('Failed to upload proof PDF');
+        toast.error(`Failed to upload proof PDF: ${uploadError.message}`);
         return;
       }
+
+      console.log('File uploaded successfully:', uploadData);
 
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
         .from('proofs')
         .getPublicUrl(fileName);
+
+      console.log('Public URL generated:', publicUrl);
 
       // Update the stage instance with client details and proof URL
       const { error: updateError } = await supabase
@@ -78,10 +96,12 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         return;
       }
 
+      console.log('Stage instance updated with proof details');
+      
       setIsUploading(false);
       setIsSending(true);
 
-      // Generate and send proof link
+      // Generate and send proof link via edge function
       const { data, error } = await supabase.functions.invoke('handle-proof-approval/generate-link', {
         body: { stageInstanceId }
       });
@@ -92,6 +112,7 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         return;
       }
 
+      console.log('Proof link generated and sent:', data);
       toast.success(`Proof sent successfully to ${clientEmail}`);
       onProofSent?.();
       onClose();
@@ -101,7 +122,7 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
       setClientEmail("");
       setProofFile(null);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error in upload and send process:', error);
       toast.error('Failed to upload and send proof');
     } finally {
       setIsUploading(false);
