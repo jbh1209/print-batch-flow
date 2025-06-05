@@ -47,6 +47,38 @@ export const useRealtimeSubscription = (
     batchTimeoutRef.current = setTimeout(handleBatchedUpdate, batchDelay);
   }, [handleBatchedUpdate, onJobUpdate, batchDelay]);
 
+  // Helper function to safely extract job ID from payload
+  const getJobIdFromPayload = useCallback((payload: any): string | null => {
+    const newRecord = payload.new;
+    const oldRecord = payload.old;
+    
+    // Try to get ID from new record first, then old record
+    if (newRecord && typeof newRecord === 'object' && 'id' in newRecord && newRecord.id) {
+      return newRecord.id;
+    }
+    if (oldRecord && typeof oldRecord === 'object' && 'id' in oldRecord && oldRecord.id) {
+      return oldRecord.id;
+    }
+    
+    return null;
+  }, []);
+
+  // Helper function to safely extract job ID from job_stage_instances payload
+  const getJobIdFromStagePayload = useCallback((payload: any): string | null => {
+    const newRecord = payload.new;
+    const oldRecord = payload.old;
+    
+    // Try to get job_id from new record first, then old record
+    if (newRecord && typeof newRecord === 'object' && 'job_id' in newRecord && newRecord.job_id) {
+      return newRecord.job_id;
+    }
+    if (oldRecord && typeof oldRecord === 'object' && 'job_id' in oldRecord && oldRecord.job_id) {
+      return oldRecord.job_id;
+    }
+    
+    return null;
+  }, []);
+
   useEffect(() => {
     if (!user?.id) return;
 
@@ -74,10 +106,10 @@ export const useRealtimeSubscription = (
           (payload) => {
             console.log('📦 Production jobs changed:', {
               event: payload.eventType,
-              jobId: payload.new?.id || payload.old?.id
+              jobId: getJobIdFromPayload(payload)
             });
             
-            const jobId = payload.new?.id || payload.old?.id;
+            const jobId = getJobIdFromPayload(payload);
             if (jobId) {
               queueUpdate(jobId, 'status');
             }
@@ -91,13 +123,24 @@ export const useRealtimeSubscription = (
             table: 'job_stage_instances',
           },
           (payload) => {
+            const jobId = getJobIdFromStagePayload(payload);
+            const newRecord = payload.new;
+            const oldRecord = payload.old;
+            
+            // Safely extract stage ID
+            let stageId = null;
+            if (newRecord && typeof newRecord === 'object' && 'production_stage_id' in newRecord) {
+              stageId = newRecord.production_stage_id;
+            } else if (oldRecord && typeof oldRecord === 'object' && 'production_stage_id' in oldRecord) {
+              stageId = oldRecord.production_stage_id;
+            }
+            
             console.log('🎯 Job stage instances changed:', {
               event: payload.eventType,
-              jobId: payload.new?.job_id || payload.old?.job_id,
-              stageId: payload.new?.production_stage_id || payload.old?.production_stage_id
+              jobId,
+              stageId
             });
             
-            const jobId = payload.new?.job_id || payload.old?.job_id;
             if (jobId) {
               queueUpdate(jobId, 'stage');
             }
@@ -134,7 +177,7 @@ export const useRealtimeSubscription = (
         }
       }
     };
-  }, [user?.id, queueUpdate]);
+  }, [user?.id, queueUpdate, getJobIdFromPayload, getJobIdFromStagePayload]);
 
   // Force immediate update (bypass batching)
   const forceUpdate = useCallback(() => {
