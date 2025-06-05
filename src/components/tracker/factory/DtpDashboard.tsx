@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +11,10 @@ import {
 } from "lucide-react";
 import { CompactDtpJobCard } from "./CompactDtpJobCard";
 import { DtpJobModal } from "./DtpJobModal";
+import { DtpDashboardHeader } from "./DtpDashboardHeader";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   categorizeJobs, 
@@ -21,9 +22,11 @@ import {
   sortJobsByPriority
 } from "@/hooks/tracker/useAccessibleJobs/pureJobProcessor";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
+import { toast } from "sonner";
 
 export const DtpDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
@@ -153,6 +156,20 @@ export const DtpDashboard: React.FC = () => {
     completed: jobStats.completed
   });
 
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('❌ Logout failed:', error);
+      toast.error('Logout failed');
+    }
+  };
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+  };
+
   const handleJobClick = (job: AccessibleJob) => {
     console.log('🖱️ Job clicked:', job.wo_no);
     setSelectedJob(job);
@@ -166,7 +183,11 @@ export const DtpDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="p-4 space-y-4">
+        <DtpDashboardHeader 
+          onNavigation={handleNavigation}
+          onLogout={handleLogout}
+        />
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <RefreshCw className="h-8 w-8 animate-spin mr-2" />
@@ -179,7 +200,11 @@ export const DtpDashboard: React.FC = () => {
 
   if (error) {
     return (
-      <div className="space-y-4">
+      <div className="p-4 space-y-4">
+        <DtpDashboardHeader 
+          onNavigation={handleNavigation}
+          onLogout={handleLogout}
+        />
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <AlertTriangle className="h-8 w-8 text-red-500 mr-2" />
@@ -203,17 +228,11 @@ export const DtpDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">DTP Dashboard</h1>
-          <p className="text-gray-600">Digital printing jobs you can work on</p>
-        </div>
-        <Button onClick={refreshJobs} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+    <div className="p-4 space-y-6 bg-gray-50 min-h-screen">
+      <DtpDashboardHeader 
+        onNavigation={handleNavigation}
+        onLogout={handleLogout}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>

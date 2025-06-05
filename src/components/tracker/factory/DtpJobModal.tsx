@@ -6,10 +6,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
   Clock, 
-  AlertTriangle
+  AlertTriangle,
+  Play,
+  CheckCircle,
+  Pause,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
@@ -17,7 +22,8 @@ import { JobOverviewCard } from "./JobOverviewCard";
 import { CurrentStageCard } from "./CurrentStageCard";
 import { WorkInstructionsCard } from "./WorkInstructionsCard";
 import { JobNotesCard } from "./JobNotesCard";
-import { JobModalActions } from "./JobModalActions";
+import { canStartJob, canCompleteJob, getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+import { toast } from "sonner";
 
 interface DtpJobModalProps {
   job: AccessibleJob;
@@ -35,27 +41,56 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   onComplete
 }) => {
   const [notes, setNotes] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const getStatusInfo = () => {
-    if (job.current_stage_status === 'active') {
-      return {
-        color: "text-green-600",
-        bg: "bg-green-50",
-        border: "border-green-200",
-        text: "In Progress",
-        icon: <Clock className="h-4 w-4" />
-      };
+  const statusBadgeInfo = getJobStatusBadgeInfo(job);
+  const canStart = canStartJob(job);
+  const canComplete = canCompleteJob(job);
+
+  const handleStartJob = async () => {
+    if (!job.current_stage_id || !canStart) return;
+    
+    setIsProcessing(true);
+    try {
+      const success = await onStart(job.job_id, job.current_stage_id);
+      if (success) {
+        toast.success(`Started job ${job.wo_no}`);
+        onClose();
+      } else {
+        toast.error('Failed to start job');
+      }
+    } catch (error) {
+      console.error('Error starting job:', error);
+      toast.error('Failed to start job');
+    } finally {
+      setIsProcessing(false);
     }
-    return {
-      color: "text-orange-600",
-      bg: "bg-orange-50", 
-      border: "border-orange-200",
-      text: "Pending",
-      icon: <AlertTriangle className="h-4 w-4" />
-    };
   };
 
-  const statusInfo = getStatusInfo();
+  const handleCompleteJob = async () => {
+    if (!job.current_stage_id || !canComplete) return;
+    
+    setIsProcessing(true);
+    try {
+      const success = await onComplete(job.job_id, job.current_stage_id);
+      if (success) {
+        toast.success(`Completed job ${job.wo_no}`);
+        onClose();
+      } else {
+        toast.error('Failed to complete job');
+      }
+    } catch (error) {
+      console.error('Error completing job:', error);
+      toast.error('Failed to complete job');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleHoldJob = () => {
+    // TODO: Implement hold functionality
+    toast.info('Hold functionality coming soon');
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -64,28 +99,61 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           <DialogTitle className="flex items-center gap-3">
             <span>Job Details: {job.wo_no}</span>
             <Badge 
-              className={cn(statusInfo.color, statusInfo.bg, statusInfo.border)}
-              variant="outline"
+              className={cn(statusBadgeInfo.className)}
+              variant={statusBadgeInfo.variant}
             >
-              {statusInfo.icon}
-              <span className="ml-1">{statusInfo.text}</span>
+              {statusBadgeInfo.text}
             </Badge>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           <JobOverviewCard job={job} />
-          <CurrentStageCard job={job} statusInfo={statusInfo} />
+          <CurrentStageCard job={job} statusInfo={statusBadgeInfo} />
           <WorkInstructionsCard job={job} />
           <JobNotesCard notes={notes} onNotesChange={setNotes} />
         </div>
 
-        <JobModalActions
-          job={job}
-          onClose={onClose}
-          onStart={onStart}
-          onComplete={onComplete}
-        />
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4 border-t">
+          {canStart && (
+            <Button 
+              onClick={handleStartJob}
+              disabled={isProcessing}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <Play className="h-4 w-4" />
+              {isProcessing ? 'Starting...' : 'Start Job'}
+            </Button>
+          )}
+
+          {canComplete && (
+            <Button 
+              onClick={handleCompleteJob}
+              disabled={isProcessing}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <CheckCircle className="h-4 w-4" />
+              {isProcessing ? 'Completing...' : 'Complete Job'}
+            </Button>
+          )}
+
+          <Button 
+            onClick={handleHoldJob}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Pause className="h-4 w-4" />
+            Hold Job
+          </Button>
+
+          <Button 
+            onClick={onClose}
+            variant="outline"
+          >
+            Close
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -53,21 +53,35 @@ export const useUserRole = () => {
           return;
         }
 
-        // Determine operator type based on accessible stages
-        const dtpStages = accessibleStages.filter(stage => 
-          stage.stage_name.toLowerCase().includes('dtp') || 
-          stage.stage_name.toLowerCase().includes('proof')
-        );
+        // Enhanced DTP operator detection based on accessible stages
+        const dtpRelatedStages = accessibleStages.filter(stage => {
+          const stageName = stage.stage_name.toLowerCase();
+          return stageName.includes('dtp') || 
+                 stageName.includes('digital') ||
+                 stageName.includes('proof') ||
+                 stageName.includes('pre-press') ||
+                 stageName.includes('design');
+        });
 
-        const canWorkStages = accessibleStages.filter(stage => stage.can_work);
-
-        if (dtpStages.length > 0 && canWorkStages.length <= 3) {
+        const workableStages = accessibleStages.filter(stage => stage.can_work);
+        
+        // If user has work permissions on DTP-related stages and limited total stages, they're a DTP operator
+        if (dtpRelatedStages.length > 0 && workableStages.length <= 5) {
           setUserRole('dtp_operator');
-        } else if (canWorkStages.length > 0) {
+        } else if (workableStages.length > 0) {
           setUserRole('operator');
         } else {
           setUserRole('user');
         }
+
+        console.log('🎯 User role determination:', {
+          userId: user.id,
+          totalStages: accessibleStages.length,
+          workableStages: workableStages.length,
+          dtpStages: dtpRelatedStages.length,
+          determinedRole: userRole,
+          stageNames: dtpRelatedStages.map(s => s.stage_name)
+        });
 
       } catch (error) {
         console.error('Error determining user role:', error);

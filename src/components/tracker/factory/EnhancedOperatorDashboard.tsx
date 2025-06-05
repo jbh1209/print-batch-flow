@@ -1,6 +1,7 @@
-
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { DtpDashboard } from "./DtpDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,8 +16,18 @@ import {
   Play,
   CheckCircle,
   Wifi,
-  WifiOff
+  WifiOff,
+  LogOut,
+  Menu,
+  Home
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { EnhancedOperatorJobCard } from "./EnhancedOperatorJobCard";
 import { BarcodeScannerButton } from "./BarcodeScannerButton";
@@ -35,6 +46,8 @@ import { JobListLoading, JobErrorState, EmptyJobsState } from "../common/JobLoad
 export const EnhancedOperatorDashboard = () => {
   // All hooks must be called unconditionally at the top
   const { isDtpOperator, accessibleStages } = useUserRole();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const { 
     jobs, 
     isLoading, 
@@ -241,6 +254,20 @@ export const EnhancedOperatorDashboard = () => {
     setShowBulkOperations(selectedJobs.length > 0);
   }, [selectedJobs.length]);
 
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('❌ Logout failed:', error);
+      toast.error('Logout failed');
+    }
+  }, [signOut, navigate]);
+
+  const handleNavigation = useCallback((path: string) => {
+    navigate(path);
+  }, [navigate]);
+
   // Conditional renders after all hooks
   if (isDtpOperator) {
     return <DtpDashboard />;
@@ -269,31 +296,71 @@ export const EnhancedOperatorDashboard = () => {
 
   return (
     <div className="p-4 space-y-4 h-full overflow-y-auto bg-gray-50">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+      {/* Enhanced Header with Navigation */}
+      <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border">
+        <div className="flex items-center gap-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Menu className="h-4 w-4 mr-2" />
+                Menu
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => handleNavigation('/tracker/dashboard')}>
+                <Home className="h-4 w-4 mr-2" />
+                Dashboard
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleNavigation('/tracker/kanban')}>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Production Kanban
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleNavigation('/tracker/admin')}>
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div>
             <h1 className="text-2xl font-bold">Factory Floor</h1>
             <p className="text-gray-600">Jobs you can work on</p>
-            <div className="flex items-center gap-4 mt-1">
-              <p className="text-sm text-gray-500">
-                Showing {filteredJobs.length} of {jobs.length} jobs
-              </p>
-              {selectedJobs.length > 0 && (
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                  {selectedJobs.length} selected
-                </Badge>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleLogout}
+            className="h-10"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
+      </div>
+
+      {/* Status and Connection Info */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-gray-500">
+              Showing {filteredJobs.length} of {jobs.length} jobs
+            </p>
+            {selectedJobs.length > 0 && (
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                {selectedJobs.length} selected
+              </Badge>
+            )}
+            <div className="flex items-center gap-2">
+              {isConnected ? (
+                <Wifi className="h-4 w-4 text-green-500" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-red-500" />
               )}
-              <div className="flex items-center gap-2">
-                {isConnected ? (
-                  <Wifi className="h-4 w-4 text-green-500" />
-                ) : (
-                  <WifiOff className="h-4 w-4 text-red-500" />
-                )}
-                <span className="text-xs text-gray-500">
-                  {isConnected ? 'Connected' : 'Offline'}
-                </span>
-              </div>
+              <span className="text-xs text-gray-500">
+                {isConnected ? 'Connected' : 'Offline'}
+              </span>
             </div>
           </div>
           

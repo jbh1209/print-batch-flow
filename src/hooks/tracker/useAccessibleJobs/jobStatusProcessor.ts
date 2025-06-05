@@ -20,10 +20,22 @@ export interface JobCategories {
 }
 
 export const processJobStatus = (job: AccessibleJob): 'pending' | 'active' | 'completed' => {
-  // Use the current_stage_status from the database as the primary source
-  if (job.current_stage_status === 'active') return 'active';
-  if (job.current_stage_status === 'completed') return 'completed';
-  return 'pending'; // Default to pending for any other status
+  // Check if job has workflow stages
+  if (job.current_stage_status) {
+    // Use the current stage status from the database
+    if (job.current_stage_status === 'active') return 'active';
+    if (job.current_stage_status === 'completed') return 'completed';
+    if (job.current_stage_status === 'pending') return 'pending';
+  }
+  
+  // Fallback to overall job status for jobs without workflows
+  const status = job.status?.toLowerCase() || '';
+  if (['completed', 'finished', 'shipped', 'delivered'].includes(status)) {
+    return 'completed';
+  }
+  
+  // Default to pending for new/unstarted jobs
+  return 'pending';
 };
 
 export const isJobOverdue = (job: AccessibleJob): boolean => {
@@ -49,15 +61,26 @@ export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
     isJobOverdue(job) || isJobDueSoon(job)
   );
 
-  // DTP job categorization based on stage names
+  // Enhanced DTP/Proof job categorization
   const dtpJobs = jobs.filter(job => {
-    if (!job.current_stage_name) return false;
-    return job.current_stage_name.toLowerCase().includes('dtp');
+    const stageName = job.current_stage_name?.toLowerCase() || '';
+    const status = job.status?.toLowerCase() || '';
+    
+    // Look for DTP in stage name or job status
+    return stageName.includes('dtp') || 
+           stageName.includes('digital') ||
+           status.includes('dtp') ||
+           status.includes('pre-press');
   });
 
   const proofJobs = jobs.filter(job => {
-    if (!job.current_stage_name) return false;
-    return job.current_stage_name.toLowerCase().includes('proof');
+    const stageName = job.current_stage_name?.toLowerCase() || '';
+    const status = job.status?.toLowerCase() || '';
+    
+    // Look for proof/proofing in stage name or job status  
+    return stageName.includes('proof') ||
+           stageName.includes('review') ||
+           status.includes('proof');
   });
 
   return {
@@ -147,7 +170,7 @@ export const getJobStatusBadgeInfo = (job: AccessibleJob) => {
     };
   }
   
-  // Pending status - check urgency
+  // Pending status - check urgency and show proper ready state
   if (isOverdue) {
     return {
       text: 'Overdue',
@@ -164,9 +187,30 @@ export const getJobStatusBadgeInfo = (job: AccessibleJob) => {
     };
   }
   
+  // Show "Ready to Start" for new/pending jobs instead of generic "pending"
   return {
     text: 'Ready to Start',
     className: 'bg-green-600 text-white',
     variant: 'default' as const
   };
+};
+
+// Helper to determine if a job is truly new (never been started)
+export const isJobNew = (job: AccessibleJob): boolean => {
+  return !job.current_stage_status || job.current_stage_status === 'pending';
+};
+
+// Helper to get user-friendly status text
+export const getJobStatusText = (job: AccessibleJob): string => {
+  const status = processJobStatus(job);
+  
+  if (status === 'active') return 'In Progress';
+  if (status === 'completed') return 'Completed';
+  
+  // For pending jobs, show more specific status
+  if (isJobNew(job)) {
+    return 'New';
+  }
+  
+  return 'Ready to Start';
 };
