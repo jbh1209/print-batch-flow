@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { HoldReasonSelector } from "./hold/HoldReasonSelector";
+import { HoldReasonSelector, HOLD_REASONS } from "./hold/HoldReasonSelector";
 
 interface JobHoldManagerProps {
   job: AccessibleJob;
@@ -38,9 +38,9 @@ export const JobHoldManager: React.FC<JobHoldManagerProps> = ({
   const currentHoldReason = "material_shortage"; // Mock data
   const holdStartTime = new Date(Date.now() - 2 * 60 * 60 * 1000); // Mock: 2 hours ago
 
-  const getReasonLabel = (reasonId: string) => {
-    // This would come from the HoldReasonSelector component
-    return reasonId.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const getReasonLabel = (reasonId: string): string => {
+    const reason = HOLD_REASONS.find(r => r.id === reasonId);
+    return reason ? reason.label : reasonId.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const handleHoldJob = async () => {

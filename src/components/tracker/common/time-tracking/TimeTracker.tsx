@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause } from "lucide-react";
@@ -44,7 +44,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
     return () => clearInterval(interval);
   }, [activeSession]);
 
-  const formatTime = (seconds: number) => {
+  const formatTime = useCallback((seconds: number): string => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -53,24 +53,24 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
       return `${hrs}h ${mins}m ${secs}s`;
     }
     return `${mins}m ${secs}s`;
-  };
+  }, []);
 
-  const formatDuration = (minutes: number) => {
+  const formatDuration = useCallback((minutes: number): string => {
     if (minutes < 60) {
       return `${minutes}m`;
     }
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     return `${hours}h ${remainingMinutes > 0 ? ` ${remainingMinutes}m` : ''}`;
-  };
+  }, []);
 
-  const getTotalTimeSpent = () => {
+  const getTotalTimeSpent = useCallback((): number => {
     const completedTime = timeEntries.reduce((total, entry) => total + entry.duration_minutes, 0);
     const activeTime = activeSession ? Math.floor(elapsedTime / 60) : 0;
     return completedTime + activeTime;
-  };
+  }, [timeEntries, activeSession, elapsedTime]);
 
-  const handleStartTimer = () => {
+  const handleStartTimer = useCallback(() => {
     if (activeSession) return;
 
     const newSession: TimeSession = {
@@ -82,9 +82,9 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
 
     setActiveSession(newSession);
     setElapsedTime(0);
-  };
+  }, [activeSession]);
 
-  const handleStopTimer = async () => {
+  const handleStopTimer = useCallback(async () => {
     if (!activeSession) return;
 
     const endTime = new Date();
@@ -108,7 +108,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
         console.error("Failed to save time entry:", error);
       }
     }
-  };
+  }, [activeSession, elapsedTime, jobNumber, onTimeUpdate]);
 
   return (
     <div className="space-y-4">
@@ -168,3 +168,5 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
     </div>
   );
 };
+
+export type { TimeEntry };

@@ -20,6 +20,12 @@ interface BulkOperationSelectorProps {
   onOperationToggle: (operationId: string, checked: boolean) => void;
 }
 
+const CATEGORY_COLORS = {
+  workflow: 'bg-blue-100 text-blue-800',
+  management: 'bg-green-100 text-green-800',
+  organization: 'bg-purple-100 text-purple-800'
+} as const;
+
 export const BulkOperationSelector: React.FC<BulkOperationSelectorProps> = ({
   operations,
   selectedOperations,
@@ -30,16 +36,11 @@ export const BulkOperationSelector: React.FC<BulkOperationSelectorProps> = ({
     return categories.reduce((acc, category) => {
       acc[category] = operations.filter(op => op.category === category);
       return acc;
-    }, {} as Record<string, BulkOperation[]>);
+    }, {} as Record<typeof categories[number], BulkOperation[]>);
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      workflow: 'bg-blue-100 text-blue-800',
-      management: 'bg-green-100 text-green-800',
-      organization: 'bg-purple-100 text-purple-800'
-    };
-    return colors[category as keyof typeof colors] || colors.workflow;
+  const getCategoryColor = (category: BulkOperation['category']): string => {
+    return CATEGORY_COLORS[category];
   };
 
   const operationsByCategory = getOperationsByCategory();
@@ -49,7 +50,7 @@ export const BulkOperationSelector: React.FC<BulkOperationSelectorProps> = ({
       <Label className="text-sm font-medium">Select Operations</Label>
       {Object.entries(operationsByCategory).map(([category, categoryOperations]) => (
         <div key={category} className="space-y-3">
-          <Badge className={getCategoryColor(category)} variant="secondary">
+          <Badge className={getCategoryColor(category as BulkOperation['category'])} variant="secondary">
             {category.charAt(0).toUpperCase() + category.slice(1)}
           </Badge>
           <div className="ml-4 space-y-2">

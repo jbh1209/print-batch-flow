@@ -6,15 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { TimeTracker } from "./time-tracking/TimeTracker";
+import { TimeTracker, TimeEntry } from "./time-tracking/TimeTracker";
 import { NotesEditor } from "./notes/NotesEditor";
-
-interface TimeEntry {
-  start_time: Date;
-  end_time?: Date;
-  duration_minutes: number;
-  notes?: string;
-}
 
 interface JobNotesAndTimeTrackerProps {
   job: AccessibleJob;

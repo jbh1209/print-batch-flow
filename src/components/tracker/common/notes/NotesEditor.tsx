@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Save, FileText } from "lucide-react";
@@ -7,16 +7,20 @@ import { Save, FileText } from "lucide-react";
 interface NotesEditorProps {
   onNotesUpdate?: (notes: string) => Promise<void>;
   jobNumber: string;
+  initialNotes?: string;
+  maxLength?: number;
 }
 
 export const NotesEditor: React.FC<NotesEditorProps> = ({
   onNotesUpdate,
-  jobNumber
+  jobNumber,
+  initialNotes = "",
+  maxLength = 1000
 }) => {
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(initialNotes);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveNotes = async () => {
+  const handleSaveNotes = useCallback(async () => {
     if (!onNotesUpdate || !notes.trim()) return;
 
     setIsSaving(true);
@@ -27,7 +31,14 @@ export const NotesEditor: React.FC<NotesEditorProps> = ({
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [onNotesUpdate, notes]);
+
+  const handleNotesChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    if (value.length <= maxLength) {
+      setNotes(value);
+    }
+  }, [maxLength]);
 
   return (
     <div className="space-y-4">
@@ -39,13 +50,13 @@ export const NotesEditor: React.FC<NotesEditorProps> = ({
       <Textarea
         placeholder={`Add notes about your work on ${jobNumber}...`}
         value={notes}
-        onChange={(e) => setNotes(e.target.value)}
+        onChange={handleNotesChange}
         className="min-h-[120px] resize-none"
       />
       
       <div className="flex justify-between items-center">
         <span className="text-xs text-gray-500">
-          {notes.length}/1000 characters
+          {notes.length}/{maxLength} characters
         </span>
         <Button 
           onClick={handleSaveNotes}

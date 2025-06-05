@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { DtpDashboard } from "./DtpDashboard";
@@ -32,6 +33,7 @@ import type { DashboardFilters, FilterCounts } from "./types";
 import { JobListLoading, JobErrorState, EmptyJobsState } from "../common/JobLoadingStates";
 
 export const EnhancedOperatorDashboard = () => {
+  // All hooks must be called unconditionally at the top
   const { isDtpOperator, accessibleStages } = useUserRole();
   const { 
     jobs, 
@@ -52,11 +54,6 @@ export const EnhancedOperatorDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
   const [showBulkOperations, setShowBulkOperations] = useState(false);
-
-  // For DTP operators, show the specialized dashboard
-  if (isDtpOperator) {
-    return <DtpDashboard />;
-  }
 
   // Calculate connection status
   const isConnected = lastFetchTime > 0 && (Date.now() - lastFetchTime) < 60000; // 1 minute
@@ -128,6 +125,7 @@ export const EnhancedOperatorDashboard = () => {
     }
   }, [jobs]);
 
+  // All callbacks and handlers
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -243,7 +241,11 @@ export const EnhancedOperatorDashboard = () => {
     setShowBulkOperations(selectedJobs.length > 0);
   }, [selectedJobs.length]);
 
-  // Enhanced loading state
+  // Conditional renders after all hooks
+  if (isDtpOperator) {
+    return <DtpDashboard />;
+  }
+
   if (isLoading) {
     return (
       <JobListLoading 
@@ -253,7 +255,6 @@ export const EnhancedOperatorDashboard = () => {
     );
   }
 
-  // Enhanced error handling
   if (error) {
     return (
       <div className="p-6">

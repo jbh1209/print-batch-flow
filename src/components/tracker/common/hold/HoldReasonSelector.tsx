@@ -11,6 +11,15 @@ interface HoldReason {
   category: 'material' | 'equipment' | 'quality' | 'approval' | 'scheduling' | 'other';
 }
 
+const CATEGORY_COLORS = {
+  material: 'bg-red-100 text-red-800',
+  equipment: 'bg-orange-100 text-orange-800', 
+  quality: 'bg-yellow-100 text-yellow-800',
+  approval: 'bg-blue-100 text-blue-800',
+  scheduling: 'bg-purple-100 text-purple-800',
+  other: 'bg-gray-100 text-gray-800'
+} as const;
+
 const HOLD_REASONS: HoldReason[] = [
   {
     id: 'material_shortage',
@@ -94,19 +103,11 @@ export const HoldReasonSelector: React.FC<HoldReasonSelectorProps> = ({
     return categories.reduce((acc, category) => {
       acc[category] = HOLD_REASONS.filter(reason => reason.category === category);
       return acc;
-    }, {} as Record<string, HoldReason[]>);
+    }, {} as Record<typeof categories[number], HoldReason[]>);
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      material: 'bg-red-100 text-red-800',
-      equipment: 'bg-orange-100 text-orange-800', 
-      quality: 'bg-yellow-100 text-yellow-800',
-      approval: 'bg-blue-100 text-blue-800',
-      scheduling: 'bg-purple-100 text-purple-800',
-      other: 'bg-gray-100 text-gray-800'
-    };
-    return colors[category as keyof typeof colors] || colors.other;
+  const getCategoryColor = (category: HoldReason['category']): string => {
+    return CATEGORY_COLORS[category];
   };
 
   const reasonsByCategory = getReasonsByCategory();
@@ -118,7 +119,7 @@ export const HoldReasonSelector: React.FC<HoldReasonSelectorProps> = ({
         {Object.entries(reasonsByCategory).map(([category, reasons]) => (
           <div key={category} className="space-y-2">
             <div className="flex items-center gap-2">
-              <Badge className={getCategoryColor(category)} variant="secondary">
+              <Badge className={getCategoryColor(category as HoldReason['category'])} variant="secondary">
                 {category.charAt(0).toUpperCase() + category.slice(1)}
               </Badge>
             </div>
