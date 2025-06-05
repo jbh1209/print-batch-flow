@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useMemo } from "react";
 import { AlertTriangle, FileText, CheckCircle, RefreshCw } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
@@ -15,6 +14,7 @@ import { categorizeJobs, sortJobsByPriority } from "@/utils/tracker/jobProcessin
 import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
 
 export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
@@ -149,35 +149,21 @@ export const DtpKanbanDashboard = () => {
   // Enhanced loading state with progress indication
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 h-full space-y-4">
-        <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
-        <div className="text-center">
-          <span className="text-lg font-medium">Loading DTP jobs...</span>
-          <p className="text-sm text-gray-600 mt-2">
-            Fetching your accessible jobs and real-time updates
-          </p>
-        </div>
-      </div>
+      <JobListLoading 
+        message="Loading DTP jobs..."
+        showProgress={true}
+      />
     );
   }
 
   // Enhanced error handling with recovery options
   if (error) {
     return (
-      <DataLoadingFallback
+      <JobErrorState
         error={error}
-        componentName="DTP Kanban Dashboard"
         onRetry={handleRefresh}
         onRefresh={refreshJobs}
-        showDetails={true}
-        additionalActions={
-          <button
-            onClick={() => navigate('/tracker')}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            Go to Main Dashboard
-          </button>
-        }
+        title="DTP Kanban Dashboard Error"
       />
     );
   }

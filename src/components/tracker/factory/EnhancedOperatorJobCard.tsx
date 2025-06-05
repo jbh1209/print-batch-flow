@@ -1,26 +1,15 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Play, 
-  CheckCircle, 
-  Clock, 
-  AlertTriangle,
-  User,
-  Calendar,
-  Pause
-} from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
+import { JobStatusDisplay } from "@/components/tracker/common/JobStatusDisplay";
 import { 
   processJobStatus, 
   isJobOverdue, 
-  isJobDueSoon, 
-  canStartJob, 
-  canCompleteJob,
-  getJobStatusBadgeInfo
+  isJobDueSoon
 } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 
 interface EnhancedOperatorJobCardProps {
@@ -36,8 +25,6 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
   onComplete,
   onHold
 }) => {
-  const [isActionInProgress, setIsActionInProgress] = useState(false);
-
   const isOverdue = isJobOverdue(job);
   const isDueSoon = isJobDueSoon(job);
   const jobStatus = processJobStatus(job);
@@ -49,21 +36,6 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
     return "border-gray-200 bg-white hover:shadow-sm";
   };
 
-  const statusBadgeInfo = getJobStatusBadgeInfo(job);
-
-  const handleAction = async (action: () => Promise<boolean>) => {
-    setIsActionInProgress(true);
-    try {
-      await action();
-    } finally {
-      setIsActionInProgress(false);
-    }
-  };
-
-  const showStartButton = canStartJob(job);
-  const showCompleteButton = canCompleteJob(job);
-  const showHoldButton = jobStatus === 'active';
-
   return (
     <Card className={cn("mb-3 transition-all duration-200", getCardStyle())}>
       <CardContent className="p-4">
@@ -71,48 +43,30 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
           {/* Header Row */}
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="font-bold text-lg text-gray-900 truncate">
-                  {job.wo_no}
-                </h3>
-                <Badge 
-                  variant={statusBadgeInfo.variant}
-                  className={`text-xs px-2 py-1 ${statusBadgeInfo.className}`}
-                >
-                  {statusBadgeInfo.text}
-                </Badge>
-              </div>
+              <h3 className="font-bold text-lg text-gray-900 truncate mb-2">
+                {job.wo_no}
+              </h3>
               
               {job.customer && (
-                <p className="text-sm text-gray-600 mb-1">
+                <p className="text-sm text-gray-600 mb-2">
                   Customer: {job.customer}
                 </p>
               )}
               
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                <div className="flex items-center gap-1">
-                  <span>Stage:</span>
-                  <span className="font-medium text-gray-700">
-                    {job.current_stage_name || 'No Workflow'}
-                  </span>
-                </div>
-                
-                {job.due_date && (
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    <span className={cn(
-                      isOverdue ? "text-red-600 font-medium" : 
-                      isDueSoon ? "text-orange-600 font-medium" : 
-                      "text-gray-600"
-                    )}>
-                      Due: {new Date(job.due_date).toLocaleDateString()}
-                    </span>
-                    {isOverdue && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                  </div>
-                )}
-              </div>
+              {job.reference && (
+                <p className="text-sm text-gray-600 mb-2">
+                  Reference: {job.reference}
+                </p>
+              )}
             </div>
           </div>
+
+          {/* Status Display */}
+          <JobStatusDisplay 
+            job={job} 
+            showDetails={true}
+            compact={false}
+          />
 
           {/* Progress Info */}
           {job.workflow_progress !== undefined && (
@@ -135,47 +89,23 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
           )}
 
           {/* Action Buttons */}
-          {job.current_stage_id && (
-            <div className="flex gap-2 pt-2">
-              {showStartButton && (
-                <Button 
-                  onClick={() => handleAction(() => onStart(job.job_id, job.current_stage_id || 'default'))}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
-                  disabled={isActionInProgress}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  {isActionInProgress ? "Starting..." : "Start Job"}
-                </Button>
-              )}
-              
-              {showCompleteButton && (
-                <Button 
-                  onClick={() => handleAction(() => onComplete(job.job_id, job.current_stage_id || 'default'))}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  disabled={isActionInProgress}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {isActionInProgress ? "Completing..." : "Complete"}
-                </Button>
-              )}
-              
-              {showHoldButton && (
-                <Button 
-                  onClick={() => handleAction(() => onHold(job.job_id, 'Manual hold'))}
-                  variant="outline"
-                  className="px-3"
-                  disabled={isActionInProgress}
-                >
-                  <Pause className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          )}
+          <div className="pt-2">
+            <JobActionButtons
+              job={job}
+              onStart={onStart}
+              onComplete={onComplete}
+              onHold={onHold}
+              size="default"
+              layout="horizontal"
+              showHold={true}
+              compact={false}
+            />
+          </div>
 
           {/* Active Timer Indicator */}
           {jobStatus === 'active' && (
             <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-100 px-3 py-2 rounded-lg">
-              <Clock className="h-4 w-4 animate-pulse" />
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
               <span className="font-medium">Timer Active - You're working on this job</span>
             </div>
           )}

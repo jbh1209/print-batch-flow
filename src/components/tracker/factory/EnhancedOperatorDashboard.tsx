@@ -27,6 +27,7 @@ import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/das
 import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 import type { DashboardFilters, FilterCounts } from "./types";
+import { JobListLoading, JobErrorState, EmptyJobsState } from "../common/JobLoadingStates";
 
 export const EnhancedOperatorDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
@@ -161,15 +162,10 @@ export const EnhancedOperatorDashboard = () => {
   // Enhanced loading state
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 h-full space-y-4">
-        <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
-        <div className="text-center">
-          <span className="text-lg font-medium">Loading your jobs...</span>
-          <p className="text-sm text-gray-600 mt-2">
-            Fetching accessible jobs for your role
-          </p>
-        </div>
-      </div>
+      <JobListLoading 
+        message="Loading your jobs..."
+        showProgress={true}
+      />
     );
   }
 
@@ -177,27 +173,14 @@ export const EnhancedOperatorDashboard = () => {
   if (error) {
     return (
       <div className="p-6">
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="flex flex-col items-center justify-center p-8">
-            <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-semibold mb-2 text-red-700">Error Loading Jobs</h2>
-            <p className="text-red-600 text-center mb-4">{error}</p>
-            <div className="flex gap-2">
-              <Button onClick={handleRefresh} variant="outline">
-                Try Again
-              </Button>
-              <Button onClick={() => window.location.reload()} variant="outline">
-                Reload Page
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <JobErrorState
+          error={error}
+          onRetry={handleRefresh}
+          title="Factory Floor Error"
+        />
       </div>
     );
   }
-
-  // Calculate connection status based on last fetch time
-  const isConnected = lastFetchTime > 0 && (Date.now() - lastFetchTime) < 60000; // 1 minute
 
   return (
     <div className="p-4 space-y-4 h-full overflow-y-auto bg-gray-50">
@@ -316,27 +299,11 @@ export const EnhancedOperatorDashboard = () => {
       {/* Jobs List */}
       <div className="space-y-0">
         {filteredJobs.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center p-12">
-              <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No Jobs Available</h3>
-              <p className="text-gray-600 text-center mb-4">
-                {searchQuery 
-                  ? `No jobs found matching "${searchQuery}"`
-                  : `No jobs available in the "${filterMode}" filter.`
-                }
-              </p>
-              {searchQuery && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => setSearchQuery("")}
-                  className="mt-4"
-                >
-                  Clear Search
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <EmptyJobsState
+            searchQuery={searchQuery}
+            filterMode={filterMode}
+            onClearSearch={() => setSearchQuery("")}
+          />
         ) : (
           filteredJobs.map((job) => (
             <EnhancedOperatorJobCard
