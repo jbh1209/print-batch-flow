@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -24,6 +23,32 @@ import Auth from "./pages/Auth";
 import AppSelector from "./pages/AppSelector";
 import TrackerUsers from "./pages/tracker/TrackerUsers";
 import BatchFlowLayout from "./components/BatchFlowLayout";
+
+// BatchFlow page imports
+import BatchFlowHome from "./pages/BatchFlowHome";
+import AllJobsPage from "./pages/AllJobsPage";
+import AllBatches from "./pages/AllBatches";
+import Users from "./pages/Users";
+import Settings from "./pages/Settings";
+import BusinessCards from "./pages/BusinessCards";
+import BusinessCardJobs from "./pages/BusinessCardJobs";
+import BusinessCardJobNew from "./pages/BusinessCardJobNew";
+import BusinessCardJobEdit from "./pages/BusinessCardJobEdit";
+import BusinessCardBatches from "./pages/BusinessCardBatches";
+import Flyers from "./pages/Flyers";
+import FlyerJobs from "./pages/FlyerJobs";
+import FlyerJobNew from "./pages/FlyerJobNew";
+import FlyerJobEdit from "./pages/FlyerJobEdit";
+import FlyerBatches from "./pages/FlyerBatches";
+import FlyerBatchDetails from "./pages/FlyerBatchDetails";
+import Postcards from "./pages/Postcards";
+import PostcardJobEdit from "./pages/PostcardJobEdit";
+import Boxes from "./pages/Boxes";
+import Covers from "./pages/Covers";
+import Sleeves from "./pages/Sleeves";
+import SleeveJobEdit from "./pages/SleeveJobEdit";
+import Stickers from "./pages/Stickers";
+import Posters from "./pages/Posters";
 
 function App() {
   const [session, setSession] = useState(null);
@@ -62,7 +87,7 @@ function App() {
               }
             />
             
-            {/* BatchFlow route */}
+            {/* BatchFlow routes with nested structure */}
             <Route
               path="/batchflow"
               element={
@@ -70,7 +95,40 @@ function App() {
                   <BatchFlowLayout />
                 </ProtectedRoute>
               }
-            />
+            >
+              <Route index element={<BatchFlowHome />} />
+              <Route path="all-jobs" element={<AllJobsPage />} />
+              <Route path="batches" element={<AllBatches />} />
+              <Route path="users" element={<Users />} />
+              <Route path="settings" element={<Settings />} />
+              
+              {/* Business Cards */}
+              <Route path="batches/business-cards" element={<BusinessCards />} />
+              <Route path="batches/business-cards/jobs" element={<BusinessCardJobs />} />
+              <Route path="batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
+              <Route path="batches/business-cards/jobs/:id/edit" element={<BusinessCardJobEdit />} />
+              <Route path="batches/business-cards/batches" element={<BusinessCardBatches />} />
+              
+              {/* Flyers */}
+              <Route path="batches/flyers" element={<Flyers />} />
+              <Route path="batches/flyers/jobs" element={<FlyerJobs />} />
+              <Route path="batches/flyers/jobs/new" element={<FlyerJobNew />} />
+              <Route path="batches/flyers/jobs/:id/edit" element={<FlyerJobEdit />} />
+              <Route path="batches/flyers/batches" element={<FlyerBatches />} />
+              <Route path="batches/flyers/batches/:batchId" element={<FlyerBatchDetails />} />
+              
+              {/* Postcards */}
+              <Route path="batches/postcards" element={<Postcards />} />
+              <Route path="batches/postcards/jobs/:id/edit" element={<PostcardJobEdit />} />
+              
+              {/* Other Products */}
+              <Route path="batches/boxes" element={<Boxes />} />
+              <Route path="batches/covers" element={<Covers />} />
+              <Route path="batches/sleeves" element={<Sleeves />} />
+              <Route path="batches/sleeves/jobs/:id/edit" element={<SleeveJobEdit />} />
+              <Route path="batches/stickers" element={<Stickers />} />
+              <Route path="batches/posters" element={<Posters />} />
+            </Route>
             
             {/* Tracker routes with role-aware layout */}
             <Route
