@@ -21,7 +21,7 @@ export interface UserRoleResponse {
   isAdmin: boolean;
   /** Whether the user is a manager (or admin) */
   isManager: boolean;
-  /** Whether the user is any type of operator */
+  /** Whether the user is any type of operator (but NOT admin/manager) */
   isOperator: boolean;
   /** Whether the user is specifically a DTP operator */
   isDtpOperator: boolean;
@@ -62,6 +62,7 @@ export const useUserRole = (): UserRoleResponse => {
 
         const hasAdminRole = userRoles?.some(r => r.role === 'admin');
         if (hasAdminRole) {
+          console.log('🔑 User determined as admin');
           setUserRole('admin');
           setIsLoading(false);
           return;
@@ -89,6 +90,7 @@ export const useUserRole = (): UserRoleResponse => {
         });
 
         if (isManager) {
+          console.log('🔑 User determined as manager');
           setUserRole('manager');
           setIsLoading(false);
           return;
@@ -125,15 +127,20 @@ export const useUserRole = (): UserRoleResponse => {
           const dtpRatio = workableDtpStages.length / workableStages.length;
           
           if (dtpRatio >= 0.5) {
+            console.log('🔑 User determined as dtp_operator');
             setUserRole('dtp_operator');
           } else if (workableStages.length > 0) {
+            console.log('🔑 User determined as operator');
             setUserRole('operator');
           } else {
+            console.log('🔑 User determined as user');
             setUserRole('user');
           }
         } else if (workableStages.length > 0) {
+          console.log('🔑 User determined as operator');
           setUserRole('operator');
         } else {
+          console.log('🔑 User determined as user');
           setUserRole('user');
         }
       } catch (error) {
@@ -147,10 +154,11 @@ export const useUserRole = (): UserRoleResponse => {
     determineUserRole();
   }, [user?.id, accessibleStages, stagesLoading]);
 
-  // Derived properties for convenient access
+  // Derived properties for convenient access - FIXED LOGIC
   const isAdmin = userRole === 'admin';
   const isManager = userRole === 'manager' || userRole === 'admin';
-  const isOperator = userRole === 'operator' || userRole === 'dtp_operator' || isManager;
+  // IMPORTANT: isOperator should NOT include admin/manager - only actual operators
+  const isOperator = userRole === 'operator' || userRole === 'dtp_operator';
   const isDtpOperator = userRole === 'dtp_operator';
 
   return {

@@ -9,19 +9,27 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
  * Layout component that manages routing based on user roles
  * 
  * This component intelligently routes users to appropriate views based on their role:
- * - Operators are restricted to factory floor only
- * - Managers, admins, and DTP operators see the full tracker layout
+ * - Operators (excluding admins/managers) are restricted to factory floor only
+ * - Admins, managers, and DTP operators see the full tracker layout
  */
 const RoleAwareLayout: React.FC = () => {
-  const { userRole, isLoading, isOperator } = useUserRole();
+  const { userRole, isLoading, isOperator, isAdmin, isManager } = useUserRole();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     if (isLoading) return;
 
-    // Only restrict operators - redirect them to factory floor if they try to access other routes
-    if (isOperator) {
+    console.log('🔄 RoleAwareLayout routing check:', {
+      userRole,
+      isOperator,
+      isAdmin,
+      isManager,
+      currentPath: location.pathname
+    });
+
+    // Only restrict pure operators (not admins or managers) to factory floor
+    if (isOperator && !isAdmin && !isManager) {
       // If operator is on /tracker root, redirect to factory floor
       if (location.pathname === '/tracker') {
         console.log('🔄 Redirecting operator from tracker root to factory floor');
@@ -37,8 +45,9 @@ const RoleAwareLayout: React.FC = () => {
       }
     }
 
-    // For non-operators (admins, managers, DTP operators), no restrictions - let them access any route
-  }, [userRole, isLoading, isOperator, navigate, location.pathname]);
+    // For admins, managers, and DTP operators - no restrictions, let them access any route
+    console.log('✅ User has full access to all routes');
+  }, [userRole, isLoading, isOperator, isAdmin, isManager, navigate, location.pathname]);
 
   if (isLoading) {
     return (
@@ -48,12 +57,12 @@ const RoleAwareLayout: React.FC = () => {
     );
   }
 
-  // For operators on factory floor, show standalone view without TrackerLayout
-  if (isOperator && location.pathname.includes('/factory-floor')) {
+  // For pure operators on factory floor, show standalone view without TrackerLayout
+  if (isOperator && !isAdmin && !isManager && location.pathname.includes('/factory-floor')) {
     return <Outlet />;
   }
 
-  // For everyone else (managers, admins, DTP operators), show full tracker layout
+  // For everyone else (admins, managers, DTP operators), show full tracker layout
   return <TrackerLayout />;
 };
 
