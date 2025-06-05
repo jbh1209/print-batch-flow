@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
@@ -125,16 +124,14 @@ export const ResponsiveOperatorDashboard = () => {
     return true;
   };
 
-  const handleNotesUpdate = async (jobId: string, notes: string) => {
+  const handleNotesUpdate = async (jobId: string, notes: string): Promise<void> => {
     console.log('Updating notes for job:', jobId, notes);
     // TODO: Implement notes update API call
-    return true;
   };
 
-  const handleTimeUpdate = async (jobId: string, timeSpent: number) => {
+  const handleTimeUpdate = async (jobId: string, timeSpent: number): Promise<void> => {
     console.log('Updating time for job:', jobId, timeSpent);
     // TODO: Implement time update API call
-    return true;
   };
 
   const handleBulkStart = async (jobIds: string[]) => {
@@ -188,6 +185,14 @@ export const ResponsiveOperatorDashboard = () => {
       </div>
     );
   }
+
+  // Define filters array before using it
+  const filters: { key: FilterType; label: string; count: number }[] = [
+    { key: 'all', label: 'All Jobs', count: filterCounts.all },
+    { key: 'available', label: 'Available', count: filterCounts.available },
+    { key: 'my-active', label: 'My Active', count: filterCounts['my-active'] },
+    { key: 'urgent', label: 'Urgent', count: filterCounts.urgent }
+  ];
 
   if (isMobile) {
     return (
@@ -269,13 +274,6 @@ export const ResponsiveOperatorDashboard = () => {
   }
 
   // Desktop view - use existing EnhancedOperatorDashboard layout
-  const filters: { key: FilterType; label: string; count: number }[] = [
-    { key: 'all', label: 'All Jobs', count: filterCounts.all },
-    { key: 'available', label: 'Available', count: filterCounts.available },
-    { key: 'my-active', label: 'My Active', count: filterCounts['my-active'] },
-    { key: 'urgent', label: 'Urgent', count: filterCounts.urgent }
-  ];
-
   return (
     <div className="p-4 space-y-6">
       {/* Header with Search and Filters */}
