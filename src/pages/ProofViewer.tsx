@@ -53,11 +53,82 @@ const ProofViewer = () => {
         setProofData(proofLink);
 
         // Get job data from the appropriate table
-        const { data: job, error: jobError } = await supabase
-          .from(proofLink.job_table_name as any)
-          .select('*')
-          .eq('id', proofLink.job_id)
-          .single();
+        let job = null;
+        let jobError = null;
+
+        if (proofLink.job_table_name === 'production_jobs') {
+          const { data, error } = await supabase
+            .from('production_jobs')
+            .select('*')
+            .eq('id', proofLink.job_id)
+            .single();
+          job = data;
+          jobError = error;
+        } else if (proofLink.job_table_name === 'business_card_jobs') {
+          const { data, error } = await supabase
+            .from('business_card_jobs')
+            .select('*')
+            .eq('id', proofLink.job_id)
+            .single();
+          job = data;
+          jobError = error;
+        } else if (proofLink.job_table_name === 'flyer_jobs') {
+          const { data, error } = await supabase
+            .from('flyer_jobs')
+            .select('*')
+            .eq('id', proofLink.job_id)
+            .single();
+          job = data;
+          jobError = error;
+        } else if (proofLink.job_table_name === 'postcard_jobs') {
+          const { data, error } = await supabase
+            .from('postcard_jobs')
+            .select('*')
+            .eq('id', proofLink.job_id)
+            .single();
+          job = data;
+          jobError = error;
+        } else if (proofLink.job_table_name === 'sleeve_jobs') {
+          const { data, error } = await supabase
+            .from('sleeve_jobs')
+            .select('*')
+            .eq('id', proofLink.job_id)
+            .single();
+          job = data;
+          jobError = error;
+        } else if (proofLink.job_table_name === 'cover_jobs') {
+          const { data, error } = await supabase
+            .from('cover_jobs')
+            .select('*')
+            .eq('id', proofLink.job_id)
+            .single();
+          job = data;
+          jobError = error;
+        } else if (proofLink.job_table_name === 'box_jobs') {
+          const { data, error } = await supabase
+            .from('box_jobs')
+            .select('*')
+            .eq('id', proofLink.job_id)
+            .single();
+          job = data;
+          jobError = error;
+        } else if (proofLink.job_table_name === 'poster_jobs') {
+          const { data, error } = await supabase
+            .from('poster_jobs')
+            .select('*')
+            .eq('id', proofLink.job_id)
+            .single();
+          job = data;
+          jobError = error;
+        } else if (proofLink.job_table_name === 'sticker_jobs') {
+          const { data, error } = await supabase
+            .from('sticker_jobs')
+            .select('*')
+            .eq('id', proofLink.job_id)
+            .single();
+          job = data;
+          jobError = error;
+        }
 
         if (jobError || !job) {
           setError("Unable to load job details");
