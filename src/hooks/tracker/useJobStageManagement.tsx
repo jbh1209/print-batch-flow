@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -101,7 +102,7 @@ export const useJobStageManagement = ({
     }
   }, [recordQRScan, fetchJobStages]);
 
-  // Complete a stage and advance to next
+  // Complete a stage - next stage will remain pending
   const completeStage = useCallback(async (stageId: string, notes?: string, qrData?: any) => {
     setIsProcessing(true);
     try {
@@ -116,7 +117,7 @@ export const useJobStageManagement = ({
         });
       }
 
-      // Advance the stage using the existing function
+      // Use the updated advance function that doesn't auto-activate next stage
       const success = await advanceJobStage(stageId, notes);
       
       if (success) {
@@ -156,10 +157,11 @@ export const useJobStageManagement = ({
     return success;
   }, [reworkStage, jobId, jobTableName, fetchJobStages]);
 
-  // Update job status to reflect current active stage
+  // Update job status to reflect current stage state
   const updateJobStatusToCurrentStage = useCallback(async () => {
     try {
       const activeStage = jobStages.find(stage => stage.status === 'active');
+      const nextPendingStage = jobStages.find(stage => stage.status === 'pending');
       const allCompleted = jobStages.length > 0 && jobStages.every(stage => stage.status === 'completed');
       
       let newStatus = 'queued';
@@ -167,9 +169,13 @@ export const useJobStageManagement = ({
       if (allCompleted) {
         newStatus = 'completed';
       } else if (activeStage) {
+        // Currently working on this stage
         newStatus = activeStage.production_stage.name;
+      } else if (nextPendingStage) {
+        // Waiting to start the next stage
+        newStatus = `Ready for ${nextPendingStage.production_stage.name}`;
       } else if (jobStages.length > 0) {
-        // If no active stage but stages exist, job is waiting to start
+        // If no active or pending stages, something is wrong
         newStatus = 'pending';
       }
 
@@ -215,6 +221,15 @@ export const useJobStageManagement = ({
       stage.stage_order < currentStage.stage_order &&
       ['completed', 'reworked'].includes(stage.status)
     );
+  }, [jobStages]);
+
+  // Check if stage can be started (validation rules)
+  const canStartStage = useCallback((stageId: string) => {
+    const stage = jobStages.find(stage => stage.id === stageId);
+    if (!stage) return false;
+
+    // Can only start if stage is currently pending
+    return stage.status === 'pending';
   }, [jobStages]);
 
   // Check if stage can be advanced (validation rules)
@@ -273,6 +288,7 @@ export const useJobStageManagement = ({
     getCurrentStage,
     getNextStage,
     getAvailableReworkStages,
+    canStartStage,
     canAdvanceStage,
     canReworkStage,
     getWorkflowProgress,

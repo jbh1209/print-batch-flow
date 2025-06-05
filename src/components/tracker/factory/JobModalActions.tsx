@@ -44,6 +44,7 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
     return null;
   }
 
+  // Updated logic: pending stages can be started, active stages can be completed
   const canStart = currentStage.status === 'pending';
   const canComplete = currentStage.status === 'active';
   const isProofStage = currentStage.production_stage.name.toLowerCase().includes('proof');
@@ -143,7 +144,7 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         )}
       </div>
 
-      {/* Proof Stage Specific Actions */}
+      {/* Proof Stage Specific Actions - only show when stage is active */}
       {isProofStage && currentStage.status === 'active' && (
         <div className="space-y-2">
           <div className="text-sm font-medium text-gray-700">Proof Actions:</div>
