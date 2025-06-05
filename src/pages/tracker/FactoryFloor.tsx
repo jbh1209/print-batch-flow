@@ -5,22 +5,34 @@ import { ArrowLeft, Users, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
-import { OperatorDashboard } from "@/components/tracker/factory/OperatorDashboard";
+import { EnhancedOperatorDashboard } from "@/components/tracker/factory/EnhancedOperatorDashboard";
 import { ManagerDashboard } from "@/components/tracker/factory/ManagerDashboard";
 
+/**
+ * Factory Floor page component
+ * 
+ * Displays the appropriate dashboard based on user role:
+ * - DTP operators see a specialized DTP view
+ * - Operators see the operator dashboard
+ * - Managers can switch between operator and manager views
+ */
 const FactoryFloor = () => {
   const { user } = useAuth();
-  const { userRole, isManager, isDtpOperator } = useUserRole();
+  const { userRole, isManager, isDtpOperator, isOperator } = useUserRole();
   const [viewMode, setViewMode] = useState<'operator' | 'manager'>('operator');
 
   // Determine the appropriate title based on user role
   const getTitle = () => {
     if (isDtpOperator) return "DTP Workstation";
+    if (isOperator) return "Factory Floor";
+    if (isManager) return "Production Manager Dashboard";
     return "Factory Floor";
   };
 
   const getSubtitle = () => {
     if (isDtpOperator) return "DTP and Proofing jobs";
+    if (isOperator) return "Production tracking and job management";
+    if (isManager) return "Production oversight and management";
     return "Production tracking and job management";
   };
 
@@ -79,7 +91,7 @@ const FactoryFloor = () => {
       <div className="w-full max-w-[95vw] mx-auto h-[calc(100vh-73px)] sm:h-[calc(100vh-81px)] overflow-hidden">
         <div className="h-full overflow-y-auto">
           {viewMode === 'operator' || !isManager ? (
-            <OperatorDashboard />
+            <EnhancedOperatorDashboard />
           ) : (
             <ManagerDashboard />
           )}

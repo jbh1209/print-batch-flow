@@ -1,6 +1,14 @@
 
 import { AccessCheckResult } from './types';
 
+/**
+ * Determines if a user has access to a job based on their accessible stage IDs and names
+ * 
+ * @param job The job object to check access for
+ * @param accessibleStageIds Array of stage IDs the user has access to
+ * @param accessibleStageNames Array of stage names (lowercase) the user has access to
+ * @returns Object with boolean indicating if job is accessible and reasons for the decision
+ */
 export const checkJobAccess = (
   job: any,
   accessibleStageIds: string[],
@@ -8,8 +16,8 @@ export const checkJobAccess = (
 ): AccessCheckResult => {
   console.log(`🔍 Processing job ${job.wo_no}:`, {
     status: job.status,
-    currentStage: job.current_stage,
-    hasWorkflow: job.has_workflow,
+    currentStage: job.current_stage_name,
+    hasWorkflow: Boolean(job.current_stage_id),
     stagesInfo: job.stages?.map((s: any) => ({
       name: s.stage_name || s.production_stages?.name,
       status: s.status,
@@ -26,7 +34,9 @@ export const checkJobAccess = (
     const hasIdAccess = stageId && accessibleStageIds.includes(stageId);
     
     // Name-based fallback (case-insensitive)
-    const hasNameAccess = stageName && accessibleStageNames.includes(stageName.toLowerCase());
+    const hasNameAccess = stageName && accessibleStageNames.some(name => 
+      stageName.toLowerCase().includes(name)
+    );
     
     // Stage must be active or pending to be workable
     const isWorkableStatus = ['active', 'pending'].includes(stage.status);
@@ -41,54 +51,75 @@ export const checkJobAccess = (
   }) || false;
 
   // Step 2: Check current stage by name for jobs with/without workflows (ENHANCED)
-  const currentStageAccessible = job.current_stage && 
-    accessibleStageNames.includes(job.current_stage.toLowerCase());
+  const currentStageAccessible = job.current_stage_name && 
+    accessibleStageNames.some(name => 
+      job.current_stage_name.toLowerCase().includes(name)
+    );
 
   // Step 3: Check status field for stage-based access
   const statusBasedAccess = job.status && 
-    accessibleStageNames.includes(job.status.toLowerCase());
+    accessibleStageNames.some(name => 
+      job.status.toLowerCase().includes(name)
+    );
 
   // Step 4: ENHANCED - Special handling for jobs without workflows
-  const noWorkflowAccess = !job.has_workflow && (
+  const noWorkflowAccess = !job.current_stage_id && (
     currentStageAccessible || 
     statusBasedAccess ||
     // Default access for DTP users on jobs with no specific stage
-    (!job.current_stage && !job.status && accessibleStageNames.includes('dtp')) ||
+    (!job.current_stage_name && !job.status && accessibleStageNames.includes('dtp')) ||
     // Fallback for jobs with generic statuses that should be accessible to DTP
-    (job.status?.toLowerCase() === 'pre-press' && accessibleStageNames.includes('dtp'))
+    ((job.status?.toLowerCase() === 'pre-press' || job.status?.toLowerCase() === 'new') && 
+      accessibleStageNames.some(name => ['dtp', 'design', 'artwork', 'proof'].includes(name)))
   );
 
-  // NEW Step 5: Direct stage name matching for current_stage
-  const directStageAccess = job.current_stage && 
-    accessibleStageNames.some(name => 
-      name.toLowerCase() === job.current_stage.toLowerCase()
-    );
+  // Step 5: Special DTP filter - For DTP operators, ensure job is DTP related
+  // This check applies if the user only has DTP stage access
+  const isDtpOnlyUser = accessibleStageNames.every(name => 
+    ['dtp', 'proof', 'digital', 'design', 'artwork', 'pre-press'].some(dtpTerm => 
+      name.includes(dtpTerm))
+  ) && accessibleStageNames.length > 0;
+
+  // If user is DTP-only, ensure job has DTP-related stage or status
+  const dtpSpecificAccess = isDtpOnlyUser ? (
+    (job.current_stage_name && ['dtp', 'proof', 'digital', 'design', 'artwork', 'pre-press'].some(term => 
+      job.current_stage_name.toLowerCase().includes(term))) ||
+    (job.status && ['dtp', 'proof', 'digital', 'design', 'artwork', 'pre-press'].some(term => 
+      job.status.toLowerCase().includes(term)))
+  ) : true; // If not DTP-only user, this check is always true
 
   // Combine all access checks
-  const isAccessible = hasAccessibleWorkflowStages || 
+  const isAccessible = (hasAccessibleWorkflowStages || 
                       currentStageAccessible || 
                       statusBasedAccess ||
-                      noWorkflowAccess ||
-                      directStageAccess;
+                      noWorkflowAccess) && 
+                      dtpSpecificAccess;
 
   const accessReasons = {
     hasAccessibleWorkflowStages,
     currentStageAccessible,
     statusBasedAccess,
     noWorkflowAccess,
-    directStageAccess
+    dtpSpecificAccess,
+    isDtpOnlyUser
   };
 
   console.log(`  🎯 Access check result for ${job.wo_no}:`, {
     isAccessible,
     accessReasons,
-    currentStage: job.current_stage,
+    currentStage: job.current_stage_name,
     userStageNames: accessibleStageNames
   });
 
   return { isAccessible, accessReasons: accessReasons };
 };
 
+/**
+ * Determines if a job has been completed
+ * 
+ * @param job The job object to check
+ * @returns Boolean indicating if the job is completed
+ */
 export const isJobCompleted = (job: any): boolean => {
   return ['completed', 'shipped', 'delivered', 'cancelled', 'finished'].includes(
     job.status?.toLowerCase() || ''

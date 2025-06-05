@@ -4,9 +4,44 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserStagePermissions } from "./useUserStagePermissions";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Represents the available user roles in the system
+ */
 export type UserRole = 'admin' | 'manager' | 'operator' | 'dtp_operator' | 'user';
 
-export const useUserRole = () => {
+/**
+ * Response from the useUserRole hook
+ */
+export interface UserRoleResponse {
+  /** The current user's role */
+  userRole: UserRole;
+  /** Whether the role data is still loading */
+  isLoading: boolean;
+  /** Whether the user is an admin */
+  isAdmin: boolean;
+  /** Whether the user is a manager (or admin) */
+  isManager: boolean;
+  /** Whether the user is any type of operator */
+  isOperator: boolean;
+  /** Whether the user is specifically a DTP operator */
+  isDtpOperator: boolean;
+  /** List of stages the user has access to */
+  accessibleStages: Array<{
+    stage_id: string;
+    stage_name: string;
+    stage_color: string;
+    can_view: boolean;
+    can_edit: boolean;
+    can_work: boolean;
+    can_manage: boolean;
+  }>;
+}
+
+/**
+ * Hook to determine the current user's role in the system
+ * @returns UserRoleResponse object containing role information
+ */
+export const useUserRole = (): UserRoleResponse => {
   const { user } = useAuth();
   const { accessibleStages, isLoading: stagesLoading } = useUserStagePermissions();
   const [userRole, setUserRole] = useState<UserRole>('user');
@@ -17,7 +52,7 @@ export const useUserRole = () => {
       if (!user?.id || stagesLoading) return;
 
       try {
-        // Check for admin role first
+        // Check for admin role first - this takes precedence over all other roles
         const { data: userRoles, error } = await supabase
           .from('user_roles')
           .select('role')
@@ -36,16 +71,22 @@ export const useUserRole = () => {
         const { data: groupMemberships, error: groupError } = await supabase
           .from('user_group_memberships')
           .select(`
-            user_groups!inner(name)
+            user_groups!inner(name, description)
           `)
           .eq('user_id', user.id);
 
         if (groupError) throw groupError;
 
-        const isManager = groupMemberships?.some(m => 
-          m.user_groups?.name?.toLowerCase().includes('manager') || 
-          m.user_groups?.name?.toLowerCase().includes('supervisor')
-        );
+        // Check for manager role in group names or descriptions
+        const isManager = groupMemberships?.some(m => {
+          const groupName = m.user_groups?.name?.toLowerCase() || '';
+          const groupDesc = m.user_groups?.description?.toLowerCase() || '';
+          
+          return groupName.includes('manager') || 
+                 groupName.includes('supervisor') ||
+                 groupDesc.includes('manager role') ||
+                 groupDesc.includes('supervisor role');
+        });
 
         if (isManager) {
           setUserRole('manager');
@@ -53,36 +94,48 @@ export const useUserRole = () => {
           return;
         }
 
-        // Enhanced DTP operator detection based on accessible stages
+        // ENHANCED: More precise DTP operator detection based on accessible stages
+        // Calculate user's workable DTP stages and total workable stages
         const dtpRelatedStages = accessibleStages.filter(stage => {
           const stageName = stage.stage_name.toLowerCase();
           return stageName.includes('dtp') || 
                  stageName.includes('digital') ||
                  stageName.includes('proof') ||
                  stageName.includes('pre-press') ||
-                 stageName.includes('design');
+                 stageName.includes('design') ||
+                 stageName.includes('artwork');
         });
 
         const workableStages = accessibleStages.filter(stage => stage.can_work);
+        const workableDtpStages = dtpRelatedStages.filter(stage => stage.can_work);
         
-        // If user has work permissions on DTP-related stages and limited total stages, they're a DTP operator
-        if (dtpRelatedStages.length > 0 && workableStages.length <= 5) {
-          setUserRole('dtp_operator');
+        // Log detailed information for debugging purposes
+        console.log('🧑‍💻 User role determination:', {
+          userId: user.id,
+          totalStages: accessibleStages.length,
+          workableStages: workableStages.length,
+          dtpStages: dtpRelatedStages.length,
+          workableDtpStages: workableDtpStages.length,
+          stageNames: workableStages.map(s => s.stage_name)
+        });
+        
+        // Primary criteria: User is considered a DTP operator if they have workable
+        // DTP-related stages and at least half of their workable stages are DTP-related
+        if (workableDtpStages.length > 0) {
+          const dtpRatio = workableDtpStages.length / workableStages.length;
+          
+          if (dtpRatio >= 0.5) {
+            setUserRole('dtp_operator');
+          } else if (workableStages.length > 0) {
+            setUserRole('operator');
+          } else {
+            setUserRole('user');
+          }
         } else if (workableStages.length > 0) {
           setUserRole('operator');
         } else {
           setUserRole('user');
         }
-
-        console.log('🎯 User role determination:', {
-          userId: user.id,
-          totalStages: accessibleStages.length,
-          workableStages: workableStages.length,
-          dtpStages: dtpRelatedStages.length,
-          determinedRole: userRole,
-          stageNames: dtpRelatedStages.map(s => s.stage_name)
-        });
-
       } catch (error) {
         console.error('Error determining user role:', error);
         setUserRole('user');
@@ -94,9 +147,10 @@ export const useUserRole = () => {
     determineUserRole();
   }, [user?.id, accessibleStages, stagesLoading]);
 
+  // Derived properties for convenient access
   const isAdmin = userRole === 'admin';
   const isManager = userRole === 'manager' || userRole === 'admin';
-  const isOperator = userRole === 'operator' || userRole === 'dtp_operator';
+  const isOperator = userRole === 'operator' || userRole === 'dtp_operator' || isManager;
   const isDtpOperator = userRole === 'dtp_operator';
 
   return {

@@ -22,23 +22,29 @@ export interface JobCategories {
 export interface JobStatusBadgeInfo {
   text: string;
   className: string;
-  variant: 'default' | 'destructive' | 'secondary' | 'outline';
+  variant: "default" | "destructive" | "secondary" | "outline";
 }
 
-// Pure function to determine job status from current stage status
+/**
+ * Pure function to determine job status from current stage status
+ */
 export const processJobStatus = (job: AccessibleJob): 'pending' | 'active' | 'completed' => {
   if (job.current_stage_status === 'active') return 'active';
   if (job.current_stage_status === 'completed') return 'completed';
   return 'pending';
 };
 
-// Pure function to check if job is overdue
+/**
+ * Pure function to check if job is overdue
+ */
 export const isJobOverdue = (job: AccessibleJob): boolean => {
   if (!job.due_date) return false;
   return new Date(job.due_date) < new Date();
 };
 
-// Pure function to check if job is due soon
+/**
+ * Pure function to check if job is due soon
+ */
 export const isJobDueSoon = (job: AccessibleJob): boolean => {
   if (!job.due_date) return false;
   const dueDate = new Date(job.due_date);
@@ -48,7 +54,9 @@ export const isJobDueSoon = (job: AccessibleJob): boolean => {
   return !isJobOverdue(job) && dueDate <= threeDaysFromNow;
 };
 
-// Pure function to categorize jobs
+/**
+ * Pure function to categorize jobs
+ */
 export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
   const pendingJobs = jobs.filter(job => processJobStatus(job) === 'pending');
   const activeJobs = jobs.filter(job => processJobStatus(job) === 'active');
@@ -58,14 +66,23 @@ export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
     isJobOverdue(job) || isJobDueSoon(job)
   );
 
+  // Enhanced DTP/Proof job categorization with broader matching
   const dtpJobs = jobs.filter(job => {
     if (!job.current_stage_name) return false;
-    return job.current_stage_name.toLowerCase().includes('dtp');
+    const stageName = job.current_stage_name.toLowerCase();
+    return stageName.includes('dtp') || 
+           stageName.includes('digital') || 
+           stageName.includes('design') || 
+           stageName.includes('artwork') || 
+           stageName.includes('pre-press');
   });
 
   const proofJobs = jobs.filter(job => {
     if (!job.current_stage_name) return false;
-    return job.current_stage_name.toLowerCase().includes('proof');
+    const stageName = job.current_stage_name.toLowerCase();
+    return stageName.includes('proof') ||
+           stageName.includes('review') ||
+           stageName.includes('approve');
   });
 
   return {
@@ -78,7 +95,9 @@ export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
   };
 };
 
-// Pure function to calculate job counts
+/**
+ * Pure function to calculate job counts
+ */
 export const calculateJobCounts = (jobs: AccessibleJob[]): ProcessedJobCounts => {
   const categories = categorizeJobs(jobs);
   
@@ -92,7 +111,9 @@ export const calculateJobCounts = (jobs: AccessibleJob[]): ProcessedJobCounts =>
   };
 };
 
-// Pure function to sort jobs by priority
+/**
+ * Pure function to sort jobs by priority
+ */
 export const sortJobsByPriority = (jobs: AccessibleJob[]): AccessibleJob[] => {
   return [...jobs].sort((a, b) => {
     const aStatus = processJobStatus(a);
@@ -121,21 +142,27 @@ export const sortJobsByPriority = (jobs: AccessibleJob[]): AccessibleJob[] => {
   });
 };
 
-// Pure function to check if job can be started
+/**
+ * Pure function to check if job can be started
+ */
 export const canStartJob = (job: AccessibleJob): boolean => {
   return job.user_can_work && 
          job.current_stage_id && 
          processJobStatus(job) === 'pending';
 };
 
-// Pure function to check if job can be completed
+/**
+ * Pure function to check if job can be completed
+ */
 export const canCompleteJob = (job: AccessibleJob): boolean => {
   return job.user_can_work && 
          job.current_stage_id && 
          processJobStatus(job) === 'active';
 };
 
-// Pure function to get job status badge info
+/**
+ * Pure function to get job status badge info
+ */
 export const getJobStatusBadgeInfo = (job: AccessibleJob): JobStatusBadgeInfo => {
   const status = processJobStatus(job);
   const isOverdue = isJobOverdue(job);
@@ -173,6 +200,7 @@ export const getJobStatusBadgeInfo = (job: AccessibleJob): JobStatusBadgeInfo =>
     };
   }
   
+  // Show "Ready to Start" for new/pending jobs instead of generic "pending"
   return {
     text: 'Ready to Start',
     className: 'bg-green-600 text-white',
@@ -180,7 +208,33 @@ export const getJobStatusBadgeInfo = (job: AccessibleJob): JobStatusBadgeInfo =>
   };
 };
 
-// Pure function to calculate filter counts
+/**
+ * Helper to determine if a job is truly new (never been started)
+ */
+export const isJobNew = (job: AccessibleJob): boolean => {
+  return !job.current_stage_status || job.current_stage_status === 'pending';
+};
+
+/**
+ * Helper to get user-friendly status text
+ */
+export const getJobStatusText = (job: AccessibleJob): string => {
+  const status = processJobStatus(job);
+  
+  if (status === 'active') return 'In Progress';
+  if (status === 'completed') return 'Completed';
+  
+  // For pending jobs, show more specific status
+  if (isJobNew(job)) {
+    return 'New';
+  }
+  
+  return 'Ready to Start';
+};
+
+/**
+ * Pure function to calculate filter counts
+ */
 export const calculateFilterCounts = (jobs: AccessibleJob[]) => {
   if (!jobs || jobs.length === 0) {
     return { all: 0, available: 0, 'my-active': 0, urgent: 0 };
