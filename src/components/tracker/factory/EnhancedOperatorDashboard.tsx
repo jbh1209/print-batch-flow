@@ -54,6 +54,9 @@ export const EnhancedOperatorDashboard = () => {
     return <DtpDashboard />;
   }
 
+  // Calculate connection status
+  const isConnected = lastFetchTime > 0 && (Date.now() - lastFetchTime) < 60000; // 1 minute
+
   // Memoize relevant stage IDs to prevent unnecessary recalculations
   const relevantStageIds = useMemo(() => {
     return accessibleStages.map(stage => stage.stage_id);
