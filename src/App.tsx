@@ -23,6 +23,7 @@ import FactoryFloor from "./pages/tracker/FactoryFloor";
 import Auth from "./pages/Auth";
 import AppSelector from "./pages/AppSelector";
 import TrackerUsers from "./pages/tracker/TrackerUsers";
+import BatchFlowLayout from "./components/BatchFlowLayout";
 
 function App() {
   const [session, setSession] = useState(null);
@@ -57,6 +58,16 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AppSelector />
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* BatchFlow route */}
+            <Route
+              path="/batchflow"
+              element={
+                <ProtectedRoute>
+                  <BatchFlowLayout />
                 </ProtectedRoute>
               }
             />
