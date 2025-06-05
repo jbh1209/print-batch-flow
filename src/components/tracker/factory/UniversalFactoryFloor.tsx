@@ -100,45 +100,53 @@ export const UniversalFactoryFloor = () => {
     );
   }
 
-  // Calculate dynamic column width based on number of stages
-  const columnCount = workableStages.length;
-  const gridCols = columnCount === 1 ? "grid-cols-1" : 
-                   columnCount === 2 ? "grid-cols-2" : 
-                   columnCount === 3 ? "grid-cols-3" : 
-                   columnCount === 4 ? "grid-cols-4" : 
-                   "grid-cols-5";
+  // Determine responsive grid classes based on column count
+  const getGridClass = (columnCount: number) => {
+    if (columnCount === 1) return "grid-cols-1";
+    if (columnCount === 2) return "grid-cols-1 lg:grid-cols-2";
+    if (columnCount === 3) return "grid-cols-1 md:grid-cols-2 xl:grid-cols-3";
+    if (columnCount === 4) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+    return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
+  };
+
+  const gridClass = getGridClass(workableStages.length);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <FactoryFloorHeader
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onRefresh={handleRefresh}
-        isRefreshing={isRefreshing}
-      />
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0">
+        <FactoryFloorHeader
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+        />
+      </div>
 
-      {/* Kanban Board */}
-      <div className="flex-1 p-4">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-hidden">
         {workableStages.length === 0 ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex items-center justify-center h-full">
             <div className="text-center text-gray-500">
               <p className="text-lg">No accessible stages found</p>
               <p className="text-sm">Contact your administrator for access permissions.</p>
             </div>
           </div>
         ) : (
-          <div className={`grid ${gridCols} gap-4 h-full`}>
-            {workableStages.map(stage => (
-              <UniversalKanbanColumn
-                key={stage.stage_id}
-                stage={stage}
-                jobs={jobsByStage[stage.stage_id] || []}
-                onStart={startJob}
-                onComplete={completeJob}
-                onJobClick={handleJobClick}
-              />
-            ))}
+          <div className="h-full overflow-auto p-4">
+            <div className={`grid ${gridClass} gap-4 min-h-full`}>
+              {workableStages.map(stage => (
+                <div key={stage.stage_id} className="min-h-0">
+                  <UniversalKanbanColumn
+                    stage={stage}
+                    jobs={jobsByStage[stage.stage_id] || []}
+                    onStart={startJob}
+                    onComplete={completeJob}
+                    onJobClick={handleJobClick}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
