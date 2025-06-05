@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
@@ -13,34 +12,12 @@ import {
   Pause, 
   CheckCircle, 
   Tags,
-  Calendar,
-  FileText,
-  AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-
-interface BulkJobOperationsProps {
-  selectedJobs: AccessibleJob[];
-  onBulkStart?: (jobIds: string[]) => Promise<boolean>;
-  onBulkComplete?: (jobIds: string[]) => Promise<boolean>;
-  onBulkHold?: (jobIds: string[], reason: string, notes?: string) => Promise<boolean>;
-  onBulkStatusUpdate?: (jobIds: string[], status: string) => Promise<boolean>;
-  onBulkCategoryAssign?: (jobIds: string[], categoryId: string) => Promise<boolean>;
-  onBulkPriorityUpdate?: (jobIds: string[], priority: number) => Promise<boolean>;
-  onClearSelection?: () => void;
-  className?: string;
-}
-
-interface BulkOperation {
-  id: string;
-  label: string;
-  description: string;
-  icon: React.ReactNode;
-  category: 'workflow' | 'management' | 'organization';
-  requiresConfirmation: boolean;
-}
+import { BulkOperationSelector, BulkOperation } from "./bulk/BulkOperationSelector";
 
 const BULK_OPERATIONS: BulkOperation[] = [
   {
@@ -82,16 +59,19 @@ const BULK_OPERATIONS: BulkOperation[] = [
     icon: <Tags className="h-4 w-4" />,
     category: 'organization',
     requiresConfirmation: false
-  },
-  {
-    id: 'update_priority',
-    label: 'Update Priority',
-    description: 'Set priority level for selected jobs',
-    icon: <AlertTriangle className="h-4 w-4" />,
-    category: 'management',
-    requiresConfirmation: true
   }
 ];
+
+interface BulkJobOperationsProps {
+  selectedJobs: AccessibleJob[];
+  onBulkStart?: (jobIds: string[]) => Promise<boolean>;
+  onBulkComplete?: (jobIds: string[]) => Promise<boolean>;
+  onBulkHold?: (jobIds: string[], reason: string, notes?: string) => Promise<boolean>;
+  onBulkStatusUpdate?: (jobIds: string[], status: string) => Promise<boolean>;
+  onBulkCategoryAssign?: (jobIds: string[], categoryId: string) => Promise<boolean>;
+  onClearSelection?: () => void;
+  className?: string;
+}
 
 export const BulkJobOperations: React.FC<BulkJobOperationsProps> = ({
   selectedJobs,
@@ -100,7 +80,6 @@ export const BulkJobOperations: React.FC<BulkJobOperationsProps> = ({
   onBulkHold,
   onBulkStatusUpdate,
   onBulkCategoryAssign,
-  onBulkPriorityUpdate,
   onClearSelection,
   className
 }) => {
@@ -112,23 +91,6 @@ export const BulkJobOperations: React.FC<BulkJobOperationsProps> = ({
   if (selectedJobs.length === 0) {
     return null;
   }
-
-  const getOperationsByCategory = () => {
-    const categories = ['workflow', 'management', 'organization'];
-    return categories.reduce((acc, category) => {
-      acc[category] = BULK_OPERATIONS.filter(op => op.category === category);
-      return acc;
-    }, {} as Record<string, BulkOperation[]>);
-  };
-
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      workflow: 'bg-blue-100 text-blue-800',
-      management: 'bg-green-100 text-green-800',
-      organization: 'bg-purple-100 text-purple-800'
-    };
-    return colors[category as keyof typeof colors] || colors.workflow;
-  };
 
   const handleOperationToggle = (operationId: string, checked: boolean) => {
     if (checked) {
@@ -169,19 +131,12 @@ export const BulkJobOperations: React.FC<BulkJobOperationsProps> = ({
             break;
           case 'assign_category':
             if (onBulkCategoryAssign) {
-              // This would need category selection UI
               console.log('Category assignment would need category selector');
-            }
-            break;
-          case 'update_priority':
-            if (onBulkPriorityUpdate) {
-              await onBulkPriorityUpdate(jobIds, 1);
             }
             break;
         }
       }
 
-      // Clear selections after successful operations
       setSelectedOperations([]);
       setOperationNotes("");
       setShowConfirmation(false);
@@ -193,7 +148,6 @@ export const BulkJobOperations: React.FC<BulkJobOperationsProps> = ({
     }
   };
 
-  const operationsByCategory = getOperationsByCategory();
   const requiresConfirmation = selectedOperations.some(id => 
     BULK_OPERATIONS.find(op => op.id === id)?.requiresConfirmation
   );
@@ -229,46 +183,11 @@ export const BulkJobOperations: React.FC<BulkJobOperationsProps> = ({
 
         <Separator />
 
-        {/* Operation Selection */}
-        <div className="space-y-4">
-          <Label className="text-sm font-medium">Select Operations</Label>
-          {Object.entries(operationsByCategory).map(([category, operations]) => (
-            <div key={category} className="space-y-3">
-              <Badge className={getCategoryColor(category)} variant="secondary">
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </Badge>
-              <div className="ml-4 space-y-2">
-                {operations.map((operation) => (
-                  <div key={operation.id} className="flex items-start space-x-3">
-                    <Checkbox
-                      id={operation.id}
-                      checked={selectedOperations.includes(operation.id)}
-                      onCheckedChange={(checked) => 
-                        handleOperationToggle(operation.id, checked as boolean)
-                      }
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <Label 
-                        htmlFor={operation.id} 
-                        className="flex items-center gap-2 text-sm font-medium cursor-pointer"
-                      >
-                        {operation.icon}
-                        {operation.label}
-                        {operation.requiresConfirmation && (
-                          <AlertTriangle className="h-3 w-3 text-orange-500" />
-                        )}
-                      </Label>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {operation.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <BulkOperationSelector
+          operations={BULK_OPERATIONS}
+          selectedOperations={selectedOperations}
+          onOperationToggle={handleOperationToggle}
+        />
 
         {/* Operation Notes */}
         {selectedOperations.length > 0 && (
