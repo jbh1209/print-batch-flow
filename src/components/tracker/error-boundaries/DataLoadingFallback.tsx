@@ -11,6 +11,7 @@ interface DataLoadingFallbackProps {
   onRetry?: () => void;
   onRefresh?: () => void;
   showDetails?: boolean;
+  additionalActions?: React.ReactNode;
 }
 
 export const DataLoadingFallback: React.FC<DataLoadingFallbackProps> = ({
@@ -18,7 +19,8 @@ export const DataLoadingFallback: React.FC<DataLoadingFallbackProps> = ({
   componentName = 'component',
   onRetry,
   onRefresh,
-  showDetails = false
+  showDetails = false,
+  additionalActions
 }) => {
   return (
     <Card className="border-orange-200 bg-orange-50">
@@ -56,6 +58,12 @@ export const DataLoadingFallback: React.FC<DataLoadingFallbackProps> = ({
             </Button>
           )}
         </div>
+        
+        {additionalActions && (
+          <div className="mt-4">
+            {additionalActions}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
