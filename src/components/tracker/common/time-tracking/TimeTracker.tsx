@@ -1,172 +1,178 @@
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause } from "lucide-react";
+import { 
+  Play, 
+  Pause, 
+  Clock,
+  RotateCcw
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface TimeSession {
-  id: string;
-  start_time: Date;
-  end_time?: Date;
-  duration_minutes: number;
-  is_active: boolean;
-}
-
-interface TimeEntry {
-  start_time: Date;
-  end_time?: Date;
-  duration_minutes: number;
+export interface TimeEntry {
+  startTime: Date;
+  endTime?: Date;
+  duration: number; // in seconds
   notes?: string;
+  jobNumber: string;
 }
 
 interface TimeTrackerProps {
-  onTimeUpdate?: (timeData: TimeEntry) => Promise<void>;
+  onTimeUpdate: (timeData: TimeEntry) => Promise<void>;
   jobNumber: string;
+  className?: string;
 }
 
 export const TimeTracker: React.FC<TimeTrackerProps> = ({
   onTimeUpdate,
-  jobNumber
+  jobNumber,
+  className
 }) => {
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
-  const [activeSession, setActiveSession] = useState<TimeSession | null>(null);
+  const [isTracking, setIsTracking] = useState(false);
+  const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [totalTimeToday, setTotalTimeToday] = useState(0);
 
+  // Update elapsed time every second when tracking
   useEffect(() => {
-    if (!activeSession) return;
+    let interval: NodeJS.Timeout;
+    
+    if (isTracking && startTime) {
+      interval = setInterval(() => {
+        const now = new Date();
+        const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+        setElapsedTime(elapsed);
+      }, 1000);
+    }
 
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const start = activeSession.start_time.getTime();
-      setElapsedTime(Math.floor((now - start) / 1000));
-    }, 1000);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isTracking, startTime]);
 
-    return () => clearInterval(interval);
-  }, [activeSession]);
-
-  const formatTime = useCallback((seconds: number): string => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
+  const formatTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m ${secs}s`;
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
-    return `${mins}m ${secs}s`;
-  }, []);
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
 
-  const formatDuration = useCallback((minutes: number): string => {
-    if (minutes < 60) {
-      return `${minutes}m`;
-    }
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `${hours}h ${remainingMinutes > 0 ? ` ${remainingMinutes}m` : ''}`;
-  }, []);
-
-  const getTotalTimeSpent = useCallback((): number => {
-    const completedTime = timeEntries.reduce((total, entry) => total + entry.duration_minutes, 0);
-    const activeTime = activeSession ? Math.floor(elapsedTime / 60) : 0;
-    return completedTime + activeTime;
-  }, [timeEntries, activeSession, elapsedTime]);
-
-  const handleStartTimer = useCallback(() => {
-    if (activeSession) return;
-
-    const newSession: TimeSession = {
-      id: `session_${Date.now()}`,
-      start_time: new Date(),
-      is_active: true,
-      duration_minutes: 0
-    };
-
-    setActiveSession(newSession);
+  const handleStartTimer = () => {
+    const now = new Date();
+    setStartTime(now);
+    setIsTracking(true);
     setElapsedTime(0);
-  }, [activeSession]);
+  };
 
-  const handleStopTimer = useCallback(async () => {
-    if (!activeSession) return;
+  const handleStopTimer = async () => {
+    if (!startTime) return;
 
     const endTime = new Date();
-    const durationMinutes = Math.floor(elapsedTime / 60);
-
-    const completedEntry: TimeEntry = {
-      start_time: activeSession.start_time,
-      end_time: endTime,
-      duration_minutes: durationMinutes,
-      notes: `Work session on ${jobNumber}`
+    const duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+    
+    const timeEntry: TimeEntry = {
+      startTime,
+      endTime,
+      duration,
+      jobNumber
     };
 
-    setTimeEntries(prev => [...prev, completedEntry]);
-    setActiveSession(null);
-    setElapsedTime(0);
-
-    if (onTimeUpdate) {
-      try {
-        await onTimeUpdate(completedEntry);
-      } catch (error) {
-        console.error("Failed to save time entry:", error);
-      }
+    try {
+      await onTimeUpdate(timeEntry);
+      setTotalTimeToday(prev => prev + duration);
+      setIsTracking(false);
+      setStartTime(null);
+      setElapsedTime(0);
+    } catch (error) {
+      console.error('Failed to save time entry:', error);
     }
-  }, [activeSession, elapsedTime, jobNumber, onTimeUpdate]);
+  };
+
+  const handleResetTimer = () => {
+    setIsTracking(false);
+    setStartTime(null);
+    setElapsedTime(0);
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h4 className="font-medium">Time Tracking</h4>
-        <Badge variant="secondary">
-          Total: {formatDuration(getTotalTimeSpent())}
-        </Badge>
-      </div>
-
-      {activeSession ? (
-        <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="font-medium">Active Session</span>
-            <Badge variant="default" className="bg-green-600">
-              {formatTime(elapsedTime)}
+    <Card className={cn("w-full", className)}>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5" />
+          Time Tracking
+          {isTracking && (
+            <Badge variant="default" className="bg-green-600 animate-pulse">
+              Recording
             </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Current Session */}
+        <div className="text-center space-y-2">
+          <div className="text-3xl font-mono font-bold text-blue-600">
+            {formatTime(elapsedTime)}
           </div>
-          <Button 
-            onClick={handleStopTimer}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Pause className="h-4 w-4" />
-            Stop
-          </Button>
+          <p className="text-sm text-gray-600">Current Session</p>
         </div>
-      ) : (
-        <Button 
-          onClick={handleStartTimer}
-          className="w-full flex items-center gap-2 bg-green-600 hover:bg-green-700"
-        >
-          <Play className="h-4 w-4" />
-          Start Timer
-        </Button>
-      )}
 
-      {timeEntries.length > 0 && (
-        <div className="space-y-2">
-          <h5 className="text-sm font-medium text-gray-700">Previous Sessions</h5>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {timeEntries.slice(-5).map((entry, index) => (
-              <div key={index} className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded">
-                <span className="text-gray-600">
-                  {entry.start_time.toLocaleDateString()} {entry.start_time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <Badge variant="outline">
-                  {formatDuration(entry.duration_minutes)}
-                </Badge>
-              </div>
-            ))}
-          </div>
+        {/* Control Buttons */}
+        <div className="flex gap-2">
+          {!isTracking ? (
+            <Button 
+              onClick={handleStartTimer}
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Start Timer
+            </Button>
+          ) : (
+            <>
+              <Button 
+                onClick={handleStopTimer}
+                className="flex-1 bg-red-600 hover:bg-red-700"
+              >
+                <Pause className="h-4 w-4 mr-2" />
+                Stop & Save
+              </Button>
+              <Button 
+                onClick={handleResetTimer}
+                variant="outline"
+                size="icon"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
-      )}
-    </div>
+
+        {/* Daily Summary */}
+        {totalTimeToday > 0 && (
+          <div className="pt-3 border-t">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Total Today:</span>
+              <span className="font-semibold">{formatTime(totalTimeToday)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Status Indicator */}
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div 
+            className={cn(
+              "w-2 h-2 rounded-full",
+              isTracking ? "bg-green-500 animate-pulse" : "bg-gray-300"
+            )}
+          />
+          <span>{isTracking ? "Timer active" : "Timer stopped"}</span>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
-
-export type { TimeEntry };

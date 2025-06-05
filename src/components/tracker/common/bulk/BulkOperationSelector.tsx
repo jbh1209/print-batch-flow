@@ -1,11 +1,11 @@
 
 import React from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
-interface BulkOperation {
+export interface BulkOperation {
   id: string;
   label: string;
   description: string;
@@ -20,72 +20,92 @@ interface BulkOperationSelectorProps {
   onOperationToggle: (operationId: string, checked: boolean) => void;
 }
 
-const CATEGORY_COLORS = {
-  workflow: 'bg-blue-100 text-blue-800',
-  management: 'bg-green-100 text-green-800',
-  organization: 'bg-purple-100 text-purple-800'
-} as const;
-
 export const BulkOperationSelector: React.FC<BulkOperationSelectorProps> = ({
   operations,
   selectedOperations,
   onOperationToggle
 }) => {
-  const getOperationsByCategory = () => {
-    const categories = ['workflow', 'management', 'organization'] as const;
-    return categories.reduce((acc, category) => {
-      acc[category] = operations.filter(op => op.category === category);
-      return acc;
-    }, {} as Record<typeof categories[number], BulkOperation[]>);
+  const groupedOperations = operations.reduce((acc, operation) => {
+    if (!acc[operation.category]) {
+      acc[operation.category] = [];
+    }
+    acc[operation.category].push(operation);
+    return acc;
+  }, {} as Record<string, BulkOperation[]>);
+
+  const getCategoryLabel = (category: string): string => {
+    switch (category) {
+      case 'workflow': return 'Workflow Operations';
+      case 'management': return 'Management Operations';
+      case 'organization': return 'Organization Operations';
+      default: return category;
+    }
   };
 
-  const getCategoryColor = (category: BulkOperation['category']): string => {
-    return CATEGORY_COLORS[category];
+  const getCategoryColor = (category: string): string => {
+    switch (category) {
+      case 'workflow': return 'bg-blue-100 text-blue-800';
+      case 'management': return 'bg-green-100 text-green-800';
+      case 'organization': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
-
-  const operationsByCategory = getOperationsByCategory();
 
   return (
     <div className="space-y-4">
       <Label className="text-sm font-medium">Select Operations</Label>
-      {Object.entries(operationsByCategory).map(([category, categoryOperations]) => (
-        <div key={category} className="space-y-3">
-          <Badge className={getCategoryColor(category as BulkOperation['category'])} variant="secondary">
-            {category.charAt(0).toUpperCase() + category.slice(1)}
-          </Badge>
-          <div className="ml-4 space-y-2">
-            {categoryOperations.map((operation) => (
-              <div key={operation.id} className="flex items-start space-x-3">
-                <Checkbox
-                  id={operation.id}
-                  checked={selectedOperations.includes(operation.id)}
-                  onCheckedChange={(checked) => 
-                    onOperationToggle(operation.id, checked as boolean)
-                  }
-                  className="mt-0.5"
-                />
-                <div className="flex-1">
-                  <Label 
-                    htmlFor={operation.id} 
-                    className="flex items-center gap-2 text-sm font-medium cursor-pointer"
-                  >
-                    {operation.icon}
-                    {operation.label}
-                    {operation.requiresConfirmation && (
-                      <AlertTriangle className="h-3 w-3 text-orange-500" />
-                    )}
-                  </Label>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {operation.description}
-                  </p>
+      
+      {Object.entries(groupedOperations).map(([category, categoryOps], index) => (
+        <div key={category}>
+          {index > 0 && <Separator className="my-4" />}
+          
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant="secondary" 
+                className={getCategoryColor(category)}
+              >
+                {getCategoryLabel(category)}
+              </Badge>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-3">
+              {categoryOps.map((operation) => (
+                <div 
+                  key={operation.id}
+                  className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <Checkbox
+                    id={operation.id}
+                    checked={selectedOperations.includes(operation.id)}
+                    onCheckedChange={(checked) => 
+                      onOperationToggle(operation.id, checked as boolean)
+                    }
+                  />
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="text-gray-500">
+                      {operation.icon}
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor={operation.id} className="font-medium cursor-pointer">
+                        {operation.label}
+                        {operation.requiresConfirmation && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            Requires Confirmation
+                          </Badge>
+                        )}
+                      </Label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {operation.description}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       ))}
     </div>
   );
 };
-
-export type { BulkOperation };
