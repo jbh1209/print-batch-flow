@@ -90,7 +90,7 @@ export const HoldReasonSelector: React.FC<HoldReasonSelectorProps> = ({
   onReasonChange
 }) => {
   const getReasonsByCategory = () => {
-    const categories = ['material', 'equipment', 'quality', 'approval', 'scheduling', 'other'];
+    const categories = ['material', 'equipment', 'quality', 'approval', 'scheduling', 'other'] as const;
     return categories.reduce((acc, category) => {
       acc[category] = HOLD_REASONS.filter(reason => reason.category === category);
       return acc;

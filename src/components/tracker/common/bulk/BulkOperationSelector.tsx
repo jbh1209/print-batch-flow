@@ -26,7 +26,7 @@ export const BulkOperationSelector: React.FC<BulkOperationSelectorProps> = ({
   onOperationToggle
 }) => {
   const getOperationsByCategory = () => {
-    const categories = ['workflow', 'management', 'organization'];
+    const categories = ['workflow', 'management', 'organization'] as const;
     return categories.reduce((acc, category) => {
       acc[category] = operations.filter(op => op.category === category);
       return acc;
