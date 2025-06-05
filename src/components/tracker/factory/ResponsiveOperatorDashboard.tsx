@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
@@ -12,6 +13,12 @@ import { MobileFilterTabs } from "./mobile/MobileFilterTabs";
 import { MobileHeader } from "./mobile/MobileHeader";
 import { SwipeableJobCard } from "./mobile/SwipeableJobCard";
 import { calculateFilterCounts } from "@/hooks/tracker/useAccessibleJobs/pureJobProcessor";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 type FilterType = 'all' | 'available' | 'my-active' | 'urgent';
@@ -93,6 +100,14 @@ export const ResponsiveOperatorDashboard = () => {
     }
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedJobs(filteredJobs.map(job => job.job_id));
+    } else {
+      setSelectedJobs([]);
+    }
+  };
+
   const handleClearSelection = () => {
     setSelectedJobs([]);
     setShowBulkOperations(false);
@@ -101,6 +116,51 @@ export const ResponsiveOperatorDashboard = () => {
   const handleHoldJob = async (jobId: string, reason: string) => {
     console.log('Holding job:', jobId, reason);
     // TODO: Implement job hold API call
+    return true;
+  };
+
+  const handleReleaseJob = async (jobId: string) => {
+    console.log('Releasing job:', jobId);
+    // TODO: Implement job release API call
+    return true;
+  };
+
+  const handleNotesUpdate = async (jobId: string, notes: string) => {
+    console.log('Updating notes for job:', jobId, notes);
+    // TODO: Implement notes update API call
+    return true;
+  };
+
+  const handleTimeUpdate = async (jobId: string, timeSpent: number) => {
+    console.log('Updating time for job:', jobId, timeSpent);
+    // TODO: Implement time update API call
+    return true;
+  };
+
+  const handleBulkStart = async (jobIds: string[]) => {
+    for (const jobId of jobIds) {
+      const job = jobs?.find(j => j.job_id === jobId);
+      if (job && job.current_stage_id) {
+        await startJob(jobId, job.current_stage_id);
+      }
+    }
+    return true;
+  };
+
+  const handleBulkComplete = async (jobIds: string[]) => {
+    for (const jobId of jobIds) {
+      const job = jobs?.find(j => j.job_id === jobId);
+      if (job && job.current_stage_id) {
+        await completeJob(jobId, job.current_stage_id);
+      }
+    }
+    return true;
+  };
+
+  const handleBulkHold = async (jobIds: string[], reason: string) => {
+    for (const jobId of jobIds) {
+      await handleHoldJob(jobId, reason);
+    }
     return true;
   };
 
@@ -116,6 +176,10 @@ export const ResponsiveOperatorDashboard = () => {
       }
     }
   });
+
+  const selectedJobObjects = useMemo(() => {
+    return filteredJobs.filter(job => selectedJobs.includes(job.job_id));
+  }, [filteredJobs, selectedJobs]);
 
   if (isLoading) {
     return (
@@ -176,30 +240,9 @@ export const ResponsiveOperatorDashboard = () => {
             <div className="w-full bg-white rounded-t-lg p-4 max-h-[80vh] overflow-y-auto">
               <BulkJobOperations
                 selectedJobs={filteredJobs.filter(job => selectedJobs.includes(job.job_id))}
-                onBulkStart={async (jobIds) => {
-                  for (const jobId of jobIds) {
-                    const job = jobs?.find(j => j.job_id === jobId);
-                    if (job && job.current_stage_id) {
-                      await startJob(jobId, job.current_stage_id);
-                    }
-                  }
-                  return true;
-                }}
-                onBulkComplete={async (jobIds) => {
-                  for (const jobId of jobIds) {
-                    const job = jobs?.find(j => j.job_id === jobId);
-                    if (job && job.current_stage_id) {
-                      await completeJob(jobId, job.current_stage_id);
-                    }
-                  }
-                  return true;
-                }}
-                onBulkHold={async (jobIds, reason) => {
-                  for (const jobId of jobIds) {
-                    await handleHoldJob(jobId, reason);
-                  }
-                  return true;
-                }}
+                onBulkStart={handleBulkStart}
+                onBulkComplete={handleBulkComplete}
+                onBulkHold={handleBulkHold}
                 onClearSelection={handleClearSelection}
               />
               <button
@@ -226,6 +269,13 @@ export const ResponsiveOperatorDashboard = () => {
   }
 
   // Desktop view - use existing EnhancedOperatorDashboard layout
+  const filters: { key: FilterType; label: string; count: number }[] = [
+    { key: 'all', label: 'All Jobs', count: filterCounts.all },
+    { key: 'available', label: 'Available', count: filterCounts.available },
+    { key: 'my-active', label: 'My Active', count: filterCounts['my-active'] },
+    { key: 'urgent', label: 'Urgent', count: filterCounts.urgent }
+  ];
+
   return (
     <div className="p-4 space-y-6">
       {/* Header with Search and Filters */}
@@ -255,12 +305,6 @@ export const ResponsiveOperatorDashboard = () => {
 
         {/* Filter Tabs */}
         <div className="flex flex-wrap gap-2">
-          const filters: { key: FilterType; label: string; count: number }[] = [
-    { key: 'all', label: 'All Jobs', count: filterCounts.all },
-    { key: 'available', label: 'Available', count: filterCounts.available },
-    { key: 'my-active', label: 'My Active', count: filterCounts['my-active'] },
-    { key: 'urgent', label: 'Urgent', count: filterCounts.urgent }
-  ];
           {filters.map(filter => (
             <Button
               key={filter.key}
