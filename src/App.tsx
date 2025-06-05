@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -23,6 +24,7 @@ import Auth from "./pages/Auth";
 import AppSelector from "./pages/AppSelector";
 import TrackerUsers from "./pages/tracker/TrackerUsers";
 import BatchFlowLayout from "./components/BatchFlowLayout";
+import ProofViewer from "./pages/ProofViewer";
 
 // BatchFlow page imports
 import BatchFlowHome from "./pages/BatchFlowHome";
@@ -78,6 +80,10 @@ function App() {
         <Router>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            
+            {/* Public proof viewer route - no authentication required */}
+            <Route path="/proof/:token" element={<ProofViewer />} />
+            
             <Route
               path="/"
               element={

@@ -1,102 +1,91 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  Play, 
-  CheckCircle
-} from "lucide-react";
-import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { canStartJob, canCompleteJob, getJobStatus } from "@/utils/tracker/jobProcessing";
+import { Play, CheckCircle, RotateCcw } from "lucide-react";
+import ProofLinkButton from "./ProofLinkButton";
 
 interface JobModalActionsProps {
-  job: AccessibleJob;
-  onClose: () => void;
-  onStart: (jobId: string, stageId: string) => Promise<boolean>;
-  onComplete: (jobId: string, stageId: string) => Promise<boolean>;
+  jobId: string;
+  currentStage: {
+    id: string;
+    production_stage_id: string;
+    production_stage: {
+      name: string;
+      color: string;
+    };
+    status: string;
+  } | null;
+  canWork: boolean;
+  onStartJob: () => void;
+  onCompleteJob: () => void;
+  onReworkJob: () => void;
+  isProcessing: boolean;
 }
 
-export const JobModalActions: React.FC<JobModalActionsProps> = ({
-  job,
-  onClose,
-  onStart,
-  onComplete
+const JobModalActions: React.FC<JobModalActionsProps> = ({
+  jobId,
+  currentStage,
+  canWork,
+  onStartJob,
+  onCompleteJob,
+  onReworkJob,
+  isProcessing
 }) => {
-  const [isActionInProgress, setIsActionInProgress] = useState(false);
+  if (!currentStage || !canWork) {
+    return null;
+  }
 
-  console.log(`🎬 Modal Actions for ${job.wo_no}:`, {
-    current_stage_status: job.current_stage_status,
-    current_stage_id: job.current_stage_id,
-    current_stage_name: job.current_stage_name,
-    user_can_work: job.user_can_work,
-    processedStatus: getJobStatus(job)
-  });
-
-  const handleAction = async (action: () => Promise<boolean>) => {
-    setIsActionInProgress(true);
-    try {
-      const success = await action();
-      if (success) {
-        onClose();
-      }
-    } finally {
-      setIsActionInProgress(false);
-    }
-  };
-
-  const showStartButton = canStartJob(job);
-  const showCompleteButton = canCompleteJob(job);
-  const hasStageInfo = job.current_stage_id && job.current_stage_name;
-
-  console.log(`🎯 Button visibility for ${job.wo_no}:`, {
-    showStartButton,
-    showCompleteButton,
-    hasStageInfo,
-    canWork: job.user_can_work
-  });
+  const canStart = currentStage.status === 'pending';
+  const canComplete = currentStage.status === 'active';
 
   return (
-    <div className="flex justify-end gap-3 pt-4 border-t">
-      <Button variant="outline" onClick={onClose}>
-        Close
-      </Button>
-      
-      {hasStageInfo && job.user_can_work && (
-        <>
-          {showStartButton && (
-            <Button 
-              onClick={() => handleAction(() => onStart(job.job_id, job.current_stage_id || 'default'))}
-              disabled={isActionInProgress}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Play className="h-4 w-4 mr-2" />
-              {isActionInProgress ? "Starting..." : "Start Job"}
-            </Button>
-          )}
-          
-          {showCompleteButton && (
-            <Button 
-              onClick={() => handleAction(() => onComplete(job.job_id, job.current_stage_id || 'default'))}
-              disabled={isActionInProgress}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              {isActionInProgress ? "Completing..." : "Complete Job"}
-            </Button>
-          )}
-        </>
-      )}
-      
-      {process.env.NODE_ENV === 'development' && !hasStageInfo && (
-        <div className="text-xs text-gray-500 italic">
-          No stage info available
-        </div>
-      )}
-      
-      {process.env.NODE_ENV === 'development' && !job.user_can_work && (
-        <div className="text-xs text-gray-500 italic">
-          No work permissions
-        </div>
+    <div className="border-t pt-4 space-y-3">
+      <div className="flex gap-2">
+        {canStart && (
+          <Button
+            onClick={onStartJob}
+            disabled={isProcessing}
+            className="flex-1"
+          >
+            <Play className="h-4 w-4 mr-2" />
+            Start Stage
+          </Button>
+        )}
+
+        {canComplete && (
+          <Button
+            onClick={onCompleteJob}
+            disabled={isProcessing}
+            className="flex-1"
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Complete Stage
+          </Button>
+        )}
+
+        {canComplete && (
+          <Button
+            onClick={onReworkJob}
+            disabled={isProcessing}
+            variant="outline"
+            className="flex-1"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Rework
+          </Button>
+        )}
+      </div>
+
+      {/* Proof Link Button for proof stages */}
+      {currentStage.status === 'active' && (
+        <ProofLinkButton
+          stageInstanceId={currentStage.id}
+          stageName={currentStage.production_stage.name}
+          disabled={isProcessing}
+        />
       )}
     </div>
   );
 };
+
+export default JobModalActions;

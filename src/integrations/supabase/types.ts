@@ -1221,6 +1221,62 @@ export type Database = {
         }
         Relationships: []
       }
+      proof_links: {
+        Row: {
+          client_notes: string | null
+          client_response: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          is_used: boolean
+          job_id: string
+          job_table_name: string
+          responded_at: string | null
+          stage_instance_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          client_notes?: string | null
+          client_response?: string | null
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          is_used?: boolean
+          job_id: string
+          job_table_name?: string
+          responded_at?: string | null
+          stage_instance_id: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          client_notes?: string | null
+          client_response?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          is_used?: boolean
+          job_id?: string
+          job_table_name?: string
+          responded_at?: string | null
+          stage_instance_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_proof_links_stage_instance"
+            columns: ["stage_instance_id"]
+            isOneToOne: false
+            referencedRelation: "job_stage_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sleeve_jobs: {
         Row: {
           batch_id: string | null
