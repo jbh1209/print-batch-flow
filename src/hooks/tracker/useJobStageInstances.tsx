@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -23,6 +24,11 @@ export interface JobStageInstance {
   rework_reason: string | null;
   previous_stage_id: string | null;
   is_rework: boolean | null;
+  proof_emailed_at: string | null;
+  proof_approved_manually_at: string | null;
+  client_email: string | null;
+  client_name: string | null;
+  proof_pdf_url: string | null;
   created_at: string;
   updated_at: string;
   production_stage: {

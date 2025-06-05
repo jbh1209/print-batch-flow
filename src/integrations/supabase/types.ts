@@ -601,6 +601,8 @@ export type Database = {
       job_stage_instances: {
         Row: {
           category_id: string | null
+          client_email: string | null
+          client_name: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
@@ -614,6 +616,9 @@ export type Database = {
           previous_stage_id: string | null
           printer_id: string | null
           production_stage_id: string
+          proof_approved_manually_at: string | null
+          proof_emailed_at: string | null
+          proof_pdf_url: string | null
           qr_scan_data: Json | null
           rework_count: number | null
           rework_reason: string | null
@@ -625,6 +630,8 @@ export type Database = {
         }
         Insert: {
           category_id?: string | null
+          client_email?: string | null
+          client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -638,6 +645,9 @@ export type Database = {
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id: string
+          proof_approved_manually_at?: string | null
+          proof_emailed_at?: string | null
+          proof_pdf_url?: string | null
           qr_scan_data?: Json | null
           rework_count?: number | null
           rework_reason?: string | null
@@ -649,6 +659,8 @@ export type Database = {
         }
         Update: {
           category_id?: string | null
+          client_email?: string | null
+          client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -662,6 +674,9 @@ export type Database = {
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id?: string
+          proof_approved_manually_at?: string | null
+          proof_emailed_at?: string | null
+          proof_pdf_url?: string | null
           qr_scan_data?: Json | null
           rework_count?: number | null
           rework_reason?: string | null
