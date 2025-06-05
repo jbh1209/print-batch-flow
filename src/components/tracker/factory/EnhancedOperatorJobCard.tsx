@@ -1,11 +1,20 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  FileText, 
+  Clock,
+  Pause
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { JobStatusDisplay } from "@/components/tracker/common/JobStatusDisplay";
+import { JobNotesAndTimeTracker } from "@/components/tracker/common/JobNotesAndTimeTracker";
+import { JobHoldManager } from "@/components/tracker/common/JobHoldManager";
 import { 
   processJobStatus, 
   isJobOverdue, 
@@ -16,15 +25,24 @@ interface EnhancedOperatorJobCardProps {
   job: AccessibleJob;
   onStart: (jobId: string, stageId: string) => Promise<boolean>;
   onComplete: (jobId: string, stageId: string) => Promise<boolean>;
-  onHold: (jobId: string, reason: string) => Promise<boolean>;
+  onHold?: (jobId: string, reason: string, notes?: string) => Promise<boolean>;
+  onRelease?: (jobId: string, notes?: string) => Promise<boolean>;
+  onNotesUpdate?: (jobId: string, notes: string) => Promise<void>;
+  onTimeUpdate?: (jobId: string, timeData: any) => Promise<void>;
 }
 
 export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = ({
   job,
   onStart,
   onComplete,
-  onHold
+  onHold,
+  onRelease,
+  onNotesUpdate,
+  onTimeUpdate
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<'notes' | 'hold'>('notes');
+  
   const isOverdue = isJobOverdue(job);
   const isDueSoon = isJobDueSoon(job);
   const jobStatus = processJobStatus(job);
@@ -59,6 +77,20 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
                 </p>
               )}
             </div>
+
+            {/* Expand/Collapse Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="ml-2"
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
           </div>
 
           {/* Status Display */}
@@ -107,6 +139,50 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
             <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-100 px-3 py-2 rounded-lg">
               <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
               <span className="font-medium">Timer Active - You're working on this job</span>
+            </div>
+          )}
+
+          {/* Expanded Content */}
+          {isExpanded && (
+            <div className="border-t pt-4 space-y-4">
+              {/* Tab Navigation */}
+              <div className="flex gap-2">
+                <Button
+                  variant={activeTab === 'notes' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('notes')}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Notes & Time
+                </Button>
+                <Button
+                  variant={activeTab === 'hold' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveTab('hold')}
+                  className="flex items-center gap-2"
+                >
+                  <Pause className="h-4 w-4" />
+                  Hold Management
+                </Button>
+              </div>
+
+              {/* Tab Content */}
+              {activeTab === 'notes' && (
+                <JobNotesAndTimeTracker
+                  job={job}
+                  onNotesUpdate={onNotesUpdate}
+                  onTimeUpdate={onTimeUpdate}
+                />
+              )}
+
+              {activeTab === 'hold' && (
+                <JobHoldManager
+                  job={job}
+                  onHoldJob={onHold}
+                  onReleaseJob={onRelease}
+                />
+              )}
             </div>
           )}
         </div>

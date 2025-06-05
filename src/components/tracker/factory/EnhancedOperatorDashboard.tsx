@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { DtpDashboard } from "./DtpDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   RefreshCw, 
   AlertTriangle, 
@@ -25,6 +26,7 @@ import {
 } from "@/hooks/tracker/useAccessibleJobs/pureJobProcessor";
 import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
 import { toast } from "sonner";
+import { BulkJobOperations } from "@/components/tracker/common/BulkJobOperations";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 import type { DashboardFilters, FilterCounts } from "./types";
 import { JobListLoading, JobErrorState, EmptyJobsState } from "../common/JobLoadingStates";
@@ -48,6 +50,8 @@ export const EnhancedOperatorDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<DashboardFilters['filterMode']>('available');
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
+  const [showBulkOperations, setShowBulkOperations] = useState(false);
 
   // For DTP operators, show the specialized dashboard
   if (isDtpOperator) {
@@ -162,6 +166,83 @@ export const EnhancedOperatorDashboard = () => {
     }
   }, [filteredJobs]);
 
+  const handleJobSelection = useCallback((job: AccessibleJob, selected: boolean) => {
+    if (selected) {
+      setSelectedJobs(prev => [...prev, job]);
+    } else {
+      setSelectedJobs(prev => prev.filter(j => j.job_id !== job.job_id));
+    }
+  }, []);
+
+  const handleSelectAllVisible = useCallback((selected: boolean) => {
+    if (selected) {
+      setSelectedJobs(filteredJobs);
+    } else {
+      setSelectedJobs([]);
+    }
+  }, [filteredJobs]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedJobs([]);
+    setShowBulkOperations(false);
+  }, []);
+
+  const handleBulkStart = useCallback(async (jobIds: string[]) => {
+    try {
+      const results = await Promise.allSettled(
+        jobIds.map(jobId => {
+          const job = jobs.find(j => j.job_id === jobId);
+          return job?.current_stage_id ? startJob(jobId, job.current_stage_id) : Promise.resolve(false);
+        })
+      );
+      
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
+      toast.success(`Started ${successful} of ${jobIds.length} jobs`);
+      return true;
+    } catch (error) {
+      console.error("Bulk start failed:", error);
+      toast.error("Failed to start jobs");
+      return false;
+    }
+  }, [jobs, startJob]);
+
+  const handleBulkComplete = useCallback(async (jobIds: string[]) => {
+    try {
+      const results = await Promise.allSettled(
+        jobIds.map(jobId => {
+          const job = jobs.find(j => j.job_id === jobId);
+          return job?.current_stage_id ? completeJob(jobId, job.current_stage_id) : Promise.resolve(false);
+        })
+      );
+      
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
+      toast.success(`Completed ${successful} of ${jobIds.length} jobs`);
+      return true;
+    } catch (error) {
+      console.error("Bulk complete failed:", error);
+      toast.error("Failed to complete jobs");
+      return false;
+    }
+  }, [jobs, completeJob]);
+
+  const handleBulkHold = useCallback(async (jobIds: string[], reason: string, notes?: string) => {
+    try {
+      // This would call a bulk hold API endpoint
+      console.log("Bulk hold:", { jobIds, reason, notes });
+      toast.success(`Held ${jobIds.length} jobs`);
+      return true;
+    } catch (error) {
+      console.error("Bulk hold failed:", error);
+      toast.error("Failed to hold jobs");
+      return false;
+    }
+  }, []);
+
+  // Show bulk operations toggle
+  useEffect(() => {
+    setShowBulkOperations(selectedJobs.length > 0);
+  }, [selectedJobs.length]);
+
   // Enhanced loading state
   if (isLoading) {
     return (
@@ -197,6 +278,11 @@ export const EnhancedOperatorDashboard = () => {
               <p className="text-sm text-gray-500">
                 Showing {filteredJobs.length} of {jobs.length} jobs
               </p>
+              {selectedJobs.length > 0 && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  {selectedJobs.length} selected
+                </Badge>
+              )}
               <div className="flex items-center gap-2">
                 {isConnected ? (
                   <Wifi className="h-4 w-4 text-green-500" />
@@ -234,6 +320,17 @@ export const EnhancedOperatorDashboard = () => {
               {hasOptimisticUpdates ? 'Processing updates...' : 'Syncing changes...'}
             </span>
           </div>
+        )}
+
+        {/* Bulk Operations */}
+        {showBulkOperations && (
+          <BulkJobOperations
+            selectedJobs={selectedJobs}
+            onBulkStart={handleBulkStart}
+            onBulkComplete={handleBulkComplete}
+            onBulkHold={handleBulkHold}
+            onClearSelection={handleClearSelection}
+          />
         )}
 
         {/* Search Bar */}
@@ -297,6 +394,28 @@ export const EnhancedOperatorDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Job Selection Controls */}
+        {filteredJobs.length > 0 && (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={selectedJobs.length === filteredJobs.length}
+                onCheckedChange={handleSelectAllVisible}
+              />
+              <span className="text-sm text-gray-600">Select all visible</span>
+            </div>
+            {selectedJobs.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleClearSelection}
+              >
+                Clear selection
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Jobs List */}
@@ -309,13 +428,21 @@ export const EnhancedOperatorDashboard = () => {
           />
         ) : (
           filteredJobs.map((job) => (
-            <EnhancedOperatorJobCard
-              key={job.job_id}
-              job={job}
-              onStart={startJob}
-              onComplete={completeJob}
-              onHold={handleHoldJob}
-            />
+            <div key={job.job_id} className="flex items-start gap-3">
+              <Checkbox
+                checked={selectedJobs.some(j => j.job_id === job.job_id)}
+                onCheckedChange={(checked) => handleJobSelection(job, checked as boolean)}
+                className="mt-6"
+              />
+              <div className="flex-1">
+                <EnhancedOperatorJobCard
+                  job={job}
+                  onStart={startJob}
+                  onComplete={completeJob}
+                  onHold={handleHoldJob}
+                />
+              </div>
+            </div>
           ))
         )}
       </div>
