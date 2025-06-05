@@ -111,7 +111,7 @@ export const EnhancedOperatorDashboard = () => {
     setShowBulkOperations(false);
   };
 
-  // Mock handlers for enhanced features
+  // Single job operation handlers
   const handleNotesUpdate = async (jobId: string, notes: string) => {
     console.log('Updating notes for job:', jobId, notes);
     // TODO: Implement notes update API call
@@ -134,17 +134,55 @@ export const EnhancedOperatorDashboard = () => {
     return true;
   };
 
-  // Bulk operation handlers
+  // Bulk operation handlers that handle arrays of job IDs
   const handleBulkStart = async (jobIds: string[]) => {
     console.log('Bulk starting jobs:', jobIds);
-    // TODO: Implement bulk start
-    return true;
+    try {
+      for (const jobId of jobIds) {
+        // For bulk start, we need to get the current stage ID for each job
+        const job = jobs?.find(j => j.job_id === jobId);
+        if (job && job.current_stage_id) {
+          await startJob(jobId, job.current_stage_id);
+        }
+      }
+      await refreshJobs();
+      return true;
+    } catch (error) {
+      console.error('Failed to bulk start jobs:', error);
+      return false;
+    }
   };
 
   const handleBulkComplete = async (jobIds: string[]) => {
     console.log('Bulk completing jobs:', jobIds);
-    // TODO: Implement bulk complete
-    return true;
+    try {
+      for (const jobId of jobIds) {
+        // For bulk complete, we need to get the current stage ID for each job
+        const job = jobs?.find(j => j.job_id === jobId);
+        if (job && job.current_stage_id) {
+          await completeJob(jobId, job.current_stage_id);
+        }
+      }
+      await refreshJobs();
+      return true;
+    } catch (error) {
+      console.error('Failed to bulk complete jobs:', error);
+      return false;
+    }
+  };
+
+  const handleBulkHold = async (jobIds: string[], reason: string, notes?: string) => {
+    console.log('Bulk holding jobs:', jobIds, reason, notes);
+    try {
+      for (const jobId of jobIds) {
+        await handleHoldJob(jobId, reason, notes);
+      }
+      await refreshJobs();
+      return true;
+    } catch (error) {
+      console.error('Failed to bulk hold jobs:', error);
+      return false;
+    }
   };
 
   if (isLoading) {
@@ -244,7 +282,7 @@ export const EnhancedOperatorDashboard = () => {
           selectedJobs={selectedJobObjects}
           onBulkStart={handleBulkStart}
           onBulkComplete={handleBulkComplete}
-          onBulkHold={handleHoldJob}
+          onBulkHold={handleBulkHold}
           onClearSelection={handleClearSelection}
         />
       )}
