@@ -25,7 +25,7 @@ export const UniversalKanbanColumn: React.FC<UniversalKanbanColumnProps> = ({
   onJobClick
 }) => {
   return (
-    <div className="flex-shrink-0 w-80">
+    <div className="flex flex-col h-full">
       <Card className="h-full flex flex-col">
         <CardHeader 
           className="flex-shrink-0 text-white"
@@ -64,7 +64,9 @@ export const UniversalKanbanColumn: React.FC<UniversalKanbanColumnProps> = ({
                         variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
                         className={job.current_stage_status === 'active' ? 'bg-green-500' : ''}
                       >
-                        {job.current_stage_status}
+                        {job.current_stage_status === 'pending' ? 'Ready to Start' : 
+                         job.current_stage_status === 'active' ? 'In Progress' : 
+                         job.current_stage_status}
                       </Badge>
                     </div>
 

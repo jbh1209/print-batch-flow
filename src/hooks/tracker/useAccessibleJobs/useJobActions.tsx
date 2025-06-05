@@ -23,6 +23,7 @@ export const useJobActions = (
     setOptimisticUpdates(prev => ({ ...prev, [jobId]: { current_stage_status: 'active' } }));
 
     try {
+      // Update the job stage instance to active status
       const { data, error } = await supabase
         .from('job_stage_instances')
         .update({
@@ -32,7 +33,7 @@ export const useJobActions = (
         })
         .eq('job_id', jobId)
         .eq('production_stage_id', stageId)
-        .eq('status', 'pending');
+        .eq('status', 'pending'); // Only update if currently pending
 
       if (error) {
         console.error('❌ Failed to start job:', error);
@@ -82,6 +83,7 @@ export const useJobActions = (
     setOptimisticUpdates(prev => ({ ...prev, [jobId]: { current_stage_status: 'completed' } }));
 
     try {
+      // Use the advance_job_stage RPC function to properly complete and advance the job
       const { data, error } = await supabase.rpc('advance_job_stage', {
         p_job_id: jobId,
         p_job_table_name: 'production_jobs',
