@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -227,24 +228,24 @@ const ProofViewer = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md mx-auto">
-          <CardHeader>
-            <div className="text-center mb-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <Card className="max-w-md mx-auto text-center">
+          <CardHeader className="pb-4">
+            <div className="mb-6">
               <img 
                 src="/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
                 alt="IMPRESS" 
-                className="h-16 mx-auto mb-4"
+                className="h-12 mx-auto"
               />
             </div>
-            <CardTitle className="flex items-center justify-center text-green-600">
+            <CardTitle className="flex items-center justify-center text-green-600 text-lg">
               <CheckCircle className="h-5 w-5 mr-2" />
-              Response Submitted
+              Thank You!
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 text-center">
-              Thank you for your feedback! Your response has been submitted and our team has been notified.
+            <p className="text-gray-600">
+              Your feedback has been submitted successfully. Our team will review your response and get back to you soon.
             </p>
           </CardContent>
         </Card>
@@ -253,42 +254,43 @@ const ProofViewer = () => {
   }
 
   const expiresAt = new Date(proofData.expires_at);
-  const isExpiring = expiresAt.getTime() - Date.now() < 24 * 60 * 60 * 1000; // Less than 24 hours
+  const isExpiring = expiresAt.getTime() - Date.now() < 24 * 60 * 60 * 1000;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header with Logo */}
-        <div className="text-center mb-8">
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 py-6">
+        <div className="max-w-4xl mx-auto px-4 text-center">
           <img 
             src="/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
             alt="IMPRESS" 
-            className="h-20 mx-auto mb-4"
+            className="h-12 mx-auto mb-4"
           />
-          <h1 className="text-2xl font-bold text-gray-800">Proof Review</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Proof Review</h1>
+          <p className="text-gray-600 mt-2">Please review your proof and provide feedback below</p>
         </div>
+      </div>
 
-        {/* Job Details Card */}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Job Details */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="h-6 w-6 mr-2 text-blue-600" />
-              {jobData?.name || jobData?.wo_no || 'Job Details'}
+            <CardTitle className="text-lg flex items-center justify-between">
+              <div className="flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                Job #{jobData?.job_number || jobData?.wo_no || 'N/A'}
+              </div>
+              <div className="flex items-center text-sm text-gray-500">
+                <Clock className="h-4 w-4 mr-1" />
+                Expires: {expiresAt.toLocaleDateString()}
+                {isExpiring && (
+                  <span className="ml-2 text-amber-600 font-medium">(Soon!)</span>
+                )}
+              </div>
             </CardTitle>
-            <div className="flex items-center text-sm text-gray-600">
-              <Clock className="h-4 w-4 mr-1" />
-              Expires: {expiresAt.toLocaleDateString()} at {expiresAt.toLocaleTimeString()}
-              {isExpiring && (
-                <span className="ml-2 text-amber-600 font-medium">(Expires soon!)</span>
-              )}
-            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-700">Job Number:</span>
-                <span className="ml-2">{jobData?.job_number || jobData?.wo_no || 'N/A'}</span>
-              </div>
               <div>
                 <span className="font-medium text-gray-700">Customer:</span>
                 <span className="ml-2">{jobData?.customer || 'N/A'}</span>
@@ -307,29 +309,29 @@ const ProofViewer = () => {
         {pdfUrl && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Proof Document</CardTitle>
+              <CardTitle className="text-lg">Your Proof</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg overflow-hidden bg-white">
+              <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
                 <iframe
                   src={pdfUrl}
                   className="w-full h-96"
                   title="Proof Document"
                 />
               </div>
-              <p className="text-sm text-gray-600 mt-2">
+              <p className="text-sm text-gray-600 mt-3 text-center">
                 Having trouble viewing? <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Open in new tab</a>
               </p>
             </CardContent>
           </Card>
         )}
 
-        {/* Feedback Form */}
+        {/* Feedback Section */}
         <Card>
           <CardHeader>
-            <CardTitle>Your Feedback</CardTitle>
+            <CardTitle className="text-lg">Your Feedback</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Comments (optional)
@@ -337,36 +339,39 @@ const ProofViewer = () => {
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any comments or specific change requests..."
+                placeholder="Please add any comments or specific change requests..."
                 rows={4}
+                className="resize-none"
               />
             </div>
 
-            <div className="flex gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Button
                 onClick={() => handleSubmitResponse('approved')}
                 disabled={isSubmitting}
-                className="flex-1 bg-green-600 hover:bg-green-700"
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-base font-medium"
+                size="lg"
               >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Submitting...' : 'Approve'}
+                <CheckCircle className="h-5 w-5 mr-2" />
+                {isSubmitting ? 'Submitting...' : 'Approve Proof'}
               </Button>
               
               <Button
                 onClick={() => handleSubmitResponse('changes_needed')}
                 disabled={isSubmitting}
                 variant="outline"
-                className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+                className="w-full border-red-300 text-red-700 hover:bg-red-50 py-3 text-base font-medium"
+                size="lg"
               >
-                <XCircle className="h-4 w-4 mr-2" />
+                <XCircle className="h-5 w-5 mr-2" />
                 {isSubmitting ? 'Submitting...' : 'Request Changes'}
               </Button>
             </div>
 
             <Alert>
-              <AlertDescription>
-                <strong>Approve:</strong> The job will automatically move to the next stage (usually printing).<br />
-                <strong>Request Changes:</strong> The job will be sent back to the design team for revisions.
+              <AlertDescription className="text-sm">
+                <strong>Approve:</strong> The job will move forward to printing.<br />
+                <strong>Request Changes:</strong> The job will be sent back to our design team for revisions.
               </AlertDescription>
             </Alert>
           </CardContent>
