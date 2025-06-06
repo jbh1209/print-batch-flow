@@ -92,6 +92,7 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
       }
 
       // Update stage instance with proof PDF URL and client info
+      // Note: The status will be updated by the edge function when generating the proof link
       await supabase
         .from('job_stage_instances')
         .update({ 
@@ -103,13 +104,14 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         })
         .eq('id', stageInstanceId);
 
-      // Generate proof link
+      // Generate proof link - this will now properly update the status to 'awaiting_approval'
       const { data: linkData, error: linkError } = await supabase.functions.invoke(
         'handle-proof-approval/generate-link',
         { body: { stageInstanceId } }
       );
 
       if (linkError || !linkData) {
+        console.error('Failed to generate proof link:', linkError);
         toast.error("Failed to generate proof link");
         return;
       }
@@ -163,10 +165,12 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
       });
 
       if (emailError) {
+        console.error('Email send error:', emailError);
         toast.error("Failed to send email");
         return;
       }
 
+      console.log('✅ Proof email sent successfully, stage status should now be awaiting_approval');
       toast.success("Proof email sent successfully!");
       onProofSent();
       onClose();

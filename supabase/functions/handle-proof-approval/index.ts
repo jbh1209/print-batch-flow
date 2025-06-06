@@ -88,8 +88,9 @@ serve(async (req) => {
         );
       }
 
-      // Update stage instance to show proof is awaiting sign off
-      await supabase
+      // CRITICAL FIX: Update stage instance to show proof is awaiting sign off
+      // This is what the UI checks to display "Proof Sent" status
+      const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
           status: 'awaiting_approval',
@@ -97,6 +98,13 @@ serve(async (req) => {
           updated_at: new Date().toISOString()
         })
         .eq('id', stageInstanceId);
+
+      if (updateError) {
+        console.error('❌ Failed to update stage instance status:', updateError);
+        // Don't fail the whole operation, but log the error
+      } else {
+        console.log('✅ Stage instance status updated to awaiting_approval');
+      }
 
       // Use the current request URL to determine the correct domain
       const requestUrl = new URL(req.url);
