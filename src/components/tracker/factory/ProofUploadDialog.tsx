@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -57,6 +56,7 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
       
       console.log('Uploading proof PDF to bucket: proofs, path:', fileName);
       
+      // Note: This will create the bucket automatically if it doesn't exist
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('proofs')
         .upload(fileName, proofFile, {

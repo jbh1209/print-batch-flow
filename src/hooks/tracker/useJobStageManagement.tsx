@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,7 +30,7 @@ export const useJobStageManagement = ({
 
   const { reworkStage, fetchReworkHistory, reworkHistory, isReworking } = useStageRework();
 
-  // Initialize job with workflow stages based on category
+  // Initialize job with workflow stages based on category - ALL STAGES START AS PENDING
   const initializeJobWorkflow = useCallback(async () => {
     if (!categoryId) {
       toast.error("Category is required to initialize workflow");
@@ -40,14 +39,13 @@ export const useJobStageManagement = ({
 
     setIsProcessing(true);
     try {
-      console.log('🔄 Initializing job workflow...', { jobId, jobTableName, categoryId });
+      console.log('🔄 Initializing job workflow (all stages pending)...', { jobId, jobTableName, categoryId });
       
       const success = await initializeJobStages(jobId, jobTableName, categoryId);
       
       if (success) {
-        // Update the job status to reflect the first stage
         await updateJobStatusToCurrentStage();
-        toast.success("Job workflow initialized successfully");
+        toast.success("Job workflow initialized - stages ready to start manually");
       }
       
       return success;
@@ -60,11 +58,11 @@ export const useJobStageManagement = ({
     }
   }, [jobId, jobTableName, categoryId, initializeJobStages]);
 
-  // Start a stage (QR scan or manual)
+  // Start a stage manually (QR scan or button click)
   const startStage = useCallback(async (stageId: string, qrData?: any) => {
     setIsProcessing(true);
     try {
-      console.log('🔄 Starting stage...', { stageId, qrData });
+      console.log('🔄 Starting stage manually...', { stageId, qrData });
       
       // Record QR scan if provided
       if (qrData) {
@@ -75,7 +73,7 @@ export const useJobStageManagement = ({
         });
       }
 
-      // Update stage to active
+      // Update stage to active - this is the ONLY way stages become active
       const { error } = await supabase
         .from('job_stage_instances')
         .update({ 
@@ -85,7 +83,7 @@ export const useJobStageManagement = ({
           updated_at: new Date().toISOString()
         })
         .eq('id', stageId)
-        .eq('status', 'pending');
+        .eq('status', 'pending'); // Only allow starting if currently pending
 
       if (error) throw error;
 
@@ -102,11 +100,11 @@ export const useJobStageManagement = ({
     }
   }, [recordQRScan, fetchJobStages]);
 
-  // Complete a stage - next stage will remain pending
+  // Complete a stage - next stage remains PENDING until manually started
   const completeStage = useCallback(async (stageId: string, notes?: string, qrData?: any) => {
     setIsProcessing(true);
     try {
-      console.log('🔄 Completing stage...', { stageId, notes, qrData });
+      console.log('🔄 Completing stage (next stage stays pending)...', { stageId, notes, qrData });
       
       // Record QR scan if provided
       if (qrData) {
@@ -117,12 +115,12 @@ export const useJobStageManagement = ({
         });
       }
 
-      // Use the updated advance function that doesn't auto-activate next stage
+      // Complete current stage - next stage stays pending
       const success = await advanceJobStage(stageId, notes);
       
       if (success) {
         await updateJobStatusToCurrentStage();
-        toast.success("Stage completed successfully");
+        toast.success("Stage completed - next stage ready to start manually");
       }
       
       return success;

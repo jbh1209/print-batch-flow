@@ -108,9 +108,10 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
 
   const initializeJobStages = async (jobId: string, jobTableName: string, categoryId: string) => {
     try {
-      console.log('🔄 Initializing job stages...');
+      console.log('🔄 Initializing job stages (all pending)...');
       
-      const { data, error } = await supabase.rpc('initialize_job_stages', {
+      // Use the corrected function that doesn't auto-activate stages
+      const { data, error } = await supabase.rpc('initialize_job_stages_auto', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
         p_category_id: categoryId
@@ -121,7 +122,7 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
         throw new Error(`Failed to initialize job stages: ${error.message}`);
       }
 
-      console.log('✅ Job stages initialized successfully');
+      console.log('✅ Job stages initialized successfully (all pending)');
       await fetchJobStages();
       return true;
     } catch (err) {
