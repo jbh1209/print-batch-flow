@@ -151,9 +151,11 @@ const ProofViewer = () => {
         <Card className="max-w-md mx-auto text-center">
           <CardHeader className="pb-4">
             <div className="mb-6">
-              <div className="bg-blue-600 text-white p-4 rounded-lg text-xl font-bold mx-auto w-fit">
-                IMPRESS
-              </div>
+              <img 
+                src="https://i.imgur.com/YourLogoHere.png" 
+                alt="IMPRESS" 
+                className="h-12 mx-auto"
+              />
             </div>
             <CardTitle className="flex items-center justify-center text-green-600 text-lg">
               <CheckCircle className="h-5 w-5 mr-2" />
@@ -178,9 +180,11 @@ const ProofViewer = () => {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 py-6">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="bg-blue-600 text-white p-4 rounded-lg text-xl font-bold mx-auto w-fit mb-4">
-            IMPRESS
-          </div>
+          <img 
+            src="https://i.imgur.com/YourLogoHere.png" 
+            alt="IMPRESS" 
+            className="h-12 mx-auto mb-4"
+          />
           <h1 className="text-2xl font-bold text-gray-900">Proof Review</h1>
           <p className="text-gray-600 mt-2">Please review your proof and provide feedback below</p>
         </div>
