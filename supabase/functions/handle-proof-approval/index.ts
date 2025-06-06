@@ -62,6 +62,10 @@ serve(async (req) => {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
 
+      // Get current user if available, but don't fail if not
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id || null;
+
       // Create proof link
       const { data: proofLink, error: linkError } = await supabase
         .from('proof_links')
@@ -71,7 +75,7 @@ serve(async (req) => {
           stage_instance_id: stageInstanceId,
           token,
           expires_at: expiresAt.toISOString(),
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          created_by: currentUserId // This can now be null
         })
         .select()
         .single();

@@ -1241,7 +1241,7 @@ export type Database = {
           client_notes: string | null
           client_response: string | null
           created_at: string
-          created_by: string
+          created_by: string | null
           expires_at: string
           id: string
           is_used: boolean
@@ -1256,7 +1256,7 @@ export type Database = {
           client_notes?: string | null
           client_response?: string | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           expires_at: string
           id?: string
           is_used?: boolean
@@ -1271,7 +1271,7 @@ export type Database = {
           client_notes?: string | null
           client_response?: string | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           expires_at?: string
           id?: string
           is_used?: boolean
