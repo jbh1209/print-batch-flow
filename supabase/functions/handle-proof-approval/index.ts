@@ -98,9 +98,10 @@ serve(async (req) => {
         })
         .eq('id', stageInstanceId);
 
-      // Use correct custom domain
-      const customDomain = Deno.env.get('CUSTOM_DOMAIN_URL') || 'https://batchflow.jaimar.dev';
-      const proofUrl = `${customDomain}/proof/${token}`;
+      // Use the current request URL to determine the correct domain
+      const requestUrl = new URL(req.url);
+      const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+      const proofUrl = `${baseUrl}/proof/${token}`;
       
       console.log('✅ Proof link generated successfully');
       return new Response(

@@ -1,192 +1,155 @@
 
 import React, { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
-  ChevronDown, 
-  ChevronUp, 
+  Clock, 
+  Play, 
+  CheckCircle, 
   FileText, 
-  Clock,
-  Pause
+  User, 
+  Calendar,
+  Mail,
+  ExternalLink
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { JobStatusDisplay } from "@/components/tracker/common/JobStatusDisplay";
-import { JobNotesAndTimeTracker } from "@/components/tracker/common/JobNotesAndTimeTracker";
-import { JobHoldManager } from "@/components/tracker/common/JobHoldManager";
-import { 
-  processJobStatus, 
-  isJobOverdue, 
-  isJobDueSoon
-} from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
+import ProofUploadDialog from "./ProofUploadDialog";
+import { ProofStatusIndicator } from "./ProofStatusIndicator";
 
 interface EnhancedOperatorJobCardProps {
   job: AccessibleJob;
-  onStart: (jobId: string, stageId: string) => Promise<boolean>;
-  onComplete: (jobId: string, stageId: string) => Promise<boolean>;
-  onHold?: (jobId: string, reason: string, notes?: string) => Promise<boolean>;
-  onRelease?: (jobId: string, notes?: string) => Promise<boolean>;
-  onNotesUpdate?: (jobId: string, notes: string) => Promise<void>;
-  onTimeUpdate?: (jobId: string, timeData: any) => Promise<void>;
+  onStart?: (jobId: string, jobTableName: string, stageId?: string) => Promise<boolean>;
+  onComplete?: (jobId: string, jobTableName: string, stageId?: string) => Promise<boolean>;
+  onRefresh?: () => void;
+  currentStageInstance?: any;
 }
 
 export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = ({
   job,
   onStart,
   onComplete,
-  onHold,
-  onRelease,
-  onNotesUpdate,
-  onTimeUpdate
+  onRefresh,
+  currentStageInstance
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'notes' | 'hold'>('notes');
+  const [showProofDialog, setShowProofDialog] = useState(false);
   
-  const isOverdue = isJobOverdue(job);
-  const isDueSoon = isJobDueSoon(job);
-  const jobStatus = processJobStatus(job);
+  const isProofStage = currentStageInstance?.production_stage?.name?.toLowerCase().includes('proof');
+  const canSendProof = isProofStage && currentStageInstance?.status === 'active';
 
-  const getCardStyle = () => {
-    if (jobStatus === 'active') return "border-blue-500 bg-blue-50 shadow-md";
-    if (isOverdue) return "border-red-500 bg-red-50";
-    if (isDueSoon) return "border-orange-500 bg-orange-50";
-    return "border-gray-200 bg-white hover:shadow-sm";
+  const handleProofSent = () => {
+    setShowProofDialog(false);
+    onRefresh?.();
   };
 
   return (
-    <Card className={cn("mb-3 transition-all duration-200", getCardStyle())}>
-      <CardContent className="p-4">
-        <div className="space-y-3">
-          {/* Header Row */}
+    <>
+      <Card className={cn(
+        "transition-all duration-200 hover:shadow-md",
+        job.current_stage_status === 'active' && "ring-2 ring-blue-500 ring-opacity-50"
+      )}>
+        <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-lg text-gray-900 truncate mb-2">
-                {job.wo_no}
-              </h3>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-lg">{job.wo_no}</h3>
+                <Badge 
+                  variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
+                  className={cn(
+                    job.current_stage_status === 'active' && "bg-green-500"
+                  )}
+                >
+                  {job.current_stage_name}
+                </Badge>
+              </div>
               
-              {job.customer && (
-                <p className="text-sm text-gray-600 mb-2">
-                  Customer: {job.customer}
-                </p>
-              )}
-              
-              {job.reference && (
-                <p className="text-sm text-gray-600 mb-2">
-                  Reference: {job.reference}
-                </p>
-              )}
+              <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-1">
+                  <User className="h-4 w-4" />
+                  <span>{job.customer}</span>
+                </div>
+                {job.due_date && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>{new Date(job.due_date).toLocaleDateString()}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Expand/Collapse Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="ml-2"
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </Button>
+            <JobStatusDisplay job={job} compact />
           </div>
+        </CardHeader>
 
-          {/* Status Display */}
-          <JobStatusDisplay 
-            job={job} 
-            showDetails={true}
-            compact={false}
-          />
+        <CardContent className="space-y-4">
+          {/* Proof Status Indicator */}
+          {isProofStage && currentStageInstance && (
+            <ProofStatusIndicator stageInstance={currentStageInstance} />
+          )}
 
-          {/* Progress Info */}
-          {job.workflow_progress !== undefined && (
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-medium">Workflow Progress</span>
-                <span className="font-bold">{job.workflow_progress}%</span>
+          {/* Progress Indicator */}
+          {job.workflow_progress > 0 && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Progress</span>
+                <span>{job.workflow_progress}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${job.workflow_progress}%` }}
                 />
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>{job.completed_stages} completed</span>
-                <span>{job.total_stages - job.completed_stages} remaining</span>
               </div>
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="pt-2">
+          <div className="flex gap-2">
             <JobActionButtons
               job={job}
               onStart={onStart}
               onComplete={onComplete}
-              onHold={onHold}
-              size="default"
-              layout="horizontal"
-              showHold={true}
-              compact={false}
             />
+            
+            {canSendProof && (
+              <Button
+                onClick={() => setShowProofDialog(true)}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Mail className="h-4 w-4" />
+                Send Proof
+              </Button>
+            )}
           </div>
 
-          {/* Active Timer Indicator */}
-          {jobStatus === 'active' && (
-            <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-100 px-3 py-2 rounded-lg">
-              <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-              <span className="font-medium">Timer Active - You're working on this job</span>
-            </div>
-          )}
-
-          {/* Expanded Content */}
-          {isExpanded && (
-            <div className="border-t pt-4 space-y-4">
-              {/* Tab Navigation */}
-              <div className="flex gap-2">
-                <Button
-                  variant={activeTab === 'notes' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setActiveTab('notes')}
-                  className="flex items-center gap-2"
-                >
-                  <FileText className="h-4 w-4" />
-                  Notes & Time
-                </Button>
-                <Button
-                  variant={activeTab === 'hold' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setActiveTab('hold')}
-                  className="flex items-center gap-2"
-                >
-                  <Pause className="h-4 w-4" />
-                  Hold Management
-                </Button>
+          {/* Additional Job Info */}
+          <div className="pt-2 border-t">
+            <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
+              <div>
+                <span className="font-medium">Category:</span>
+                <span className="ml-1">{job.category_name || 'None'}</span>
               </div>
-
-              {/* Tab Content */}
-              {activeTab === 'notes' && (
-                <JobNotesAndTimeTracker
-                  job={job}
-                  onNotesUpdate={onNotesUpdate}
-                  onTimeUpdate={onTimeUpdate}
-                />
-              )}
-
-              {activeTab === 'hold' && (
-                <JobHoldManager
-                  job={job}
-                  onHoldJob={onHold}
-                  onReleaseJob={onRelease}
-                />
-              )}
+              <div>
+                <span className="font-medium">Status:</span>
+                <span className="ml-1">{job.status}</span>
+              </div>
             </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Proof Upload Dialog */}
+      <ProofUploadDialog
+        isOpen={showProofDialog}
+        onClose={() => setShowProofDialog(false)}
+        stageInstanceId={currentStageInstance?.id || ''}
+        onProofSent={handleProofSent}
+      />
+    </>
   );
 };

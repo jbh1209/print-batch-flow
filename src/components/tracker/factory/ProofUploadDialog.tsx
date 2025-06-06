@@ -91,10 +91,16 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         return;
       }
 
-      // Update stage instance with proof PDF URL
+      // Update stage instance with proof PDF URL and client info
       await supabase
         .from('job_stage_instances')
-        .update({ proof_pdf_url: proofPdfUrl })
+        .update({ 
+          proof_pdf_url: proofPdfUrl,
+          client_email: customerEmail.trim(),
+          client_name: customerName.trim(),
+          proof_emailed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', stageInstanceId);
 
       // Generate proof link
@@ -160,17 +166,6 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         toast.error("Failed to send email");
         return;
       }
-
-      // Mark proof as emailed
-      await supabase
-        .from('job_stage_instances')
-        .update({
-          proof_emailed_at: new Date().toISOString(),
-          client_email: customerEmail.trim(),
-          client_name: customerName.trim(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', stageInstanceId);
 
       toast.success("Proof email sent successfully!");
       onProofSent();
