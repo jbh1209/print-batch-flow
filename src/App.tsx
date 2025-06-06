@@ -85,6 +85,9 @@ import StickerJobsPage from "./pages/generic/StickerJobsPage";
 import StickerJobNewPage from "./pages/generic/StickerJobNewPage";
 import StickerBatchesPage from "./pages/generic/StickerBatchesPage";
 
+// Import product configs for the routes that need them
+import { productConfigs } from "@/config/productTypes";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -127,8 +130,8 @@ const App = () => (
               <Route path="covers" element={<Covers />} />
               <Route path="boxes" element={<Boxes />} />
               <Route path="all-batches" element={<AllBatches />} />
-              <Route path="batch/:id" element={<BatchDetailsPage />} />
-              <Route path="jobs/:id/edit" element={<GenericJobEdit />} />
+              <Route path="batch/:id" element={<BatchDetailsPage productType="Generic" backUrl="/batchflow/all-batches" />} />
+              <Route path="jobs/:id/edit" element={<GenericJobEdit config={productConfigs["Flyers"]} />} />
               
               {/* Generic routes */}
               <Route path="boxes/jobs" element={<BoxJobsPage />} />
@@ -140,8 +143,8 @@ const App = () => (
               <Route path="flyers-generic/jobs" element={<FlyerJobsPage />} />
               <Route path="flyers-generic/jobs/new" element={<FlyerJobNewPage />} />
               <Route path="flyers-generic/batches/:id" element={<FlyerBatchDetailsPage />} />
-              <Route path="generic/batch/:id" element={<GenericBatchDetailsPage />} />
-              <Route path="generic/jobs/:id" element={<GenericJobDetailsPage />} />
+              <Route path="generic/batch/:id" element={<GenericBatchDetailsPage config={productConfigs["Flyers"]} />} />
+              <Route path="generic/jobs/:id" element={<GenericJobDetailsPage config={productConfigs["Flyers"]} />} />
               <Route path="postcards-generic/jobs" element={<PostcardJobsPage />} />
               <Route path="postcards-generic/jobs/new" element={<PostcardJobNewPage />} />
               <Route path="postcards-generic/batches" element={<PostcardBatchesPage />} />
