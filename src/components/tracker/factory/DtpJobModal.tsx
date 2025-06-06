@@ -13,7 +13,7 @@ import { JobOverviewCard } from "./JobOverviewCard";
 import { CurrentStageCard } from "./CurrentStageCard";
 import { WorkInstructionsCard } from "./WorkInstructionsCard";
 import { JobNotesCard } from "./JobNotesCard";
-import { JobModalActions } from "./JobModalActions";
+import JobModalActions from "./JobModalActions";
 import { canStartJob, canCompleteJob, getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { useJobStageManagement } from "@/hooks/tracker/useJobStageManagement";
 
