@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -231,14 +230,21 @@ const ProofViewer = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="max-w-md mx-auto">
           <CardHeader>
-            <CardTitle className="flex items-center text-green-600">
+            <div className="text-center mb-4">
+              <img 
+                src="/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
+                alt="IMPRESS" 
+                className="h-16 mx-auto mb-4"
+              />
+            </div>
+            <CardTitle className="flex items-center justify-center text-green-600">
               <CheckCircle className="h-5 w-5 mr-2" />
               Response Submitted
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600">
-              Thank you for your feedback! Your response has been submitted and the team has been notified.
+            <p className="text-gray-600 text-center">
+              Thank you for your feedback! Your response has been submitted and our team has been notified.
             </p>
           </CardContent>
         </Card>
@@ -252,12 +258,22 @@ const ProofViewer = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
+        {/* Header with Logo */}
+        <div className="text-center mb-8">
+          <img 
+            src="/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
+            alt="IMPRESS" 
+            className="h-20 mx-auto mb-4"
+          />
+          <h1 className="text-2xl font-bold text-gray-800">Proof Review</h1>
+        </div>
+
+        {/* Job Details Card */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center">
               <FileText className="h-6 w-6 mr-2 text-blue-600" />
-              Proof Review: {jobData?.name || jobData?.wo_no || 'Unnamed Job'}
+              {jobData?.name || jobData?.wo_no || 'Job Details'}
             </CardTitle>
             <div className="flex items-center text-sm text-gray-600">
               <Clock className="h-4 w-4 mr-1" />
@@ -268,7 +284,7 @@ const ProofViewer = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="font-medium text-gray-700">Job Number:</span>
                 <span className="ml-2">{jobData?.job_number || jobData?.wo_no || 'N/A'}</span>
@@ -277,14 +293,12 @@ const ProofViewer = () => {
                 <span className="font-medium text-gray-700">Customer:</span>
                 <span className="ml-2">{jobData?.customer || 'N/A'}</span>
               </div>
-              <div>
-                <span className="font-medium text-gray-700">Stage:</span>
-                <span className="ml-2">{proofData?.job_stage_instances?.production_stage?.name || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Due Date:</span>
-                <span className="ml-2">{jobData?.due_date ? new Date(jobData.due_date).toLocaleDateString() : 'N/A'}</span>
-              </div>
+              {jobData?.due_date && (
+                <div>
+                  <span className="font-medium text-gray-700">Due Date:</span>
+                  <span className="ml-2">{new Date(jobData.due_date).toLocaleDateString()}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
