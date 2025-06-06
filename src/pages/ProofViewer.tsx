@@ -152,7 +152,7 @@ const ProofViewer = () => {
           <CardHeader className="pb-4">
             <div className="mb-6">
               <img 
-                src="https://batchflow.jaimar.dev/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
+                src="https://i.imgur.com/YourLogoHere.png" 
                 alt="IMPRESS" 
                 className="h-12 mx-auto"
               />
@@ -181,7 +181,7 @@ const ProofViewer = () => {
       <div className="bg-white border-b border-gray-200 py-6">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <img 
-            src="https://batchflow.jaimar.dev/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
+            src="https://i.imgur.com/YourLogoHere.png" 
             alt="IMPRESS" 
             className="h-12 mx-auto mb-4"
           />

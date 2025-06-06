@@ -88,8 +88,18 @@ serve(async (req) => {
         );
       }
 
-      // Use custom domain if configured, otherwise fall back to Supabase URL
-      const customDomain = Deno.env.get('CUSTOM_DOMAIN_URL') || 'https://batchflow.jaimar.com';
+      // Update stage instance to show proof is awaiting sign off
+      await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'awaiting_approval',
+          notes: 'Proof sent to client, awaiting sign off',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stageInstanceId);
+
+      // Use correct custom domain
+      const customDomain = Deno.env.get('CUSTOM_DOMAIN_URL') || 'https://batchflow.jaimar.dev';
       const proofUrl = `${customDomain}/proof/${token}`;
       
       console.log('✅ Proof link generated successfully');
