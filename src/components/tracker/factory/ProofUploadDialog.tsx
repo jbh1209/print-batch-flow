@@ -108,7 +108,7 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         return;
       }
 
-      // Get stage instance details first
+      // Get stage instance details
       const { data: stageInstance, error: stageError } = await supabase
         .from('job_stage_instances')
         .select('job_id, job_table_name')
