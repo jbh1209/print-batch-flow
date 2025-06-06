@@ -1,167 +1,245 @@
-
-import React, { useState, useEffect } from "react";
-import {
-  BrowserRouter as Router,
-  Route,
-  Routes,
-  Navigate,
-} from "react-router-dom";
-import { supabase } from "./integrations/supabase/client";
-import TrackerDashboard from "./pages/tracker/TrackerDashboard";
-import TrackerJobs from "./pages/tracker/TrackerJobs";
-import TrackerLabels from "./pages/tracker/TrackerLabels";
-import TrackerUpload from "./pages/tracker/TrackerUpload";
-import TrackerProduction from "./pages/tracker/TrackerProduction";
-import TrackerKanban from "./pages/tracker/TrackerKanban";
-import TrackerWorkSheets from "./pages/tracker/TrackerWorkSheets";
-import TrackerAdmin from "./pages/tracker/TrackerAdmin";
-import RoleAwareLayout from "./components/tracker/RoleAwareLayout";
-import { AuthProvider } from "./hooks/useAuth";
-import { Toaster } from "sonner";
-import TrackerMobileScanner from "./pages/tracker/TrackerMobileScanner";
-import FactoryFloor from "./pages/tracker/FactoryFloor";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/auth/AuthProvider";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import AppSelector from "./pages/AppSelector";
-import TrackerUsers from "./pages/tracker/TrackerUsers";
-import BatchFlowLayout from "./components/BatchFlowLayout";
-import ProofViewer from "./pages/ProofViewer";
-
-// BatchFlow page imports
-import BatchFlowHome from "./pages/BatchFlowHome";
-import AllJobsPage from "./pages/AllJobsPage";
-import AllBatches from "./pages/AllBatches";
+import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
-import BusinessCards from "./pages/BusinessCards";
-import BusinessCardJobs from "./pages/BusinessCardJobs";
-import BusinessCardJobNew from "./pages/BusinessCardJobNew";
-import BusinessCardJobEdit from "./pages/BusinessCardJobEdit";
-import BusinessCardBatches from "./pages/BusinessCardBatches";
-import Flyers from "./pages/Flyers";
-import FlyerJobs from "./pages/FlyerJobs";
-import FlyerJobNew from "./pages/FlyerJobNew";
-import FlyerJobEdit from "./pages/FlyerJobEdit";
-import FlyerBatches from "./pages/FlyerBatches";
-import FlyerBatchDetails from "./pages/FlyerBatchDetails";
-import Postcards from "./pages/Postcards";
-import PostcardJobEdit from "./pages/PostcardJobEdit";
-import Boxes from "./pages/Boxes";
-import Covers from "./pages/Covers";
-import Sleeves from "./pages/Sleeves";
-import SleeveJobEdit from "./pages/SleeveJobEdit";
-import Stickers from "./pages/Stickers";
-import Posters from "./pages/Posters";
+import NotFound from "./pages/NotFound";
+import ProofViewer from "./pages/ProofViewer";
+import Batches from "./pages/Batches";
+import ProductionJobs from "./pages/ProductionJobs";
+import Products from "./pages/Products";
+import ProductDetails from "./pages/ProductDetails";
+import BatchDetails from "./pages/BatchDetails";
+import CreateProduct from "./pages/CreateProduct";
+import EditProduct from "./pages/EditProduct";
+import Factory from "./pages/Factory";
+import JobDetails from "./pages/JobDetails";
+import EditJob from "./pages/EditJob";
+import CreateJob from "./pages/CreateJob";
+import Customers from "./pages/Customers";
+import CustomerDetails from "./pages/CustomerDetails";
+import CreateCustomer from "./pages/CreateCustomer";
+import EditCustomer from "./pages/EditCustomer";
+import Estimates from "./pages/Estimates";
+import EstimateDetails from "./pages/EstimateDetails";
+import CreateEstimate from "./pages/CreateEstimate";
+import EditEstimate from "./pages/EditEstimate";
+import ViewPDF from "./pages/ViewPDF";
+import ProductionJobDetails from "./pages/ProductionJobDetails";
+import EditProductionJob from "./pages/EditProductionJob";
+import CreateProductionJob from "./pages/CreateProductionJob";
+import CalendarPage from "./pages/CalendarPage";
+import Reports from "./pages/Reports";
+import LegacyBatches from "./pages/LegacyBatches";
+import LegacyBatchDetails from "./pages/LegacyBatchDetails";
+import LegacyJobDetails from "./pages/LegacyJobDetails";
+import EditLegacyJob from "./pages/EditLegacyJob";
+import CreateLegacyJob from "./pages/CreateLegacyJob";
+import CreateLegacyBatch from "./pages/CreateLegacyBatch";
+import EditLegacyBatch from "./pages/EditLegacyBatch";
 
-function App() {
-  const [session, setSession] = useState(null);
+const queryClient = new QueryClient();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-  }, []);
-
-  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    if (!session) {
-      return <Navigate to="/auth" />;
-    }
-
-    return <>{children}</>;
-  };
-
-  return (
+const App = () => (
+  <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <div className="h-screen overflow-hidden">
-        <Toaster richColors />
-        <Router>
+      <TooltipProvider>
+        <Toaster />
+        <BrowserRouter>
           <Routes>
+            <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            
-            {/* Public proof viewer route - no authentication required */}
             <Route path="/proof/:token" element={<ProofViewer />} />
-            
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppSelector />
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* BatchFlow routes with nested structure */}
-            <Route
-              path="/batchflow"
-              element={
-                <ProtectedRoute>
-                  <BatchFlowLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<BatchFlowHome />} />
-              <Route path="all-jobs" element={<AllJobsPage />} />
-              <Route path="batches" element={<AllBatches />} />
-              <Route path="users" element={<Users />} />
-              <Route path="settings" element={<Settings />} />
-              
-              {/* Business Cards */}
-              <Route path="batches/business-cards" element={<BusinessCards />} />
-              <Route path="batches/business-cards/jobs" element={<BusinessCardJobs />} />
-              <Route path="batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
-              <Route path="batches/business-cards/jobs/:id/edit" element={<BusinessCardJobEdit />} />
-              <Route path="batches/business-cards/batches" element={<BusinessCardBatches />} />
-              
-              {/* Flyers */}
-              <Route path="batches/flyers" element={<Flyers />} />
-              <Route path="batches/flyers/jobs" element={<FlyerJobs />} />
-              <Route path="batches/flyers/jobs/new" element={<FlyerJobNew />} />
-              <Route path="batches/flyers/jobs/:id/edit" element={<FlyerJobEdit />} />
-              <Route path="batches/flyers/batches" element={<FlyerBatches />} />
-              <Route path="batches/flyers/batches/:batchId" element={<FlyerBatchDetails />} />
-              
-              {/* Postcards */}
-              <Route path="batches/postcards" element={<Postcards />} />
-              <Route path="batches/postcards/jobs/:id/edit" element={<PostcardJobEdit />} />
-              
-              {/* Other Products */}
-              <Route path="batches/boxes" element={<Boxes />} />
-              <Route path="batches/covers" element={<Covers />} />
-              <Route path="batches/sleeves" element={<Sleeves />} />
-              <Route path="batches/sleeves/jobs/:id/edit" element={<SleeveJobEdit />} />
-              <Route path="batches/stickers" element={<Stickers />} />
-              <Route path="batches/posters" element={<Posters />} />
-            </Route>
-            
-            {/* Tracker routes with role-aware layout */}
-            <Route
-              path="/tracker"
-              element={
-                <ProtectedRoute>
-                  <RoleAwareLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<TrackerDashboard />} />
-              <Route path="jobs" element={<TrackerJobs />} />
-              <Route path="production" element={<TrackerProduction />} />
-              <Route path="kanban" element={<TrackerKanban />} />
-              <Route path="worksheets" element={<TrackerWorkSheets />} />
-              <Route path="admin" element={<TrackerAdmin />} />
-              <Route path="users" element={<TrackerUsers />} />
-              <Route path="labels" element={<TrackerLabels />} />
-              <Route path="upload" element={<TrackerUpload />} />
-              <Route path="mobile" element={<TrackerMobileScanner />} />
-              <Route path="factory-floor" element={<FactoryFloor />} />
-            </Route>
+
+            {/* Protected Routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/users" element={
+              <ProtectedRoute>
+                <Users />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/batches" element={
+              <ProtectedRoute>
+                <Batches />
+              </ProtectedRoute>
+            } />
+            <Route path="/batches/:batchId" element={
+              <ProtectedRoute>
+                <BatchDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/production-jobs" element={
+              <ProtectedRoute>
+                <ProductionJobs />
+              </ProtectedRoute>
+            } />
+            <Route path="/production-jobs/:jobId" element={
+              <ProtectedRoute>
+                <ProductionJobDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/production-jobs/:jobId/edit" element={
+              <ProtectedRoute>
+                <EditProductionJob />
+              </ProtectedRoute>
+            } />
+            <Route path="/production-jobs/create" element={
+              <ProtectedRoute>
+                <CreateProductionJob />
+              </ProtectedRoute>
+            } />
+            <Route path="/products" element={
+              <ProtectedRoute>
+                <Products />
+              </ProtectedRoute>
+            } />
+            <Route path="/products/:productId" element={
+              <ProtectedRoute>
+                <ProductDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/products/:productId/edit" element={
+              <ProtectedRoute>
+                <EditProduct />
+              </ProtectedRoute>
+            } />
+            <Route path="/products/create" element={
+              <ProtectedRoute>
+                <CreateProduct />
+              </ProtectedRoute>
+            } />
+            <Route path="/factory" element={
+              <ProtectedRoute>
+                <Factory />
+              </ProtectedRoute>
+            } />
+            <Route path="/jobs/:jobId" element={
+              <ProtectedRoute>
+                <JobDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/jobs/:jobId/edit" element={
+              <ProtectedRoute>
+                <EditJob />
+              </ProtectedRoute>
+            } />
+            <Route path="/jobs/create" element={
+              <ProtectedRoute>
+                <CreateJob />
+              </ProtectedRoute>
+            } />
+            <Route path="/customers" element={
+              <ProtectedRoute>
+                <Customers />
+              </ProtectedRoute>
+            } />
+            <Route path="/customers/:customerId" element={
+              <ProtectedRoute>
+                <CustomerDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/customers/:customerId/edit" element={
+              <ProtectedRoute>
+                <EditCustomer />
+              </ProtectedRoute>
+            } />
+            <Route path="/customers/create" element={
+              <ProtectedRoute>
+                <CreateCustomer />
+              </ProtectedRoute>
+            } />
+            <Route path="/estimates" element={
+              <ProtectedRoute>
+                <Estimates />
+              </ProtectedRoute>
+            } />
+            <Route path="/estimates/:estimateId" element={
+              <ProtectedRoute>
+                <EstimateDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/estimates/:estimateId/edit" element={
+              <ProtectedRoute>
+                <EditEstimate />
+              </ProtectedRoute>
+            } />
+            <Route path="/estimates/create" element={
+              <ProtectedRoute>
+                <CreateEstimate />
+              </ProtectedRoute>
+            } />
+            <Route path="/view-pdf" element={
+              <ProtectedRoute>
+                <ViewPDF />
+              </ProtectedRoute>
+            } />
+            <Route path="/calendar" element={
+              <ProtectedRoute>
+                <CalendarPage />
+              </ProtectedRoute>
+            } />
+             <Route path="/reports" element={
+              <ProtectedRoute>
+                <Reports />
+              </ProtectedRoute>
+            } />
+            <Route path="/legacy-batches" element={
+              <ProtectedRoute>
+                <LegacyBatches />
+              </ProtectedRoute>
+            } />
+             <Route path="/legacy-batches/create" element={
+              <ProtectedRoute>
+                <CreateLegacyBatch />
+              </ProtectedRoute>
+            } />
+            <Route path="/legacy-batches/:batchId" element={
+              <ProtectedRoute>
+                <LegacyBatchDetails />
+              </ProtectedRoute>
+            } />
+             <Route path="/legacy-batches/:batchId/edit" element={
+              <ProtectedRoute>
+                <EditLegacyBatch />
+              </ProtectedRoute>
+            } />
+            <Route path="/legacy-jobs/:jobId" element={
+              <ProtectedRoute>
+                <LegacyJobDetails />
+              </ProtectedRoute>
+            } />
+             <Route path="/legacy-jobs/:jobId/edit" element={
+              <ProtectedRoute>
+                <EditLegacyJob />
+              </ProtectedRoute>
+            } />
+             <Route path="/legacy-jobs/create" element={
+              <ProtectedRoute>
+                <CreateLegacyJob />
+              </ProtectedRoute>
+            } />
+
+            <Route path="*" element={<NotFound />} />
           </Routes>
-        </Router>
-      </div>
+        </BrowserRouter>
+      </TooltipProvider>
     </AuthProvider>
-  );
-}
+  </QueryClientProvider>
+);
 
 export default App;

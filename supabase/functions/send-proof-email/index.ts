@@ -31,7 +31,9 @@ serve(async (req) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="text-align: center; padding: 20px;">
-            <img src="https://i.imgur.com/YourLogoHere.png" alt="IMPRESS" style="max-width: 200px; margin-bottom: 20px;" />
+            <div style="background: #2563eb; color: white; padding: 15px; border-radius: 8px; font-size: 24px; font-weight: bold; margin-bottom: 20px;">
+              IMPRESS
+            </div>
           </div>
           
           <h1 style="color: #333; text-align: center;">Your Proof is Ready for Review</h1>
