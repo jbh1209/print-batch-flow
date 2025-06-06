@@ -88,7 +88,9 @@ serve(async (req) => {
         );
       }
 
-      const proofUrl = `${Deno.env.get('SUPABASE_URL')?.replace('/rest/v1', '')}/proof/${token}`;
+      // Use custom domain if configured, otherwise fall back to Supabase URL
+      const customDomain = Deno.env.get('CUSTOM_DOMAIN_URL') || 'https://batchflow.jaimar.com';
+      const proofUrl = `${customDomain}/proof/${token}`;
       
       console.log('✅ Proof link generated successfully');
       return new Response(

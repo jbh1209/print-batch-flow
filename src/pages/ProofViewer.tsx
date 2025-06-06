@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,6 +94,7 @@ const ProofViewer = () => {
 
     setIsSubmitting(true);
     try {
+      // Use the current domain for the edge function call
       const { error } = await supabase.functions.invoke('handle-proof-approval/submit-approval', {
         body: {
           token,
@@ -152,7 +152,7 @@ const ProofViewer = () => {
           <CardHeader className="pb-4">
             <div className="mb-6">
               <img 
-                src="/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
+                src="https://batchflow.jaimar.dev/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
                 alt="IMPRESS" 
                 className="h-12 mx-auto"
               />
@@ -181,7 +181,7 @@ const ProofViewer = () => {
       <div className="bg-white border-b border-gray-200 py-6">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <img 
-            src="/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
+            src="https://batchflow.jaimar.dev/lovable-uploads/013852ed-9663-4b6d-98a6-1a788ab41f21.png" 
             alt="IMPRESS" 
             className="h-12 mx-auto mb-4"
           />
