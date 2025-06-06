@@ -20,22 +20,39 @@ import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import ProofUploadDialog from "./ProofUploadDialog";
 import { ProofStatusIndicator } from "./ProofStatusIndicator";
 
+interface StageInstanceData {
+  id: string;
+  job_id: string;
+  production_stage_id: string;
+  status: string;
+  proof_emailed_at?: string;
+  client_email?: string;
+  client_name?: string;
+  proof_pdf_url?: string;
+  updated_at?: string;
+  production_stage?: {
+    name: string;
+  };
+}
+
 interface EnhancedOperatorJobCardProps {
   job: AccessibleJob;
-  onStart?: (jobId: string, jobTableName: string, stageId?: string) => Promise<boolean>;
-  onComplete?: (jobId: string, jobTableName: string, stageId?: string) => Promise<boolean>;
+  onStart?: (jobId: string, stageId: string) => Promise<boolean>;
+  onComplete?: (jobId: string, stageId: string) => Promise<boolean>;
+  onJobClick?: (job: AccessibleJob) => void;
   onHold?: (jobId: string, reason: string, notes?: string) => Promise<boolean>;
   onRelease?: (jobId: string, notes?: string) => Promise<boolean>;
   onNotesUpdate?: (jobId: string, notes: string) => Promise<void>;
   onTimeUpdate?: (jobId: string, timeData: any) => Promise<void>;
   onRefresh?: () => void;
-  currentStageInstance?: any;
+  currentStageInstance?: StageInstanceData;
 }
 
 export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = ({
   job,
   onStart,
   onComplete,
+  onJobClick,
   onHold,
   onRelease,
   onNotesUpdate,
@@ -45,13 +62,26 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
 }) => {
   const [showProofDialog, setShowProofDialog] = useState(false);
   
-  const isProofStage = currentStageInstance?.production_stage?.name?.toLowerCase().includes('proof');
-  const canSendProof = isProofStage && job.current_stage_status === 'active';
+  // Determine if this is a proof stage
+  const isProofStage = currentStageInstance?.production_stage?.name?.toLowerCase().includes('proof') || false;
+  
+  // Check proof status states
+  const canSendProof = isProofStage && 
+    job.current_stage_status === 'active' && 
+    currentStageInstance?.status === 'active';
+    
   const isAwaitingApproval = currentStageInstance?.status === 'awaiting_approval';
+  const hasProofBeenSent = currentStageInstance?.proof_emailed_at;
 
   const handleProofSent = () => {
     setShowProofDialog(false);
     onRefresh?.();
+  };
+
+  const handleCardClick = () => {
+    if (onJobClick) {
+      onJobClick(job);
+    }
   };
 
   return (
@@ -62,7 +92,7 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
           job.current_stage_status === 'active' && "ring-2 ring-blue-500 ring-opacity-50",
           isAwaitingApproval && "ring-2 ring-yellow-500 ring-opacity-50 bg-yellow-50"
         )}
-        onClick={() => {/* Handle click if needed */}}
+        onClick={handleCardClick}
       >
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
@@ -121,11 +151,13 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <JobActionButtons
-              job={job}
-              onStart={onStart}
-              onComplete={onComplete}
-            />
+            {onStart && onComplete && job.current_stage_id && (
+              <JobActionButtons
+                job={job}
+                onStart={onStart}
+                onComplete={onComplete}
+              />
+            )}
             
             {canSendProof && !isAwaitingApproval && (
               <Button
@@ -160,12 +192,14 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
       </Card>
 
       {/* Proof Upload Dialog */}
-      <ProofUploadDialog
-        isOpen={showProofDialog}
-        onClose={() => setShowProofDialog(false)}
-        stageInstanceId={currentStageInstance?.id || ''}
-        onProofSent={handleProofSent}
-      />
+      {showProofDialog && currentStageInstance && (
+        <ProofUploadDialog
+          isOpen={showProofDialog}
+          onClose={() => setShowProofDialog(false)}
+          stageInstanceId={currentStageInstance.id}
+          onProofSent={handleProofSent}
+        />
+      )}
     </>
   );
 };

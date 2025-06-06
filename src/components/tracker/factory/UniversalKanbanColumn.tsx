@@ -5,6 +5,21 @@ import { Badge } from "@/components/ui/badge";
 import { EnhancedOperatorJobCard } from "./EnhancedOperatorJobCard";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
+interface StageInstanceData {
+  id: string;
+  job_id: string;
+  production_stage_id: string;
+  status: string;
+  proof_emailed_at?: string;
+  client_email?: string;
+  client_name?: string;
+  proof_pdf_url?: string;
+  updated_at?: string;
+  production_stage?: {
+    name: string;
+  };
+}
+
 interface UniversalKanbanColumnProps {
   stage: {
     stage_id: string;
@@ -16,7 +31,7 @@ interface UniversalKanbanColumnProps {
   onComplete: (jobId: string, stageId: string) => Promise<boolean>;
   onJobClick: (job: AccessibleJob) => void;
   onRefresh?: () => void;
-  stageInstances?: Record<string, any>;
+  getStageInstanceForJob: (job: AccessibleJob) => StageInstanceData | undefined;
 }
 
 export const UniversalKanbanColumn: React.FC<UniversalKanbanColumnProps> = ({
@@ -26,7 +41,7 @@ export const UniversalKanbanColumn: React.FC<UniversalKanbanColumnProps> = ({
   onComplete,
   onJobClick,
   onRefresh,
-  stageInstances = {}
+  getStageInstanceForJob
 }) => {
   return (
     <Card className="h-full flex flex-col max-h-[calc(100vh-12rem)]">
@@ -50,16 +65,20 @@ export const UniversalKanbanColumn: React.FC<UniversalKanbanColumnProps> = ({
                 <p className="text-sm">No jobs in this stage</p>
               </div>
             ) : (
-              jobs.map(job => (
-                <EnhancedOperatorJobCard
-                  key={job.job_id}
-                  job={job}
-                  onStart={onStart}
-                  onComplete={onComplete}
-                  onRefresh={onRefresh}
-                  currentStageInstance={stageInstances[job.job_id]}
-                />
-              ))
+              jobs.map(job => {
+                const stageInstance = getStageInstanceForJob(job);
+                return (
+                  <EnhancedOperatorJobCard
+                    key={job.job_id}
+                    job={job}
+                    onStart={onStart}
+                    onComplete={onComplete}
+                    onJobClick={onJobClick}
+                    onRefresh={onRefresh}
+                    currentStageInstance={stageInstance}
+                  />
+                );
+              })
             )}
           </div>
         </div>

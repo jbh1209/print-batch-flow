@@ -12,6 +12,21 @@ import { DtpJobModal } from "./DtpJobModal";
 import { MobileFactoryView } from "./MobileFactoryView";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
+interface StageInstanceData {
+  id: string;
+  job_id: string;
+  production_stage_id: string;
+  status: string;
+  proof_emailed_at?: string;
+  client_email?: string;
+  client_name?: string;
+  proof_pdf_url?: string;
+  updated_at?: string;
+  production_stage?: {
+    name: string;
+  };
+}
+
 export const UniversalFactoryFloor = () => {
   const { jobs, isLoading, refreshJobs } = useAccessibleJobs();
   const { startJob, completeJob } = useJobActions(refreshJobs);
@@ -21,7 +36,7 @@ export const UniversalFactoryFloor = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [stageInstances, setStageInstances] = useState<Record<string, any>>({});
+  const [stageInstancesMap, setStageInstancesMap] = useState<Record<string, StageInstanceData>>({});
 
   // Get stages where user can work
   const workableStages = useMemo(() => {
@@ -59,37 +74,64 @@ export const UniversalFactoryFloor = () => {
     return grouped;
   }, [filteredJobs, workableStages]);
 
-  // Fetch stage instances for proof status
+  // Fetch current stage instances for all jobs
   const fetchStageInstances = useCallback(async () => {
     if (jobs.length === 0) return;
 
     try {
-      const jobIds = jobs.map(job => job.job_id);
-      
+      // Get all job-stage pairs for current active stages
+      const jobStagePairs = jobs
+        .filter(job => job.current_stage_id)
+        .map(job => ({
+          job_id: job.job_id,
+          stage_id: job.current_stage_id!
+        }));
+
+      if (jobStagePairs.length === 0) return;
+
+      // Build query to fetch stage instances for current active stages
       const { data: instances, error } = await supabase
         .from('job_stage_instances')
         .select(`
-          *,
+          id,
+          job_id,
+          production_stage_id,
+          status,
+          proof_emailed_at,
+          client_email,
+          client_name,
+          proof_pdf_url,
+          updated_at,
           production_stage:production_stages(name)
         `)
-        .in('job_id', jobIds)
-        .eq('status', 'awaiting_approval');
+        .in('job_id', jobStagePairs.map(pair => pair.job_id))
+        .in('production_stage_id', jobStagePairs.map(pair => pair.stage_id))
+        .in('status', ['active', 'awaiting_approval']);
 
       if (error) {
         console.error('Error fetching stage instances:', error);
         return;
       }
 
-      const instanceMap: Record<string, any> = {};
+      // Create a map keyed by job_id + stage_id for quick lookup
+      const instanceMap: Record<string, StageInstanceData> = {};
       instances?.forEach(instance => {
-        instanceMap[instance.job_id] = instance;
+        const key = `${instance.job_id}-${instance.production_stage_id}`;
+        instanceMap[key] = instance;
       });
 
-      setStageInstances(instanceMap);
+      setStageInstancesMap(instanceMap);
     } catch (error) {
       console.error('Error fetching stage instances:', error);
     }
   }, [jobs]);
+
+  // Get stage instance for a specific job
+  const getStageInstanceForJob = useCallback((job: AccessibleJob): StageInstanceData | undefined => {
+    if (!job.current_stage_id) return undefined;
+    const key = `${job.job_id}-${job.current_stage_id}`;
+    return stageInstancesMap[key];
+  }, [stageInstancesMap]);
 
   // Fetch stage instances when jobs change
   useEffect(() => {
@@ -136,6 +178,15 @@ export const UniversalFactoryFloor = () => {
     setSelectedJob(null);
   }, []);
 
+  // Fixed action handlers with correct signatures
+  const handleStartJob = useCallback(async (jobId: string, stageId: string): Promise<boolean> => {
+    return await startJob(jobId, stageId);
+  }, [startJob]);
+
+  const handleCompleteJob = useCallback(async (jobId: string, stageId: string): Promise<boolean> => {
+    return await completeJob(jobId, stageId);
+  }, [completeJob]);
+
   if (isLoading || stagesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -154,8 +205,8 @@ export const UniversalFactoryFloor = () => {
           onSearchChange={setSearchQuery}
           onRefresh={handleRefresh}
           onJobClick={handleJobClick}
-          onStart={startJob}
-          onComplete={completeJob}
+          onStart={handleStartJob}
+          onComplete={handleCompleteJob}
           isRefreshing={isRefreshing}
         />
       </div>
@@ -202,11 +253,11 @@ export const UniversalFactoryFloor = () => {
                   <UniversalKanbanColumn
                     stage={stage}
                     jobs={jobsByStage[stage.stage_id] || []}
-                    onStart={startJob}
-                    onComplete={completeJob}
+                    onStart={handleStartJob}
+                    onComplete={handleCompleteJob}
                     onJobClick={handleJobClick}
                     onRefresh={handleRefresh}
-                    stageInstances={stageInstances}
+                    getStageInstanceForJob={getStageInstanceForJob}
                   />
                 </div>
               ))}
@@ -221,8 +272,8 @@ export const UniversalFactoryFloor = () => {
           job={selectedJob}
           isOpen={true}
           onClose={handleModalClose}
-          onStart={startJob}
-          onComplete={completeJob}
+          onStart={handleStartJob}
+          onComplete={handleCompleteJob}
         />
       )}
     </div>
