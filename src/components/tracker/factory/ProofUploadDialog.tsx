@@ -51,22 +51,44 @@ const ProofUploadDialog: React.FC<ProofUploadDialogProps> = ({
         return;
       }
 
-      // Get job details for email
-      const { data: stageInstance } = await supabase
+      // Get stage instance details first
+      const { data: stageInstance, error: stageError } = await supabase
         .from('job_stage_instances')
-        .select(`
-          job_id,
-          job_table_name,
-          production_jobs!inner(wo_no, customer, name)
-        `)
+        .select('job_id, job_table_name')
         .eq('id', stageInstanceId)
         .single();
 
-      const jobDetails = {
-        jobNumber: stageInstance?.production_jobs?.wo_no,
-        customer: stageInstance?.production_jobs?.customer,
-        description: jobDescription || stageInstance?.production_jobs?.name
-      };
+      if (stageError || !stageInstance) {
+        toast.error("Failed to get stage instance details");
+        return;
+      }
+
+      // Get job details from the appropriate table
+      let jobDetails = null;
+      if (stageInstance.job_table_name === 'production_jobs') {
+        const { data: job, error: jobError } = await supabase
+          .from('production_jobs')
+          .select('wo_no, customer, reference')
+          .eq('id', stageInstance.job_id)
+          .single();
+
+        if (!jobError && job) {
+          jobDetails = {
+            jobNumber: job.wo_no,
+            customer: job.customer,
+            description: jobDescription || job.reference || 'Production Job'
+          };
+        }
+      }
+
+      // Fallback if we couldn't get job details
+      if (!jobDetails) {
+        jobDetails = {
+          jobNumber: 'Unknown',
+          customer: 'Unknown',
+          description: jobDescription || 'Job Details'
+        };
+      }
 
       // Send email
       const { error: emailError } = await supabase.functions.invoke('send-proof-email', {
