@@ -1,9 +1,10 @@
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { FactoryFloorHeader } from "./FactoryFloorHeader";
 import { UniversalKanbanColumn } from "./UniversalKanbanColumn";
@@ -20,6 +21,7 @@ export const UniversalFactoryFloor = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [stageInstances, setStageInstances] = useState<Record<string, any>>({});
 
   // Get stages where user can work
   const workableStages = useMemo(() => {
@@ -57,14 +59,74 @@ export const UniversalFactoryFloor = () => {
     return grouped;
   }, [filteredJobs, workableStages]);
 
+  // Fetch stage instances for proof status
+  const fetchStageInstances = useCallback(async () => {
+    if (jobs.length === 0) return;
+
+    try {
+      const jobIds = jobs.map(job => job.job_id);
+      
+      const { data: instances, error } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          *,
+          production_stage:production_stages(name)
+        `)
+        .in('job_id', jobIds)
+        .eq('status', 'awaiting_approval');
+
+      if (error) {
+        console.error('Error fetching stage instances:', error);
+        return;
+      }
+
+      const instanceMap: Record<string, any> = {};
+      instances?.forEach(instance => {
+        instanceMap[instance.job_id] = instance;
+      });
+
+      setStageInstances(instanceMap);
+    } catch (error) {
+      console.error('Error fetching stage instances:', error);
+    }
+  }, [jobs]);
+
+  // Fetch stage instances when jobs change
+  useEffect(() => {
+    fetchStageInstances();
+  }, [fetchStageInstances]);
+
+  // Real-time subscription for stage instance changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('stage-instances-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'job_stage_instances'
+        },
+        () => {
+          fetchStageInstances();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchStageInstances]);
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
       await refreshJobs();
+      await fetchStageInstances();
     } finally {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
-  }, [refreshJobs]);
+  }, [refreshJobs, fetchStageInstances]);
 
   const handleJobClick = useCallback((job: AccessibleJob) => {
     setSelectedJob(job);
@@ -143,6 +205,8 @@ export const UniversalFactoryFloor = () => {
                     onStart={startJob}
                     onComplete={completeJob}
                     onJobClick={handleJobClick}
+                    onRefresh={handleRefresh}
+                    stageInstances={stageInstances}
                   />
                 </div>
               ))}

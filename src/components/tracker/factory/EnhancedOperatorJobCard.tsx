@@ -46,7 +46,8 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
   const [showProofDialog, setShowProofDialog] = useState(false);
   
   const isProofStage = currentStageInstance?.production_stage?.name?.toLowerCase().includes('proof');
-  const canSendProof = isProofStage && currentStageInstance?.status === 'active';
+  const canSendProof = isProofStage && job.current_stage_status === 'active';
+  const isAwaitingApproval = currentStageInstance?.status === 'awaiting_approval';
 
   const handleProofSent = () => {
     setShowProofDialog(false);
@@ -55,10 +56,14 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
 
   return (
     <>
-      <Card className={cn(
-        "transition-all duration-200 hover:shadow-md",
-        job.current_stage_status === 'active' && "ring-2 ring-blue-500 ring-opacity-50"
-      )}>
+      <Card 
+        className={cn(
+          "transition-all duration-200 hover:shadow-md cursor-pointer",
+          job.current_stage_status === 'active' && "ring-2 ring-blue-500 ring-opacity-50",
+          isAwaitingApproval && "ring-2 ring-yellow-500 ring-opacity-50 bg-yellow-50"
+        )}
+        onClick={() => {/* Handle click if needed */}}
+      >
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
@@ -122,9 +127,12 @@ export const EnhancedOperatorJobCard: React.FC<EnhancedOperatorJobCardProps> = (
               onComplete={onComplete}
             />
             
-            {canSendProof && (
+            {canSendProof && !isAwaitingApproval && (
               <Button
-                onClick={() => setShowProofDialog(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowProofDialog(true);
+                }}
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-2"
