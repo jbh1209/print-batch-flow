@@ -2,7 +2,7 @@
 import React, { useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useSimplePermissions } from "@/hooks/tracker/useSimplePermissions";
-import TrackerLayout from "@/components/TrackerLayout";
+import TrackerLayout from "@/components/tracker/TrackerLayout";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 /**
