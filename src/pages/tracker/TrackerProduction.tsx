@@ -3,7 +3,8 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
-import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
+import { useSimpleFactoryJobs } from "@/hooks/tracker/useSimpleFactoryJobs";
+import { useSimpleJobActions } from "@/hooks/tracker/useSimpleJobActions";
 import { useUnifiedJobFiltering } from "@/hooks/tracker/useUnifiedJobFiltering";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
@@ -25,14 +26,10 @@ const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { 
-    jobs, 
-    isLoading: jobsLoading, 
-    refreshJobs, 
-    startStage, 
-    completeStage, 
-    recordQRScan 
-  } = useEnhancedProductionJobs();
+  
+  // Use simplified hooks
+  const { jobs, isLoading: jobsLoading, refreshJobs } = useSimpleFactoryJobs();
+  const { startStage, completeStage, isProcessing } = useSimpleJobActions(refreshJobs);
   
   const [activeFilters, setActiveFilters] = useState<any>({});
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
@@ -41,20 +38,45 @@ const TrackerProduction = () => {
   // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
 
-  // Use unified filtering to get user's accessible jobs
+  // Convert simple factory jobs to accessible jobs format for filtering
+  const accessibleJobs = useMemo(() => {
+    return jobs.map(job => ({
+      job_id: job.job_id,
+      wo_no: job.wo_no,
+      customer: job.customer,
+      status: job.status,
+      due_date: job.due_date,
+      reference: '',
+      category_id: null,
+      category_name: '',
+      category_color: '',
+      current_stage_id: job.stage_id,
+      current_stage_name: job.stage_name,
+      current_stage_color: job.stage_color,
+      current_stage_status: job.stage_status,
+      user_can_view: true,
+      user_can_edit: true,
+      user_can_work: true,
+      user_can_manage: true,
+      workflow_progress: 0,
+      total_stages: 0,
+      completed_stages: 0
+    }));
+  }, [jobs]);
+
+  // Use unified filtering
   const { 
     filteredJobs, 
     jobStats, 
-    accessibleStages, 
     isLoading: filteringLoading 
   } = useUnifiedJobFiltering({
-    jobs,
+    jobs: accessibleJobs,
     statusFilter: currentFilters.status,
     stageFilter: currentFilters.stage,
     categoryFilter: currentFilters.category
   });
 
-  // Apply additional sorting to the filtered jobs
+  // Apply sorting
   const sortedJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
       let aValue, bValue;
@@ -74,10 +96,9 @@ const TrackerProduction = () => {
     });
   }, [filteredJobs, sortBy, sortOrder]);
 
-  // Get jobs without categories (need category assignment instead of workflow init)
   const jobsWithoutCategory = useMemo(() => {
-    return jobs.filter(job => !job.category_id);
-  }, [jobs]);
+    return accessibleJobs.filter(job => !job.category_id);
+  }, [accessibleJobs]);
 
   const handleFilterChange = (filters: any) => {
     setActiveFilters(filters);
@@ -98,7 +119,8 @@ const TrackerProduction = () => {
           success = await completeStage(jobId, stageId);
           break;
         case 'qr-scan':
-          success = await recordQRScan(jobId, stageId);
+          // For now, treat QR scan as a start action
+          success = await startStage(jobId, stageId);
           break;
       }
 
@@ -140,12 +162,11 @@ const TrackerProduction = () => {
 
   const isLoading = jobsLoading || filteringLoading;
 
-  console.log("🔍 TrackerProduction - Unified Filtering Results:", {
+  console.log("🔍 TrackerProduction - Simplified System Results:", {
     totalJobs: jobs.length,
     filteredJobs: filteredJobs.length,
     sortedJobs: sortedJobs.length,
-    currentFilters,
-    accessibleStages: accessibleStages.length
+    currentFilters
   });
 
   if (isLoading) {
@@ -173,7 +194,7 @@ const TrackerProduction = () => {
       {/* Statistics */}
       <TrackerErrorBoundary componentName="Production Stats">
         <ProductionStats 
-          jobs={filteredJobs} // Use filtered jobs for stats
+          jobs={filteredJobs} 
           jobsWithoutCategory={jobsWithoutCategory}
         />
       </TrackerErrorBoundary>

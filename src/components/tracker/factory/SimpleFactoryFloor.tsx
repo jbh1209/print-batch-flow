@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, Search, Play, CheckCircle, Mail } from "lucide-react";
-import { useSimpleFactoryJobs, SimpleFactoryJob } from "@/hooks/tracker/useSimpleFactoryJobs";
+import { RefreshCw, Search } from "lucide-react";
+import { useSimpleFactoryJobs } from "@/hooks/tracker/useSimpleFactoryJobs";
 import { useSimpleStageActions } from "@/hooks/tracker/useSimpleStageActions";
-import { ProofStatusIndicator } from "./ProofStatusIndicator";
+import { SimpleJobCard } from "./SimpleJobCard";
 import ProofUploadDialog from "./ProofUploadDialog";
 
 export const SimpleFactoryFloor = () => {
@@ -23,7 +23,7 @@ export const SimpleFactoryFloor = () => {
       job.customer.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const grouped: Record<string, SimpleFactoryJob[]> = {};
+    const grouped: Record<string, typeof jobs> = {};
     filtered.forEach(job => {
       const key = `${job.stage_id}-${job.stage_name}`;
       if (!grouped[key]) {
@@ -41,22 +41,6 @@ export const SimpleFactoryFloor = () => {
 
   const handleCompleteStage = async (stageInstanceId: string) => {
     await completeStage(stageInstanceId);
-  };
-
-  const isProofStage = (stageName: string) => {
-    return stageName.toLowerCase().includes('proof');
-  };
-
-  const canStartStage = (job: SimpleFactoryJob) => {
-    return job.stage_status === 'pending';
-  };
-
-  const canCompleteStage = (job: SimpleFactoryJob) => {
-    return job.stage_status === 'active' || job.stage_status === 'client_approved';
-  };
-
-  const canSendProof = (job: SimpleFactoryJob) => {
-    return isProofStage(job.stage_name) && job.stage_status === 'active';
   };
 
   if (isLoading) {
@@ -116,83 +100,14 @@ export const SimpleFactoryFloor = () => {
                 <CardContent className="p-4">
                   <div className="space-y-3">
                     {stageJobs.map(job => (
-                      <div 
+                      <SimpleJobCard
                         key={job.id}
-                        className={`p-3 border rounded-lg ${
-                          job.stage_status === 'active' ? 'ring-2 ring-blue-500 ring-opacity-50' :
-                          job.stage_status === 'client_approved' ? 'ring-2 ring-green-500 ring-opacity-50' :
-                          job.stage_status === 'changes_requested' ? 'ring-2 ring-red-500 ring-opacity-50' :
-                          ''
-                        }`}
-                      >
-                        <div className="space-y-2">
-                          {/* Job Header */}
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium">{job.wo_no}</h4>
-                            <Badge 
-                              variant={job.stage_status === 'active' ? 'default' : 'secondary'}
-                              className={
-                                job.stage_status === 'active' ? 'bg-green-500' :
-                                job.stage_status === 'client_approved' ? 'bg-blue-500' :
-                                job.stage_status === 'changes_requested' ? 'bg-red-500' :
-                                ''
-                              }
-                            >
-                              {job.stage_status.replace('_', ' ')}
-                            </Badge>
-                          </div>
-
-                          {/* Job Details */}
-                          <div className="text-sm text-gray-600">
-                            <div>Customer: {job.customer}</div>
-                            {job.due_date && (
-                              <div>Due: {new Date(job.due_date).toLocaleDateString()}</div>
-                            )}
-                          </div>
-
-                          {/* Proof Status */}
-                          {isProofStage(job.stage_name) && (
-                            <ProofStatusIndicator stageInstance={job} />
-                          )}
-
-                          {/* Action Buttons */}
-                          <div className="flex gap-2 flex-wrap">
-                            {canStartStage(job) && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleStartStage(job.id)}
-                                disabled={isProcessing}
-                              >
-                                <Play className="h-3 w-3 mr-1" />
-                                Start
-                              </Button>
-                            )}
-
-                            {canCompleteStage(job) && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleCompleteStage(job.id)}
-                                disabled={isProcessing}
-                                variant="outline"
-                              >
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Complete
-                              </Button>
-                            )}
-
-                            {canSendProof(job) && (
-                              <Button
-                                size="sm"
-                                onClick={() => setSelectedProofJob(job.id)}
-                                variant="outline"
-                              >
-                                <Mail className="h-3 w-3 mr-1" />
-                                Send Proof
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                        job={job}
+                        onStart={handleStartStage}
+                        onComplete={handleCompleteStage}
+                        onSendProof={setSelectedProofJob}
+                        isProcessing={isProcessing}
+                      />
                     ))}
                   </div>
                 </CardContent>
