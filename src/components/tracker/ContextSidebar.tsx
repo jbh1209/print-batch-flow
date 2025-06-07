@@ -439,9 +439,11 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
                 User Management
               </Link>
             </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <Package className="h-4 w-4 mr-2" />
-              Product Categories
+            <Button variant="outline" size="sm" className="w-full justify-start" asChild>
+              <Link to="/tracker/admin?tab=production">
+                <Package className="h-4 w-4 mr-2" />
+                Product Categories
+              </Link>
             </Button>
             <Button variant="outline" size="sm" className="w-full justify-start">
               <Settings className="h-4 w-4 mr-2" />
