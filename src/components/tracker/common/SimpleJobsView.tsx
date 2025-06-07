@@ -46,7 +46,7 @@ export const SimpleJobsView: React.FC<SimpleJobsViewProps> = ({
 
     const grouped: Record<string, typeof jobs> = {};
     jobs.forEach(job => {
-      const key = `${job.stage_id}-${job.stage_name}`;
+      const key = job.stage_name;
       if (!grouped[key]) {
         grouped[key] = [];
       }
@@ -62,6 +62,11 @@ export const SimpleJobsView: React.FC<SimpleJobsViewProps> = ({
 
   const handleCompleteStage = async (stageInstanceId: string) => {
     await completeStage(stageInstanceId);
+  };
+
+  const handleSendProof = async (stageInstanceId: string) => {
+    console.log('Send proof for stage instance:', stageInstanceId);
+    // Proof functionality will be handled separately
   };
 
   if (isLoading) {
@@ -108,11 +113,11 @@ export const SimpleJobsView: React.FC<SimpleJobsViewProps> = ({
 
       {/* Jobs */}
       {jobs.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="space-y-6">
           {Object.entries(groupedJobs).map(([groupKey, groupJobs]) => (
-            <div key={groupKey} className="space-y-4">
+            <div key={groupKey}>
               {groupByStage && groupJobs.length > 0 && (
-                <Card>
+                <Card className="mb-4">
                   <CardHeader 
                     className="text-white"
                     style={{ backgroundColor: groupJobs[0]?.stage_color || '#6B7280' }}
@@ -126,14 +131,14 @@ export const SimpleJobsView: React.FC<SimpleJobsViewProps> = ({
                   </CardHeader>
                   
                   <CardContent className="p-4">
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {groupJobs.map(job => (
                         <SimpleJobCard
                           key={job.id}
                           job={job}
                           onStart={handleStartStage}
                           onComplete={handleCompleteStage}
-                          onSendProof={() => {}} // Will be handled by SimpleJobCard
+                          onSendProof={handleSendProof}
                           isProcessing={isProcessing}
                         />
                       ))}
@@ -142,16 +147,20 @@ export const SimpleJobsView: React.FC<SimpleJobsViewProps> = ({
                 </Card>
               )}
               
-              {!groupByStage && groupJobs.map(job => (
-                <SimpleJobCard
-                  key={job.id}
-                  job={job}
-                  onStart={handleStartStage}
-                  onComplete={handleCompleteStage}
-                  onSendProof={() => {}} // Will be handled by SimpleJobCard
-                  isProcessing={isProcessing}
-                />
-              ))}
+              {!groupByStage && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {groupJobs.map(job => (
+                    <SimpleJobCard
+                      key={job.id}
+                      job={job}
+                      onStart={handleStartStage}
+                      onComplete={handleCompleteStage}
+                      onSendProof={handleSendProof}
+                      isProcessing={isProcessing}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -161,7 +170,7 @@ export const SimpleJobsView: React.FC<SimpleJobsViewProps> = ({
             <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
             <h3 className="text-xl font-semibold mb-2">No Jobs Found</h3>
             <p className="text-gray-600 text-center">
-              No jobs match your current filters or criteria.
+              No jobs match your current filters or access permissions.
             </p>
           </CardContent>
         </Card>

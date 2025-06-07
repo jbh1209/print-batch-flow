@@ -1,19 +1,17 @@
 
 import React, { useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { useSimplePermissions } from "@/hooks/tracker/useSimplePermissions";
 import TrackerLayout from "@/components/TrackerLayout";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 /**
- * Layout component that manages routing based on user roles
+ * Simplified Layout component that manages routing based on user roles
  * 
- * This component intelligently routes users to appropriate views based on their role:
- * - Operators (excluding admins/managers) are restricted to factory floor only
- * - Admins, managers, and DTP operators see the full tracker layout
+ * Much simpler than before - only restricts pure operators to factory floor
  */
 const RoleAwareLayout: React.FC = () => {
-  const { userRole, isLoading, isOperator, isAdmin, isManager } = useUserRole();
+  const { permissions, isLoading } = useSimplePermissions();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -21,15 +19,14 @@ const RoleAwareLayout: React.FC = () => {
     if (isLoading) return;
 
     console.log('🔄 RoleAwareLayout routing check:', {
-      userRole,
-      isOperator,
-      isAdmin,
-      isManager,
+      isOperator: permissions.isOperator,
+      isAdmin: permissions.isAdmin,
+      isManager: permissions.isManager,
       currentPath: location.pathname
     });
 
     // Only restrict pure operators (not admins or managers) to factory floor
-    if (isOperator && !isAdmin && !isManager) {
+    if (permissions.isOperator && !permissions.isAdmin && !permissions.isManager) {
       // If operator is on /tracker root, redirect to factory floor
       if (location.pathname === '/tracker') {
         console.log('🔄 Redirecting operator from tracker root to factory floor');
@@ -45,9 +42,9 @@ const RoleAwareLayout: React.FC = () => {
       }
     }
 
-    // For admins, managers, and DTP operators - no restrictions, let them access any route
+    // For admins, managers, and other users - no restrictions
     console.log('✅ User has full access to all routes');
-  }, [userRole, isLoading, isOperator, isAdmin, isManager, navigate, location.pathname]);
+  }, [permissions, isLoading, navigate, location.pathname]);
 
   if (isLoading) {
     return (
@@ -58,11 +55,11 @@ const RoleAwareLayout: React.FC = () => {
   }
 
   // For pure operators on factory floor, show standalone view without TrackerLayout
-  if (isOperator && !isAdmin && !isManager && location.pathname.includes('/factory-floor')) {
+  if (permissions.isOperator && !permissions.isAdmin && !permissions.isManager && location.pathname.includes('/factory-floor')) {
     return <Outlet />;
   }
 
-  // For everyone else (admins, managers, DTP operators), show full tracker layout
+  // For everyone else, show full tracker layout
   return <TrackerLayout />;
 };
 

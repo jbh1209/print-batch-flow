@@ -1,7 +1,7 @@
-
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSimplePermissions } from "./useSimplePermissions";
 import { toast } from "sonner";
 import { SimpleFactoryJob } from "./useSimpleFactoryJobs";
 
@@ -13,12 +13,13 @@ export interface SimpleJobAccessOptions {
 
 export const useSimpleJobAccess = (options: SimpleJobAccessOptions = {}) => {
   const { user } = useAuth();
+  const { permissions, isLoading: permissionsLoading } = useSimplePermissions();
   const [jobs, setJobs] = useState<SimpleFactoryJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchJobs = useCallback(async () => {
-    if (!user?.id) {
+    if (!user?.id || permissionsLoading) {
       setJobs([]);
       return;
     }
@@ -27,7 +28,7 @@ export const useSimpleJobAccess = (options: SimpleJobAccessOptions = {}) => {
       setIsLoading(true);
       setError(null);
 
-      // Get job stage instances with stage details
+      // Simplified query - get all stage instances that match user's accessible stages
       const { data: stageInstances, error: stageError } = await supabase
         .from('job_stage_instances')
         .select(`
@@ -76,30 +77,44 @@ export const useSimpleJobAccess = (options: SimpleJobAccessOptions = {}) => {
         (jobDetails || []).map(job => [job.id, job])
       );
 
-      // Transform to simplified format
-      let transformedJobs: SimpleFactoryJob[] = stageInstances.map(instance => {
-        const jobDetail = jobDetailsMap.get(instance.job_id);
-        
-        return {
-          id: instance.id,
-          job_id: instance.job_id,
-          wo_no: jobDetail?.wo_no || 'Unknown',
-          customer: jobDetail?.customer || 'Unknown',
-          status: jobDetail?.status || 'Unknown',
-          due_date: jobDetail?.due_date || undefined,
-          stage_id: instance.production_stage_id,
-          stage_name: instance.production_stages?.name || 'Unknown Stage',
-          stage_color: instance.production_stages?.color || '#6B7280',
-          stage_status: instance.status as any,
-          stage_order: instance.stage_order,
-          proof_emailed_at: instance.proof_emailed_at || undefined,
-          client_email: instance.client_email || undefined,
-          client_name: instance.client_name || undefined,
-          notes: instance.notes || undefined
-        };
-      });
+      // Transform to simplified format and apply simple filtering
+      let transformedJobs: SimpleFactoryJob[] = stageInstances
+        .filter(instance => {
+          const stageName = instance.production_stages?.name?.toLowerCase() || '';
+          
+          // Simple stage access check - if user is admin, show everything
+          if (permissions.isAdmin) {
+            return true;
+          }
+          
+          // Otherwise check if stage name matches user's accessible stages
+          return permissions.accessibleStageNames.some(accessibleStage => 
+            stageName.includes(accessibleStage.toLowerCase())
+          );
+        })
+        .map(instance => {
+          const jobDetail = jobDetailsMap.get(instance.job_id);
+          
+          return {
+            id: instance.id,
+            job_id: instance.job_id,
+            wo_no: jobDetail?.wo_no || 'Unknown',
+            customer: jobDetail?.customer || 'Unknown',
+            status: jobDetail?.status || 'Unknown',
+            due_date: jobDetail?.due_date || undefined,
+            stage_id: instance.production_stage_id,
+            stage_name: instance.production_stages?.name || 'Unknown Stage',
+            stage_color: instance.production_stages?.color || '#6B7280',
+            stage_status: instance.status as any,
+            stage_order: instance.stage_order,
+            proof_emailed_at: instance.proof_emailed_at || undefined,
+            client_email: instance.client_email || undefined,
+            client_name: instance.client_name || undefined,
+            notes: instance.notes || undefined
+          };
+        });
 
-      // Apply simple client-side filtering
+      // Apply user filters
       if (options.statusFilter) {
         transformedJobs = transformedJobs.filter(job => 
           job.status === options.statusFilter
@@ -128,11 +143,11 @@ export const useSimpleJobAccess = (options: SimpleJobAccessOptions = {}) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, options.statusFilter, options.stageFilter, options.searchQuery]);
+  }, [user?.id, permissions, permissionsLoading, options.statusFilter, options.stageFilter, options.searchQuery]);
 
   return {
     jobs,
-    isLoading,
+    isLoading: isLoading || permissionsLoading,
     error,
     refreshJobs: fetchJobs
   };

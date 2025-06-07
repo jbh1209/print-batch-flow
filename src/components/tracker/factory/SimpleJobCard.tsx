@@ -24,34 +24,48 @@ export const SimpleJobCard: React.FC<SimpleJobCardProps> = ({
 }) => {
   const isProofStage = job.stage_name.toLowerCase().includes('proof');
   
+  // Simplified logic - much cleaner than complex permission checks
   const canStartStage = job.stage_status === 'pending';
   const canCompleteStage = job.stage_status === 'active' || job.stage_status === 'client_approved';
   const canSendProof = isProofStage && job.stage_status === 'active';
 
+  const getStatusColor = () => {
+    switch (job.stage_status) {
+      case 'active': return 'ring-2 ring-blue-500 ring-opacity-50';
+      case 'client_approved': return 'ring-2 ring-green-500 ring-opacity-50';
+      case 'changes_requested': return 'ring-2 ring-red-500 ring-opacity-50';
+      case 'awaiting_approval': return 'ring-2 ring-yellow-500 ring-opacity-50';
+      default: return '';
+    }
+  };
+
+  const getStatusBadge = () => {
+    const statusMap = {
+      'pending': { variant: 'secondary' as const, color: '' },
+      'active': { variant: 'default' as const, color: 'bg-green-500' },
+      'client_approved': { variant: 'default' as const, color: 'bg-blue-500' },
+      'changes_requested': { variant: 'default' as const, color: 'bg-red-500' },
+      'awaiting_approval': { variant: 'default' as const, color: 'bg-yellow-500' },
+      'completed': { variant: 'default' as const, color: 'bg-gray-500' }
+    };
+
+    const config = statusMap[job.stage_status as keyof typeof statusMap] || statusMap.pending;
+    
+    return (
+      <Badge variant={config.variant} className={config.color}>
+        {job.stage_status.replace('_', ' ')}
+      </Badge>
+    );
+  };
+
   return (
-    <Card className={`
-      ${job.stage_status === 'active' ? 'ring-2 ring-blue-500 ring-opacity-50' :
-        job.stage_status === 'client_approved' ? 'ring-2 ring-green-500 ring-opacity-50' :
-        job.stage_status === 'changes_requested' ? 'ring-2 ring-red-500 ring-opacity-50' :
-        ''
-      }
-    `}>
+    <Card className={getStatusColor()}>
       <CardContent className="p-4">
         <div className="space-y-3">
           {/* Job Header */}
           <div className="flex items-center justify-between">
             <h4 className="font-medium">{job.wo_no}</h4>
-            <Badge 
-              variant={job.stage_status === 'active' ? 'default' : 'secondary'}
-              className={
-                job.stage_status === 'active' ? 'bg-green-500' :
-                job.stage_status === 'client_approved' ? 'bg-blue-500' :
-                job.stage_status === 'changes_requested' ? 'bg-red-500' :
-                ''
-              }
-            >
-              {job.stage_status.replace('_', ' ')}
-            </Badge>
+            {getStatusBadge()}
           </div>
 
           {/* Job Details */}
@@ -60,6 +74,7 @@ export const SimpleJobCard: React.FC<SimpleJobCardProps> = ({
             {job.due_date && (
               <div>Due: {new Date(job.due_date).toLocaleDateString()}</div>
             )}
+            <div>Stage: {job.stage_name}</div>
           </div>
 
           {/* Proof Status */}
