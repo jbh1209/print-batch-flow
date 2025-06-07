@@ -62,7 +62,7 @@ serve(async (req) => {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
 
-      // Get current user if available, but don't fail if not
+      // Get current user if available
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id || null;
 
@@ -75,7 +75,7 @@ serve(async (req) => {
           stage_instance_id: stageInstanceId,
           token,
           expires_at: expiresAt.toISOString(),
-          created_by: currentUserId // This can now be null
+          created_by: currentUserId
         })
         .select()
         .single();
@@ -88,8 +88,7 @@ serve(async (req) => {
         );
       }
 
-      // CRITICAL FIX: Update stage instance to show proof is awaiting sign off
-      // This is what the UI checks to display "Proof Sent" status
+      // Update stage instance to show proof is awaiting sign off (DO NOT AUTO-ADVANCE)
       const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -101,7 +100,6 @@ serve(async (req) => {
 
       if (updateError) {
         console.error('❌ Failed to update stage instance status:', updateError);
-        // Don't fail the whole operation, but log the error
       } else {
         console.log('✅ Stage instance status updated to awaiting_approval');
       }
@@ -123,7 +121,7 @@ serve(async (req) => {
     }
 
     if (action === 'submit-approval') {
-      // Handle client approval/changes request
+      // Handle client approval/changes request - DO NOT AUTO-ADVANCE
       const { token, response, notes } = await req.json();
       
       console.log('📝 Processing client response:', { token, response });
@@ -148,7 +146,7 @@ serve(async (req) => {
         );
       }
 
-      // Mark proof link as used
+      // Mark proof link as used and record client response
       await supabase
         .from('proof_links')
         .update({
@@ -159,68 +157,34 @@ serve(async (req) => {
         })
         .eq('id', proofLink.id);
 
+      // Update stage instance with client response - NO AUTO-ADVANCEMENT
+      let newStatus = 'awaiting_approval';
+      let newNotes = `Client response: ${response}`;
+      
       if (response === 'approved') {
-        console.log('✅ Client approved - advancing to next stage');
-        
-        // Auto-complete proof stage and advance to printing
-        const { error: advanceError } = await supabase.rpc('advance_job_stage', {
-          p_job_id: proofLink.job_id,
-          p_job_table_name: proofLink.job_table_name,
-          p_current_stage_id: proofLink.job_stage_instances.production_stage_id,
-          p_notes: `Client approved via external link. ${notes ? `Client notes: ${notes}` : ''}`
-        });
-
-        if (advanceError) {
-          console.error('❌ Failed to advance stage:', advanceError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to advance stage after approval' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-          );
-        }
+        newStatus = 'client_approved';
+        newNotes = `Client approved via external link. ${notes ? `Client notes: ${notes}` : ''} - Ready for operator to complete stage.`;
       } else if (response === 'changes_needed') {
-        console.log('🔄 Client requested changes - sending back to DTP');
-        
-        // Find DTP stage to rework to
-        const { data: dtpStages } = await supabase
-          .from('job_stage_instances')
-          .select(`
-            *,
-            production_stage:production_stages(name)
-          `)
-          .eq('job_id', proofLink.job_id)
-          .eq('job_table_name', proofLink.job_table_name)
-          .order('stage_order');
-
-        const dtpStage = dtpStages?.find(stage => 
-          stage.production_stage?.name?.toLowerCase().includes('dtp') ||
-          stage.production_stage?.name?.toLowerCase().includes('design') ||
-          stage.production_stage?.name?.toLowerCase().includes('prepress')
-        );
-
-        if (dtpStage) {
-          const { error: reworkError } = await supabase.rpc('rework_job_stage', {
-            p_job_id: proofLink.job_id,
-            p_job_table_name: proofLink.job_table_name,
-            p_current_stage_id: proofLink.job_stage_instances.production_stage_id,
-            p_target_stage_id: dtpStage.production_stage_id,
-            p_rework_reason: `Client requested changes via external link. ${notes ? `Client notes: ${notes}` : ''}`
-          });
-
-          if (reworkError) {
-            console.error('❌ Failed to rework to DTP:', reworkError);
-            return new Response(
-              JSON.stringify({ error: 'Failed to send back to DTP' }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-            );
-          }
-        }
+        newStatus = 'changes_requested';
+        newNotes = `Client requested changes via external link. ${notes ? `Client notes: ${notes}` : ''} - Operator must rework.`;
       }
 
-      console.log('✅ Client response processed successfully');
+      await supabase
+        .from('job_stage_instances')
+        .update({
+          status: newStatus,
+          notes: newNotes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', proofLink.job_stage_instances.id);
+
+      console.log(`✅ Client response processed: ${response} - Status: ${newStatus}`);
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: response === 'approved' ? 'Approved and moved to printing' : 'Sent back to DTP for changes'
+          message: response === 'approved' 
+            ? 'Approved - waiting for operator to complete stage' 
+            : 'Changes requested - operator notified'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
