@@ -1,6 +1,6 @@
 
 import React from "react";
-import { SimpleFactoryFloor } from "@/components/tracker/factory/SimpleFactoryFloor";
+import { SimpleJobsView } from "@/components/tracker/common/SimpleJobsView";
 
 /**
  * Factory Floor page component - Simplified Version
@@ -10,8 +10,12 @@ import { SimpleFactoryFloor } from "@/components/tracker/factory/SimpleFactoryFl
  */
 const FactoryFloor = () => {
   return (
-    <div className="min-h-screen bg-gray-50 w-full">
-      <SimpleFactoryFloor />
+    <div className="min-h-screen bg-gray-50 w-full p-6">
+      <SimpleJobsView
+        title="Factory Floor"
+        subtitle="Jobs organized by production stage"
+        groupByStage={true}
+      />
     </div>
   );
 };
