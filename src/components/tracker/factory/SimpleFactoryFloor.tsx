@@ -43,6 +43,10 @@ export const SimpleFactoryFloor = () => {
     await completeStage(stageInstanceId);
   };
 
+  const handleSendProof = (stageInstanceId: string) => {
+    setSelectedProofJob(stageInstanceId);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -105,7 +109,7 @@ export const SimpleFactoryFloor = () => {
                         job={job}
                         onStart={handleStartStage}
                         onComplete={handleCompleteStage}
-                        onSendProof={setSelectedProofJob}
+                        onSendProof={handleSendProof}
                         isProcessing={isProcessing}
                       />
                     ))}
