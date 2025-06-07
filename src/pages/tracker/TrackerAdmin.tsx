@@ -5,8 +5,12 @@ import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManag
 import { DuplicateJobManager } from "@/components/tracker/jobs/DuplicateJobManager";
 import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
 import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
+import { useSearchParams } from "react-router-dom";
 
 const TrackerAdmin = () => {
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'users';
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
@@ -14,10 +18,10 @@ const TrackerAdmin = () => {
         <p className="text-gray-600">Manage users, permissions, production stages, and system data</p>
       </div>
 
-      <Tabs defaultValue="users" className="space-y-6">
+      <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="production">Production Management</TabsTrigger>
+          <TabsTrigger value="production">Product Categories</TabsTrigger>
           <TabsTrigger value="data">Data Management</TabsTrigger>
         </TabsList>
 
