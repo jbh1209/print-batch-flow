@@ -39,8 +39,8 @@ export const useSimpleFactoryJobs = () => {
       setIsLoading(true);
       setError(null);
 
-      // Get jobs that user can work on - simplified query
-      const { data, error: fetchError } = await supabase
+      // First get job stage instances with stage details
+      const { data: stageInstances, error: stageError } = await supabase
         .from('job_stage_instances')
         .select(`
           id,
@@ -52,42 +52,64 @@ export const useSimpleFactoryJobs = () => {
           client_email,
           client_name,
           notes,
-          production_stage:production_stages(
+          production_stages (
             name,
             color
-          ),
-          production_jobs!job_stage_instances_job_id_fkey(
-            wo_no,
-            customer,
-            status,
-            due_date
           )
         `)
+        .eq('job_table_name', 'production_jobs')
         .in('status', ['pending', 'active', 'awaiting_approval', 'client_approved', 'changes_requested'])
         .order('stage_order');
 
-      if (fetchError) {
-        throw fetchError;
+      if (stageError) {
+        throw stageError;
       }
 
+      if (!stageInstances || stageInstances.length === 0) {
+        setJobs([]);
+        return;
+      }
+
+      // Get unique job IDs
+      const jobIds = [...new Set(stageInstances.map(si => si.job_id))];
+
+      // Get job details separately
+      const { data: jobDetails, error: jobError } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, customer, status, due_date')
+        .in('id', jobIds);
+
+      if (jobError) {
+        throw jobError;
+      }
+
+      // Create a map of job details for quick lookup
+      const jobDetailsMap = new Map(
+        (jobDetails || []).map(job => [job.id, job])
+      );
+
       // Transform to simplified format
-      const transformedJobs: SimpleFactoryJob[] = (data || []).map(item => ({
-        id: item.id,
-        job_id: item.job_id,
-        wo_no: item.production_jobs?.wo_no || 'Unknown',
-        customer: item.production_jobs?.customer || 'Unknown',
-        status: item.production_jobs?.status || 'Unknown',
-        due_date: item.production_jobs?.due_date || undefined,
-        stage_id: item.production_stage_id,
-        stage_name: item.production_stage?.name || 'Unknown Stage',
-        stage_color: item.production_stage?.color || '#6B7280',
-        stage_status: item.status as any,
-        stage_order: item.stage_order,
-        proof_emailed_at: item.proof_emailed_at || undefined,
-        client_email: item.client_email || undefined,
-        client_name: item.client_name || undefined,
-        notes: item.notes || undefined
-      }));
+      const transformedJobs: SimpleFactoryJob[] = stageInstances.map(instance => {
+        const jobDetail = jobDetailsMap.get(instance.job_id);
+        
+        return {
+          id: instance.id,
+          job_id: instance.job_id,
+          wo_no: jobDetail?.wo_no || 'Unknown',
+          customer: jobDetail?.customer || 'Unknown',
+          status: jobDetail?.status || 'Unknown',
+          due_date: jobDetail?.due_date || undefined,
+          stage_id: instance.production_stage_id,
+          stage_name: instance.production_stages?.name || 'Unknown Stage',
+          stage_color: instance.production_stages?.color || '#6B7280',
+          stage_status: instance.status as any,
+          stage_order: instance.stage_order,
+          proof_emailed_at: instance.proof_emailed_at || undefined,
+          client_email: instance.client_email || undefined,
+          client_name: instance.client_name || undefined,
+          notes: instance.notes || undefined
+        };
+      });
 
       setJobs(transformedJobs);
     } catch (err) {
