@@ -38,6 +38,11 @@ const TrackerProduction = () => {
     // Open QR scanner
   };
 
+  const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan'): Promise<void> => {
+    console.log("Stage action:", { jobId, stageId, action });
+    // Stage action functionality can be implemented here
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -45,7 +50,7 @@ const TrackerProduction = () => {
         <ProductionHeader
           isMobile={isMobile}
           onQRScan={handleQRScan}
-          onStageAction={() => {}}
+          onStageAction={handleStageAction}
           onConfigureStages={handleConfigureStages}
           onQRScanner={handleQRScanner}
         />
