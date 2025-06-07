@@ -1,250 +1,280 @@
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { RefreshCw, AlertTriangle, Play, CheckCircle, Clock } from "lucide-react";
-import { useSimpleJobAccess } from "@/hooks/tracker/useSimpleJobAccess";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
+import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { FactoryFloorHeader } from "./FactoryFloorHeader";
+import { UniversalKanbanColumn } from "./UniversalKanbanColumn";
+import { DtpJobModal } from "./DtpJobModal";
+import { MobileFactoryView } from "./MobileFactoryView";
+import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
-export const UniversalFactoryFloor: React.FC = () => {
-  const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useSimpleJobAccess();
+interface StageInstanceData {
+  id: string;
+  job_id: string;
+  production_stage_id: string;
+  status: string;
+  proof_emailed_at?: string;
+  client_email?: string;
+  client_name?: string;
+  proof_pdf_url?: string;
+  updated_at?: string;
+  production_stage?: {
+    name: string;
+  };
+}
 
-  if (isLoading) {
+export const UniversalFactoryFloor = () => {
+  const { jobs, isLoading, refreshJobs } = useAccessibleJobs();
+  const { startJob, completeJob } = useJobActions(refreshJobs);
+  const { accessibleStages, isLoading: stagesLoading } = useUserStagePermissions();
+  const isMobile = useIsMobile();
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [stageInstancesMap, setStageInstancesMap] = useState<Record<string, StageInstanceData>>({});
+
+  // Get stages where user can work
+  const workableStages = useMemo(() => {
+    return accessibleStages.filter(stage => stage.can_work);
+  }, [accessibleStages]);
+
+  // Filter jobs by search
+  const filteredJobs = useMemo(() => {
+    if (!searchQuery.trim()) return jobs;
+    
+    const query = searchQuery.toLowerCase();
+    return jobs.filter(job => 
+      job.wo_no?.toLowerCase().includes(query) ||
+      job.customer?.toLowerCase().includes(query) ||
+      job.reference?.toLowerCase().includes(query)
+    );
+  }, [jobs, searchQuery]);
+
+  // Group jobs by stage
+  const jobsByStage = useMemo(() => {
+    const grouped: Record<string, AccessibleJob[]> = {};
+    
+    // Initialize empty arrays for all workable stages
+    workableStages.forEach(stage => {
+      grouped[stage.stage_id] = [];
+    });
+    
+    // Group filtered jobs by current stage
+    filteredJobs.forEach(job => {
+      if (job.current_stage_id && grouped[job.current_stage_id]) {
+        grouped[job.current_stage_id].push(job);
+      }
+    });
+    
+    return grouped;
+  }, [filteredJobs, workableStages]);
+
+  // Fetch current stage instances for all jobs
+  const fetchStageInstances = useCallback(async () => {
+    if (jobs.length === 0) return;
+
+    try {
+      // Get all job-stage pairs for current active stages
+      const jobStagePairs = jobs
+        .filter(job => job.current_stage_id)
+        .map(job => ({
+          job_id: job.job_id,
+          stage_id: job.current_stage_id!
+        }));
+
+      if (jobStagePairs.length === 0) return;
+
+      // Build query to fetch stage instances for current active stages
+      const { data: instances, error } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          id,
+          job_id,
+          production_stage_id,
+          status,
+          proof_emailed_at,
+          client_email,
+          client_name,
+          proof_pdf_url,
+          updated_at,
+          production_stage:production_stages(name)
+        `)
+        .in('job_id', jobStagePairs.map(pair => pair.job_id))
+        .in('production_stage_id', jobStagePairs.map(pair => pair.stage_id))
+        .in('status', ['active', 'awaiting_approval']);
+
+      if (error) {
+        console.error('Error fetching stage instances:', error);
+        return;
+      }
+
+      // Create a map keyed by job_id + stage_id for quick lookup
+      const instanceMap: Record<string, StageInstanceData> = {};
+      instances?.forEach(instance => {
+        const key = `${instance.job_id}-${instance.production_stage_id}`;
+        instanceMap[key] = instance;
+      });
+
+      setStageInstancesMap(instanceMap);
+    } catch (error) {
+      console.error('Error fetching stage instances:', error);
+    }
+  }, [jobs]);
+
+  // Get stage instance for a specific job
+  const getStageInstanceForJob = useCallback((job: AccessibleJob): StageInstanceData | undefined => {
+    if (!job.current_stage_id) return undefined;
+    const key = `${job.job_id}-${job.current_stage_id}`;
+    return stageInstancesMap[key];
+  }, [stageInstancesMap]);
+
+  // Fetch stage instances when jobs change
+  useEffect(() => {
+    fetchStageInstances();
+  }, [fetchStageInstances]);
+
+  // Real-time subscription for stage instance changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('stage-instances-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'job_stage_instances'
+        },
+        () => {
+          fetchStageInstances();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchStageInstances]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshJobs();
+      await fetchStageInstances();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
+  }, [refreshJobs, fetchStageInstances]);
+
+  const handleJobClick = useCallback((job: AccessibleJob) => {
+    setSelectedJob(job);
+  }, []);
+
+  const handleModalClose = useCallback(() => {
+    setSelectedJob(null);
+  }, []);
+
+  // Fixed action handlers with correct signatures
+  const handleStartJob = useCallback(async (jobId: string, stageId: string): Promise<boolean> => {
+    return await startJob(jobId, stageId);
+  }, [startJob]);
+
+  const handleCompleteJob = useCallback(async (jobId: string, stageId: string): Promise<boolean> => {
+    return await completeJob(jobId, stageId);
+  }, [completeJob]);
+
+  if (isLoading || stagesLoading) {
     return (
-      <div className="flex items-center justify-center p-8 h-full">
-        <RefreshCw className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading your jobs...</span>
+      <div className="flex items-center justify-center h-64">
+        <LoadingSpinner />
       </div>
     );
   }
 
-  if (error) {
+  if (isMobile) {
     return (
-      <div className="p-6">
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="flex flex-col items-center justify-center p-8">
-            <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-semibold mb-2 text-red-700">Error Loading Jobs</h2>
-            <p className="text-red-600 text-center mb-4">{error}</p>
-            <Button onClick={refreshJobs} variant="outline">
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gray-50">
+        <MobileFactoryView
+          workableStages={workableStages}
+          jobsByStage={jobsByStage}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onRefresh={handleRefresh}
+          onJobClick={handleJobClick}
+          onStart={handleStartJob}
+          onComplete={handleCompleteJob}
+          isRefreshing={isRefreshing}
+        />
       </div>
     );
   }
 
-  const handleStartJob = async (jobId: string, stageId: string) => {
-    await startJob(jobId, stageId);
+  // Determine responsive grid classes based on column count
+  const getGridClass = (columnCount: number) => {
+    if (columnCount === 1) return "grid-cols-1";
+    if (columnCount === 2) return "grid-cols-1 lg:grid-cols-2";
+    if (columnCount === 3) return "grid-cols-1 md:grid-cols-2 xl:grid-cols-3";
+    if (columnCount === 4) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+    return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
   };
 
-  const handleCompleteJob = async (jobId: string, stageId: string) => {
-    await completeJob(jobId, stageId);
-  };
-
-  const workflowJobs = jobs.filter(job => job.has_workflow);
-  const legacyJobs = jobs.filter(job => !job.has_workflow);
-  const activeJobs = jobs.filter(job => job.stage_status === 'active');
-  const pendingJobs = jobs.filter(job => job.stage_status === 'pending');
+  const gridClass = getGridClass(workableStages.length);
 
   return (
-    <div className="p-6 space-y-6 h-full overflow-y-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Factory Floor</h1>
-          <p className="text-gray-600">Jobs you can work on</p>
-          <div className="flex gap-4 text-sm text-gray-500 mt-1">
-            <span>Total: {jobs.length}</span>
-            <span>New Workflow: {workflowJobs.length}</span>
-            <span>Legacy: {legacyJobs.length}</span>
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0">
+        <FactoryFloorHeader
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+        />
+      </div>
+
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-hidden">
+        {workableStages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center text-gray-500">
+              <p className="text-lg">No accessible stages found</p>
+              <p className="text-sm">Contact your administrator for access permissions.</p>
+            </div>
           </div>
-        </div>
-        
-        <Button 
-          variant="outline" 
-          onClick={refreshJobs}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
+        ) : (
+          <div className="h-full overflow-auto p-4">
+            <div className={`grid ${gridClass} gap-4 min-h-full`}>
+              {workableStages.map(stage => (
+                <div key={stage.stage_id} className="min-h-0">
+                  <UniversalKanbanColumn
+                    stage={stage}
+                    jobs={jobsByStage[stage.stage_id] || []}
+                    onStart={handleStartJob}
+                    onComplete={handleCompleteJob}
+                    onJobClick={handleJobClick}
+                    onRefresh={handleRefresh}
+                    getStageInstanceForJob={getStageInstanceForJob}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Job Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Clock className="h-8 w-8 text-orange-500" />
-              <div>
-                <p className="text-sm text-gray-600">Pending Jobs</p>
-                <p className="text-2xl font-bold">{pendingJobs.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Play className="h-8 w-8 text-blue-500" />
-              <div>
-                <p className="text-sm text-gray-600">Active Jobs</p>
-                <p className="text-2xl font-bold">{activeJobs.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-500" />
-              <div>
-                <p className="text-sm text-gray-600">Total Accessible</p>
-                <p className="text-2xl font-bold">{jobs.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Jobs List */}
-      {jobs.length > 0 ? (
-        <div className="space-y-4">
-          {/* New Workflow Jobs */}
-          {workflowJobs.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  New Workflow Jobs
-                  <Badge variant="secondary">{workflowJobs.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {workflowJobs.map((job) => (
-                    <div key={job.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                          <Badge 
-                            variant={job.stage_status === 'active' ? 'default' : 'outline'}
-                            className={job.stage_status === 'active' ? 'bg-green-500' : 'text-orange-600 border-orange-200'}
-                          >
-                            {job.current_stage_name}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {job.stage_status === 'active' ? 'Active' : 'Pending'}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          <span>Customer: {job.customer}</span>
-                          {job.due_date && (
-                            <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
-                          )}
-                          <span> • Status: {job.status}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        {job.stage_status === 'pending' && (
-                          <Button 
-                            size="sm"
-                            onClick={() => handleStartJob(job.id, job.current_stage_id)}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            <Play className="h-4 w-4" />
-                            Start
-                          </Button>
-                        )}
-                        {job.stage_status === 'active' && (
-                          <Button 
-                            size="sm"
-                            onClick={() => handleCompleteJob(job.id, job.current_stage_id)}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Complete
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Legacy Jobs */}
-          {legacyJobs.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Legacy Status Jobs
-                  <Badge variant="outline">{legacyJobs.length}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {legacyJobs.map((job) => (
-                    <div key={job.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                          <Badge variant="outline" className="text-blue-600 border-blue-200">
-                            {job.current_stage_name}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            Legacy System
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          <span>Customer: {job.customer}</span>
-                          {job.due_date && (
-                            <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
-                          )}
-                          <span> • Status: {job.status}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm"
-                          onClick={() => handleStartJob(job.id, job.current_stage_id)}
-                          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          <Play className="h-4 w-4" />
-                          Start
-                        </Button>
-                        <Button 
-                          size="sm"
-                          onClick={() => handleCompleteJob(job.id, job.current_stage_id)}
-                          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          Complete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center p-12">
-            <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Jobs Available</h3>
-            <p className="text-gray-600 text-center">
-              You don't have any jobs that you can work on right now.
-            </p>
-          </CardContent>
-        </Card>
+      {/* Job Modal */}
+      {selectedJob && (
+        <DtpJobModal
+          job={selectedJob}
+          isOpen={true}
+          onClose={handleModalClose}
+          onStart={handleStartJob}
+          onComplete={handleCompleteJob}
+        />
       )}
     </div>
   );

@@ -12,7 +12,7 @@ export interface AccessibleJob {
   current_stage_id: string | null;
   current_stage_name: string | null;
   current_stage_color: string | null;
-  current_stage_status: 'active' | 'pending' | 'completed' | 'hold';
+  current_stage_status: string;
   user_can_view: boolean;
   user_can_edit: boolean;
   user_can_work: boolean;
@@ -20,7 +20,6 @@ export interface AccessibleJob {
   workflow_progress: number;
   total_stages: number;
   completed_stages: number;
-  has_workflow?: boolean; // Add this to track job type
 }
 
 export interface UseAccessibleJobsOptions {

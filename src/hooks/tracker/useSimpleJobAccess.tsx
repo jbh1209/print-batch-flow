@@ -14,7 +14,6 @@ interface SimpleJob {
   current_stage_id: string;
   stage_status: 'active' | 'pending';
   can_work: boolean;
-  has_workflow: boolean; // Track if job uses new workflow system
 }
 
 export const useSimpleJobAccess = () => {
@@ -30,7 +29,7 @@ export const useSimpleJobAccess = () => {
       setIsLoading(true);
       setError(null);
 
-      console.log("🔍 Fetching jobs with hybrid approach...");
+      console.log("🔍 Fetching jobs with corrected database query...");
 
       // Step 1: Get user's groups
       const { data: userGroups, error: groupsError } = await supabase
@@ -71,18 +70,7 @@ export const useSimpleJobAccess = () => {
       const stageIds = workableStages.map(ws => ws.production_stage_id);
       console.log("🎯 Workable stages:", stageIds);
 
-      // Step 3: Get all production jobs first
-      const { data: productionJobs, error: jobsError } = await supabase
-        .from('production_jobs')
-        .select('id, wo_no, customer, status, due_date');
-
-      if (jobsError) {
-        throw new Error(`Failed to get production jobs: ${jobsError.message}`);
-      }
-
-      console.log("🏭 Total production jobs:", productionJobs?.length || 0);
-
-      // Step 4: Get job stage instances for jobs that have them
+      // Step 3: Get job stage instances for these stages
       const { data: jobStageInstances, error: instancesError } = await supabase
         .from('job_stage_instances')
         .select(`
@@ -97,69 +85,64 @@ export const useSimpleJobAccess = () => {
         `)
         .in('production_stage_id', stageIds)
         .in('status', ['active', 'pending'])
-        .eq('job_table_name', 'production_jobs');
+        .eq('job_table_name', 'production_jobs'); // Focus on production_jobs only for now
 
       if (instancesError) {
-        console.log("⚠️ Error getting job instances (non-fatal):", instancesError);
+        throw new Error(`Failed to get job instances: ${instancesError.message}`);
       }
 
       console.log("📋 Job stage instances:", jobStageInstances?.length || 0);
 
-      // Step 5: Create hybrid job list
-      const accessibleJobs: SimpleJob[] = [];
-
-      if (productionJobs) {
-        for (const job of productionJobs) {
-          // Check if this job has stage instances
-          const jobInstance = jobStageInstances?.find(jsi => jsi.job_id === job.id);
-          
-          if (jobInstance) {
-            // Job uses new workflow system
-            accessibleJobs.push({
-              id: job.id,
-              wo_no: job.wo_no,
-              customer: job.customer || 'Unknown',
-              status: job.status || 'Unknown',
-              due_date: job.due_date || '',
-              current_stage_name: jobInstance.production_stages.name,
-              current_stage_id: jobInstance.production_stage_id,
-              stage_status: jobInstance.status as 'active' | 'pending',
-              can_work: true,
-              has_workflow: true
-            });
-          } else {
-            // Job uses old status-based system - make accessible for DTP stages
-            const isDtpJob = ['Pre-Press', 'DTP', 'Design', 'Artwork'].includes(job.status || '');
-            const isProofJob = ['Proof', 'Proofing', 'Review'].includes(job.status || '');
-            
-            if (isDtpJob || isProofJob) {
-              // Create a virtual stage for this job based on status
-              const virtualStageId = stageIds.find(stageId => {
-                // This would need stage name mapping, for now use first available stage
-                return true;
-              }) || stageIds[0];
-
-              if (virtualStageId) {
-                accessibleJobs.push({
-                  id: job.id,
-                  wo_no: job.wo_no,
-                  customer: job.customer || 'Unknown',
-                  status: job.status || 'Unknown',
-                  due_date: job.due_date || '',
-                  current_stage_name: job.status || 'Ready',
-                  current_stage_id: virtualStageId,
-                  stage_status: 'pending',
-                  can_work: true,
-                  has_workflow: false
-                });
-              }
-            }
-          }
-        }
+      if (!jobStageInstances || jobStageInstances.length === 0) {
+        setJobs([]);
+        return;
       }
 
-      console.log("✅ Final accessible jobs (hybrid):", accessibleJobs.length);
-      setJobs(accessibleJobs);
+      // Step 4: Get the actual job details
+      const jobIds = jobStageInstances.map(jsi => jsi.job_id);
+      const { data: productionJobs, error: jobsError } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, customer, status, due_date')
+        .in('id', jobIds);
+
+      if (jobsError) {
+        throw new Error(`Failed to get production jobs: ${jobsError.message}`);
+      }
+
+      console.log("🏭 Production jobs:", productionJobs?.length || 0);
+
+      // Step 5: Combine the data
+      const accessibleJobs = (jobStageInstances || []).map(instance => {
+        const job = productionJobs?.find(pj => pj.id === instance.job_id);
+        if (!job) return null;
+
+        return {
+          id: job.id,
+          wo_no: job.wo_no,
+          customer: job.customer || 'Unknown',
+          status: job.status || 'Unknown',
+          due_date: job.due_date || '',
+          current_stage_name: instance.production_stages.name,
+          current_stage_id: instance.production_stage_id,
+          stage_status: instance.status as 'active' | 'pending',
+          can_work: true
+        };
+      }).filter(Boolean) as SimpleJob[];
+
+      // Remove duplicates by job ID (in case job has multiple accessible stages)
+      const uniqueJobs = accessibleJobs.reduce((acc, job) => {
+        const existing = acc.find(j => j.id === job.id);
+        if (!existing) {
+          acc.push(job);
+        } else if (job.stage_status === 'active' && existing.stage_status === 'pending') {
+          // Prioritize active stages over pending ones
+          Object.assign(existing, job);
+        }
+        return acc;
+      }, [] as SimpleJob[]);
+
+      console.log("✅ Final accessible jobs:", uniqueJobs.length);
+      setJobs(uniqueJobs);
       
     } catch (err) {
       console.error('❌ Error fetching accessible jobs:', err);
@@ -175,26 +158,18 @@ export const useSimpleJobAccess = () => {
     try {
       console.log('Starting job:', { jobId, stageId });
       
-      const job = jobs.find(j => j.id === jobId);
-      
-      if (job?.has_workflow) {
-        // Use new workflow system
-        const { error } = await supabase
-          .from('job_stage_instances')
-          .update({ 
-            status: 'active',
-            started_at: new Date().toISOString(),
-            started_by: user?.id
-          })
-          .eq('job_id', jobId)
-          .eq('production_stage_id', stageId)
-          .eq('status', 'pending');
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .update({ 
+          status: 'active',
+          started_at: new Date().toISOString(),
+          started_by: user?.id
+        })
+        .eq('job_id', jobId)
+        .eq('production_stage_id', stageId)
+        .eq('status', 'pending');
 
-        if (error) throw error;
-      } else {
-        // Use old status system - just mark as started
-        console.log('Job uses old system, marking as started');
-      }
+      if (error) throw error;
 
       toast.success("Job started successfully");
       await fetchAccessibleJobs();
@@ -210,29 +185,13 @@ export const useSimpleJobAccess = () => {
     try {
       console.log('Completing job:', { jobId, stageId });
       
-      const job = jobs.find(j => j.id === jobId);
-      
-      if (job?.has_workflow) {
-        // Use new workflow system
-        const { error } = await supabase.rpc('advance_job_stage', {
-          p_job_id: jobId,
-          p_job_table_name: 'production_jobs',
-          p_current_stage_id: stageId
-        });
+      const { error } = await supabase.rpc('advance_job_stage', {
+        p_job_id: jobId,
+        p_job_table_name: 'production_jobs',
+        p_current_stage_id: stageId
+      });
 
-        if (error) throw error;
-      } else {
-        // Use old status system - update job status
-        const { error } = await supabase
-          .from('production_jobs')
-          .update({ 
-            status: 'Printing', // Move to next logical status
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', jobId);
-
-        if (error) throw error;
-      }
+      if (error) throw error;
 
       toast.success("Job completed successfully");
       await fetchAccessibleJobs();

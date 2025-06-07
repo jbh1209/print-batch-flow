@@ -4,21 +4,7 @@ import type { AccessibleJob } from "./types";
 
 export const normalizeJobData = (job: any, index: number): AccessibleJob => {
   try {
-    // Determine if this job has workflow system based on stage data
-    const hasWorkflow = Boolean(job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000');
-    
-    // For legacy jobs without workflow, create virtual stage info based on status
-    let currentStageId = job.current_stage_id;
-    let currentStageName = job.current_stage_name;
-    let currentStageStatus = job.current_stage_status || 'pending';
-    
-    if (!hasWorkflow && job.status) {
-      // Map job status to virtual stage info for legacy jobs
-      currentStageName = job.status;
-      currentStageStatus = 'pending'; // Legacy jobs start as pending
-      // Keep the stage ID if provided, or use null
-    }
-
+    // Ensure all required fields are present and properly typed
     const normalizedJob: AccessibleJob = {
       job_id: String(job.job_id || ''),
       wo_no: formatWONumber(job.wo_no) || '',
@@ -29,18 +15,18 @@ export const normalizeJobData = (job: any, index: number): AccessibleJob => {
       category_id: job.category_id ? String(job.category_id) : null,
       category_name: job.category_name ? String(job.category_name) : null,
       category_color: job.category_color ? String(job.category_color) : null,
-      current_stage_id: currentStageId ? String(currentStageId) : null,
-      current_stage_name: currentStageName ? String(currentStageName) : null,
+      current_stage_id: job.current_stage_id ? String(job.current_stage_id) : null,
+      current_stage_name: job.current_stage_name ? String(job.current_stage_name) : null,
       current_stage_color: job.current_stage_color ? String(job.current_stage_color) : null,
-      current_stage_status: currentStageStatus as 'active' | 'pending' | 'completed' | 'hold',
+      // Use actual database stage status - default to 'pending' for clean state
+      current_stage_status: job.current_stage_status || 'pending',
       user_can_view: Boolean(job.user_can_view),
       user_can_edit: Boolean(job.user_can_edit),
       user_can_work: Boolean(job.user_can_work),
       user_can_manage: Boolean(job.user_can_manage),
-      workflow_progress: hasWorkflow ? (Number(job.workflow_progress) || 0) : 0,
-      total_stages: hasWorkflow ? (Number(job.total_stages) || 0) : 1,
-      completed_stages: hasWorkflow ? (Number(job.completed_stages) || 0) : 0,
-      has_workflow: hasWorkflow
+      workflow_progress: Number(job.workflow_progress) || 0,
+      total_stages: Number(job.total_stages) || 0,
+      completed_stages: Number(job.completed_stages) || 0
     };
 
     // Validate numeric fields are within expected ranges
@@ -83,8 +69,7 @@ export const normalizeJobData = (job: any, index: number): AccessibleJob => {
       user_can_manage: false,
       workflow_progress: 0,
       total_stages: 0,
-      completed_stages: 0,
-      has_workflow: false
+      completed_stages: 0
     } as AccessibleJob;
   }
 };
