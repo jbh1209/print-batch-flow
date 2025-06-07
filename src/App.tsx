@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -16,6 +15,7 @@ import TrackerKanban from "./pages/tracker/TrackerKanban";
 import TrackerWorkSheets from "./pages/tracker/TrackerWorkSheets";
 import TrackerAdmin from "./pages/tracker/TrackerAdmin";
 import RoleAwareLayout from "./components/tracker/RoleAwareLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./hooks/useAuth";
 import { Toaster } from "sonner";
 import TrackerMobileScanner from "./pages/tracker/TrackerMobileScanner";
