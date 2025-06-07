@@ -1,21 +1,17 @@
 
 import React from "react";
-import { SimpleJobsView } from "@/components/tracker/common/SimpleJobsView";
+import { UniversalFactoryFloor } from "@/components/tracker/factory/UniversalFactoryFloor";
 
 /**
- * Factory Floor page component - Simplified Version
+ * Factory Floor page component
  * 
- * Shows jobs organized by stage with simple, predictable actions.
- * No auto-advancement, clear manual control.
+ * Universal view that displays relevant job stages based on user permissions.
+ * Dynamically shows columns for stages where the user can work.
  */
 const FactoryFloor = () => {
   return (
-    <div className="min-h-screen bg-gray-50 w-full p-6">
-      <SimpleJobsView
-        title="Factory Floor"
-        subtitle="Jobs organized by production stage"
-        groupByStage={true}
-      />
+    <div className="min-h-screen bg-gray-50 w-full">
+      <UniversalFactoryFloor />
     </div>
   );
 };
