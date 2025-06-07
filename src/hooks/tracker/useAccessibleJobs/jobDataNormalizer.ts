@@ -1,3 +1,4 @@
+
 import { formatWONumber } from "@/utils/woNumberFormatter";
 import type { AccessibleJob } from "./types";
 
@@ -31,7 +32,7 @@ export const normalizeJobData = (job: any, index: number): AccessibleJob => {
       current_stage_id: currentStageId ? String(currentStageId) : null,
       current_stage_name: currentStageName ? String(currentStageName) : null,
       current_stage_color: job.current_stage_color ? String(job.current_stage_color) : null,
-      current_stage_status: currentStageStatus as 'active' | 'pending' | 'completed',
+      current_stage_status: currentStageStatus as 'active' | 'pending' | 'completed' | 'hold',
       user_can_view: Boolean(job.user_can_view),
       user_can_edit: Boolean(job.user_can_edit),
       user_can_work: Boolean(job.user_can_work),

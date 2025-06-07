@@ -12,7 +12,7 @@ export interface AccessibleJob {
   current_stage_id: string | null;
   current_stage_name: string | null;
   current_stage_color: string | null;
-  current_stage_status: 'active' | 'pending' | 'completed';
+  current_stage_status: 'active' | 'pending' | 'completed' | 'hold';
   user_can_view: boolean;
   user_can_edit: boolean;
   user_can_work: boolean;
