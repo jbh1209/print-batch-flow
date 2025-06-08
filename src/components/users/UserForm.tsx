@@ -47,6 +47,14 @@ const editUserSchema = z.object({
   groups: z.array(z.string()).optional()
 });
 
+const roleOptions = [
+  { value: 'user', label: 'User' },
+  { value: 'operator', label: 'Operator' },
+  { value: 'dtp_operator', label: 'DTP Operator' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'admin', label: 'Administrator' }
+];
+
 export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -60,7 +68,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
       email: initialData?.email || "",
       full_name: initialData?.full_name || "",
       role: initialData?.role || "user",
-      groups: initialData?.groups || [], // This should now work with updated edge function
+      groups: initialData?.groups || [],
       ...(isEditing ? {} : { password: "", confirmPassword: "" })
     }
   });
@@ -98,6 +106,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
 
       if (error) throw error;
       setUserGroups(data || []);
+      console.log('📋 Fetched user groups:', data?.length || 0);
     } catch (error) {
       console.error('Error fetching user groups:', error);
     }
@@ -180,8 +189,11 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
+                  {roleOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -196,7 +208,7 @@ export function UserForm({ initialData, onSubmit, isEditing = false }: UserFormP
             render={() => (
               <FormItem>
                 <FormLabel>User Groups</FormLabel>
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-40 overflow-y-auto">
                   {userGroups.map((group) => (
                     <FormField
                       key={group.id}

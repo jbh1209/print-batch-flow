@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { UserFormData, UserWithRole } from '@/types/user-types';
 import * as userService from '@/services/userService';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UserManagementContextType {
   users: UserWithRole[];
@@ -42,7 +43,34 @@ export const UserManagementProvider = ({ children }: { children: React.ReactNode
     
     try {
       const fetchedUsers = await userService.fetchUsers();
-      setUsers(fetchedUsers);
+      
+      // Enhance users with group information
+      const usersWithGroups = await Promise.all(
+        fetchedUsers.map(async (user) => {
+          try {
+            const { data: groupMemberships, error } = await supabase
+              .from('user_group_memberships')
+              .select('group_id')
+              .eq('user_id', user.id);
+            
+            if (error) {
+              console.warn(`Could not fetch groups for user ${user.id}:`, error);
+              return { ...user, groups: [] };
+            }
+            
+            return {
+              ...user,
+              groups: groupMemberships?.map(membership => membership.group_id) || []
+            };
+          } catch (error) {
+            console.warn(`Error fetching groups for user ${user.id}:`, error);
+            return { ...user, groups: [] };
+          }
+        })
+      );
+      
+      setUsers(usersWithGroups);
+      console.log(`✅ Successfully fetched ${usersWithGroups.length} users with group data`);
     } catch (error: any) {
       console.error('❌ Error loading users:', error);
       setError(error.message);

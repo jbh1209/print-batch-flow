@@ -3,9 +3,10 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UserPlus, Edit, Trash2, RefreshCw } from "lucide-react";
 import { useUserManagement } from "@/contexts/UserManagementContext";
-import { UserFormDialog } from "./UserFormDialog";
+import { UserForm } from "./UserForm";
 import { UserFormData, UserWithRole } from "@/types/user-types";
 import { toast } from "sonner";
 
@@ -62,6 +63,16 @@ export const SimpleUserManagement = () => {
       case 'admin': return 'Administrator';
       default: return 'User';
     }
+  };
+
+  // Convert UserWithRole to UserFormData for editing
+  const convertUserToFormData = (user: UserWithRole): UserFormData => {
+    return {
+      email: user.email,
+      full_name: user.full_name,
+      role: user.role as any,
+      groups: user.groups || []
+    };
   };
 
   if (isLoading) {
@@ -142,20 +153,34 @@ export const SimpleUserManagement = () => {
         </Card>
       )}
 
-      <UserFormDialog
-        isOpen={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
-        onSubmit={handleCreateUser}
-        mode="create"
-      />
+      {/* Create User Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+          </DialogHeader>
+          <UserForm
+            onSubmit={handleCreateUser}
+            isEditing={false}
+          />
+        </DialogContent>
+      </Dialog>
 
-      <UserFormDialog
-        isOpen={!!editingUser}
-        onClose={() => setEditingUser(null)}
-        onSubmit={handleUpdateUser}
-        user={editingUser}
-        mode="edit"
-      />
+      {/* Edit User Dialog */}
+      <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <UserForm
+              initialData={convertUserToFormData(editingUser)}
+              onSubmit={handleUpdateUser}
+              isEditing={true}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
