@@ -6,7 +6,6 @@ import { useUnifiedJobFiltering } from "@/hooks/tracker/useUnifiedJobFiltering";
 import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ColumnFilters } from "./ColumnFilters";
 import { JobEditModal } from "./JobEditModal";
 import { CategoryAssignModal } from "./CategoryAssignModal";
 import { CustomWorkflowModal } from "./CustomWorkflowModal";
@@ -16,7 +15,8 @@ import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
 import { BulkDeleteHandler } from "./BulkDeleteHandler";
 import { EnhancedJobsTableHeader } from "./EnhancedJobsTableHeader";
 import { JobsTableBulkActionsBar } from "./JobsTableBulkActionsBar";
-import { JobsTableContent } from "./JobsTableContent";
+import { JobTableFilters } from "./table/JobTableFilters";
+import { JobTableContent } from "./table/JobTableContent";
 
 interface EnhancedJobsTableWithBulkActionsProps {
   statusFilter?: string | null;
@@ -166,7 +166,6 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       toast.success('Job deleted successfully');
       refreshJobs();
       
-      // Remove from selection if it was selected
       setSelectedJobs(prev => prev.filter(id => id !== jobId));
     } catch (err) {
       console.error('Error deleting job:', err);
@@ -205,18 +204,15 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       />
 
       {/* Column Filters */}
-      {showColumnFilters && (
-        <Card>
-          <ColumnFilters
-            filters={columnFilters}
-            onFilterChange={handleColumnFilterChange}
-            onClearFilters={handleClearColumnFilters}
-            availableCategories={availableCategories}
-            availableStatuses={availableStatuses}
-            availableStages={availableStages}
-          />
-        </Card>
-      )}
+      <JobTableFilters
+        showColumnFilters={showColumnFilters}
+        columnFilters={columnFilters}
+        onFilterChange={handleColumnFilterChange}
+        onClearFilters={handleClearColumnFilters}
+        availableCategories={availableCategories}
+        availableStatuses={availableStatuses}
+        availableStages={availableStages}
+      />
 
       {/* Bulk Actions */}
       <BulkDeleteHandler
@@ -238,7 +234,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       </BulkDeleteHandler>
 
       {/* Jobs Table */}
-      <JobsTableContent
+      <JobTableContent
         jobs={filteredAndSortedJobs}
         selectedJobs={selectedJobs}
         sortField={sortField}
@@ -252,7 +248,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         onCustomWorkflow={handleCustomWorkflowFromTable}
       />
 
-      {/* Edit Job Modal */}
+      {/* Modals - keep existing code */}
       {editingJob && (
         <JobEditModal
           job={editingJob}
@@ -261,7 +257,6 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         />
       )}
 
-      {/* Category Assign Modal */}
       {categoryAssignJob && (
         <CategoryAssignModal
           job={categoryAssignJob}
@@ -271,7 +266,6 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         />
       )}
 
-      {/* Custom Workflow Modal */}
       {showCustomWorkflow && customWorkflowJob && (
         <CustomWorkflowModal
           isOpen={showCustomWorkflow}

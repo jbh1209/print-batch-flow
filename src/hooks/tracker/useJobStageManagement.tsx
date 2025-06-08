@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useJobStageInstances } from "./useJobStageInstances";
 import { useStageRework } from "./useStageRework";
+import { useStageActions } from "./stage-management/useStageActions";
+import { useStageValidation } from "./stage-management/useStageValidation";
 
 interface JobStageManagementOptions {
   jobId: string;
@@ -29,6 +31,14 @@ export const useJobStageManagement = ({
   } = useJobStageInstances(jobId, jobTableName);
 
   const { reworkStage, fetchReworkHistory, reworkHistory, isReworking } = useStageRework();
+  const { startStage, completeStage } = useStageActions();
+  const {
+    canStartStage,
+    canAdvanceStage,
+    canReworkStage,
+    getCurrentStage,
+    getNextStage
+  } = useStageValidation(jobStages);
 
   // Initialize job with workflow stages based on category - ALL STAGES START AS PENDING
   const initializeJobWorkflow = useCallback(async () => {
@@ -57,81 +67,6 @@ export const useJobStageManagement = ({
       setIsProcessing(false);
     }
   }, [jobId, jobTableName, categoryId, initializeJobStages]);
-
-  // Start a stage manually (QR scan or button click)
-  const startStage = useCallback(async (stageId: string, qrData?: any) => {
-    setIsProcessing(true);
-    try {
-      console.log('🔄 Starting stage manually...', { stageId, qrData });
-      
-      // Record QR scan if provided
-      if (qrData) {
-        await recordQRScan(stageId, {
-          ...qrData,
-          scan_type: 'stage_start',
-          scanned_at: new Date().toISOString()
-        });
-      }
-
-      // Update stage to active - this is the ONLY way stages become active
-      const { error } = await supabase
-        .from('job_stage_instances')
-        .update({ 
-          status: 'active',
-          started_at: new Date().toISOString(),
-          started_by: (await supabase.auth.getUser()).data.user?.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', stageId)
-        .eq('status', 'pending'); // Only allow starting if currently pending
-
-      if (error) throw error;
-
-      await fetchJobStages();
-      await updateJobStatusToCurrentStage();
-      toast.success("Stage started successfully");
-      return true;
-    } catch (err) {
-      console.error('❌ Error starting stage:', err);
-      toast.error("Failed to start stage");
-      return false;
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [recordQRScan, fetchJobStages]);
-
-  // Complete a stage - next stage remains PENDING until manually started
-  const completeStage = useCallback(async (stageId: string, notes?: string, qrData?: any) => {
-    setIsProcessing(true);
-    try {
-      console.log('🔄 Completing stage (next stage stays pending)...', { stageId, notes, qrData });
-      
-      // Record QR scan if provided
-      if (qrData) {
-        await recordQRScan(stageId, {
-          ...qrData,
-          scan_type: 'stage_complete',
-          scanned_at: new Date().toISOString()
-        });
-      }
-
-      // Complete current stage - next stage stays pending
-      const success = await advanceJobStage(stageId, notes);
-      
-      if (success) {
-        await updateJobStatusToCurrentStage();
-        toast.success("Stage completed - next stage ready to start manually");
-      }
-      
-      return success;
-    } catch (err) {
-      console.error('❌ Error completing stage:', err);
-      toast.error("Failed to complete stage");
-      return false;
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [advanceJobStage, recordQRScan]);
 
   // Send stage back for rework
   const sendBackForRework = useCallback(async (
@@ -179,7 +114,6 @@ export const useJobStageManagement = ({
 
       console.log('🔄 Updating job status to:', newStatus);
 
-      // Update the job status in the respective table
       const { error } = await supabase
         .from(jobTableName as any)
         .update({ 
@@ -196,19 +130,8 @@ export const useJobStageManagement = ({
       console.log('✅ Job status updated successfully');
     } catch (err) {
       console.error('❌ Error updating job status:', err);
-      // Don't throw here as this is often called as a side effect
     }
   }, [jobStages, jobId, jobTableName]);
-
-  // Get current stage info
-  const getCurrentStage = useCallback(() => {
-    return jobStages.find(stage => stage.status === 'active') || null;
-  }, [jobStages]);
-
-  // Get next pending stage
-  const getNextStage = useCallback(() => {
-    return jobStages.find(stage => stage.status === 'pending') || null;
-  }, [jobStages]);
 
   // Get available stages for rework (previous stages that can be reactivated)
   const getAvailableReworkStages = useCallback((currentStageId: string) => {
@@ -220,34 +143,6 @@ export const useJobStageManagement = ({
       ['completed', 'reworked'].includes(stage.status)
     );
   }, [jobStages]);
-
-  // Check if stage can be started (validation rules)
-  const canStartStage = useCallback((stageId: string) => {
-    const stage = jobStages.find(stage => stage.id === stageId);
-    if (!stage) return false;
-
-    // Can only start if stage is currently pending
-    return stage.status === 'pending';
-  }, [jobStages]);
-
-  // Check if stage can be advanced (validation rules)
-  const canAdvanceStage = useCallback((stageId: string) => {
-    const currentStage = jobStages.find(stage => stage.id === stageId);
-    if (!currentStage) return false;
-
-    // Can only advance if stage is currently active
-    return currentStage.status === 'active';
-  }, [jobStages]);
-
-  // Check if stage can be sent back for rework
-  const canReworkStage = useCallback((stageId: string) => {
-    const currentStage = jobStages.find(stage => stage.id === stageId);
-    if (!currentStage) return false;
-
-    // Can only rework if stage is currently active and there are previous stages
-    return currentStage.status === 'active' && 
-           getAvailableReworkStages(currentStage.production_stage_id).length > 0;
-  }, [jobStages, getAvailableReworkStages]);
 
   // Get workflow progress
   const getWorkflowProgress = useCallback(() => {

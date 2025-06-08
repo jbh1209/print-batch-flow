@@ -1,16 +1,12 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Play, CheckCircle, Mail, ThumbsUp, ArrowRight } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { PartPrintingStageSelector } from "./PartPrintingStageSelector";
 import { usePartPrintingAssignment } from "@/hooks/tracker/usePartPrintingAssignment";
+import { DtpWorkflowActions } from "./dtp/DtpWorkflowActions";
 
 interface DtpWorkflowCardProps {
   job: AccessibleJob;
@@ -78,7 +74,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
   const handleStartDTP = async () => {
     setIsLoading(true);
     try {
-      // Start the DTP stage
       const { error: startError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -92,7 +87,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
 
       if (startError) throw startError;
 
-      // Update job status to "In Progress"
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({
@@ -116,7 +110,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
   const handleCompleteDTP = async () => {
     setIsLoading(true);
     try {
-      // Complete current stage using the advance function
       const { error } = await supabase.rpc('advance_job_stage', {
         p_job_id: job.job_id,
         p_job_table_name: 'production_jobs',
@@ -126,7 +119,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
 
       if (error) throw error;
 
-      // Update job status to "Ready for Proof"
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({
@@ -150,7 +142,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
   const handleStartProof = async () => {
     setIsLoading(true);
     try {
-      // Start the proof stage
       const { error: startError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -164,7 +155,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
 
       if (startError) throw startError;
 
-      // Update job status
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({
@@ -188,7 +178,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
   const handleProofEmailed = async () => {
     setIsLoading(true);
     try {
-      // Mark proof as emailed
       const { error: proofError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -200,7 +189,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
 
       if (proofError) throw proofError;
 
-      // Update job status
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({
@@ -235,7 +223,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
     );
 
     if (success) {
-      // Update job status
       await supabase
         .from('production_jobs')
         .update({
@@ -257,7 +244,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
 
     setIsLoading(true);
     try {
-      // First complete the current proof stage
       const { error: completeError } = await supabase.rpc('advance_job_stage', {
         p_job_id: job.job_id,
         p_job_table_name: 'production_jobs',
@@ -267,7 +253,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
 
       if (completeError) throw completeError;
 
-      // Create new stage instance for the selected printing stage
       const { error: insertError } = await supabase
         .from('job_stage_instances')
         .insert({
@@ -275,7 +260,7 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
           job_table_name: 'production_jobs',
           category_id: job.category_id,
           production_stage_id: selectedPrintingStage,
-          stage_order: 999, // High number to put it at the end
+          stage_order: 999,
           status: 'pending'
         });
 
@@ -300,118 +285,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const renderProofActions = () => {
-    if (stageStatus === 'pending') {
-      return (
-        <Button 
-          onClick={handleStartProof}
-          disabled={isLoading}
-          className="w-full bg-green-600 hover:bg-green-700"
-        >
-          <Play className="h-4 w-4 mr-2" />
-          Start Proof Process
-        </Button>
-      );
-    }
-
-    if (stageStatus === 'active') {
-      return (
-        <div className="space-y-3">
-          <Button 
-            onClick={handleProofEmailed}
-            disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700"
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            Proof Emailed
-          </Button>
-          
-          {showPartSelector ? (
-            <div className="space-y-3">
-              <PartPrintingStageSelector
-                availableParts={jobParts}
-                onPartAssignmentsChange={setPartAssignments}
-                initialAssignments={partAssignments}
-              />
-              <Button 
-                onClick={handleAdvanceToPartSpecificPrinting}
-                disabled={Object.keys(partAssignments).length !== jobParts.length || isAssigning}
-                className="w-full"
-              >
-                <ArrowRight className="h-4 w-4 mr-1" />
-                Advance to Part-Specific Printing
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label>Select Printing Stage:</Label>
-              <div className="flex gap-2">
-                <Select value={selectedPrintingStage} onValueChange={setSelectedPrintingStage}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Choose printing stage..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {printingStages.map((stage) => (
-                      <SelectItem key={stage.id} value={stage.id}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: stage.color }}
-                          />
-                          {stage.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button 
-                  onClick={handleAdvanceToPrintingStage}
-                  disabled={!selectedPrintingStage || isLoading}
-                  size="sm"
-                >
-                  <ArrowRight className="h-4 w-4 mr-1" />
-                  Advance
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  const renderDTPActions = () => {
-    if (stageStatus === 'pending') {
-      return (
-        <Button 
-          onClick={handleStartDTP}
-          disabled={isLoading}
-          className="w-full bg-green-600 hover:bg-green-700"
-        >
-          <Play className="h-4 w-4 mr-2" />
-          Start DTP Work
-        </Button>
-      );
-    }
-
-    if (stageStatus === 'active') {
-      return (
-        <Button 
-          onClick={handleCompleteDTP}
-          disabled={isLoading}
-          className="w-full bg-blue-600 hover:bg-blue-700"
-        >
-          <CheckCircle className="h-4 w-4 mr-2" />
-          Complete DTP
-        </Button>
-      );
-    }
-
-    return null;
   };
 
   const getStatusBadge = () => {
@@ -457,15 +330,26 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-4">
-        {currentStage === 'dtp' && renderDTPActions()}
-        {currentStage === 'proof' && renderProofActions()}
-        
-        {currentStage === 'unknown' && (
-          <div className="text-center text-gray-500">
-            Stage not recognized or no actions available
-          </div>
-        )}
+      <CardContent>
+        <DtpWorkflowActions
+          currentStage={currentStage}
+          stageStatus={stageStatus}
+          isLoading={isLoading}
+          showPartSelector={showPartSelector}
+          jobParts={jobParts}
+          partAssignments={partAssignments}
+          printingStages={printingStages}
+          selectedPrintingStage={selectedPrintingStage}
+          isAssigning={isAssigning}
+          onStartDtp={handleStartDTP}
+          onCompleteDtp={handleCompleteDTP}
+          onStartProof={handleStartProof}
+          onProofEmailed={handleProofEmailed}
+          onPartAssignmentsChange={setPartAssignments}
+          onSelectedPrintingStageChange={setSelectedPrintingStage}
+          onAdvanceToPartSpecificPrinting={handleAdvanceToPartSpecificPrinting}
+          onAdvanceToPrintingStage={handleAdvanceToPrintingStage}
+        />
       </CardContent>
     </Card>
   );
