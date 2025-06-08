@@ -15,7 +15,7 @@ import { JobOverviewCard } from "./JobOverviewCard";
 import { CurrentStageCard } from "./CurrentStageCard";
 import { WorkInstructionsCard } from "./WorkInstructionsCard";
 import { JobNotesCard } from "./JobNotesCard";
-import { Play, CheckCircle, Mail, ThumbsUp, Printer } from "lucide-react";
+import { Play, CheckCircle, Mail, ThumbsUp, ArrowRight } from "lucide-react";
 import { getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,12 @@ interface DtpJobModalProps {
   onComplete?: (jobId: string, stageId: string) => Promise<boolean>;
 }
 
+interface PrintingStage {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   job,
   isOpen,
@@ -40,27 +46,28 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 }) => {
   const { user } = useAuth();
   const [notes, setNotes] = useState("");
-  const [selectedPrinter, setSelectedPrinter] = useState<string>("");
-  const [printers, setPrinters] = useState<any[]>([]);
+  const [selectedPrintingStage, setSelectedPrintingStage] = useState<string>("");
+  const [printingStages, setPrintingStages] = useState<PrintingStage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const statusBadgeInfo = getJobStatusBadgeInfo(job);
 
-  // Load printers when modal opens
+  // Load printing stages when modal opens
   React.useEffect(() => {
     if (isOpen) {
-      const loadPrinters = async () => {
+      const loadPrintingStages = async () => {
         const { data } = await supabase
-          .from('printers')
-          .select('*')
-          .eq('status', 'active')
+          .from('production_stages')
+          .select('id, name, color')
+          .ilike('name', '%printing%')
+          .eq('is_active', true)
           .order('name');
         
         if (data) {
-          setPrinters(data);
+          setPrintingStages(data);
         }
       };
-      loadPrinters();
+      loadPrintingStages();
     }
   }, [isOpen]);
 
@@ -238,74 +245,55 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     }
   };
 
-  const handleProofApproved = async () => {
+  const handleAdvanceToPrintingStage = async () => {
+    if (!selectedPrintingStage) {
+      toast.error("Please select a printing stage");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { error: approveError } = await supabase
-        .from('job_stage_instances')
-        .update({
-          proof_approved_manually_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('job_id', job.job_id)
-        .eq('production_stage_id', job.current_stage_id);
-
-      if (approveError) throw approveError;
-
-      const { error: advanceError } = await supabase.rpc('advance_job_stage', {
+      // First complete the current proof stage
+      const { error: completeError } = await supabase.rpc('advance_job_stage', {
         p_job_id: job.job_id,
         p_job_table_name: 'production_jobs',
         p_current_stage_id: job.current_stage_id,
-        p_notes: notes || 'Proof approved by client'
+        p_notes: notes || 'Proof approved - advancing to printing'
       });
 
-      if (advanceError) throw advanceError;
+      if (completeError) throw completeError;
+
+      // Create new stage instance for the selected printing stage
+      const { error: insertError } = await supabase
+        .from('job_stage_instances')
+        .insert({
+          job_id: job.job_id,
+          job_table_name: 'production_jobs',
+          category_id: job.category_id,
+          production_stage_id: selectedPrintingStage,
+          stage_order: 999, // High number to put it at the end
+          status: 'pending'
+        });
+
+      if (insertError) throw insertError;
 
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({
-          status: 'Approved - Ready to Print',
+          status: 'Ready to Print',
           updated_at: new Date().toISOString()
         })
         .eq('id', job.job_id);
 
       if (jobError) throw jobError;
 
-      toast.success("Proof approved - ready for printing");
+      const selectedStage = printingStages.find(s => s.id === selectedPrintingStage);
+      toast.success(`Job advanced to ${selectedStage?.name || 'printing stage'}`);
       onRefresh?.();
       onClose();
     } catch (error) {
-      console.error('Error approving proof:', error);
-      toast.error("Failed to approve proof");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handlePrinterSelection = async () => {
-    if (!selectedPrinter) {
-      toast.error("Please select a printer");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { error } = await supabase
-        .from('job_stage_instances')
-        .update({
-          printer_id: selectedPrinter,
-          updated_at: new Date().toISOString()
-        })
-        .eq('job_id', job.job_id)
-        .eq('production_stage_id', job.current_stage_id);
-
-      if (error) throw error;
-
-      toast.success("Printer assigned successfully");
-      onRefresh?.();
-    } catch (error) {
-      console.error('Error assigning printer:', error);
-      toast.error("Failed to assign printer");
+      console.error('Error advancing to printing stage:', error);
+      toast.error("Failed to advance to printing stage");
     } finally {
       setIsLoading(false);
     }
@@ -367,37 +355,34 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             Proof Emailed
           </Button>
           
-          <Button 
-            onClick={handleProofApproved}
-            disabled={isLoading}
-            className="w-full bg-green-600 hover:bg-green-700"
-          >
-            <ThumbsUp className="h-4 w-4 mr-2" />
-            Proof Approved
-          </Button>
-
           <div className="space-y-2">
-            <Label>Select Printer for Production:</Label>
+            <Label>Select Printing Stage:</Label>
             <div className="flex gap-2">
-              <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+              <Select value={selectedPrintingStage} onValueChange={setSelectedPrintingStage}>
                 <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Choose printer..." />
+                  <SelectValue placeholder="Choose printing stage..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {printers.map((printer) => (
-                    <SelectItem key={printer.id} value={printer.id}>
-                      {printer.name} ({printer.type})
+                  {printingStages.map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: stage.color }}
+                        />
+                        {stage.name}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <Button 
-                onClick={handlePrinterSelection}
-                disabled={!selectedPrinter || isLoading}
+                onClick={handleAdvanceToPrintingStage}
+                disabled={!selectedPrintingStage || isLoading}
                 size="sm"
               >
-                <Printer className="h-4 w-4 mr-1" />
-                Assign
+                <ArrowRight className="h-4 w-4 mr-1" />
+                Advance
               </Button>
             </div>
           </div>
