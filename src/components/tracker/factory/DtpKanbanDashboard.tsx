@@ -17,6 +17,7 @@ import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/das
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
@@ -150,7 +151,7 @@ export const DtpKanbanDashboard = () => {
   }
 
   return (
-    <div className="p-4 space-y-4 h-full overflow-hidden bg-gray-50">
+    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
       <TrackerErrorBoundary componentName="DTP Dashboard Header">
         <DtpDashboardHeader 
           onNavigation={handleNavigation}
@@ -158,9 +159,9 @@ export const DtpKanbanDashboard = () => {
         />
       </TrackerErrorBoundary>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex-shrink-0 p-3 sm:p-4 space-y-3 sm:space-y-4">
         <TrackerErrorBoundary componentName="DTP Dashboard Filters">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <DtpDashboardFilters
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -170,10 +171,13 @@ export const DtpKanbanDashboard = () => {
               dtpJobsCount={dtpJobs.length}
               proofJobsCount={proofJobs.length}
             />
-            <ViewToggle 
-              view={viewMode} 
-              onViewChange={setViewMode}
-            />
+            <div className="flex-shrink-0 w-full sm:w-auto">
+              <ViewToggle 
+                view={viewMode} 
+                onViewChange={setViewMode}
+                className="w-full sm:w-auto"
+              />
+            </div>
           </div>
         </TrackerErrorBoundary>
 
@@ -186,70 +190,80 @@ export const DtpKanbanDashboard = () => {
         </TrackerErrorBoundary>
 
         {(hasOptimisticUpdates || hasPendingUpdates()) && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-            <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
-            <span className="text-sm text-blue-700">
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <RefreshCw className="h-4 w-4 animate-spin text-blue-500 flex-shrink-0" />
+            <span className="text-sm text-blue-700 truncate">
               {hasOptimisticUpdates ? 'Processing updates...' : 'Syncing changes...'}
             </span>
           </div>
         )}
       </div>
 
-      {viewMode === 'card' ? (
-        <div className="flex gap-4 h-full overflow-hidden">
-          <DtpKanbanColumnWithBoundary
-            title="DTP Jobs"
-            jobs={dtpJobs}
-            onStart={startJob}
-            onComplete={completeJob}
-            onJobClick={handleJobClick}
-            colorClass="bg-blue-600"
-            icon={<FileText className="h-4 w-4" />}
-          />
-          
-          <DtpKanbanColumnWithBoundary
-            title="Proofing Jobs"
-            jobs={proofJobs}
-            onStart={startJob}
-            onComplete={completeJob}
-            onJobClick={handleJobClick}
-            colorClass="bg-purple-600"
-            icon={<CheckCircle className="h-4 w-4" />}
-          />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full overflow-hidden">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md">
-              <FileText className="h-4 w-4" />
-              <span className="font-medium text-sm">DTP Jobs ({dtpJobs.length})</span>
-            </div>
-            <div className="h-full overflow-y-auto">
-              <JobListView
+      <div className="flex-1 overflow-hidden px-3 sm:px-4 pb-3 sm:pb-4">
+        {viewMode === 'card' ? (
+          <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 h-full overflow-hidden">
+            <div className="flex-1 min-h-0">
+              <DtpKanbanColumnWithBoundary
+                title="DTP Jobs"
                 jobs={dtpJobs}
                 onStart={startJob}
                 onComplete={completeJob}
                 onJobClick={handleJobClick}
+                colorClass="bg-blue-600"
+                icon={<FileText className="h-4 w-4" />}
               />
             </div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-md">
-              <CheckCircle className="h-4 w-4" />
-              <span className="font-medium text-sm">Proofing Jobs ({proofJobs.length})</span>
-            </div>
-            <div className="h-full overflow-y-auto">
-              <JobListView
+            
+            <div className="flex-1 min-h-0">
+              <DtpKanbanColumnWithBoundary
+                title="Proofing Jobs"
                 jobs={proofJobs}
                 onStart={startJob}
                 onComplete={completeJob}
                 onJobClick={handleJobClick}
+                colorClass="bg-purple-600"
+                icon={<CheckCircle className="h-4 w-4" />}
               />
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 h-full overflow-hidden">
+            <div className="flex flex-col space-y-2 min-h-0">
+              <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md">
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium text-sm truncate">DTP Jobs ({dtpJobs.length})</span>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="pr-4">
+                  <JobListView
+                    jobs={dtpJobs}
+                    onStart={startJob}
+                    onComplete={completeJob}
+                    onJobClick={handleJobClick}
+                  />
+                </div>
+              </ScrollArea>
+            </div>
+            
+            <div className="flex flex-col space-y-2 min-h-0">
+              <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-md">
+                <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium text-sm truncate">Proofing Jobs ({proofJobs.length})</span>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="pr-4">
+                  <JobListView
+                    jobs={proofJobs}
+                    onStart={startJob}
+                    onComplete={completeJob}
+                    onJobClick={handleJobClick}
+                  />
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+        )}
+      </div>
 
       {selectedJob && (
         <TrackerErrorBoundary componentName="DTP Job Modal">
