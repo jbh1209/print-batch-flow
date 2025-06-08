@@ -17,27 +17,27 @@ const TrackerDTPWorkflow = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <RefreshCw className="h-8 w-8 animate-spin mr-2" />
-        <span>Loading DTP workflow...</span>
+      <div className="flex items-center justify-center p-4">
+        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+        <span className="text-sm">Loading DTP workflow...</span>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">DTP Workflow</h1>
-        <p className="text-gray-600">Manage DTP and Proof processes</p>
+    <div className="container mx-auto p-4">
+      <div className="mb-4">
+        <h1 className="text-xl font-bold">DTP Workflow</h1>
+        <p className="text-xs text-gray-600">Manage DTP and Proof processes</p>
       </div>
 
       {dtpJobs.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No jobs in DTP or Proof stages</p>
-          <p className="text-gray-400">Jobs will appear here when they reach DTP or Proof stages</p>
+        <div className="text-center py-8">
+          <p className="text-gray-500 text-sm">No jobs in DTP or Proof stages</p>
+          <p className="text-gray-400 text-xs">Jobs will appear here when they reach DTP or Proof stages</p>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {dtpJobs.map((job) => (
             <DtpWorkflowCard
               key={job.job_id}

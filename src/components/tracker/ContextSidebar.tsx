@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -37,33 +36,33 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
   };
 
   const renderDashboardSidebar = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5" />
+    <Card className="compact-spacing">
+      <CardHeader className="card-header-compact">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <BarChart3 className="h-4 w-4" />
           Quick Stats
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="card-content-compact">
         <div className="grid grid-cols-2 gap-2">
           <div className="text-center p-2 bg-blue-50 rounded">
-            <div className="text-lg font-bold text-blue-600">142</div>
+            <div className="text-sm font-bold text-blue-600">142</div>
             <div className="text-xs text-gray-600">Active Jobs</div>
           </div>
           <div className="text-center p-2 bg-green-50 rounded">
-            <div className="text-lg font-bold text-green-600">28</div>
+            <div className="text-sm font-bold text-green-600">28</div>
             <div className="text-xs text-gray-600">Completed</div>
           </div>
         </div>
-        <Separator />
-        <div className="space-y-2">
+        <Separator className="my-2" />
+        <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-sm">On Schedule</span>
-            <Badge variant="secondary">85%</Badge>
+            <span className="text-xs">On Schedule</span>
+            <Badge variant="secondary" className="badge-compact">85%</Badge>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm">Overdue</span>
-            <Badge variant="destructive">12</Badge>
+            <span className="text-xs">Overdue</span>
+            <Badge variant="destructive" className="badge-compact">12</Badge>
           </div>
         </div>
       </CardContent>
@@ -71,81 +70,84 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
   );
 
   const renderOrdersSidebar = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Filter className="h-5 w-5" />
+    <Card className="compact-spacing">
+      <CardHeader className="card-header-compact">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Filter className="h-4 w-4" />
           Filters
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="status-filter">Status</Label>
-          <Select onValueChange={(value) => handleFilterChange('status', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="in-progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="on-hold">On Hold</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="priority-filter">Priority</Label>
-          <Select onValueChange={(value) => handleFilterChange('priority', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Priorities" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="date-filter">Due Date</Label>
-          <Select onValueChange={(value) => handleFilterChange('dueDate', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Dates" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Dates</SelectItem>
-              <SelectItem value="today">Due Today</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="search">Search Jobs</Label>
-          <Input 
-            id="search"
-            placeholder="Job number, customer..."
-            onChange={(e) => handleFilterChange('search', e.target.value)}
-          />
-        </div>
-
-        <Separator />
-        
-        <div className="space-y-2">
-          <Label>Quick Filters</Label>
+      <CardContent className="card-content-compact">
+        <div className="space-y-3">
           <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <Checkbox id="urgent" onCheckedChange={(checked) => handleFilterChange('urgent', checked)} />
-              <Label htmlFor="urgent" className="text-sm">Urgent Only</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="my-jobs" onCheckedChange={(checked) => handleFilterChange('myJobs', checked)} />
-              <Label htmlFor="my-jobs" className="text-sm">My Jobs</Label>
+            <Label htmlFor="status-filter" className="text-xs">Status</Label>
+            <Select onValueChange={(value) => handleFilterChange('status', value)}>
+              <SelectTrigger className="input-compact">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="on-hold">On Hold</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="priority-filter" className="text-xs">Priority</Label>
+            <Select onValueChange={(value) => handleFilterChange('priority', value)}>
+              <SelectTrigger className="input-compact">
+                <SelectValue placeholder="All Priorities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priorities</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="date-filter">Due Date</Label>
+            <Select onValueChange={(value) => handleFilterChange('dueDate', value)}>
+              <SelectTrigger className="input-compact">
+                <SelectValue placeholder="All Dates" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Dates</SelectItem>
+                <SelectItem value="today">Due Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="search" className="text-xs">Search Jobs</Label>
+            <Input 
+              id="search"
+              placeholder="Job number, customer..."
+              className="input-compact"
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+            />
+          </div>
+
+          <Separator />
+          
+          <div className="space-y-1">
+            <Label className="text-xs">Quick Filters</Label>
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="urgent" onCheckedChange={(checked) => handleFilterChange('urgent', checked)} />
+                <Label htmlFor="urgent" className="text-xs">Urgent Only</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="my-jobs" onCheckedChange={(checked) => handleFilterChange('myJobs', checked)} />
+                <Label htmlFor="my-jobs" className="text-xs">My Jobs</Label>
+              </div>
             </div>
           </div>
         </div>
@@ -154,51 +156,51 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
   );
 
   const renderProductionSidebar = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Package className="h-5 w-5" />
+    <Card className="compact-spacing">
+      <CardHeader className="card-header-compact">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Package className="h-4 w-4" />
           Production Overview
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="card-content-compact">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm flex items-center gap-2">
-              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            <span className="text-xs flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               Design
             </span>
-            <Badge variant="secondary">24</Badge>
+            <Badge variant="secondary" className="badge-compact">24</Badge>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm flex items-center gap-2">
-              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+            <span className="text-xs flex items-center gap-2">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
               Printing
             </span>
-            <Badge variant="secondary">18</Badge>
+            <Badge variant="secondary" className="badge-compact">18</Badge>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm flex items-center gap-2">
-              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+            <span className="text-xs flex items-center gap-2">
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
               Finishing
             </span>
-            <Badge variant="secondary">12</Badge>
+            <Badge variant="secondary" className="badge-compact">12</Badge>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            <span className="text-xs flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               Quality Check
             </span>
-            <Badge variant="secondary">8</Badge>
+            <Badge variant="secondary" className="badge-compact">8</Badge>
           </div>
         </div>
 
-        <Separator />
+        <Separator className="my-2" />
 
         <div className="space-y-2">
-          <Label>Filter by Stage</Label>
+          <Label className="text-xs">Filter by Stage</Label>
           <Select onValueChange={(value) => handleFilterChange('stage', value)}>
-            <SelectTrigger>
+            <SelectTrigger className="input-compact">
               <SelectValue placeholder="All Stages" />
             </SelectTrigger>
             <SelectContent>
@@ -212,9 +214,9 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
         </div>
 
         <div className="space-y-2">
-          <Label>Filter by Operator</Label>
+          <Label className="text-xs">Filter by Operator</Label>
           <Select onValueChange={(value) => handleFilterChange('operator', value)}>
-            <SelectTrigger>
+            <SelectTrigger className="input-compact">
               <SelectValue placeholder="All Operators" />
             </SelectTrigger>
             <SelectContent>
@@ -230,60 +232,62 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
   );
 
   const renderKanbanSidebar = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Layers className="h-5 w-5" />
+    <Card className="compact-spacing">
+      <CardHeader className="card-header-compact">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Layers className="h-4 w-4" />
           Kanban Controls
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>View Mode</Label>
-          <Select defaultValue="all" onValueChange={(value) => handleFilterChange('viewMode', value)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Jobs</SelectItem>
-              <SelectItem value="my-jobs">My Jobs Only</SelectItem>
-              <SelectItem value="urgent">Urgent Only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Group By</Label>
-          <Select defaultValue="stage" onValueChange={(value) => handleFilterChange('groupBy', value)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="stage">Production Stage</SelectItem>
-              <SelectItem value="priority">Priority</SelectItem>
-              <SelectItem value="operator">Operator</SelectItem>
-              <SelectItem value="due-date">Due Date</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-2">
-          <Label>Quick Actions</Label>
+      <CardContent className="card-content-compact">
+        <div className="space-y-3">
           <div className="space-y-1">
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Mark Complete
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <AlertCircle className="h-4 w-4 mr-2" />
-              Report Issue
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <Clock className="h-4 w-4 mr-2" />
-              Update Status
-            </Button>
+            <Label className="text-xs">View Mode</Label>
+            <Select defaultValue="all" onValueChange={(value) => handleFilterChange('viewMode', value)}>
+              <SelectTrigger className="input-compact">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Jobs</SelectItem>
+                <SelectItem value="my-jobs">My Jobs Only</SelectItem>
+                <SelectItem value="urgent">Urgent Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Group By</Label>
+            <Select defaultValue="stage" onValueChange={(value) => handleFilterChange('groupBy', value)}>
+              <SelectTrigger className="input-compact">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="stage">Production Stage</SelectItem>
+                <SelectItem value="priority">Priority</SelectItem>
+                <SelectItem value="operator">Operator</SelectItem>
+                <SelectItem value="due-date">Due Date</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Separator className="my-2" />
+
+          <div className="space-y-1">
+            <Label className="text-xs">Quick Actions</Label>
+            <div className="space-y-1">
+              <Button variant="outline" size="sm" className="w-full justify-start btn-compact">
+                <CheckCircle className="h-3 w-3 mr-2" />
+                Mark Complete
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start btn-compact">
+                <AlertCircle className="h-3 w-3 mr-2" />
+                Report Issue
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start btn-compact">
+                <Clock className="h-3 w-3 mr-2" />
+                Update Status
+              </Button>
+            </div>
           </div>
         </div>
       </CardContent>
@@ -291,70 +295,72 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
   );
 
   const renderFactoryFloorSidebar = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Factory className="h-5 w-5" />
+    <Card className="compact-spacing">
+      <CardHeader className="card-header-compact">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Factory className="h-4 w-4" />
           Factory Floor
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Department</Label>
-          <Select onValueChange={(value) => handleFilterChange('department', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Departments" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
-              <SelectItem value="design">Design</SelectItem>
-              <SelectItem value="printing">Printing</SelectItem>
-              <SelectItem value="finishing">Finishing</SelectItem>
-              <SelectItem value="quality">Quality Control</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <CardContent className="card-content-compact">
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Department</Label>
+            <Select onValueChange={(value) => handleFilterChange('department', value)}>
+              <SelectTrigger className="input-compact">
+                <SelectValue placeholder="All Departments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                <SelectItem value="design">Design</SelectItem>
+                <SelectItem value="printing">Printing</SelectItem>
+                <SelectItem value="finishing">Finishing</SelectItem>
+                <SelectItem value="quality">Quality Control</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-2">
-          <Label>Shift</Label>
-          <Select onValueChange={(value) => handleFilterChange('shift', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Current Shift" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current">Current Shift</SelectItem>
-              <SelectItem value="morning">Morning (6AM-2PM)</SelectItem>
-              <SelectItem value="afternoon">Afternoon (2PM-10PM)</SelectItem>
-              <SelectItem value="night">Night (10PM-6AM)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Shift</Label>
+            <Select onValueChange={(value) => handleFilterChange('shift', value)}>
+              <SelectTrigger className="input-compact">
+                <SelectValue placeholder="Current Shift" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current">Current Shift</SelectItem>
+                <SelectItem value="morning">Morning (6AM-2PM)</SelectItem>
+                <SelectItem value="afternoon">Afternoon (2PM-10PM)</SelectItem>
+                <SelectItem value="night">Night (10PM-6AM)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <Separator />
+          <Separator className="my-2" />
 
-        <div className="space-y-2">
-          <Label>Live Status</Label>
-          <div className="space-y-1 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                Active Operators
-              </span>
-              <Badge variant="secondary">12</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                On Break
-              </span>
-              <Badge variant="secondary">3</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                Machine Issues
-              </span>
-              <Badge variant="secondary">1</Badge>
+          <div className="space-y-1">
+            <Label className="text-xs">Live Status</Label>
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  Active Operators
+                </span>
+                <Badge variant="secondary" className="badge-compact">12</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  On Break
+                </span>
+                <Badge variant="secondary" className="badge-compact">3</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  Machine Issues
+                </span>
+                <Badge variant="secondary" className="badge-compact">1</Badge>
+              </div>
             </div>
           </div>
         </div>
@@ -363,58 +369,60 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
   );
 
   const renderWorksheetsSidebar = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileSpreadsheet className="h-5 w-5" />
+    <Card className="compact-spacing">
+      <CardHeader className="card-header-compact">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <FileSpreadsheet className="h-4 w-4" />
           Worksheets
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Worksheet Type</Label>
-          <Select onValueChange={(value) => handleFilterChange('worksheetType', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="production">Production</SelectItem>
-              <SelectItem value="quality">Quality Control</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
-              <SelectItem value="inventory">Inventory</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Date Range</Label>
-          <Select onValueChange={(value) => handleFilterChange('dateRange', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="This Week" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="custom">Custom Range</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-2">
-          <Label>Quick Actions</Label>
+      <CardContent className="card-content-compact">
+        <div className="space-y-3">
           <div className="space-y-1">
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              New Worksheet
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <Calendar className="h-4 w-4 mr-2" />
-              Schedule Report
-            </Button>
+            <Label className="text-xs">Worksheet Type</Label>
+            <Select onValueChange={(value) => handleFilterChange('worksheetType', value)}>
+              <SelectTrigger className="input-compact">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="production">Production</SelectItem>
+                <SelectItem value="quality">Quality Control</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="inventory">Inventory</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Date Range</Label>
+            <Select onValueChange={(value) => handleFilterChange('dateRange', value)}>
+              <SelectTrigger className="input-compact">
+                <SelectValue placeholder="This Week" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Separator className="my-2" />
+
+          <div className="space-y-1">
+            <Label className="text-xs">Quick Actions</Label>
+            <div className="space-y-1">
+              <Button variant="outline" size="sm" className="w-full justify-start btn-compact">
+                <FileSpreadsheet className="h-3 w-3 mr-2" />
+                New Worksheet
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start btn-compact">
+                <Calendar className="h-3 w-3 mr-2" />
+                Schedule Report
+              </Button>
+            </div>
           </div>
         </div>
       </CardContent>
@@ -422,61 +430,63 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
   );
 
   const renderSetupSidebar = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Settings className="h-5 w-5" />
+    <Card className="compact-spacing">
+      <CardHeader className="card-header-compact">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Settings className="h-4 w-4" />
           Administration
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Quick Access</Label>
+      <CardContent className="card-content-compact">
+        <div className="space-y-3">
           <div className="space-y-1">
-            <Button variant="outline" size="sm" className="w-full justify-start" asChild>
-              <Link to="/tracker/users">
-                <Users className="h-4 w-4 mr-2" />
-                User Management
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start" asChild>
-              <Link to="/tracker/admin?tab=production">
-                <Package className="h-4 w-4 mr-2" />
-                Product Categories
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <Settings className="h-4 w-4 mr-2" />
-              System Settings
-            </Button>
+            <Label className="text-xs">Quick Access</Label>
+            <div className="space-y-1">
+              <Button variant="outline" size="sm" className="w-full justify-start btn-compact" asChild>
+                <Link to="/tracker/users">
+                  <Users className="h-3 w-3 mr-2" />
+                  User Management
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start btn-compact" asChild>
+                <Link to="/tracker/admin?tab=production">
+                  <Package className="h-3 w-3 mr-2" />
+                  Product Categories
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start btn-compact">
+                <Settings className="h-3 w-3 mr-2" />
+                System Settings
+              </Button>
+            </div>
           </div>
-        </div>
 
-        <Separator />
+          <Separator className="my-2" />
 
-        <div className="space-y-2">
-          <Label>System Status</Label>
-          <div className="space-y-1 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                Database
-              </span>
-              <Badge variant="secondary">Online</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                Printers
-              </span>
-              <Badge variant="secondary">4/4</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                Backup
-              </span>
-              <Badge variant="secondary">2h ago</Badge>
+          <div className="space-y-1">
+            <Label className="text-xs">System Status</Label>
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  Database
+                </span>
+                <Badge variant="secondary" className="badge-compact">Online</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  Printers
+                </span>
+                <Badge variant="secondary" className="badge-compact">4/4</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  Backup
+                </span>
+                <Badge variant="secondary" className="badge-compact">2h ago</Badge>
+              </div>
             </div>
           </div>
         </div>
@@ -506,7 +516,7 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
   };
 
   return (
-    <div className="w-80 border-r border-gray-200 bg-white p-4 overflow-y-auto">
+    <div className="w-64 border-r border-gray-200 bg-white p-3 overflow-y-auto">
       {getSidebarContent()}
     </div>
   );

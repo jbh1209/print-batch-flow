@@ -12,29 +12,29 @@ const TrackerAdmin = () => {
   const defaultTab = searchParams.get('tab') || 'users';
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Tracker Administration</h1>
-        <p className="text-gray-600">Manage users, permissions, production stages, and system data</p>
+    <div className="container mx-auto p-4">
+      <div className="mb-4">
+        <h1 className="text-xl font-bold">Tracker Administration</h1>
+        <p className="text-xs text-gray-600">Manage users, permissions, production stages, and system data</p>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="space-y-6">
+      <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="production">Product Categories</TabsTrigger>
-          <TabsTrigger value="data">Data Management</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs">User Management</TabsTrigger>
+          <TabsTrigger value="production" className="text-xs">Product Categories</TabsTrigger>
+          <TabsTrigger value="data" className="text-xs">Data Management</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users" className="space-y-6">
+        <TabsContent value="users" className="space-y-4">
           <UserGroupsManagement />
         </TabsContent>
 
-        <TabsContent value="production" className="space-y-6">
+        <TabsContent value="production" className="space-y-4">
           <CategoriesManagement />
           <ProductionStagesManagement />
         </TabsContent>
 
-        <TabsContent value="data" className="space-y-6">
+        <TabsContent value="data" className="space-y-4">
           <DuplicateJobManager />
         </TabsContent>
       </Tabs>
