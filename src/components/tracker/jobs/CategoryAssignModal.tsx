@@ -30,7 +30,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
     setIsAssigning(true);
     try {
-      console.log('🔄 Assigning category and initializing workflow...', {
+      console.log('🔄 Assigning category...', {
         jobId: job.id,
         categoryId: selectedCategoryId,
         isMultiple: job.isMultiple
@@ -48,9 +48,12 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
             })
             .eq('id', jobId);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error('Error updating job:', jobId, updateError);
+            throw updateError;
+          }
 
-          // Auto-initialize workflow stages using the new function
+          // Initialize workflow stages
           const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
             p_job_id: jobId,
             p_job_table_name: 'production_jobs',
@@ -59,14 +62,13 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
           if (stageError) {
             console.error('Error initializing stages for job:', jobId, stageError);
-            // Don't throw here to allow other jobs to process
+            // Continue with other jobs instead of failing completely
           }
         }
 
-        toast.success(`Successfully assigned category and initialized workflows for ${job.selectedIds.length} jobs`);
+        toast.success(`Category assigned to ${job.selectedIds.length} jobs`);
       } else {
         // Single job assignment
-        // Update job with category
         const { error: updateError } = await supabase
           .from('production_jobs')
           .update({ 
@@ -75,9 +77,12 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           })
           .eq('id', job.id);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Error updating job:', updateError);
+          throw updateError;
+        }
 
-        // Auto-initialize workflow stages using the new function
+        // Initialize workflow stages
         const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
           p_job_id: job.id,
           p_job_table_name: 'production_jobs',
@@ -87,15 +92,16 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         if (stageError) {
           console.error('Error initializing stages:', stageError);
           toast.error('Category assigned but workflow initialization failed');
-        } else {
-          toast.success('Category assigned and workflow initialized successfully');
+          return;
         }
+
+        toast.success('Category assigned and workflow initialized');
       }
 
       onAssign();
       onClose();
     } catch (err) {
-      console.error('Error assigning category:', err);
+      console.error('❌ Error assigning category:', err);
       toast.error('Failed to assign category');
     } finally {
       setIsAssigning(false);
@@ -142,10 +148,10 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           {selectedCategory && (
             <div className="p-3 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-700">
-                <strong>Due Date:</strong> Will be calculated automatically based on {selectedCategory.sla_target_days} day SLA
+                <strong>SLA:</strong> {selectedCategory.sla_target_days} days
               </p>
               <p className="text-sm text-blue-600 mt-1">
-                Workflow will be initialized automatically and the first stage will start immediately.
+                Workflow will be initialized with all stages in pending status.
               </p>
             </div>
           )}
@@ -155,7 +161,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
               Cancel
             </Button>
             <Button onClick={handleAssign} disabled={isAssigning || !selectedCategoryId}>
-              {isAssigning ? "Assigning..." : "Assign Category & Start Workflow"}
+              {isAssigning ? "Assigning..." : "Assign Category"}
             </Button>
           </div>
         </div>
