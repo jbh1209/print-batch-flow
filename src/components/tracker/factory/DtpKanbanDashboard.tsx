@@ -10,6 +10,8 @@ import { DtpDashboardStats } from "./DtpDashboardStats";
 import { DtpDashboardFilters } from "./DtpDashboardFilters";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "../error-boundaries/DataLoadingFallback";
+import { ViewToggle } from "../common/ViewToggle";
+import { JobListView } from "../common/JobListView";
 import { categorizeJobs, sortJobsByPriority } from "@/utils/tracker/jobProcessing";
 import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
 import { toast } from "sonner";
@@ -38,20 +40,8 @@ export const DtpKanbanDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showJobModal, setShowJobModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
-  console.log("🎯 DTP Kanban Dashboard - Raw Jobs:", {
-    totalJobs: jobs.length,
-    hasOptimistic: hasOptimisticUpdates,
-    hasPending: hasPendingUpdates(),
-    jobsSample: jobs.slice(0, 3).map(j => ({
-      wo_no: j.wo_no,
-      current_stage_name: j.current_stage_name,
-      current_stage_status: j.current_stage_status,
-      user_can_work: j.user_can_work
-    }))
-  });
-
-  // Calculate dashboard metrics for better insights
   const dashboardMetrics = useMemo(() => {
     return calculateDashboardMetrics(jobs);
   }, [jobs]);
@@ -76,13 +66,6 @@ export const DtpKanbanDashboard = () => {
 
       const categories = categorizeJobs(filtered);
       
-      console.log("📊 Job categorization:", {
-        totalFiltered: filtered.length,
-        dtpCount: categories.dtpJobs.length,
-        proofCount: categories.proofJobs.length,
-        dashboardMetrics
-      });
-
       return {
         dtpJobs: sortJobsByPriority(categories.dtpJobs),
         proofJobs: sortJobsByPriority(categories.proofJobs)
@@ -146,7 +129,6 @@ export const DtpKanbanDashboard = () => {
     navigate(path);
   }, [navigate]);
 
-  // Enhanced loading state with progress indication
   if (isLoading) {
     return (
       <JobListLoading 
@@ -156,7 +138,6 @@ export const DtpKanbanDashboard = () => {
     );
   }
 
-  // Enhanced error handling with recovery options
   if (error) {
     return (
       <JobErrorState
@@ -179,15 +160,21 @@ export const DtpKanbanDashboard = () => {
 
       <div className="flex flex-col gap-4">
         <TrackerErrorBoundary componentName="DTP Dashboard Filters">
-          <DtpDashboardFilters
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onRefresh={handleRefresh}
-            onScanSuccess={handleScanSuccess}
-            refreshing={refreshing}
-            dtpJobsCount={dtpJobs.length}
-            proofJobsCount={proofJobs.length}
-          />
+          <div className="flex items-center justify-between">
+            <DtpDashboardFilters
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onRefresh={handleRefresh}
+              onScanSuccess={handleScanSuccess}
+              refreshing={refreshing}
+              dtpJobsCount={dtpJobs.length}
+              proofJobsCount={proofJobs.length}
+            />
+            <ViewToggle 
+              view={viewMode} 
+              onViewChange={setViewMode}
+            />
+          </div>
         </TrackerErrorBoundary>
 
         <TrackerErrorBoundary componentName="DTP Dashboard Stats">
@@ -198,38 +185,71 @@ export const DtpKanbanDashboard = () => {
           />
         </TrackerErrorBoundary>
 
-        {/* Real-time status indicators */}
         {(hasOptimisticUpdates || hasPendingUpdates()) && (
           <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
             <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
             <span className="text-sm text-blue-700">
-              {hasOptimisticUpdates ? 'Processing updates...' : 'Syncing changes...'}
+              {hasOptimisticUpdates ? 'Processing updates...' : 'Syncing changes...'
             </span>
           </div>
         )}
       </div>
 
-      <div className="flex gap-4 h-full overflow-hidden">
-        <DtpKanbanColumnWithBoundary
-          title="DTP Jobs"
-          jobs={dtpJobs}
-          onStart={startJob}
-          onComplete={completeJob}
-          onJobClick={handleJobClick}
-          colorClass="bg-blue-600"
-          icon={<FileText className="h-4 w-4" />}
-        />
-        
-        <DtpKanbanColumnWithBoundary
-          title="Proofing Jobs"
-          jobs={proofJobs}
-          onStart={startJob}
-          onComplete={completeJob}
-          onJobClick={handleJobClick}
-          colorClass="bg-purple-600"
-          icon={<CheckCircle className="h-4 w-4" />}
-        />
-      </div>
+      {viewMode === 'card' ? (
+        <div className="flex gap-4 h-full overflow-hidden">
+          <DtpKanbanColumnWithBoundary
+            title="DTP Jobs"
+            jobs={dtpJobs}
+            onStart={startJob}
+            onComplete={completeJob}
+            onJobClick={handleJobClick}
+            colorClass="bg-blue-600"
+            icon={<FileText className="h-4 w-4" />}
+          />
+          
+          <DtpKanbanColumnWithBoundary
+            title="Proofing Jobs"
+            jobs={proofJobs}
+            onStart={startJob}
+            onComplete={completeJob}
+            onJobClick={handleJobClick}
+            colorClass="bg-purple-600"
+            icon={<CheckCircle className="h-4 w-4" />}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full overflow-hidden">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md">
+              <FileText className="h-4 w-4" />
+              <span className="font-medium text-sm">DTP Jobs ({dtpJobs.length})</span>
+            </div>
+            <div className="h-full overflow-y-auto">
+              <JobListView
+                jobs={dtpJobs}
+                onStart={startJob}
+                onComplete={completeJob}
+                onJobClick={handleJobClick}
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-md">
+              <CheckCircle className="h-4 w-4" />
+              <span className="font-medium text-sm">Proofing Jobs ({proofJobs.length})</span>
+            </div>
+            <div className="h-full overflow-y-auto">
+              <JobListView
+                jobs={proofJobs}
+                onStart={startJob}
+                onComplete={completeJob}
+                onJobClick={handleJobClick}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedJob && (
         <TrackerErrorBoundary componentName="DTP Job Modal">

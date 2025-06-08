@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { RefreshCw, AlertTriangle, Play, CheckCircle } from "lucide-react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
+import { ViewToggle } from "@/components/tracker/common/ViewToggle";
+import { JobListView } from "@/components/tracker/common/JobListView";
 
 interface FactoryFloorViewProps {
   stageFilter?: string | null;
@@ -21,6 +23,7 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
     stageFilter: stageFilter || undefined
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -76,15 +79,21 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
           </p>
         </div>
         
-        <Button 
-          variant="outline" 
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-3">
+          <ViewToggle 
+            view={viewMode} 
+            onViewChange={setViewMode}
+          />
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Job Statistics */}
@@ -130,55 +139,63 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
         </Card>
       </div>
 
-      {/* Jobs List */}
+      {/* Jobs Display */}
       {jobs.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Work Queue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {jobs.map((job) => (
-                <div key={job.job_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                      {job.current_stage_name && (
-                        <Badge 
-                          variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
-                          className={job.current_stage_status === 'active' ? 'bg-green-500' : 'text-orange-600 border-orange-200'}
-                        >
-                          {job.current_stage_name}
-                        </Badge>
-                      )}
-                      {job.current_stage_status && (
-                        <Badge variant="secondary" className="text-xs">
-                          {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
-                        </Badge>
-                      )}
+        viewMode === 'card' ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Work Queue</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {jobs.map((job) => (
+                  <div key={job.job_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h4 className="font-medium text-lg">{job.wo_no}</h4>
+                        {job.current_stage_name && (
+                          <Badge 
+                            variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
+                            className={job.current_stage_status === 'active' ? 'bg-green-500' : 'text-orange-600 border-orange-200'}
+                          >
+                            {job.current_stage_name}
+                          </Badge>
+                        )}
+                        {job.current_stage_status && (
+                          <Badge variant="secondary" className="text-xs">
+                            {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        <span>Customer: {job.customer || 'Unknown'}</span>
+                        {job.due_date && (
+                          <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
+                        )}
+                        <span> • Status: {job.status}</span>
+                        {job.workflow_progress > 0 && (
+                          <span> • Progress: {job.workflow_progress}%</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      <span>Customer: {job.customer || 'Unknown'}</span>
-                      {job.due_date && (
-                        <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
-                      )}
-                      <span> • Status: {job.status}</span>
-                      {job.workflow_progress > 0 && (
-                        <span> • Progress: {job.workflow_progress}%</span>
-                      )}
-                    </div>
+                    
+                    <JobActionButtons
+                      job={job}
+                      onStart={startJob}
+                      onComplete={completeJob}
+                    />
                   </div>
-                  
-                  <JobActionButtons
-                    job={job}
-                    onStart={startJob}
-                    onComplete={completeJob}
-                  />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <JobListView
+            jobs={jobs}
+            onStart={startJob}
+            onComplete={completeJob}
+          />
+        )
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center p-12">

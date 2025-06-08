@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { CompactJobCard } from "./CompactJobCard";
+import { ViewToggle } from "../common/ViewToggle";
+import { JobListView } from "../common/JobListView";
 
 interface EnhancedJobsListProps {
   jobs: any[];
@@ -29,7 +30,7 @@ export const EnhancedJobsList: React.FC<EnhancedJobsListProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<'due_date' | 'wo_no' | 'customer' | 'status'>('due_date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   // Filter and sort jobs
   const filteredAndSortedJobs = React.useMemo(() => {
@@ -97,24 +98,10 @@ export const EnhancedJobsList: React.FC<EnhancedJobsListProps> = ({
 
           <div className="flex items-center gap-2">
             {/* View Mode Toggle */}
-            <div className="flex border rounded-md">
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="rounded-r-none"
-              >
-                <LayoutList className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="rounded-l-none"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
+            <ViewToggle 
+              view={viewMode} 
+              onViewChange={setViewMode}
+            />
 
             {/* Sort Dropdown */}
             <DropdownMenu>
@@ -166,10 +153,8 @@ export const EnhancedJobsList: React.FC<EnhancedJobsListProps> = ({
             {searchTerm ? 'Try adjusting your search terms.' : 'No jobs match the current filters.'}
           </p>
         </div>
-      ) : (
-        <div className={`space-y-2 ${
-          viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4' : ''
-        }`}>
+      ) : viewMode === 'card' ? (
+        <div className="space-y-2">
           {filteredAndSortedJobs.map((job) => (
             <CompactJobCard
               key={job.id}
@@ -179,6 +164,18 @@ export const EnhancedJobsList: React.FC<EnhancedJobsListProps> = ({
             />
           ))}
         </div>
+      ) : (
+        <JobListView
+          jobs={filteredAndSortedJobs}
+          onStart={onStageAction ? (jobId, stageId) => {
+            onStageAction(jobId, stageId, 'start');
+            return Promise.resolve(true);
+          } : undefined}
+          onComplete={onStageAction ? (jobId, stageId) => {
+            onStageAction(jobId, stageId, 'complete');
+            return Promise.resolve(true);
+          } : undefined}
+        />
       )}
     </div>
   );
