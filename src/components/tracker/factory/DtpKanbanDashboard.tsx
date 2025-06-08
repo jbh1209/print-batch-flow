@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from "react";
 import { AlertTriangle, FileText, CheckCircle, RefreshCw } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
@@ -189,7 +190,7 @@ export const DtpKanbanDashboard = () => {
           <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
             <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
             <span className="text-sm text-blue-700">
-              {hasOptimisticUpdates ? 'Processing updates...' : 'Syncing changes...'
+              {hasOptimisticUpdates ? 'Processing updates...' : 'Syncing changes...'}
             </span>
           </div>
         )}
