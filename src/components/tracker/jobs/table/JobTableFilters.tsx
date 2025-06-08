@@ -5,12 +5,20 @@ import { Card } from "@/components/ui/card";
 
 interface JobTableFiltersProps {
   showColumnFilters: boolean;
-  columnFilters: Record<string, string>;
+  columnFilters: {
+    woNumber: string;
+    customer: string;
+    reference: string;
+    category: string;
+    status: string;
+    dueDate: string;
+    currentStage: string;
+  };
   onFilterChange: (key: string, value: string) => void;
   onClearFilters: () => void;
-  availableCategories: Array<{ value: string; label: string }>;
-  availableStatuses: Array<{ value: string; label: string }>;
-  availableStages: Array<{ value: string; label: string }>;
+  availableCategories: string[];
+  availableStatuses: string[];
+  availableStages: string[];
 }
 
 export const JobTableFilters: React.FC<JobTableFiltersProps> = ({
