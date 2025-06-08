@@ -25,7 +25,7 @@ interface DtpJobModalProps {
   job: AccessibleJob;
   isOpen: boolean;
   onClose: () => void;
-  onRefresh: () => void;
+  onRefresh?: () => void;
   onStart?: (jobId: string, stageId: string) => Promise<boolean>;
   onComplete?: (jobId: string, stageId: string) => Promise<boolean>;
 }
@@ -82,7 +82,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     if (onStart && job.current_stage_id) {
       const success = await onStart(job.job_id, job.current_stage_id);
       if (success) {
-        onRefresh();
+        onRefresh?.();
         onClose();
       }
       return;
@@ -115,7 +115,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       if (jobError) throw jobError;
 
       toast.success("DTP work started");
-      onRefresh();
+      onRefresh?.();
       onClose();
     } catch (error) {
       console.error('Error starting DTP:', error);
@@ -129,7 +129,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     if (onComplete && job.current_stage_id) {
       const success = await onComplete(job.job_id, job.current_stage_id);
       if (success) {
-        onRefresh();
+        onRefresh?.();
         onClose();
       }
       return;
@@ -158,7 +158,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       if (jobError) throw jobError;
 
       toast.success("DTP completed - moved to Proof");
-      onRefresh();
+      onRefresh?.();
       onClose();
     } catch (error) {
       console.error('Error completing DTP:', error);
@@ -195,7 +195,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       if (jobError) throw jobError;
 
       toast.success("Proof stage started");
-      onRefresh();
+      onRefresh?.();
     } catch (error) {
       console.error('Error starting proof:', error);
       toast.error("Failed to start proof stage");
@@ -229,7 +229,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       if (jobError) throw jobError;
 
       toast.success("Proof marked as emailed");
-      onRefresh();
+      onRefresh?.();
     } catch (error) {
       console.error('Error marking proof as emailed:', error);
       toast.error("Failed to mark proof as emailed");
@@ -272,7 +272,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       if (jobError) throw jobError;
 
       toast.success("Proof approved - ready for printing");
-      onRefresh();
+      onRefresh?.();
       onClose();
     } catch (error) {
       console.error('Error approving proof:', error);
@@ -302,7 +302,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       if (error) throw error;
 
       toast.success("Printer assigned successfully");
-      onRefresh();
+      onRefresh?.();
     } catch (error) {
       console.error('Error assigning printer:', error);
       toast.error("Failed to assign printer");
