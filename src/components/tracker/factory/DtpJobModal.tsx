@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   Dialog,
@@ -27,13 +26,17 @@ interface DtpJobModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRefresh: () => void;
+  onStart?: (jobId: string, stageId: string) => Promise<boolean>;
+  onComplete?: (jobId: string, stageId: string) => Promise<boolean>;
 }
 
 export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   job,
   isOpen,
   onClose,
-  onRefresh
+  onRefresh,
+  onStart,
+  onComplete
 }) => {
   const { user } = useAuth();
   const [notes, setNotes] = useState("");
@@ -76,6 +79,16 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const stageStatus = getStageStatus();
 
   const handleStartDTP = async () => {
+    if (onStart && job.current_stage_id) {
+      const success = await onStart(job.job_id, job.current_stage_id);
+      if (success) {
+        onRefresh();
+        onClose();
+      }
+      return;
+    }
+
+    // Fallback to direct database call
     setIsLoading(true);
     try {
       const { error: startError } = await supabase
@@ -113,6 +126,16 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   };
 
   const handleCompleteDTP = async () => {
+    if (onComplete && job.current_stage_id) {
+      const success = await onComplete(job.job_id, job.current_stage_id);
+      if (success) {
+        onRefresh();
+        onClose();
+      }
+      return;
+    }
+
+    // Fallback to direct database call
     setIsLoading(true);
     try {
       const { error } = await supabase.rpc('advance_job_stage', {
