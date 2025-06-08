@@ -348,6 +348,7 @@ export type Database = {
           estimated_duration_hours: number | null
           id: string
           is_required: boolean
+          part_mapping: Json | null
           part_rule_type: string | null
           production_stage_id: string
           stage_order: number
@@ -360,6 +361,7 @@ export type Database = {
           estimated_duration_hours?: number | null
           id?: string
           is_required?: boolean
+          part_mapping?: Json | null
           part_rule_type?: string | null
           production_stage_id: string
           stage_order: number
@@ -372,6 +374,7 @@ export type Database = {
           estimated_duration_hours?: number | null
           id?: string
           is_required?: boolean
+          part_mapping?: Json | null
           part_rule_type?: string | null
           production_stage_id?: string
           stage_order?: number
@@ -613,6 +616,7 @@ export type Database = {
           notes: string | null
           part_name: string | null
           part_order: number | null
+          part_type: string | null
           previous_stage_id: string | null
           printer_id: string | null
           production_stage_id: string
@@ -642,6 +646,7 @@ export type Database = {
           notes?: string | null
           part_name?: string | null
           part_order?: number | null
+          part_type?: string | null
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id: string
@@ -671,6 +676,7 @@ export type Database = {
           notes?: string | null
           part_name?: string | null
           part_order?: number | null
+          part_type?: string | null
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id?: string
@@ -1598,6 +1604,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      advance_job_stage_with_parts: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_current_stage_id: string
+          p_part_assignments?: Json
+          p_completed_by?: string
+          p_notes?: string
+        }
+        Returns: boolean
+      }
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -1701,6 +1718,15 @@ export type Database = {
       get_next_active_stage: {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: string
+      }
+      get_printing_stages_for_parts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          stage_id: string
+          stage_name: string
+          stage_color: string
+          part_types: string[]
+        }[]
       }
       get_user_accessible_jobs: {
         Args: {

@@ -9,6 +9,8 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PartPrintingStageSelector } from "./PartPrintingStageSelector";
+import { usePartPrintingAssignment } from "@/hooks/tracker/usePartPrintingAssignment";
 
 interface DtpWorkflowCardProps {
   job: AccessibleJob;
@@ -29,10 +31,15 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
   const [selectedPrintingStage, setSelectedPrintingStage] = useState<string>("");
   const [printingStages, setPrintingStages] = useState<PrintingStage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [jobParts, setJobParts] = useState<string[]>([]);
+  const [partAssignments, setPartAssignments] = useState<Record<string, string>>({});
+  const [showPartSelector, setShowPartSelector] = useState(false);
 
-  // Load printing stages when component mounts
+  const { assignPartsToStages, getJobParts, isAssigning } = usePartPrintingAssignment();
+
+  // Load printing stages and job parts when component mounts
   React.useEffect(() => {
-    const loadPrintingStages = async () => {
+    const loadData = async () => {
       const { data } = await supabase
         .from('production_stages')
         .select('id, name, color')
@@ -43,9 +50,16 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
       if (data) {
         setPrintingStages(data);
       }
+
+      // Load job parts if the job has a category
+      if (job.category_id) {
+        const parts = await getJobParts(job.job_id, job.category_id);
+        setJobParts(parts);
+        setShowPartSelector(parts.length > 1); // Show part selector if multiple parts
+      }
     };
-    loadPrintingStages();
-  }, []);
+    loadData();
+  }, [job.category_id, job.job_id, getJobParts]);
 
   const getCurrentStage = () => {
     const stageName = job.current_stage_name?.toLowerCase() || '';
@@ -207,6 +221,34 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
     }
   };
 
+  const handleAdvanceToPartSpecificPrinting = async () => {
+    if (Object.keys(partAssignments).length !== jobParts.length) {
+      toast.error("Please assign all parts to printing stages");
+      return;
+    }
+
+    const success = await assignPartsToStages(
+      job.job_id,
+      job.current_stage_id,
+      partAssignments,
+      'Proof approved - parts assigned to specific printing stages'
+    );
+
+    if (success) {
+      // Update job status
+      await supabase
+        .from('production_jobs')
+        .update({
+          status: 'Ready to Print',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.job_id);
+
+      toast.success("Job advanced to part-specific printing stages");
+      onRefresh();
+    }
+  };
+
   const handleAdvanceToPrintingStage = async () => {
     if (!selectedPrintingStage) {
       toast.error("Please select a printing stage");
@@ -286,38 +328,55 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
             Proof Emailed
           </Button>
           
-          {/* Printing Stage Selection */}
-          <div className="space-y-2">
-            <Label>Select Printing Stage:</Label>
-            <div className="flex gap-2">
-              <Select value={selectedPrintingStage} onValueChange={setSelectedPrintingStage}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Choose printing stage..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {printingStages.map((stage) => (
-                    <SelectItem key={stage.id} value={stage.id}>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: stage.color }}
-                        />
-                        {stage.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {showPartSelector ? (
+            <div className="space-y-3">
+              <PartPrintingStageSelector
+                availableParts={jobParts}
+                onPartAssignmentsChange={setPartAssignments}
+                initialAssignments={partAssignments}
+              />
               <Button 
-                onClick={handleAdvanceToPrintingStage}
-                disabled={!selectedPrintingStage || isLoading}
-                size="sm"
+                onClick={handleAdvanceToPartSpecificPrinting}
+                disabled={Object.keys(partAssignments).length !== jobParts.length || isAssigning}
+                className="w-full"
               >
                 <ArrowRight className="h-4 w-4 mr-1" />
-                Advance
+                Advance to Part-Specific Printing
               </Button>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Select Printing Stage:</Label>
+              <div className="flex gap-2">
+                <Select value={selectedPrintingStage} onValueChange={setSelectedPrintingStage}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Choose printing stage..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {printingStages.map((stage) => (
+                      <SelectItem key={stage.id} value={stage.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          {stage.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={handleAdvanceToPrintingStage}
+                  disabled={!selectedPrintingStage || isLoading}
+                  size="sm"
+                >
+                  <ArrowRight className="h-4 w-4 mr-1" />
+                  Advance
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -392,6 +451,9 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
           <p><strong>Customer:</strong> {job.customer}</p>
           <p><strong>Stage:</strong> {job.current_stage_name}</p>
           <p><strong>Due:</strong> {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'Not set'}</p>
+          {jobParts.length > 1 && (
+            <p><strong>Parts:</strong> {jobParts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(', ')}</p>
+          )}
         </div>
       </CardHeader>
       
