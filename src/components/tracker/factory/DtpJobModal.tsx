@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobOverviewCard } from "./JobOverviewCard";
 import { CurrentStageCard } from "./CurrentStageCard";
-import { WorkInstructionsCard } from "./WorkInstructionsCard";
 import { JobNotesCard } from "./JobNotesCard";
 import { Play, CheckCircle, Mail, ThumbsUp, ArrowRight } from "lucide-react";
 import { getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
@@ -411,7 +410,6 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
         <div className="space-y-6">
           <JobOverviewCard job={job} />
           <CurrentStageCard job={job} statusInfo={statusBadgeInfo} />
-          <WorkInstructionsCard job={job} />
           <JobNotesCard notes={notes} onNotesChange={setNotes} />
         </div>
 
