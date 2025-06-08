@@ -12,7 +12,8 @@ export interface UserProfile {
   updated_at?: string;
 }
 
-export type UserRole = 'admin' | 'user';
+// Updated to include all roles that the system actually uses
+export type UserRole = 'admin' | 'manager' | 'operator' | 'dtp_operator' | 'user';
 
 export interface UserFormData {
   email?: string;
