@@ -2,12 +2,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isValidUUID, validateUUIDWithLogging } from "@/utils/uuidValidation";
 
 interface ProductionCategory {
   id: string;
   name: string;
   description?: string;
-  color: string; // Made required to match Category interface
+  color: string;
   sla_target_days: number;
   created_at: string;
   updated_at: string;
@@ -34,28 +35,43 @@ export const useProductionCategories = () => {
 
       console.log('📦 Raw categories data from database:', data);
 
-      // Ensure all categories have proper string IDs and required properties
-      const categoriesWithProperIds = (data || []).map((category, index) => {
-        const categoryWithStringId = {
-          ...category,
-          id: String(category.id), // Explicitly convert UUID to string
-          color: category.color || '#3B82F6', // Default blue color if none provided
-          created_at: String(category.created_at),
-          updated_at: String(category.updated_at)
-        };
-        
-        console.log(`✅ Category ${index + 1} processed:`, {
-          name: categoryWithStringId.name,
-          id: categoryWithStringId.id,
-          idType: typeof categoryWithStringId.id,
-          idLength: categoryWithStringId.id?.length
-        });
-        
-        return categoryWithStringId;
-      });
+      // Comprehensive category validation and sanitization
+      const validatedCategories = (data || [])
+        .map((category, index) => {
+          // Validate the category ID
+          const validatedId = validateUUIDWithLogging(category.id, `category[${index}]`);
+          
+          if (!validatedId) {
+            console.error(`❌ Skipping category with invalid ID:`, category);
+            return null;
+          }
+          
+          // Ensure all required fields are present and valid
+          const validatedCategory: ProductionCategory = {
+            id: validatedId,
+            name: category.name || `Category ${index + 1}`,
+            description: category.description || undefined,
+            color: category.color || '#3B82F6',
+            sla_target_days: typeof category.sla_target_days === 'number' 
+              ? category.sla_target_days 
+              : 3,
+            created_at: category.created_at || new Date().toISOString(),
+            updated_at: category.updated_at || new Date().toISOString()
+          };
+          
+          console.log(`✅ Category ${index + 1} validated:`, {
+            name: validatedCategory.name,
+            id: validatedCategory.id,
+            idType: typeof validatedCategory.id,
+            idLength: validatedCategory.id.length
+          });
+          
+          return validatedCategory;
+        })
+        .filter((category): category is ProductionCategory => category !== null);
 
-      console.log('🎯 Final processed categories:', categoriesWithProperIds);
-      setCategories(categoriesWithProperIds);
+      console.log('🎯 Final validated categories:', validatedCategories);
+      setCategories(validatedCategories);
     } catch (err) {
       console.error('❌ Error fetching categories:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load categories";
