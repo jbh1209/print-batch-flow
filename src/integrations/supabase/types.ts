@@ -1809,6 +1809,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      initialize_job_stages_with_part_assignments: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_category_id: string
+          p_part_assignments?: Json
+        }
+        Returns: boolean
+      }
       initialize_job_stages_with_parts: {
         Args: {
           p_job_id: string
