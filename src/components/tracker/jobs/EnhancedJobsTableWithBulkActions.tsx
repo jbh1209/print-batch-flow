@@ -105,6 +105,19 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   };
 
   const handleCategoryAssign = (job: any) => {
+    // Ensure we have a valid job ID for single assignment
+    console.log('🔍 EnhancedJobsTable - Single Category Assign:', {
+      jobId: job.id,
+      jobType: typeof job,
+      jobStructure: job
+    });
+    
+    if (!job.id) {
+      console.error('❌ Job missing ID in handleCategoryAssign:', job);
+      toast.error('Cannot assign category: Job ID is missing');
+      return;
+    }
+    
     setCategoryAssignJob(job);
   };
 
@@ -138,9 +151,13 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       if (firstJob) {
         setCategoryAssignJob({
           ...firstJob,
+          id: firstJob.id, // Explicitly ensure ID is present
           isMultiple: true,
           selectedIds: jobIds // Use the string job IDs directly
         });
+      } else {
+        console.error('❌ Could not find first job for bulk assignment');
+        toast.error('Cannot assign category: Selected job not found');
       }
     }
   };

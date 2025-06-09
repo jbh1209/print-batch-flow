@@ -13,6 +13,19 @@ export const useJobModalHandlers = (
 ) => {
   const handleCategoryAssign = useCallback((job?: any) => {
     if (job) {
+      // Single job assignment - validate job has ID
+      console.log('🔍 useJobModalHandlers - Single Category Assign:', {
+        jobId: job.id,
+        jobType: typeof job,
+        jobStructure: job
+      });
+      
+      if (!job.id) {
+        console.error('❌ Job missing ID in handleCategoryAssign:', job);
+        toast.error('Cannot assign category: Job ID is missing');
+        return;
+      }
+      
       setCategoryAssignJob(job);
     } else if (selectedJobs.length > 0) {
       // Bulk category assignment - use first job for modal
@@ -75,12 +88,25 @@ export const useJobModalHandlers = (
       console.log('🔍 Selected Jobs Type Check:', selectedJobs.map(j => typeof j));
 
       const firstJob = selectedJobs[0];
-      if (firstJob) {
-        setCategoryAssignJob({
+      if (firstJob && (typeof firstJob === 'object')) {
+        // Ensure we have a proper job object with ID
+        const jobWithId = {
           ...firstJob,
+          id: firstJob.id || firstJob.job_id, // Ensure ID is present
           isMultiple: true,
           selectedIds: jobIds // Use properly extracted job IDs
-        });
+        };
+        
+        if (!jobWithId.id) {
+          console.error('❌ First job missing ID in bulk assignment:', firstJob);
+          toast.error('Cannot assign category: Job ID is missing');
+          return;
+        }
+        
+        setCategoryAssignJob(jobWithId);
+      } else {
+        console.error('❌ Invalid first job in bulk assignment:', firstJob);
+        toast.error('Cannot assign category: Invalid job selection');
       }
     }
   }, [selectedJobs, setCategoryAssignJob]);

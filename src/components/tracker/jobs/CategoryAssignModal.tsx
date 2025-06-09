@@ -72,11 +72,30 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         await Promise.all(promises);
         toast.success(`Successfully assigned category to ${validJobIds.length} jobs`);
       } else {
-        // Single job assignment
-        console.log('🔍 CategoryAssignModal - Single Assignment:', {
+        // Single job assignment - VALIDATE JOB ID FIRST
+        console.log('🔍 CategoryAssignModal - Single Assignment Validation:', {
           jobId: job.id,
-          categoryId: selectedCategoryId
+          jobIdType: typeof job.id,
+          jobIdUndefined: job.id === undefined,
+          jobIdString: job.id === 'undefined',
+          categoryId: selectedCategoryId,
+          fullJob: job
         });
+
+        // Check if job.id is valid
+        if (!job.id || job.id === 'undefined' || typeof job.id !== 'string') {
+          console.error('❌ Invalid job ID detected in single assignment:', job.id);
+          throw new Error('Invalid job ID. Cannot assign category to job.');
+        }
+
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(job.id)) {
+          console.error('❌ Job ID is not a valid UUID:', job.id);
+          throw new Error('Invalid job ID format. Cannot assign category to job.');
+        }
+
+        console.log('✅ Job ID validation passed, proceeding with assignment');
 
         const { error: updateError } = await supabase
           .from('production_jobs')
