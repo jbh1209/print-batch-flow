@@ -32,10 +32,12 @@ export const useProductionStages = () => {
 
       if (error) throw error;
 
-      // Transform the data to ensure part_definitions is always an array
+      // Transform the data to ensure part_definitions is always a string array
       const transformedData = (data || []).map(stage => ({
         ...stage,
-        part_definitions: Array.isArray(stage.part_definitions) ? stage.part_definitions : []
+        part_definitions: Array.isArray(stage.part_definitions) 
+          ? stage.part_definitions.map(item => String(item))
+          : []
       }));
 
       setStages(transformedData);
