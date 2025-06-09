@@ -164,7 +164,7 @@ export const getJobStatusBadgeInfo = (job: AccessibleJob) => {
   const isDueSoon = isJobDueSoon(job);
   
   // Use actual stage name for display
-  const displayText = job.current_stage_name || job.current_stage || job.status || 'No Workflow';
+  const displayText = job.current_stage_name || job.current_stage_id || job.status || 'No Workflow';
   
   if (status === 'active') {
     return {

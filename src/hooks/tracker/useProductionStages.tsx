@@ -43,6 +43,48 @@ export const useProductionStages = () => {
     }
   };
 
+  const updateStage = async (stageId: string, updates: Partial<ProductionStage>) => {
+    try {
+      const { error } = await supabase
+        .from('production_stages')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', stageId);
+
+      if (error) throw error;
+
+      // Update local state
+      setStages(prevStages => 
+        prevStages.map(stage => 
+          stage.id === stageId ? { ...stage, ...updates } : stage
+        )
+      );
+
+      toast.success('Production stage updated successfully');
+    } catch (err) {
+      console.error('Error updating production stage:', err);
+      toast.error("Failed to update production stage");
+    }
+  };
+
+  const deleteStage = async (stageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('production_stages')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', stageId);
+
+      if (error) throw error;
+
+      // Remove from local state
+      setStages(prevStages => prevStages.filter(stage => stage.id !== stageId));
+
+      toast.success('Production stage deleted successfully');
+    } catch (err) {
+      console.error('Error deleting production stage:', err);
+      toast.error("Failed to delete production stage");
+    }
+  };
+
   useEffect(() => {
     fetchStages();
   }, []);
@@ -51,6 +93,8 @@ export const useProductionStages = () => {
     stages,
     isLoading,
     error,
-    refreshStages: fetchStages
+    refreshStages: fetchStages,
+    updateStage,
+    deleteStage
   };
 };

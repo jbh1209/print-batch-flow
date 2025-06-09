@@ -68,6 +68,33 @@ export const useProductionJobs = () => {
     }
   }, [user?.id]);
 
+  // Update job status method
+  const updateJobStatus = useCallback(async (jobId: string, newStatus: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', jobId);
+
+      if (error) {
+        console.error("Error updating job status:", error);
+        return false;
+      }
+
+      // Optimistically update the local state
+      setJobs(prevJobs => 
+        prevJobs.map(job => 
+          job.id === jobId ? { ...job, status: newStatus } : job
+        )
+      );
+
+      return true;
+    } catch (err) {
+      console.error('Error updating job status:', err);
+      return false;
+    }
+  }, []);
+
   // Initial data load
   useEffect(() => {
     if (!authLoading) {
@@ -156,6 +183,7 @@ export const useProductionJobs = () => {
     isLoading: isLoading || authLoading,
     error,
     fetchJobs,
+    updateJobStatus,
     getJobsByStatus,
     getJobStats
   };

@@ -31,7 +31,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   const textSize = compact ? "text-xs" : "text-sm";
 
   // Use current stage name as the primary status display
-  const displayStatus = job.current_stage_name || job.current_stage || job.status || 'No Workflow';
+  const displayStatus = job.current_stage_name || job.current_stage_id || job.status || 'No Workflow';
 
   return (
     <div className="space-y-2">
