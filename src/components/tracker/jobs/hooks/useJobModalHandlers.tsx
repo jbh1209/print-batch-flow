@@ -62,13 +62,24 @@ export const useJobModalHandlers = (
 
   const handleBulkCategoryAssign = useCallback(() => {
     if (selectedJobs.length > 0) {
-      // Use first selected job for modal, but will apply to all selected
+      // Extract job IDs properly - handle both string and object cases
+      const jobIds = selectedJobs.map(job => {
+        if (typeof job === 'string') {
+          return job; // Already a job ID
+        }
+        // If it's an object, extract the ID
+        return job.id || job.job_id;
+      }).filter(Boolean); // Remove any undefined values
+
+      console.log('🔍 Bulk Category Assign - Job IDs:', jobIds);
+      console.log('🔍 Selected Jobs Type Check:', selectedJobs.map(j => typeof j));
+
       const firstJob = selectedJobs[0];
       if (firstJob) {
         setCategoryAssignJob({
           ...firstJob,
           isMultiple: true,
-          selectedIds: selectedJobs // FIX: Use selectedJobs directly, not .map(j => j.id)
+          selectedIds: jobIds // Use properly extracted job IDs
         });
       }
     }

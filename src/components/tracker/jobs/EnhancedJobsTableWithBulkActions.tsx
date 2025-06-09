@@ -125,12 +125,21 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
 
   const handleBulkCategoryAssign = () => {
     if (selectedJobs.length > 0) {
+      // Extract job IDs properly - selectedJobs contains string IDs
+      const jobIds = selectedJobs.filter(Boolean); // Remove any undefined values
+      
+      console.log('🔍 Enhanced Table - Bulk Category Assign:', {
+        selectedJobs,
+        jobIds,
+        selectedJobsType: selectedJobs.map(j => typeof j)
+      });
+
       const firstJob = jobs.find(job => job.id === selectedJobs[0]);
       if (firstJob) {
         setCategoryAssignJob({
           ...firstJob,
           isMultiple: true,
-          selectedIds: selectedJobs
+          selectedIds: jobIds // Use the string job IDs directly
         });
       }
     }

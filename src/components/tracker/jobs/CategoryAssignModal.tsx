@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { validateUUIDArray } from "@/utils/uuidValidation";
 
 interface CategoryAssignModalProps {
   job: any;
@@ -32,8 +33,21 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
     try {
       if (job.isMultiple && Array.isArray(job.selectedIds)) {
+        // Validate and clean the job IDs
+        const validJobIds = validateUUIDArray(job.selectedIds, 'CategoryAssignModal bulk assignment');
+        
+        console.log('🔍 CategoryAssignModal - Bulk Assignment:', {
+          rawSelectedIds: job.selectedIds,
+          validJobIds,
+          categoryId: selectedCategoryId
+        });
+
+        if (validJobIds.length === 0) {
+          throw new Error('No valid job IDs found for bulk assignment');
+        }
+
         // Bulk assignment
-        const promises = job.selectedIds.map(async (jobId: string) => {
+        const promises = validJobIds.map(async (jobId: string) => {
           // Update job with category
           const { error: updateError } = await supabase
             .from('production_jobs')
@@ -56,9 +70,14 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         });
 
         await Promise.all(promises);
-        toast.success(`Successfully assigned category to ${job.selectedIds.length} jobs`);
+        toast.success(`Successfully assigned category to ${validJobIds.length} jobs`);
       } else {
         // Single job assignment
+        console.log('🔍 CategoryAssignModal - Single Assignment:', {
+          jobId: job.id,
+          categoryId: selectedCategoryId
+        });
+
         const { error: updateError } = await supabase
           .from('production_jobs')
           .update({ 

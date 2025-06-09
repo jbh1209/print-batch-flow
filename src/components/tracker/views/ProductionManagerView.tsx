@@ -79,10 +79,19 @@ export const ProductionManagerView = () => {
 
   const handleBulkCategoryAssign = (selectedJobs: AccessibleJob[]) => {
     if (selectedJobs.length > 0) {
+      // Extract job IDs properly from AccessibleJob objects
+      const jobIds = selectedJobs.map(j => j.job_id).filter(Boolean);
+      
+      console.log('🔍 Production Manager - Bulk Category Assign:', {
+        selectedJobs,
+        jobIds,
+        firstJobStructure: selectedJobs[0]
+      });
+
       const firstJob = {
         ...selectedJobs[0],
         isMultiple: true,
-        selectedIds: selectedJobs.map(j => j.job_id) // FIX: Use job_id property correctly
+        selectedIds: jobIds // Use properly extracted job_id values
       };
       setCategoryAssignJob(firstJob as any);
     }
