@@ -20,15 +20,24 @@ export interface JobCategories {
 }
 
 export const processJobStatus = (job: AccessibleJob): 'pending' | 'active' | 'completed' => {
-  // Check if job has workflow stages
+  // Check if job has workflow stages - prioritize workflow status
   if (job.current_stage_status) {
-    // Use the current stage status from the database
     if (job.current_stage_status === 'active') return 'active';
     if (job.current_stage_status === 'completed') return 'completed';
     if (job.current_stage_status === 'pending') return 'pending';
   }
   
-  // Fallback to overall job status for jobs without workflows
+  // Check if all workflow stages are completed
+  if (job.workflow_progress === 100) {
+    return 'completed';
+  }
+  
+  // Check if job has any active workflow
+  if (job.workflow_progress !== undefined && job.workflow_progress > 0) {
+    return 'active';
+  }
+  
+  // Fallback to job status for jobs without workflows
   const status = job.status?.toLowerCase() || '';
   if (['completed', 'finished', 'shipped', 'delivered'].includes(status)) {
     return 'completed';
@@ -61,7 +70,7 @@ export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
     isJobOverdue(job) || isJobDueSoon(job)
   );
 
-  // Enhanced DTP/Proof job categorization
+  // Enhanced DTP/Proof job categorization using actual stage names
   const dtpJobs = jobs.filter(job => {
     const stageName = job.current_stage_name?.toLowerCase() || '';
     const status = job.status?.toLowerCase() || '';
@@ -69,8 +78,8 @@ export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
     // Look for DTP in stage name or job status
     return stageName.includes('dtp') || 
            stageName.includes('digital') ||
-           status.includes('dtp') ||
-           status.includes('pre-press');
+           stageName.includes('pre-press') ||
+           status.includes('dtp');
   });
 
   const proofJobs = jobs.filter(job => {
@@ -154,9 +163,12 @@ export const getJobStatusBadgeInfo = (job: AccessibleJob) => {
   const isOverdue = isJobOverdue(job);
   const isDueSoon = isJobDueSoon(job);
   
+  // Use actual stage name for display
+  const displayText = job.current_stage_name || job.current_stage || job.status || 'No Workflow';
+  
   if (status === 'active') {
     return {
-      text: 'In Progress',
+      text: displayText,
       className: 'bg-blue-500 text-white',
       variant: 'default' as const
     };
@@ -173,7 +185,7 @@ export const getJobStatusBadgeInfo = (job: AccessibleJob) => {
   // Pending status - check urgency and show proper ready state
   if (isOverdue) {
     return {
-      text: 'Overdue',
+      text: `${displayText} (Overdue)`,
       className: 'bg-red-500 text-white',
       variant: 'destructive' as const
     };
@@ -181,15 +193,15 @@ export const getJobStatusBadgeInfo = (job: AccessibleJob) => {
   
   if (isDueSoon) {
     return {
-      text: 'Due Soon',
+      text: `${displayText} (Due Soon)`,
       className: 'bg-orange-500 text-white',
       variant: 'default' as const
     };
   }
   
-  // Show "Ready to Start" for new/pending jobs instead of generic "pending"
+  // Show the actual stage name for pending jobs
   return {
-    text: 'Ready to Start',
+    text: displayText,
     className: 'bg-green-600 text-white',
     variant: 'default' as const
   };
@@ -200,17 +212,17 @@ export const isJobNew = (job: AccessibleJob): boolean => {
   return !job.current_stage_status || job.current_stage_status === 'pending';
 };
 
-// Helper to get user-friendly status text
+// Helper to get user-friendly status text based on actual workflow stage
 export const getJobStatusText = (job: AccessibleJob): string => {
   const status = processJobStatus(job);
   
-  if (status === 'active') return 'In Progress';
+  if (status === 'active') return job.current_stage_name || 'In Progress';
   if (status === 'completed') return 'Completed';
   
-  // For pending jobs, show more specific status
-  if (isJobNew(job)) {
-    return 'New';
+  // For pending jobs, show the actual stage name they're waiting for
+  if (job.current_stage_name) {
+    return `Ready for ${job.current_stage_name}`;
   }
   
-  return 'Ready to Start';
+  return 'New';
 };

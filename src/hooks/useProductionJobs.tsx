@@ -56,7 +56,6 @@ export const useProductionJobs = () => {
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
 
-      // Jobs are now stored with D prefix already, no need to format
       console.log("Production jobs fetched:", data?.length || 0, "jobs");
       setJobs(data || []);
     } catch (err) {
@@ -125,63 +124,25 @@ export const useProductionJobs = () => {
     };
   }, [user?.id, fetchJobs]);
 
-  // Optimized job status update with better error handling
-  const updateJobStatus = useCallback(async (jobId: string, newStatus: string) => {
-    console.log("Updating job status:", jobId, "to", newStatus);
-    
-    // Optimistic update
-    const previousJobs = jobs;
-    setJobs(prevJobs => 
-      prevJobs.map(job => 
-        job.id === jobId ? { ...job, status: newStatus } : job
-      )
-    );
-    
-    try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .update({ status: newStatus })
-        .eq('id', jobId);
-
-      if (error) {
-        console.error("Failed to update job status:", error);
-        // Revert optimistic update
-        setJobs(previousJobs);
-        toast.error("Failed to update job status");
-        return false;
-      }
-      
-      toast.success("Job status updated successfully");
-      return true;
-    } catch (error) {
-      console.error("Error updating job status:", error);
-      // Revert optimistic update
-      setJobs(previousJobs);
-      toast.error("Failed to update job status");
-      return false;
-    }
-  }, [jobs]);
-
-  // Helper functions
+  // Helper functions - now derive status from workflow system instead of hardcoded values
   const getJobsByStatus = useCallback((status: string) => {
-    return jobs.filter(job => (job.status || 'Pre-Press') === status);
+    return jobs.filter(job => (job.status || 'Unknown') === status);
   }, [jobs]);
 
   const getJobStats = useCallback(() => {
+    // Get unique statuses from actual jobs instead of hardcoded list
+    const uniqueStatuses = Array.from(new Set(jobs.map(job => job.status || 'Unknown')));
     const statusCounts: Record<string, number> = {};
     
-    // Initialize all statuses with 0
-    const allStatuses = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
-    allStatuses.forEach(status => {
+    // Initialize counts
+    uniqueStatuses.forEach(status => {
       statusCounts[status] = 0;
     });
     
     // Count actual jobs
     jobs.forEach(job => {
-      const status = job.status || 'Pre-Press';
-      if (statusCounts.hasOwnProperty(status)) {
-        statusCounts[status]++;
-      }
+      const status = job.status || 'Unknown';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
     });
 
     return {
@@ -195,7 +156,6 @@ export const useProductionJobs = () => {
     isLoading: isLoading || authLoading,
     error,
     fetchJobs,
-    updateJobStatus,
     getJobsByStatus,
     getJobStats
   };

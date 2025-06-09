@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatWONumber, isValidWONumber } from "@/utils/woNumberFormatter";
+import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 
 interface JobEditModalProps {
   job: any;
@@ -35,13 +37,13 @@ export const JobEditModal: React.FC<JobEditModalProps> = ({
   onClose,
   onSave
 }) => {
+  const { stages } = useProductionStages();
   const [formData, setFormData] = useState({
     wo_no: job.wo_no || '',
     customer: job.customer || '',
     reference: job.reference || '',
     qty: job.qty || '',
     due_date: job.due_date ? new Date(job.due_date) : null,
-    status: job.status || 'Pre-Press',
     location: job.location || '',
     rep: job.rep || '',
     so_no: job.so_no || '',
@@ -81,7 +83,6 @@ export const JobEditModal: React.FC<JobEditModalProps> = ({
           reference: formData.reference || null,
           qty: formData.qty ? parseInt(formData.qty) : null,
           due_date: formData.due_date ? formData.due_date.toISOString().split('T')[0] : null,
-          status: formData.status,
           location: formData.location || null,
           rep: formData.rep || null,
           so_no: formData.so_no || null,
@@ -108,7 +109,7 @@ export const JobEditModal: React.FC<JobEditModalProps> = ({
         <DialogHeader>
           <DialogTitle>Edit Job</DialogTitle>
           <DialogDescription>
-            Update job details and information
+            Update job details and information. Job status is managed through workflow stages.
           </DialogDescription>
         </DialogHeader>
 
@@ -189,21 +190,17 @@ export const JobEditModal: React.FC<JobEditModalProps> = ({
               </Popover>
             </div>
 
+            {/* Current Stage Display (Read-Only) */}
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <select
-                id="status"
-                value={formData.status}
-                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="Pre-Press">Pre-Press</option>
-                <option value="Printing">Printing</option>
-                <option value="Finishing">Finishing</option>
-                <option value="Packaging">Packaging</option>
-                <option value="Shipped">Shipped</option>
-                <option value="Completed">Completed</option>
-              </select>
+              <Label>Current Stage</Label>
+              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                <span className="text-sm text-gray-600">
+                  {job.current_stage || job.status || 'No Workflow'}
+                </span>
+                <p className="text-xs text-gray-500 mt-1">
+                  Stage changes are managed through the workflow system
+                </p>
+              </div>
             </div>
           </div>
 

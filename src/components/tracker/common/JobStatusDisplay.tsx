@@ -30,15 +30,18 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   const iconSize = compact ? "h-3 w-3" : "h-4 w-4";
   const textSize = compact ? "text-xs" : "text-sm";
 
+  // Use current stage name as the primary status display
+  const displayStatus = job.current_stage_name || job.current_stage || job.status || 'No Workflow';
+
   return (
     <div className="space-y-2">
-      {/* Status Badge */}
+      {/* Status Badge - Use actual stage name */}
       <div className="flex items-center gap-2">
         <Badge 
           variant={statusBadgeInfo.variant}
           className={cn("whitespace-nowrap", statusBadgeInfo.className, compact && "text-xs px-2 py-0")}
         >
-          {statusBadgeInfo.text}
+          {displayStatus}
         </Badge>
         
         {jobStatus === 'active' && (
@@ -66,12 +69,17 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
         </div>
       )}
 
-      {/* Stage Info */}
+      {/* Stage Info - Show workflow progress if available */}
       {showDetails && (
         <div className="flex items-center gap-2">
-          <span className={cn("text-gray-500", textSize)}>Stage:</span>
+          <span className={cn("text-gray-500", textSize)}>
+            {job.workflow_progress !== undefined ? 'Progress:' : 'Stage:'}
+          </span>
           <span className={cn("font-medium text-gray-700", textSize)}>
-            {job.current_stage_name || 'No Workflow'}
+            {job.workflow_progress !== undefined 
+              ? `${job.workflow_progress}%`
+              : displayStatus
+            }
           </span>
         </div>
       )}
