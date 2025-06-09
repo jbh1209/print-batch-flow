@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,7 +82,7 @@ export const ProductionManagerView = () => {
       const firstJob = {
         ...selectedJobs[0],
         isMultiple: true,
-        selectedIds: selectedJobs.map(j => j.job_id)
+        selectedIds: selectedJobs.map(j => j.job_id) // FIX: Use job_id property correctly
       };
       setCategoryAssignJob(firstJob as any);
     }

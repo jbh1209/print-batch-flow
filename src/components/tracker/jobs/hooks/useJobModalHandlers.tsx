@@ -68,7 +68,7 @@ export const useJobModalHandlers = (
         setCategoryAssignJob({
           ...firstJob,
           isMultiple: true,
-          selectedIds: selectedJobs.map(j => j.id)
+          selectedIds: selectedJobs // FIX: Use selectedJobs directly, not .map(j => j.id)
         });
       }
     }

@@ -37,6 +37,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     statusFilter
   });
 
+  // State and Handlers from useResponsiveJobsTable
   const {
     selectedJobs,
     setSelectedJobs,
@@ -248,7 +249,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         onCustomWorkflow={handleCustomWorkflowFromTable}
       />
 
-      {/* Modals - keep existing code */}
+      {/* Modals */}
       {editingJob && (
         <JobEditModal
           job={editingJob}
