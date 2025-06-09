@@ -23,6 +23,8 @@ export const useProductionCategories = () => {
       setIsLoading(true);
       setError(null);
       
+      console.log('🔄 Fetching categories from database...');
+      
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -30,15 +32,32 @@ export const useProductionCategories = () => {
 
       if (error) throw error;
 
-      // Ensure all categories have a color property
-      const categoriesWithColor = (data || []).map(category => ({
-        ...category,
-        color: category.color || '#3B82F6' // Default blue color if none provided
-      }));
+      console.log('📦 Raw categories data from database:', data);
 
-      setCategories(categoriesWithColor);
+      // Ensure all categories have proper string IDs and required properties
+      const categoriesWithProperIds = (data || []).map((category, index) => {
+        const categoryWithStringId = {
+          ...category,
+          id: String(category.id), // Explicitly convert UUID to string
+          color: category.color || '#3B82F6', // Default blue color if none provided
+          created_at: String(category.created_at),
+          updated_at: String(category.updated_at)
+        };
+        
+        console.log(`✅ Category ${index + 1} processed:`, {
+          name: categoryWithStringId.name,
+          id: categoryWithStringId.id,
+          idType: typeof categoryWithStringId.id,
+          idLength: categoryWithStringId.id?.length
+        });
+        
+        return categoryWithStringId;
+      });
+
+      console.log('🎯 Final processed categories:', categoriesWithProperIds);
+      setCategories(categoriesWithProperIds);
     } catch (err) {
-      console.error('Error fetching categories:', err);
+      console.error('❌ Error fetching categories:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load categories";
       setError(errorMessage);
       toast.error("Failed to load categories");

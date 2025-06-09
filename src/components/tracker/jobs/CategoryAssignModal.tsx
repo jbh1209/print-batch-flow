@@ -29,37 +29,98 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       categories,
       categoriesCount: categories?.length
     });
+    
+    console.log('🔍 Categories array detailed inspection:');
+    categories?.forEach((cat, index) => {
+      console.log(`Category ${index}:`, {
+        name: cat.name,
+        id: cat.id,
+        idType: typeof cat.id,
+        rawCategory: cat
+      });
+    });
   }, [job, categories]);
 
   const handleCategoryChange = (categoryId: string) => {
-    console.log('🎯 Category selected:', categoryId);
+    console.log('🎯 Category selection started:', {
+      receivedCategoryId: categoryId,
+      receivedType: typeof categoryId,
+      receivedLength: categoryId?.length
+    });
+
+    // Additional validation to ensure we have a proper string ID
+    if (!categoryId || typeof categoryId !== 'string' || categoryId.trim() === '') {
+      console.error('❌ Invalid category ID received:', categoryId);
+      toast.error("Invalid category selection");
+      return;
+    }
+
+    // Validate that the category exists in our list
+    const categoryExists = categories.find(cat => String(cat.id) === String(categoryId));
+    if (!categoryExists) {
+      console.error('❌ Category not found in categories list:', {
+        searchingFor: categoryId,
+        availableCategories: categories.map(cat => ({ id: cat.id, name: cat.name }))
+      });
+      toast.error("Selected category not found");
+      return;
+    }
+
+    console.log('✅ Valid category found and selected:', {
+      categoryId,
+      categoryName: categoryExists.name,
+      categoryData: categoryExists
+    });
+
     setSelectedCategoryId(categoryId);
   };
 
   const handleAssign = async () => {
-    console.log('🔍 Starting assignment with:', {
+    console.log('🔍 Assignment process starting with selectedCategoryId:', {
       selectedCategoryId,
       selectedCategoryIdType: typeof selectedCategoryId,
-      selectedCategoryIdLength: selectedCategoryId?.length
+      selectedCategoryIdLength: selectedCategoryId?.length,
+      isEmptyString: selectedCategoryId === '',
+      isTrimmedEmpty: selectedCategoryId?.trim() === ''
     });
 
-    if (!selectedCategoryId || selectedCategoryId.trim() === "") {
+    // Enhanced validation
+    if (!selectedCategoryId || typeof selectedCategoryId !== 'string' || selectedCategoryId.trim() === "") {
+      console.error('❌ selectedCategoryId validation failed:', {
+        selectedCategoryId,
+        type: typeof selectedCategoryId,
+        length: selectedCategoryId?.length,
+        trimmed: selectedCategoryId?.trim()
+      });
       toast.error("Please select a category");
       return;
     }
 
     // Find the selected category to validate it exists
-    const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
+    const selectedCategory = categories.find(cat => String(cat.id) === String(selectedCategoryId));
     if (!selectedCategory) {
+      console.error('❌ Selected category not found in categories list:', {
+        searchingFor: selectedCategoryId,
+        searchingForType: typeof selectedCategoryId,
+        availableCategories: categories.map(cat => ({ 
+          id: cat.id, 
+          idType: typeof cat.id,
+          name: cat.name 
+        }))
+      });
       toast.error("Selected category not found");
       return;
     }
 
-    console.log('✅ Valid category found:', selectedCategory);
+    console.log('✅ Valid category found for assignment:', {
+      selectedCategory,
+      finalCategoryId: selectedCategoryId,
+      finalCategoryIdType: typeof selectedCategoryId
+    });
 
     setIsAssigning(true);
     try {
-      console.log('🔄 Assigning category...', {
+      console.log('🔄 Starting assignment process...', {
         jobId: job.id,
         categoryId: selectedCategoryId,
         categoryName: selectedCategory.name,
@@ -73,7 +134,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
         for (const jobId of job.selectedIds) {
           try {
-            console.log(`🔄 Processing job ${jobId}`);
+            console.log(`🔄 Processing job ${jobId} with category ${selectedCategoryId}`);
             
             // Update job with category
             const { error: updateError } = await supabase
@@ -120,7 +181,11 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         }
       } else {
         // Single job assignment
-        console.log('🔄 Single job assignment starting...');
+        console.log('🔄 Single job assignment starting...', {
+          jobId: job.id,
+          categoryId: selectedCategoryId,
+          categoryIdType: typeof selectedCategoryId
+        });
         
         const { error: updateError } = await supabase
           .from('production_jobs')
@@ -164,7 +229,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
     }
   };
 
-  const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
+  const selectedCategory = categories.find(cat => String(cat.id) === String(selectedCategoryId));
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -183,20 +248,30 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
                 <SelectValue placeholder="Choose a category..." />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: category.color }}
-                      />
-                      <span>{category.name}</span>
-                      <span className="text-xs text-gray-500">
-                        ({category.sla_target_days} days SLA)
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {categories.map((category) => {
+                  const categoryId = String(category.id); // Ensure string conversion
+                  console.log('🎨 Rendering category option:', {
+                    name: category.name,
+                    id: categoryId,
+                    originalId: category.id,
+                    idType: typeof categoryId
+                  });
+                  
+                  return (
+                    <SelectItem key={categoryId} value={categoryId}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <span>{category.name}</span>
+                        <span className="text-xs text-gray-500">
+                          ({category.sla_target_days} days SLA)
+                        </span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
