@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { RefreshCw } from "lucide-react";
@@ -36,6 +37,15 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     jobs,
     statusFilter
   });
+
+  // Map job data structure to ensure consistent ID property
+  const normalizedJobs = React.useMemo(() => {
+    return accessibleJobs.map(job => ({
+      ...job,
+      // Ensure job has 'id' property for UI components (map from job_id if needed)
+      id: job.id || job.job_id || job.job_id
+    }));
+  }, [accessibleJobs]);
 
   // State and Handlers from useResponsiveJobsTable
   const {
@@ -76,9 +86,9 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   const [showCustomWorkflow, setShowCustomWorkflow] = React.useState(false);
   const [customWorkflowJob, setCustomWorkflowJob] = React.useState<any>(null);
 
-  // Apply additional filtering to accessible jobs (search, column filters)
+  // Apply additional filtering to normalized jobs (search, column filters)
   const { filteredJobs, availableCategories, availableStatuses, availableStages } = useJobsTableFilters({
-    jobs: accessibleJobs, // Use accessible jobs instead of all jobs
+    jobs: normalizedJobs, // Use normalized jobs instead of accessible jobs
     searchQuery,
     columnFilters
   });
@@ -93,6 +103,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   console.log("🔍 EnhancedJobsTable - Processing:", {
     totalJobs: jobs.length,
     accessibleJobs: accessibleJobs.length,
+    normalizedJobs: normalizedJobs.length,
     filteredJobs: filteredJobs.length,
     finalJobs: filteredAndSortedJobs.length,
     statusFilter,
@@ -105,18 +116,10 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   };
 
   const handleCategoryAssign = (job: any) => {
-    // Ensure we have a valid job ID for single assignment
     console.log('🔍 EnhancedJobsTable - Single Category Assign:', {
       jobId: job.id,
-      jobType: typeof job,
       jobStructure: job
     });
-    
-    if (!job.id) {
-      console.error('❌ Job missing ID in handleCategoryAssign:', job);
-      toast.error('Cannot assign category: Job ID is missing');
-      return;
-    }
     
     setCategoryAssignJob(job);
   };
@@ -147,11 +150,10 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         selectedJobsType: selectedJobs.map(j => typeof j)
       });
 
-      const firstJob = jobs.find(job => job.id === selectedJobs[0]);
+      const firstJob = normalizedJobs.find(job => job.id === selectedJobs[0]);
       if (firstJob) {
         setCategoryAssignJob({
           ...firstJob,
-          id: firstJob.id, // Explicitly ensure ID is present
           isMultiple: true,
           selectedIds: jobIds // Use the string job IDs directly
         });
@@ -167,7 +169,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       toast.error("Custom workflows can only be created for individual jobs");
       return;
     }
-    const selectedJob = jobs.find(job => job.id === selectedJobs[0]);
+    const selectedJob = normalizedJobs.find(job => job.id === selectedJobs[0]);
     if (selectedJob) {
       setCustomWorkflowJob(selectedJob);
       setShowCustomWorkflow(true);
@@ -255,7 +257,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
             onBulkDelete={onShowDialog}
             onClearSelection={() => setSelectedJobs([])}
             onCustomWorkflow={handleCustomWorkflow}
-            selectedJobs={accessibleJobs.filter(job => selectedJobs.includes(job.id))}
+            selectedJobs={normalizedJobs.filter(job => selectedJobs.includes(job.id))}
           />
         )}
       </BulkDeleteHandler>

@@ -30,15 +30,25 @@ export const ProductionManagerView = () => {
   const [showBarcodeLabels, setShowBarcodeLabels] = useState(false);
   const [selectedJobsForBarcodes, setSelectedJobsForBarcodes] = useState<AccessibleJob[]>([]);
 
+  // Map job data structure to ensure consistent ID property for UI components
+  const normalizedJobs = React.useMemo(() => {
+    return jobs.map(job => ({
+      ...job,
+      // Ensure job has 'id' property for UI components (map from job_id)
+      id: job.job_id
+    }));
+  }, [jobs]);
+
   // Debug logging
   React.useEffect(() => {
     console.log("📊 ProductionManagerView state:", {
       isLoading,
       error,
       jobsCount: jobs.length,
+      normalizedJobsCount: normalizedJobs.length,
       statusFilter
     });
-  }, [isLoading, error, jobs, statusFilter]);
+  }, [isLoading, error, jobs, normalizedJobs, statusFilter]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -62,10 +72,13 @@ export const ProductionManagerView = () => {
 
   const handleDeleteJob = async (jobId: string) => {
     try {
+      // Use the actual job_id for database operations
+      const actualJobId = jobs.find(j => j.job_id === jobId)?.job_id || jobId;
+      
       const { error } = await supabase
         .from('production_jobs')
         .delete()
-        .eq('id', jobId);
+        .eq('id', actualJobId);
 
       if (error) throw error;
 
@@ -90,6 +103,7 @@ export const ProductionManagerView = () => {
 
       const firstJob = {
         ...selectedJobs[0],
+        id: selectedJobs[0].job_id, // Map job_id to id for UI consistency
         isMultiple: true,
         selectedIds: jobIds // Use properly extracted job_id values
       };
@@ -290,7 +304,7 @@ export const ProductionManagerView = () => {
       {/* Enhanced Jobs List */}
       {jobs.length > 0 ? (
         <EnhancedProductionJobsList
-          jobs={jobs}
+          jobs={normalizedJobs}
           onStartJob={startJob}
           onCompleteJob={completeJob}
           onEditJob={setEditingJob}
@@ -300,11 +314,14 @@ export const ProductionManagerView = () => {
             setShowCustomWorkflow(true);
           }}
           onDeleteJob={async (jobId) => {
+            // Use the actual job_id for database operations
+            const actualJobId = jobs.find(j => j.job_id === jobId)?.job_id || jobId;
+            
             try {
               const { error } = await supabase
                 .from('production_jobs')
                 .delete()
-                .eq('id', jobId);
+                .eq('id', actualJobId);
 
               if (error) throw error;
 
@@ -319,6 +336,7 @@ export const ProductionManagerView = () => {
             if (selectedJobs.length > 0) {
               const firstJob = {
                 ...selectedJobs[0],
+                id: selectedJobs[0].job_id, // Map job_id to id for UI consistency
                 isMultiple: true,
                 selectedIds: selectedJobs.map(j => j.job_id)
               };
