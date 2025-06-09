@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface CategoryPartInfo {
   availableParts: string[];
-  printingStages: Array<{
+  multiPartStages: Array<{
     stage_id: string;
     stage_name: string;
     stage_color: string;
@@ -16,7 +16,7 @@ interface CategoryPartInfo {
 export const useCategoryParts = (categoryId: string | null) => {
   const [categoryParts, setCategoryParts] = useState<CategoryPartInfo>({
     availableParts: [],
-    printingStages: [],
+    multiPartStages: [],
     hasMultiPartStages: false
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +25,7 @@ export const useCategoryParts = (categoryId: string | null) => {
     if (!categoryId) {
       setCategoryParts({
         availableParts: [],
-        printingStages: [],
+        multiPartStages: [],
         hasMultiPartStages: false
       });
       return;
@@ -52,9 +52,9 @@ export const useCategoryParts = (categoryId: string | null) => {
 
         if (stagesError) throw stagesError;
 
-        // Extract parts and check for multi-part stages
+        // Extract parts and collect multi-part stages
         const allParts = new Set<string>();
-        const printingStages: any[] = [];
+        const multiPartStages: any[] = [];
         let hasMultiPartStages = false;
 
         categoryStages?.forEach(stage => {
@@ -68,28 +68,26 @@ export const useCategoryParts = (categoryId: string | null) => {
             
             parts.forEach(part => allParts.add(part));
 
-            // If this is a printing stage, add to printing stages
-            if (stageData.name.toLowerCase().includes('printing')) {
-              printingStages.push({
-                stage_id: stageData.id,
-                stage_name: stageData.name,
-                stage_color: stageData.color,
-                part_types: parts
-              });
-            }
+            // Add all multi-part stages, not just printing ones
+            multiPartStages.push({
+              stage_id: stageData.id,
+              stage_name: stageData.name,
+              stage_color: stageData.color,
+              part_types: parts
+            });
           }
         });
 
         setCategoryParts({
           availableParts: Array.from(allParts),
-          printingStages,
+          multiPartStages,
           hasMultiPartStages
         });
       } catch (error) {
         console.error('Error loading category parts:', error);
         setCategoryParts({
           availableParts: [],
-          printingStages: [],
+          multiPartStages: [],
           hasMultiPartStages: false
         });
       } finally {

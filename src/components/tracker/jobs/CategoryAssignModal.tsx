@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { validateUUIDArray } from "@/utils/uuidValidation";
 import { useCategoryParts } from "@/hooks/tracker/useCategoryParts";
-import { PartPrintingStageSelector } from "../factory/PartPrintingStageSelector";
+import { PartMultiStageSelector } from "../factory/PartMultiStageSelector";
 
 interface CategoryAssignModalProps {
   job: any;
@@ -28,7 +28,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   const [partAssignments, setPartAssignments] = useState<Record<string, string>>({});
   const [isAssigning, setIsAssigning] = useState(false);
 
-  const { availableParts, printingStages, hasMultiPartStages, isLoading } = useCategoryParts(selectedCategoryId);
+  const { availableParts, multiPartStages, hasMultiPartStages, isLoading } = useCategoryParts(selectedCategoryId);
 
   const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
 
@@ -235,7 +235,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
                   )}
                   {!isLoading && hasMultiPartStages && (
                     <p className="text-sm text-blue-600 mt-1">
-                      This category has multi-part stages. You'll be able to assign parts to specific machines.
+                      This category has multi-part stages. You'll be able to assign parts to specific stages.
                     </p>
                   )}
                   {!isLoading && !hasMultiPartStages && (
@@ -255,12 +255,13 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
                   <strong>Category:</strong> {selectedCategory?.name}
                 </p>
                 <p className="text-sm text-green-600 mt-1">
-                  Assign each part to the appropriate printing stage/machine:
+                  Assign each part to the appropriate stage:
                 </p>
               </div>
 
-              <PartPrintingStageSelector
+              <PartMultiStageSelector
                 availableParts={availableParts}
+                availableStages={multiPartStages}
                 onPartAssignmentsChange={handlePartAssignmentsChange}
                 initialAssignments={partAssignments}
               />
