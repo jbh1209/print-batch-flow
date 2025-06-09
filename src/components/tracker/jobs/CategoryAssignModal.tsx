@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,24 +22,47 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('📋 CategoryAssignModal mounted:', {
+      job,
+      categories,
+      categoriesCount: categories?.length
+    });
+  }, [job, categories]);
+
+  const handleCategoryChange = (categoryId: string) => {
+    console.log('🎯 Category selected:', categoryId);
+    setSelectedCategoryId(categoryId);
+  };
+
   const handleAssign = async () => {
-    if (!selectedCategoryId) {
+    console.log('🔍 Starting assignment with:', {
+      selectedCategoryId,
+      selectedCategoryIdType: typeof selectedCategoryId,
+      selectedCategoryIdLength: selectedCategoryId?.length
+    });
+
+    if (!selectedCategoryId || selectedCategoryId.trim() === "") {
       toast.error("Please select a category");
       return;
     }
 
-    // Validate that selectedCategoryId is a valid UUID
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(selectedCategoryId)) {
-      toast.error("Invalid category selected");
+    // Find the selected category to validate it exists
+    const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
+    if (!selectedCategory) {
+      toast.error("Selected category not found");
       return;
     }
+
+    console.log('✅ Valid category found:', selectedCategory);
 
     setIsAssigning(true);
     try {
       console.log('🔄 Assigning category...', {
         jobId: job.id,
         categoryId: selectedCategoryId,
+        categoryName: selectedCategory.name,
         isMultiple: job.isMultiple
       });
 
@@ -50,6 +73,8 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
         for (const jobId of job.selectedIds) {
           try {
+            console.log(`🔄 Processing job ${jobId}`);
+            
             // Update job with category
             const { error: updateError } = await supabase
               .from('production_jobs')
@@ -60,10 +85,12 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
               .eq('id', jobId);
 
             if (updateError) {
-              console.error('Error updating job:', jobId, updateError);
+              console.error('❌ Error updating job:', jobId, updateError);
               errorCount++;
               continue;
             }
+
+            console.log(`✅ Job ${jobId} updated, initializing stages...`);
 
             // Initialize workflow stages
             const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
@@ -73,13 +100,14 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
             });
 
             if (stageError) {
-              console.error('Error initializing stages for job:', jobId, stageError);
+              console.error('❌ Error initializing stages for job:', jobId, stageError);
               errorCount++;
             } else {
+              console.log(`✅ Stages initialized for job ${jobId}`);
               successCount++;
             }
           } catch (err) {
-            console.error('Error processing job:', jobId, err);
+            console.error('❌ Error processing job:', jobId, err);
             errorCount++;
           }
         }
@@ -92,6 +120,8 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         }
       } else {
         // Single job assignment
+        console.log('🔄 Single job assignment starting...');
+        
         const { error: updateError } = await supabase
           .from('production_jobs')
           .update({ 
@@ -101,9 +131,11 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           .eq('id', job.id);
 
         if (updateError) {
-          console.error('Error updating job:', updateError);
+          console.error('❌ Error updating job:', updateError);
           throw updateError;
         }
+
+        console.log('✅ Job updated, initializing stages...');
 
         // Initialize workflow stages
         const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
@@ -113,11 +145,12 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         });
 
         if (stageError) {
-          console.error('Error initializing stages:', stageError);
+          console.error('❌ Error initializing stages:', stageError);
           toast.error('Category assigned but workflow initialization failed');
           return;
         }
 
+        console.log('✅ Stages initialized successfully');
         toast.success('Category assigned and workflow initialized');
       }
 
@@ -145,7 +178,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium">Select Category</label>
-            <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+            <Select value={selectedCategoryId} onValueChange={handleCategoryChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Choose a category..." />
               </SelectTrigger>
