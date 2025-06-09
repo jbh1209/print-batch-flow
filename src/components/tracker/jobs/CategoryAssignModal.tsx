@@ -28,6 +28,13 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       return;
     }
 
+    // Validate that selectedCategoryId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(selectedCategoryId)) {
+      toast.error("Invalid category selected");
+      return;
+    }
+
     setIsAssigning(true);
     try {
       console.log('🔄 Assigning category...', {
@@ -38,35 +45,51 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
       if (job.isMultiple && job.selectedIds) {
         // Bulk category assignment
+        let successCount = 0;
+        let errorCount = 0;
+
         for (const jobId of job.selectedIds) {
-          // Update job with category
-          const { error: updateError } = await supabase
-            .from('production_jobs')
-            .update({ 
-              category_id: selectedCategoryId,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', jobId);
+          try {
+            // Update job with category
+            const { error: updateError } = await supabase
+              .from('production_jobs')
+              .update({ 
+                category_id: selectedCategoryId,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', jobId);
 
-          if (updateError) {
-            console.error('Error updating job:', jobId, updateError);
-            throw updateError;
-          }
+            if (updateError) {
+              console.error('Error updating job:', jobId, updateError);
+              errorCount++;
+              continue;
+            }
 
-          // Initialize workflow stages
-          const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
-            p_job_id: jobId,
-            p_job_table_name: 'production_jobs',
-            p_category_id: selectedCategoryId
-          });
+            // Initialize workflow stages
+            const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
+              p_job_id: jobId,
+              p_job_table_name: 'production_jobs',
+              p_category_id: selectedCategoryId
+            });
 
-          if (stageError) {
-            console.error('Error initializing stages for job:', jobId, stageError);
-            // Continue with other jobs instead of failing completely
+            if (stageError) {
+              console.error('Error initializing stages for job:', jobId, stageError);
+              errorCount++;
+            } else {
+              successCount++;
+            }
+          } catch (err) {
+            console.error('Error processing job:', jobId, err);
+            errorCount++;
           }
         }
 
-        toast.success(`Category assigned to ${job.selectedIds.length} jobs`);
+        if (successCount > 0) {
+          toast.success(`Category assigned to ${successCount} jobs`);
+        }
+        if (errorCount > 0) {
+          toast.error(`Failed to assign category to ${errorCount} jobs`);
+        }
       } else {
         // Single job assignment
         const { error: updateError } = await supabase
