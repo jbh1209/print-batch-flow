@@ -22,10 +22,30 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // Reset selection when modal opens
+  useEffect(() => {
+    setSelectedCategoryId("");
+  }, [job]);
+
   const handleCategoryChange = (categoryId: string) => {
-    // Explicit validation to prevent "undefined" string
-    if (!categoryId || categoryId === "undefined" || categoryId.trim() === "") {
-      console.warn('Invalid category ID received, resetting selection');
+    console.log('Category selection changed:', { categoryId, type: typeof categoryId });
+    
+    // Comprehensive validation to prevent invalid values
+    if (!categoryId || 
+        categoryId === "undefined" || 
+        categoryId === "null" || 
+        categoryId.trim() === "" ||
+        categoryId === "0") {
+      console.warn('Invalid category ID received, resetting selection:', categoryId);
+      setSelectedCategoryId("");
+      return;
+    }
+    
+    // Verify the category exists in our categories list
+    const categoryExists = categories.find(cat => cat.id === categoryId);
+    if (!categoryExists) {
+      console.error('Selected category not found in categories list:', categoryId);
+      toast.error("Selected category is not valid");
       setSelectedCategoryId("");
       return;
     }
@@ -34,16 +54,27 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   };
 
   const handleAssign = async () => {
-    // Explicit validation before database call
-    if (!selectedCategoryId || selectedCategoryId === "undefined" || selectedCategoryId.trim() === "") {
-      toast.error("Please select a category");
+    console.log('Starting category assignment:', { 
+      selectedCategoryId, 
+      type: typeof selectedCategoryId,
+      jobId: job.id || job.selectedIds,
+      isMultiple: job.isMultiple 
+    });
+
+    // Frontend validation before API call
+    if (!selectedCategoryId || 
+        selectedCategoryId === "undefined" || 
+        selectedCategoryId === "null" || 
+        selectedCategoryId.trim() === "") {
+      toast.error("Please select a valid category");
       return;
     }
 
-    // Validate category exists
+    // Double-check category exists
     const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
     if (!selectedCategory) {
       toast.error("Selected category not found");
+      setSelectedCategoryId(""); // Reset invalid selection
       return;
     }
 
@@ -56,6 +87,8 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
         for (const jobId of job.selectedIds) {
           try {
+            console.log('Processing bulk job:', { jobId, categoryId: selectedCategoryId });
+            
             // Update job with category
             const { error: updateError } = await supabase
               .from('production_jobs')
@@ -71,7 +104,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
               continue;
             }
 
-            // Initialize workflow stages
+            // Initialize workflow stages with validated category ID
             const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
               p_job_id: jobId,
               p_job_table_name: 'production_jobs',
@@ -98,6 +131,8 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         }
       } else {
         // Single job assignment
+        console.log('Processing single job:', { jobId: job.id, categoryId: selectedCategoryId });
+        
         const { error: updateError } = await supabase
           .from('production_jobs')
           .update({ 
@@ -107,10 +142,11 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           .eq('id', job.id);
 
         if (updateError) {
+          console.error('Database update error:', updateError);
           throw updateError;
         }
 
-        // Initialize workflow stages
+        // Initialize workflow stages with validated category ID
         const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
           p_job_id: job.id,
           p_job_table_name: 'production_jobs',
@@ -118,7 +154,8 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         });
 
         if (stageError) {
-          toast.error('Category assigned but workflow initialization failed');
+          console.error('Workflow initialization error:', stageError);
+          toast.error(`Category assigned but workflow initialization failed: ${stageError.message}`);
           return;
         }
 
@@ -129,7 +166,8 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       onClose();
     } catch (err) {
       console.error('Error assigning category:', err);
-      toast.error('Failed to assign category');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      toast.error(`Failed to assign category: ${errorMessage}`);
     } finally {
       setIsAssigning(false);
     }
@@ -149,25 +187,34 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium">Select Category</label>
-            <Select value={selectedCategoryId} onValueChange={handleCategoryChange}>
+            <Select 
+              value={selectedCategoryId || ""} 
+              onValueChange={handleCategoryChange}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Choose a category..." />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: category.color }}
-                      />
-                      <span>{category.name}</span>
-                      <span className="text-xs text-gray-500">
-                        ({category.sla_target_days} days SLA)
-                      </span>
-                    </div>
+                {categories.length > 0 ? (
+                  categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <span>{category.name}</span>
+                        <span className="text-xs text-gray-500">
+                          ({category.sla_target_days} days SLA)
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-categories" disabled>
+                    No categories available
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -187,10 +234,13 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
             <Button variant="outline" onClick={onClose} disabled={isAssigning}>
               Cancel
             </Button>
-            <Button onClick={handleAssign} disabled={isAssigning || !selectedCategoryId}>
+            <Button 
+              onClick={handleAssign} 
+              disabled={isAssigning || !selectedCategoryId || selectedCategoryId === ""}
+            >
               {isAssigning ? "Assigning..." : "Assign Category"}
             </Button>
-            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
