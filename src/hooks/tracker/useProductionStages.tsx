@@ -11,7 +11,7 @@ interface ProductionStage {
   order_index: number;
   is_active: boolean;
   is_multi_part: boolean;
-  part_definitions?: any;
+  part_definitions: string[]; // Make this required and properly typed
 }
 
 export const useProductionStages = () => {
@@ -32,7 +32,13 @@ export const useProductionStages = () => {
 
       if (error) throw error;
 
-      setStages(data || []);
+      // Transform the data to ensure part_definitions is always an array
+      const transformedData = (data || []).map(stage => ({
+        ...stage,
+        part_definitions: Array.isArray(stage.part_definitions) ? stage.part_definitions : []
+      }));
+
+      setStages(transformedData);
     } catch (err) {
       console.error('Error fetching production stages:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load production stages";
@@ -66,7 +72,7 @@ export const useProductionStages = () => {
     }
   };
 
-  const deleteStage = async (stageId: string) => {
+  const deleteStage = async (stageId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('production_stages')
@@ -79,9 +85,11 @@ export const useProductionStages = () => {
       setStages(prevStages => prevStages.filter(stage => stage.id !== stageId));
 
       toast.success('Production stage deleted successfully');
+      return true;
     } catch (err) {
       console.error('Error deleting production stage:', err);
       toast.error("Failed to delete production stage");
+      return false;
     }
   };
 
