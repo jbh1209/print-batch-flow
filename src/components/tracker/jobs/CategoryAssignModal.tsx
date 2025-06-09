@@ -13,6 +13,21 @@ interface CategoryAssignModalProps {
   onAssign: () => void;
 }
 
+// UUID validation utility
+const isValidUUID = (str: string): boolean => {
+  if (!str || typeof str !== 'string') return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+
+// Safe value validator
+const isSafeValue = (value: any): boolean => {
+  if (!value) return false;
+  if (typeof value !== 'string') return false;
+  if (value === 'undefined' || value === 'null' || value === '0' || value.trim() === '') return false;
+  return isValidUUID(value);
+};
+
 export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   job,
   categories,
@@ -22,61 +37,85 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [isAssigning, setIsAssigning] = useState(false);
 
-  // Reset selection when modal opens
+  // Reset selection when modal opens with additional safety checks
   useEffect(() => {
+    console.log('CategoryAssignModal: Modal opened, resetting selection');
     setSelectedCategoryId("");
   }, [job]);
 
   const handleCategoryChange = (categoryId: string) => {
-    console.log('Category selection changed:', { categoryId, type: typeof categoryId });
+    console.log('CategoryAssignModal: Raw value received from Select:', { 
+      value: categoryId, 
+      type: typeof categoryId,
+      stringified: JSON.stringify(categoryId)
+    });
     
-    // Comprehensive validation to prevent invalid values
-    if (!categoryId || 
-        categoryId === "undefined" || 
-        categoryId === "null" || 
-        categoryId.trim() === "" ||
-        categoryId === "0") {
-      console.warn('Invalid category ID received, resetting selection:', categoryId);
+    // Immediate safety check - reject any unsafe values
+    if (!isSafeValue(categoryId)) {
+      console.error('CategoryAssignModal: UNSAFE VALUE DETECTED AND REJECTED:', {
+        value: categoryId,
+        type: typeof categoryId,
+        isString: typeof categoryId === 'string',
+        isUndefinedString: categoryId === 'undefined',
+        isNullString: categoryId === 'null',
+        isEmpty: categoryId === '',
+        isZero: categoryId === '0'
+      });
+      
+      // Force reset to empty and show error
       setSelectedCategoryId("");
+      toast.error("Invalid category selection detected. Please try again.");
       return;
     }
     
-    // Verify the category exists in our categories list
+    // Additional verification that category exists in our list
     const categoryExists = categories.find(cat => cat.id === categoryId);
     if (!categoryExists) {
-      console.error('Selected category not found in categories list:', categoryId);
-      toast.error("Selected category is not valid");
+      console.error('CategoryAssignModal: Category not found in list:', categoryId);
       setSelectedCategoryId("");
+      toast.error("Selected category is not valid");
       return;
     }
+    
+    console.log('CategoryAssignModal: Valid category selected:', {
+      categoryId,
+      categoryName: categoryExists.name
+    });
     
     setSelectedCategoryId(categoryId);
   };
 
   const handleAssign = async () => {
-    console.log('Starting category assignment:', { 
+    console.log('CategoryAssignModal: Starting assignment process');
+    console.log('CategoryAssignModal: Pre-validation state:', { 
       selectedCategoryId, 
       type: typeof selectedCategoryId,
+      isValid: isSafeValue(selectedCategoryId),
       jobId: job.id || job.selectedIds,
       isMultiple: job.isMultiple 
     });
 
-    // Frontend validation before API call
-    if (!selectedCategoryId || 
-        selectedCategoryId === "undefined" || 
-        selectedCategoryId === "null" || 
-        selectedCategoryId.trim() === "") {
-      toast.error("Please select a valid category");
+    // Final validation before API call
+    if (!isSafeValue(selectedCategoryId)) {
+      console.error('CategoryAssignModal: FINAL VALIDATION FAILED:', {
+        value: selectedCategoryId,
+        type: typeof selectedCategoryId,
+        reason: 'Invalid UUID format or unsafe value'
+      });
+      toast.error("Please select a valid category before assigning");
       return;
     }
 
-    // Double-check category exists
+    // Triple-check category exists
     const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
     if (!selectedCategory) {
+      console.error('CategoryAssignModal: Category verification failed:', selectedCategoryId);
       toast.error("Selected category not found");
       setSelectedCategoryId(""); // Reset invalid selection
       return;
     }
+
+    console.log('CategoryAssignModal: All validations passed, proceeding with assignment');
 
     setIsAssigning(true);
     try {
@@ -87,7 +126,14 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
         for (const jobId of job.selectedIds) {
           try {
-            console.log('Processing bulk job:', { jobId, categoryId: selectedCategoryId });
+            console.log('CategoryAssignModal: Processing bulk job:', { jobId, categoryId: selectedCategoryId });
+            
+            // Validate jobId is also a valid UUID
+            if (!isValidUUID(jobId)) {
+              console.error('CategoryAssignModal: Invalid job ID detected:', jobId);
+              errorCount++;
+              continue;
+            }
             
             // Update job with category
             const { error: updateError } = await supabase
@@ -99,12 +145,18 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
               .eq('id', jobId);
 
             if (updateError) {
-              console.error('Error updating job:', jobId, updateError);
+              console.error('CategoryAssignModal: Error updating job:', jobId, updateError);
               errorCount++;
               continue;
             }
 
             // Initialize workflow stages with validated category ID
+            console.log('CategoryAssignModal: Calling initialize_job_stages_auto with:', {
+              p_job_id: jobId,
+              p_job_table_name: 'production_jobs',
+              p_category_id: selectedCategoryId
+            });
+
             const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
               p_job_id: jobId,
               p_job_table_name: 'production_jobs',
@@ -112,13 +164,13 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
             });
 
             if (stageError) {
-              console.error('Error initializing stages for job:', jobId, stageError);
+              console.error('CategoryAssignModal: Error initializing stages for job:', jobId, stageError);
               errorCount++;
             } else {
               successCount++;
             }
           } catch (err) {
-            console.error('Error processing job:', jobId, err);
+            console.error('CategoryAssignModal: Error processing job:', jobId, err);
             errorCount++;
           }
         }
@@ -131,7 +183,13 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         }
       } else {
         // Single job assignment
-        console.log('Processing single job:', { jobId: job.id, categoryId: selectedCategoryId });
+        console.log('CategoryAssignModal: Processing single job:', { jobId: job.id, categoryId: selectedCategoryId });
+        
+        // Validate single job ID
+        if (!isValidUUID(job.id)) {
+          console.error('CategoryAssignModal: Invalid single job ID:', job.id);
+          throw new Error('Invalid job ID format');
+        }
         
         const { error: updateError } = await supabase
           .from('production_jobs')
@@ -142,11 +200,17 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           .eq('id', job.id);
 
         if (updateError) {
-          console.error('Database update error:', updateError);
+          console.error('CategoryAssignModal: Database update error:', updateError);
           throw updateError;
         }
 
         // Initialize workflow stages with validated category ID
+        console.log('CategoryAssignModal: Calling initialize_job_stages_auto with:', {
+          p_job_id: job.id,
+          p_job_table_name: 'production_jobs',
+          p_category_id: selectedCategoryId
+        });
+
         const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
           p_job_id: job.id,
           p_job_table_name: 'production_jobs',
@@ -154,7 +218,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         });
 
         if (stageError) {
-          console.error('Workflow initialization error:', stageError);
+          console.error('CategoryAssignModal: Workflow initialization error:', stageError);
           toast.error(`Category assigned but workflow initialization failed: ${stageError.message}`);
           return;
         }
@@ -165,7 +229,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       onAssign();
       onClose();
     } catch (err) {
-      console.error('Error assigning category:', err);
+      console.error('CategoryAssignModal: Error assigning category:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       toast.error(`Failed to assign category: ${errorMessage}`);
     } finally {
@@ -174,6 +238,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   };
 
   const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
+  const isValidSelection = isSafeValue(selectedCategoryId);
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -217,6 +282,13 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
                 )}
               </SelectContent>
             </Select>
+            
+            {/* Debug info - can be removed later */}
+            {selectedCategoryId && (
+              <div className="text-xs text-gray-500 mt-1">
+                Selected: {selectedCategoryId} (Valid: {isValidSelection ? 'Yes' : 'No'})
+              </div>
+            )}
           </div>
 
           {selectedCategory && (
@@ -236,7 +308,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
             </Button>
             <Button 
               onClick={handleAssign} 
-              disabled={isAssigning || !selectedCategoryId || selectedCategoryId === ""}
+              disabled={isAssigning || !isValidSelection}
             >
               {isAssigning ? "Assigning..." : "Assign Category"}
             </Button>
