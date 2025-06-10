@@ -43,9 +43,9 @@ export const useUnifiedJobFiltering = ({
       stageFilter
     });
 
-    // If user is admin, show all jobs with minimal filtering
+    // If user is admin, show all jobs with basic filtering only
     if (isAdmin) {
-      console.log("👑 Admin user detected - showing all jobs");
+      console.log("👑 Admin user detected - showing all jobs with basic filtering");
       
       return jobs.filter(job => {
         // Apply only basic filters for admins - no stage/permission restrictions

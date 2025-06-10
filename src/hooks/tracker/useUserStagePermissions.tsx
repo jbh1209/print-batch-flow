@@ -51,7 +51,8 @@ export const useUserStagePermissions = (userId?: string) => {
         });
 
         if (userIsAdmin) {
-          // Admin gets access to ALL stages
+          // Admin gets access to ALL stages - but this is for ADMIN functionality only
+          // Role detection should still be based on their actual group memberships
           const { data: allStages, error: stagesError } = await supabase
             .from('production_stages')
             .select('id, name, color')

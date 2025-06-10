@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserStagePermissions } from "./useUserStagePermissions";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -25,7 +24,7 @@ export interface UserRoleResponse {
   isOperator: boolean;
   /** Whether the user is specifically a DTP operator */
   isDtpOperator: boolean;
-  /** List of stages the user has access to */
+  /** List of stages the user has access to - based on actual group memberships, not admin overrides */
   accessibleStages: Array<{
     stage_id: string;
     stage_name: string;
@@ -43,13 +42,21 @@ export interface UserRoleResponse {
  */
 export const useUserRole = (): UserRoleResponse => {
   const { user } = useAuth();
-  const { accessibleStages, isLoading: stagesLoading } = useUserStagePermissions();
   const [userRole, setUserRole] = useState<UserRole>('user');
   const [isLoading, setIsLoading] = useState(true);
+  const [accessibleStages, setAccessibleStages] = useState<Array<{
+    stage_id: string;
+    stage_name: string;
+    stage_color: string;
+    can_view: boolean;
+    can_edit: boolean;
+    can_work: boolean;
+    can_manage: boolean;
+  }>>([]);
 
   useEffect(() => {
     const determineUserRole = async () => {
-      if (!user?.id || stagesLoading) return;
+      if (!user?.id) return;
 
       try {
         // Check for admin role first - this takes precedence over all other roles
@@ -64,9 +71,29 @@ export const useUserRole = (): UserRoleResponse => {
         if (hasAdminRole) {
           console.log('🔑 User determined as admin');
           setUserRole('admin');
+          setAccessibleStages([]); // Admins don't need accessible stages for role detection
           setIsLoading(false);
           return;
         }
+
+        // For non-admin users, get their ACTUAL group-based permissions (not admin overrides)
+        const { data: actualStages, error: stagesError } = await supabase.rpc('get_user_accessible_stages', {
+          p_user_id: user.id
+        });
+
+        if (stagesError) throw stagesError;
+
+        const normalizedStages = (actualStages || []).map((stage: any) => ({
+          stage_id: stage.stage_id,
+          stage_name: stage.stage_name,
+          stage_color: stage.stage_color,
+          can_view: stage.can_view,
+          can_edit: stage.can_edit,
+          can_work: stage.can_work,
+          can_manage: stage.can_manage
+        }));
+
+        setAccessibleStages(normalizedStages);
 
         // Check group memberships for manager role
         const { data: groupMemberships, error: groupError } = await supabase
@@ -98,7 +125,7 @@ export const useUserRole = (): UserRoleResponse => {
 
         // ENHANCED: More precise DTP operator detection based on accessible stages
         // Calculate user's workable DTP stages and total workable stages
-        const dtpRelatedStages = accessibleStages.filter(stage => {
+        const dtpRelatedStages = normalizedStages.filter(stage => {
           const stageName = stage.stage_name.toLowerCase();
           return stageName.includes('dtp') || 
                  stageName.includes('digital') ||
@@ -108,13 +135,13 @@ export const useUserRole = (): UserRoleResponse => {
                  stageName.includes('artwork');
         });
 
-        const workableStages = accessibleStages.filter(stage => stage.can_work);
+        const workableStages = normalizedStages.filter(stage => stage.can_work);
         const workableDtpStages = dtpRelatedStages.filter(stage => stage.can_work);
         
         // Log detailed information for debugging purposes
         console.log('🧑‍💻 User role determination:', {
           userId: user.id,
-          totalStages: accessibleStages.length,
+          totalStages: normalizedStages.length,
           workableStages: workableStages.length,
           dtpStages: dtpRelatedStages.length,
           workableDtpStages: workableDtpStages.length,
@@ -152,7 +179,7 @@ export const useUserRole = (): UserRoleResponse => {
     };
 
     determineUserRole();
-  }, [user?.id, accessibleStages, stagesLoading]);
+  }, [user?.id]);
 
   // Derived properties for convenient access - FIXED LOGIC
   const isAdmin = userRole === 'admin';
