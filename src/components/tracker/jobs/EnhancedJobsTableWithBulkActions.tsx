@@ -5,19 +5,15 @@ import { RefreshCw } from "lucide-react";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
 import { useUnifiedJobFiltering } from "@/hooks/tracker/useUnifiedJobFiltering";
 import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { JobEditModal } from "./JobEditModal";
-import { CategoryAssignModal } from "./CategoryAssignModal";
-import { CustomWorkflowModal } from "./CustomWorkflowModal";
 import { useJobsTableFilters } from "./JobsTableFilters";
 import { useJobsTableSorting } from "./JobsTableSorting";
 import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
-import { BulkDeleteHandler } from "./BulkDeleteHandler";
-import { EnhancedJobsTableHeader } from "./EnhancedJobsTableHeader";
-import { JobsTableBulkActionsBar } from "./JobsTableBulkActionsBar";
-import { JobTableFilters } from "./table/JobTableFilters";
 import { JobTableContent } from "./table/JobTableContent";
+import { EnhancedTableHeader } from "./enhanced-table/EnhancedTableHeader";
+import { EnhancedTableFilters } from "./enhanced-table/EnhancedTableFilters";
+import { EnhancedTableBulkActions } from "./enhanced-table/EnhancedTableBulkActions";
+import { EnhancedTableModals } from "./enhanced-table/EnhancedTableModals";
+import { useEnhancedTableBusinessLogic } from "./enhanced-table/EnhancedTableBusinessLogic";
 
 interface EnhancedJobsTableWithBulkActionsProps {
   statusFilter?: string | null;
@@ -42,7 +38,6 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   const normalizedJobs = React.useMemo(() => {
     return accessibleJobs.map(job => ({
       ...job,
-      // Ensure job has 'id' property for UI components (map from job_id if needed)
       id: job.id || job.job_id || job.job_id
     }));
   }, [accessibleJobs]);
@@ -56,39 +51,37 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     showColumnFilters,
     setShowColumnFilters,
     sortField,
-    setSortField,
     sortOrder,
-    setSortOrder,
     columnFilters,
-    setColumnFilters,
-    editingJob,
-    setEditingJob,
-    categoryAssignJob,
-    setCategoryAssignJob,
-    workflowInitJob,
-    setWorkflowInitJob,
-    showBulkOperations,
-    setShowBulkOperations,
-    showQRLabels,
-    setShowQRLabels,
     handleSelectJob,
     handleSelectAll,
     handleColumnFilterChange,
     handleClearColumnFilters,
     handleSort,
-    handleDeleteJob,
     handleBulkStatusUpdate,
-    handleBulkDelete: hookHandleBulkDelete,
-    handleCustomWorkflow: hookHandleCustomWorkflow
+    editingJob,
+    setEditingJob,
+    categoryAssignJob,
+    setCategoryAssignJob
   } = useResponsiveJobsTable(refreshJobs);
 
-  // Add custom workflow state
+  // Custom workflow state
   const [showCustomWorkflow, setShowCustomWorkflow] = React.useState(false);
   const [customWorkflowJob, setCustomWorkflowJob] = React.useState<any>(null);
 
+  // Business logic handlers
+  const {
+    handleEditJob,
+    handleCategoryAssign,
+    handleCustomWorkflowFromTable,
+    handleBulkCategoryAssign,
+    handleCustomWorkflow,
+    handleDeleteSingleJob
+  } = useEnhancedTableBusinessLogic(normalizedJobs, refreshJobs);
+
   // Apply additional filtering to normalized jobs (search, column filters)
   const { filteredJobs, availableCategories, availableStatuses, availableStages } = useJobsTableFilters({
-    jobs: normalizedJobs, // Use normalized jobs instead of accessible jobs
+    jobs: normalizedJobs,
     searchQuery,
     columnFilters
   });
@@ -111,21 +104,16 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     columnFilters
   });
 
-  const handleEditJob = (job: any) => {
-    setEditingJob(job);
+  const handleEditJobWrapper = (job: any) => {
+    setEditingJob(handleEditJob(job));
   };
 
-  const handleCategoryAssign = (job: any) => {
-    console.log('🔍 EnhancedJobsTable - Single Category Assign:', {
-      jobId: job.id,
-      jobStructure: job
-    });
-    
-    setCategoryAssignJob(job);
+  const handleCategoryAssignWrapper = (job: any) => {
+    setCategoryAssignJob(handleCategoryAssign(job));
   };
 
-  const handleCustomWorkflowFromTable = (job: any) => {
-    setCustomWorkflowJob(job);
+  const handleCustomWorkflowFromTableWrapper = (job: any) => {
+    setCustomWorkflowJob(handleCustomWorkflowFromTable(job));
     setShowCustomWorkflow(true);
   };
 
@@ -139,39 +127,17 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     refreshJobs();
   };
 
-  const handleBulkCategoryAssign = () => {
-    if (selectedJobs.length > 0) {
-      // Extract job IDs properly - selectedJobs contains string IDs
-      const jobIds = selectedJobs.filter(Boolean); // Remove any undefined values
-      
-      console.log('🔍 Enhanced Table - Bulk Category Assign:', {
-        selectedJobs,
-        jobIds,
-        selectedJobsType: selectedJobs.map(j => typeof j)
-      });
-
-      const firstJob = normalizedJobs.find(job => job.id === selectedJobs[0]);
-      if (firstJob) {
-        setCategoryAssignJob({
-          ...firstJob,
-          isMultiple: true,
-          selectedIds: jobIds // Use the string job IDs directly
-        });
-      } else {
-        console.error('❌ Could not find first job for bulk assignment');
-        toast.error('Cannot assign category: Selected job not found');
-      }
+  const handleBulkCategoryAssignWrapper = () => {
+    const result = handleBulkCategoryAssign(selectedJobs);
+    if (result) {
+      setCategoryAssignJob(result);
     }
   };
 
-  const handleCustomWorkflow = () => {
-    if (selectedJobs.length !== 1) {
-      toast.error("Custom workflows can only be created for individual jobs");
-      return;
-    }
-    const selectedJob = normalizedJobs.find(job => job.id === selectedJobs[0]);
-    if (selectedJob) {
-      setCustomWorkflowJob(selectedJob);
+  const handleCustomWorkflowWrapper = () => {
+    const result = handleCustomWorkflow(selectedJobs);
+    if (result) {
+      setCustomWorkflowJob(result);
       setShowCustomWorkflow(true);
     }
   };
@@ -183,22 +149,10 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     refreshJobs();
   };
 
-  const handleDeleteSingleJob = async (jobId: string) => {
-    try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .delete()
-        .eq('id', jobId);
-
-      if (error) throw error;
-
-      toast.success('Job deleted successfully');
-      refreshJobs();
-      
+  const handleDeleteSingleJobWrapper = async (jobId: string) => {
+    const success = await handleDeleteSingleJob(jobId);
+    if (success) {
       setSelectedJobs(prev => prev.filter(id => id !== jobId));
-    } catch (err) {
-      console.error('Error deleting job:', err);
-      toast.error('Failed to delete job');
     }
   };
 
@@ -223,7 +177,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   return (
     <div className="space-y-4">
       {/* Header and Search */}
-      <EnhancedJobsTableHeader
+      <EnhancedTableHeader
         jobCount={filteredAndSortedJobs.length}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -233,7 +187,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       />
 
       {/* Column Filters */}
-      <JobTableFilters
+      <EnhancedTableFilters
         showColumnFilters={showColumnFilters}
         columnFilters={columnFilters}
         onFilterChange={handleColumnFilterChange}
@@ -244,23 +198,15 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       />
 
       {/* Bulk Actions */}
-      <BulkDeleteHandler
+      <EnhancedTableBulkActions
         selectedJobs={selectedJobs}
+        normalizedJobs={normalizedJobs}
+        onBulkCategoryAssign={handleBulkCategoryAssignWrapper}
+        onBulkStatusUpdate={handleBulkStatusUpdate}
         onDeleteComplete={handleBulkDeleteComplete}
-      >
-        {({ onShowDialog }) => (
-          <JobsTableBulkActionsBar
-            selectedJobsCount={selectedJobs.length}
-            isDeleting={false}
-            onBulkCategoryAssign={handleBulkCategoryAssign}
-            onBulkStatusUpdate={handleBulkStatusUpdate}
-            onBulkDelete={onShowDialog}
-            onClearSelection={() => setSelectedJobs([])}
-            onCustomWorkflow={handleCustomWorkflow}
-            selectedJobs={normalizedJobs.filter(job => selectedJobs.includes(job.id))}
-          />
-        )}
-      </BulkDeleteHandler>
+        onClearSelection={() => setSelectedJobs([])}
+        onCustomWorkflow={handleCustomWorkflowWrapper}
+      />
 
       {/* Jobs Table */}
       <JobTableContent
@@ -271,41 +217,27 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         onSelectJob={handleSelectJob}
         onSelectAll={(checked) => handleSelectAll(checked, filteredAndSortedJobs)}
         onSort={handleSort}
-        onEditJob={handleEditJob}
-        onCategoryAssign={handleCategoryAssign}
-        onDeleteSingleJob={handleDeleteSingleJob}
-        onCustomWorkflow={handleCustomWorkflowFromTable}
+        onEditJob={handleEditJobWrapper}
+        onCategoryAssign={handleCategoryAssignWrapper}
+        onDeleteSingleJob={handleDeleteSingleJobWrapper}
+        onCustomWorkflow={handleCustomWorkflowFromTableWrapper}
       />
 
       {/* Modals */}
-      {editingJob && (
-        <JobEditModal
-          job={editingJob}
-          onClose={() => setEditingJob(null)}
-          onSave={handleEditJobSave}
-        />
-      )}
-
-      {categoryAssignJob && (
-        <CategoryAssignModal
-          job={categoryAssignJob}
-          categories={categories}
-          onClose={() => setCategoryAssignJob(null)}
-          onAssign={handleCategoryAssignComplete}
-        />
-      )}
-
-      {showCustomWorkflow && customWorkflowJob && (
-        <CustomWorkflowModal
-          isOpen={showCustomWorkflow}
-          onClose={() => {
-            setShowCustomWorkflow(false);
-            setCustomWorkflowJob(null);
-          }}
-          job={customWorkflowJob}
-          onSuccess={handleCustomWorkflowSuccess}
-        />
-      )}
+      <EnhancedTableModals
+        editingJob={editingJob}
+        setEditingJob={setEditingJob}
+        categoryAssignJob={categoryAssignJob}
+        setCategoryAssignJob={setCategoryAssignJob}
+        showCustomWorkflow={showCustomWorkflow}
+        setShowCustomWorkflow={setShowCustomWorkflow}
+        customWorkflowJob={customWorkflowJob}
+        setCustomWorkflowJob={setCustomWorkflowJob}
+        categories={categories}
+        onEditJobSave={handleEditJobSave}
+        onCategoryAssignComplete={handleCategoryAssignComplete}
+        onCustomWorkflowSuccess={handleCustomWorkflowSuccess}
+      />
     </div>
   );
 };
