@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -57,12 +56,44 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     });
 
     try {
-      const { data, error: fetchError } = await supabase.rpc('get_user_accessible_jobs', {
-        p_user_id: user.id,
-        p_permission_type: permissionType,
-        p_status_filter: statusFilter,
-        p_stage_filter: stageFilter
-      });
+      // Check if user is admin first
+      const { data: adminCheck } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .single();
+
+      const isAdmin = adminCheck?.role === 'admin';
+
+      let data;
+      let fetchError;
+
+      if (isAdmin) {
+        // Admin gets all jobs with simplified query
+        console.log("👑 Admin user - fetching all jobs");
+        
+        const { data: adminData, error: adminError } = await supabase.rpc('get_user_accessible_jobs', {
+          p_user_id: user.id,
+          p_permission_type: 'manage', // Use manage permission for admin to get everything
+          p_status_filter: statusFilter,
+          p_stage_filter: stageFilter
+        });
+
+        data = adminData;
+        fetchError = adminError;
+      } else {
+        // Regular user - use existing permission system
+        const { data: userData, error: userError } = await supabase.rpc('get_user_accessible_jobs', {
+          p_user_id: user.id,
+          p_permission_type: permissionType,
+          p_status_filter: statusFilter,
+          p_stage_filter: stageFilter
+        });
+
+        data = userData;
+        fetchError = userError;
+      }
 
       // Check if request was aborted
       if (abortController.signal.aborted) {
@@ -75,7 +106,8 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       }
 
       console.log("✅ Database function success:", {
-        count: data?.length || 0
+        count: data?.length || 0,
+        isAdmin
       });
 
       if (data && Array.isArray(data)) {

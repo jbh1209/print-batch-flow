@@ -14,7 +14,7 @@ export const useUnifiedJobFiltering = ({
   stageFilter
 }: UnifiedJobFilteringOptions) => {
   const { user } = useAuth();
-  const { accessibleStages, isLoading: permissionsLoading } = useUserStagePermissions(user?.id);
+  const { accessibleStages, isLoading: permissionsLoading, isAdmin } = useUserStagePermissions(user?.id);
 
   // Extract accessible stage information outside of useMemo
   const accessibleStageIds = useMemo(() => 
@@ -32,21 +32,60 @@ export const useUnifiedJobFiltering = ({
       return [];
     }
 
-    console.log("🔍 Unified Job Filtering Debug (Post-Consolidation):", {
+    console.log("🔍 Unified Job Filtering Debug (Admin Check):", {
       userId: user.id,
+      isAdmin,
       totalJobs: jobs.length,
       accessibleStages: accessibleStages.length,
-      accessibleStageIds: accessibleStageIds.slice(0, 3).map(id => id.substring(0, 8)),
-      accessibleStageNames,
-      sampleJobs: jobs.slice(0, 2).map(job => ({
-        woNo: job.wo_no,
-        status: job.status,
-        currentStage: job.current_stage,
-        hasWorkflow: job.has_workflow,
-        stagesCount: job.stages?.length || 0
-      }))
+      statusFilter,
+      searchQuery,
+      categoryFilter,
+      stageFilter
     });
 
+    // If user is admin, show all jobs with minimal filtering
+    if (isAdmin) {
+      console.log("👑 Admin user detected - showing all jobs");
+      
+      return jobs.filter(job => {
+        // Apply only basic filters for admins - no stage/permission restrictions
+        if (statusFilter && job.status?.toLowerCase() !== statusFilter.toLowerCase()) {
+          return false;
+        }
+
+        if (categoryFilter && job.category?.toLowerCase() !== categoryFilter.toLowerCase()) {
+          return false;
+        }
+
+        if (stageFilter && job.current_stage?.toLowerCase() !== stageFilter.toLowerCase()) {
+          return false;
+        }
+
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          const searchFields = [
+            job.wo_no,
+            job.customer,
+            job.reference,
+            job.category,
+            job.status,
+            job.current_stage
+          ].filter(Boolean);
+
+          const matchesSearch = searchFields.some(field => 
+            field?.toLowerCase().includes(query)
+          );
+
+          if (!matchesSearch) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+    }
+
+    // For non-admin users, use the existing permission-based filtering
     return applyJobFilters(
       jobs,
       accessibleStageIds,
@@ -56,14 +95,15 @@ export const useUnifiedJobFiltering = ({
       categoryFilter,
       stageFilter
     );
-  }, [jobs, accessibleStageIds, accessibleStageNames, statusFilter, searchQuery, categoryFilter, stageFilter, permissionsLoading, user]);
+  }, [jobs, accessibleStageIds, accessibleStageNames, statusFilter, searchQuery, categoryFilter, stageFilter, permissionsLoading, user, isAdmin]);
 
   // Calculate job statistics based on filtered jobs
   const jobStats = useMemo(() => calculateJobStats(filteredJobs), [filteredJobs]);
 
-  console.log("🔍 Final Results (Post-Stage-Consolidation):", {
+  console.log("🔍 Final Results (Admin-Aware Filtering):", {
     totalJobsInput: jobs.length,
     filteredJobsOutput: filteredJobs.length,
+    isAdmin,
     accessibleStagesCount: accessibleStages.length,
     jobStats: {
       total: jobStats.total,
