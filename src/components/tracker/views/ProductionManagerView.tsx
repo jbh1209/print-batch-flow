@@ -1,16 +1,14 @@
 
 import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, AlertTriangle, Eye, BarChart3, CheckCircle } from "lucide-react";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { EnhancedProductionJobsList } from "./EnhancedProductionJobsList";
-import { JobEditModal } from "@/components/tracker/jobs/JobEditModal";
-import { CategoryAssignModal } from "@/components/tracker/jobs/CategoryAssignModal";
-import { CustomWorkflowModal } from "@/components/tracker/jobs/CustomWorkflowModal";
-import { BarcodeLabelsManager } from "@/components/tracker/BarcodeLabelsManager";
+import { ProductionManagerHeader } from "./components/ProductionManagerHeader";
+import { ProductionManagerStats } from "./components/ProductionManagerStats";
+import { ProductionManagerModals } from "./components/ProductionManagerModals";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
@@ -60,77 +58,6 @@ export const ProductionManagerView = () => {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const handleEditJob = (job: AccessibleJob) => {
-    setEditingJob(job);
-  };
-
-  const handleCategoryAssign = (job: AccessibleJob) => {
-    setCategoryAssignJob(job);
-  };
-
-  const handleCustomWorkflow = (job: AccessibleJob) => {
-    setCustomWorkflowJob(job);
-    setShowCustomWorkflow(true);
-  };
-
-  const handleDeleteJob = async (jobId: string) => {
-    try {
-      // Use the actual job_id for database operations
-      const actualJobId = jobs.find(j => j.job_id === jobId)?.job_id || jobId;
-      
-      const { error } = await supabase
-        .from('production_jobs')
-        .delete()
-        .eq('id', actualJobId);
-
-      if (error) throw error;
-
-      toast.success('Job deleted successfully');
-      await refreshJobs();
-    } catch (err) {
-      console.error('Error deleting job:', err);
-      toast.error('Failed to delete job');
-    }
-  };
-
-  const handleBulkCategoryAssign = (selectedJobs: AccessibleJob[]) => {
-    if (selectedJobs.length > 0) {
-      // Extract job IDs properly from AccessibleJob objects
-      const jobIds = selectedJobs.map(j => j.job_id).filter(Boolean);
-      
-      console.log('🔍 Production Manager - Bulk Category Assign:', {
-        selectedJobs,
-        jobIds,
-        firstJobStructure: selectedJobs[0]
-      });
-
-      const firstJob = {
-        ...selectedJobs[0],
-        id: selectedJobs[0].job_id, // Map job_id to id for UI consistency
-        isMultiple: true,
-        selectedIds: jobIds // Use properly extracted job_id values
-      };
-      setCategoryAssignJob(firstJob as any);
-    }
-  };
-
-  const handleBulkStatusUpdate = async (selectedJobs: AccessibleJob[], status: string) => {
-    try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .update({ status })
-        .in('id', selectedJobs.map(j => j.job_id));
-
-      if (error) throw error;
-
-      toast.success(`Updated ${selectedJobs.length} job(s) to ${status} status`);
-      await refreshJobs();
-    } catch (err) {
-      console.error('Error updating job status:', err);
-      toast.error('Failed to update job status');
-    }
-  };
-
   const handleBulkMarkCompleted = async (selectedJobs: AccessibleJob[]) => {
     if (!isAdmin) {
       toast.error('Only administrators can mark jobs as completed');
@@ -168,44 +95,6 @@ export const ProductionManagerView = () => {
       console.error('Error marking jobs as completed:', err);
       toast.error('Failed to mark jobs as completed');
     }
-  };
-
-  const handleBulkDelete = async (selectedJobs: AccessibleJob[]) => {
-    try {
-      const { error } = await supabase
-        .from('production_jobs')
-        .delete()
-        .in('id', selectedJobs.map(j => j.job_id));
-
-      if (error) throw error;
-
-      toast.success(`Deleted ${selectedJobs.length} job(s) successfully`);
-      await refreshJobs();
-    } catch (err) {
-      console.error('Error deleting jobs:', err);
-      toast.error('Failed to delete jobs');
-    }
-  };
-
-  const handleGenerateBarcodes = (selectedJobs: AccessibleJob[]) => {
-    setSelectedJobsForBarcodes(selectedJobs);
-    setShowBarcodeLabels(true);
-  };
-
-  const handleEditJobSave = () => {
-    setEditingJob(null);
-    refreshJobs();
-  };
-
-  const handleCategoryAssignComplete = () => {
-    setCategoryAssignJob(null);
-    refreshJobs();
-  };
-
-  const handleCustomWorkflowSuccess = () => {
-    setShowCustomWorkflow(false);
-    setCustomWorkflowJob(null);
-    refreshJobs();
   };
 
   if (isLoading) {
@@ -252,96 +141,17 @@ export const ProductionManagerView = () => {
   return (
     <div className="p-6 space-y-6 h-full overflow-y-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Production Management</h1>
-          <p className="text-gray-600">Overview of all production jobs</p>
-          <p className="text-sm text-gray-500 mt-1">
-            Managing {jobs.length} job{jobs.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? null : value)}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {uniqueStatuses.map(status => (
-                <SelectItem key={status} value={status}>{status}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Button 
-            variant="outline" 
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
+      <ProductionManagerHeader
+        jobCount={jobs.length}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        uniqueStatuses={uniqueStatuses}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+      />
 
       {/* Production Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Eye className="h-8 w-8 text-blue-500" />
-              <div>
-                <p className="text-sm text-gray-600">Total Jobs</p>
-                <p className="text-2xl font-bold">{jobs.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-8 w-8 text-orange-500" />
-              <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold">
-                  {jobs.filter(j => j.current_stage_status === 'pending').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <BarChart3 className="h-8 w-8 text-green-500" />
-              <div>
-                <p className="text-sm text-gray-600">In Progress</p>
-                <p className="text-2xl font-bold">
-                  {jobs.filter(j => j.current_stage_status === 'active').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <BarChart3 className="h-8 w-8 text-purple-500" />
-              <div>
-                <p className="text-sm text-gray-600">Avg Progress</p>
-                <p className="text-2xl font-bold">
-                  {jobs.length > 0 ? Math.round(jobs.reduce((sum, job) => sum + job.workflow_progress, 0) / jobs.length) : 0}%
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <ProductionManagerStats jobs={jobs} />
 
       {/* Enhanced Jobs List */}
       {jobs.length > 0 ? (
@@ -437,54 +247,22 @@ export const ProductionManagerView = () => {
       )}
 
       {/* Modals */}
-      {editingJob && (
-        <JobEditModal
-          job={editingJob}
-          onClose={() => setEditingJob(null)}
-          onSave={() => {
-            setEditingJob(null);
-            refreshJobs();
-          }}
-        />
-      )}
-
-      {categoryAssignJob && (
-        <CategoryAssignModal
-          job={categoryAssignJob}
-          categories={categories}
-          onClose={() => setCategoryAssignJob(null)}
-          onAssign={() => {
-            setCategoryAssignJob(null);
-            refreshJobs();
-          }}
-        />
-      )}
-
-      {showCustomWorkflow && customWorkflowJob && (
-        <CustomWorkflowModal
-          isOpen={showCustomWorkflow}
-          onClose={() => {
-            setShowCustomWorkflow(false);
-            setCustomWorkflowJob(null);
-          }}
-          job={customWorkflowJob}
-          onSuccess={() => {
-            setShowCustomWorkflow(false);
-            setCustomWorkflowJob(null);
-            refreshJobs();
-          }}
-        />
-      )}
-
-      {showBarcodeLabels && (
-        <BarcodeLabelsManager 
-          selectedJobs={selectedJobsForBarcodes}
-          onClose={() => {
-            setShowBarcodeLabels(false);
-            setSelectedJobsForBarcodes([]);
-          }}
-        />
-      )}
+      <ProductionManagerModals
+        editingJob={editingJob}
+        setEditingJob={setEditingJob}
+        categoryAssignJob={categoryAssignJob}
+        setCategoryAssignJob={setCategoryAssignJob}
+        showCustomWorkflow={showCustomWorkflow}
+        setShowCustomWorkflow={setShowCustomWorkflow}
+        customWorkflowJob={customWorkflowJob}
+        setCustomWorkflowJob={setCustomWorkflowJob}
+        showBarcodeLabels={showBarcodeLabels}
+        setShowBarcodeLabels={setShowBarcodeLabels}
+        selectedJobsForBarcodes={selectedJobsForBarcodes}
+        setSelectedJobsForBarcodes={setSelectedJobsForBarcodes}
+        categories={categories}
+        onRefresh={refreshJobs}
+      />
     </div>
   );
 };
