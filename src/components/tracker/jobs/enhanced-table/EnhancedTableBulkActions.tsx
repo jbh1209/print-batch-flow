@@ -24,6 +24,9 @@ export const EnhancedTableBulkActions: React.FC<EnhancedTableBulkActionsProps> =
   onClearSelection,
   onCustomWorkflow
 }) => {
+  // Only show bulk actions if we have selected jobs
+  if (selectedJobs.length === 0) return null;
+  
   return (
     <BulkDeleteHandler
       selectedJobs={selectedJobs}

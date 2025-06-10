@@ -140,7 +140,7 @@ export const useJobActions = (
     console.log('🎯 Directly marking job as completed:', { jobId });
     
     try {
-      // Mark all remaining stages as completed
+      // First, mark all remaining stages as completed
       const { error: stageError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -154,9 +154,11 @@ export const useJobActions = (
 
       if (stageError) {
         console.error('❌ Failed to complete job stages:', stageError);
+        toast.error('Failed to mark job stages as completed');
+        return false;
       }
 
-      // Mark the job itself as completed
+      // Then, mark the job itself as completed
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({ 
@@ -172,7 +174,9 @@ export const useJobActions = (
       }
 
       console.log('✅ Job marked as completed successfully');
-      toast.success('Job marked as completed!');
+      toast.success('Job marked as completed');
+      
+      // Ensure the UI is refreshed
       onSuccess?.();
       return true;
     } catch (error) {

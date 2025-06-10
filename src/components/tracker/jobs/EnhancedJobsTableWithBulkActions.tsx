@@ -165,28 +165,47 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
   };
 
   const handleBulkMarkCompleted = async () => {
-    if (selectedJobs.length === 0) return;
+    if (selectedJobs.length === 0) {
+      toast.error('No jobs selected to mark as completed');
+      return;
+    }
     
     console.log('🎯 Bulk marking jobs as completed:', selectedJobs);
     
+    let successCount = 0;
+    let errorCount = 0;
+    
     try {
-      let successCount = 0;
+      toast.info(`Processing ${selectedJobs.length} jobs...`);
       
       for (const jobId of selectedJobs) {
-        const success = await markJobCompleted(jobId);
-        if (success) {
-          successCount++;
+        try {
+          const success = await markJobCompleted(jobId);
+          if (success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (err) {
+          console.error(`Error completing job ${jobId}:`, err);
+          errorCount++;
         }
       }
       
       if (successCount > 0) {
         toast.success(`Successfully marked ${successCount} job${successCount > 1 ? 's' : ''} as completed`);
-        setSelectedJobs([]);
-        refreshJobs();
       }
+      
+      if (errorCount > 0) {
+        toast.error(`Failed to complete ${errorCount} job${errorCount > 1 ? 's' : ''}`);
+      }
+      
+      // Clear selection and refresh regardless of errors
+      setSelectedJobs([]);
+      refreshJobs();
     } catch (error) {
       console.error('❌ Error in bulk completion:', error);
-      toast.error('Failed to complete some jobs');
+      toast.error('Failed to complete jobs');
     }
   };
 

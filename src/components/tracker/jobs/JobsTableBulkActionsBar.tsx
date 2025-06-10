@@ -42,6 +42,7 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
 }) => {
   const [showBarcodeLabels, setShowBarcodeLabels] = React.useState(false);
 
+  // Don't render anything if no jobs are selected
   if (selectedJobsCount === 0) return null;
 
   const handleBarcodeLabelsClick = () => {
@@ -55,7 +56,10 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
 
   const handleBulkComplete = () => {
     if (onBulkMarkCompleted) {
+      console.log("🎯 Invoking bulk mark completed from JobsTableBulkActionsBar");
       onBulkMarkCompleted();
+    } else {
+      console.warn("Bulk mark completed function not provided");
     }
   };
 
@@ -68,7 +72,7 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
               <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                 {selectedJobsCount} job{selectedJobsCount > 1 ? 's' : ''} selected
               </Badge>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button 
                   size="sm" 
                   variant="outline"
@@ -87,15 +91,17 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
                   <RotateCcw className="h-3 w-3" />
                   Update Status
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={handleBulkComplete}
-                  className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
-                >
-                  <CheckCircle className="h-3 w-3" />
-                  Mark Completed
-                </Button>
+                {onBulkMarkCompleted && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={handleBulkComplete}
+                    className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                  >
+                    <CheckCircle className="h-3 w-3" />
+                    Mark Completed
+                  </Button>
+                )}
                 <Button 
                   size="sm" 
                   variant="outline"
