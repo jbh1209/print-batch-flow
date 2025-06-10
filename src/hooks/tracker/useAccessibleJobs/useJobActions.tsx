@@ -137,9 +137,28 @@ export const useJobActions = (
   }, [onSuccess]);
 
   const markJobCompleted = useCallback(async (jobId: string): Promise<boolean> => {
-    console.log('🎯 Directly marking job as completed:', { jobId });
+    console.log('🎯 markJobCompleted called for job:', jobId);
     
     try {
+      // First, check the current job status
+      const { data: currentJob, error: fetchError } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, status, current_stage')
+        .eq('id', jobId)
+        .single();
+
+      if (fetchError) {
+        console.error('❌ Error fetching current job data:', fetchError);
+        return false;
+      }
+
+      console.log('📊 Current job state before completion:', {
+        jobId,
+        wo_no: currentJob?.wo_no,
+        currentStatus: currentJob?.status,
+        currentStage: currentJob?.current_stage
+      });
+
       // SIMPLE APPROACH: Just mark the job as completed with proper case
       const { error: jobError } = await supabase
         .from('production_jobs')
@@ -154,6 +173,8 @@ export const useJobActions = (
         toast.error('Failed to mark job as completed');
         return false;
       }
+
+      console.log('✅ Job status updated to Completed successfully');
 
       // Also mark any existing stages as completed (but don't fail if this doesn't work)
       const { error: stageError } = await supabase
@@ -170,6 +191,25 @@ export const useJobActions = (
       // Don't fail if stage update fails - job status is the source of truth
       if (stageError) {
         console.warn('⚠️ Could not update job stages, but job marked completed:', stageError);
+      } else {
+        console.log('✅ Job stages also marked as completed');
+      }
+
+      // Verify the update worked
+      const { data: updatedJob, error: verifyError } = await supabase
+        .from('production_jobs')
+        .select('id, wo_no, status')
+        .eq('id', jobId)
+        .single();
+
+      if (verifyError) {
+        console.warn('⚠️ Could not verify job update:', verifyError);
+      } else {
+        console.log('🔍 Job after completion:', {
+          jobId: updatedJob.id,
+          wo_no: updatedJob.wo_no,
+          newStatus: updatedJob.status
+        });
       }
 
       console.log('✅ Job marked as completed successfully');

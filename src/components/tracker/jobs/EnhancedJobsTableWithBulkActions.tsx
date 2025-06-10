@@ -169,7 +169,12 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       return;
     }
     
-    console.log('🎯 Bulk marking jobs as completed:', selectedJobs);
+    console.log('🎯 Starting bulk completion process:', {
+      selectedJobIds: selectedJobs,
+      totalSelected: selectedJobs.length,
+      statusFilter,
+      currentJobsCount: filteredAndSortedJobs.length
+    });
     
     let successCount = 0;
     let errorCount = 0;
@@ -179,21 +184,31 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     
     try {
       for (const jobId of selectedJobs) {
+        console.log(`🎯 Processing job ${jobId}...`);
+        
         try {
           const success = await markJobCompleted(jobId);
           if (success) {
             successCount++;
+            console.log(`✅ Successfully completed job ${jobId}`);
           } else {
             errorCount++;
+            console.error(`❌ Failed to complete job ${jobId}`);
           }
         } catch (err) {
-          console.error(`Error completing job ${jobId}:`, err);
+          console.error(`❌ Error completing job ${jobId}:`, err);
           errorCount++;
         }
       }
       
       // Dismiss processing toast
       toast.dismiss(processingToast);
+      
+      console.log('🎯 Bulk completion summary:', {
+        successCount,
+        errorCount,
+        totalProcessed: selectedJobs.length
+      });
       
       if (successCount > 0) {
         toast.success(`Successfully marked ${successCount} job${successCount > 1 ? 's' : ''} as completed`);
@@ -208,9 +223,16 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       console.error('❌ Error in bulk completion:', error);
       toast.error('Failed to complete jobs');
     } finally {
-      // Always clear selection and refresh
+      // Always clear selection first
+      console.log('🔄 Clearing selection and refreshing...');
       setSelectedJobs([]);
-      refreshJobs();
+      
+      // Force immediate refresh with a small delay to ensure database propagation
+      setTimeout(async () => {
+        console.log('🔄 Executing forced refresh...');
+        await refreshJobs();
+        console.log('✅ Refresh completed');
+      }, 500); // Small delay to ensure database updates have propagated
     }
   };
 
@@ -284,7 +306,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         categoryAssignJob={categoryAssignJob}
         setCategoryAssignJob={setCategoryAssignJob}
         showCustomWorkflow={showCustomWorkflow}
-        setShowCustomWorkflow={setShowCustomWorkflow}
+        setShowCustomWorkflow={setShowColumnFilters}
         customWorkflowJob={customWorkflowJob}
         setCustomWorkflowJob={setCustomWorkflowJob}
         categories={categories}
