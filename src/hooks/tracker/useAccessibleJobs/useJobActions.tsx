@@ -140,10 +140,10 @@ export const useJobActions = (
     console.log('🎯 markJobCompleted called for job:', jobId);
     
     try {
-      // First, check the current job status
+      // First, check the current job status (removed current_stage reference)
       const { data: currentJob, error: fetchError } = await supabase
         .from('production_jobs')
-        .select('id, wo_no, status, current_stage')
+        .select('id, wo_no, status')
         .eq('id', jobId)
         .single();
 
@@ -155,8 +155,7 @@ export const useJobActions = (
       console.log('📊 Current job state before completion:', {
         jobId,
         wo_no: currentJob?.wo_no,
-        currentStatus: currentJob?.status,
-        currentStage: currentJob?.current_stage
+        currentStatus: currentJob?.status
       });
 
       // SIMPLE APPROACH: Just mark the job as completed with proper case
