@@ -1,7 +1,7 @@
 
 /**
- * Standardized job completion detection utilities
- * This ensures consistent completion status checking across the entire application
+ * SIMPLIFIED job completion detection utilities
+ * Single source of truth: job.status field
  */
 
 export interface JobLike {
@@ -11,42 +11,16 @@ export interface JobLike {
 }
 
 /**
- * Determines if a job is completed based on all possible completion indicators
+ * SIMPLE: Check if job is completed based ONLY on job status
  * This is the single source of truth for completion status
  */
 export const isJobCompleted = (job: JobLike): boolean => {
   if (!job) return false;
 
   const status = job.status?.toLowerCase() || '';
-  const stageStatus = job.current_stage_status?.toLowerCase() || '';
-
-  // Check primary status field for completion indicators
-  const completionStatuses = [
-    'completed', 
-    'shipped', 
-    'delivered', 
-    'cancelled', 
-    'finished',
-    'done',
-    'complete'
-  ];
-
-  // Check if main status indicates completion
-  if (completionStatuses.some(completedStatus => status.includes(completedStatus))) {
-    return true;
-  }
-
-  // Check if current stage status indicates completion
-  if (completionStatuses.some(completedStatus => stageStatus.includes(completedStatus))) {
-    return true;
-  }
-
-  // Check workflow progress for 100% completion
-  if (job.workflow_progress === 100) {
-    return true;
-  }
-
-  return false;
+  
+  // Simple check: completed jobs have status = "completed"
+  return status === 'completed';
 };
 
 /**

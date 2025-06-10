@@ -33,7 +33,7 @@ export const useJobActions = (
         })
         .eq('job_id', jobId)
         .eq('production_stage_id', stageId)
-        .eq('status', 'pending'); // Only update if currently pending
+        .eq('status', 'pending');
 
       if (error) {
         console.error('❌ Failed to start job:', error);
@@ -140,25 +140,7 @@ export const useJobActions = (
     console.log('🎯 Directly marking job as completed:', { jobId });
     
     try {
-      // First, mark all remaining stages as completed
-      const { error: stageError } = await supabase
-        .from('job_stage_instances')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          completed_by: (await supabase.auth.getUser()).data.user?.id
-        })
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs')
-        .neq('status', 'completed');
-
-      if (stageError) {
-        console.error('❌ Failed to complete job stages:', stageError);
-        toast.error('Failed to mark job stages as completed');
-        return false;
-      }
-
-      // Then, mark the job itself as completed
+      // SIMPLE APPROACH: Just mark the job as completed
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({ 
@@ -173,10 +155,26 @@ export const useJobActions = (
         return false;
       }
 
+      // Also mark any existing stages as completed (but don't fail if this doesn't work)
+      const { error: stageError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completed_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .neq('status', 'completed');
+
+      // Don't fail if stage update fails - job status is the source of truth
+      if (stageError) {
+        console.warn('⚠️ Could not update job stages, but job marked completed:', stageError);
+      }
+
       console.log('✅ Job marked as completed successfully');
       toast.success('Job marked as completed');
       
-      // Ensure the UI is refreshed
       onSuccess?.();
       return true;
     } catch (error) {

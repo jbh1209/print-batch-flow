@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { RefreshCw } from "lucide-react";
@@ -175,9 +174,10 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     let successCount = 0;
     let errorCount = 0;
     
+    // Show processing toast
+    const processingToast = toast.loading(`Processing ${selectedJobs.length} jobs...`);
+    
     try {
-      toast.info(`Processing ${selectedJobs.length} jobs...`);
-      
       for (const jobId of selectedJobs) {
         try {
           const success = await markJobCompleted(jobId);
@@ -192,6 +192,9 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         }
       }
       
+      // Dismiss processing toast
+      toast.dismiss(processingToast);
+      
       if (successCount > 0) {
         toast.success(`Successfully marked ${successCount} job${successCount > 1 ? 's' : ''} as completed`);
       }
@@ -200,12 +203,14 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         toast.error(`Failed to complete ${errorCount} job${errorCount > 1 ? 's' : ''}`);
       }
       
-      // Clear selection and refresh regardless of errors
-      setSelectedJobs([]);
-      refreshJobs();
     } catch (error) {
+      toast.dismiss(processingToast);
       console.error('❌ Error in bulk completion:', error);
       toast.error('Failed to complete jobs');
+    } finally {
+      // Always clear selection and refresh
+      setSelectedJobs([]);
+      refreshJobs();
     }
   };
 

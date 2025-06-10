@@ -25,7 +25,7 @@ export const useJobStatusFiltering = ({ jobs, statusFilter }: UseJobStatusFilter
       case 'pending':
         return jobs.filter(job => 
           !isJobCompleted(job) && 
-          (job.status?.toLowerCase() === 'pending' || !job.status)
+          (job.status?.toLowerCase() === 'pending' || job.status?.toLowerCase() === 'pre-press' || !job.status)
         );
       case 'overdue':
         return jobs.filter(job => 
@@ -33,7 +33,11 @@ export const useJobStatusFiltering = ({ jobs, statusFilter }: UseJobStatusFilter
           job.due_date && new Date(job.due_date) < new Date()
         );
       default:
-        return jobs.filter(job => !isJobCompleted(job));
+        // For any other status filter, show jobs with that exact status (unless completed)
+        return jobs.filter(job => 
+          !isJobCompleted(job) && 
+          job.status?.toLowerCase() === statusFilter.toLowerCase()
+        );
     }
   }, [jobs, statusFilter]);
 
