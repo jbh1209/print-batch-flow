@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,8 +32,15 @@ export const useProductionStages = () => {
 
       if (error) throw error;
 
-      // Keep the data as-is since Supabase automatically handles JSONB parsing
-      setStages(data || []);
+      // Transform the data to ensure part_definitions is properly typed as string[]
+      const transformedData = (data || []).map(stage => ({
+        ...stage,
+        part_definitions: Array.isArray(stage.part_definitions) 
+          ? stage.part_definitions.map(item => String(item))
+          : []
+      }));
+
+      setStages(transformedData);
     } catch (err) {
       console.error('Error fetching production stages:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load production stages";
