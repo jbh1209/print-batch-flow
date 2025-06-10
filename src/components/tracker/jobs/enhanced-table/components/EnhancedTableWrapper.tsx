@@ -2,7 +2,7 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { RefreshCw } from "lucide-react";
-import { JobTableContent } from "../table/JobTableContent";
+import { JobsTableContent } from "../../JobsTableContent";
 import { EnhancedTableHeader } from "../EnhancedTableHeader";
 import { EnhancedTableFilters } from "../EnhancedTableFilters";
 import { EnhancedTableBulkActions } from "../EnhancedTableBulkActions";
@@ -155,7 +155,7 @@ export const EnhancedTableWrapper: React.FC<EnhancedTableWrapperProps> = ({
       />
 
       {/* Jobs Table */}
-      <JobTableContent
+      <JobsTableContent
         jobs={filteredAndSortedJobs}
         selectedJobs={selectedJobs}
         sortField={sortField}

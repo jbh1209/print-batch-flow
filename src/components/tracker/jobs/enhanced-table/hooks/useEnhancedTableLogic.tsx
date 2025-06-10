@@ -4,9 +4,9 @@ import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProduction
 import { useUnifiedJobFiltering } from "@/hooks/tracker/useUnifiedJobFiltering";
 import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
-import { useResponsiveJobsTable } from "../hooks/useResponsiveJobsTable";
-import { useJobsTableFilters } from "../JobsTableFilters";
-import { useJobsTableSorting } from "../JobsTableSorting";
+import { useResponsiveJobsTable } from "../../hooks/useResponsiveJobsTable";
+import { useJobsTableFilters } from "../../JobsTableFilters";
+import { useJobsTableSorting } from "../../JobsTableSorting";
 import { toast } from "sonner";
 
 interface UseEnhancedTableLogicProps {

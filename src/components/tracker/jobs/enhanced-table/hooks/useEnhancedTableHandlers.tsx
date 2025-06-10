@@ -11,10 +11,6 @@ export const useEnhancedTableHandlers = (
   setShowCustomWorkflow: (show: boolean) => void,
   setSelectedJobs: (jobs: string[]) => void
 ) => {
-  // Custom workflow state
-  const [showCustomWorkflow, setShowCustomWorkflowState] = React.useState(false);
-  const [customWorkflowJob, setCustomWorkflowJobState] = React.useState<any>(null);
-
   // Business logic handlers
   const {
     handleEditJob,
@@ -34,8 +30,8 @@ export const useEnhancedTableHandlers = (
   };
 
   const handleCustomWorkflowFromTableWrapper = (job: any) => {
-    setCustomWorkflowJobState(handleCustomWorkflowFromTable(job));
-    setShowCustomWorkflowState(true);
+    setCustomWorkflowJob(handleCustomWorkflowFromTable(job));
+    setShowCustomWorkflow(true);
   };
 
   const handleEditJobSave = () => {
@@ -49,23 +45,23 @@ export const useEnhancedTableHandlers = (
   };
 
   const handleBulkCategoryAssignWrapper = () => {
-    const result = handleBulkCategoryAssign(setSelectedJobs);
+    const result = handleBulkCategoryAssign((jobs: string[]) => setSelectedJobs(jobs));
     if (result) {
       setCategoryAssignJob(result);
     }
   };
 
   const handleCustomWorkflowWrapper = () => {
-    const result = handleCustomWorkflow(setSelectedJobs);
+    const result = handleCustomWorkflow((jobs: string[]) => setSelectedJobs(jobs));
     if (result) {
-      setCustomWorkflowJobState(result);
-      setShowCustomWorkflowState(true);
+      setCustomWorkflowJob(result);
+      setShowCustomWorkflow(true);
     }
   };
 
   const handleCustomWorkflowSuccess = () => {
-    setShowCustomWorkflowState(false);
-    setCustomWorkflowJobState(null);
+    setShowCustomWorkflow(false);
+    setCustomWorkflowJob(null);
     setSelectedJobs([]);
     refreshJobs();
   };
@@ -83,8 +79,6 @@ export const useEnhancedTableHandlers = (
   };
 
   return {
-    showCustomWorkflow,
-    customWorkflowJob,
     handleEditJobWrapper,
     handleCategoryAssignWrapper,
     handleCustomWorkflowFromTableWrapper,
@@ -94,8 +88,6 @@ export const useEnhancedTableHandlers = (
     handleCustomWorkflowWrapper,
     handleCustomWorkflowSuccess,
     handleDeleteSingleJobWrapper,
-    handleBulkDeleteComplete,
-    setShowCustomWorkflow: setShowCustomWorkflowState,
-    setCustomWorkflowJob: setCustomWorkflowJobState
+    handleBulkDeleteComplete
   };
 };

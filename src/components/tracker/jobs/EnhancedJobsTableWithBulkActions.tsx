@@ -51,9 +51,11 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     availableStages
   } = useEnhancedTableLogic({ statusFilter });
 
+  // Initialize custom workflow state variables first
+  const [showCustomWorkflow, setShowCustomWorkflow] = React.useState(false);
+  const [customWorkflowJob, setCustomWorkflowJob] = React.useState<any>(null);
+
   const {
-    showCustomWorkflow,
-    customWorkflowJob,
     handleEditJobWrapper,
     handleCategoryAssignWrapper,
     handleCustomWorkflowFromTableWrapper,
@@ -63,9 +65,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     handleCustomWorkflowWrapper,
     handleCustomWorkflowSuccess,
     handleDeleteSingleJobWrapper,
-    handleBulkDeleteComplete,
-    setShowCustomWorkflow,
-    setCustomWorkflowJob
+    handleBulkDeleteComplete
   } = useEnhancedTableHandlers(
     normalizedJobs,
     refreshJobs,
