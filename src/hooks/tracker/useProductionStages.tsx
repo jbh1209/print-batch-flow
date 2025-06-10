@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -11,7 +10,7 @@ interface ProductionStage {
   order_index: number;
   is_active: boolean;
   is_multi_part: boolean;
-  part_definitions: string[]; // Make this required and properly typed
+  part_definitions: string[]; // Keep as required and properly typed
 }
 
 export const useProductionStages = () => {
@@ -32,15 +31,8 @@ export const useProductionStages = () => {
 
       if (error) throw error;
 
-      // Transform the data to ensure part_definitions is always a string array
-      const transformedData = (data || []).map(stage => ({
-        ...stage,
-        part_definitions: Array.isArray(stage.part_definitions) 
-          ? stage.part_definitions.map(item => String(item))
-          : []
-      }));
-
-      setStages(transformedData);
+      // Keep the data as-is since Supabase automatically handles JSONB parsing
+      setStages(data || []);
     } catch (err) {
       console.error('Error fetching production stages:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load production stages";

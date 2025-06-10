@@ -49,6 +49,25 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
 
   useEffect(() => {
     if (stage) {
+      // Properly handle part_definitions from database
+      let partDefinitions: string[] = [];
+      
+      if (stage.part_definitions) {
+        // If it's already an array, use it directly
+        if (Array.isArray(stage.part_definitions)) {
+          partDefinitions = stage.part_definitions;
+        } else {
+          // If it's a string (shouldn't happen with proper JSONB), try to parse it
+          try {
+            partDefinitions = typeof stage.part_definitions === 'string' 
+              ? JSON.parse(stage.part_definitions) 
+              : [];
+          } catch {
+            partDefinitions = [];
+          }
+        }
+      }
+
       setFormData({
         name: stage.name,
         description: stage.description || '',
@@ -56,7 +75,7 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
         order_index: stage.order_index,
         is_active: stage.is_active,
         is_multi_part: stage.is_multi_part || false,
-        part_definitions: stage.part_definitions || []
+        part_definitions: partDefinitions
       });
     }
   }, [stage]);
@@ -68,7 +87,8 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
     try {
       const stageData = {
         ...formData,
-        part_definitions: JSON.stringify(formData.part_definitions)
+        // Send part_definitions as array directly - Supabase will handle JSONB conversion
+        part_definitions: formData.part_definitions
       };
 
       if (stage?.id) {
