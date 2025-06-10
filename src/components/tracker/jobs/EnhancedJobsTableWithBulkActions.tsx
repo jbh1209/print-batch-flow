@@ -1,20 +1,8 @@
+
 import React from "react";
-import { Card } from "@/components/ui/card";
-import { RefreshCw } from "lucide-react";
-import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
-import { useUnifiedJobFiltering } from "@/hooks/tracker/useUnifiedJobFiltering";
-import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
-import { useJobsTableFilters } from "./JobsTableFilters";
-import { useJobsTableSorting } from "./JobsTableSorting";
-import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
-import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
-import { JobTableContent } from "./table/JobTableContent";
-import { EnhancedTableHeader } from "./enhanced-table/EnhancedTableHeader";
-import { EnhancedTableFilters } from "./enhanced-table/EnhancedTableFilters";
-import { EnhancedTableBulkActions } from "./enhanced-table/EnhancedTableBulkActions";
-import { EnhancedTableModals } from "./enhanced-table/EnhancedTableModals";
-import { useEnhancedTableBusinessLogic } from "./enhanced-table/EnhancedTableBusinessLogic";
-import { toast } from "sonner";
+import { useEnhancedTableLogic } from "./enhanced-table/hooks/useEnhancedTableLogic";
+import { useEnhancedTableHandlers } from "./enhanced-table/hooks/useEnhancedTableHandlers";
+import { EnhancedTableWrapper } from "./enhanced-table/components/EnhancedTableWrapper";
 
 interface EnhancedJobsTableWithBulkActionsProps {
   statusFilter?: string | null;
@@ -23,29 +11,14 @@ interface EnhancedJobsTableWithBulkActionsProps {
 export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBulkActionsProps> = ({ 
   statusFilter 
 }) => {
-  const { jobs, isLoading: jobsLoading, refreshJobs } = useEnhancedProductionJobs();
-  const { categories } = useProductionCategories();
-  const { markJobCompleted } = useJobActions(refreshJobs);
-  
-  // Use unified filtering to get user's accessible jobs
-  const { 
-    filteredJobs: accessibleJobs, 
-    isLoading: filteringLoading 
-  } = useUnifiedJobFiltering({
-    jobs,
-    statusFilter
-  });
-
-  // Map job data structure to ensure consistent ID property
-  const normalizedJobs = React.useMemo(() => {
-    return accessibleJobs.map(job => ({
-      ...job,
-      id: job.id || job.job_id || job.job_id
-    }));
-  }, [accessibleJobs]);
-
-  // State and Handlers from useResponsiveJobsTable
   const {
+    // Data
+    normalizedJobs,
+    filteredAndSortedJobs,
+    categories,
+    isLoading,
+    
+    // Table state
     selectedJobs,
     setSelectedJobs,
     searchQuery,
@@ -55,265 +28,118 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     sortField,
     sortOrder,
     columnFilters,
+    
+    // Handlers
     handleSelectJob,
     handleSelectAll,
     handleColumnFilterChange,
     handleClearColumnFilters,
     handleSort,
     handleBulkStatusUpdate,
+    handleBulkMarkCompleted,
+    refreshJobs,
+    
+    // Modal state
     editingJob,
     setEditingJob,
     categoryAssignJob,
-    setCategoryAssignJob
-  } = useResponsiveJobsTable(refreshJobs);
+    setCategoryAssignJob,
+    
+    // Filter data
+    availableCategories,
+    availableStatuses,
+    availableStages
+  } = useEnhancedTableLogic({ statusFilter });
 
-  // Custom workflow state
-  const [showCustomWorkflow, setShowCustomWorkflow] = React.useState(false);
-  const [customWorkflowJob, setCustomWorkflowJob] = React.useState<any>(null);
-
-  // Business logic handlers
   const {
-    handleEditJob,
-    handleCategoryAssign,
-    handleCustomWorkflowFromTable,
-    handleBulkCategoryAssign,
-    handleCustomWorkflow,
-    handleDeleteSingleJob
-  } = useEnhancedTableBusinessLogic(normalizedJobs, refreshJobs);
-
-  // Apply additional filtering to normalized jobs (search, column filters)
-  const { filteredJobs, availableCategories, availableStatuses, availableStages } = useJobsTableFilters({
-    jobs: normalizedJobs,
-    searchQuery,
-    columnFilters
-  });
-
-  // Use sorting hook
-  const filteredAndSortedJobs = useJobsTableSorting({
-    jobs: filteredJobs,
-    sortField,
-    sortOrder
-  });
+    showCustomWorkflow,
+    customWorkflowJob,
+    handleEditJobWrapper,
+    handleCategoryAssignWrapper,
+    handleCustomWorkflowFromTableWrapper,
+    handleEditJobSave,
+    handleCategoryAssignComplete,
+    handleBulkCategoryAssignWrapper,
+    handleCustomWorkflowWrapper,
+    handleCustomWorkflowSuccess,
+    handleDeleteSingleJobWrapper,
+    handleBulkDeleteComplete,
+    setShowCustomWorkflow,
+    setCustomWorkflowJob
+  } = useEnhancedTableHandlers(
+    normalizedJobs,
+    refreshJobs,
+    setEditingJob,
+    setCategoryAssignJob,
+    setCustomWorkflowJob,
+    setShowCustomWorkflow,
+    setSelectedJobs
+  );
 
   console.log("🔍 EnhancedJobsTable - Processing:", {
-    totalJobs: jobs.length,
-    accessibleJobs: accessibleJobs.length,
-    normalizedJobs: normalizedJobs.length,
-    filteredJobs: filteredJobs.length,
-    finalJobs: filteredAndSortedJobs.length,
+    totalJobs: normalizedJobs.length,
+    filteredJobs: filteredAndSortedJobs.length,
     statusFilter,
     searchQuery,
     columnFilters
   });
 
-  const handleEditJobWrapper = (job: any) => {
-    setEditingJob(handleEditJob(job));
-  };
-
-  const handleCategoryAssignWrapper = (job: any) => {
-    setCategoryAssignJob(handleCategoryAssign(job));
-  };
-
-  const handleCustomWorkflowFromTableWrapper = (job: any) => {
-    setCustomWorkflowJob(handleCustomWorkflowFromTable(job));
-    setShowCustomWorkflow(true);
-  };
-
-  const handleEditJobSave = () => {
-    setEditingJob(null);
-    refreshJobs();
-  };
-
-  const handleCategoryAssignComplete = () => {
-    setCategoryAssignJob(null);
-    refreshJobs();
-  };
-
-  const handleBulkCategoryAssignWrapper = () => {
-    const result = handleBulkCategoryAssign(selectedJobs);
-    if (result) {
-      setCategoryAssignJob(result);
-    }
-  };
-
-  const handleCustomWorkflowWrapper = () => {
-    const result = handleCustomWorkflow(selectedJobs);
-    if (result) {
-      setCustomWorkflowJob(result);
-      setShowCustomWorkflow(true);
-    }
-  };
-
-  const handleCustomWorkflowSuccess = () => {
-    setShowCustomWorkflow(false);
-    setCustomWorkflowJob(null);
-    setSelectedJobs([]);
-    refreshJobs();
-  };
-
-  const handleDeleteSingleJobWrapper = async (jobId: string) => {
-    const success = await handleDeleteSingleJob(jobId);
-    if (success) {
-      setSelectedJobs(prev => prev.filter(id => id !== jobId));
-    }
-  };
-
-  const handleBulkDeleteComplete = () => {
-    setSelectedJobs([]);
-    refreshJobs();
-  };
-
-  const handleBulkMarkCompleted = async () => {
-    if (selectedJobs.length === 0) {
-      toast.error('No jobs selected to mark as completed');
-      return;
-    }
-    
-    console.log('🎯 Starting bulk completion process:', {
-      selectedJobIds: selectedJobs,
-      totalSelected: selectedJobs.length,
-      statusFilter,
-      currentJobsCount: filteredAndSortedJobs.length
-    });
-    
-    let successCount = 0;
-    let errorCount = 0;
-    
-    // Show processing toast
-    const processingToast = toast.loading(`Processing ${selectedJobs.length} jobs...`);
-    
-    try {
-      for (const jobId of selectedJobs) {
-        console.log(`🎯 Processing job ${jobId}...`);
-        
-        try {
-          const success = await markJobCompleted(jobId);
-          if (success) {
-            successCount++;
-            console.log(`✅ Successfully completed job ${jobId}`);
-          } else {
-            errorCount++;
-            console.error(`❌ Failed to complete job ${jobId}`);
-          }
-        } catch (err) {
-          console.error(`❌ Error completing job ${jobId}:`, err);
-          errorCount++;
-        }
-      }
-      
-      // Dismiss processing toast
-      toast.dismiss(processingToast);
-      
-      console.log('🎯 Bulk completion summary:', {
-        successCount,
-        errorCount,
-        totalProcessed: selectedJobs.length
-      });
-      
-      if (successCount > 0) {
-        toast.success(`Successfully marked ${successCount} job${successCount > 1 ? 's' : ''} as completed`);
-      }
-      
-      if (errorCount > 0) {
-        toast.error(`Failed to complete ${errorCount} job${errorCount > 1 ? 's' : ''}`);
-      }
-      
-    } catch (error) {
-      toast.dismiss(processingToast);
-      console.error('❌ Error in bulk completion:', error);
-      toast.error('Failed to complete jobs');
-    } finally {
-      // Always clear selection first
-      console.log('🔄 Clearing selection and refreshing...');
-      setSelectedJobs([]);
-      
-      // Force immediate refresh with a small delay to ensure database propagation
-      setTimeout(async () => {
-        console.log('🔄 Executing forced refresh...');
-        await refreshJobs();
-        console.log('✅ Refresh completed');
-      }, 500); // Small delay to ensure database updates have propagated
-    }
-  };
-
-  const isLoading = jobsLoading || filteringLoading;
-
-  if (isLoading) {
-    return (
-      <Card>
-        <div className="flex items-center justify-center py-12">
-          <RefreshCw className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading jobs...</span>
-        </div>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Header and Search */}
-      <EnhancedTableHeader
-        jobCount={filteredAndSortedJobs.length}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        onRefresh={refreshJobs}
-        showColumnFilters={showColumnFilters}
-        setShowColumnFilters={setShowColumnFilters}
-      />
-
-      {/* Column Filters */}
-      <EnhancedTableFilters
-        showColumnFilters={showColumnFilters}
-        columnFilters={columnFilters}
-        onFilterChange={handleColumnFilterChange}
-        onClearFilters={handleClearColumnFilters}
-        availableCategories={availableCategories}
-        availableStatuses={availableStatuses}
-        availableStages={availableStages}
-      />
-
-      {/* Bulk Actions */}
-      <EnhancedTableBulkActions
-        selectedJobs={selectedJobs}
-        normalizedJobs={normalizedJobs}
-        onBulkCategoryAssign={handleBulkCategoryAssignWrapper}
-        onBulkStatusUpdate={handleBulkStatusUpdate}
-        onBulkMarkCompleted={handleBulkMarkCompleted}
-        onDeleteComplete={handleBulkDeleteComplete}
-        onClearSelection={() => setSelectedJobs([])}
-        onCustomWorkflow={handleCustomWorkflowWrapper}
-      />
-
-      {/* Jobs Table */}
-      <JobTableContent
-        jobs={filteredAndSortedJobs}
-        selectedJobs={selectedJobs}
-        sortField={sortField}
-        sortOrder={sortOrder}
-        onSelectJob={handleSelectJob}
-        onSelectAll={(checked) => handleSelectAll(checked, filteredAndSortedJobs)}
-        onSort={handleSort}
-        onEditJob={handleEditJobWrapper}
-        onCategoryAssign={handleCategoryAssignWrapper}
-        onDeleteSingleJob={handleDeleteSingleJobWrapper}
-        onCustomWorkflow={handleCustomWorkflowFromTableWrapper}
-      />
-
-      {/* Modals */}
-      <EnhancedTableModals
-        editingJob={editingJob}
-        setEditingJob={setEditingJob}
-        categoryAssignJob={categoryAssignJob}
-        setCategoryAssignJob={setCategoryAssignJob}
-        showCustomWorkflow={showCustomWorkflow}
-        setShowCustomWorkflow={setShowColumnFilters}
-        customWorkflowJob={customWorkflowJob}
-        setCustomWorkflowJob={setCustomWorkflowJob}
-        categories={categories}
-        onEditJobSave={handleEditJobSave}
-        onCategoryAssignComplete={handleCategoryAssignComplete}
-        onCustomWorkflowSuccess={handleCustomWorkflowSuccess}
-      />
-    </div>
+    <EnhancedTableWrapper
+      // Data props
+      filteredAndSortedJobs={filteredAndSortedJobs}
+      categories={categories}
+      isLoading={isLoading}
+      
+      // Table state props
+      selectedJobs={selectedJobs}
+      searchQuery={searchQuery}
+      showColumnFilters={showColumnFilters}
+      sortField={sortField}
+      sortOrder={sortOrder}
+      
+      // Modal state props
+      editingJob={editingJob}
+      categoryAssignJob={categoryAssignJob}
+      
+      // Filter data props
+      availableCategories={availableCategories}
+      availableStatuses={availableStatuses}
+      availableStages={availableStages}
+      columnFilters={columnFilters}
+      
+      // Handler props
+      onSearchChange={setSearchQuery}
+      onRefresh={refreshJobs}
+      onShowColumnFiltersToggle={setShowColumnFilters}
+      onSelectJob={handleSelectJob}
+      onSelectAll={handleSelectAll}
+      onSort={handleSort}
+      onColumnFilterChange={handleColumnFilterChange}
+      onClearColumnFilters={handleClearColumnFilters}
+      onBulkCategoryAssign={handleBulkCategoryAssignWrapper}
+      onBulkStatusUpdate={handleBulkStatusUpdate}
+      onBulkMarkCompleted={handleBulkMarkCompleted}
+      onBulkDeleteComplete={handleBulkDeleteComplete}
+      onClearSelection={() => setSelectedJobs([])}
+      onCustomWorkflow={handleCustomWorkflowWrapper}
+      onEditJob={handleEditJobWrapper}
+      onCategoryAssign={handleCategoryAssignWrapper}
+      onDeleteSingleJob={handleDeleteSingleJobWrapper}
+      onCustomWorkflowFromTable={handleCustomWorkflowFromTableWrapper}
+      onEditJobSave={handleEditJobSave}
+      onCategoryAssignComplete={handleCategoryAssignComplete}
+      onCustomWorkflowSuccess={handleCustomWorkflowSuccess}
+      
+      // Custom workflow state
+      showCustomWorkflow={showCustomWorkflow}
+      customWorkflowJob={customWorkflowJob}
+      onShowCustomWorkflowChange={setShowCustomWorkflow}
+      onCustomWorkflowJobChange={setCustomWorkflowJob}
+      
+      // Job state setters
+      onEditingJobChange={setEditingJob}
+      onCategoryAssignJobChange={setCategoryAssignJob}
+    />
   );
 };
