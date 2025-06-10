@@ -1,8 +1,9 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, AlertTriangle, Eye, BarChart3 } from "lucide-react";
+import { RefreshCw, AlertTriangle, Eye, BarChart3, CheckCircle } from "lucide-react";
 import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { EnhancedProductionJobsList } from "./EnhancedProductionJobsList";
@@ -12,6 +13,7 @@ import { CustomWorkflowModal } from "@/components/tracker/jobs/CustomWorkflowMod
 import { BarcodeLabelsManager } from "@/components/tracker/BarcodeLabelsManager";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
 
 export const ProductionManagerView = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -20,6 +22,7 @@ export const ProductionManagerView = () => {
     statusFilter
   });
   const { categories } = useCategories();
+  const { isAdmin } = useUserRole();
   const [refreshing, setRefreshing] = useState(false);
 
   // Modal states
@@ -125,6 +128,45 @@ export const ProductionManagerView = () => {
     } catch (err) {
       console.error('Error updating job status:', err);
       toast.error('Failed to update job status');
+    }
+  };
+
+  const handleBulkMarkCompleted = async (selectedJobs: AccessibleJob[]) => {
+    if (!isAdmin) {
+      toast.error('Only administrators can mark jobs as completed');
+      return;
+    }
+
+    try {
+      // Update job status to completed
+      const { error: jobError } = await supabase
+        .from('production_jobs')
+        .update({ 
+          status: 'Completed',
+          updated_at: new Date().toISOString()
+        })
+        .in('id', selectedJobs.map(j => j.job_id));
+
+      if (jobError) throw jobError;
+
+      // Complete any active stage instances
+      const { error: stageError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completed_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .in('job_id', selectedJobs.map(j => j.job_id))
+        .in('status', ['active', 'pending']);
+
+      if (stageError) throw stageError;
+
+      toast.success(`Marked ${selectedJobs.length} job(s) as completed`);
+      await refreshJobs();
+    } catch (err) {
+      console.error('Error marking jobs as completed:', err);
+      toast.error('Failed to mark jobs as completed');
     }
   };
 
@@ -359,6 +401,7 @@ export const ProductionManagerView = () => {
               toast.error('Failed to update job status');
             }
           }}
+          onBulkMarkCompleted={handleBulkMarkCompleted}
           onBulkDelete={async (selectedJobs) => {
             try {
               const { error } = await supabase
@@ -379,6 +422,7 @@ export const ProductionManagerView = () => {
             setSelectedJobsForBarcodes(selectedJobs);
             setShowBarcodeLabels(true);
           }}
+          isAdmin={isAdmin}
         />
       ) : (
         <Card>

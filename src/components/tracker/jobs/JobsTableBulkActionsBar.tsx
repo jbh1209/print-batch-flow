@@ -10,7 +10,8 @@ import {
   X, 
   Workflow, 
   Download,
-  Barcode
+  Barcode,
+  CheckCircle
 } from "lucide-react";
 import { BarcodeLabelsManager } from "../BarcodeLabelsManager";
 
@@ -23,6 +24,8 @@ interface JobsTableBulkActionsBarProps {
   onClearSelection: () => void;
   onCustomWorkflow: () => void;
   selectedJobs: any[];
+  onBulkMarkCompleted?: () => void;
+  isAdmin?: boolean;
 }
 
 export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = ({
@@ -33,7 +36,9 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
   onBulkDelete,
   onClearSelection,
   onCustomWorkflow,
-  selectedJobs
+  selectedJobs,
+  onBulkMarkCompleted,
+  isAdmin = false
 }) => {
   const [showBarcodeLabels, setShowBarcodeLabels] = React.useState(false);
 
@@ -76,6 +81,17 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
                   <RotateCcw className="h-3 w-3" />
                   Update Status
                 </Button>
+                {isAdmin && onBulkMarkCompleted && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={onBulkMarkCompleted}
+                    className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                  >
+                    <CheckCircle className="h-3 w-3" />
+                    Mark Completed
+                  </Button>
+                )}
                 <Button 
                   size="sm" 
                   variant="outline"

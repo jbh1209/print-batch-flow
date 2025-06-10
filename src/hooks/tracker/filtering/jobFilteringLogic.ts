@@ -1,4 +1,3 @@
-
 import { checkJobAccess, isJobCompleted } from './jobAccessChecker';
 
 export const applyJobFilters = (
@@ -13,14 +12,15 @@ export const applyJobFilters = (
   return jobs.filter(job => {
     const { isAccessible, accessReasons } = checkJobAccess(job, accessibleStageIds, accessibleStageNames);
     
-    // Filter out completed jobs
-    const isNotCompleted = !isJobCompleted(job);
+    // Filter out completed jobs from production queues (but keep them in system for duplicate prevention)
+    const isNotCompleted = !isJobCompleted(job) && job.status !== 'Completed';
 
     const finalDecision = isAccessible && isNotCompleted;
 
     console.log(`  Decision for ${job.wo_no}: ${finalDecision ? '✅ INCLUDED' : '❌ EXCLUDED'}`, {
       isAccessible,
       isNotCompleted,
+      status: job.status,
       accessReasons
     });
 
