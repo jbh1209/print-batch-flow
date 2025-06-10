@@ -26,12 +26,12 @@ export const useJobStats = () => {
       
       console.log("Fetching global job stats...");
       
-      // Fetch pending jobs from all job tables, including production_jobs
+      // Fetch pending jobs from all job tables, only selecting existing columns
       const [businessCardJobs, flyerJobs, postcardJobs, productionJobs] = await Promise.allSettled([
         supabase.from("business_card_jobs").select("id, status", { count: 'exact' }),
         supabase.from("flyer_jobs").select("id, status", { count: 'exact' }),
         supabase.from("postcard_jobs").select("id, status", { count: 'exact' }),
-        supabase.from("production_jobs").select("id, status, workflow_progress, current_stage_status", { count: 'exact' })
+        supabase.from("production_jobs").select("id, status", { count: 'exact' })
       ]);
       
       let totalPendingJobs = 0;
@@ -67,10 +67,10 @@ export const useJobStats = () => {
       const todayISO = today.toISOString();
       
       const [completedBusinessCards, completedFlyers, completedPostcards, completedProduction] = await Promise.allSettled([
-        supabase.from("business_card_jobs").select("id, status, workflow_progress").gte("updated_at", todayISO),
-        supabase.from("flyer_jobs").select("id, status, workflow_progress").gte("updated_at", todayISO),
-        supabase.from("postcard_jobs").select("id, status, workflow_progress").gte("updated_at", todayISO),
-        supabase.from("production_jobs").select("id, status, workflow_progress, current_stage_status").gte("updated_at", todayISO)
+        supabase.from("business_card_jobs").select("id, status").gte("updated_at", todayISO),
+        supabase.from("flyer_jobs").select("id, status").gte("updated_at", todayISO),
+        supabase.from("postcard_jobs").select("id, status").gte("updated_at", todayISO),
+        supabase.from("production_jobs").select("id, status").gte("updated_at", todayISO)
       ]);
       
       let totalCompletedToday = 0;
@@ -99,8 +99,8 @@ export const useJobStats = () => {
       if (completedProduction.status === 'fulfilled' && !completedProduction.value.error) {
         const completedJobs = (completedProduction.value.data || []).filter(job => 
           job.status?.toLowerCase().includes('completed') || 
-          job.workflow_progress === 100 ||
-          job.current_stage_status?.toLowerCase().includes('completed')
+          job.status?.toLowerCase().includes('shipped') ||
+          job.status?.toLowerCase().includes('delivered')
         );
         totalCompletedToday += completedJobs.length;
       }
