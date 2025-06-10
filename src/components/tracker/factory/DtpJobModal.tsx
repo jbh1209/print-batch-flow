@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   Dialog,
@@ -21,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePartPrintingAssignment } from "@/hooks/tracker/usePartPrintingAssignment";
+import { useJobPrintingStages } from "@/hooks/tracker/useJobPrintingStages";
 
 interface DtpJobModalProps {
   job: AccessibleJob;
@@ -29,12 +31,6 @@ interface DtpJobModalProps {
   onRefresh?: () => void;
   onStart?: (jobId: string, stageId: string) => Promise<boolean>;
   onComplete?: (jobId: string, stageId: string) => Promise<boolean>;
-}
-
-interface PrintingStage {
-  id: string;
-  name: string;
-  color: string;
 }
 
 export const DtpJobModal: React.FC<DtpJobModalProps> = ({
@@ -48,21 +44,22 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const { user } = useAuth();
   const [notes, setNotes] = useState("");
   const [selectedPrintingStage, setSelectedPrintingStage] = useState<string>("");
-  const [printingStages, setPrintingStages] = useState<PrintingStage[]>([]);
+  const [allPrintingStages, setAllPrintingStages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [jobParts, setJobParts] = useState<string[]>([]);
   const [partAssignments, setPartAssignments] = useState<Record<string, string>>({});
   const [showPartSelector, setShowPartSelector] = useState(false);
 
   const { assignPartsToStages, getJobParts, isAssigning } = usePartPrintingAssignment();
+  const { printingStages: existingPrintingStages, isLoading: printingStagesLoading } = useJobPrintingStages(job.job_id);
 
   const statusBadgeInfo = getJobStatusBadgeInfo(job);
 
-  // Load printing stages and job parts when modal opens
+  // Load data when modal opens
   React.useEffect(() => {
     if (isOpen) {
       const loadData = async () => {
-        // Load printing stages
+        // Load all available printing stages
         const { data: stages } = await supabase
           .from('production_stages')
           .select('id, name, color')
@@ -71,19 +68,24 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           .order('name');
         
         if (stages) {
-          setPrintingStages(stages);
+          setAllPrintingStages(stages);
+          
+          // If there are existing printing stages, pre-select the first one
+          if (existingPrintingStages.length > 0) {
+            setSelectedPrintingStage(existingPrintingStages[0].id);
+          }
         }
 
         // Load job parts if the job has a category
         if (job.category_id) {
           const parts = await getJobParts(job.job_id, job.category_id);
           setJobParts(parts);
-          setShowPartSelector(parts.length > 1); // Show part selector if multiple parts
+          setShowPartSelector(parts.length > 1);
         }
       };
       loadData();
     }
-  }, [isOpen, job.category_id, job.job_id, getJobParts]);
+  }, [isOpen, job.category_id, job.job_id, getJobParts, existingPrintingStages]);
 
   const getCurrentStage = () => {
     const stageName = job.current_stage_name?.toLowerCase() || '';
@@ -216,6 +218,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       if (jobError) throw jobError;
 
       toast.success("Proof stage started");
+      
+      // Optimistic update - immediately refresh the view
       onRefresh?.();
     } catch (error) {
       console.error('Error starting proof:', error);
@@ -250,6 +254,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       if (jobError) throw jobError;
 
       toast.success("Proof marked as emailed");
+      
+      // Optimistic update
       onRefresh?.();
     } catch (error) {
       console.error('Error marking proof as emailed:', error);
@@ -273,7 +279,6 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     );
 
     if (success) {
-      // Update job status
       await supabase
         .from('production_jobs')
         .update({
@@ -296,7 +301,6 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
     setIsLoading(true);
     try {
-      // First complete the current proof stage
       const { error: completeError } = await supabase.rpc('advance_job_stage', {
         p_job_id: job.job_id,
         p_job_table_name: 'production_jobs',
@@ -306,7 +310,6 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
       if (completeError) throw completeError;
 
-      // Create new stage instance for the selected printing stage
       const { error: insertError } = await supabase
         .from('job_stage_instances')
         .insert({
@@ -314,7 +317,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           job_table_name: 'production_jobs',
           category_id: job.category_id,
           production_stage_id: selectedPrintingStage,
-          stage_order: 999, // High number to put it at the end
+          stage_order: 999,
           status: 'pending'
         });
 
@@ -330,7 +333,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
       if (jobError) throw jobError;
 
-      const selectedStage = printingStages.find(s => s.id === selectedPrintingStage);
+      const selectedStage = allPrintingStages.find(s => s.id === selectedPrintingStage);
       toast.success(`Job advanced to ${selectedStage?.name || 'printing stage'}`);
       onRefresh?.();
       onClose();
@@ -416,35 +419,76 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             </div>
           ) : (
             <div className="space-y-2">
-              <Label>Select Printing Stage:</Label>
-              <div className="flex gap-2">
-                <Select value={selectedPrintingStage} onValueChange={setSelectedPrintingStage}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Choose printing stage..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {printingStages.map((stage) => (
-                      <SelectItem key={stage.id} value={stage.id}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: stage.color }}
-                          />
-                          {stage.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button 
-                  onClick={handleAdvanceToPrintingStage}
-                  disabled={!selectedPrintingStage || isLoading}
-                  size="sm"
-                >
-                  <ArrowRight className="h-4 w-4 mr-1" />
-                  Advance
-                </Button>
-              </div>
+              <Label>
+                {existingPrintingStages.length > 0 ? 'Assigned Printing Stages:' : 'Select Printing Stage:'}
+              </Label>
+              
+              {existingPrintingStages.length > 0 ? (
+                <div className="space-y-2">
+                  {existingPrintingStages.map((stage) => (
+                    <div key={stage.id} className="flex items-center gap-2 p-2 border rounded">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: stage.color }}
+                      />
+                      <span className="flex-1">{stage.name}</span>
+                      {stage.part_name && (
+                        <Badge variant="outline" className="text-xs">
+                          {stage.part_name}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                  <Select value={selectedPrintingStage} onValueChange={setSelectedPrintingStage}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Change printing stage..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allPrintingStages.map((stage) => (
+                        <SelectItem key={stage.id} value={stage.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: stage.color }}
+                            />
+                            {stage.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Select value={selectedPrintingStage} onValueChange={setSelectedPrintingStage}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Choose printing stage..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allPrintingStages.map((stage) => (
+                        <SelectItem key={stage.id} value={stage.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: stage.color }}
+                            />
+                            {stage.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              <Button 
+                onClick={handleAdvanceToPrintingStage}
+                disabled={!selectedPrintingStage || isLoading}
+                className="w-full"
+              >
+                <ArrowRight className="h-4 w-4 mr-1" />
+                Advance to Printing
+              </Button>
             </div>
           )}
         </div>
