@@ -21,7 +21,8 @@ import {
   RotateCcw,
   X,
   Workflow,
-  Barcode
+  Barcode,
+  CheckCircle
 } from "lucide-react";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
@@ -38,6 +39,8 @@ interface EnhancedProductionJobsListProps {
   onBulkStatusUpdate: (selectedJobs: AccessibleJob[], status: string) => void;
   onBulkDelete: (selectedJobs: AccessibleJob[]) => void;
   onGenerateBarcodes: (selectedJobs: AccessibleJob[]) => void;
+  onBulkMarkCompleted?: (selectedJobs: AccessibleJob[]) => void;
+  isAdmin?: boolean;
 }
 
 export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProps> = ({
@@ -51,7 +54,9 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
   onBulkCategoryAssign,
   onBulkStatusUpdate,
   onBulkDelete,
-  onGenerateBarcodes
+  onGenerateBarcodes,
+  onBulkMarkCompleted,
+  isAdmin = false
 }) => {
   const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
 
@@ -109,6 +114,17 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                     <RotateCcw className="h-3 w-3" />
                     Update Status
                   </Button>
+                  {isAdmin && onBulkMarkCompleted && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => onBulkMarkCompleted(selectedJobs)}
+                      className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                    >
+                      <CheckCircle className="h-3 w-3" />
+                      Mark Completed
+                    </Button>
+                  )}
                   <Button 
                     size="sm" 
                     variant="outline"
