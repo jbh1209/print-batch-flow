@@ -53,6 +53,12 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
     onBulkStatusUpdate("printing");
   };
 
+  const handleBulkComplete = () => {
+    if (onBulkMarkCompleted) {
+      onBulkMarkCompleted();
+    }
+  };
+
   return (
     <>
       <Card className="border-blue-200 bg-blue-50">
@@ -81,17 +87,15 @@ export const JobsTableBulkActionsBar: React.FC<JobsTableBulkActionsBarProps> = (
                   <RotateCcw className="h-3 w-3" />
                   Update Status
                 </Button>
-                {isAdmin && onBulkMarkCompleted && (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={onBulkMarkCompleted}
-                    className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
-                  >
-                    <CheckCircle className="h-3 w-3" />
-                    Mark Completed
-                  </Button>
-                )}
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={handleBulkComplete}
+                  className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                >
+                  <CheckCircle className="h-3 w-3" />
+                  Mark Completed
+                </Button>
                 <Button 
                   size="sm" 
                   variant="outline"

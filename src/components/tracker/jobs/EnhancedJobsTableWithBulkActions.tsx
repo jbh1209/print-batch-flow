@@ -8,12 +8,14 @@ import { useProductionCategories } from "@/hooks/tracker/useProductionCategories
 import { useJobsTableFilters } from "./JobsTableFilters";
 import { useJobsTableSorting } from "./JobsTableSorting";
 import { useResponsiveJobsTable } from "./hooks/useResponsiveJobsTable";
+import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { JobTableContent } from "./table/JobTableContent";
 import { EnhancedTableHeader } from "./enhanced-table/EnhancedTableHeader";
 import { EnhancedTableFilters } from "./enhanced-table/EnhancedTableFilters";
 import { EnhancedTableBulkActions } from "./enhanced-table/EnhancedTableBulkActions";
 import { EnhancedTableModals } from "./enhanced-table/EnhancedTableModals";
 import { useEnhancedTableBusinessLogic } from "./enhanced-table/EnhancedTableBusinessLogic";
+import { toast } from "sonner";
 
 interface EnhancedJobsTableWithBulkActionsProps {
   statusFilter?: string | null;
@@ -24,6 +26,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
 }) => {
   const { jobs, isLoading: jobsLoading, refreshJobs } = useEnhancedProductionJobs();
   const { categories } = useProductionCategories();
+  const { markJobCompleted } = useJobActions(refreshJobs);
   
   // Use unified filtering to get user's accessible jobs
   const { 
@@ -161,6 +164,32 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     refreshJobs();
   };
 
+  const handleBulkMarkCompleted = async () => {
+    if (selectedJobs.length === 0) return;
+    
+    console.log('🎯 Bulk marking jobs as completed:', selectedJobs);
+    
+    try {
+      let successCount = 0;
+      
+      for (const jobId of selectedJobs) {
+        const success = await markJobCompleted(jobId);
+        if (success) {
+          successCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        toast.success(`Successfully marked ${successCount} job${successCount > 1 ? 's' : ''} as completed`);
+        setSelectedJobs([]);
+        refreshJobs();
+      }
+    } catch (error) {
+      console.error('❌ Error in bulk completion:', error);
+      toast.error('Failed to complete some jobs');
+    }
+  };
+
   const isLoading = jobsLoading || filteringLoading;
 
   if (isLoading) {
@@ -203,6 +232,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
         normalizedJobs={normalizedJobs}
         onBulkCategoryAssign={handleBulkCategoryAssignWrapper}
         onBulkStatusUpdate={handleBulkStatusUpdate}
+        onBulkMarkCompleted={handleBulkMarkCompleted}
         onDeleteComplete={handleBulkDeleteComplete}
         onClearSelection={() => setSelectedJobs([])}
         onCustomWorkflow={handleCustomWorkflowWrapper}

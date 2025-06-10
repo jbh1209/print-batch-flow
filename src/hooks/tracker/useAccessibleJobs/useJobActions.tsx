@@ -77,11 +77,6 @@ export const useJobActions = (
   const completeJob = useCallback(async (jobId: string, stageId: string): Promise<boolean> => {
     console.log('✅ Completing job:', { jobId, stageId });
     
-    // Optimistic update
-    const originalStatus = 'active';
-    callbacks?.onOptimisticUpdate?.(jobId, { current_stage_status: 'completed' });
-    setOptimisticUpdates(prev => ({ ...prev, [jobId]: { current_stage_status: 'completed' } }));
-
     try {
       // Use the advance_job_stage RPC function to properly complete and advance the job
       const { data, error } = await supabase.rpc('advance_job_stage', {
@@ -92,49 +87,107 @@ export const useJobActions = (
       });
 
       if (error) {
-        console.error('❌ Failed to complete job:', error);
-        // Revert optimistic update
-        callbacks?.onOptimisticRevert?.(jobId, 'current_stage_status', originalStatus);
-        setOptimisticUpdates(prev => {
-          const updated = { ...prev };
-          delete updated[jobId];
-          return updated;
-        });
-        toast.error('Failed to complete job');
+        console.error('❌ Failed to complete job stage:', error);
+        toast.error('Failed to complete job stage');
         return false;
       }
 
-      console.log('✅ Job completed successfully');
-      toast.success('Job completed successfully');
+      console.log('✅ Job stage completed successfully');
       
-      // Clear optimistic update and refresh
-      setOptimisticUpdates(prev => {
-        const updated = { ...prev };
-        delete updated[jobId];
-        return updated;
-      });
+      // Check if this was the final stage - if so, mark the entire job as completed
+      const { data: remainingStages, error: stagesError } = await supabase
+        .from('job_stage_instances')
+        .select('id')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .neq('status', 'completed');
+
+      if (stagesError) {
+        console.error('❌ Error checking remaining stages:', stagesError);
+      } else if (!remainingStages || remainingStages.length === 0) {
+        // No more stages - mark the entire job as completed
+        console.log('🎯 All stages completed, marking job as completed');
+        
+        const { error: jobUpdateError } = await supabase
+          .from('production_jobs')
+          .update({ 
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', jobId);
+
+        if (jobUpdateError) {
+          console.error('❌ Failed to mark job as completed:', jobUpdateError);
+          toast.error('Failed to mark job as completed');
+        } else {
+          console.log('✅ Job marked as completed successfully');
+          toast.success('Job completed successfully!');
+        }
+      } else {
+        toast.success('Job stage completed successfully');
+      }
       
       onSuccess?.();
       return true;
     } catch (error) {
       console.error('❌ Error completing job:', error);
-      // Revert optimistic update
-      callbacks?.onOptimisticRevert?.(jobId, 'current_stage_status', originalStatus);
-      setOptimisticUpdates(prev => {
-        const updated = { ...prev };
-        delete updated[jobId];
-        return updated;
-      });
       toast.error('Failed to complete job');
       return false;
     }
-  }, [callbacks, onSuccess]);
+  }, [onSuccess]);
+
+  const markJobCompleted = useCallback(async (jobId: string): Promise<boolean> => {
+    console.log('🎯 Directly marking job as completed:', { jobId });
+    
+    try {
+      // Mark all remaining stages as completed
+      const { error: stageError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completed_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .neq('status', 'completed');
+
+      if (stageError) {
+        console.error('❌ Failed to complete job stages:', stageError);
+      }
+
+      // Mark the job itself as completed
+      const { error: jobError } = await supabase
+        .from('production_jobs')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+
+      if (jobError) {
+        console.error('❌ Failed to mark job as completed:', jobError);
+        toast.error('Failed to mark job as completed');
+        return false;
+      }
+
+      console.log('✅ Job marked as completed successfully');
+      toast.success('Job marked as completed!');
+      onSuccess?.();
+      return true;
+    } catch (error) {
+      console.error('❌ Error marking job as completed:', error);
+      toast.error('Failed to mark job as completed');
+      return false;
+    }
+  }, [onSuccess]);
 
   const hasOptimisticUpdates = Object.keys(optimisticUpdates).length > 0;
 
   return {
     startJob,
     completeJob,
+    markJobCompleted,
     optimisticUpdates,
     hasOptimisticUpdates
   };

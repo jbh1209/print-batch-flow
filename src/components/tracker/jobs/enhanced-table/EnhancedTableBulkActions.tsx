@@ -8,6 +8,7 @@ interface EnhancedTableBulkActionsProps {
   normalizedJobs: any[];
   onBulkCategoryAssign: () => void;
   onBulkStatusUpdate: (status: string) => void;
+  onBulkMarkCompleted?: () => void;
   onDeleteComplete: () => void;
   onClearSelection: () => void;
   onCustomWorkflow: () => void;
@@ -18,6 +19,7 @@ export const EnhancedTableBulkActions: React.FC<EnhancedTableBulkActionsProps> =
   normalizedJobs,
   onBulkCategoryAssign,
   onBulkStatusUpdate,
+  onBulkMarkCompleted,
   onDeleteComplete,
   onClearSelection,
   onCustomWorkflow
@@ -33,6 +35,7 @@ export const EnhancedTableBulkActions: React.FC<EnhancedTableBulkActionsProps> =
           isDeleting={false}
           onBulkCategoryAssign={onBulkCategoryAssign}
           onBulkStatusUpdate={onBulkStatusUpdate}
+          onBulkMarkCompleted={onBulkMarkCompleted}
           onBulkDelete={onShowDialog}
           onClearSelection={onClearSelection}
           onCustomWorkflow={onCustomWorkflow}
