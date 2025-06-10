@@ -1,7 +1,7 @@
 
 /**
  * SIMPLIFIED job completion detection utilities
- * Single source of truth: job.status field
+ * Single source of truth: job.status field with proper case handling
  */
 
 export interface JobLike {
@@ -13,13 +13,14 @@ export interface JobLike {
 /**
  * SIMPLE: Check if job is completed based ONLY on job status
  * This is the single source of truth for completion status
+ * Handles both "completed" and "Completed" cases for compatibility
  */
 export const isJobCompleted = (job: JobLike): boolean => {
   if (!job) return false;
 
   const status = job.status?.toLowerCase() || '';
   
-  // Simple check: completed jobs have status = "completed"
+  // Simple check: completed jobs have status = "completed" or "Completed"
   return status === 'completed';
 };
 

@@ -111,7 +111,7 @@ export const useJobActions = (
         const { error: jobUpdateError } = await supabase
           .from('production_jobs')
           .update({ 
-            status: 'completed',
+            status: 'Completed',  // Use proper case to match database
             updated_at: new Date().toISOString()
           })
           .eq('id', jobId);
@@ -140,11 +140,11 @@ export const useJobActions = (
     console.log('🎯 Directly marking job as completed:', { jobId });
     
     try {
-      // SIMPLE APPROACH: Just mark the job as completed
+      // SIMPLE APPROACH: Just mark the job as completed with proper case
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({ 
-          status: 'completed',
+          status: 'Completed',  // Use proper case to match database
           updated_at: new Date().toISOString()
         })
         .eq('id', jobId);
