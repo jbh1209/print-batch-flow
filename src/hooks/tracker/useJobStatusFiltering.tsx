@@ -1,5 +1,6 @@
 
 import { useMemo } from "react";
+import { isJobCompleted } from "@/utils/tracker/jobCompletionUtils";
 
 interface UseJobStatusFilteringProps {
   jobs: any[];
@@ -9,27 +10,30 @@ interface UseJobStatusFilteringProps {
 export const useJobStatusFiltering = ({ jobs, statusFilter }: UseJobStatusFilteringProps) => {
   const statusFilteredJobs = useMemo(() => {
     if (!statusFilter) {
-      // Default: show production jobs (excluding completed)
-      return jobs.filter(job => job.status?.toLowerCase() !== 'completed');
+      // Default: show active jobs (excluding completed)
+      return jobs.filter(job => !isJobCompleted(job));
     }
     
     switch (statusFilter) {
       case 'completed':
-        return jobs.filter(job => job.status?.toLowerCase() === 'completed');
+        return jobs.filter(job => isJobCompleted(job));
       case 'in-progress':
         return jobs.filter(job => 
+          !isJobCompleted(job) && 
           job.status && ['printing', 'finishing', 'production', 'pre-press', 'packaging'].includes(job.status.toLowerCase())
         );
       case 'pending':
         return jobs.filter(job => 
-          job.status?.toLowerCase() === 'pending' || !job.status
+          !isJobCompleted(job) && 
+          (job.status?.toLowerCase() === 'pending' || !job.status)
         );
       case 'overdue':
         return jobs.filter(job => 
-          job.due_date && new Date(job.due_date) < new Date() && job.status?.toLowerCase() !== 'completed'
+          !isJobCompleted(job) && 
+          job.due_date && new Date(job.due_date) < new Date()
         );
       default:
-        return jobs.filter(job => job.status?.toLowerCase() !== 'completed');
+        return jobs.filter(job => !isJobCompleted(job));
     }
   }, [jobs, statusFilter]);
 

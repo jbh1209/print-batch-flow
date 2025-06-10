@@ -2,6 +2,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
 
 interface JobStats {
   pendingJobs: number;
@@ -25,53 +26,83 @@ export const useJobStats = () => {
       
       console.log("Fetching global job stats...");
       
-      // Fetch pending jobs from all job tables
-      const [businessCardJobs, flyerJobs, postcardJobs] = await Promise.allSettled([
-        supabase.from("business_card_jobs").select("id", { count: 'exact' }).eq("status", "queued"),
-        supabase.from("flyer_jobs").select("id", { count: 'exact' }).eq("status", "queued"),
-        supabase.from("postcard_jobs").select("id", { count: 'exact' }).eq("status", "queued")
+      // Fetch pending jobs from all job tables, including production_jobs
+      const [businessCardJobs, flyerJobs, postcardJobs, productionJobs] = await Promise.allSettled([
+        supabase.from("business_card_jobs").select("id, status", { count: 'exact' }),
+        supabase.from("flyer_jobs").select("id, status", { count: 'exact' }),
+        supabase.from("postcard_jobs").select("id, status", { count: 'exact' }),
+        supabase.from("production_jobs").select("id, status, workflow_progress, current_stage_status", { count: 'exact' })
       ]);
       
       let totalPendingJobs = 0;
       
+      // Count active jobs using unified completion logic
       if (businessCardJobs.status === 'fulfilled' && !businessCardJobs.value.error) {
-        totalPendingJobs += businessCardJobs.value.count || 0;
-        console.log("Business card pending jobs:", businessCardJobs.value.count);
+        const activeJobs = filterActiveJobs(businessCardJobs.value.data || []);
+        totalPendingJobs += activeJobs.filter(job => job.status === 'queued').length;
+        console.log("Business card active jobs:", activeJobs.length);
       }
       
       if (flyerJobs.status === 'fulfilled' && !flyerJobs.value.error) {
-        totalPendingJobs += flyerJobs.value.count || 0;
-        console.log("Flyer pending jobs:", flyerJobs.value.count);
+        const activeJobs = filterActiveJobs(flyerJobs.value.data || []);
+        totalPendingJobs += activeJobs.filter(job => job.status === 'queued').length;
+        console.log("Flyer active jobs:", activeJobs.length);
       }
       
       if (postcardJobs.status === 'fulfilled' && !postcardJobs.value.error) {
-        totalPendingJobs += postcardJobs.value.count || 0;
-        console.log("Postcard pending jobs:", postcardJobs.value.count);
+        const activeJobs = filterActiveJobs(postcardJobs.value.data || []);
+        totalPendingJobs += activeJobs.filter(job => job.status === 'queued').length;
+        console.log("Postcard active jobs:", activeJobs.length);
+      }
+
+      if (productionJobs.status === 'fulfilled' && !productionJobs.value.error) {
+        const activeJobs = filterActiveJobs(productionJobs.value.data || []);
+        totalPendingJobs += activeJobs.length;
+        console.log("Production active jobs:", activeJobs.length);
       }
       
-      // Fetch completed jobs today
+      // Fetch completed jobs today - use unified completion logic
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
       
-      const [completedBusinessCards, completedFlyers, completedPostcards] = await Promise.allSettled([
-        supabase.from("business_card_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
-        supabase.from("flyer_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO),
-        supabase.from("postcard_jobs").select("id", { count: 'exact' }).eq("status", "completed").gte("updated_at", todayISO)
+      const [completedBusinessCards, completedFlyers, completedPostcards, completedProduction] = await Promise.allSettled([
+        supabase.from("business_card_jobs").select("id, status, workflow_progress").gte("updated_at", todayISO),
+        supabase.from("flyer_jobs").select("id, status, workflow_progress").gte("updated_at", todayISO),
+        supabase.from("postcard_jobs").select("id, status, workflow_progress").gte("updated_at", todayISO),
+        supabase.from("production_jobs").select("id, status, workflow_progress, current_stage_status").gte("updated_at", todayISO)
       ]);
       
       let totalCompletedToday = 0;
       
       if (completedBusinessCards.status === 'fulfilled' && !completedBusinessCards.value.error) {
-        totalCompletedToday += completedBusinessCards.value.count || 0;
+        const completedJobs = (completedBusinessCards.value.data || []).filter(job => 
+          job.status === 'completed'
+        );
+        totalCompletedToday += completedJobs.length;
       }
       
       if (completedFlyers.status === 'fulfilled' && !completedFlyers.value.error) {
-        totalCompletedToday += completedFlyers.value.count || 0;
+        const completedJobs = (completedFlyers.value.data || []).filter(job => 
+          job.status === 'completed'
+        );
+        totalCompletedToday += completedJobs.length;
       }
       
       if (completedPostcards.status === 'fulfilled' && !completedPostcards.value.error) {
-        totalCompletedToday += completedPostcards.value.count || 0;
+        const completedJobs = (completedPostcards.value.data || []).filter(job => 
+          job.status === 'completed'
+        );
+        totalCompletedToday += completedJobs.length;
+      }
+
+      if (completedProduction.status === 'fulfilled' && !completedProduction.value.error) {
+        const completedJobs = (completedProduction.value.data || []).filter(job => 
+          job.status?.toLowerCase().includes('completed') || 
+          job.workflow_progress === 100 ||
+          job.current_stage_status?.toLowerCase().includes('completed')
+        );
+        totalCompletedToday += completedJobs.length;
       }
       
       console.log("Job stats calculated:", {
@@ -100,7 +131,7 @@ export const useJobStats = () => {
         variant: "destructive",
       });
     }
-  }, [toast]); // Only depend on toast
+  }, [toast]);
 
   return {
     ...stats,

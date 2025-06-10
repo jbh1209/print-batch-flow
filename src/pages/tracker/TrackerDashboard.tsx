@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
@@ -7,6 +6,7 @@ import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOver
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
+import { getJobCounts, isJobCompleted } from "@/utils/tracker/jobCompletionUtils";
 
 const TrackerDashboard = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError } = useEnhancedProductionJobs();
@@ -15,8 +15,9 @@ const TrackerDashboard = () => {
   const isLoading = jobsLoading || stagesLoading;
   const error = jobsError;
   
-  // Calculate real-time stats from actual production jobs and stages
+  // Calculate real-time stats from actual production jobs and stages using unified logic
   const getJobStats = () => {
+    const { activeJobs, completedJobs } = getJobCounts(jobs);
     const statusCounts: Record<string, number> = {};
     
     // Initialize all actual stages with 0
@@ -26,9 +27,10 @@ const TrackerDashboard = () => {
     
     // Add fallback for jobs without workflow stages
     statusCounts["Pre-Press"] = 0;
+    statusCounts["Completed"] = completedJobs.length;
     
-    // Count jobs by their current stage or default status
-    jobs.forEach(job => {
+    // Count ONLY ACTIVE jobs by their current stage or default status
+    activeJobs.forEach(job => {
       if (job.current_stage) {
         // Job has workflow - use current stage
         if (statusCounts.hasOwnProperty(job.current_stage)) {
@@ -47,7 +49,7 @@ const TrackerDashboard = () => {
       }
     });
 
-    // Calculate summary stats
+    // Calculate summary stats from ACTIVE jobs only
     const inProgressStages = stages.filter(stage => 
       !['Pre-Press', 'Completed', 'Shipped'].includes(stage.name)
     );
@@ -56,13 +58,12 @@ const TrackerDashboard = () => {
       return total + (statusCounts[stage.name] || 0);
     }, 0);
 
-    const completedCount = (statusCounts["Completed"] || 0) + (statusCounts["Shipped"] || 0);
     const prePressCount = statusCounts["Pre-Press"] || 0;
 
     return {
-      total: jobs.length,
+      total: activeJobs.length, // Only count active jobs
       inProgress: inProgressCount,
-      completed: completedCount,
+      completed: completedJobs.length,
       prePress: prePressCount,
       statusCounts,
       stages
@@ -71,9 +72,8 @@ const TrackerDashboard = () => {
 
   const stats = getJobStats();
 
-  console.log("TrackerDashboard render - isLoading:", isLoading, "jobs count:", jobs.length, "stages count:", stages.length, "error:", error);
+  console.log("TrackerDashboard render - isLoading:", isLoading, "active jobs count:", stats.total, "completed jobs:", stats.completed, "stages count:", stages.length, "error:", error);
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -83,7 +83,6 @@ const TrackerDashboard = () => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="p-6">

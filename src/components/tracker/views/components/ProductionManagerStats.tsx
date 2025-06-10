@@ -3,16 +3,20 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Eye, AlertTriangle, BarChart3 } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { getJobCounts } from "@/utils/tracker/jobCompletionUtils";
 
 interface ProductionManagerStatsProps {
   jobs: AccessibleJob[];
 }
 
 export const ProductionManagerStats: React.FC<ProductionManagerStatsProps> = ({ jobs }) => {
-  const pendingCount = jobs.filter(j => j.current_stage_status === 'pending').length;
-  const activeCount = jobs.filter(j => j.current_stage_status === 'active').length;
-  const avgProgress = jobs.length > 0 
-    ? Math.round(jobs.reduce((sum, job) => sum + job.workflow_progress, 0) / jobs.length) 
+  const { active: activeJobsCount, activeJobs } = getJobCounts(jobs);
+  
+  const pendingCount = activeJobs.filter(j => j.current_stage_status === 'pending').length;
+  const inProgressCount = activeJobs.filter(j => j.current_stage_status === 'active').length;
+  
+  const avgProgress = activeJobs.length > 0 
+    ? Math.round(activeJobs.reduce((sum, job) => sum + (job.workflow_progress || 0), 0) / activeJobs.length) 
     : 0;
 
   return (
@@ -22,8 +26,8 @@ export const ProductionManagerStats: React.FC<ProductionManagerStatsProps> = ({ 
           <div className="flex items-center gap-3">
             <Eye className="h-8 w-8 text-blue-500" />
             <div>
-              <p className="text-sm text-gray-600">Total Jobs</p>
-              <p className="text-2xl font-bold">{jobs.length}</p>
+              <p className="text-sm text-gray-600">Active Jobs</p>
+              <p className="text-2xl font-bold">{activeJobsCount}</p>
             </div>
           </div>
         </CardContent>
@@ -47,7 +51,7 @@ export const ProductionManagerStats: React.FC<ProductionManagerStatsProps> = ({ 
             <BarChart3 className="h-8 w-8 text-green-500" />
             <div>
               <p className="text-sm text-gray-600">In Progress</p>
-              <p className="text-2xl font-bold">{activeCount}</p>
+              <p className="text-2xl font-bold">{inProgressCount}</p>
             </div>
           </div>
         </CardContent>

@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { UnifiedJobFilteringOptions } from "./filtering/types";
 import { applyJobFilters } from "./filtering/jobFilteringLogic";
 import { calculateJobStats } from "./filtering/jobStatsCalculator";
+import { filterActiveJobs, isJobCompleted } from "@/utils/tracker/jobCompletionUtils";
 
 export const useUnifiedJobFiltering = ({
   jobs,
@@ -32,7 +33,7 @@ export const useUnifiedJobFiltering = ({
       return [];
     }
 
-    console.log("🔍 Unified Job Filtering Debug (Admin Check):", {
+    console.log("🔍 Unified Job Filtering Debug:", {
       userId: user.id,
       isAdmin,
       totalJobs: jobs.length,
@@ -43,13 +44,20 @@ export const useUnifiedJobFiltering = ({
       stageFilter
     });
 
-    // If user is admin, show all jobs with basic filtering only
+    // ALWAYS filter out completed jobs first, unless specifically filtering for completed status
+    let jobsToFilter = jobs;
+    if (statusFilter !== 'completed') {
+      jobsToFilter = filterActiveJobs(jobs);
+      console.log(`🔍 Filtered out completed jobs: ${jobs.length} -> ${jobsToFilter.length}`);
+    }
+
+    // If user is admin, show filtered jobs with basic filtering only
     if (isAdmin) {
-      console.log("👑 Admin user detected - showing all jobs with basic filtering");
+      console.log("👑 Admin user detected - showing filtered jobs with basic filtering");
       
-      return jobs.filter(job => {
-        // Apply only basic filters for admins - no stage/permission restrictions
-        if (statusFilter && job.status?.toLowerCase() !== statusFilter.toLowerCase()) {
+      return jobsToFilter.filter(job => {
+        // Apply basic filters for admins - no stage/permission restrictions
+        if (statusFilter && statusFilter !== 'completed' && job.status?.toLowerCase() !== statusFilter.toLowerCase()) {
           return false;
         }
 
@@ -87,7 +95,7 @@ export const useUnifiedJobFiltering = ({
 
     // For non-admin users, use the existing permission-based filtering
     return applyJobFilters(
-      jobs,
+      jobsToFilter, // Use already filtered jobs (no completed)
       accessibleStageIds,
       accessibleStageNames,
       statusFilter,
@@ -100,7 +108,7 @@ export const useUnifiedJobFiltering = ({
   // Calculate job statistics based on filtered jobs
   const jobStats = useMemo(() => calculateJobStats(filteredJobs), [filteredJobs]);
 
-  console.log("🔍 Final Results (Admin-Aware Filtering):", {
+  console.log("🔍 Final Results (Admin-Aware + Completion Filtering):", {
     totalJobsInput: jobs.length,
     filteredJobsOutput: filteredJobs.length,
     isAdmin,

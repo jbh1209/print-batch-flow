@@ -1,5 +1,5 @@
-
 import type { AccessibleJob } from './types';
+import { isJobCompleted } from '@/utils/tracker/jobCompletionUtils';
 
 export interface ProcessedJobCounts {
   total: number;
@@ -20,27 +20,29 @@ export interface JobCategories {
 }
 
 export const processJobStatus = (job: AccessibleJob): 'pending' | 'active' | 'completed' => {
+  // Use the standardized completion check first
+  if (isJobCompleted(job)) {
+    return 'completed';
+  }
+
   // Check if job has workflow stages - prioritize workflow status
   if (job.current_stage_status) {
     if (job.current_stage_status === 'active') return 'active';
-    if (job.current_stage_status === 'completed') return 'completed';
     if (job.current_stage_status === 'pending') return 'pending';
   }
   
-  // Check if all workflow stages are completed
-  if (job.workflow_progress === 100) {
-    return 'completed';
-  }
-  
   // Check if job has any active workflow
-  if (job.workflow_progress !== undefined && job.workflow_progress > 0) {
+  if (job.workflow_progress !== undefined && job.workflow_progress > 0 && job.workflow_progress < 100) {
     return 'active';
   }
   
   // Fallback to job status for jobs without workflows
   const status = job.status?.toLowerCase() || '';
-  if (['completed', 'finished', 'shipped', 'delivered'].includes(status)) {
-    return 'completed';
+  
+  // Check for active status indicators
+  const activeStatuses = ['printing', 'finishing', 'production', 'pre-press', 'packaging', 'active', 'in-progress'];
+  if (activeStatuses.some(activeStatus => status.includes(activeStatus))) {
+    return 'active';
   }
   
   // Default to pending for new/unstarted jobs
@@ -48,12 +50,12 @@ export const processJobStatus = (job: AccessibleJob): 'pending' | 'active' | 'co
 };
 
 export const isJobOverdue = (job: AccessibleJob): boolean => {
-  if (!job.due_date) return false;
+  if (!job.due_date || isJobCompleted(job)) return false;
   return new Date(job.due_date) < new Date();
 };
 
 export const isJobDueSoon = (job: AccessibleJob): boolean => {
-  if (!job.due_date) return false;
+  if (!job.due_date || isJobCompleted(job)) return false;
   const dueDate = new Date(job.due_date);
   const now = new Date();
   const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
@@ -62,16 +64,19 @@ export const isJobDueSoon = (job: AccessibleJob): boolean => {
 };
 
 export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
-  const pendingJobs = jobs.filter(job => processJobStatus(job) === 'pending');
-  const activeJobs = jobs.filter(job => processJobStatus(job) === 'active');
-  const completedJobs = jobs.filter(job => processJobStatus(job) === 'completed');
+  // Filter out completed jobs for active categories
+  const activeJobs = jobs.filter(job => !isJobCompleted(job));
   
-  const urgentJobs = jobs.filter(job => 
+  const pendingJobs = activeJobs.filter(job => processJobStatus(job) === 'pending');
+  const activeJobsList = activeJobs.filter(job => processJobStatus(job) === 'active');
+  const completedJobs = jobs.filter(job => isJobCompleted(job));
+  
+  const urgentJobs = activeJobs.filter(job => 
     isJobOverdue(job) || isJobDueSoon(job)
   );
 
   // Enhanced DTP/Proof job categorization using actual stage names
-  const dtpJobs = jobs.filter(job => {
+  const dtpJobs = activeJobs.filter(job => {
     const stageName = job.current_stage_name?.toLowerCase() || '';
     const status = job.status?.toLowerCase() || '';
     
@@ -82,7 +87,7 @@ export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
            status.includes('dtp');
   });
 
-  const proofJobs = jobs.filter(job => {
+  const proofJobs = activeJobs.filter(job => {
     const stageName = job.current_stage_name?.toLowerCase() || '';
     const status = job.status?.toLowerCase() || '';
     
@@ -94,7 +99,7 @@ export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
 
   return {
     pendingJobs,
-    activeJobs,
+    activeJobs: activeJobsList,
     completedJobs,
     urgentJobs,
     dtpJobs,
@@ -110,8 +115,8 @@ export const calculateJobCounts = (jobs: AccessibleJob[]): ProcessedJobCounts =>
     pending: categories.pendingJobs.length,
     active: categories.activeJobs.length,
     completed: categories.completedJobs.length,
-    overdue: jobs.filter(isJobOverdue).length,
-    dueSoon: jobs.filter(isJobDueSoon).length
+    overdue: jobs.filter(job => !isJobCompleted(job) && isJobOverdue(job)).length,
+    dueSoon: jobs.filter(job => !isJobCompleted(job) && isJobDueSoon(job)).length
   };
 };
 
