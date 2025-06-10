@@ -115,7 +115,12 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       onSelectJob={handleSelectJob}
       onSelectAll={handleSelectAll}
       onSort={handleSort}
-      onColumnFilterChange={handleColumnFilterChange}
+      onColumnFilterChange={(filters) => {
+        // Handle the filters object by applying each filter
+        Object.entries(filters).forEach(([key, value]) => {
+          handleColumnFilterChange(key, value as string);
+        });
+      }}
       onClearColumnFilters={handleClearColumnFilters}
       onBulkCategoryAssign={handleBulkCategoryAssignWrapper}
       onBulkStatusUpdate={handleBulkStatusUpdate}

@@ -45,14 +45,14 @@ export const useEnhancedTableHandlers = (
   };
 
   const handleBulkCategoryAssignWrapper = () => {
-    const result = handleBulkCategoryAssign((jobs: string[]) => setSelectedJobs(jobs));
+    const result = handleBulkCategoryAssign();
     if (result) {
       setCategoryAssignJob(result);
     }
   };
 
   const handleCustomWorkflowWrapper = () => {
-    const result = handleCustomWorkflow((jobs: string[]) => setSelectedJobs(jobs));
+    const result = handleCustomWorkflow();
     if (result) {
       setCustomWorkflowJob(result);
       setShowCustomWorkflow(true);
@@ -69,7 +69,8 @@ export const useEnhancedTableHandlers = (
   const handleDeleteSingleJobWrapper = async (jobId: string) => {
     const success = await handleDeleteSingleJob(jobId);
     if (success) {
-      setSelectedJobs(prev => prev.filter(id => id !== jobId));
+      // Update selected jobs by filtering out the deleted job
+      setSelectedJobs(normalizedJobs.filter(job => job.id !== jobId).map(job => job.id));
     }
   };
 
