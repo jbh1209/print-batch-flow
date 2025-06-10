@@ -45,14 +45,14 @@ export const useEnhancedTableHandlers = (
   };
 
   const handleBulkCategoryAssignWrapper = () => {
-    const result = handleBulkCategoryAssign();
+    const result = handleBulkCategoryAssign(setSelectedJobs);
     if (result) {
       setCategoryAssignJob(result);
     }
   };
 
   const handleCustomWorkflowWrapper = () => {
-    const result = handleCustomWorkflow();
+    const result = handleCustomWorkflow(setSelectedJobs);
     if (result) {
       setCustomWorkflowJob(result);
       setShowCustomWorkflow(true);
