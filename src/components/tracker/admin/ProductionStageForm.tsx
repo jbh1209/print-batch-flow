@@ -49,15 +49,16 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
 
   useEffect(() => {
     if (stage) {
-      // Properly handle part_definitions from database
+      console.log('🔧 ProductionStageForm received stage:', stage);
+      
+      // The stage should already have properly typed part_definitions from the hook
       let partDefinitions: string[] = [];
       
       if (stage.part_definitions) {
-        // If it's already an array, use it directly
         if (Array.isArray(stage.part_definitions)) {
           partDefinitions = stage.part_definitions;
         } else {
-          // If it's a string (shouldn't happen with proper JSONB), try to parse it
+          console.warn('⚠️ part_definitions is not an array, attempting to parse:', stage.part_definitions);
           try {
             partDefinitions = typeof stage.part_definitions === 'string' 
               ? JSON.parse(stage.part_definitions) 
@@ -68,7 +69,7 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
         }
       }
 
-      setFormData({
+      const updatedFormData = {
         name: stage.name,
         description: stage.description || '',
         color: stage.color,
@@ -76,7 +77,10 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
         is_active: stage.is_active,
         is_multi_part: stage.is_multi_part || false,
         part_definitions: partDefinitions
-      });
+      };
+
+      console.log('✅ ProductionStageForm updated formData:', updatedFormData);
+      setFormData(updatedFormData);
     }
   }, [stage]);
 
@@ -85,6 +89,8 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
     setIsLoading(true);
 
     try {
+      console.log('💾 Saving stage with data:', formData);
+      
       const stageData = {
         ...formData,
         // Send part_definitions as array directly - Supabase will handle JSONB conversion
@@ -113,7 +119,7 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
       setIsOpen(false);
       onSave();
     } catch (err) {
-      console.error('Error saving production stage:', err);
+      console.error('❌ Error saving production stage:', err);
       toast.error('Failed to save production stage');
     } finally {
       setIsLoading(false);
@@ -182,12 +188,14 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
       <MultiPartStageBuilder
         isMultiPart={formData.is_multi_part}
         partDefinitions={formData.part_definitions}
-        onMultiPartChange={(isMultiPart) => 
-          setFormData(prev => ({ ...prev, is_multi_part: isMultiPart }))
-        }
-        onPartDefinitionsChange={(parts) => 
-          setFormData(prev => ({ ...prev, part_definitions: parts }))
-        }
+        onMultiPartChange={(isMultiPart) => {
+          console.log('🔄 Multi-part changed to:', isMultiPart);
+          setFormData(prev => ({ ...prev, is_multi_part: isMultiPart }));
+        }}
+        onPartDefinitionsChange={(parts) => {
+          console.log('🔄 Part definitions changed to:', parts);
+          setFormData(prev => ({ ...prev, part_definitions: parts }));
+        }}
       />
 
       <div className="flex gap-2 justify-end">

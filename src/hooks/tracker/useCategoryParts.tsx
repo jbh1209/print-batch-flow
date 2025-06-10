@@ -35,6 +35,8 @@ export const useCategoryParts = (categoryId: string | null) => {
       try {
         setIsLoading(true);
         
+        console.log('🔍 Loading category parts for category:', categoryId);
+        
         // Get all stages for this category
         const { data: categoryStages, error: stagesError } = await supabase
           .from('category_production_stages')
@@ -52,6 +54,8 @@ export const useCategoryParts = (categoryId: string | null) => {
 
         if (stagesError) throw stagesError;
 
+        console.log('📊 Raw category stages from DB:', categoryStages);
+
         // Extract parts and collect multi-part stages
         const allParts = new Set<string>();
         const multiPartStages: any[] = [];
@@ -60,11 +64,32 @@ export const useCategoryParts = (categoryId: string | null) => {
         categoryStages?.forEach(stage => {
           const stageData = stage.production_stages as any;
           
+          console.log(`🔧 Processing category stage "${stageData.name}":`, {
+            is_multi_part: stageData.is_multi_part,
+            part_definitions: stageData.part_definitions,
+            part_definitions_type: typeof stageData.part_definitions
+          });
+          
           if (stageData.is_multi_part && stageData.part_definitions) {
             hasMultiPartStages = true;
-            const parts = Array.isArray(stageData.part_definitions) 
-              ? stageData.part_definitions.map((p: any) => String(p))
-              : [];
+            
+            let parts: string[] = [];
+            
+            // Handle different possible formats of part_definitions
+            if (Array.isArray(stageData.part_definitions)) {
+              parts = stageData.part_definitions.map((p: any) => String(p));
+            } else if (typeof stageData.part_definitions === 'string') {
+              try {
+                const parsed = JSON.parse(stageData.part_definitions);
+                if (Array.isArray(parsed)) {
+                  parts = parsed.map((p: any) => String(p));
+                }
+              } catch {
+                parts = [];
+              }
+            }
+            
+            console.log(`✅ Processed parts for "${stageData.name}":`, parts);
             
             parts.forEach(part => allParts.add(part));
 
@@ -78,13 +103,16 @@ export const useCategoryParts = (categoryId: string | null) => {
           }
         });
 
-        setCategoryParts({
+        const result = {
           availableParts: Array.from(allParts),
           multiPartStages,
           hasMultiPartStages
-        });
+        };
+
+        console.log('🎯 Final category parts result:', result);
+        setCategoryParts(result);
       } catch (error) {
-        console.error('Error loading category parts:', error);
+        console.error('❌ Error loading category parts:', error);
         setCategoryParts({
           availableParts: [],
           multiPartStages: [],

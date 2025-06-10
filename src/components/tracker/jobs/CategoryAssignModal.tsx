@@ -32,7 +32,18 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
   const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
 
+  console.log('🔍 CategoryAssignModal state:', {
+    selectedCategoryId,
+    currentStep,
+    availableParts,
+    multiPartStages,
+    hasMultiPartStages,
+    isLoading,
+    partAssignments
+  });
+
   const handleCategorySelect = (categoryId: string) => {
+    console.log('📝 Category selected:', categoryId);
     setSelectedCategoryId(categoryId);
     setPartAssignments({});
     setCurrentStep('category');
@@ -44,15 +55,24 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       return;
     }
 
+    console.log('⏭️ Checking if we should move to parts step:', {
+      hasMultiPartStages,
+      availablePartsLength: availableParts.length,
+      shouldShowPartsStep: hasMultiPartStages && availableParts.length > 0
+    });
+
     if (hasMultiPartStages && availableParts.length > 0) {
+      console.log('✅ Moving to parts assignment step');
       setCurrentStep('parts');
     } else {
+      console.log('⏭️ No multi-part stages, proceeding directly to assignment');
       // No multi-part stages, proceed directly to assignment
       handleAssignment();
     }
   };
 
   const handlePartAssignmentsChange = (assignments: Record<string, string>) => {
+    console.log('🔄 Part assignments changed:', assignments);
     setPartAssignments(assignments);
   };
 
@@ -171,7 +191,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       onAssign();
       onClose();
     } catch (error) {
-      console.error('Assignment failed:', error);
+      console.error('❌ Assignment failed:', error);
       toast.error(`Failed to assign category: ${error.message}`);
     } finally {
       setIsAssigning(false);
@@ -278,7 +298,7 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
               Cancel
             </Button>
             {currentStep === 'category' && (
-              <Button onClick={handleNextStep} disabled={isAssigning || !selectedCategoryId}>
+              <Button onClick={handleNextStep} disabled={isAssigning || !selectedCategoryId || isLoading}>
                 {hasMultiPartStages && availableParts.length > 0 ? "Next: Assign Parts" : "Assign Category"}
               </Button>
             )}

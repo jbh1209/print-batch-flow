@@ -24,6 +24,8 @@ export const useProductionStages = () => {
       setIsLoading(true);
       setError(null);
       
+      console.log('🔍 Fetching production stages...');
+      
       const { data, error } = await supabase
         .from('production_stages')
         .select('*')
@@ -32,17 +34,47 @@ export const useProductionStages = () => {
 
       if (error) throw error;
 
-      // Transform the data to ensure part_definitions is properly typed as string[]
-      const transformedData = (data || []).map(stage => ({
-        ...stage,
-        part_definitions: Array.isArray(stage.part_definitions) 
-          ? stage.part_definitions.map(item => String(item))
-          : []
-      }));
+      console.log('📊 Raw production stages from DB:', data);
 
+      // Transform the data to ensure part_definitions is properly typed as string[]
+      const transformedData = (data || []).map(stage => {
+        console.log(`🔧 Processing stage "${stage.name}":`, {
+          is_multi_part: stage.is_multi_part,
+          part_definitions: stage.part_definitions,
+          part_definitions_type: typeof stage.part_definitions,
+          part_definitions_is_array: Array.isArray(stage.part_definitions)
+        });
+
+        let processedPartDefinitions: string[] = [];
+        
+        if (stage.part_definitions) {
+          if (Array.isArray(stage.part_definitions)) {
+            processedPartDefinitions = stage.part_definitions.map(item => String(item));
+          } else if (typeof stage.part_definitions === 'string') {
+            try {
+              const parsed = JSON.parse(stage.part_definitions);
+              if (Array.isArray(parsed)) {
+                processedPartDefinitions = parsed.map(item => String(item));
+              }
+            } catch {
+              processedPartDefinitions = [];
+            }
+          }
+        }
+
+        const transformed = {
+          ...stage,
+          part_definitions: processedPartDefinitions
+        };
+
+        console.log(`✅ Transformed stage "${stage.name}":`, transformed);
+        return transformed;
+      });
+
+      console.log('🎯 Final transformed stages:', transformedData);
       setStages(transformedData);
     } catch (err) {
-      console.error('Error fetching production stages:', err);
+      console.error('❌ Error fetching production stages:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load production stages";
       setError(errorMessage);
       toast.error("Failed to load production stages");
