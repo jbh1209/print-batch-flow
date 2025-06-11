@@ -77,6 +77,12 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     setSelectedJobs
   );
 
+  // Create a wrapper for the category assign complete that matches the expected signature
+  const handleCategoryAssignCompleteWrapper = () => {
+    setCategoryAssignJob(null);
+    refreshJobs();
+  };
+
   console.log("🔍 EnhancedJobsTable - Processing:", {
     totalJobs: normalizedJobs.length,
     filteredJobs: filteredAndSortedJobs.length,
@@ -134,7 +140,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
       onDeleteSingleJob={handleDeleteSingleJobWrapper}
       onCustomWorkflowFromTable={handleCustomWorkflowFromTableWrapper}
       onEditJobSave={handleEditJobSave}
-      onCategoryAssignComplete={handleCategoryAssignComplete}
+      onCategoryAssignComplete={handleCategoryAssignCompleteWrapper}
       onCustomWorkflowSuccess={handleCustomWorkflowSuccess}
       
       // Custom workflow state
