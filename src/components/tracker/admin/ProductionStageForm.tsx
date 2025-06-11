@@ -23,6 +23,11 @@ interface ProductionStage {
   master_queue_id?: string;
 }
 
+interface MasterQueueOption {
+  id: string;
+  name: string;
+}
+
 interface ProductionStageFormProps {
   stage?: ProductionStage;
   onSave: () => void;
@@ -47,7 +52,7 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
     master_queue_id: stage?.master_queue_id || undefined
   });
 
-  const [availableMasterQueues, setAvailableMasterQueues] = useState<ProductionStage[]>([]);
+  const [availableMasterQueues, setAvailableMasterQueues] = useState<MasterQueueOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
