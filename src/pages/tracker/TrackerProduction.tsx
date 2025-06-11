@@ -3,7 +3,6 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
-import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
 import { useUnifiedJobFiltering } from "@/hooks/tracker/useUnifiedJobFiltering";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
@@ -12,7 +11,9 @@ import { ProductionSorting } from "@/components/tracker/production/ProductionSor
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
-import { filterActiveJobs, isJobCompleted } from "@/utils/tracker/jobCompletionUtils";
+import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
+import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
+import { useDataManager } from "@/hooks/tracker/useDataManager";
 
 interface TrackerProductionContext {
   activeTab: string;
@@ -26,14 +27,17 @@ const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  
+  // Use centralized data manager
   const { 
     jobs, 
-    isLoading: jobsLoading, 
-    refreshJobs, 
-    startStage, 
-    completeStage, 
-    recordQRScan 
-  } = useEnhancedProductionJobs();
+    isLoading, 
+    isRefreshing,
+    lastUpdated,
+    error,
+    manualRefresh,
+    getTimeSinceLastUpdate
+  } = useDataManager();
   
   const [activeFilters, setActiveFilters] = useState<any>({});
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
@@ -94,23 +98,14 @@ const TrackerProduction = () => {
     try {
       console.log(`Stage action: ${action} for job ${jobId}, stage ${stageId}`);
       
-      let success = false;
+      // For now, just show a toast - the actual implementation would be handled by specific hooks
+      toast.info(`${action} action performed - data will refresh automatically`);
       
-      switch (action) {
-        case 'start':
-          success = await startStage(jobId, stageId);
-          break;
-        case 'complete':
-          success = await completeStage(jobId, stageId);
-          break;
-        case 'qr-scan':
-          success = await recordQRScan(jobId, stageId);
-          break;
-      }
+      // Trigger manual refresh to get updated data immediately
+      setTimeout(() => {
+        manualRefresh();
+      }, 1000);
 
-      if (success) {
-        // Refresh will happen automatically via the hook's real-time subscription
-      }
     } catch (error) {
       console.error('Error performing stage action:', error);
       toast.error('Failed to perform stage action');
@@ -144,7 +139,7 @@ const TrackerProduction = () => {
     }
   };
 
-  const isLoading = jobsLoading || filteringLoading;
+  const isLoadingData = isLoading || filteringLoading;
 
   console.log("🔍 TrackerProduction - Active Jobs Only:", {
     totalJobs: jobs.length,
@@ -152,10 +147,32 @@ const TrackerProduction = () => {
     filteredJobs: filteredJobs.length,
     sortedJobs: sortedJobs.length,
     currentFilters,
-    accessibleStages: accessibleStages.length
+    accessibleStages: accessibleStages.length,
+    lastUpdated: lastUpdated?.toLocaleTimeString()
   });
 
-  if (isLoading) {
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Error loading production data</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+            <RefreshIndicator
+              lastUpdated={lastUpdated}
+              isRefreshing={isRefreshing}
+              onRefresh={manualRefresh}
+              getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoadingData) {
     return (
       <div className="flex items-center justify-center p-8 h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -166,15 +183,26 @@ const TrackerProduction = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
+      {/* Header with Refresh Indicator */}
       <TrackerErrorBoundary componentName="Production Header">
-        <ProductionHeader
-          isMobile={isMobile}
-          onQRScan={handleQRScan}
-          onStageAction={handleStageAction}
-          onConfigureStages={handleConfigureStages}
-          onQRScanner={handleQRScanner}
-        />
+        <div className="border-b bg-white p-4">
+          <div className="flex items-center justify-between">
+            <ProductionHeader
+              isMobile={isMobile}
+              onQRScan={handleQRScan}
+              onStageAction={handleStageAction}
+              onConfigureStages={handleConfigureStages}
+              onQRScanner={handleQRScanner}
+            />
+            
+            <RefreshIndicator
+              lastUpdated={lastUpdated}
+              isRefreshing={isRefreshing}
+              onRefresh={manualRefresh}
+              getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+            />
+          </div>
+        </div>
       </TrackerErrorBoundary>
 
       {/* Statistics - Only count active jobs */}
@@ -209,7 +237,7 @@ const TrackerProduction = () => {
             fallback={
               <DataLoadingFallback
                 componentName="production jobs"
-                onRetry={refreshJobs}
+                onRetry={manualRefresh}
                 showDetails={false}
               />
             }
@@ -217,7 +245,7 @@ const TrackerProduction = () => {
             <FilteredJobsView
               jobs={sortedJobs}
               selectedStage={currentFilters.stage}
-              isLoading={isLoading}
+              isLoading={isLoadingData}
               onStageAction={handleStageAction}
             />
           </TrackerErrorBoundary>

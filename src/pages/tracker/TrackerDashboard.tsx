@@ -1,16 +1,26 @@
 
 import React from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
-import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
+import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
 import { filterActiveJobs, filterCompletedJobs } from "@/utils/tracker/jobCompletionUtils";
+import { useDataManager } from "@/hooks/tracker/useDataManager";
 
 const TrackerDashboard = () => {
-  const { jobs, isLoading: jobsLoading, error: jobsError } = useEnhancedProductionJobs();
+  const { 
+    jobs, 
+    isLoading: jobsLoading, 
+    isRefreshing,
+    lastUpdated,
+    error: jobsError,
+    manualRefresh,
+    getTimeSinceLastUpdate
+  } = useDataManager();
+  
   const { stages, isLoading: stagesLoading } = useProductionStages();
   
   const isLoading = jobsLoading || stagesLoading;
@@ -89,12 +99,17 @@ const TrackerDashboard = () => {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
-          <div className="flex items-center">
-            <AlertTriangle className="h-5 w-5 mr-2" />
+          <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Error loading dashboard</p>
               <p className="text-sm mt-1">{error}</p>
             </div>
+            <RefreshIndicator
+              lastUpdated={lastUpdated}
+              isRefreshing={isRefreshing}
+              onRefresh={manualRefresh}
+              getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+            />
           </div>
         </div>
       </div>
@@ -105,9 +120,18 @@ const TrackerDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Production Tracker Dashboard</h1>
-        <p className="text-gray-600">Monitor and manage your production workflow</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Production Tracker Dashboard</h1>
+          <p className="text-gray-600">Monitor and manage your production workflow</p>
+        </div>
+        
+        <RefreshIndicator
+          lastUpdated={lastUpdated}
+          isRefreshing={isRefreshing}
+          onRefresh={manualRefresh}
+          getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+        />
       </div>
 
       <TrackerOverviewStats stats={stats} />

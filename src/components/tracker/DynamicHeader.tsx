@@ -6,6 +6,8 @@ import { Bell, HelpCircle, LogOut, Home, Factory } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { RefreshIndicator } from "./RefreshIndicator";
+import { useDataManager } from "@/hooks/tracker/useDataManager";
 
 interface DynamicHeaderProps {
   activeTab: string;
@@ -18,6 +20,12 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
 }) => {
   const { user, signOut } = useAuth();
   const { isManager, isAdmin } = useUserRole();
+  const { 
+    lastUpdated, 
+    isRefreshing, 
+    manualRefresh, 
+    getTimeSinceLastUpdate 
+  } = useDataManager();
 
   const tabs = [
     { id: "dashboard", label: "DASHBOARD" },
@@ -69,6 +77,15 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
       </div>
 
       <div className="flex items-center space-x-4">
+        <RefreshIndicator
+          lastUpdated={lastUpdated}
+          isRefreshing={isRefreshing}
+          onRefresh={manualRefresh}
+          getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+          showTimeOnly={true}
+          className="hidden md:flex"
+        />
+        
         {(isManager || isAdmin) && (
           <Button variant="outline" size="sm" asChild>
             <Link to="/tracker/factory-floor" className="flex items-center gap-2">
