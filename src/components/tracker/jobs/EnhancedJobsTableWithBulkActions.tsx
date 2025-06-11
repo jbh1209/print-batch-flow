@@ -73,6 +73,7 @@ export const EnhancedJobsTableWithBulkActions: React.FC<EnhancedJobsTableWithBul
     setCategoryAssignJob,
     setCustomWorkflowJob,
     setShowCustomWorkflow,
+    selectedJobs,
     setSelectedJobs
   );
 
