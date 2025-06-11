@@ -12,7 +12,7 @@ import { ProductionSorting } from "@/components/tracker/production/ProductionSor
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
-import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
+import { filterActiveJobs, isJobCompleted } from "@/utils/tracker/jobCompletionUtils";
 
 interface TrackerProductionContext {
   activeTab: string;
@@ -42,14 +42,19 @@ const TrackerProduction = () => {
   // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
 
-  // Use unified filtering to get user's accessible jobs
+  // CRITICAL: Only show active jobs (exclude completed) for production tracking
+  const activeJobs = useMemo(() => {
+    return filterActiveJobs(jobs);
+  }, [jobs]);
+
+  // Use unified filtering on ONLY active jobs
   const { 
     filteredJobs, 
     jobStats, 
     accessibleStages, 
     isLoading: filteringLoading 
   } = useUnifiedJobFiltering({
-    jobs,
+    jobs: activeJobs, // Pass only active jobs
     statusFilter: currentFilters.status,
     stageFilter: currentFilters.stage,
     categoryFilter: currentFilters.category
@@ -75,11 +80,10 @@ const TrackerProduction = () => {
     });
   }, [filteredJobs, sortBy, sortOrder]);
 
-  // Get jobs without categories - filter out completed jobs using standardized function
+  // Get jobs without categories - only from active jobs
   const jobsWithoutCategory = useMemo(() => {
-    const activeJobs = filterActiveJobs(jobs);
     return activeJobs.filter(job => !job.category_id);
-  }, [jobs]);
+  }, [activeJobs]);
 
   const handleFilterChange = (filters: any) => {
     setActiveFilters(filters);
@@ -142,8 +146,9 @@ const TrackerProduction = () => {
 
   const isLoading = jobsLoading || filteringLoading;
 
-  console.log("🔍 TrackerProduction - Unified Filtering Results:", {
+  console.log("🔍 TrackerProduction - Active Jobs Only:", {
     totalJobs: jobs.length,
+    activeJobs: activeJobs.length,
     filteredJobs: filteredJobs.length,
     sortedJobs: sortedJobs.length,
     currentFilters,
@@ -172,10 +177,10 @@ const TrackerProduction = () => {
         />
       </TrackerErrorBoundary>
 
-      {/* Statistics */}
+      {/* Statistics - Only count active jobs */}
       <TrackerErrorBoundary componentName="Production Stats">
         <ProductionStats 
-          jobs={filteredJobs} // Use filtered jobs for stats
+          jobs={filteredJobs}
           jobsWithoutCategory={jobsWithoutCategory}
         />
       </TrackerErrorBoundary>

@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
+import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
 
 const StageTimer = ({ startedAt }: { startedAt?: string }) => {
   const [elapsed, setElapsed] = useState<number>(0);
@@ -257,6 +258,12 @@ const StageColumn = ({
 export const MultiStageKanban = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError, fetchJobs } = useProductionJobs();
   const { stages } = useProductionStages();
+  
+  // CRITICAL: Filter out completed jobs for kanban view
+  const activeJobs = React.useMemo(() => {
+    return filterActiveJobs(jobs);
+  }, [jobs]);
+  
   const { 
     jobStages, 
     isLoading, 
@@ -266,7 +273,7 @@ export const MultiStageKanban = () => {
     completeStage, 
     refreshStages,
     getStageMetrics 
-  } = useRealTimeJobStages(jobs);
+  } = useRealTimeJobStages(activeJobs); // Pass only active jobs
 
   const handleStageAction = async (stageId: string, action: 'start' | 'complete' | 'scan') => {
     console.log(`Stage action: ${action} on stage ${stageId}`);
@@ -314,13 +321,20 @@ export const MultiStageKanban = () => {
 
   const metrics = getStageMetrics();
 
+  console.log("🔍 MultiStageKanban - Active Jobs Only:", {
+    totalJobs: jobs.length,
+    activeJobs: activeJobs.length,
+    jobStages: jobStages.length,
+    metrics
+  });
+
   return (
     <div className="p-6">
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">Multi-Stage Production Workflow</h2>
-            <p className="text-gray-600">Real-time view of jobs across all production stages</p>
+            <p className="text-gray-600">Real-time view of active jobs across all production stages</p>
           </div>
           <div className="flex items-center gap-2">
             <Button 
@@ -345,7 +359,7 @@ export const MultiStageKanban = () => {
         <div className="mt-4 grid grid-cols-5 gap-4">
           <Card className="p-3">
             <div className="text-2xl font-bold text-blue-600">{metrics.uniqueJobs}</div>
-            <div className="text-sm text-gray-600">Jobs in Progress</div>
+            <div className="text-sm text-gray-600">Active Jobs</div>
           </Card>
           <Card className="p-3">
             <div className="text-2xl font-bold text-green-600">{metrics.activeStages}</div>
@@ -380,11 +394,11 @@ export const MultiStageKanban = () => {
           ))}
       </div>
 
-      {jobStages.length === 0 && (
+      {activeJobs.length === 0 && (
         <Card className="text-center py-12">
           <CardContent>
-            <p className="text-gray-500 text-lg">No job stages found</p>
-            <p className="text-gray-400">Jobs need to be initialized with workflows first</p>
+            <p className="text-gray-500 text-lg">No active jobs found</p>
+            <p className="text-gray-400">All jobs have been completed</p>
           </CardContent>
         </Card>
       )}
