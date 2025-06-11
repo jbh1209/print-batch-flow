@@ -11,6 +11,7 @@ interface ProductionStage {
   is_active: boolean;
   is_multi_part: boolean;
   part_definitions: string[];
+  master_queue_id?: string;
 }
 
 interface ProductionStagesListProps {
@@ -46,6 +47,7 @@ export const ProductionStagesList: React.FC<ProductionStagesListProps> = ({
           onMoveStage={onMoveStage}
           onStageUpdate={onStageUpdate}
           onDeleteStage={onDeleteStage}
+          allStages={stages}
         />
       ))}
     </div>

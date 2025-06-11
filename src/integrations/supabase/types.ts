@@ -1187,6 +1187,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_multi_part: boolean
+          master_queue_id: string | null
           name: string
           order_index: number
           part_definitions: Json | null
@@ -1199,6 +1200,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_multi_part?: boolean
+          master_queue_id?: string | null
           name: string
           order_index?: number
           part_definitions?: Json | null
@@ -1211,12 +1213,21 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_multi_part?: boolean
+          master_queue_id?: string | null
           name?: string
           order_index?: number
           part_definitions?: Json | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "production_stages_master_queue_id_fkey"
+            columns: ["master_queue_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

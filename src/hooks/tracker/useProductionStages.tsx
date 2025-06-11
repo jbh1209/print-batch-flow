@@ -12,6 +12,7 @@ interface ProductionStage {
   is_active: boolean;
   is_multi_part: boolean;
   part_definitions: string[]; // Keep as required and properly typed
+  master_queue_id?: string;
 }
 
 export const useProductionStages = () => {
@@ -42,7 +43,8 @@ export const useProductionStages = () => {
           is_multi_part: stage.is_multi_part,
           part_definitions: stage.part_definitions,
           part_definitions_type: typeof stage.part_definitions,
-          part_definitions_is_array: Array.isArray(stage.part_definitions)
+          part_definitions_is_array: Array.isArray(stage.part_definitions),
+          master_queue_id: stage.master_queue_id
         });
 
         let processedPartDefinitions: string[] = [];
@@ -64,7 +66,8 @@ export const useProductionStages = () => {
 
         const transformed = {
           ...stage,
-          part_definitions: processedPartDefinitions
+          part_definitions: processedPartDefinitions,
+          master_queue_id: stage.master_queue_id || undefined
         };
 
         console.log(`✅ Transformed stage "${stage.name}":`, transformed);

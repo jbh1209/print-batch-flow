@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiPartStageBuilder } from "./MultiPartStageBuilder";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ interface ProductionStage {
   is_active: boolean;
   is_multi_part: boolean;
   part_definitions: string[];
+  master_queue_id?: string;
 }
 
 interface ProductionStageFormProps {
@@ -41,11 +43,38 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
     order_index: stage?.order_index || 0,
     is_active: stage?.is_active ?? true,
     is_multi_part: stage?.is_multi_part || false,
-    part_definitions: stage?.part_definitions || []
+    part_definitions: stage?.part_definitions || [],
+    master_queue_id: stage?.master_queue_id || undefined
   });
 
+  const [availableMasterQueues, setAvailableMasterQueues] = useState<ProductionStage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Fetch available stages that can be master queues
+  useEffect(() => {
+    const fetchMasterQueues = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('production_stages')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name');
+
+        if (error) throw error;
+        
+        // Filter out the current stage to prevent self-reference
+        const filteredData = (data || []).filter(s => s.id !== stage?.id);
+        setAvailableMasterQueues(filteredData);
+      } catch (error) {
+        console.error('Error fetching master queues:', error);
+      }
+    };
+
+    if (isOpen) {
+      fetchMasterQueues();
+    }
+  }, [isOpen, stage?.id]);
 
   useEffect(() => {
     if (stage) {
@@ -76,7 +105,8 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
         order_index: stage.order_index,
         is_active: stage.is_active,
         is_multi_part: stage.is_multi_part || false,
-        part_definitions: partDefinitions
+        part_definitions: partDefinitions,
+        master_queue_id: stage.master_queue_id || undefined
       };
 
       console.log('✅ ProductionStageForm updated formData:', updatedFormData);
@@ -94,7 +124,8 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
       const stageData = {
         ...formData,
         // Send part_definitions as array directly - Supabase will handle JSONB conversion
-        part_definitions: formData.part_definitions
+        part_definitions: formData.part_definitions,
+        master_queue_id: formData.master_queue_id || null
       };
 
       if (stage?.id) {
@@ -151,6 +182,31 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               rows={3}
             />
+          </div>
+
+          <div>
+            <Label htmlFor="master_queue">Master Queue (Optional)</Label>
+            <Select
+              value={formData.master_queue_id || "none"}
+              onValueChange={(value) => 
+                setFormData(prev => ({ 
+                  ...prev, 
+                  master_queue_id: value === "none" ? undefined : value 
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a master queue or leave independent" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Independent Queue</SelectItem>
+                {availableMasterQueues.map((queue) => (
+                  <SelectItem key={queue.id} value={queue.id}>
+                    {queue.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

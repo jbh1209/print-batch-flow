@@ -12,6 +12,7 @@ interface ProductionStage {
   is_active: boolean;
   is_multi_part: boolean;
   part_definitions: string[];
+  master_queue_id?: string;
 }
 
 interface ProductionStageCardProps {
@@ -20,6 +21,7 @@ interface ProductionStageCardProps {
   onMoveStage: (stageId: string, direction: 'up' | 'down') => Promise<void>;
   onStageUpdate: () => void;
   onDeleteStage: (stageId: string) => Promise<boolean>;
+  allStages?: ProductionStage[];
 }
 
 export const ProductionStageCard: React.FC<ProductionStageCardProps> = ({
@@ -27,8 +29,13 @@ export const ProductionStageCard: React.FC<ProductionStageCardProps> = ({
   maxOrderIndex,
   onMoveStage,
   onStageUpdate,
-  onDeleteStage
+  onDeleteStage,
+  allStages = []
 }) => {
+  const masterQueue = stage.master_queue_id 
+    ? allStages.find(s => s.id === stage.master_queue_id)
+    : null;
+
   return (
     <div className="flex items-center justify-between p-4 border rounded-lg">
       <div className="flex items-center gap-4">
@@ -42,6 +49,11 @@ export const ProductionStageCard: React.FC<ProductionStageCardProps> = ({
             <Badge variant="outline">Order: {stage.order_index}</Badge>
             {!stage.is_active && <Badge variant="secondary">Inactive</Badge>}
             {stage.is_multi_part && <Badge variant="default">Multi-Part</Badge>}
+            {masterQueue && (
+              <Badge variant="outline" className="text-blue-600 border-blue-200">
+                → {masterQueue.name}
+              </Badge>
+            )}
           </div>
           {stage.description && (
             <p className="text-sm text-gray-600">{stage.description}</p>

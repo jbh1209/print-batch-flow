@@ -84,6 +84,47 @@ export const useDataManager = () => {
     return data || [];
   }, []);
 
+  // New function to group stages by master queue
+  const groupStagesByMasterQueue = useCallback((stages: any[]) => {
+    const masterQueues = new Map();
+    const independentStages = [];
+
+    stages.forEach(stage => {
+      if (stage.master_queue_id) {
+        // This stage belongs to a master queue
+        const masterStage = stages.find(s => s.id === stage.master_queue_id);
+        if (masterStage) {
+          if (!masterQueues.has(stage.master_queue_id)) {
+            masterQueues.set(stage.master_queue_id, {
+              ...masterStage,
+              subsidiaryStages: []
+            });
+          }
+          masterQueues.get(stage.master_queue_id).subsidiaryStages.push(stage);
+        }
+      } else {
+        // Check if this stage is a master queue for other stages
+        const hasSubordinates = stages.some(s => s.master_queue_id === stage.id);
+        if (hasSubordinates) {
+          if (!masterQueues.has(stage.id)) {
+            masterQueues.set(stage.id, {
+              ...stage,
+              subsidiaryStages: []
+            });
+          }
+        } else {
+          // Independent stage
+          independentStages.push(stage);
+        }
+      }
+    });
+
+    return {
+      masterQueues: Array.from(masterQueues.values()),
+      independentStages
+    };
+  }, []);
+
   const loadData = useCallback(async (isManualRefresh = false) => {
     if (!user?.id) return;
 
@@ -228,6 +269,7 @@ export const useDataManager = () => {
     lastUpdated: state.lastUpdated,
     error: state.error,
     manualRefresh,
-    getTimeSinceLastUpdate
+    getTimeSinceLastUpdate,
+    groupStagesByMasterQueue
   };
 };
