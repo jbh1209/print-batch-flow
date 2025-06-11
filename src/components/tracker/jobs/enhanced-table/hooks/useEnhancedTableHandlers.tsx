@@ -9,6 +9,7 @@ export const useEnhancedTableHandlers = (
   setCategoryAssignJob: (job: any) => void,
   setCustomWorkflowJob: (job: any) => void,
   setShowCustomWorkflow: (show: boolean) => void,
+  selectedJobs: string[],
   setSelectedJobs: (jobs: string[]) => void
 ) => {
   // Business logic handlers
@@ -45,14 +46,14 @@ export const useEnhancedTableHandlers = (
   };
 
   const handleBulkCategoryAssignWrapper = () => {
-    const result = handleBulkCategoryAssign(setSelectedJobs);
+    const result = handleBulkCategoryAssign(selectedJobs);
     if (result) {
       setCategoryAssignJob(result);
     }
   };
 
   const handleCustomWorkflowWrapper = () => {
-    const result = handleCustomWorkflow(setSelectedJobs);
+    const result = handleCustomWorkflow(selectedJobs);
     if (result) {
       setCustomWorkflowJob(result);
       setShowCustomWorkflow(true);
