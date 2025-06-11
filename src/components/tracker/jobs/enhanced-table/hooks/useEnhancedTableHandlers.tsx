@@ -19,7 +19,8 @@ export const useEnhancedTableHandlers = (
     handleCustomWorkflowFromTable,
     handleBulkCategoryAssign,
     handleCustomWorkflow,
-    handleDeleteSingleJob
+    handleDeleteSingleJob,
+    handleCategoryAssignmentComplete
   } = useEnhancedTableBusinessLogic(normalizedJobs, refreshJobs);
 
   const handleEditJobWrapper = (job: any) => {
@@ -40,9 +41,13 @@ export const useEnhancedTableHandlers = (
     refreshJobs();
   };
 
-  const handleCategoryAssignComplete = () => {
-    setCategoryAssignJob(null);
-    refreshJobs();
+  const handleCategoryAssignComplete = async (job: any, categoryId: string, partAssignments?: Record<string, string>) => {
+    const success = await handleCategoryAssignmentComplete(job, categoryId, partAssignments);
+    if (success) {
+      setCategoryAssignJob(null);
+      refreshJobs();
+    }
+    return success;
   };
 
   const handleBulkCategoryAssignWrapper = () => {
@@ -71,7 +76,8 @@ export const useEnhancedTableHandlers = (
     const success = await handleDeleteSingleJob(jobId);
     if (success) {
       // Update selected jobs by filtering out the deleted job
-      setSelectedJobs(normalizedJobs.filter(job => job.id !== jobId).map(job => job.id));
+      setSelectedJobs(selectedJobs.filter(id => id !== jobId));
+      refreshJobs();
     }
   };
 

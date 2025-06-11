@@ -1842,6 +1842,15 @@ export type Database = {
         Args: { check_user_id?: string }
         Returns: boolean
       }
+      repair_jobs_missing_stages: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          repaired_job_id: string
+          job_wo_no: string
+          category_name: string
+          stages_created: number
+        }[]
+      }
       revoke_user_role: {
         Args: { target_user_id: string }
         Returns: boolean
