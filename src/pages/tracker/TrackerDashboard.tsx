@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
@@ -6,7 +7,7 @@ import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOver
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
-import { getJobCounts, isJobCompleted } from "@/utils/tracker/jobCompletionUtils";
+import { filterActiveJobs, filterCompletedJobs } from "@/utils/tracker/jobCompletionUtils";
 
 const TrackerDashboard = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError } = useEnhancedProductionJobs();
@@ -17,7 +18,8 @@ const TrackerDashboard = () => {
   
   // Calculate real-time stats from actual production jobs and stages using unified logic
   const getJobStats = () => {
-    const { activeJobs, completedJobs } = getJobCounts(jobs);
+    const activeJobs = filterActiveJobs(jobs);
+    const completedJobs = filterCompletedJobs(jobs);
     const statusCounts: Record<string, number> = {};
     
     // Initialize all actual stages with 0

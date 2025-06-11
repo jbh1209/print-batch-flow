@@ -12,6 +12,7 @@ import { ProductionSorting } from "@/components/tracker/production/ProductionSor
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
+import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
 
 interface TrackerProductionContext {
   activeTab: string;
@@ -74,9 +75,10 @@ const TrackerProduction = () => {
     });
   }, [filteredJobs, sortBy, sortOrder]);
 
-  // Get jobs without categories (need category assignment instead of workflow init)
+  // Get jobs without categories - filter out completed jobs using standardized function
   const jobsWithoutCategory = useMemo(() => {
-    return jobs.filter(job => !job.category_id);
+    const activeJobs = filterActiveJobs(jobs);
+    return activeJobs.filter(job => !job.category_id);
   }, [jobs]);
 
   const handleFilterChange = (filters: any) => {
