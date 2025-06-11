@@ -19,10 +19,13 @@ interface DtpWorkflowActionsProps {
   printingStages: PrintingStage[];
   selectedPrintingStage: string;
   isAssigning: boolean;
+  proofEmailed?: boolean;
+  proofEmailedAt?: string;
   onStartDtp: () => void;
   onCompleteDtp: () => void;
   onStartProof: () => void;
   onProofEmailed: () => void;
+  onProofApproved?: () => void;
   onPartAssignmentsChange: (assignments: Record<string, string>) => void;
   onSelectedPrintingStageChange: (stageId: string) => void;
   onAdvanceToPartSpecificPrinting: () => void;
@@ -39,10 +42,13 @@ export const DtpWorkflowActions: React.FC<DtpWorkflowActionsProps> = ({
   printingStages,
   selectedPrintingStage,
   isAssigning,
+  proofEmailed = false,
+  proofEmailedAt,
   onStartDtp,
   onCompleteDtp,
   onStartProof,
   onProofEmailed,
+  onProofApproved,
   onPartAssignmentsChange,
   onSelectedPrintingStageChange,
   onAdvanceToPartSpecificPrinting,
@@ -54,13 +60,16 @@ export const DtpWorkflowActions: React.FC<DtpWorkflowActionsProps> = ({
         currentStage={currentStage}
         stageStatus={stageStatus}
         isLoading={isLoading}
+        proofEmailed={proofEmailed}
+        proofEmailedAt={proofEmailedAt}
         onStartDtp={onStartDtp}
         onCompleteDtp={onCompleteDtp}
         onStartProof={onStartProof}
         onProofEmailed={onProofEmailed}
+        onProofApproved={onProofApproved}
       />
       
-      {currentStage === 'proof' && stageStatus === 'active' && (
+      {currentStage === 'proof' && stageStatus === 'active' && (proofEmailed || proofEmailedAt) && (
         <ProofAdvancementSection
           showPartSelector={showPartSelector}
           jobParts={jobParts}

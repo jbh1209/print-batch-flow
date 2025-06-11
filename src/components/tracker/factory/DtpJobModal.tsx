@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   Dialog,
@@ -32,6 +33,15 @@ interface DtpJobModalProps {
   onComplete?: (jobId: string, stageId: string) => Promise<boolean>;
 }
 
+interface StageInstance {
+  id: string;
+  status: string;
+  proof_emailed_at?: string;
+  proof_approved_manually_at?: string;
+  client_email?: string;
+  client_name?: string;
+}
+
 export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   job,
   isOpen,
@@ -50,7 +60,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const [showPartSelector, setShowPartSelector] = useState(false);
   const [localJobStatus, setLocalJobStatus] = useState(job.status);
   const [localStageStatus, setLocalStageStatus] = useState(job.current_stage_status);
-  const [proofEmailed, setProofEmailed] = useState(false);
+  const [stageInstance, setStageInstance] = useState<StageInstance | null>(null);
 
   const { assignPartsToStages, getJobParts, isAssigning } = usePartPrintingAssignment();
   const { printingStages: existingPrintingStages, isLoading: printingStagesLoading } = useJobPrintingStages(job.job_id);
@@ -68,7 +78,20 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
         // Reset local state when modal opens
         setLocalJobStatus(job.status);
         setLocalStageStatus(job.current_stage_status);
-        setProofEmailed(false);
+        
+        // Load current stage instance data
+        if (job.current_stage_id) {
+          const { data: stageData } = await supabase
+            .from('job_stage_instances')
+            .select('id, status, proof_emailed_at, proof_approved_manually_at, client_email, client_name')
+            .eq('job_id', job.job_id)
+            .eq('production_stage_id', job.current_stage_id)
+            .single();
+          
+          if (stageData) {
+            setStageInstance(stageData);
+          }
+        }
         
         // Load all available printing stages
         const { data: stages } = await supabase
@@ -96,7 +119,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       };
       loadData();
     }
-  }, [isOpen, job.category_id, job.job_id, job.status, job.current_stage_status, getJobParts, existingPrintingStages]);
+  }, [isOpen, job.category_id, job.job_id, job.status, job.current_stage_status, job.current_stage_id, getJobParts, existingPrintingStages]);
 
   const getCurrentStage = () => {
     const stageName = job.current_stage_name?.toLowerCase() || '';
@@ -116,8 +139,9 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     if (onStart && job.current_stage_id) {
       const success = await onStart(job.job_id, job.current_stage_id);
       if (success) {
+        setLocalStageStatus('active');
+        setLocalJobStatus('In Progress');
         onRefresh?.();
-        onClose();
       }
       return;
     }
@@ -148,9 +172,10 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
       if (jobError) throw jobError;
 
+      setLocalStageStatus('active');
+      setLocalJobStatus('In Progress');
       toast.success("DTP work started");
       onRefresh?.();
-      onClose();
     } catch (error) {
       console.error('Error starting DTP:', error);
       toast.error("Failed to start DTP work");
@@ -249,40 +274,72 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const handleProofEmailed = async () => {
     setIsLoading(true);
     
-    // Optimistic update
-    setProofEmailed(true);
-    setLocalJobStatus('Awaiting Client Sign Off');
+    const currentTime = new Date().toISOString();
     
     try {
+      // Update the stage instance with proof emailed timestamp
       const { error: proofError } = await supabase
         .from('job_stage_instances')
         .update({
-          proof_emailed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          proof_emailed_at: currentTime,
+          updated_at: currentTime
         })
         .eq('job_id', job.job_id)
         .eq('production_stage_id', job.current_stage_id);
 
       if (proofError) throw proofError;
 
+      // Update the job status
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({
           status: 'Awaiting Client Sign Off',
-          updated_at: new Date().toISOString()
+          updated_at: currentTime
         })
         .eq('id', job.job_id);
 
       if (jobError) throw jobError;
 
+      // Update local state to reflect changes
+      setLocalJobStatus('Awaiting Client Sign Off');
+      setStageInstance(prev => prev ? { ...prev, proof_emailed_at: currentTime } : null);
+
       toast.success("Proof marked as emailed");
       onRefresh?.();
     } catch (error) {
       console.error('Error marking proof as emailed:', error);
-      // Revert optimistic update
-      setProofEmailed(false);
-      setLocalJobStatus(job.status);
       toast.error("Failed to mark proof as emailed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleProofApproved = async () => {
+    setIsLoading(true);
+    
+    try {
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          proof_approved_manually_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stageInstance?.id);
+
+      if (updateError) throw updateError;
+
+      // Complete the current stage and advance
+      if (onComplete && job.current_stage_id) {
+        const success = await onComplete(job.job_id, job.current_stage_id);
+        if (success) {
+          toast.success('Proof approved and job advanced');
+          onRefresh?.();
+          onClose();
+        }
+      }
+    } catch (error) {
+      console.error('Error marking proof as approved:', error);
+      toast.error('Failed to mark proof as approved');
     } finally {
       setIsLoading(false);
     }
@@ -399,6 +456,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   };
 
   const renderProofActions = () => {
+    const hasProofBeenEmailed = stageInstance?.proof_emailed_at;
+
     if (stageStatus === 'pending') {
       return (
         <Button 
@@ -413,83 +472,88 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     }
 
     if (stageStatus === 'active') {
-      return (
-        <div className="space-y-3">
+      if (hasProofBeenEmailed) {
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-md">
+              <Mail className="h-4 w-4" />
+              <span className="text-sm font-medium">Proof Emailed - Awaiting Client Response</span>
+            </div>
+            
+            <div className="text-xs text-gray-500 text-center">
+              Emailed: {new Date(hasProofBeenEmailed).toLocaleDateString()} at {new Date(hasProofBeenEmailed).toLocaleTimeString()}
+            </div>
+
+            <Button 
+              onClick={handleProofApproved}
+              disabled={isLoading}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              <ThumbsUp className="h-4 w-4 mr-2" />
+              Mark as Approved & Advance
+            </Button>
+
+            {/* Show printing stage selection after proof is emailed */}
+            <Label className="text-sm font-medium">Assigned Printing Stages:</Label>
+            <div className="space-y-2">
+              {existingPrintingStages.map((stage, index) => (
+                <div key={stage.id} className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
+                  <div 
+                    className="w-4 h-4 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: stage.color }}
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium">{stage.name}</div>
+                    {stage.part_name && (
+                      <div className="text-sm text-gray-500">Part: {stage.part_name}</div>
+                    )}
+                  </div>
+                  <Select 
+                    value={index === 0 ? selectedPrintingStage || stage.id : stage.id} 
+                    onValueChange={(value) => {
+                      if (index === 0) {
+                        setSelectedPrintingStage(value);
+                      }
+                    }}
+                    disabled={index !== 0}
+                  >
+                    <SelectTrigger className={cn(
+                      "w-48",
+                      index !== 0 && "opacity-50 cursor-not-allowed"
+                    )}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allPrintingStages.map((availableStage) => (
+                        <SelectItem key={availableStage.id} value={availableStage.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: availableStage.color }}
+                            />
+                            {availableStage.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      } else {
+        return (
           <Button 
             onClick={handleProofEmailed}
-            disabled={isLoading || proofEmailed}
-            className={cn(
-              "w-full",
-              proofEmailed 
-                ? "bg-blue-500 cursor-not-allowed" 
-                : "bg-blue-600 hover:bg-blue-700"
-            )}
+            disabled={isLoading}
+            className="w-full bg-blue-600 hover:bg-blue-700"
           >
             <Mail className="h-4 w-4 mr-2" />
-            {proofEmailed ? "Proof Emailed ✓" : "Proof Emailed"}
+            Proof Emailed
           </Button>
-          
-          {(proofEmailed || localJobStatus === 'Awaiting Client Sign Off') && (
-            <>
-              <Label className="text-sm font-medium">Assigned Printing Stages:</Label>
-              <div className="space-y-2">
-                {existingPrintingStages.map((stage, index) => (
-                  <div key={stage.id} className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
-                    <div 
-                      className="w-4 h-4 rounded-full flex-shrink-0" 
-                      style={{ backgroundColor: stage.color }}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium">{stage.name}</div>
-                      {stage.part_name && (
-                        <div className="text-sm text-gray-500">Part: {stage.part_name}</div>
-                      )}
-                    </div>
-                    <Select 
-                      value={index === 0 ? selectedPrintingStage || stage.id : stage.id} 
-                      onValueChange={(value) => {
-                        if (index === 0) {
-                          setSelectedPrintingStage(value);
-                        }
-                      }}
-                      disabled={index !== 0}
-                    >
-                      <SelectTrigger className={cn(
-                        "w-48",
-                        index !== 0 && "opacity-50 cursor-not-allowed"
-                      )}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allPrintingStages.map((availableStage) => (
-                          <SelectItem key={availableStage.id} value={availableStage.id}>
-                            <div className="flex items-center gap-2">
-                              <div 
-                                className="w-3 h-3 rounded-full" 
-                                style={{ backgroundColor: availableStage.color }}
-                              />
-                              {availableStage.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
-              </div>
-              
-              <Button 
-                onClick={handleAdvanceToPrintingStage}
-                disabled={!selectedPrintingStage || isLoading}
-                className="w-full bg-gray-800 hover:bg-gray-900"
-              >
-                <ArrowRight className="h-4 w-4 mr-1" />
-                Advance to Printing
-              </Button>
-            </>
-          )}
-        </div>
-      );
+        );
+      }
     }
 
     return null;
