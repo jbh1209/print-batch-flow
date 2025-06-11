@@ -44,9 +44,14 @@ export const useUnifiedJobFiltering = ({
       stageFilter
     });
 
-    // ALWAYS filter out completed jobs first, unless specifically filtering for completed status
+    // COMPLETION FILTERING: Apply completion filter first based on status filter
     let jobsToFilter = jobs;
-    if (statusFilter !== 'completed') {
+    if (statusFilter === 'completed') {
+      // Show ONLY completed jobs
+      jobsToFilter = jobs.filter(job => isJobCompleted(job));
+      console.log(`🔍 Showing completed jobs only: ${jobs.length} -> ${jobsToFilter.length}`);
+    } else {
+      // Show ONLY active jobs (exclude completed)
       jobsToFilter = filterActiveJobs(jobs);
       console.log(`🔍 Filtered out completed jobs: ${jobs.length} -> ${jobsToFilter.length}`);
     }
@@ -57,7 +62,7 @@ export const useUnifiedJobFiltering = ({
       
       return jobsToFilter.filter(job => {
         // Apply basic filters for admins - no stage/permission restrictions
-        if (statusFilter && statusFilter !== 'completed' && job.status?.toLowerCase() !== statusFilter.toLowerCase()) {
+        if (statusFilter && statusFilter !== 'completed' && job.status !== statusFilter) {
           return false;
         }
 
@@ -95,7 +100,7 @@ export const useUnifiedJobFiltering = ({
 
     // For non-admin users, use the existing permission-based filtering
     return applyJobFilters(
-      jobsToFilter, // Use already filtered jobs (no completed)
+      jobsToFilter, // Use already filtered jobs (completed or active based on statusFilter)
       accessibleStageIds,
       accessibleStageNames,
       statusFilter,

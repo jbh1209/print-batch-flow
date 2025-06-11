@@ -1,3 +1,4 @@
+
 import type { AccessibleJob } from './types';
 import { isJobCompleted } from '@/utils/tracker/jobCompletionUtils';
 
@@ -20,27 +21,23 @@ export interface JobCategories {
 }
 
 export const processJobStatus = (job: AccessibleJob): 'pending' | 'active' | 'completed' => {
-  // Use the standardized completion check first
+  // Use the standardized completion check first - SINGLE SOURCE OF TRUTH
   if (isJobCompleted(job)) {
     return 'completed';
   }
 
-  // Check if job has workflow stages - prioritize workflow status
-  if (job.current_stage_status) {
-    if (job.current_stage_status === 'active') return 'active';
-    if (job.current_stage_status === 'pending') return 'pending';
-  }
+  // For non-completed jobs, determine if they're active or pending
+  // Check if job has workflow stages and any are active
+  if (job.current_stage_status === 'active') return 'active';
   
-  // Check if job has any active workflow
-  if (job.workflow_progress !== undefined && job.workflow_progress > 0 && job.workflow_progress < 100) {
+  // Check if job has workflow progress indicating it's started
+  if (job.workflow_progress !== undefined && job.workflow_progress > 0) {
     return 'active';
   }
   
-  // Fallback to job status for jobs without workflows
+  // Check job status for production indicators
   const status = job.status?.toLowerCase() || '';
-  
-  // Check for active status indicators
-  const activeStatuses = ['printing', 'finishing', 'production', 'pre-press', 'packaging', 'active', 'in-progress'];
+  const activeStatuses = ['production', 'printing', 'finishing', 'packaging'];
   if (activeStatuses.some(activeStatus => status.includes(activeStatus))) {
     return 'active';
   }
@@ -64,7 +61,7 @@ export const isJobDueSoon = (job: AccessibleJob): boolean => {
 };
 
 export const categorizeJobs = (jobs: AccessibleJob[]): JobCategories => {
-  // Filter out completed jobs for active categories
+  // Filter out completed jobs for active categories using standardized check
   const activeJobs = jobs.filter(job => !isJobCompleted(job));
   
   const pendingJobs = activeJobs.filter(job => processJobStatus(job) === 'pending');

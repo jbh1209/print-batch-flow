@@ -30,7 +30,7 @@ export const applyJobFilters = (
     }
 
     // Apply additional user filters
-    if (statusFilter && job.status?.toLowerCase() !== statusFilter.toLowerCase()) {
+    if (statusFilter && statusFilter !== 'completed' && job.status !== statusFilter) {
       return false;
     }
 

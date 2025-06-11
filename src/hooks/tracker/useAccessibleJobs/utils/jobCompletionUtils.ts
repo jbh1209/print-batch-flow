@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const completeJobStage = async (jobId: string, stageId: string): Promise<boolean> => {
-  console.log('✅ Completing job:', { jobId, stageId });
+  console.log('✅ Completing job stage:', { jobId, stageId });
   
   try {
     // Use the advance_job_stage RPC function to properly complete and advance the job
@@ -67,25 +67,7 @@ export const markJobAsCompleted = async (jobId: string): Promise<boolean> => {
   console.log('🎯 markJobCompleted called for job:', jobId);
   
   try {
-    // First, check the current job status (removed current_stage reference)
-    const { data: currentJob, error: fetchError } = await supabase
-      .from('production_jobs')
-      .select('id, wo_no, status')
-      .eq('id', jobId)
-      .single();
-
-    if (fetchError) {
-      console.error('❌ Error fetching current job data:', fetchError);
-      return false;
-    }
-
-    console.log('📊 Current job state before completion:', {
-      jobId,
-      wo_no: currentJob?.wo_no,
-      currentStatus: currentJob?.status
-    });
-
-    // SIMPLE APPROACH: Just mark the job as completed with proper case
+    // SIMPLE APPROACH: Just mark the job as completed with exact case "Completed"
     const { error: jobError } = await supabase
       .from('production_jobs')
       .update({ 
@@ -119,23 +101,6 @@ export const markJobAsCompleted = async (jobId: string): Promise<boolean> => {
       console.warn('⚠️ Could not update job stages, but job marked completed:', stageError);
     } else {
       console.log('✅ Job stages also marked as completed');
-    }
-
-    // Verify the update worked
-    const { data: updatedJob, error: verifyError } = await supabase
-      .from('production_jobs')
-      .select('id, wo_no, status')
-      .eq('id', jobId)
-      .single();
-
-    if (verifyError) {
-      console.warn('⚠️ Could not verify job update:', verifyError);
-    } else {
-      console.log('🔍 Job after completion:', {
-        jobId: updatedJob.id,
-        wo_no: updatedJob.wo_no,
-        newStatus: updatedJob.status
-      });
     }
 
     console.log('✅ Job marked as completed successfully');

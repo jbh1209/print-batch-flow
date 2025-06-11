@@ -13,15 +13,13 @@ export interface JobLike {
 /**
  * SIMPLE: Check if job is completed based ONLY on job status
  * This is the single source of truth for completion status
- * Handles both "completed" and "Completed" cases for compatibility
+ * ONLY checks for exact match: "Completed"
  */
 export const isJobCompleted = (job: JobLike): boolean => {
   if (!job) return false;
-
-  const status = job.status?.toLowerCase() || '';
   
-  // Simple check: completed jobs have status = "completed" or "Completed"
-  return status === 'completed';
+  // Simple check: completed jobs have status = "Completed" (exact match)
+  return job.status === 'Completed';
 };
 
 /**
