@@ -125,70 +125,72 @@ export const GroupStagePermissions = () => {
   const savePermissions = async () => {
     try {
       setSaving(true);
-      console.log('Starting permission save process...');
+      console.log('Starting save process...');
 
-      // Get all unique group IDs from our current state
-      const groupIds = userGroups.map(g => g.id);
-      
-      if (groupIds.length === 0) {
-        console.log('No groups found, skipping save');
+      // Simple validation
+      if (userGroups.length === 0) {
         toast.error('No user groups found');
         return;
       }
 
-      console.log('Deleting existing permissions for groups:', groupIds);
+      // Get current group IDs
+      const groupIds = userGroups.map(g => g.id);
+      console.log('Processing groups:', groupIds);
 
-      // Delete existing permissions for these groups
+      // Clear existing permissions for these groups
       const { error: deleteError } = await supabase
         .from('user_group_stage_permissions')
         .delete()
         .in('user_group_id', groupIds);
 
       if (deleteError) {
-        console.error('Delete error:', deleteError);
-        throw deleteError;
+        console.error('Delete failed:', deleteError);
+        throw new Error(`Failed to clear existing permissions: ${deleteError.message}`);
       }
 
-      // Filter permissions to only include those with at least one permission enabled
-      const permissionsToInsert = permissions.filter(p => 
-        p.can_view || p.can_edit || p.can_work || p.can_manage
-      );
+      // Filter and validate permissions to save
+      const validPermissions = permissions.filter(p => {
+        // Only save permissions that have at least one permission enabled
+        const hasPermission = p.can_view || p.can_edit || p.can_work || p.can_manage;
+        
+        // Validate required fields
+        const isValid = p.user_group_id && 
+                       p.production_stage_id && 
+                       typeof p.can_view === 'boolean' &&
+                       typeof p.can_edit === 'boolean' &&
+                       typeof p.can_work === 'boolean' &&
+                       typeof p.can_manage === 'boolean';
 
-      console.log('Inserting permissions:', permissionsToInsert.length);
+        return hasPermission && isValid;
+      });
 
-      if (permissionsToInsert.length > 0) {
-        // Validate each permission before inserting
-        const validPermissions = permissionsToInsert.filter(p => {
-          const isValid = p.user_group_id && p.production_stage_id && 
-                         typeof p.can_view === 'boolean' &&
-                         typeof p.can_edit === 'boolean' &&
-                         typeof p.can_work === 'boolean' &&
-                         typeof p.can_manage === 'boolean';
+      console.log(`Saving ${validPermissions.length} valid permissions...`);
+
+      // Save permissions in smaller batches to avoid issues
+      if (validPermissions.length > 0) {
+        const batchSize = 10;
+        
+        for (let i = 0; i < validPermissions.length; i += batchSize) {
+          const batch = validPermissions.slice(i, i + batchSize);
           
-          if (!isValid) {
-            console.warn('Invalid permission object:', p);
-          }
-          return isValid;
-        });
-
-        if (validPermissions.length > 0) {
           const { error: insertError } = await supabase
             .from('user_group_stage_permissions')
-            .insert(validPermissions);
+            .insert(batch);
 
           if (insertError) {
-            console.error('Insert error:', insertError);
-            throw insertError;
+            console.error('Insert failed:', insertError);
+            throw new Error(`Failed to save permissions batch: ${insertError.message}`);
           }
         }
       }
 
-      console.log('Permission save completed successfully');
-      toast.success(`Successfully saved ${permissionsToInsert.length} permission assignments`);
+      console.log('Save completed successfully');
+      toast.success(`Successfully saved ${validPermissions.length} permission assignments`);
       
     } catch (error) {
-      console.error('Error saving permissions:', error);
-      toast.error(`Failed to save permissions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Save error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to save permissions: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
