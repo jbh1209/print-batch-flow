@@ -3,8 +3,7 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
-import { useProductionData } from "@/hooks/tracker/useProductionData";
-import { useProductionFiltering } from "@/hooks/tracker/useProductionFiltering";
+import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
@@ -28,18 +27,20 @@ const TrackerProduction = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
-  // Use centralized production data
+  // Use unified production data
   const { 
     jobs, 
     activeJobs,
-    availableStages,
+    consolidatedStages,
     isLoading, 
     isRefreshing,
     lastUpdated,
     error,
+    getFilteredJobs,
+    getJobStats,
     refreshJobs,
     getTimeSinceLastUpdate
-  } = useProductionData();
+  } = useUnifiedProductionData();
   
   const [activeFilters, setActiveFilters] = useState<any>({});
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
@@ -49,18 +50,20 @@ const TrackerProduction = () => {
   // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
 
-  // Use centralized filtering
-  const { 
-    filteredJobs, 
-    jobStats, 
-    accessibleStages, 
-    isLoading: filteringLoading 
-  } = useProductionFiltering({
-    jobs: activeJobs, // Use only active jobs for production view
-    statusFilter: currentFilters.status,
-    stageFilter: currentFilters.stage,
-    categoryFilter: currentFilters.category
-  });
+  // Get filtered jobs using the unified hook
+  const filteredJobs = useMemo(() => {
+    return getFilteredJobs({
+      statusFilter: currentFilters.status,
+      stageFilter: currentFilters.stage,
+      categoryFilter: currentFilters.category,
+      searchQuery: currentFilters.search
+    });
+  }, [getFilteredJobs, currentFilters]);
+
+  // Get job statistics
+  const jobStats = useMemo(() => {
+    return getJobStats(filteredJobs);
+  }, [getJobStats, filteredJobs]);
 
   // Apply sorting to the filtered jobs
   const sortedJobs = useMemo(() => {
@@ -82,7 +85,7 @@ const TrackerProduction = () => {
     });
   }, [filteredJobs, sortBy, sortOrder]);
 
-  // Get jobs without categories - only from active jobs
+  // Get jobs without categories
   const jobsWithoutCategory = useMemo(() => {
     return activeJobs.filter(job => !job.category_id);
   }, [activeJobs]);
@@ -98,9 +101,9 @@ const TrackerProduction = () => {
     setSelectedStageId(stageId);
     
     if (stageId) {
-      const stage = availableStages.find(s => s.id === stageId);
+      const stage = consolidatedStages.find(s => s.stage_id === stageId);
       if (stage) {
-        handleFilterChange({ stage: stage.display_name || stage.name });
+        handleFilterChange({ stage: stage.stage_name });
       }
     } else {
       handleFilterChange({ stage: null });
@@ -151,15 +154,13 @@ const TrackerProduction = () => {
     }
   };
 
-  const isLoadingData = isLoading || filteringLoading;
-
-  console.log("🔍 TrackerProduction - Active Jobs Only:", {
+  console.log("🔍 TrackerProduction - Unified Data:", {
     totalJobs: jobs.length,
     activeJobs: activeJobs.length,
     filteredJobs: filteredJobs.length,
     sortedJobs: sortedJobs.length,
     currentFilters,
-    accessibleStages: accessibleStages.length,
+    consolidatedStages: consolidatedStages.length,
     lastUpdated: lastUpdated?.toLocaleTimeString()
   });
 
@@ -170,6 +171,8 @@ const TrackerProduction = () => {
           selectedStageId={selectedStageId}
           onStageSelect={handleStageSelect}
           onFilterChange={handleFilterChange}
+          consolidatedStages={consolidatedStages}
+          activeJobs={activeJobs}
         />
         
         <div className="flex-1 p-6">
@@ -192,13 +195,15 @@ const TrackerProduction = () => {
     );
   }
 
-  if (isLoadingData) {
+  if (isLoading) {
     return (
       <div className="flex h-full">
         <DynamicProductionSidebar
           selectedStageId={selectedStageId}
           onStageSelect={handleStageSelect}
           onFilterChange={handleFilterChange}
+          consolidatedStages={consolidatedStages}
+          activeJobs={activeJobs}
         />
         
         <div className="flex-1 flex items-center justify-center p-8">
@@ -211,14 +216,16 @@ const TrackerProduction = () => {
 
   return (
     <div className="flex h-full">
-      {/* Restored Production Sidebar */}
+      {/* Production Sidebar */}
       <DynamicProductionSidebar
         selectedStageId={selectedStageId}
         onStageSelect={handleStageSelect}
         onFilterChange={handleFilterChange}
+        consolidatedStages={consolidatedStages}
+        activeJobs={activeJobs}
       />
       
-      {/* Main Content */}
+      {/* Main Content with proper padding */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header with Refresh Indicator */}
         <TrackerErrorBoundary componentName="Production Header">
@@ -242,50 +249,55 @@ const TrackerProduction = () => {
           </div>
         </TrackerErrorBoundary>
 
-        {/* Statistics - Only count active jobs */}
-        <TrackerErrorBoundary componentName="Production Stats">
-          <ProductionStats 
-            jobs={filteredJobs}
-            jobsWithoutCategory={jobsWithoutCategory}
-          />
-        </TrackerErrorBoundary>
-
-        {/* Info Banner */}
-        <TrackerErrorBoundary componentName="Category Info Banner">
-          <CategoryInfoBanner 
-            jobsWithoutCategoryCount={jobsWithoutCategory.length}
-          />
-        </TrackerErrorBoundary>
-
-        {/* Sorting Controls */}
-        <TrackerErrorBoundary componentName="Production Sorting">
-          <ProductionSorting
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onSort={handleSort}
-          />
-        </TrackerErrorBoundary>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-hidden">
-          <div className="h-full overflow-auto bg-white rounded-lg border">
-            <TrackerErrorBoundary 
-              componentName="Jobs View"
-              fallback={
-                <DataLoadingFallback
-                  componentName="production jobs"
-                  onRetry={refreshJobs}
-                  showDetails={false}
-                />
-              }
-            >
-              <FilteredJobsView
-                jobs={sortedJobs}
-                selectedStage={currentFilters.stage}
-                isLoading={isLoadingData}
-                onStageAction={handleStageAction}
+        {/* Main Content Area with padding */}
+        <div className="flex-1 overflow-hidden p-6">
+          <div className="h-full flex flex-col space-y-4">
+            {/* Statistics */}
+            <TrackerErrorBoundary componentName="Production Stats">
+              <ProductionStats 
+                jobs={filteredJobs}
+                jobsWithoutCategory={jobsWithoutCategory}
               />
             </TrackerErrorBoundary>
+
+            {/* Info Banner */}
+            <TrackerErrorBoundary componentName="Category Info Banner">
+              <CategoryInfoBanner 
+                jobsWithoutCategoryCount={jobsWithoutCategory.length}
+              />
+            </TrackerErrorBoundary>
+
+            {/* Sorting Controls */}
+            <TrackerErrorBoundary componentName="Production Sorting">
+              <ProductionSorting
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+            </TrackerErrorBoundary>
+
+            {/* Jobs List */}
+            <div className="flex-1 overflow-hidden">
+              <div className="h-full overflow-auto bg-white rounded-lg border">
+                <TrackerErrorBoundary 
+                  componentName="Jobs View"
+                  fallback={
+                    <DataLoadingFallback
+                      componentName="production jobs"
+                      onRetry={refreshJobs}
+                      showDetails={false}
+                    />
+                  }
+                >
+                  <FilteredJobsView
+                    jobs={sortedJobs}
+                    selectedStage={currentFilters.stage}
+                    isLoading={isLoading}
+                    onStageAction={handleStageAction}
+                  />
+                </TrackerErrorBoundary>
+              </div>
+            </div>
           </div>
         </div>
       </div>

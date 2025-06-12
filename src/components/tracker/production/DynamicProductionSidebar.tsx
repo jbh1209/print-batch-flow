@@ -1,9 +1,8 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { 
   Settings,
   Plus,
@@ -12,22 +11,22 @@ import {
   AlertCircle,
   Play
 } from "lucide-react";
-import { useProductionData } from "@/hooks/tracker/useProductionData";
-import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
 
 interface DynamicProductionSidebarProps {
   selectedStageId?: string;
   onStageSelect: (stageId: string | null) => void;
   onFilterChange?: (filters: any) => void;
+  consolidatedStages: any[];
+  activeJobs: any[];
 }
 
 export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> = ({ 
   selectedStageId,
   onStageSelect,
-  onFilterChange 
+  onFilterChange,
+  consolidatedStages,
+  activeJobs
 }) => {
-  const { activeJobs, isLoading: jobsLoading } = useProductionData();
-  const { consolidatedStages, isLoading: stagesLoading } = useUserStagePermissions();
 
   // Count jobs by stage using display names (master queue aware)
   const getJobCountForStage = (stageName: string) => {
@@ -70,26 +69,13 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
 
   const handleAllJobsClick = () => {
     onStageSelect(null);
-    onFilterChange?.({ stage: null }); // Clear all filters to show all jobs
+    onFilterChange?.({ stage: null });
   };
 
   const handleStatusFilter = (status: string) => {
     onStageSelect(null);
     onFilterChange?.({ status: status });
   };
-
-  if (stagesLoading || jobsLoading) {
-    return (
-      <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-          <div className="h-8 bg-gray-200 rounded"></div>
-          <div className="h-8 bg-gray-200 rounded"></div>
-          <div className="h-8 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-64 bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto">
@@ -115,7 +101,7 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
             </Badge>
           </Button>
           
-          {/* Show consolidated stages (master queues + standalone stages) */}
+          {/* Show consolidated stages */}
           {consolidatedStages
             .sort((a, b) => a.stage_name.localeCompare(b.stage_name))
             .map(stage => {

@@ -2,10 +2,11 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserStagePermissions } from "./useUserStagePermissions";
 import { toast } from "sonner";
 import { formatWONumber } from "@/utils/woNumberFormatter";
 
-interface ProductionJob {
+interface UnifiedProductionJob {
   id: string;
   wo_no: string;
   customer: string;
@@ -29,9 +30,11 @@ interface ProductionJob {
   stage_status: string;
 }
 
-export const useProductionData = () => {
+export const useUnifiedProductionData = () => {
   const { user, isLoading: authLoading } = useAuth();
-  const [jobs, setJobs] = useState<ProductionJob[]>([]);
+  const { consolidatedStages, isLoading: permissionsLoading, isAdmin } = useUserStagePermissions(user?.id);
+  
+  const [jobs, setJobs] = useState<UnifiedProductionJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,9 +55,9 @@ export const useProductionData = () => {
         setIsLoading(true);
       }
 
-      console.log("🔍 Fetching production data...");
+      console.log("🔍 Fetching unified production data...");
 
-      // Fetch production jobs with categories
+      // Fetch ALL production jobs (no user filtering for production view)
       const { data: jobsData, error: jobsError } = await supabase
         .from('production_jobs')
         .select(`
@@ -106,7 +109,7 @@ export const useProductionData = () => {
       }
 
       // Process jobs with enhanced stage information
-      const processedJobs: ProductionJob[] = (jobsData || []).map(job => {
+      const processedJobs: UnifiedProductionJob[] = (jobsData || []).map(job => {
         const formattedWoNo = formatWONumber(job.wo_no);
         
         // Get stages for this job
@@ -182,12 +185,12 @@ export const useProductionData = () => {
         };
       });
 
-      console.log("✅ Production data processed:", processedJobs.length, "jobs");
+      console.log("✅ Unified production data processed:", processedJobs.length, "jobs");
       setJobs(processedJobs);
       setLastUpdated(new Date());
       
     } catch (err) {
-      console.error('❌ Error fetching production data:', err);
+      console.error('❌ Error fetching unified production data:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load production data";
       setError(errorMessage);
       toast.error("Failed to load production data");
@@ -202,28 +205,92 @@ export const useProductionData = () => {
     return jobs.filter(job => job.status !== 'Completed' && !job.is_completed);
   }, [jobs]);
 
-  // Get unique stages from accessible jobs
-  const availableStages = useMemo(() => {
-    const stageMap = new Map();
+  // Apply filtering based on user permissions and stage access
+  const getFilteredJobs = useCallback((filters?: {
+    statusFilter?: string | null;
+    stageFilter?: string | null;
+    categoryFilter?: string | null;
+    searchQuery?: string;
+  }) => {
+    const { statusFilter, stageFilter, categoryFilter, searchQuery } = filters || {};
     
-    jobs.forEach(job => {
-      if (job.current_stage_id && job.current_stage_name) {
-        const displayName = job.display_stage_name || job.current_stage_name;
-        stageMap.set(job.current_stage_id, {
-          id: job.current_stage_id,
-          name: job.current_stage_name,
-          display_name: displayName,
-          color: job.current_stage_color || '#6B7280',
-          job_count: (stageMap.get(job.current_stage_id)?.job_count || 0) + 1
-        });
-      }
-    });
-    
-    return Array.from(stageMap.values()).sort((a, b) => a.display_name.localeCompare(b.display_name));
-  }, [jobs]);
+    let filteredJobs = activeJobs;
+
+    // For non-admin users, filter by accessible stages
+    if (!isAdmin && consolidatedStages.length > 0) {
+      const accessibleStageNames = consolidatedStages.map(stage => stage.stage_name.toLowerCase());
+      
+      filteredJobs = filteredJobs.filter(job => {
+        const effectiveStageDisplay = job.display_stage_name || job.current_stage_name;
+        return effectiveStageDisplay && accessibleStageNames.includes(effectiveStageDisplay.toLowerCase());
+      });
+    }
+
+    // Apply filters
+    if (statusFilter) {
+      filteredJobs = filteredJobs.filter(job => {
+        if (statusFilter === 'completed') {
+          return job.status === 'Completed' || job.is_completed;
+        }
+        return job.status?.toLowerCase() === statusFilter.toLowerCase();
+      });
+    }
+
+    if (stageFilter) {
+      filteredJobs = filteredJobs.filter(job => {
+        const stageNameForFiltering = job.display_stage_name || job.current_stage_name;
+        return stageNameForFiltering?.toLowerCase() === stageFilter.toLowerCase();
+      });
+    }
+
+    if (categoryFilter) {
+      filteredJobs = filteredJobs.filter(job => 
+        job.category_name?.toLowerCase() === categoryFilter.toLowerCase()
+      );
+    }
+
+    if (searchQuery && searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filteredJobs = filteredJobs.filter(job => {
+        const searchFields = [
+          job.wo_no,
+          job.customer,
+          job.reference,
+          job.category_name,
+          job.status,
+          job.current_stage_name,
+          job.display_stage_name
+        ].filter(Boolean);
+
+        return searchFields.some(field => 
+          field?.toLowerCase().includes(query)
+        );
+      });
+    }
+
+    return filteredJobs;
+  }, [activeJobs, consolidatedStages, isAdmin]);
+
+  // Calculate job statistics
+  const getJobStats = useCallback((filteredJobs: UnifiedProductionJob[]) => {
+    return {
+      total: filteredJobs.length,
+      pending: filteredJobs.filter(job => job.is_pending).length,
+      active: filteredJobs.filter(job => job.is_active).length,
+      completed: filteredJobs.filter(job => job.is_completed).length,
+      urgent: filteredJobs.filter(job => {
+        if (!job.due_date) return false;
+        const dueDate = new Date(job.due_date);
+        const today = new Date();
+        const diffTime = dueDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays <= 2; // Due within 2 days
+      }).length
+    };
+  }, []);
 
   // Manual refresh function
-  const manualRefresh = useCallback(() => {
+  const refreshJobs = useCallback(() => {
     fetchJobs(true);
   }, [fetchJobs]);
 
@@ -245,17 +312,19 @@ export const useProductionData = () => {
 
   // Initial data load
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && !permissionsLoading) {
       fetchJobs();
     }
-  }, [authLoading, fetchJobs]);
+  }, [authLoading, permissionsLoading, fetchJobs]);
 
   // Real-time subscription
   useEffect(() => {
-    console.log("Setting up real-time subscription for production data");
+    if (!user?.id) return;
+
+    console.log("Setting up real-time subscription for unified production data");
 
     const channel = supabase
-      .channel(`production_data_${user?.id || 'global'}`)
+      .channel(`unified_production_${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -265,7 +334,7 @@ export const useProductionData = () => {
         },
         (payload) => {
           console.log('Production jobs changed:', payload.eventType);
-          fetchJobs(false); // Background refresh
+          fetchJobs(false);
         }
       )
       .on(
@@ -277,13 +346,13 @@ export const useProductionData = () => {
         },
         (payload) => {
           console.log('Job stage instances changed:', payload.eventType);
-          fetchJobs(false); // Background refresh
+          fetchJobs(false);
         }
       )
       .subscribe();
 
     return () => {
-      console.log("Cleaning up production data real-time subscription");
+      console.log("Cleaning up unified production real-time subscription");
       supabase.removeChannel(channel);
     };
   }, [fetchJobs, user?.id]);
@@ -292,17 +361,18 @@ export const useProductionData = () => {
     // Data
     jobs,
     activeJobs,
-    availableStages,
+    consolidatedStages,
     
     // State
-    isLoading: isLoading || authLoading,
+    isLoading: isLoading || authLoading || permissionsLoading,
     isRefreshing,
     error,
     lastUpdated,
     
-    // Actions
-    refreshJobs: manualRefresh,
-    fetchJobs,
+    // Functions
+    getFilteredJobs,
+    getJobStats,
+    refreshJobs,
     getTimeSinceLastUpdate
   };
 };
