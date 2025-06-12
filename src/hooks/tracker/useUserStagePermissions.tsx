@@ -1,20 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { consolidateStagesByMasterQueue, ConsolidatedStage, getAllIndividualStages, UserStagePermission } from "@/utils/tracker/stageConsolidation";
 
-interface UserStagePermission {
-  stage_id: string;
-  stage_name: string;
-  stage_color: string;
-  can_view: boolean;
-  can_edit: boolean;
-  can_work: boolean;
-  can_manage: boolean;
-  master_queue_id?: string;
-  master_queue_name?: string;
-}
-
-import { consolidateStagesByMasterQueue, ConsolidatedStage, getAllIndividualStages } from "@/utils/tracker/stageConsolidation";
+export { type UserStagePermission } from "@/utils/tracker/stageConsolidation";
 
 export const useUserStagePermissions = (userId?: string) => {
   const [accessibleStages, setAccessibleStages] = useState<UserStagePermission[]>([]);

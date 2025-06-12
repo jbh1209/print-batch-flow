@@ -1,5 +1,15 @@
 
-import { UserStagePermission } from "@/hooks/tracker/useUserStagePermissions";
+export interface UserStagePermission {
+  stage_id: string;
+  stage_name: string;
+  stage_color: string;
+  can_view: boolean;
+  can_edit: boolean;
+  can_work: boolean;
+  can_manage: boolean;
+  master_queue_id?: string;
+  master_queue_name?: string;
+}
 
 export interface ConsolidatedStage {
   stage_id: string;
