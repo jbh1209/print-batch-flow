@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { UserGroup, Settings, Save } from "lucide-react";
+import { Users, Settings, Save } from "lucide-react";
 
 interface UserGroup {
   id: string;
@@ -174,7 +173,7 @@ export const GroupStagePermissions = () => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <UserGroup className="h-5 w-5" />
+            <Users className="h-5 w-5" />
             <CardTitle>Group Stage Permissions</CardTitle>
           </div>
           <Button onClick={savePermissions} disabled={saving}>
