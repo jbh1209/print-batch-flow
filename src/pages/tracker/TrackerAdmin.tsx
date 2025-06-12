@@ -3,9 +3,13 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, Shield, Database } from "lucide-react";
+import { Settings, Users, Shield, Database, Layers, Tag } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GroupStagePermissions } from "@/components/tracker/admin/GroupStagePermissions";
+import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
+import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
+import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManagement";
+import { QuickStagePermissionCheck } from "@/components/tracker/admin/QuickStagePermissionCheck";
 
 const TrackerAdmin = () => {
   const { isAdmin } = useAuth();
@@ -34,18 +38,22 @@ const TrackerAdmin = () => {
       </div>
 
       <Tabs defaultValue="permissions" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="permissions" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Permissions
           </TabsTrigger>
+          <TabsTrigger value="stages" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Stages
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="flex items-center gap-2">
+            <Tag className="h-4 w-4" />
+            Categories
+          </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Users
-          </TabsTrigger>
-          <TabsTrigger value="stages" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Stages
+            User Groups
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -57,37 +65,31 @@ const TrackerAdmin = () => {
           <GroupStagePermissions />
         </TabsContent>
 
-        <TabsContent value="users" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">User management features coming soon...</p>
-            </CardContent>
-          </Card>
+        <TabsContent value="stages" className="space-y-6">
+          <ProductionStagesManagement />
         </TabsContent>
 
-        <TabsContent value="stages" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Production Stages</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Stage management features coming soon...</p>
-            </CardContent>
-          </Card>
+        <TabsContent value="categories" className="space-y-6">
+          <CategoriesManagement />
+        </TabsContent>
+
+        <TabsContent value="users" className="space-y-6">
+          <UserGroupsManagement />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>System Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">System settings coming soon...</p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <QuickStagePermissionCheck />
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>System Settings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">Additional system settings coming soon...</p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
