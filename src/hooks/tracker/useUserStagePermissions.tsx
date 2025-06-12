@@ -11,6 +11,8 @@ interface UserStagePermission {
   can_edit: boolean;
   can_work: boolean;
   can_manage: boolean;
+  master_queue_id?: string;
+  master_queue_name?: string;
 }
 
 export const useUserStagePermissions = (userId?: string) => {
@@ -55,7 +57,16 @@ export const useUserStagePermissions = (userId?: string) => {
           // Role detection should still be based on their actual group memberships
           const { data: allStages, error: stagesError } = await supabase
             .from('production_stages')
-            .select('id, name, color')
+            .select(`
+              id, 
+              name, 
+              color,
+              master_queue_id,
+              master_queue:master_queue_id(
+                id,
+                name
+              )
+            `)
             .eq('is_active', true)
             .order('order_index');
 
@@ -68,31 +79,57 @@ export const useUserStagePermissions = (userId?: string) => {
             can_view: true,
             can_edit: true,
             can_work: true,
-            can_manage: true
+            can_manage: true,
+            master_queue_id: stage.master_queue_id || undefined,
+            master_queue_name: stage.master_queue?.name || undefined
           }));
 
           console.log("👑 Admin permissions - all stages accessible:", adminStages.length);
           setAccessibleStages(adminStages);
         } else {
-          // Regular user - use existing permission system
-          const { data, error } = await supabase.rpc('get_user_accessible_stages', {
+          // Regular user - use existing permission system with master queue data
+          const { data, error } = await supabase.rpc('get_user_accessible_stages_with_master_queue', {
             p_user_id: userId
           });
 
-          if (error) throw error;
+          if (error) {
+            // Fallback to original function if new one doesn't exist yet
+            const { data: fallbackData, error: fallbackError } = await supabase.rpc('get_user_accessible_stages', {
+              p_user_id: userId
+            });
 
-          const stages = (data || []).map((stage: any) => ({
-            stage_id: stage.stage_id,
-            stage_name: stage.stage_name,
-            stage_color: stage.stage_color,
-            can_view: stage.can_view,
-            can_edit: stage.can_edit,
-            can_work: stage.can_work,
-            can_manage: stage.can_manage
-          }));
+            if (fallbackError) throw fallbackError;
 
-          console.log("👤 Regular user permissions:", stages.length);
-          setAccessibleStages(stages);
+            const stages = (fallbackData || []).map((stage: any) => ({
+              stage_id: stage.stage_id,
+              stage_name: stage.stage_name,
+              stage_color: stage.stage_color,
+              can_view: stage.can_view,
+              can_edit: stage.can_edit,
+              can_work: stage.can_work,
+              can_manage: stage.can_manage,
+              master_queue_id: undefined,
+              master_queue_name: undefined
+            }));
+
+            console.log("👤 Regular user permissions (fallback):", stages.length);
+            setAccessibleStages(stages);
+          } else {
+            const stages = (data || []).map((stage: any) => ({
+              stage_id: stage.stage_id,
+              stage_name: stage.stage_name,
+              stage_color: stage.stage_color,
+              can_view: stage.can_view,
+              can_edit: stage.can_edit,
+              can_work: stage.can_work,
+              can_manage: stage.can_manage,
+              master_queue_id: stage.master_queue_id || undefined,
+              master_queue_name: stage.master_queue_name || undefined
+            }));
+
+            console.log("👤 Regular user permissions:", stages.length);
+            setAccessibleStages(stages);
+          }
         }
       } catch (err) {
         console.error('Error fetching user permissions:', err);
