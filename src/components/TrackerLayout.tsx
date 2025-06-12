@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { DynamicHeader } from "./tracker/DynamicHeader";
 import { ContextSidebar } from "./tracker/ContextSidebar";
-import { DynamicProductionSidebar } from "./tracker/production/DynamicProductionSidebar";
 import { useAuth } from "@/hooks/useAuth";
 
 const TrackerLayout = () => {
@@ -59,7 +59,7 @@ const TrackerLayout = () => {
     setSelectedStageId(stageId);
   };
 
-  // Determine which sidebar to show
+  // Production tab handles its own sidebar internally now
   const isProductionTab = activeTab === 'production';
 
   return (
@@ -71,21 +71,15 @@ const TrackerLayout = () => {
         />
         
         <div className="flex flex-1 overflow-hidden">
-          {/* Conditional Sidebar */}
-          {isProductionTab ? (
-            <DynamicProductionSidebar
-              selectedStageId={selectedStageId}
-              onStageSelect={handleStageSelect}
-              onFilterChange={handleFilterChange}
-            />
-          ) : (
+          {/* Conditional Sidebar - Production handles its own sidebar */}
+          {!isProductionTab && (
             <ContextSidebar 
               activeTab={activeTab}
               onFilterChange={handleFilterChange}
             />
           )}
           
-          <main className="flex-1 overflow-auto p-6">
+          <main className={`flex-1 overflow-auto ${isProductionTab ? '' : 'p-6'}`}>
             <Outlet context={{ 
               activeTab, 
               filters,

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +12,7 @@ import {
   AlertCircle,
   Play
 } from "lucide-react";
-import { useProductionStages } from "@/hooks/tracker/useProductionStages";
-import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
+import { useProductionData } from "@/hooks/tracker/useProductionData";
 import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
 
 interface DynamicProductionSidebarProps {
@@ -26,12 +26,12 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
   onStageSelect,
   onFilterChange 
 }) => {
+  const { activeJobs, isLoading: jobsLoading } = useProductionData();
   const { consolidatedStages, isLoading: stagesLoading } = useUserStagePermissions();
-  const { jobs, isLoading: jobsLoading } = useEnhancedProductionJobs();
 
   // Count jobs by stage using display names (master queue aware)
   const getJobCountForStage = (stageName: string) => {
-    return jobs.filter(job => {
+    return activeJobs.filter(job => {
       const effectiveStageDisplay = job.display_stage_name || job.current_stage_name;
       return effectiveStageDisplay?.toLowerCase() === stageName.toLowerCase();
     }).length;
@@ -39,7 +39,23 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
 
   // Count jobs by status
   const getJobCountByStatus = (status: string) => {
-    return jobs.filter(job => job.status?.toLowerCase() === status.toLowerCase()).length;
+    return activeJobs.filter(job => {
+      switch (status) {
+        case 'completed':
+          return job.is_completed;
+        case 'in-progress':
+          return job.is_active;
+        case 'pending':
+          return job.is_pending;
+        case 'overdue':
+          if (!job.due_date) return false;
+          const dueDate = new Date(job.due_date);
+          const today = new Date();
+          return dueDate < today && !job.is_completed;
+        default:
+          return false;
+      }
+    }).length;
   };
 
   const handleStageClick = (stageId: string, stageName: string) => {
@@ -95,7 +111,7 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
           >
             All Jobs
             <Badge variant="secondary" className="ml-auto text-xs">
-              {jobs.length}
+              {activeJobs.length}
             </Badge>
           </Button>
           
