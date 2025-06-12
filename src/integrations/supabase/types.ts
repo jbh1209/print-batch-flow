@@ -1781,6 +1781,20 @@ export type Database = {
           can_manage: boolean
         }[]
       }
+      get_user_accessible_stages_with_master_queue: {
+        Args: { p_user_id?: string }
+        Returns: {
+          stage_id: string
+          stage_name: string
+          stage_color: string
+          can_view: boolean
+          can_edit: boolean
+          can_work: boolean
+          can_manage: boolean
+          master_queue_id: string
+          master_queue_name: string
+        }[]
+      }
       get_user_departments: {
         Args: { p_user_id?: string }
         Returns: {
