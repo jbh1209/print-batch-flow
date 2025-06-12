@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,8 @@ import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { ViewToggle } from "@/components/tracker/common/ViewToggle";
 import { JobListView } from "@/components/tracker/common/JobListView";
+import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
+import { getStageDisplayName } from "@/utils/tracker/stageConsolidation";
 
 interface FactoryFloorViewProps {
   stageFilter?: string | null;
@@ -22,6 +23,7 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
     permissionType: 'work',
     stageFilter: stageFilter || undefined
   });
+  const { consolidatedStages } = useUserStagePermissions();
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
@@ -148,44 +150,50 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {jobs.map((job) => (
-                  <div key={job.job_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                        {(job.display_stage_name || job.current_stage_name) && (
-                          <Badge 
-                            variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
-                            className={job.current_stage_status === 'active' ? 'bg-green-500' : 'text-orange-600 border-orange-200'}
-                          >
-                            {job.display_stage_name || job.current_stage_name}
-                          </Badge>
-                        )}
-                        {job.current_stage_status && (
-                          <Badge variant="secondary" className="text-xs">
-                            {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
-                          </Badge>
-                        )}
+                {jobs.map((job) => {
+                  // Get the proper display name using consolidated stages
+                  const effectiveStageDisplay = job.display_stage_name || 
+                    getStageDisplayName(job.current_stage_id || '', consolidatedStages);
+
+                  return (
+                    <div key={job.job_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <h4 className="font-medium text-lg">{job.wo_no}</h4>
+                          {effectiveStageDisplay && (
+                            <Badge 
+                              variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
+                              className={job.current_stage_status === 'active' ? 'bg-green-500' : 'text-orange-600 border-orange-200'}
+                            >
+                              {effectiveStageDisplay}
+                            </Badge>
+                          )}
+                          {job.current_stage_status && (
+                            <Badge variant="secondary" className="text-xs">
+                              {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          <span>Customer: {job.customer || 'Unknown'}</span>
+                          {job.due_date && (
+                            <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
+                          )}
+                          <span> • Status: {job.status}</span>
+                          {job.workflow_progress > 0 && (
+                            <span> • Progress: {job.workflow_progress}%</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        <span>Customer: {job.customer || 'Unknown'}</span>
-                        {job.due_date && (
-                          <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
-                        )}
-                        <span> • Status: {job.status}</span>
-                        {job.workflow_progress > 0 && (
-                          <span> • Progress: {job.workflow_progress}%</span>
-                        )}
-                      </div>
+                      
+                      <JobActionButtons
+                        job={job}
+                        onStart={startJob}
+                        onComplete={completeJob}
+                      />
                     </div>
-                    
-                    <JobActionButtons
-                      job={job}
-                      onStart={startJob}
-                      onComplete={completeJob}
-                    />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,8 +14,11 @@ interface UserStagePermission {
   master_queue_name?: string;
 }
 
+import { consolidateStagesByMasterQueue, ConsolidatedStage, getAllIndividualStages } from "@/utils/tracker/stageConsolidation";
+
 export const useUserStagePermissions = (userId?: string) => {
   const [accessibleStages, setAccessibleStages] = useState<UserStagePermission[]>([]);
+  const [consolidatedStages, setConsolidatedStages] = useState<ConsolidatedStage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -52,9 +54,10 @@ export const useUserStagePermissions = (userId?: string) => {
           adminError
         });
 
+        let rawStages: UserStagePermission[] = [];
+
         if (userIsAdmin) {
           // Admin gets access to ALL stages - but this is for ADMIN functionality only
-          // Role detection should still be based on their actual group memberships
           const { data: allStages, error: stagesError } = await supabase
             .from('production_stages')
             .select(`
@@ -72,7 +75,7 @@ export const useUserStagePermissions = (userId?: string) => {
 
           if (stagesError) throw stagesError;
 
-          const adminStages = (allStages || []).map(stage => ({
+          rawStages = (allStages || []).map(stage => ({
             stage_id: stage.id,
             stage_name: stage.name,
             stage_color: stage.color,
@@ -84,8 +87,7 @@ export const useUserStagePermissions = (userId?: string) => {
             master_queue_name: stage.master_queue?.name || undefined
           }));
 
-          console.log("👑 Admin permissions - all stages accessible:", adminStages.length);
-          setAccessibleStages(adminStages);
+          console.log("👑 Admin permissions - all stages accessible:", rawStages.length);
         } else {
           // Regular user - try new function first, fallback to old one
           try {
@@ -95,7 +97,7 @@ export const useUserStagePermissions = (userId?: string) => {
 
             if (error) throw error;
 
-            const stages = (data || []).map((stage: any) => ({
+            rawStages = (data || []).map((stage: any) => ({
               stage_id: stage.stage_id,
               stage_name: stage.stage_name,
               stage_color: stage.stage_color,
@@ -107,8 +109,7 @@ export const useUserStagePermissions = (userId?: string) => {
               master_queue_name: stage.master_queue_name || undefined
             }));
 
-            console.log("👤 Regular user permissions:", stages.length);
-            setAccessibleStages(stages);
+            console.log("👤 Regular user permissions:", rawStages.length);
           } catch (rpcError) {
             console.warn("New function not available, falling back to old function:", rpcError);
             
@@ -119,7 +120,7 @@ export const useUserStagePermissions = (userId?: string) => {
 
             if (fallbackError) throw fallbackError;
 
-            const stages = (fallbackData || []).map((stage: any) => ({
+            rawStages = (fallbackData || []).map((stage: any) => ({
               stage_id: stage.stage_id,
               stage_name: stage.stage_name,
               stage_color: stage.stage_color,
@@ -131,14 +132,29 @@ export const useUserStagePermissions = (userId?: string) => {
               master_queue_name: undefined
             }));
 
-            console.log("👤 Regular user permissions (fallback):", stages.length);
-            setAccessibleStages(stages);
+            console.log("👤 Regular user permissions (fallback):", rawStages.length);
           }
         }
+
+        // Set raw stages for admin use or backwards compatibility
+        setAccessibleStages(rawStages);
+        
+        // Create consolidated stages for operator UI
+        const consolidated = consolidateStagesByMasterQueue(rawStages);
+        setConsolidatedStages(consolidated);
+        
+        console.log("🔄 Stage consolidation results:", {
+          rawStages: rawStages.length,
+          consolidatedStages: consolidated.length,
+          masterQueues: consolidated.filter(s => s.is_master_queue).length,
+          standaloneStages: consolidated.filter(s => !s.is_master_queue).length
+        });
+
       } catch (err) {
         console.error('Error fetching user permissions:', err);
         setError(err instanceof Error ? err.message : "Failed to load permissions");
         setAccessibleStages([]);
+        setConsolidatedStages([]);
         toast.error("Failed to load user permissions");
       } finally {
         setIsLoading(false);
@@ -149,7 +165,8 @@ export const useUserStagePermissions = (userId?: string) => {
   }, [userId]);
 
   return {
-    accessibleStages,
+    accessibleStages, // Raw stages for admin/backwards compatibility
+    consolidatedStages, // Consolidated stages for operator UI
     isLoading,
     error,
     isAdmin

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { useEnhancedProductionJobs } from "@/hooks/tracker/useEnhancedProductionJobs";
+import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
 
 interface DynamicProductionSidebarProps {
   selectedStageId?: string;
@@ -26,12 +26,15 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
   onStageSelect,
   onFilterChange 
 }) => {
-  const { stages, isLoading: stagesLoading } = useProductionStages();
+  const { consolidatedStages, isLoading: stagesLoading } = useUserStagePermissions();
   const { jobs, isLoading: jobsLoading } = useEnhancedProductionJobs();
 
-  // Count jobs by stage
+  // Count jobs by stage using display names (master queue aware)
   const getJobCountForStage = (stageName: string) => {
-    return jobs.filter(job => job.current_stage === stageName).length;
+    return jobs.filter(job => {
+      const effectiveStageDisplay = job.display_stage_name || job.current_stage_name;
+      return effectiveStageDisplay?.toLowerCase() === stageName.toLowerCase();
+    }).length;
   };
 
   // Count jobs by status
@@ -41,8 +44,8 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
 
   const handleStageClick = (stageId: string, stageName: string) => {
     if (selectedStageId === stageId) {
-      onStageSelect(null); // Deselect if already selected
-      onFilterChange?.({ stage: null }); // Clear stage filter
+      onStageSelect(null);
+      onFilterChange?.({ stage: null });
     } else {
       onStageSelect(stageId);
       onFilterChange?.({ stage: stageName });
@@ -79,7 +82,7 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Settings className="h-4 w-4" />
-            Production Stages
+            Production Queues
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
@@ -96,26 +99,33 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
             </Badge>
           </Button>
           
-          {stages
-            .filter(stage => stage.is_active)
-            .sort((a, b) => a.order_index - b.order_index)
+          {/* Show consolidated stages (master queues + standalone stages) */}
+          {consolidatedStages
+            .sort((a, b) => a.stage_name.localeCompare(b.stage_name))
             .map(stage => {
-              const jobCount = getJobCountForStage(stage.name);
-              const isSelected = selectedStageId === stage.id;
+              const jobCount = getJobCountForStage(stage.stage_name);
+              const isSelected = selectedStageId === stage.stage_id;
               
               return (
                 <Button 
-                  key={stage.id}
+                  key={stage.stage_id}
                   variant={isSelected ? "default" : "ghost"} 
                   size="sm" 
                   className="w-full justify-start text-xs h-8"
-                  onClick={() => handleStageClick(stage.id, stage.name)}
+                  onClick={() => handleStageClick(stage.stage_id, stage.stage_name)}
                 >
                   <div 
                     className="w-2 h-2 rounded-full mr-2 flex-shrink-0" 
-                    style={{ backgroundColor: stage.color }}
+                    style={{ backgroundColor: stage.stage_color }}
                   />
-                  <span className="truncate flex-1 text-left">{stage.name}</span>
+                  <span className="truncate flex-1 text-left">
+                    {stage.stage_name}
+                    {stage.is_master_queue && stage.subsidiary_stages.length > 0 && (
+                      <span className="text-xs text-gray-500 ml-1">
+                        ({stage.subsidiary_stages.length})
+                      </span>
+                    )}
+                  </span>
                   <Badge variant="secondary" className="ml-auto text-xs">
                     {jobCount}
                   </Badge>
