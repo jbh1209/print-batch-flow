@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -84,11 +83,12 @@ export const useDataManager = () => {
     return data || [];
   }, []);
 
-  // New function to group stages by master queue
+  // Enhanced function to group stages by master queue
   const groupStagesByMasterQueue = useCallback((stages: any[]) => {
     const masterQueues = new Map();
     const independentStages = [];
 
+    // Process all stages to build master queue relationships
     stages.forEach(stage => {
       if (stage.master_queue_id) {
         // This stage belongs to a master queue
@@ -109,7 +109,7 @@ export const useDataManager = () => {
           if (!masterQueues.has(stage.id)) {
             masterQueues.set(stage.id, {
               ...stage,
-              subsidiaryStages: []
+              subsidiaryStages: stages.filter(s => s.master_queue_id === stage.id)
             });
           }
         } else {
@@ -119,10 +119,26 @@ export const useDataManager = () => {
       }
     });
 
-    return {
+    const result = {
       masterQueues: Array.from(masterQueues.values()),
-      independentStages
+      independentStages,
+      // Flattened list for UI components that need all stages
+      allStagesFlattened: stages,
+      // Consolidated list showing master queues instead of individual stages
+      consolidatedStages: [
+        ...Array.from(masterQueues.values()),
+        ...independentStages
+      ]
     };
+
+    console.log('🔗 Master Queue Grouping Result:', {
+      masterQueues: result.masterQueues.length,
+      independentStages: result.independentStages.length,
+      totalOriginalStages: stages.length,
+      consolidatedStages: result.consolidatedStages.length
+    });
+
+    return result;
   }, []);
 
   const loadData = useCallback(async (isManualRefresh = false) => {

@@ -1,5 +1,17 @@
 
-export interface AccessibleJob {
+export interface MasterQueueStage {
+  id: string;
+  name: string;
+  color: string;
+  order_index: number;
+  is_active: boolean;
+  is_multi_part: boolean;
+  part_definitions: string[];
+  master_queue_id?: string;
+  subsidiaryStages?: MasterQueueStage[];
+}
+
+export interface AccessibleJobWithMasterQueue {
   job_id: string;
   wo_no: string;
   customer: string;
@@ -20,12 +32,6 @@ export interface AccessibleJob {
   workflow_progress: number;
   total_stages: number;
   completed_stages: number;
-  master_queue_id?: string;
-  display_stage_name?: string;
-}
-
-export interface UseAccessibleJobsOptions {
-  permissionType?: 'view' | 'edit' | 'work' | 'manage';
-  statusFilter?: string | null;
-  stageFilter?: string | null;
+  master_queue_id: string;
+  display_stage_name: string;
 }

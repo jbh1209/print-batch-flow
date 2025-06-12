@@ -153,12 +153,12 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                        {job.current_stage_name && (
+                        {(job.display_stage_name || job.current_stage_name) && (
                           <Badge 
                             variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
                             className={job.current_stage_status === 'active' ? 'bg-green-500' : 'text-orange-600 border-orange-200'}
                           >
-                            {job.current_stage_name}
+                            {job.display_stage_name || job.current_stage_name}
                           </Badge>
                         )}
                         {job.current_stage_status && (

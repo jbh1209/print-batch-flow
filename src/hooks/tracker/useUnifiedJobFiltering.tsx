@@ -17,27 +17,76 @@ export const useUnifiedJobFiltering = ({
   const { user } = useAuth();
   const { accessibleStages, isLoading: permissionsLoading, isAdmin } = useUserStagePermissions(user?.id);
 
-  // Extract accessible stage information outside of useMemo
-  const accessibleStageIds = useMemo(() => 
-    accessibleStages.map(stage => stage.stage_id), 
-    [accessibleStages]
-  );
+  // Group accessible stages by master queue
+  const consolidatedAccessibleStages = useMemo(() => {
+    const stageMap = new Map();
+    
+    accessibleStages.forEach(stage => {
+      // If this stage has a master queue, group it under the master
+      const groupKey = stage.master_queue_id || stage.stage_id;
+      const groupName = stage.master_queue_name || stage.stage_name;
+      
+      if (!stageMap.has(groupKey)) {
+        stageMap.set(groupKey, {
+          stage_id: groupKey,
+          stage_name: groupName,
+          stage_color: stage.stage_color,
+          can_view: stage.can_view,
+          can_edit: stage.can_edit,
+          can_work: stage.can_work,
+          can_manage: stage.can_manage,
+          subsidiaryStages: []
+        });
+      }
+      
+      // If this is a subsidiary stage, add it to the group
+      if (stage.master_queue_id) {
+        stageMap.get(groupKey).subsidiaryStages.push(stage);
+      }
+    });
+    
+    return Array.from(stageMap.values());
+  }, [accessibleStages]);
+
+  // Extract accessible stage information for filtering
+  const accessibleStageIds = useMemo(() => {
+    // Include both master queue IDs and individual stage IDs for comprehensive access checking
+    const ids = new Set<string>();
+    
+    accessibleStages.forEach(stage => {
+      ids.add(stage.stage_id);
+      if (stage.master_queue_id) {
+        ids.add(stage.master_queue_id);
+      }
+    });
+    
+    return Array.from(ids);
+  }, [accessibleStages]);
   
-  const accessibleStageNames = useMemo(() => 
-    accessibleStages.map(stage => stage.stage_name.toLowerCase()), 
-    [accessibleStages]
-  );
+  const accessibleStageNames = useMemo(() => {
+    const names = new Set<string>();
+    
+    accessibleStages.forEach(stage => {
+      names.add(stage.stage_name.toLowerCase());
+      if (stage.master_queue_name) {
+        names.add(stage.master_queue_name.toLowerCase());
+      }
+    });
+    
+    return Array.from(names);
+  }, [accessibleStages]);
 
   const filteredJobs = useMemo(() => {
     if (permissionsLoading || !user) {
       return [];
     }
 
-    console.log("🔍 Unified Job Filtering Debug:", {
+    console.log("🔍 Unified Job Filtering Debug (Master Queue Aware):", {
       userId: user.id,
       isAdmin,
       totalJobs: jobs.length,
       accessibleStages: accessibleStages.length,
+      consolidatedStages: consolidatedAccessibleStages.length,
       statusFilter,
       searchQuery,
       categoryFilter,
@@ -47,18 +96,16 @@ export const useUnifiedJobFiltering = ({
     // COMPLETION FILTERING: Apply completion filter first based on status filter
     let jobsToFilter = jobs;
     if (statusFilter === 'completed') {
-      // Show ONLY completed jobs
       jobsToFilter = jobs.filter(job => isJobCompleted(job));
       console.log(`🔍 Showing completed jobs only: ${jobs.length} -> ${jobsToFilter.length}`);
     } else {
-      // Show ONLY active jobs (exclude completed)
       jobsToFilter = filterActiveJobs(jobs);
       console.log(`🔍 Filtered out completed jobs: ${jobs.length} -> ${jobsToFilter.length}`);
     }
 
     // If user is admin, show filtered jobs with basic filtering only
     if (isAdmin) {
-      console.log("👑 Admin user detected - showing filtered jobs with basic filtering");
+      console.log("👑 Admin user detected - showing filtered jobs with master queue awareness");
       
       return jobsToFilter.filter(job => {
         // Apply basic filters for admins - no stage/permission restrictions
@@ -66,11 +113,13 @@ export const useUnifiedJobFiltering = ({
           return false;
         }
 
-        if (categoryFilter && job.category?.toLowerCase() !== categoryFilter.toLowerCase()) {
+        if (categoryFilter && job.category_name?.toLowerCase() !== categoryFilter.toLowerCase()) {
           return false;
         }
 
-        if (stageFilter && job.current_stage?.toLowerCase() !== stageFilter.toLowerCase()) {
+        // Use display_stage_name for master queue filtering, fallback to current_stage_name
+        const stageNameForFiltering = job.display_stage_name || job.current_stage_name;
+        if (stageFilter && stageNameForFiltering?.toLowerCase() !== stageFilter.toLowerCase()) {
           return false;
         }
 
@@ -80,9 +129,10 @@ export const useUnifiedJobFiltering = ({
             job.wo_no,
             job.customer,
             job.reference,
-            job.category,
+            job.category_name,
             job.status,
-            job.current_stage
+            job.current_stage_name,
+            job.display_stage_name
           ].filter(Boolean);
 
           const matchesSearch = searchFields.some(field => 
@@ -98,9 +148,9 @@ export const useUnifiedJobFiltering = ({
       });
     }
 
-    // For non-admin users, use the existing permission-based filtering
+    // For non-admin users, use the existing permission-based filtering with master queue support
     return applyJobFilters(
-      jobsToFilter, // Use already filtered jobs (completed or active based on statusFilter)
+      jobsToFilter,
       accessibleStageIds,
       accessibleStageNames,
       statusFilter,
@@ -108,16 +158,17 @@ export const useUnifiedJobFiltering = ({
       categoryFilter,
       stageFilter
     );
-  }, [jobs, accessibleStageIds, accessibleStageNames, statusFilter, searchQuery, categoryFilter, stageFilter, permissionsLoading, user, isAdmin]);
+  }, [jobs, accessibleStageIds, accessibleStageNames, statusFilter, searchQuery, categoryFilter, stageFilter, permissionsLoading, user, isAdmin, consolidatedAccessibleStages]);
 
   // Calculate job statistics based on filtered jobs
   const jobStats = useMemo(() => calculateJobStats(filteredJobs), [filteredJobs]);
 
-  console.log("🔍 Final Results (Admin-Aware + Completion Filtering):", {
+  console.log("🔍 Final Results (Master Queue Aware):", {
     totalJobsInput: jobs.length,
     filteredJobsOutput: filteredJobs.length,
     isAdmin,
     accessibleStagesCount: accessibleStages.length,
+    consolidatedStagesCount: consolidatedAccessibleStages.length,
     jobStats: {
       total: jobStats.total,
       pending: jobStats.pending,
@@ -128,7 +179,7 @@ export const useUnifiedJobFiltering = ({
   return {
     filteredJobs,
     jobStats,
-    accessibleStages,
+    accessibleStages: consolidatedAccessibleStages, // Return consolidated stages for UI
     isLoading: permissionsLoading
   };
 };

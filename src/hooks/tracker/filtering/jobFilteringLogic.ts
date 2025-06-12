@@ -14,14 +14,13 @@ export const applyJobFilters = (
   return jobs.filter(job => {
     const { isAccessible, accessReasons } = checkJobAccess(job, accessibleStageIds, accessibleStageNames);
     
-    // Note: Completion filtering is now handled at a higher level in useUnifiedJobFiltering
-    // This function assumes jobs are already filtered for completion status as needed
-
     const finalDecision = isAccessible;
 
     console.log(`  Decision for ${job.wo_no}: ${finalDecision ? '✅ INCLUDED' : '❌ EXCLUDED'}`, {
       isAccessible,
-      accessReasons
+      accessReasons,
+      displayStage: job.display_stage_name,
+      currentStage: job.current_stage_name
     });
 
     // Apply base accessibility filters
@@ -34,11 +33,13 @@ export const applyJobFilters = (
       return false;
     }
 
-    if (categoryFilter && job.category?.toLowerCase() !== categoryFilter.toLowerCase()) {
+    if (categoryFilter && job.category_name?.toLowerCase() !== categoryFilter.toLowerCase()) {
       return false;
     }
 
-    if (stageFilter && job.current_stage?.toLowerCase() !== stageFilter.toLowerCase()) {
+    // Use display_stage_name for filtering (master queue aware), fallback to current_stage_name
+    const stageNameForFiltering = job.display_stage_name || job.current_stage_name;
+    if (stageFilter && stageNameForFiltering?.toLowerCase() !== stageFilter.toLowerCase()) {
       return false;
     }
 
@@ -48,9 +49,10 @@ export const applyJobFilters = (
         job.wo_no,
         job.customer,
         job.reference,
-        job.category,
+        job.category_name,
         job.status,
-        job.current_stage
+        job.current_stage_name,
+        job.display_stage_name // Include display stage name in search
       ].filter(Boolean);
 
       const matchesSearch = searchFields.some(field => 
