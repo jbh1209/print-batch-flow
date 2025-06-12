@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,32 +125,70 @@ export const GroupStagePermissions = () => {
   const savePermissions = async () => {
     try {
       setSaving(true);
+      console.log('Starting permission save process...');
 
-      // Delete all existing permissions for these groups
+      // Get all unique group IDs from our current state
+      const groupIds = userGroups.map(g => g.id);
+      
+      if (groupIds.length === 0) {
+        console.log('No groups found, skipping save');
+        toast.error('No user groups found');
+        return;
+      }
+
+      console.log('Deleting existing permissions for groups:', groupIds);
+
+      // Delete existing permissions for these groups
       const { error: deleteError } = await supabase
         .from('user_group_stage_permissions')
         .delete()
-        .in('user_group_id', userGroups.map(g => g.id));
+        .in('user_group_id', groupIds);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        throw deleteError;
+      }
 
-      // Insert new permissions (only for groups/stages that have at least one permission)
+      // Filter permissions to only include those with at least one permission enabled
       const permissionsToInsert = permissions.filter(p => 
         p.can_view || p.can_edit || p.can_work || p.can_manage
       );
 
-      if (permissionsToInsert.length > 0) {
-        const { error: insertError } = await supabase
-          .from('user_group_stage_permissions')
-          .insert(permissionsToInsert);
+      console.log('Inserting permissions:', permissionsToInsert.length);
 
-        if (insertError) throw insertError;
+      if (permissionsToInsert.length > 0) {
+        // Validate each permission before inserting
+        const validPermissions = permissionsToInsert.filter(p => {
+          const isValid = p.user_group_id && p.production_stage_id && 
+                         typeof p.can_view === 'boolean' &&
+                         typeof p.can_edit === 'boolean' &&
+                         typeof p.can_work === 'boolean' &&
+                         typeof p.can_manage === 'boolean';
+          
+          if (!isValid) {
+            console.warn('Invalid permission object:', p);
+          }
+          return isValid;
+        });
+
+        if (validPermissions.length > 0) {
+          const { error: insertError } = await supabase
+            .from('user_group_stage_permissions')
+            .insert(validPermissions);
+
+          if (insertError) {
+            console.error('Insert error:', insertError);
+            throw insertError;
+          }
+        }
       }
 
-      toast.success(`Saved ${permissionsToInsert.length} permission assignments`);
+      console.log('Permission save completed successfully');
+      toast.success(`Successfully saved ${permissionsToInsert.length} permission assignments`);
+      
     } catch (error) {
       console.error('Error saving permissions:', error);
-      toast.error('Failed to save permissions');
+      toast.error(`Failed to save permissions: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -180,6 +219,12 @@ export const GroupStagePermissions = () => {
             <Save className="h-4 w-4 mr-2" />
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
+        </div>
+        <div className="text-sm text-gray-600 space-y-1">
+          <p><strong>View:</strong> Can see jobs in this stage</p>
+          <p><strong>Edit:</strong> Can modify job details and stage information</p>
+          <p><strong>Work:</strong> Can actively work on jobs (start, complete, advance)</p>
+          <p><strong>Manage:</strong> Full control including reassigning jobs and workflows</p>
         </div>
       </CardHeader>
       <CardContent>
