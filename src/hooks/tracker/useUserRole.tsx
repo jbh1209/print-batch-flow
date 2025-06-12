@@ -71,12 +71,22 @@ export const useUserRole = (): UserRoleResponse => {
         if (hasAdminRole) {
           console.log('🔑 User determined as admin');
           setUserRole('admin');
-          setAccessibleStages([]); // Admins don't need accessible stages for role detection
+          setAccessibleStages([]);
           setIsLoading(false);
           return;
         }
 
-        // For non-admin users, get their ACTUAL group-based permissions (not admin overrides)
+        // Get user's group memberships and stage permissions
+        const { data: groupMemberships, error: groupError } = await supabase
+          .from('user_group_memberships')
+          .select(`
+            user_groups!inner(name, description)
+          `)
+          .eq('user_id', user.id);
+
+        if (groupError) throw groupError;
+
+        // Get their ACTUAL group-based permissions (not admin overrides)
         const { data: actualStages, error: stagesError } = await supabase.rpc('get_user_accessible_stages', {
           p_user_id: user.id
         });
@@ -95,26 +105,27 @@ export const useUserRole = (): UserRoleResponse => {
 
         setAccessibleStages(normalizedStages);
 
-        // Check group memberships for manager role
-        const { data: groupMemberships, error: groupError } = await supabase
-          .from('user_group_memberships')
-          .select(`
-            user_groups!inner(name, description)
-          `)
-          .eq('user_id', user.id);
-
-        if (groupError) throw groupError;
+        // Enhanced role detection logic
+        const groupNames = groupMemberships?.map(m => m.user_groups?.name?.toLowerCase() || '') || [];
+        const groupDescriptions = groupMemberships?.map(m => m.user_groups?.description?.toLowerCase() || '') || [];
+        
+        console.log('🔍 User group analysis:', {
+          userId: user.id,
+          groupNames,
+          groupDescriptions,
+          totalStages: normalizedStages.length,
+          workableStages: normalizedStages.filter(s => s.can_work).length
+        });
 
         // Check for manager role in group names or descriptions
-        const isManager = groupMemberships?.some(m => {
-          const groupName = m.user_groups?.name?.toLowerCase() || '';
-          const groupDesc = m.user_groups?.description?.toLowerCase() || '';
-          
-          return groupName.includes('manager') || 
-                 groupName.includes('supervisor') ||
-                 groupDesc.includes('manager role') ||
-                 groupDesc.includes('supervisor role');
-        });
+        const isManager = groupNames.some(name => 
+          name.includes('manager') || 
+          name.includes('supervisor') || 
+          name.includes('admin')
+        ) || groupDescriptions.some(desc => 
+          desc.includes('manager') || 
+          desc.includes('supervisor')
+        );
 
         if (isManager) {
           console.log('🔑 User determined as manager');
@@ -123,9 +134,9 @@ export const useUserRole = (): UserRoleResponse => {
           return;
         }
 
-        // ENHANCED: More precise DTP operator detection based on accessible stages
-        // Calculate user's workable DTP stages and total workable stages
-        const dtpRelatedStages = normalizedStages.filter(stage => {
+        // Enhanced operator detection - check both group names and workable stages
+        const workableStages = normalizedStages.filter(stage => stage.can_work);
+        const dtpRelatedStages = workableStages.filter(stage => {
           const stageName = stage.stage_name.toLowerCase();
           return stageName.includes('dtp') || 
                  stageName.includes('digital') ||
@@ -135,41 +146,42 @@ export const useUserRole = (): UserRoleResponse => {
                  stageName.includes('artwork');
         });
 
-        const workableStages = normalizedStages.filter(stage => stage.can_work);
-        const workableDtpStages = dtpRelatedStages.filter(stage => stage.can_work);
-        
-        // Log detailed information for debugging purposes
-        console.log('🧑‍💻 User role determination:', {
-          userId: user.id,
-          totalStages: normalizedStages.length,
+        const printingRelatedStages = workableStages.filter(stage => {
+          const stageName = stage.stage_name.toLowerCase();
+          return stageName.includes('print') ||
+                 stageName.includes('hp') ||
+                 stageName.includes('press') ||
+                 stageName.includes('production');
+        });
+
+        // Check if user is in operator-related groups
+        const isInOperatorGroup = groupNames.some(name => 
+          name.includes('operator') || 
+          name.includes('printing') || 
+          name.includes('dtp') || 
+          name.includes('production')
+        );
+
+        console.log('🧑‍💻 Enhanced operator analysis:', {
           workableStages: workableStages.length,
           dtpStages: dtpRelatedStages.length,
-          workableDtpStages: workableDtpStages.length,
+          printingStages: printingRelatedStages.length,
+          isInOperatorGroup,
           stageNames: workableStages.map(s => s.stage_name)
         });
-        
-        // Primary criteria: User is considered a DTP operator if they have workable
-        // DTP-related stages and at least half of their workable stages are DTP-related
-        if (workableDtpStages.length > 0) {
-          const dtpRatio = workableDtpStages.length / workableStages.length;
-          
-          if (dtpRatio >= 0.5) {
-            console.log('🔑 User determined as dtp_operator');
-            setUserRole('dtp_operator');
-          } else if (workableStages.length > 0) {
-            console.log('🔑 User determined as operator');
-            setUserRole('operator');
-          } else {
-            console.log('🔑 User determined as user');
-            setUserRole('user');
-          }
-        } else if (workableStages.length > 0) {
+
+        // Role determination with enhanced logic
+        if (dtpRelatedStages.length > 0 && (dtpRelatedStages.length >= printingRelatedStages.length || groupNames.includes('dtp'))) {
+          console.log('🔑 User determined as dtp_operator');
+          setUserRole('dtp_operator');
+        } else if (workableStages.length > 0 || isInOperatorGroup) {
           console.log('🔑 User determined as operator');
           setUserRole('operator');
         } else {
           console.log('🔑 User determined as user');
           setUserRole('user');
         }
+
       } catch (error) {
         console.error('Error determining user role:', error);
         setUserRole('user');
@@ -181,7 +193,7 @@ export const useUserRole = (): UserRoleResponse => {
     determineUserRole();
   }, [user?.id]);
 
-  // Derived properties for convenient access - FIXED LOGIC
+  // Derived properties for convenient access
   const isAdmin = userRole === 'admin';
   const isManager = userRole === 'manager' || userRole === 'admin';
   // IMPORTANT: isOperator should NOT include admin/manager - only actual operators
