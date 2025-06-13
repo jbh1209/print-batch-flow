@@ -19,19 +19,62 @@ export const usePartPrintingAssignment = () => {
   ) => {
     setIsAssigning(true);
     try {
-      console.log('🔄 Assigning parts to printing stages...', { jobId, currentStageId, partAssignments });
+      console.log('🔄 Starting part assignment process...', { jobId, currentStageId, partAssignments });
 
-      const { error } = await supabase.rpc('advance_job_stage_with_parts', {
-        p_job_id: jobId,
-        p_job_table_name: 'production_jobs',
-        p_current_stage_id: currentStageId,
-        p_part_assignments: partAssignments,
-        p_notes: notes || 'Advanced to part-specific printing stages'
+      // First, complete the current stage
+      const { error: completeError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completed_by: (await supabase.auth.getUser()).data.user?.id,
+          notes: notes || 'Stage completed - parts assigned to printing stages'
+        })
+        .eq('job_id', jobId)
+        .eq('production_stage_id', currentStageId)
+        .eq('status', 'active');
+
+      if (completeError) {
+        console.error('❌ Error completing current stage:', completeError);
+        throw completeError;
+      }
+
+      // Create new stage instances for each part assignment
+      const insertPromises = Object.entries(partAssignments).map(async ([partName, stageId]) => {
+        // Check if this combination already exists
+        const { data: existing } = await supabase
+          .from('job_stage_instances')
+          .select('id')
+          .eq('job_id', jobId)
+          .eq('production_stage_id', stageId)
+          .eq('part_name', partName)
+          .maybeSingle();
+
+        if (existing) {
+          console.log(`⚠️ Stage instance already exists for ${partName} in stage ${stageId}`);
+          return null;
+        }
+
+        // Insert new stage instance
+        return supabase
+          .from('job_stage_instances')
+          .insert({
+            job_id: jobId,
+            job_table_name: 'production_jobs',
+            production_stage_id: stageId,
+            part_name: partName,
+            stage_order: 999, // High order for printing stages
+            status: 'pending'
+          });
       });
 
-      if (error) {
-        console.error('❌ Error assigning parts to stages:', error);
-        throw error;
+      const results = await Promise.all(insertPromises);
+      
+      // Check for any errors
+      const errors = results.filter(result => result?.error).map(result => result?.error);
+      if (errors.length > 0) {
+        console.error('❌ Errors creating stage instances:', errors);
+        throw new Error(`Failed to create ${errors.length} stage instances`);
       }
 
       console.log('✅ Parts assigned to printing stages successfully');

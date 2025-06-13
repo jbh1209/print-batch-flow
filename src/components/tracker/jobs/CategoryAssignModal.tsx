@@ -32,16 +32,6 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
   const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
 
-  console.log('🔍 CategoryAssignModal state:', {
-    selectedCategoryId,
-    currentStep,
-    availableParts,
-    multiPartStages,
-    hasMultiPartStages,
-    isLoading,
-    partAssignments
-  });
-
   const handleCategorySelect = (categoryId: string) => {
     console.log('📝 Category selected:', categoryId);
     setSelectedCategoryId(categoryId);
@@ -55,18 +45,11 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       return;
     }
 
-    console.log('⏭️ Checking if we should move to parts step:', {
-      hasMultiPartStages,
-      availablePartsLength: availableParts.length,
-      shouldShowPartsStep: hasMultiPartStages && availableParts.length > 0
-    });
-
     if (hasMultiPartStages && availableParts.length > 0) {
       console.log('✅ Moving to parts assignment step');
       setCurrentStep('parts');
     } else {
       console.log('⏭️ No multi-part stages, proceeding directly to assignment');
-      // No multi-part stages, proceed directly to assignment
       handleAssignment();
     }
   };
@@ -74,6 +57,40 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   const handlePartAssignmentsChange = (assignments: Record<string, string>) => {
     console.log('🔄 Part assignments changed:', assignments);
     setPartAssignments(assignments);
+  };
+
+  const initializeJobWithCategory = async (jobId: string, categoryId: string, partAssignments?: Record<string, string>) => {
+    try {
+      // First, clear any existing stage instances for this job
+      await supabase
+        .from('job_stage_instances')
+        .delete()
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs');
+
+      // Initialize with the appropriate function based on whether we have part assignments
+      if (partAssignments && Object.keys(partAssignments).length > 0) {
+        const { error } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_category_id: categoryId,
+          p_part_assignments: partAssignments
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.rpc('initialize_job_stages_auto', {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_category_id: categoryId
+        });
+        if (error) throw error;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error initializing job stages:', error);
+      throw error;
+    }
   };
 
   const handleAssignment = async () => {
@@ -98,20 +115,13 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         // Bulk assignment
         const validJobIds = validateUUIDArray(job.selectedIds, 'CategoryAssignModal bulk assignment');
         
-        console.log('🔍 CategoryAssignModal - Bulk Assignment with Parts:', {
-          rawSelectedIds: job.selectedIds,
-          validJobIds,
-          categoryId: selectedCategoryId,
-          partAssignments
-        });
-
         if (validJobIds.length === 0) {
           throw new Error('No valid job IDs found for bulk assignment');
         }
 
         const promises = validJobIds.map(async (jobId: string) => {
           // Update job with category
-          const { error: updateError } = await supabase
+          await supabase
             .from('production_jobs')
             .update({ 
               category_id: selectedCategoryId,
@@ -119,42 +129,15 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
             })
             .eq('id', jobId);
 
-          if (updateError) throw updateError;
-
-          // Initialize workflow with part assignments
-          if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
-            const { error: stageError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
-              p_job_id: jobId,
-              p_job_table_name: 'production_jobs',
-              p_category_id: selectedCategoryId,
-              p_part_assignments: partAssignments
-            });
-
-            if (stageError) throw stageError;
-          } else {
-            // Standard initialization without part assignments
-            const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
-              p_job_id: jobId,
-              p_job_table_name: 'production_jobs',
-              p_category_id: selectedCategoryId
-            });
-
-            if (stageError) throw stageError;
-          }
+          // Initialize workflow
+          await initializeJobWithCategory(jobId, selectedCategoryId, hasMultiPartStages ? partAssignments : undefined);
         });
 
         await Promise.all(promises);
         toast.success(`Successfully assigned category to ${validJobIds.length} jobs`);
       } else {
         // Single job assignment
-        console.log('🔍 CategoryAssignModal - Single Assignment with Parts:', {
-          jobId: job.id,
-          categoryId: selectedCategoryId,
-          partAssignments,
-          fullJob: job
-        });
-
-        const { error: updateError } = await supabase
+        await supabase
           .from('production_jobs')
           .update({ 
             category_id: selectedCategoryId,
@@ -162,28 +145,8 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           })
           .eq('id', job.id);
 
-        if (updateError) throw updateError;
-
-        // Initialize workflow with part assignments
-        if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
-          const { error: stageError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
-            p_job_id: job.id,
-            p_job_table_name: 'production_jobs',
-            p_category_id: selectedCategoryId,
-            p_part_assignments: partAssignments
-          });
-
-          if (stageError) throw stageError;
-        } else {
-          // Standard initialization without part assignments
-          const { error: stageError } = await supabase.rpc('initialize_job_stages_auto', {
-            p_job_id: job.id,
-            p_job_table_name: 'production_jobs',
-            p_category_id: selectedCategoryId
-          });
-
-          if (stageError) throw stageError;
-        }
+        // Initialize workflow
+        await initializeJobWithCategory(job.id, selectedCategoryId, hasMultiPartStages ? partAssignments : undefined);
 
         toast.success('Category assigned successfully');
       }
