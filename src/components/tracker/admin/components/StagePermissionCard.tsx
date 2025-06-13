@@ -53,7 +53,7 @@ export const StagePermissionCard: React.FC<StagePermissionCardProps> = ({
             stageId={stage.id}
             field={key}
             label={label}
-            checked={permission?.[key as keyof StagePermission] || false}
+            checked={Boolean(permission?.[key as keyof StagePermission] || false)}
             onCheckedChange={onPermissionChange}
             saving={isSaving(groupId, stage.id, key)}
           />
