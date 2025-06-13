@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { validateUUIDArray } from "@/utils/uuidValidation";
 import { useCategoryParts } from "@/hooks/tracker/useCategoryParts";
 import { useWorkflowInitialization } from "@/hooks/tracker/useWorkflowInitialization";
+import { handleAssignment } from "./categoryAssignmentLogic";
 
 export const useCategoryAssignLogic = (job: any, onAssign: () => void, onClose: () => void) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
@@ -114,7 +114,16 @@ export const useCategoryAssignLogic = (job: any, onAssign: () => void, onClose: 
       setCurrentStep('parts');
     } else {
       console.log('⏭️ No multi-part stages, proceeding directly to assignment');
-      handleAssignment();
+      handleAssignment(
+        job,
+        selectedCategoryId,
+        hasMultiPartStages,
+        availableParts,
+        partAssignments,
+        setIsAssigning,
+        onAssign,
+        onClose
+      );
     }
   };
 
