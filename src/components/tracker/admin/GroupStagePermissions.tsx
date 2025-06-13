@@ -2,18 +2,18 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Settings } from "lucide-react";
-import { useGroupStagePermissions } from "./hooks/useGroupStagePermissions";
-import { GroupPermissionsSection } from "./components/GroupPermissionsSection";
+import { usePermissions } from "./hooks/usePermissions";
+import { GroupPermissionCard } from "./components/GroupPermissionCard";
 
 export const GroupStagePermissions = () => {
   const {
     userGroups,
     productionStages,
     isLoading,
-    saving,
     getPermission,
-    updatePermission
-  } = useGroupStagePermissions();
+    updatePermission,
+    isSaving
+  } = usePermissions();
 
   if (isLoading) {
     return (
@@ -45,13 +45,13 @@ export const GroupStagePermissions = () => {
       <CardContent>
         <div className="space-y-6">
           {userGroups.map(group => (
-            <GroupPermissionsSection
+            <GroupPermissionCard
               key={group.id}
               group={group}
               stages={productionStages}
               getPermission={getPermission}
               onPermissionChange={updatePermission}
-              saving={saving}
+              isSaving={isSaving}
             />
           ))}
         </div>
