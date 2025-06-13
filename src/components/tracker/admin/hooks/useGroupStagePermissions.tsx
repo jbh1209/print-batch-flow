@@ -2,6 +2,7 @@
 import { useGroupStageData } from "./useGroupStageData";
 import { usePermissionOperations } from "./usePermissionOperations";
 import { usePermissionState } from "./usePermissionState";
+import { StagePermission } from "./useGroupStageData";
 
 export const useGroupStagePermissions = () => {
   const {
@@ -15,22 +16,34 @@ export const useGroupStagePermissions = () => {
   const {
     permissions,
     getPermission,
-    updatePermission,
+    updatePermissionLocally,
     refreshPermissions
   } = usePermissionState(rawPermissions);
 
   const {
     savePermission,
-    bulkSavePermissions,
     isSaving
   } = usePermissionOperations();
 
-  const handleSavePermissions = async () => {
-    const success = await bulkSavePermissions(permissions);
+  const handlePermissionChange = async (
+    groupId: string,
+    stageId: string,
+    field: keyof Omit<StagePermission, 'id' | 'user_group_id' | 'production_stage_id'>,
+    value: boolean
+  ) => {
+    // Update local state immediately for responsive UI
+    updatePermissionLocally(groupId, stageId, field, value);
+
+    // Save to database
+    const success = await savePermission(groupId, stageId, field, value);
+    
     if (success) {
-      // Reload data to get the new IDs
+      // Reload permissions from database to ensure sync
       await loadData();
       refreshPermissions(rawPermissions);
+    } else {
+      // Revert local change on failure
+      updatePermissionLocally(groupId, stageId, field, !value);
     }
   };
 
@@ -41,9 +54,7 @@ export const useGroupStagePermissions = () => {
     isLoading,
     saving: isSaving,
     getPermission,
-    updatePermission,
-    savePermissions: handleSavePermissions,
-    savePermission
+    updatePermission: handlePermissionChange
   };
 };
 

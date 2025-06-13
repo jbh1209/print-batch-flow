@@ -9,7 +9,7 @@ export const usePermissionState = (initialPermissions: StagePermission[]) => {
     return permissions.find(p => p.user_group_id === groupId && p.production_stage_id === stageId);
   }, [permissions]);
 
-  const updatePermission = useCallback((
+  const updatePermissionLocally = useCallback((
     groupId: string, 
     stageId: string, 
     field: keyof Omit<StagePermission, 'id' | 'user_group_id' | 'production_stage_id'>, 
@@ -46,7 +46,7 @@ export const usePermissionState = (initialPermissions: StagePermission[]) => {
   return {
     permissions,
     getPermission,
-    updatePermission,
+    updatePermissionLocally,
     refreshPermissions
   };
 };

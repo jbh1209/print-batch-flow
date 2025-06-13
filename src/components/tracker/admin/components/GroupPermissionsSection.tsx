@@ -31,13 +31,15 @@ interface GroupPermissionsSectionProps {
   stages: ProductionStage[];
   getPermission: (groupId: string, stageId: string) => StagePermission | undefined;
   onPermissionChange: (groupId: string, stageId: string, field: string, value: boolean) => void;
+  saving?: boolean;
 }
 
 export const GroupPermissionsSection: React.FC<GroupPermissionsSectionProps> = ({
   group,
   stages,
   getPermission,
-  onPermissionChange
+  onPermissionChange,
+  saving = false
 }) => {
   return (
     <div className="space-y-4">
@@ -56,6 +58,7 @@ export const GroupPermissionsSection: React.FC<GroupPermissionsSectionProps> = (
             groupId={group.id}
             permission={getPermission(group.id, stage.id)}
             onPermissionChange={onPermissionChange}
+            saving={saving}
           />
         ))}
       </div>

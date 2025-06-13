@@ -1,8 +1,7 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Users, Settings, Save } from "lucide-react";
+import { Users, Settings } from "lucide-react";
 import { useGroupStagePermissions } from "./hooks/useGroupStagePermissions";
 import { GroupPermissionsSection } from "./components/GroupPermissionsSection";
 
@@ -13,8 +12,7 @@ export const GroupStagePermissions = () => {
     isLoading,
     saving,
     getPermission,
-    updatePermission,
-    savePermissions
+    updatePermission
   } = useGroupStagePermissions();
 
   if (isLoading) {
@@ -33,15 +31,9 @@ export const GroupStagePermissions = () => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            <CardTitle>Group Stage Permissions</CardTitle>
-          </div>
-          <Button onClick={savePermissions} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5" />
+          <CardTitle>Group Stage Permissions</CardTitle>
         </div>
         <div className="text-sm text-gray-600 space-y-1">
           <p><strong>View:</strong> Can see jobs in this stage</p>
@@ -59,6 +51,7 @@ export const GroupStagePermissions = () => {
               stages={productionStages}
               getPermission={getPermission}
               onPermissionChange={updatePermission}
+              saving={saving}
             />
           ))}
         </div>

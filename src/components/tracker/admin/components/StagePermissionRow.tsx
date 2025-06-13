@@ -25,13 +25,15 @@ interface StagePermissionRowProps {
   groupId: string;
   permission: StagePermission | undefined;
   onPermissionChange: (groupId: string, stageId: string, field: string, value: boolean) => void;
+  saving?: boolean;
 }
 
 export const StagePermissionRow: React.FC<StagePermissionRowProps> = ({
   stage,
   groupId,
   permission,
-  onPermissionChange
+  onPermissionChange,
+  saving = false
 }) => {
   const stageName = stage.master_queue_name 
     ? `${stage.master_queue_name} - ${stage.name}`
@@ -57,6 +59,7 @@ export const StagePermissionRow: React.FC<StagePermissionRowProps> = ({
         stageId={stage.id}
         permission={permission}
         onPermissionChange={onPermissionChange}
+        saving={saving}
       />
     </div>
   );
