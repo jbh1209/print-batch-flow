@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, AlertTriangle, User, Clock, Wrench } from "lucide-react";
+import { Calendar, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { 
@@ -15,14 +15,12 @@ interface JobStatusDisplayProps {
   job: AccessibleJob & { is_orphaned?: boolean };
   showDetails?: boolean;
   compact?: boolean;
-  onRepairWorkflow?: (job: AccessibleJob) => void;
 }
 
 export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   job,
   showDetails = true,
-  compact = false,
-  onRepairWorkflow
+  compact = false
 }) => {
   const isOverdue = isJobOverdue(job);
   const isDueSoon = isJobDueSoon(job);
@@ -32,18 +30,18 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   const iconSize = compact ? "h-3 w-3" : "h-4 w-4";
   const textSize = compact ? "text-xs" : "text-sm";
 
-  // Check if job is orphaned (enhanced detection)
+  // Enhanced orphaned detection
   const isOrphaned = job.is_orphaned || (job.category_id && (!job.current_stage_id || job.current_stage_id === '00000000-0000-0000-0000-000000000000'));
   const hasCategory = !!job.category_id;
   const hasStage = job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000';
 
-  // Use current stage name as the primary status display
+  // Determine display status and styling
   let displayStatus: string;
   let badgeVariant: "default" | "secondary" | "destructive" | "outline";
   let badgeClassName: string;
 
   if (isOrphaned) {
-    displayStatus = 'Needs Repair';
+    displayStatus = 'Configuration Issue';
     badgeVariant = "destructive";
     badgeClassName = "bg-orange-100 text-orange-800 border-orange-300";
   } else if (!hasCategory) {
@@ -62,7 +60,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
 
   return (
     <div className="space-y-2">
-      {/* Status Badge - Use actual stage name or error state */}
+      {/* Status Badge */}
       <div className="flex items-center gap-2">
         <Badge 
           variant={badgeVariant}
@@ -81,25 +79,14 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
             {!compact && <span className={cn("font-medium", textSize)}>Active</span>}
           </div>
         )}
-
-        {isOrphaned && onRepairWorkflow && (
-          <button
-            onClick={() => onRepairWorkflow(job)}
-            className="flex items-center gap-1 text-orange-600 hover:text-orange-800 transition-colors"
-            title="Repair workflow for this job"
-          >
-            <Wrench className={iconSize} />
-            {!compact && <span className={cn("font-medium", textSize)}>Repair</span>}
-          </button>
-        )}
       </div>
 
-      {/* Warning for orphaned state */}
+      {/* Warning for configuration issues */}
       {isOrphaned && showDetails && (
         <div className="flex items-center gap-2 text-orange-600">
           <AlertTriangle className={cn(iconSize)} />
           <span className={cn("text-xs", "font-medium")}>
-            Job has category but no workflow stages
+            Category assigned but missing workflow configuration
           </span>
         </div>
       )}
@@ -121,7 +108,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
         </div>
       )}
 
-      {/* Stage Info - Show workflow progress if available */}
+      {/* Workflow Progress */}
       {showDetails && !isOrphaned && hasStage && (
         <div className="flex items-center gap-2">
           <span className={cn("text-gray-500", textSize)}>
@@ -136,8 +123,8 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
         </div>
       )}
 
-      {/* Category Info for orphaned jobs */}
-      {showDetails && isOrphaned && hasCategory && (
+      {/* Category Info */}
+      {showDetails && hasCategory && (
         <div className="flex items-center gap-2">
           <span className={cn("text-gray-500", textSize)}>Category:</span>
           <span className={cn("font-medium text-gray-700", textSize)}>

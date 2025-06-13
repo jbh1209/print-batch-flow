@@ -9,7 +9,6 @@ import { ProductionHeader } from "@/components/tracker/production/ProductionHead
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
-import { OrphanedJobsAlert } from "@/components/tracker/production/OrphanedJobsAlert";
 import { DynamicProductionSidebar } from "@/components/tracker/production/DynamicProductionSidebar";
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
@@ -255,16 +254,6 @@ const TrackerProduction = () => {
         {/* Main Content Area with padding */}
         <div className="flex-1 overflow-hidden p-6">
           <div className="h-full flex flex-col space-y-4">
-            {/* Orphaned Jobs Alert */}
-            {orphanedJobs.length > 0 && (
-              <TrackerErrorBoundary componentName="Orphaned Jobs Alert">
-                <OrphanedJobsAlert
-                  orphanedJobsCount={orphanedJobs.length}
-                  onRepaired={refreshJobs}
-                />
-              </TrackerErrorBoundary>
-            )}
-
             {/* Statistics */}
             <TrackerErrorBoundary componentName="Production Stats">
               <ProductionStats 
