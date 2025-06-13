@@ -28,7 +28,7 @@ const RoleAwareLayout: React.FC = () => {
       currentPath: location.pathname
     });
 
-    // Enhanced operator routing - catch all operators
+    // Enhanced operator routing - catch all operators (excluding admins/managers)
     if (isOperator && !isAdmin && !isManager) {
       // If operator is on /tracker root, redirect to factory floor
       if (location.pathname === '/tracker') {

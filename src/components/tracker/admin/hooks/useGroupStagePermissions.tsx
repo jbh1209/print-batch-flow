@@ -18,6 +18,7 @@ interface ProductionStage {
 }
 
 interface StagePermission {
+  id?: string; // Make ID optional for new records
   user_group_id: string;
   production_stage_id: string;
   can_view: boolean;
@@ -64,10 +65,10 @@ export const useGroupStagePermissions = () => {
 
       if (stagesError) throw stagesError;
 
-      // Load existing permissions
+      // Load existing permissions with IDs
       const { data: perms, error: permsError } = await supabase
         .from('user_group_stage_permissions')
-        .select('*');
+        .select('id, user_group_id, production_stage_id, can_view, can_edit, can_work, can_manage');
 
       if (permsError) throw permsError;
 
@@ -93,7 +94,7 @@ export const useGroupStagePermissions = () => {
     return permissions.find(p => p.user_group_id === groupId && p.production_stage_id === stageId);
   };
 
-  const updatePermission = (groupId: string, stageId: string, field: keyof StagePermission, value: boolean) => {
+  const updatePermission = (groupId: string, stageId: string, field: keyof Omit<StagePermission, 'id' | 'user_group_id' | 'production_stage_id'>, value: boolean) => {
     setPermissions(prev => {
       const existing = prev.find(p => p.user_group_id === groupId && p.production_stage_id === stageId);
       
@@ -104,14 +105,16 @@ export const useGroupStagePermissions = () => {
             : p
         );
       } else {
-        return [...prev, {
+        // Create new permission record without ID - let database generate it
+        const newPermission: StagePermission = {
           user_group_id: groupId,
           production_stage_id: stageId,
           can_view: field === 'can_view' ? value : false,
           can_edit: field === 'can_edit' ? value : false,
           can_work: field === 'can_work' ? value : false,
           can_manage: field === 'can_manage' ? value : false,
-        }];
+        };
+        return [...prev, newPermission];
       }
     });
   };
@@ -151,6 +154,10 @@ export const useGroupStagePermissions = () => {
                        typeof p.can_manage === 'boolean';
 
         return hasPermission && isValid;
+      }).map(p => {
+        // Remove ID from the object to let database generate new ones
+        const { id, ...permissionWithoutId } = p;
+        return permissionWithoutId;
       });
 
       console.log(`Saving ${validPermissions.length} valid permissions...`);
@@ -175,6 +182,9 @@ export const useGroupStagePermissions = () => {
 
       console.log('Save completed successfully');
       toast.success(`Successfully saved ${validPermissions.length} permission assignments`);
+      
+      // Reload data to get the new IDs
+      await loadData();
       
     } catch (error) {
       console.error('Save error:', error);
