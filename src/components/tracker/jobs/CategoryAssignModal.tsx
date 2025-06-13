@@ -4,10 +4,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { validateUUIDArray } from "@/utils/uuidValidation";
 import { useCategoryParts } from "@/hooks/tracker/useCategoryParts";
+import { useWorkflowInitialization } from "@/hooks/tracker/useWorkflowInitialization";
 import { PartMultiStageSelector } from "../factory/PartMultiStageSelector";
 
 interface CategoryAssignModalProps {
@@ -27,10 +30,95 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
   const [currentStep, setCurrentStep] = useState<'category' | 'parts'>('category');
   const [partAssignments, setPartAssignments] = useState<Record<string, string>>({});
   const [isAssigning, setIsAssigning] = useState(false);
+  const [orphanedJobs, setOrphanedJobs] = useState<string[]>([]);
+  const [isCheckingWorkflow, setIsCheckingWorkflow] = useState(false);
 
   const { availableParts, multiPartStages, hasMultiPartStages, isLoading } = useCategoryParts(selectedCategoryId);
+  const { repairJobWorkflow } = useWorkflowInitialization();
 
   const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
+
+  const checkForOrphanedJobs = async (jobIds: string[]) => {
+    try {
+      setIsCheckingWorkflow(true);
+      const orphaned = [];
+      
+      for (const jobId of jobIds) {
+        // Check if job has category but no stage instances
+        const { data: job, error: jobError } = await supabase
+          .from('production_jobs')
+          .select('id, category_id')
+          .eq('id', jobId)
+          .single();
+
+        if (jobError || !job) continue;
+
+        if (job.category_id) {
+          // Check if stage instances exist
+          const { data: stages, error: stageError } = await supabase
+            .from('job_stage_instances')
+            .select('id')
+            .eq('job_id', jobId)
+            .eq('job_table_name', 'production_jobs')
+            .limit(1);
+
+          if (!stageError && (!stages || stages.length === 0)) {
+            orphaned.push(jobId);
+          }
+        }
+      }
+      
+      setOrphanedJobs(orphaned);
+    } catch (error) {
+      console.error('Error checking for orphaned jobs:', error);
+    } finally {
+      setIsCheckingWorkflow(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (job) {
+      const jobIds = job.isMultiple ? job.selectedIds : [job.id];
+      checkForOrphanedJobs(jobIds);
+    }
+  }, [job]);
+
+  const handleRepairWorkflow = async () => {
+    if (orphanedJobs.length === 0) return;
+
+    try {
+      setIsAssigning(true);
+      let successCount = 0;
+
+      for (const jobId of orphanedJobs) {
+        // Get the job's current category
+        const { data: jobData, error: jobError } = await supabase
+          .from('production_jobs')
+          .select('category_id')
+          .eq('id', jobId)
+          .single();
+
+        if (jobError || !jobData || !jobData.category_id) {
+          console.error('Failed to get job category for repair:', jobError);
+          continue;
+        }
+
+        const success = await repairJobWorkflow(jobId, 'production_jobs', jobData.category_id);
+        if (success) successCount++;
+      }
+
+      if (successCount > 0) {
+        toast.success(`Repaired workflow for ${successCount} job(s)`);
+        setOrphanedJobs([]);
+        onAssign();
+      }
+    } catch (error) {
+      console.error('Error repairing workflows:', error);
+      toast.error('Failed to repair workflows');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
 
   const handleCategorySelect = (categoryId: string) => {
     console.log('📝 Category selected:', categoryId);
@@ -59,9 +147,37 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
     setPartAssignments(assignments);
   };
 
+  const checkExistingStages = async (jobId: string): Promise<boolean> => {
+    try {
+      const { data: existingStages, error } = await supabase
+        .from('job_stage_instances')
+        .select('id')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .limit(1);
+
+      if (error) {
+        console.error('Error checking existing stages:', error);
+        return false;
+      }
+
+      return existingStages && existingStages.length > 0;
+    } catch (error) {
+      console.error('Error in checkExistingStages:', error);
+      return false;
+    }
+  };
+
   const initializeJobWithCategory = async (jobId: string, categoryId: string, partAssignments?: Record<string, string>) => {
     try {
       console.log('🔄 Initializing job with category:', { jobId, categoryId, partAssignments });
+
+      // Check if stages already exist first
+      const hasExistingStages = await checkExistingStages(jobId);
+      if (hasExistingStages) {
+        console.log('⚠️ Job already has stage instances, skipping initialization');
+        return true;
+      }
 
       // Use the appropriate database function based on whether we have part assignments
       if (partAssignments && Object.keys(partAssignments).length > 0) {
@@ -115,26 +231,43 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           throw new Error('No valid job IDs found for bulk assignment');
         }
 
+        let successCount = 0;
+        let skippedCount = 0;
+
         for (const jobId of validJobIds) {
-          // Update job with category
-          const { error: updateError } = await supabase
-            .from('production_jobs')
-            .update({ 
-              category_id: selectedCategoryId,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', jobId);
+          try {
+            // Update job with category
+            const { error: updateError } = await supabase
+              .from('production_jobs')
+              .update({ 
+                category_id: selectedCategoryId,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', jobId);
 
-          if (updateError) {
-            console.error('❌ Error updating job:', updateError);
-            throw updateError;
+            if (updateError) {
+              console.error('❌ Error updating job:', updateError);
+              throw updateError;
+            }
+
+            // Initialize workflow
+            const initialized = await initializeJobWithCategory(jobId, selectedCategoryId, hasMultiPartStages ? partAssignments : undefined);
+            if (initialized) {
+              successCount++;
+            } else {
+              skippedCount++;
+            }
+          } catch (jobError) {
+            console.error(`❌ Error processing job ${jobId}:`, jobError);
+            skippedCount++;
           }
-
-          // Initialize workflow - database function handles cleanup
-          await initializeJobWithCategory(jobId, selectedCategoryId, hasMultiPartStages ? partAssignments : undefined);
         }
 
-        toast.success(`Successfully assigned category to ${validJobIds.length} jobs`);
+        if (successCount > 0) {
+          toast.success(`Successfully assigned category to ${successCount} job(s)${skippedCount > 0 ? ` (${skippedCount} already had workflows)` : ''}`);
+        } else {
+          toast.warning('All selected jobs already have workflows assigned');
+        }
       } else {
         // Single job assignment
         const { error: updateError } = await supabase
@@ -150,10 +283,14 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           throw updateError;
         }
 
-        // Initialize workflow - database function handles cleanup
-        await initializeJobWithCategory(job.id, selectedCategoryId, hasMultiPartStages ? partAssignments : undefined);
-
-        toast.success('Category assigned successfully');
+        // Initialize workflow
+        const initialized = await initializeJobWithCategory(job.id, selectedCategoryId, hasMultiPartStages ? partAssignments : undefined);
+        
+        if (initialized) {
+          toast.success('Category assigned successfully');
+        } else {
+          toast.success('Category updated (workflow already existed)');
+        }
       }
 
       onAssign();
@@ -162,8 +299,8 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       console.error('❌ Assignment failed:', error);
       
       // Provide more specific error messages
-      if (error.code === '23505') {
-        toast.error('Job workflow already exists. Please refresh and try again.');
+      if (error.message && error.message.includes('duplicate key')) {
+        toast.error('Some jobs already have workflows. Use the repair feature to fix orphaned jobs.');
       } else {
         toast.error(`Failed to assign category: ${error.message}`);
       }
@@ -187,6 +324,31 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Orphaned Jobs Alert */}
+          {orphanedJobs.length > 0 && (
+            <Alert className="border-yellow-200 bg-yellow-50">
+              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-800">
+                <div className="flex items-center justify-between">
+                  <span>
+                    {orphanedJobs.length} job(s) have categories but missing workflows. 
+                    This can cause assignment errors.
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRepairWorkflow}
+                    disabled={isAssigning}
+                    className="ml-2 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                  >
+                    <Wrench className="h-3 w-3 mr-1" />
+                    Repair
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {currentStep === 'category' && (
             <>
               <div>
