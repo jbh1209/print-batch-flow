@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ export const useCategoryAssignLogic = (job: any, onAssign: () => void, onClose: 
 
         if (jobError || !job) continue;
 
+        // Job is orphaned if it has a category but no stage instances
         if (job.category_id) {
           const { data: stages, error: stageError } = await supabase
             .from('job_stage_instances')
@@ -41,11 +43,15 @@ export const useCategoryAssignLogic = (job: any, onAssign: () => void, onClose: 
 
           if (!stageError && (!stages || stages.length === 0)) {
             orphaned.push(jobId);
+            console.log(`🚨 Found orphaned job: ${jobId} (has category but no stages)`);
           }
         }
       }
       
       setOrphanedJobs(orphaned);
+      if (orphaned.length > 0) {
+        console.warn(`⚠️ Found ${orphaned.length} orphaned job(s) that need repair`);
+      }
     } catch (error) {
       console.error('Error checking for orphaned jobs:', error);
     } finally {
@@ -80,13 +86,18 @@ export const useCategoryAssignLogic = (job: any, onAssign: () => void, onClose: 
         }
 
         const success = await repairJobWorkflow(jobId, 'production_jobs', jobData.category_id);
-        if (success) successCount++;
+        if (success) {
+          successCount++;
+          console.log(`✅ Repaired workflow for job ${jobId}`);
+        }
       }
 
       if (successCount > 0) {
         toast.success(`Repaired workflow for ${successCount} job(s)`);
         setOrphanedJobs([]);
         onAssign();
+      } else {
+        toast.error('Failed to repair any workflows');
       }
     } catch (error) {
       console.error('Error repairing workflows:', error);

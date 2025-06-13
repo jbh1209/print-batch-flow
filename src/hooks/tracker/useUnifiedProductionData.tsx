@@ -22,6 +22,7 @@ interface UnifiedProductionJob {
   display_stage_name?: string;
   workflow_progress?: number;
   has_workflow: boolean;
+  is_orphaned: boolean;
   stages: any[];
   job_stage_instances: any[];
   is_active: boolean;
@@ -108,13 +109,15 @@ export const useUnifiedProductionData = () => {
         }
       }
 
-      // Process jobs with enhanced stage information
+      // Process jobs with enhanced stage information and orphaned detection
       const processedJobs: UnifiedProductionJob[] = (jobsData || []).map(job => {
         const formattedWoNo = formatWONumber(job.wo_no);
         
         // Get stages for this job
         const jobStages = stagesData.filter(stage => stage.job_id === job.id);
         const hasWorkflow = jobStages.length > 0;
+        const hasCategory = !!job.category_id;
+        const isOrphaned = hasCategory && !hasWorkflow;
         
         // Find current active stage
         const activeStage = jobStages.find(s => s.status === 'active');
@@ -126,7 +129,10 @@ export const useUnifiedProductionData = () => {
         let currentStageId = null;
         let displayStageName = null;
         
-        if (activeStage) {
+        if (isOrphaned) {
+          currentStage = 'Needs Repair';
+          displayStageName = 'Category assigned but no workflow';
+        } else if (activeStage) {
           currentStage = activeStage.production_stages?.name || 'Active Stage';
           currentStageId = activeStage.production_stage_id;
           
@@ -147,7 +153,7 @@ export const useUnifiedProductionData = () => {
         } else if (hasWorkflow && completedStages.length === jobStages.length && jobStages.length > 0) {
           currentStage = 'Completed';
           displayStageName = 'Completed';
-        } else if (!hasWorkflow) {
+        } else if (!hasWorkflow && !hasCategory) {
           currentStage = job.status || 'DTP';
           displayStageName = currentStage;
         }
@@ -172,6 +178,7 @@ export const useUnifiedProductionData = () => {
           display_stage_name: displayStageName,
           workflow_progress: workflowProgress,
           has_workflow: hasWorkflow,
+          is_orphaned: isOrphaned,
           stages: jobStages.map(stage => ({
             ...stage,
             stage_name: stage.production_stages?.name || 'Unknown Stage',
@@ -186,6 +193,11 @@ export const useUnifiedProductionData = () => {
       });
 
       console.log("✅ Unified production data processed:", processedJobs.length, "jobs");
+      const orphanedCount = processedJobs.filter(job => job.is_orphaned).length;
+      if (orphanedCount > 0) {
+        console.warn(`⚠️ Found ${orphanedCount} orphaned jobs (category but no workflow)`);
+      }
+      
       setJobs(processedJobs);
       setLastUpdated(new Date());
       
@@ -205,6 +217,11 @@ export const useUnifiedProductionData = () => {
     return jobs.filter(job => job.status !== 'Completed' && !job.is_completed);
   }, [jobs]);
 
+  // Get orphaned jobs count
+  const orphanedJobs = useMemo(() => {
+    return jobs.filter(job => job.is_orphaned);
+  }, [jobs]);
+
   // Apply filtering based on user permissions and stage access
   const getFilteredJobs = useCallback((filters?: {
     statusFilter?: string | null;
@@ -221,6 +238,9 @@ export const useUnifiedProductionData = () => {
       const accessibleStageNames = consolidatedStages.map(stage => stage.stage_name.toLowerCase());
       
       filteredJobs = filteredJobs.filter(job => {
+        // Always show orphaned jobs so they can be repaired
+        if (job.is_orphaned) return true;
+        
         const effectiveStageDisplay = job.display_stage_name || job.current_stage_name;
         return effectiveStageDisplay && accessibleStageNames.includes(effectiveStageDisplay.toLowerCase());
       });
@@ -231,6 +251,9 @@ export const useUnifiedProductionData = () => {
       filteredJobs = filteredJobs.filter(job => {
         if (statusFilter === 'completed') {
           return job.status === 'Completed' || job.is_completed;
+        }
+        if (statusFilter === 'orphaned') {
+          return job.is_orphaned;
         }
         return job.status?.toLowerCase() === statusFilter.toLowerCase();
       });
@@ -278,6 +301,7 @@ export const useUnifiedProductionData = () => {
       pending: filteredJobs.filter(job => job.is_pending).length,
       active: filteredJobs.filter(job => job.is_active).length,
       completed: filteredJobs.filter(job => job.is_completed).length,
+      orphaned: filteredJobs.filter(job => job.is_orphaned).length,
       urgent: filteredJobs.filter(job => {
         if (!job.due_date) return false;
         const dueDate = new Date(job.due_date);
@@ -361,6 +385,7 @@ export const useUnifiedProductionData = () => {
     // Data
     jobs,
     activeJobs,
+    orphanedJobs,
     consolidatedStages,
     
     // State
