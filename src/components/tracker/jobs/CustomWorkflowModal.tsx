@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -36,19 +35,21 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
   const [isInitializing, setIsInitializing] = useState(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [hasExistingWorkflow, setHasExistingWorkflow] = useState(false);
+  const [workflowType, setWorkflowType] = useState<'custom' | 'category' | 'blank'>('blank');
 
-  // Load existing workflow stages when modal opens
+  // Load existing workflow stages or category template when modal opens
   useEffect(() => {
     if (isOpen && job?.id) {
-      loadExistingWorkflow();
+      loadWorkflowData();
     }
   }, [isOpen, job?.id]);
 
-  const loadExistingWorkflow = async () => {
+  const loadWorkflowData = async () => {
     setIsLoadingExisting(true);
     try {
-      console.log('🔄 Loading existing workflow for job:', job.id);
+      console.log('🔄 Loading workflow data for job:', job.id);
 
+      // First, check for existing stage instances
       const { data: existingStages, error } = await supabase
         .from('job_stage_instances')
         .select(`
@@ -71,8 +72,10 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       }
 
       if (existingStages && existingStages.length > 0) {
+        // Existing custom workflow found
         console.log('✅ Found existing stages:', existingStages.length);
         setHasExistingWorkflow(true);
+        setWorkflowType('custom');
         
         const mappedStages: SelectedStage[] = existingStages.map(stage => ({
           id: stage.production_stage.id,
@@ -82,17 +85,96 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         }));
         
         setSelectedStages(mappedStages);
+      } else if (job.category_id) {
+        // No existing stages but has category - load category template
+        console.log('📋 Loading category template for category:', job.category_id);
+        await loadCategoryTemplate(job.category_id);
       } else {
-        console.log('ℹ️ No existing stages found');
+        // No existing stages and no category - blank workflow
+        console.log('📝 Starting with blank workflow');
         setHasExistingWorkflow(false);
+        setWorkflowType('blank');
         setSelectedStages([]);
       }
     } catch (err) {
-      console.error('❌ Error loading existing workflow:', err);
-      toast.error("Failed to load existing workflow");
+      console.error('❌ Error loading workflow data:', err);
+      toast.error("Failed to load workflow data");
     } finally {
       setIsLoadingExisting(false);
     }
+  };
+
+  const loadCategoryTemplate = async (categoryId: string) => {
+    try {
+      const { data: categoryStages, error } = await supabase
+        .from('category_production_stages')
+        .select(`
+          stage_order,
+          production_stage:production_stages(
+            id,
+            name,
+            color
+          )
+        `)
+        .eq('category_id', categoryId)
+        .order('stage_order');
+
+      if (error) throw error;
+
+      if (categoryStages && categoryStages.length > 0) {
+        console.log('✅ Loaded category template stages:', categoryStages.length);
+        setHasExistingWorkflow(false);
+        setWorkflowType('category');
+        
+        const mappedStages: SelectedStage[] = categoryStages.map(stage => ({
+          id: stage.production_stage.id,
+          name: stage.production_stage.name,
+          color: stage.production_stage.color,
+          order: stage.stage_order
+        }));
+        
+        setSelectedStages(mappedStages);
+      } else {
+        // Category has no stages defined - fall back to blank
+        setWorkflowType('blank');
+        setSelectedStages([]);
+      }
+    } catch (err) {
+      console.error('❌ Error loading category template:', err);
+      setWorkflowType('blank');
+      setSelectedStages([]);
+    }
+  };
+
+  const getModalTitle = () => {
+    switch (workflowType) {
+      case 'custom':
+        return 'Edit Custom Workflow';
+      case 'category':
+        return 'Customize Category Template';
+      case 'blank':
+      default:
+        return 'Create Custom Workflow';
+    }
+  };
+
+  const getModalDescription = () => {
+    switch (workflowType) {
+      case 'custom':
+        return 'You can modify the existing custom workflow below.';
+      case 'category':
+        return 'Starting with your category template. Modify as needed to create a custom workflow.';
+      case 'blank':
+      default:
+        return 'This job will bypass category templates and use your custom workflow.';
+    }
+  };
+
+  const getButtonText = () => {
+    if (isInitializing) {
+      return hasExistingWorkflow ? "Updating..." : "Initializing...";
+    }
+    return hasExistingWorkflow ? "Update Custom Workflow" : "Initialize Custom Workflow";
   };
 
   const handleStageToggle = (stage: any, checked: boolean) => {
@@ -176,7 +258,8 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       console.log('🔄 Initializing/updating custom workflow...', { 
         jobId: job.id, 
         selectedStages: selectedStages.length,
-        hasExistingWorkflow
+        hasExistingWorkflow,
+        workflowType
       });
 
       // If there are existing stages, delete them first
@@ -273,14 +356,11 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {hasExistingWorkflow ? 'Edit Custom Workflow' : 'Create Custom Workflow'}
+            {getModalTitle()}
           </DialogTitle>
           <DialogDescription>
             Select and order production stages for job {job?.wo_no || 'Unknown'}. 
-            {hasExistingWorkflow 
-              ? 'You can modify the existing custom workflow below.' 
-              : 'This job will bypass category templates and use your custom workflow.'
-            }
+            {getModalDescription()}
           </DialogDescription>
         </DialogHeader>
 
@@ -405,10 +485,7 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
             disabled={selectedStages.length === 0 || isInitializing}
             className="bg-green-600 hover:bg-green-700"
           >
-            {isInitializing 
-              ? (hasExistingWorkflow ? "Updating..." : "Initializing...") 
-              : (hasExistingWorkflow ? "Update Custom Workflow" : "Initialize Custom Workflow")
-            }
+            {getButtonText()}
           </Button>
         </DialogFooter>
       </DialogContent>
