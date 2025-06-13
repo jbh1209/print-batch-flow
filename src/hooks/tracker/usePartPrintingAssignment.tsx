@@ -3,11 +3,6 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface PartAssignment {
-  partName: string;
-  stageId: string;
-}
-
 export const usePartPrintingAssignment = () => {
   const [isAssigning, setIsAssigning] = useState(false);
 
@@ -40,8 +35,8 @@ export const usePartPrintingAssignment = () => {
       }
 
       // Create new stage instances for each part assignment
-      const insertPromises = Object.entries(partAssignments).map(async ([partName, stageId]) => {
-        // Check if this combination already exists
+      for (const [partName, stageId] of Object.entries(partAssignments)) {
+        // Check if this combination already exists to prevent duplicates
         const { data: existing } = await supabase
           .from('job_stage_instances')
           .select('id')
@@ -52,11 +47,11 @@ export const usePartPrintingAssignment = () => {
 
         if (existing) {
           console.log(`⚠️ Stage instance already exists for ${partName} in stage ${stageId}`);
-          return null;
+          continue;
         }
 
         // Insert new stage instance
-        return supabase
+        const { error: insertError } = await supabase
           .from('job_stage_instances')
           .insert({
             job_id: jobId,
@@ -66,15 +61,11 @@ export const usePartPrintingAssignment = () => {
             stage_order: 999, // High order for printing stages
             status: 'pending'
           });
-      });
 
-      const results = await Promise.all(insertPromises);
-      
-      // Check for any errors
-      const errors = results.filter(result => result?.error).map(result => result?.error);
-      if (errors.length > 0) {
-        console.error('❌ Errors creating stage instances:', errors);
-        throw new Error(`Failed to create ${errors.length} stage instances`);
+        if (insertError) {
+          console.error('❌ Error creating stage instance:', insertError);
+          throw insertError;
+        }
       }
 
       console.log('✅ Parts assigned to printing stages successfully');

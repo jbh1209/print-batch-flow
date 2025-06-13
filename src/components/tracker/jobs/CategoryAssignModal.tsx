@@ -61,14 +61,9 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
 
   const initializeJobWithCategory = async (jobId: string, categoryId: string, partAssignments?: Record<string, string>) => {
     try {
-      // First, clear any existing stage instances for this job
-      await supabase
-        .from('job_stage_instances')
-        .delete()
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs');
+      console.log('🔄 Initializing job with category:', { jobId, categoryId, partAssignments });
 
-      // Initialize with the appropriate function based on whether we have part assignments
+      // Use the appropriate database function based on whether we have part assignments
       if (partAssignments && Object.keys(partAssignments).length > 0) {
         const { error } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
           p_job_id: jobId,
@@ -86,9 +81,10 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
         if (error) throw error;
       }
 
+      console.log('✅ Job stages initialized successfully');
       return true;
     } catch (error) {
-      console.error('Error initializing job stages:', error);
+      console.error('❌ Error initializing job stages:', error);
       throw error;
     }
   };
@@ -119,9 +115,9 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           throw new Error('No valid job IDs found for bulk assignment');
         }
 
-        const promises = validJobIds.map(async (jobId: string) => {
+        for (const jobId of validJobIds) {
           // Update job with category
-          await supabase
+          const { error: updateError } = await supabase
             .from('production_jobs')
             .update({ 
               category_id: selectedCategoryId,
@@ -129,15 +125,19 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
             })
             .eq('id', jobId);
 
-          // Initialize workflow
-          await initializeJobWithCategory(jobId, selectedCategoryId, hasMultiPartStages ? partAssignments : undefined);
-        });
+          if (updateError) {
+            console.error('❌ Error updating job:', updateError);
+            throw updateError;
+          }
 
-        await Promise.all(promises);
+          // Initialize workflow - database function handles cleanup
+          await initializeJobWithCategory(jobId, selectedCategoryId, hasMultiPartStages ? partAssignments : undefined);
+        }
+
         toast.success(`Successfully assigned category to ${validJobIds.length} jobs`);
       } else {
         // Single job assignment
-        await supabase
+        const { error: updateError } = await supabase
           .from('production_jobs')
           .update({ 
             category_id: selectedCategoryId,
@@ -145,7 +145,12 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
           })
           .eq('id', job.id);
 
-        // Initialize workflow
+        if (updateError) {
+          console.error('❌ Error updating job:', updateError);
+          throw updateError;
+        }
+
+        // Initialize workflow - database function handles cleanup
         await initializeJobWithCategory(job.id, selectedCategoryId, hasMultiPartStages ? partAssignments : undefined);
 
         toast.success('Category assigned successfully');
@@ -155,7 +160,13 @@ export const CategoryAssignModal: React.FC<CategoryAssignModalProps> = ({
       onClose();
     } catch (error) {
       console.error('❌ Assignment failed:', error);
-      toast.error(`Failed to assign category: ${error.message}`);
+      
+      // Provide more specific error messages
+      if (error.code === '23505') {
+        toast.error('Job workflow already exists. Please refresh and try again.');
+      } else {
+        toast.error(`Failed to assign category: ${error.message}`);
+      }
     } finally {
       setIsAssigning(false);
     }
