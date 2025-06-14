@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -43,26 +42,22 @@ export const useAtomicCategoryAssignment = () => {
             continue;
           }
 
-          // Check if job already has workflow stages
-          const { data: existingStages, error: existingCheckError } = await supabase
+          // Before creating new workflow: Delete any existing workflow stages for this job
+          // (clean up possible orphaned/incomplete stages to ensure atomic/clean init)
+          const { error: deleteError } = await supabase
             .from('job_stage_instances')
-            .select('id')
+            .delete()
             .eq('job_id', jobId)
-            .eq('job_table_name', 'production_jobs')
-            .limit(1);
-
-          if (existingCheckError) {
-            console.error('❌ Error checking existing stages:', existingCheckError);
-            errorMessages.push(`Failed to check existing workflow for job ${jobId}`);
+            .eq('job_table_name', 'production_jobs');
+          if (deleteError) {
+            console.error('❌ Error cleaning up existing workflow stages:', deleteError);
+            errorMessages.push(`Failed to delete existing workflow for job ${jobId}`);
             continue;
+          } else {
+            console.log(`🧹 Existing workflow stages deleted for job ${jobId}`);
           }
 
-          if (existingStages && existingStages.length > 0) {
-            console.log(`⚠️ Job ${jobId} already has workflow stages, skipping`);
-            continue;
-          }
-
-          // Use database transaction to update job and create stages atomically
+          // Update the job's category
           const { error: updateError } = await supabase
             .from('production_jobs')
             .update({ 
@@ -135,7 +130,7 @@ export const useAtomicCategoryAssignment = () => {
       }
 
       if (successCount === 0 && errorMessages.length === 0) {
-        toast.info('All selected jobs already have workflows assigned');
+        toast.info('No workflows assigned (all jobs were skipped)');
       }
 
       return successCount > 0;
