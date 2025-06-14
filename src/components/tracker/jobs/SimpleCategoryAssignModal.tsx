@@ -105,10 +105,37 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
   const handleAssignment = async () => {
     if (!selectedCategoryId) return;
 
+    console.log('🚀 Starting assignment process:', {
+      jobIds,
+      selectedCategoryId,
+      hasMultiPartStages,
+      partAssignments,
+      availableParts
+    });
+
+    // Enhanced part assignment validation and mapping
+    let finalPartAssignments: Record<string, string> | undefined = undefined;
+
+    if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
+      console.log('📋 Processing multi-part assignments:', partAssignments);
+      
+      // Validate all parts are assigned
+      const unassignedParts = availableParts.filter(part => !partAssignments[part]);
+      if (unassignedParts.length > 0) {
+        toast.error(`Please assign all parts: ${unassignedParts.join(', ')}`);
+        return;
+      }
+
+      // Use the part assignments directly - they should already be exact part names
+      finalPartAssignments = partAssignments;
+      
+      console.log('✅ Final part assignments:', finalPartAssignments);
+    }
+
     const success = await assignCategoryWithWorkflow(
       jobIds,
       selectedCategoryId,
-      hasMultiPartStages && Object.keys(partAssignments).length > 0 ? partAssignments : undefined
+      finalPartAssignments
     );
 
     if (success) {
@@ -118,6 +145,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
   };
 
   const handlePartAssignmentsChange = (assignments: Record<string, string>) => {
+    console.log('🔄 Part assignments changed:', assignments);
     setPartAssignments(assignments);
   };
 
@@ -277,7 +305,9 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                           <SelectValue placeholder="Select a stage..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {multiPartStages.map((stage) => (
+                          {multiPartStages
+                            .filter(stage => stage.part_types.includes(part))
+                            .map((stage) => (
                             <SelectItem key={stage.stage_id} value={stage.stage_id}>
                               <div className="flex items-center gap-2">
                                 <div 
