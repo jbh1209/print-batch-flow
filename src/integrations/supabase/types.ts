@@ -1839,7 +1839,7 @@ export type Database = {
           p_job_id: string
           p_job_table_name: string
           p_category_id: string
-          p_part_assignments?: Json
+          p_part_assignments: Json
         }
         Returns: boolean
       }

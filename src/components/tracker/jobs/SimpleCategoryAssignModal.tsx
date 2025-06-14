@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,11 +7,11 @@ import { AlertTriangle, CheckCircle, Loader2, InfoIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { useCategoryParts } from "@/hooks/tracker/useCategoryParts";
-import { useAtomicCategoryAssignment } from "@/hooks/tracker/useAtomicCategoryAssignment.tsx"; // Corrected import
+import { useAtomicCategoryAssignment } from "@/hooks/tracker/useAtomicCategoryAssignment.tsx";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SimpleCategoryAssignModalProps {
-  job: any; // Consider defining a more specific type for job
+  job: any;
   onClose: () => void;
   onAssign: () => void;
 }
@@ -126,61 +125,34 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
       toast.error("Please select a category.");
       return;
     }
-    if (!selectedCategoryDetails) {
-      toast.error("Selected category details not found.");
-      return;
-    }
-    if (!selectedCategoryDetails.hasStages) {
-        toast.error(`Category "${selectedCategoryDetails.name}" has no stages configured and cannot be assigned.`);
+    if (!selectedCategoryDetails?.hasStages) {
+        toast.error(`Category "${selectedCategoryDetails?.name || 'Unknown'}" has no stages and cannot be assigned.`);
         return;
     }
-
-    console.log('🚀 Starting assignment process:', {
-      jobIds,
-      selectedCategoryId,
-      jobInitialCategoryId,
-      hasMultiPartStages,
-      partAssignments,
-      availableParts
-    });
 
     let finalPartAssignments: Record<string, string> | undefined = undefined;
 
-    if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
-      console.log('📋 Processing multi-part assignments:', partAssignments);
-      
+    if (hasMultiPartStages) {
       const unassignedParts = availableParts.filter(part => !partAssignments[part]);
       if (unassignedParts.length > 0) {
-        toast.error(`Please assign all parts: ${unassignedParts.join(', ')}`);
+        toast.error(`Please assign all parts to a stage: ${unassignedParts.join(', ')}`);
         return;
       }
-
-      finalPartAssignments = {};
-      for (const [partName, stageId] of Object.entries(partAssignments)) {
-        const assignedStage = multiPartStages.find(stage => stage.stage_id === stageId);
-        if (!assignedStage) {
-          console.error('❌ Invalid stage assignment:', { partName, stageId, availableStages: multiPartStages });
-          toast.error(`Invalid stage assignment for part: ${partName}`);
-          return;
-        }
-        if (!assignedStage.part_types.includes(partName)) {
-          console.error('❌ Part not supported by stage:', { 
-            partName, stageId, stageName: assignedStage.stage_name, supportedParts: assignedStage.part_types 
-          });
-          toast.error(`Part "${partName}" is not supported by stage "${assignedStage.stage_name}"`);
-          return;
-        }
-        finalPartAssignments[partName] = stageId;
-      }
-      console.log('✅ Final validated part assignments:', finalPartAssignments);
+      finalPartAssignments = partAssignments;
     }
 
-    // Pass current job's category ID to the hook for better logging context
+    console.log('🚀 Calling assignCategoryWithWorkflow with:', {
+      jobIds,
+      selectedCategoryId,
+      finalPartAssignments,
+      jobInitialCategoryId,
+    });
+
     const success = await assignCategoryWithWorkflow(
       jobIds,
       selectedCategoryId,
       finalPartAssignments,
-      job.isMultiple ? null : jobInitialCategoryId // Pass initial category only for single job edits for now
+      job.isMultiple ? null : jobInitialCategoryId
     );
 
     if (success) {
