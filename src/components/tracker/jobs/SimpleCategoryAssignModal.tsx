@@ -1,18 +1,17 @@
-
-import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useState, useEffect, useMemo } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2, InfoIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { useCategoryParts } from "@/hooks/tracker/useCategoryParts";
-import { useAtomicCategoryAssignment } from "@/hooks/tracker/useAtomicCategoryAssignment";
+import { useAtomicCategoryAssignment } from "@/hooks/tracker/useAtomicCategoryAssignment.tsx"; // Corrected import
 import { supabase } from "@/integrations/supabase/client";
 
 interface SimpleCategoryAssignModalProps {
-  job: any;
+  job: any; // Consider defining a more specific type for job
   onClose: () => void;
   onAssign: () => void;
 }
@@ -34,6 +33,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
 }) => {
   const { categories, isLoading: categoriesLoading } = useCategories();
   const { assignCategoryWithWorkflow, isAssigning } = useAtomicCategoryAssignment();
+  
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [categoriesWithStages, setCategoriesWithStages] = useState<CategoryWithStages[]>([]);
   const [loadingStages, setLoadingStages] = useState(true);
@@ -42,10 +42,28 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
 
   const { availableParts, multiPartStages, hasMultiPartStages, isLoading: partsLoading } = useCategoryParts(selectedCategoryId);
 
+  const jobInitialCategoryId = useMemo(() => job?.category_id, [job]);
+  const jobInitialCategoryName = useMemo(() => {
+    if (!jobInitialCategoryId || !categoriesWithStages.length) return null;
+    return categoriesWithStages.find(c => c.id === jobInitialCategoryId)?.name || 'Unknown Category';
+  }, [jobInitialCategoryId, categoriesWithStages]);
+
+  // Initialize selectedCategoryId with job's current category or if job has stages defined (for repair)
+  useEffect(() => {
+    if (job?.category_id) {
+      setSelectedCategoryId(job.category_id);
+    } else {
+      setSelectedCategoryId(""); // Reset if job has no category
+    }
+  }, [job]);
+
   // Load category stage information
   useEffect(() => {
     const loadCategoriesWithStages = async () => {
-      if (!categories.length) return;
+      if (!categories.length) {
+        setLoadingStages(false); // Ensure loading stops if no categories
+        return;
+      }
 
       setLoadingStages(true);
       try {
@@ -53,7 +71,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
           categories.map(async (category) => {
             const { data: stages, error } = await supabase
               .from('category_production_stages')
-              .select('id')
+              .select('id', { count: 'exact' }) // Request count
               .eq('category_id', category.id);
 
             if (error) {
@@ -64,15 +82,14 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                 stageCount: 0
               };
             }
-
+            const count = stages?.length || 0; // Supabase count might be in a different property depending on version/query
             return {
               ...category,
-              hasStages: stages && stages.length > 0,
-              stageCount: stages?.length || 0
+              hasStages: count > 0,
+              stageCount: count
             };
           })
         );
-
         setCategoriesWithStages(categoriesWithStageInfo);
       } catch (error) {
         console.error('Error loading category stage information:', error);
@@ -84,19 +101,19 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
     loadCategoriesWithStages();
   }, [categories]);
 
-  const selectedCategory = categoriesWithStages.find(cat => cat.id === selectedCategoryId);
+  const selectedCategoryDetails = categoriesWithStages.find(cat => cat.id === selectedCategoryId);
   const jobIds = job.isMultiple ? job.selectedIds : [job.id];
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
-    setPartAssignments({});
-    setCurrentStep('category');
+    setPartAssignments({}); // Reset part assignments when category changes
+    setCurrentStep('category'); // Always go back to category step if category changes
   };
 
   const handleNextStep = () => {
-    if (!selectedCategoryId) return;
+    if (!selectedCategoryId || !selectedCategoryDetails) return;
 
-    if (hasMultiPartStages && availableParts.length > 0) {
+    if (selectedCategoryDetails.hasStages && hasMultiPartStages && availableParts.length > 0) {
       setCurrentStep('parts');
     } else {
       handleAssignment();
@@ -104,66 +121,65 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
   };
 
   const handleAssignment = async () => {
-    if (!selectedCategoryId) return;
+    if (!selectedCategoryId) {
+      toast.error("Please select a category.");
+      return;
+    }
+    if (!selectedCategoryDetails) {
+      toast.error("Selected category details not found.");
+      return;
+    }
+    if (!selectedCategoryDetails.hasStages) {
+        toast.error(`Category "${selectedCategoryDetails.name}" has no stages configured and cannot be assigned.`);
+        return;
+    }
 
     console.log('🚀 Starting assignment process:', {
       jobIds,
       selectedCategoryId,
+      jobInitialCategoryId,
       hasMultiPartStages,
       partAssignments,
       availableParts
     });
 
-    // Enhanced part assignment validation and exact name mapping
     let finalPartAssignments: Record<string, string> | undefined = undefined;
 
     if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
       console.log('📋 Processing multi-part assignments:', partAssignments);
       
-      // Validate all parts are assigned
       const unassignedParts = availableParts.filter(part => !partAssignments[part]);
       if (unassignedParts.length > 0) {
         toast.error(`Please assign all parts: ${unassignedParts.join(', ')}`);
         return;
       }
 
-      // CRITICAL FIX: Map UI part names to exact stage IDs
       finalPartAssignments = {};
-      
-      // Validate each assignment and map to exact stage ID
       for (const [partName, stageId] of Object.entries(partAssignments)) {
-        // Find the exact stage that matches this assignment
         const assignedStage = multiPartStages.find(stage => stage.stage_id === stageId);
-        
         if (!assignedStage) {
           console.error('❌ Invalid stage assignment:', { partName, stageId, availableStages: multiPartStages });
           toast.error(`Invalid stage assignment for part: ${partName}`);
           return;
         }
-
-        // Verify the part is actually supported by this stage
         if (!assignedStage.part_types.includes(partName)) {
           console.error('❌ Part not supported by stage:', { 
-            partName, 
-            stageId, 
-            stageName: assignedStage.stage_name,
-            supportedParts: assignedStage.part_types 
+            partName, stageId, stageName: assignedStage.stage_name, supportedParts: assignedStage.part_types 
           });
           toast.error(`Part "${partName}" is not supported by stage "${assignedStage.stage_name}"`);
           return;
         }
-
-        // Use exact part name as stored in part_definitions
         finalPartAssignments[partName] = stageId;
       }
-      
       console.log('✅ Final validated part assignments:', finalPartAssignments);
     }
 
+    // Pass current job's category ID to the hook for better logging context
     const success = await assignCategoryWithWorkflow(
       jobIds,
       selectedCategoryId,
-      finalPartAssignments
+      finalPartAssignments,
+      job.isMultiple ? null : jobInitialCategoryId // Pass initial category only for single job edits for now
     );
 
     if (success) {
@@ -176,17 +192,42 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
     console.log('🔄 Part assignments changed:', assignments);
     setPartAssignments(assignments);
   };
+  
+  const isRepairScenario = jobInitialCategoryId && selectedCategoryId === jobInitialCategoryId && job.stagesMissing; // Assuming job.stagesMissing prop exists
+  const isChangingCategory = jobInitialCategoryId && selectedCategoryId !== jobInitialCategoryId;
+  const isNewAssignment = !jobInitialCategoryId;
 
-  const canProceed = selectedCategoryId && selectedCategory?.hasStages;
+  let actionButtonText = "Assign Category";
+  if (isRepairScenario) {
+    actionButtonText = "Repair Workflow";
+  } else if (isChangingCategory) {
+    actionButtonText = "Change Category";
+  }
+  
+  if (currentStep === 'category' && hasMultiPartStages && availableParts.length > 0 && selectedCategoryDetails?.hasStages) {
+     actionButtonText = "Next: Assign Parts";
+  } else if (currentStep === 'parts') {
+    actionButtonText = "Complete Assignment";
+  }
+
+
+  const canProceedToPartsOrAssign = selectedCategoryId && selectedCategoryDetails?.hasStages;
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {currentStep === 'category' ? 'Assign Category' : 'Assign Parts to Stages'}
-            {job.isMultiple ? ` (${jobIds.length} jobs)` : ` - ${job.wo_no || 'Unknown'}`}
+            {currentStep === 'category' ? 
+              (jobInitialCategoryId ? 'Change or Repair Category' : 'Assign Category') : 
+              'Assign Parts to Stages'}
+            {job.isMultiple ? ` (${jobIds.length} jobs)` : ` - Job: ${job.wo_no || 'Unknown'}`}
           </DialogTitle>
+          {jobInitialCategoryName && currentStep === 'category' && (
+            <DialogDescription>
+              Currently assigned: <Badge variant="outline">{jobInitialCategoryName}</Badge>
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         <div className="space-y-6">
@@ -195,7 +236,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
               {/* Category Selection */}
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">
+                  <label htmlFor="category-select" className="text-sm font-medium mb-2 block">
                     Select Category
                   </label>
                   
@@ -205,7 +246,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                       <span>Loading categories...</span>
                     </div>
                   ) : (
-                    <Select value={selectedCategoryId} onValueChange={handleCategorySelect}>
+                    <Select inputId="category-select" value={selectedCategoryId} onValueChange={handleCategorySelect}>
                       <SelectTrigger>
                         <SelectValue placeholder="Choose a category..." />
                       </SelectTrigger>
@@ -214,7 +255,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                           <SelectItem 
                             key={category.id} 
                             value={category.id}
-                            disabled={!category.hasStages}
+                            disabled={!category.hasStages && category.id !== jobInitialCategoryId} // Allow selecting current if it has no stages (for visibility)
                           >
                             <div className="flex items-center justify-between w-full">
                               <div className="flex items-center gap-2">
@@ -245,24 +286,29 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                             </div>
                           </SelectItem>
                         ))}
+                         {categoriesWithStages.length === 0 && (
+                            <div className="p-4 text-center text-sm text-gray-500">
+                                No categories available or none have stages.
+                            </div>
+                        )}
                       </SelectContent>
                     </Select>
                   )}
                 </div>
 
                 {/* Category Info */}
-                {selectedCategory && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
+                {selectedCategoryDetails && (
+                  <div className={`p-4 rounded-lg ${selectedCategoryDetails.hasStages ? 'bg-gray-50' : 'bg-red-50 border border-red-200'}`}>
                     <div className="flex items-center gap-2 mb-2">
                       <div 
                         className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: selectedCategory.color }}
+                        style={{ backgroundColor: selectedCategoryDetails.color }}
                       />
-                      <h4 className="font-medium">{selectedCategory.name}</h4>
-                      {selectedCategory.hasStages ? (
+                      <h4 className="font-medium">{selectedCategoryDetails.name}</h4>
+                      {selectedCategoryDetails.hasStages ? (
                         <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50">
                           <CheckCircle className="h-3 w-3 mr-1" />
-                          {selectedCategory.stageCount} stage{selectedCategory.stageCount !== 1 ? 's' : ''}
+                          {selectedCategoryDetails.stageCount} stage{selectedCategoryDetails.stageCount !== 1 ? 's' : ''}
                         </Badge>
                       ) : (
                         <Badge variant="destructive">
@@ -273,34 +319,45 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                     </div>
                     
                     <div className="space-y-1 text-sm text-gray-600">
-                      <p><strong>SLA Target:</strong> {selectedCategory.sla_target_days} days</p>
-                      {selectedCategory.description && (
-                        <p><strong>Description:</strong> {selectedCategory.description}</p>
+                      <p><strong>SLA Target:</strong> {selectedCategoryDetails.sla_target_days} days</p>
+                      {selectedCategoryDetails.description && (
+                        <p><strong>Description:</strong> {selectedCategoryDetails.description}</p>
                       )}
-                      {!selectedCategory.hasStages && (
+                      {!selectedCategoryDetails.hasStages && (
                         <p className="text-red-600 font-medium">
                           ⚠️ This category cannot be assigned because it has no production stages configured.
                           Please contact an administrator to set up the workflow stages for this category.
                         </p>
                       )}
-                      {hasMultiPartStages && availableParts.length > 0 && (
-                        <p className="text-blue-600">
-                          📋 This category has multi-part stages that will require part assignments.
+                      {selectedCategoryDetails.hasStages && hasMultiPartStages && availableParts.length > 0 && (
+                         <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700 flex items-start">
+                            <InfoIcon className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                            <span>This category has multi-part stages. You will be prompted to assign parts to specific stages in the next step.</span>
+                        </div>
+                      )}
+                      {jobInitialCategoryId && selectedCategoryId === jobInitialCategoryId && job.stagesMissing && ( // Example condition
+                        <p className="text-orange-600 font-medium mt-2">
+                          ℹ️ This job's workflow stages seem to be missing. Re-assigning this category will attempt to repair and initialize them.
                         </p>
                       )}
                     </div>
                   </div>
                 )}
+                 {!selectedCategoryId && jobInitialCategoryId && jobInitialCategoryName && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-700">
+                        This job is currently assigned to "<strong>{jobInitialCategoryName}</strong>". Select a new category to change it, or re-select "<strong>{jobInitialCategoryName}</strong>" if you need to re-initialize its workflow.
+                    </div>
+                )}
               </div>
             </>
           )}
 
-          {currentStep === 'parts' && selectedCategory && (
+          {currentStep === 'parts' && selectedCategoryDetails && (
             <div className="space-y-4">
               <div className="p-4 bg-blue-50 rounded-lg">
                 <h4 className="font-medium text-blue-800 mb-2">Part Assignment Required</h4>
                 <p className="text-sm text-blue-700">
-                  The selected category "{selectedCategory.name}" has multi-part stages. 
+                  The selected category "{selectedCategoryDetails.name}" has multi-part stages. 
                   Please assign each part to the appropriate production stage.
                 </p>
               </div>
@@ -314,10 +371,11 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                 <div className="space-y-4">
                   {availableParts.map((part) => (
                     <div key={part} className="space-y-2">
-                      <label className="text-sm font-medium">
+                      <label htmlFor={`part-assign-${part}`} className="text-sm font-medium">
                         Assign "{part}" to stage:
                       </label>
                       <Select
+                        inputId={`part-assign-${part}`}
                         value={partAssignments[part] || ""}
                         onValueChange={(value) => {
                           const newAssignments = { ...partAssignments };
@@ -372,20 +430,24 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
             {currentStep === 'category' && (
               <Button 
                 onClick={handleNextStep} 
-                disabled={!canProceed || isAssigning}
+                disabled={!canProceedToPartsOrAssign || isAssigning }
               >
-                {hasMultiPartStages && availableParts.length > 0 ? "Next: Assign Parts" : "Assign Category"}
+                {isAssigning ? (
+                    <> <Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing... </>
+                ) : (
+                    actionButtonText
+                )}
               </Button>
             )}
             {currentStep === 'parts' && (
-              <Button onClick={handleAssignment} disabled={isAssigning}>
+              <Button onClick={handleAssignment} disabled={isAssigning || Object.keys(partAssignments).length < availableParts.length}>
                 {isAssigning ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     Assigning...
                   </>
                 ) : (
-                  "Complete Assignment"
+                  actionButtonText
                 )}
               </Button>
             )}
