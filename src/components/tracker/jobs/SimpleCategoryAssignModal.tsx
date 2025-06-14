@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -223,7 +224,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                       <SelectTrigger id="category-select">
                         <SelectValue placeholder="Choose a category..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[60vh]">
                         {categoriesWithStages.map((category) => (
                           <SelectItem 
                             key={category.id} 

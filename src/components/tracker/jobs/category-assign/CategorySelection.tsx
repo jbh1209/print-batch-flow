@@ -21,7 +21,7 @@ export const CategorySelection: React.FC<CategorySelectionProps> = ({
         <SelectTrigger>
           <SelectValue placeholder="Choose a category..." />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-[60vh]">
           {categories.map((category) => (
             <SelectItem key={category.id} value={category.id}>
               <div className="flex items-center gap-2">

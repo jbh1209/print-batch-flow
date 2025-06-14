@@ -523,7 +523,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                     )}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[60vh]">
                       {allPrintingStages.map((availableStage) => (
                         <SelectItem key={availableStage.id} value={availableStage.id}>
                           <div className="flex items-center gap-2">
