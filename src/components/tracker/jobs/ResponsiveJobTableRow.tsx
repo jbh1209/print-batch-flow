@@ -1,4 +1,3 @@
-
 import React from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -69,29 +68,19 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
   const isDueSoon = job.due_date && !isOverdue && 
     new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
-  const handleEditClick = (e: React.MouseEvent) => {
+  const handleAction = (action: () => void, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    onEditJob(job);
+    setTimeout(action, 50);
   };
 
-  const handleCategoryAssignClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onCategoryAssign(job);
-  };
+  const handleEditClick = (e: React.MouseEvent) => handleAction(() => onEditJob(job), e);
 
-  const handleWorkflowInitClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onWorkflowInit(job);
-  };
+  const handleCategoryAssignClick = (e: React.MouseEvent) => handleAction(() => onCategoryAssign(job), e);
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDeleteJob(job.id);
-  };
+  const handleWorkflowInitClick = (e: React.MouseEvent) => handleAction(() => onWorkflowInit(job), e);
+
+  const handleDeleteClick = (e: React.MouseEvent) => handleAction(() => onDeleteJob(job.id), e);
 
   const handleQRCodeClick = (e: React.MouseEvent) => {
     e.preventDefault();

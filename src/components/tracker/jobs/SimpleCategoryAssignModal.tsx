@@ -224,7 +224,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                       <SelectTrigger id="category-select">
                         <SelectValue placeholder="Choose a category..." />
                       </SelectTrigger>
-                      <SelectContent className="max-h-[60vh]">
+                      <SelectContent className="max-h-[60vh]" position="popper" sideOffset={5}>
                         {categoriesWithStages.map((category) => (
                           <SelectItem 
                             key={category.id} 
@@ -363,7 +363,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                         <SelectTrigger id={`part-assign-${part}`}>
                           <SelectValue placeholder="Select a stage..." />
                         </SelectTrigger>
-                        <SelectContent className="max-h-[60vh]">
+                        <SelectContent className="max-h-[60vh]" position="popper" sideOffset={5}>
                           {multiPartStages
                             .filter(stage => stage.part_types.includes(part))
                             .map((stage) => (

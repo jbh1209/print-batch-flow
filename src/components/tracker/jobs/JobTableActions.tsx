@@ -37,6 +37,11 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
   onWorkflowInit,
   onDeleteJob
 }) => {
+  // Adding a delay to prevent modal/dropdown conflicts
+  const handleAction = (action: () => void) => {
+    setTimeout(action, 50);
+  };
+
   return (
     <div className="flex items-center gap-2">
       {/* Mobile Actions (visible on mobile) */}
@@ -58,29 +63,29 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEditJob(job)}>
+            <DropdownMenuItem onClick={() => handleAction(() => onEditJob(job))}>
               <Edit className="h-4 w-4 mr-2" />
               Edit Job
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSyncJob(job)}>
+            <DropdownMenuItem onClick={() => handleAction(() => onSyncJob(job))}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Sync Data
             </DropdownMenuItem>
             {!job.category_id && (
-              <DropdownMenuItem onClick={() => onCategoryAssign(job)}>
+              <DropdownMenuItem onClick={() => handleAction(() => onCategoryAssign(job))}>
                 <Play className="h-4 w-4 mr-2" />
                 Assign Category
               </DropdownMenuItem>
             )}
             {job.category_id && !job.has_workflow && (
-              <DropdownMenuItem onClick={() => onWorkflowInit(job)}>
+              <DropdownMenuItem onClick={() => handleAction(() => onWorkflowInit(job))}>
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Initialize Workflow
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={() => onDeleteJob(job.id)}
+              onClick={() => handleAction(() => onDeleteJob(job.id))}
               onSelect={(e) => e.preventDefault()}
               className="text-red-600"
             >
