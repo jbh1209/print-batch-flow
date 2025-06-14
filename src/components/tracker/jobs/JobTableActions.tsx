@@ -36,11 +36,16 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
   onWorkflowInit,
   onDeleteJob
 }) => {
-  // Add AI: fixes race condition and freezing on 3-dot menus
+  // Prevent multiple rapid clicks
+  const [actionPending, setActionPending] = React.useState(false);
+
   const handleAction = (action: () => void) => {
+    if (actionPending) return;
+    setActionPending(true);
     setTimeout(() => {
+      setActionPending(false);
       action();
-    }, 100);
+    }, 200);
   };
 
   return (
@@ -70,6 +75,7 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
                 e.stopPropagation();
                 handleAction(() => onEditJob(job));
               }}
+              disabled={actionPending}
             >
               <Edit className="h-4 w-4 mr-2" />
               Edit Job
@@ -80,6 +86,7 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
                 e.stopPropagation();
                 handleAction(() => onSyncJob(job));
               }}
+              disabled={actionPending}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Sync Data
@@ -91,6 +98,7 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
                   e.stopPropagation();
                   handleAction(() => onCategoryAssign(job));
                 }}
+                disabled={actionPending}
               >
                 <Play className="h-4 w-4 mr-2" />
                 Assign Category
@@ -103,6 +111,7 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
                   e.stopPropagation();
                   handleAction(() => onWorkflowInit(job));
                 }}
+                disabled={actionPending}
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Initialize Workflow
@@ -117,6 +126,7 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
               }}
               onSelect={(e) => e.preventDefault()}
               className="text-red-600"
+              disabled={actionPending}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete Job

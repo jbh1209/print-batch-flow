@@ -68,11 +68,17 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
   const isDueSoon = job.due_date && !isOverdue && 
     new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
-  // AI: Unify and always apply delay/action pattern to prevent React modal freezing
+  const [actionPending, setActionPending] = React.useState(false);
+
   const handleAction = (action: () => void, e: React.MouseEvent) => {
+    if (actionPending) return;
+    setActionPending(true);
     e.preventDefault();
     e.stopPropagation();
-    setTimeout(action, 100);
+    setTimeout(() => {
+      setActionPending(false);
+      action();
+    }, 200);
   };
 
   const handleEditClick = (e: React.MouseEvent) =>
