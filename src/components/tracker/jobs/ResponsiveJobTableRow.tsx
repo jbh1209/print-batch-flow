@@ -68,19 +68,24 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
   const isDueSoon = job.due_date && !isOverdue && 
     new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
+  // AI: Unify and always apply delay/action pattern to prevent React modal freezing
   const handleAction = (action: () => void, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setTimeout(action, 50);
+    setTimeout(action, 100);
   };
 
-  const handleEditClick = (e: React.MouseEvent) => handleAction(() => onEditJob(job), e);
+  const handleEditClick = (e: React.MouseEvent) =>
+    handleAction(() => onEditJob(job), e);
 
-  const handleCategoryAssignClick = (e: React.MouseEvent) => handleAction(() => onCategoryAssign(job), e);
+  const handleCategoryAssignClick = (e: React.MouseEvent) =>
+    handleAction(() => onCategoryAssign(job), e);
 
-  const handleWorkflowInitClick = (e: React.MouseEvent) => handleAction(() => onWorkflowInit(job), e);
+  const handleWorkflowInitClick = (e: React.MouseEvent) =>
+    handleAction(() => onWorkflowInit(job), e);
 
-  const handleDeleteClick = (e: React.MouseEvent) => handleAction(() => onDeleteJob(job.id), e);
+  const handleDeleteClick = (e: React.MouseEvent) =>
+    handleAction(() => onDeleteJob(job.id), e);
 
   const handleQRCodeClick = (e: React.MouseEvent) => {
     e.preventDefault();

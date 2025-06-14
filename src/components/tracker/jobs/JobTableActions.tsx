@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,9 +36,11 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
   onWorkflowInit,
   onDeleteJob
 }) => {
-  // Adding a delay to prevent modal/dropdown conflicts
+  // Add AI: fixes race condition and freezing on 3-dot menus
   const handleAction = (action: () => void) => {
-    setTimeout(action, 50);
+    setTimeout(() => {
+      action();
+    }, 100);
   };
 
   return (
@@ -63,29 +64,57 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleAction(() => onEditJob(job))}>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleAction(() => onEditJob(job));
+              }}
+            >
               <Edit className="h-4 w-4 mr-2" />
               Edit Job
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAction(() => onSyncJob(job))}>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleAction(() => onSyncJob(job));
+              }}
+            >
               <RefreshCw className="h-4 w-4 mr-2" />
               Sync Data
             </DropdownMenuItem>
             {!job.category_id && (
-              <DropdownMenuItem onClick={() => handleAction(() => onCategoryAssign(job))}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleAction(() => onCategoryAssign(job));
+                }}
+              >
                 <Play className="h-4 w-4 mr-2" />
                 Assign Category
               </DropdownMenuItem>
             )}
             {job.category_id && !job.has_workflow && (
-              <DropdownMenuItem onClick={() => handleAction(() => onWorkflowInit(job))}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleAction(() => onWorkflowInit(job));
+                }}
+              >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Initialize Workflow
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={() => handleAction(() => onDeleteJob(job.id))}
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleAction(() => onDeleteJob(job.id));
+              }}
               onSelect={(e) => e.preventDefault()}
               className="text-red-600"
             >

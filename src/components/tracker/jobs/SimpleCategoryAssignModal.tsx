@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -224,7 +223,12 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                       <SelectTrigger id="category-select">
                         <SelectValue placeholder="Choose a category..." />
                       </SelectTrigger>
-                      <SelectContent className="max-h-[60vh]" position="popper" sideOffset={5}>
+                      <SelectContent 
+                        className="max-h-[48vh] overflow-y-auto z-50 bg-white" 
+                        position="popper" 
+                        sideOffset={8}
+                        align="start"
+                      >
                         {categoriesWithStages.map((category) => (
                           <SelectItem 
                             key={category.id} 
@@ -363,19 +367,24 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                         <SelectTrigger id={`part-assign-${part}`}>
                           <SelectValue placeholder="Select a stage..." />
                         </SelectTrigger>
-                        <SelectContent className="max-h-[60vh]" position="popper" sideOffset={5}>
+                        <SelectContent 
+                          className="max-h-[48vh] overflow-y-auto z-50 bg-white" 
+                          position="popper" 
+                          sideOffset={8}
+                          align="start"
+                        >
                           {multiPartStages
                             .filter(stage => stage.part_types.includes(part))
                             .map((stage) => (
-                            <SelectItem key={stage.stage_id} value={stage.stage_id}>
-                              <div className="flex items-center gap-2">
-                                <div 
-                                  className="w-3 h-3 rounded-full" 
-                                  style={{ backgroundColor: stage.stage_color || '#6B7280' }}
-                                />
-                                <span>{stage.stage_name}</span>
-                              </div>
-                            </SelectItem>
+                              <SelectItem key={stage.stage_id} value={stage.stage_id}>
+                                <div className="flex items-center gap-2">
+                                  <div 
+                                    className="w-3 h-3 rounded-full" 
+                                    style={{ backgroundColor: stage.stage_color || '#6B7280' }}
+                                  />
+                                  <span>{stage.stage_name}</span>
+                                </div>
+                              </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
