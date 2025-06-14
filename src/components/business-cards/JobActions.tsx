@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -104,6 +103,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted, isDeleting = false }: JobActi
             <span>Download PDF</span>
           </DropdownMenuItem>
           <DropdownMenuItem 
+            onSelect={(e) => e.preventDefault()}
             onClick={() => setShowDeleteDialog(true)}
             disabled={currentlyDeleting}
             className="flex items-center gap-2 text-red-600 focus:text-red-600"

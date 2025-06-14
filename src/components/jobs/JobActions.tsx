@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -372,6 +371,7 @@ const JobActions = ({ job, onJobDeleted, onJobUpdated }: JobActionsProps) => {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem 
+            onSelect={(e) => e.preventDefault()}
             onClick={() => setShowDeleteDialog(true)}
             className="flex items-center gap-2 text-red-600 focus:text-red-600"
           >
