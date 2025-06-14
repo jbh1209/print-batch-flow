@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { useCategoryParts } from "@/hooks/tracker/useCategoryParts";
 import { useAtomicCategoryAssignment } from "@/hooks/tracker/useAtomicCategoryAssignment";
@@ -113,7 +114,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
       availableParts
     });
 
-    // Enhanced part assignment validation and mapping
+    // Enhanced part assignment validation and exact name mapping
     let finalPartAssignments: Record<string, string> | undefined = undefined;
 
     if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
@@ -126,10 +127,37 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
         return;
       }
 
-      // Use the part assignments directly - they should already be exact part names
-      finalPartAssignments = partAssignments;
+      // CRITICAL FIX: Map UI part names to exact stage IDs
+      finalPartAssignments = {};
       
-      console.log('✅ Final part assignments:', finalPartAssignments);
+      // Validate each assignment and map to exact stage ID
+      for (const [partName, stageId] of Object.entries(partAssignments)) {
+        // Find the exact stage that matches this assignment
+        const assignedStage = multiPartStages.find(stage => stage.stage_id === stageId);
+        
+        if (!assignedStage) {
+          console.error('❌ Invalid stage assignment:', { partName, stageId, availableStages: multiPartStages });
+          toast.error(`Invalid stage assignment for part: ${partName}`);
+          return;
+        }
+
+        // Verify the part is actually supported by this stage
+        if (!assignedStage.part_types.includes(partName)) {
+          console.error('❌ Part not supported by stage:', { 
+            partName, 
+            stageId, 
+            stageName: assignedStage.stage_name,
+            supportedParts: assignedStage.part_types 
+          });
+          toast.error(`Part "${partName}" is not supported by stage "${assignedStage.stage_name}"`);
+          return;
+        }
+
+        // Use exact part name as stored in part_definitions
+        finalPartAssignments[partName] = stageId;
+      }
+      
+      console.log('✅ Final validated part assignments:', finalPartAssignments);
     }
 
     const success = await assignCategoryWithWorkflow(

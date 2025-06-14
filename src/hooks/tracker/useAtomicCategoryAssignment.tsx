@@ -19,14 +19,38 @@ export const useAtomicCategoryAssignment = () => {
         partAssignments
       });
 
-      // Enhanced logging for part assignments
+      // Enhanced validation for part assignments
       if (partAssignments && Object.keys(partAssignments).length > 0) {
-        console.log('📋 Part assignments being sent:', partAssignments);
-        console.log('📋 Part assignment details:', {
+        console.log('📋 Validating part assignments before sending:', {
+          partAssignments,
           partCount: Object.keys(partAssignments).length,
           parts: Object.keys(partAssignments),
-          stages: Object.values(partAssignments)
+          stageIds: Object.values(partAssignments)
         });
+
+        // Validate that all values are valid UUIDs
+        for (const [partName, stageId] of Object.entries(partAssignments)) {
+          if (!stageId || typeof stageId !== 'string') {
+            console.error('❌ Invalid stage ID for part:', { partName, stageId });
+            toast.error(`Invalid stage assignment for part: ${partName}`);
+            return false;
+          }
+
+          // Verify stage exists in database
+          const { data: stageExists, error: stageCheckError } = await supabase
+            .from('production_stages')
+            .select('id, name')
+            .eq('id', stageId)
+            .single();
+
+          if (stageCheckError || !stageExists) {
+            console.error('❌ Stage does not exist:', { partName, stageId, error: stageCheckError });
+            toast.error(`Stage does not exist for part: ${partName}`);
+            return false;
+          }
+
+          console.log(`✅ Validated stage for ${partName}:`, stageExists.name);
+        }
       }
 
       let successCount = 0;
@@ -83,13 +107,13 @@ export const useAtomicCategoryAssignment = () => {
             continue;
           }
 
-          // Initialize workflow stages
+          // Initialize workflow stages with enhanced error handling
           let workflowSuccess = false;
           
           if (partAssignments && Object.keys(partAssignments).length > 0) {
-            console.log(`🔧 Initializing multi-part workflow for job ${jobId} with assignments:`, partAssignments);
+            console.log(`🔧 Initializing multi-part workflow for job ${jobId} with validated assignments:`, partAssignments);
             
-            const { error: workflowError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
+            const { data, error: workflowError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
               p_job_id: jobId,
               p_job_table_name: 'production_jobs',
               p_category_id: categoryId,
@@ -97,31 +121,46 @@ export const useAtomicCategoryAssignment = () => {
             });
 
             if (workflowError) {
-              console.error('❌ Multi-part workflow initialization error:', workflowError);
-              console.error('❌ Error details:', {
+              console.error('❌ Multi-part workflow initialization error:', {
+                jobId,
+                categoryId,
+                partAssignments,
+                error: workflowError,
                 message: workflowError.message,
                 hint: workflowError.hint,
                 details: workflowError.details,
                 code: workflowError.code
               });
-              console.error('❌ Part assignments that failed:', partAssignments);
-              errorMessages.push(`Failed to initialize multi-part workflow for job ${jobId}: ${workflowError.message}`);
+              
+              // Enhanced error message based on error type
+              let errorMessage = `Failed to initialize multi-part workflow for job ${jobId}`;
+              if (workflowError.message?.includes('does not exist')) {
+                errorMessage += ': One or more assigned stages do not exist';
+              } else if (workflowError.message?.includes('part')) {
+                errorMessage += ': Invalid part assignment detected';
+              } else {
+                errorMessage += `: ${workflowError.message}`;
+              }
+              
+              errorMessages.push(errorMessage);
             } else {
               workflowSuccess = true;
-              console.log(`✅ Multi-part workflow initialized for job ${jobId}`);
+              console.log(`✅ Multi-part workflow initialized successfully for job ${jobId}`);
             }
           } else {
             console.log(`🔧 Initializing standard workflow for job ${jobId}`);
             
-            const { error: workflowError } = await supabase.rpc('initialize_job_stages_auto', {
+            const { data, error: workflowError } = await supabase.rpc('initialize_job_stages_auto', {
               p_job_id: jobId,
               p_job_table_name: 'production_jobs',
               p_category_id: categoryId
             });
 
             if (workflowError) {
-              console.error('❌ Standard workflow initialization error:', workflowError);
-              console.error('❌ Error details:', {
+              console.error('❌ Standard workflow initialization error:', {
+                jobId,
+                categoryId,
+                error: workflowError,
                 message: workflowError.message,
                 hint: workflowError.hint,
                 details: workflowError.details,
@@ -130,7 +169,7 @@ export const useAtomicCategoryAssignment = () => {
               errorMessages.push(`Failed to initialize workflow for job ${jobId}: ${workflowError.message}`);
             } else {
               workflowSuccess = true;
-              console.log(`✅ Standard workflow initialized for job ${jobId}`);
+              console.log(`✅ Standard workflow initialized successfully for job ${jobId}`);
             }
           }
 
