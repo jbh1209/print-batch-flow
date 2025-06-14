@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -246,8 +247,8 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                       <span>Loading categories...</span>
                     </div>
                   ) : (
-                    <Select inputId="category-select" value={selectedCategoryId} onValueChange={handleCategorySelect}>
-                      <SelectTrigger>
+                    <Select value={selectedCategoryId} onValueChange={handleCategorySelect}>
+                      <SelectTrigger id="category-select">
                         <SelectValue placeholder="Choose a category..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -375,7 +376,6 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                         Assign "{part}" to stage:
                       </label>
                       <Select
-                        inputId={`part-assign-${part}`}
                         value={partAssignments[part] || ""}
                         onValueChange={(value) => {
                           const newAssignments = { ...partAssignments };
@@ -387,7 +387,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                           handlePartAssignmentsChange(newAssignments);
                         }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id={`part-assign-${part}`}>
                           <SelectValue placeholder="Select a stage..." />
                         </SelectTrigger>
                         <SelectContent>
