@@ -51,7 +51,7 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
 
       {/* Desktop Actions (hidden on mobile) */}
       <div className="hidden md:block">
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm">
               <MoreHorizontal className="h-4 w-4" />
@@ -81,6 +81,7 @@ export const JobTableActions: React.FC<JobTableActionsProps> = ({
             <DropdownMenuSeparator />
             <DropdownMenuItem 
               onClick={() => onDeleteJob(job.id)}
+              onSelect={(e) => e.preventDefault()}
               className="text-red-600"
             >
               <Trash2 className="h-4 w-4 mr-2" />

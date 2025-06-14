@@ -222,6 +222,7 @@ export const ResponsiveJobTableRow: React.FC<ResponsiveJobTableRowProps> = ({
             
             <DropdownMenuItem 
               onClick={handleDeleteClick} 
+              onSelect={(e) => e.preventDefault()}
               className="text-xs text-red-600 hover:text-red-700 cursor-pointer"
             >
               <Trash2 className="h-3 w-3 mr-2" />
