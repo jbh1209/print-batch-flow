@@ -1,8 +1,8 @@
-
 import React, { useEffect } from "react";
 import JobStageCard from "./JobStageCard";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { getDueStatusColor } from "@/utils/tracker/trafficLightUtils";
 
 type Props = {
   stage: any;
@@ -27,13 +27,18 @@ const StageColumn: React.FC<Props> = ({
   selectedJobId,
   onSelectJob,
 }) => {
+  // Support job ordering: first by job_order_in_stage (if present), fallback to wo_no as string
   const stageJobStages = jobStages
     .filter(js => js.production_stage_id === stage.id)
-    .sort((a, b) =>
-      a.job_order_in_stage && b.job_order_in_stage
-        ? (a.job_order_in_stage - b.job_order_in_stage)
-        : (a.production_job?.wo_no || "").localeCompare(b.production_job?.wo_no || "")
-    );
+    .sort((a, b) => {
+      if (a.job_order_in_stage && b.job_order_in_stage) {
+        return a.job_order_in_stage - b.job_order_in_stage;
+      }
+      // fallback to wo_no if job_order not set
+      const aWo = a.production_job?.wo_no || "";
+      const bWo = b.production_job?.wo_no || "";
+      return aWo.localeCompare(bWo, undefined, { numeric: true });
+    });
 
   // Register reorder handler for this column to parent via ref when DnD is enabled
   useEffect(() => {
@@ -48,6 +53,13 @@ const StageColumn: React.FC<Props> = ({
     selectedJobId && jobStage.production_job?.id === selectedJobId
   );
 
+  // Add helper for determining SLA/due date (use job's due_date or fallback to empty string)
+  function getDueInfo(jobStage: any) {
+    const due = jobStage.production_job?.due_date;
+    const sla = jobStage.production_job?.sla_target_days ?? 3; // fallback to 3 if unspecified
+    return getDueStatusColor(due, sla);
+  }
+
   // --- Card & DnD view ---
   if (viewMode === "card" && enableDnd) {
     return (
@@ -56,7 +68,7 @@ const StageColumn: React.FC<Props> = ({
         strategy={verticalListSortingStrategy}
       >
         <div
-          className="bg-gray-50 rounded-lg p-2 min-w-[330px] max-w-full flex flex-col h-[calc(80vh-90px)]"
+          className="bg-gray-50 rounded-lg p-2 min-w-[350px] max-w-full flex flex-col h-[calc(80vh-90px)]"
           style={{ width: 'auto' }}
         >
           <div className="flex items-center justify-between mb-1">
@@ -70,19 +82,48 @@ const StageColumn: React.FC<Props> = ({
           </div>
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col gap-2">
-              {stageJobStages.map(jobStage => (
-                <SortableJobStageCard
-                  key={jobStage.id}
-                  jobStage={jobStage}
-                  onStageAction={onStageAction}
-                  onClick={() => onSelectJob && onSelectJob(jobStage.production_job?.id)}
-                  highlighted={isJobHighlighted(jobStage)}
-                />
-              ))}
+              {stageJobStages.map(jobStage => {
+                const dueMeta = getDueInfo(jobStage);
+                return (
+                  <div
+                    key={jobStage.id}
+                    className={`relative ${isJobHighlighted(jobStage) ? "ring-2 ring-green-500 rounded-lg transition" : ""}`}
+                    onClick={() => onSelectJob && onSelectJob(jobStage.production_job?.id)}
+                    tabIndex={0}
+                    style={{ cursor: "pointer" }}
+                  >
+                    {/* Traffic light dot and due badge */}
+                    <div className="absolute left-2 top-2 flex items-center z-10">
+                      <span
+                        className="inline-block rounded-full mr-1"
+                        style={{ width: 12, height: 12, background: dueMeta.color }}
+                        title={dueMeta.label}
+                      />
+                    </div>
+                    <JobStageCard jobStage={jobStage} onStageAction={onStageAction} />
+                    <div className="absolute right-2 top-2">
+                      {jobStage.production_job?.due_date && (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs font-semibold text-white"
+                          style={{
+                            background: dueMeta.color,
+                            minWidth: 60,
+                            display: 'inline-block',
+                            textAlign: 'center'
+                          }}
+                          title={`Due: ${jobStage.production_job.due_date}`}
+                        >
+                          {jobStage.production_job.due_date}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {stageJobStages.length === 0 && (
+                <div className="text-center py-6 text-gray-400 text-xs">No jobs</div>
+              )}
             </div>
-            {stageJobStages.length === 0 && (
-              <div className="text-center py-6 text-gray-400 text-xs">No jobs</div>
-            )}
           </div>
         </div>
       </SortableContext>
@@ -92,7 +133,7 @@ const StageColumn: React.FC<Props> = ({
   // --- Table/List view ---
   return (
     <div
-      className="bg-gray-50 rounded-lg p-2 min-w-[330px] max-w-full flex flex-col h-[calc(80vh-90px)]"
+      className="bg-gray-50 rounded-lg p-2 min-w-[350px] max-w-full flex flex-col h-[calc(80vh-90px)]"
       style={{ width: 'auto' }}
     >
       <div className="flex items-center justify-between mb-1">
@@ -105,35 +146,20 @@ const StageColumn: React.FC<Props> = ({
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {viewMode === "card" ? (
-          <div className="flex flex-col gap-2">
-            {stageJobStages.map(jobStage => (
-              <div
-                key={jobStage.id}
-                className={isJobHighlighted(jobStage) ? "ring-2 ring-green-500 rounded-lg transition" : ""}
-                onClick={() => onSelectJob && onSelectJob(jobStage.production_job?.id)}
-                tabIndex={0}
-                style={{ cursor: "pointer" }}
-              >
-                <JobStageCard jobStage={jobStage} onStageAction={onStageAction} />
-              </div>
-            ))}
-            {stageJobStages.length === 0 && (
-              <div className="text-center py-6 text-gray-400 text-xs">No jobs</div>
-            )}
-          </div>
-        ) : (
-          <table className="w-auto text-[13px] min-w-max" style={{ tableLayout: 'auto' }}>
-            <thead>
-              <tr className="text-xs text-gray-500 border-b">
-                <th className="text-left px-1 py-1 font-normal whitespace-nowrap">WO</th>
-                <th className="text-left px-1 py-1 font-normal whitespace-nowrap w-[160px] max-w-[180px]">Customer</th>
-                <th className="text-left px-1 py-1 font-normal whitespace-nowrap">Status</th>
-                <th className="text-left px-1 py-1 font-normal whitespace-nowrap"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {stageJobStages.map(jobStage => (
+        <table className="w-auto text-[13px] min-w-max" style={{ tableLayout: 'auto' }}>
+          <thead>
+            <tr className="text-xs text-gray-500 border-b">
+              <th className="text-left px-1 py-1 font-normal whitespace-nowrap">WO</th>
+              <th className="text-left px-1 py-1 font-normal whitespace-nowrap w-[160px] max-w-[220px]">Customer</th>
+              <th className="text-left px-1 py-1 font-normal whitespace-nowrap">Due</th>
+              <th className="text-left px-1 py-1 font-normal whitespace-nowrap">Status</th>
+              <th className="text-left px-1 py-1 font-normal whitespace-nowrap"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {stageJobStages.map(jobStage => {
+              const dueMeta = getDueInfo(jobStage);
+              return (
                 <tr
                   key={jobStage.id}
                   className={
@@ -144,9 +170,34 @@ const StageColumn: React.FC<Props> = ({
                   onClick={() => onSelectJob && onSelectJob(jobStage.production_job?.id)}
                   tabIndex={0}
                 >
-                  <td className="px-1 whitespace-nowrap">{jobStage.production_job?.wo_no}</td>
-                  <td className="px-1 whitespace-nowrap max-w-[180px] truncate" style={{ width: "160px" }}>
+                  <td className="px-1 whitespace-nowrap flex items-center gap-2">
+                    <span
+                      className="inline-block rounded-full"
+                      style={{ width: 10, height: 10, background: dueMeta.color }}
+                      title={dueMeta.label}
+                    />
+                    {jobStage.production_job?.wo_no}
+                  </td>
+                  <td className="px-1 whitespace-nowrap max-w-[220px] truncate" style={{ width: "160px" }}>
                     {jobStage.production_job?.customer}
+                  </td>
+                  <td className="px-1 whitespace-nowrap">
+                    {jobStage.production_job?.due_date ? (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-semibold text-white"
+                        style={{
+                          background: dueMeta.color,
+                          minWidth: 60,
+                          display: 'inline-block',
+                          textAlign: 'center'
+                        }}
+                        title={`Due: ${jobStage.production_job.due_date}`}
+                      >
+                        {jobStage.production_job.due_date}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">No Due</span>
+                    )}
                   </td>
                   <td className="px-1 whitespace-nowrap">
                     <span className={`inline-flex rounded px-1 text-xs ${jobStage.status === "active" ? "bg-blue-100 text-blue-700" : jobStage.status === "pending" ? "bg-yellow-50 text-yellow-800" : "bg-gray-100"}`}>
@@ -168,15 +219,15 @@ const StageColumn: React.FC<Props> = ({
                     </div>
                   </td>
                 </tr>
-              ))}
-              {stageJobStages.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="text-center py-6 text-xs text-gray-400">No jobs</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
+              );
+            })}
+            {stageJobStages.length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-center py-6 text-xs text-gray-400">No jobs</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
