@@ -1,9 +1,9 @@
 
 import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, Circle } from "lucide-react";
 import { TrafficLightIndicator } from "./TrafficLightIndicator";
 
 interface FilteredJobsViewProps {
@@ -34,6 +34,15 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
     }
   };
 
+  // Utility for colored dot per stage status
+  const getStageDot = (status: string) => {
+    let color = "text-gray-400";
+    if (status === "completed") color = "text-green-500";
+    else if (status === "active") color = "text-blue-500";
+    else if (status === "pending") color = "text-gray-400";
+    return <Circle className={`w-3 h-3 mr-1 ${color}`} fill="currentColor" />;
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -59,50 +68,117 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
   return (
     <div className="divide-y divide-gray-100">
       {jobs.map((job) => (
-        <div
-          key={job.id}
-          className={`flex items-center hover:bg-gray-50 transition-colors px-2 py-2 cursor-pointer ${selectedJobId === job.id ? 'bg-blue-50' : ''}`}
-          style={{ minHeight: 40 }}
-          onClick={() => handleJobClick(job.id)}
-        >
-          {/* Due / traffic light */}
-          <div className="flex items-center justify-center" style={{ width: 26 }}>
-            <TrafficLightIndicator dueDate={job.due_date} />
+        <React.Fragment key={job.id}>
+          <div
+            className={`flex items-center hover:bg-gray-50 transition-colors px-2 py-2 cursor-pointer ${selectedJobId === job.id ? 'bg-blue-50' : ''}`}
+            style={{ minHeight: 40 }}
+            onClick={() => handleJobClick(job.id)}
+            data-testid={`job-row-${job.id}`}
+          >
+            {/* Due / traffic light */}
+            <div className="flex items-center justify-center" style={{ width: 26 }}>
+              <TrafficLightIndicator dueDate={job.due_date} />
+            </div>
+            
+            {/* Job info */}
+            <div className="flex-1 min-w-0 truncate ml-2">
+              <span className="font-medium text-sm mr-2">{job.wo_no}</span>
+              {job.category_name && (
+                <Badge variant="outline" className="ml-0.5 mr-0.5">{job.category_name}</Badge>
+              )}
+              {job.customer && (
+                <span className="text-xs text-gray-500 ml-1">{job.customer}</span>
+              )}
+              <span className="text-xs text-gray-400 ml-1">{job.reference}</span>
+            </div>
+            
+            {/* Stage/Status */}
+            <div style={{ width: 120 }} className="truncate">
+              {job.current_stage_name && (
+                <Badge className={getStatusColor(job.stage_status)}>{job.current_stage_name}</Badge>
+              )}
+            </div>
+            {/* Workflow Progress */}
+            <div style={{ width: 80 }} className="pl-1">
+              {typeof job.workflow_progress === "number" && (
+                <Progress value={job.workflow_progress} className="h-1" />
+              )}
+            </div>
+            {/* Expand/Collapse Icon */}
+            <div className="pl-2 pr-1 flex items-center" style={{ width: 30 }}>
+              {selectedJobId === job.id
+                ? <ChevronDown className="h-4 w-4 text-gray-400" />
+                : <ChevronRight className="h-4 w-4 text-gray-400" />}
+            </div>
           </div>
-          
-          {/* Job info */}
-          <div className="flex-1 min-w-0 truncate ml-2">
-            <span className="font-medium text-sm mr-2">{job.wo_no}</span>
-            {job.category_name && (
-              <Badge variant="outline" className="ml-0.5 mr-0.5">{job.category_name}</Badge>
-            )}
-            {job.customer && (
-              <span className="text-xs text-gray-500 ml-1">{job.customer}</span>
-            )}
-            <span className="text-xs text-gray-400 ml-1">{job.reference}</span>
-          </div>
-          
-          {/* Stage/Status */}
-          <div style={{ width: 120 }} className="truncate">
-            {job.current_stage_name && (
-              <Badge className={getStatusColor(job.stage_status)}>{job.current_stage_name}</Badge>
-            )}
-          </div>
-          {/* Workflow Progress */}
-          <div style={{ width: 80 }} className="pl-1">
-            {typeof job.workflow_progress === "number" && (
-              <Progress value={job.workflow_progress} className="h-1" />
-            )}
-          </div>
-          {/* Expand/Collapse Icon */}
-          <div className="pl-2 pr-1 flex items-center" style={{ width: 30 }}>
-            {selectedJobId === job.id
-              ? <ChevronDown className="h-4 w-4 text-gray-400" />
-              : <ChevronRight className="h-4 w-4 text-gray-400" />}
-          </div>
-        </div>
+          {selectedJobId === job.id && (
+            <div className="bg-gray-50 px-6 pb-3 pt-2">
+              <div className="grid grid-cols-12 gap-x-2 text-xs font-semibold text-gray-600 mb-1">
+                <div className="col-span-4">Stage</div>
+                <div className="col-span-2">Status</div>
+                <div className="col-span-3">Progress</div>
+                <div className="col-span-3 text-right">Action</div>
+              </div>
+              <div className="space-y-0.5">
+                {Array.isArray(job.stages) && job.stages.length > 0 ? (
+                  job.stages.map((stage, idx) => (
+                    <div key={stage.id || idx} className="grid grid-cols-12 items-center py-0.5 border-b border-gray-200 last:border-b-0 group">
+                      {/* Stage name with colored dot */}
+                      <div className="col-span-4 flex items-center">
+                        {getStageDot(stage.status)}
+                        <span>{stage.stage_name}</span>
+                      </div>
+                      {/* Stage status */}
+                      <div className="col-span-2">
+                        <Badge variant="outline" className={getStatusColor(stage.status)}>
+                          {stage.status.charAt(0).toUpperCase() + stage.status.slice(1)}
+                        </Badge>
+                      </div>
+                      {/* (Optional) mini progress or timing */}
+                      <div className="col-span-3">
+                        {stage.status === "completed" ? (
+                          <span className="text-green-600 font-medium">✓</span>
+                        ) : stage.status === "active" ? (
+                          <span className="text-blue-600">In Progress</span>
+                        ) : (
+                          <span className="text-gray-500">Pending</span>
+                        )}
+                      </div>
+                      {/* Actions (Start/Complete) */}
+                      <div className="col-span-3 flex items-center justify-end space-x-1">
+                        {stage.status === "pending" && (
+                          <button
+                            className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium hover:bg-blue-200"
+                            onClick={e => {
+                              e.stopPropagation();
+                              onStageAction(job.id, stage.production_stage_id, "start");
+                            }}
+                          >
+                            Start
+                          </button>
+                        )}
+                        {stage.status === "active" && (
+                          <button
+                            className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded font-medium hover:bg-green-200"
+                            onClick={e => {
+                              e.stopPropagation();
+                              onStageAction(job.id, stage.production_stage_id, "complete");
+                            }}
+                          >
+                            Complete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-gray-400 italic text-sm">No stage details available for this job.</div>
+                )}
+              </div>
+            </div>
+          )}
+        </React.Fragment>
       ))}
     </div>
   );
 };
-
