@@ -5,6 +5,7 @@ export interface JobStageWithDetails {
   job_table_name: string;
   production_stage_id: string;
   stage_order: number;
+  job_order_in_stage: number; // NEW: explicit per-stage job order (NOT NULL, always present from DB)
   status: 'pending' | 'active' | 'completed' | 'skipped';
   started_at?: string;
   completed_at?: string;
