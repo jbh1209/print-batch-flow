@@ -7,81 +7,29 @@ import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuick
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
 import { filterActiveJobs, filterCompletedJobs } from "@/utils/tracker/jobCompletionUtils";
-import { useDataManager } from "@/hooks/tracker/useDataManager";
+import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
 
 const TrackerDashboard = () => {
-  // --- Confirmed: useDataManager provides full jobs, with correct caching per route now ---
-  const { 
-    jobs, 
-    isLoading: jobsLoading, 
+  // --- Use UNIFIED HOOK for production jobs and stages ---
+  const {
+    activeJobs,
+    consolidatedStages,
+    isLoading,
     isRefreshing,
+    error,
     lastUpdated,
-    error: jobsError,
-    manualRefresh,
+    refreshJobs,
+    getJobStats,
     getTimeSinceLastUpdate
-  } = useDataManager();
-  const { stages, isLoading: stagesLoading } = useProductionStages();
-  const isLoading = jobsLoading || stagesLoading;
-  const error = jobsError;
+  } = useUnifiedProductionData();
 
-  // --- PATCH: Compute job stats only from jobs array, don't double-filter ---
-  const getJobStats = () => {
-    if (!jobs || !Array.isArray(jobs)) {
-      return { total: 0, inProgress: 0, completed: 0, prePress: 0, statusCounts: {}, stages: [] };
-    }
-    // Filter functions
-    const activeJobs = jobs.filter(j => String(j.status || '').toLowerCase() !== "completed" && String(j.status || '').toLowerCase() !== "shipped");
-    const completedJobs = jobs.filter(j => String(j.status || '').toLowerCase() === "completed" || String(j.status || '').toLowerCase() === "shipped");
-    const statusCounts: Record<string, number> = {};
+  // --- Now use new stats from unified data ---
+  const stats = React.useMemo(
+    () => getJobStats(activeJobs),
+    [activeJobs, getJobStats]
+  );
 
-    // Initialize all actual stages with 0
-    stages.forEach(stage => {
-      statusCounts[stage.name] = 0;
-    });
-
-    // Fallbacks
-    statusCounts["Pre-Press"] = 0;
-    statusCounts["Completed"] = completedJobs.length;
-
-    // Count ONLY ACTIVE jobs by their current stage/status
-    activeJobs.forEach(job => {
-      if (job.current_stage) {
-        if (statusCounts.hasOwnProperty(job.current_stage)) {
-          statusCounts[job.current_stage]++;
-        } else {
-          statusCounts[job.current_stage] = 1;
-        }
-      } else {
-        const status = job.status || 'Pre-Press';
-        if (statusCounts.hasOwnProperty(status)) {
-          statusCounts[status]++;
-        } else {
-          statusCounts[status] = 1;
-        }
-      }
-    });
-
-    // Calculate summary stats from ACTIVE jobs only
-    const inProgressStages = stages.filter(stage =>
-      !['Pre-Press', 'Completed', 'Shipped'].includes(stage.name)
-    );
-    const inProgressCount = inProgressStages.reduce((total, stage) =>
-      total + (statusCounts[stage.name] || 0), 0);
-    const prePressCount = statusCounts["Pre-Press"] || 0;
-
-    return {
-      total: activeJobs.length,
-      inProgress: inProgressCount,
-      completed: completedJobs.length,
-      prePress: prePressCount,
-      statusCounts,
-      stages
-    };
-  };
-
-  const stats = getJobStats();
-
-  console.log("TrackerDashboard render - isLoading:", isLoading, "active jobs count:", stats.total, "completed jobs:", stats.completed, "stages count:", stages.length, "error:", error);
+  console.log("TrackerDashboard render - isLoading:", isLoading, "active jobs count:", stats.total, "stages count:", consolidatedStages.length, "error:", error);
 
   if (isLoading) {
     return (
@@ -104,7 +52,7 @@ const TrackerDashboard = () => {
             <RefreshIndicator
               lastUpdated={lastUpdated}
               isRefreshing={isRefreshing}
-              onRefresh={manualRefresh}
+              onRefresh={refreshJobs}
               getTimeSinceLastUpdate={getTimeSinceLastUpdate}
             />
           </div>
@@ -122,17 +70,19 @@ const TrackerDashboard = () => {
           <h1 className="text-3xl font-bold tracking-tight">Production Tracker Dashboard</h1>
           <p className="text-gray-600">Monitor and manage your production workflow</p>
         </div>
-        
         <RefreshIndicator
           lastUpdated={lastUpdated}
           isRefreshing={isRefreshing}
-          onRefresh={manualRefresh}
+          onRefresh={refreshJobs}
           getTimeSinceLastUpdate={getTimeSinceLastUpdate}
         />
       </div>
 
       <TrackerOverviewStats stats={stats} />
-      <TrackerStatusBreakdown stats={stats} />
+      <TrackerStatusBreakdown stats={{
+        ...stats,
+        stages: consolidatedStages
+      }} />
       <TrackerQuickActions />
 
       {stats.total === 0 && <TrackerEmptyState />}
