@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -59,7 +58,8 @@ let globalCache: {
   jobs: ProductionJob[] | null;
   stages: any[] | null;
   lastUpdated: number | null;
-} = { jobs: null, stages: null, lastUpdated: null };
+  consolidatedStages: any[] | null;
+} = { jobs: null, stages: null, lastUpdated: null, consolidatedStages: null };
 
 export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
@@ -71,11 +71,61 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
 
   const subscriptionRef = useRef<any>(null);
 
-  // --- SIMPLE CACHE-FIRST LOADING ---
+  // Helper: Consolidate stages into master/subsidiaries groups
+  const consolidateStages = (allStages: any[]) => {
+    const masterQueueMap: { [id: string]: any } = {};
+    const result: any[] = [];
+
+    allStages?.forEach(stage => {
+      if (stage.master_queue_id && stage.master_queue_id !== stage.id) {
+        // Subsidiary stage
+        if (!masterQueueMap[stage.master_queue_id]) {
+          // Find the master stage
+          const master = allStages.find(s => s.id === stage.master_queue_id);
+          masterQueueMap[stage.master_queue_id] = {
+            stage_id: master?.id || stage.master_queue_id,
+            stage_name: master?.name || "Master Queue",
+            stage_color: master?.color || "#9CA3AF",
+            is_master_queue: true,
+            subsidiary_stages: [],
+          };
+          result.push(masterQueueMap[stage.master_queue_id]);
+        }
+        masterQueueMap[stage.master_queue_id].subsidiary_stages.push({
+          stage_id: stage.id,
+          stage_name: stage.name,
+          stage_color: stage.color,
+        });
+      } else {
+        // Standalone or master
+        result.push({
+          stage_id: stage.id,
+          stage_name: stage.name,
+          stage_color: stage.color,
+          is_master_queue: false,
+          subsidiary_stages: [],
+        });
+      }
+    });
+
+    // Remove duplicates for pure masters
+    return result.filter(
+      (stage, idx, arr) =>
+        arr.findIndex(s => s.stage_id === stage.stage_id) === idx
+    );
+  };
+
   const fetchData = useCallback(async (force = false) => {
-    if (!force && globalCache.jobs && globalCache.stages && globalCache.lastUpdated && (Date.now() - globalCache.lastUpdated < CACHE_TTL)) {
+    if (
+      !force &&
+      globalCache.jobs &&
+      globalCache.stages &&
+      globalCache.lastUpdated &&
+      (Date.now() - globalCache.lastUpdated < CACHE_TTL) &&
+      globalCache.consolidatedStages
+    ) {
       setJobs(globalCache.jobs);
-      setConsolidatedStages(globalCache.stages);
+      setConsolidatedStages(globalCache.consolidatedStages);
       setLastUpdated(new Date(globalCache.lastUpdated));
       setIsLoading(false);
       setError(null);
@@ -103,6 +153,7 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
       if (jobsError) throw jobsError;
 
       const jobIds = jobsData?.map(job => job.id) || [];
+
       let stagesData: any[] = [];
       if (jobIds.length > 0) {
         const { data: stagesDataRaw, error: stagesErr } = await supabase
@@ -110,7 +161,7 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
           .select(`
             *,
             production_stages (
-              id, name, description, color, is_multi_part, master_queue_id, production_stages!master_queue_id ( name )
+              id, name, description, color, is_multi_part, master_queue_id, production_stages!master_queue_id ( name, color )
             )
           `)
           .in('job_id', jobIds)
@@ -121,8 +172,15 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
         stagesData = stagesDataRaw || [];
       }
 
-      // For demo, we don't implement permissions logic in context: full jobs, stages
-      // -- The following mirrors the status/orphan logic from `useUnifiedProductionData`
+      // Fetch all available production_stages for sidebar display (regardless of usage in jobs)
+      const { data: allStages, error: allStagesErr } = await supabase
+        .from('production_stages')
+        .select('*');
+      if (allStagesErr) throw allStagesErr;
+
+      // Consolidate production stages
+      const consolidated = consolidateStages(allStages || []);
+
       const processedJobs: ProductionJob[] = (jobsData || []).map(job => {
         const jobStages = stagesData.filter(stage => stage.job_id === job.id);
         const hasWorkflow = jobStages.length > 0;
@@ -188,10 +246,15 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
       });
 
       const now = Date.now();
-      globalCache = { jobs: processedJobs, stages: [], lastUpdated: now };
+      globalCache = {
+        jobs: processedJobs,
+        stages: allStages,
+        lastUpdated: now,
+        consolidatedStages: consolidated
+      };
 
       setJobs(processedJobs);
-      setConsolidatedStages([]); // TODO: fetch/fill if needed
+      setConsolidatedStages(consolidated);
       setLastUpdated(new Date(now));
       setError(null);
       setIsLoading(false);
@@ -239,7 +302,6 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
     // eslint-disable-next-line
   }, []);
 
-  // Active & orphaned jobs
   const activeJobs = jobs.filter(job => job.status !== 'Completed' && !job.is_completed);
   const orphanedJobs = jobs.filter(job => job.is_orphaned);
 
@@ -256,8 +318,8 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
   return (
     <ProductionDataContext.Provider value={{
       jobs,
-      activeJobs,
-      orphanedJobs,
+      activeJobs: jobs.filter(job => job.status !== 'Completed' && !job.is_completed),
+      orphanedJobs: jobs.filter(job => job.is_orphaned),
       consolidatedStages,
       isLoading,
       isRefreshing,
@@ -272,3 +334,5 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
     </ProductionDataContext.Provider>
   );
 };
+
+export default ProductionDataContext.Provider;
