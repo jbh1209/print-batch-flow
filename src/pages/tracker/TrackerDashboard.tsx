@@ -1,76 +1,106 @@
 
 import React from "react";
 import { Loader2 } from "lucide-react";
-import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
+import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
 
-// --- Dashboard using Unified Production Data ---
 const TrackerDashboard = () => {
+  // USER-SPECIFIC production jobs and all stages:
   const {
-    activeJobs,
-    consolidatedStages,
+    jobs,
     isLoading,
     isRefreshing,
     error,
     lastUpdated,
-    refreshJobs,
-    getTimeSinceLastUpdate,
-  } = useUnifiedProductionData();
+    fetchJobs: refreshJobs,
+    getJobStats,
+  } = useProductionJobs();
+  const { stages, isLoading: isLoadingStages } = useProductionStages();
 
-  // Simplify stages: only those with id, name, color
-  const simpleStageArr = React.useMemo(() => {
-    return (consolidatedStages || [])
-      .map((stage: any) => ({
-        id: stage.id,
-        name: stage.name,
-        color: stage.color || "#3B82F6",
-      }))
-      .filter(stage => !!stage.id && !!stage.name);
-  }, [consolidatedStages]);
+  // Simplify stages to { id, name, color }
+  const simpleStages = React.useMemo(() => {
+    return (stages || []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      color: s.color || "#3B82F6",
+    }));
+  }, [stages]);
 
-  // Calculate stats in the format that OverviewStats/StatusBreakdown expect
-  const stats = React.useMemo(() => {
-    // In-progress = jobs is_active
-    const inProgress = activeJobs.filter(j => j.is_active).length;
-    // Pre-press = jobs whose status (normalized) is Pre-Press (or in pending/dtp)
-    const prePress = activeJobs.filter(j =>
-      (typeof j.status === "string" && j.status.toLowerCase() === "pre-press") ||
-      (typeof j.current_stage_name === "string" && j.current_stage_name.toLowerCase() === "pre-press")
-    ).length;
-    // Completed: status string matches completed or is_completed flag
-    const completed = activeJobs.filter(j =>
-      (typeof j.status === "string" && j.status.toLowerCase() === "completed") ||
-      j.is_completed
-    ).length;
-    // Status/stage counts: count by current_stage_name, fallback to status
-    const statusCounts: Record<string, number> = {};
-    simpleStageArr.forEach(stage => {
-      statusCounts[stage.name] = 0;
+  // Compute all statuses in use
+  const uniqueStatuses = React.useMemo(() => {
+    const set = new Set<string>();
+    jobs.forEach((job) => {
+      if (job.status) set.add(job.status);
     });
-    statusCounts["Pre-Press"] = 0;
+    return Array.from(set);
+  }, [jobs]);
+
+  // Stats calculations
+  const stats = React.useMemo(() => {
+    // Main status numbers
+    const total = jobs.length;
+    const inProgress = jobs.filter(
+      (j) =>
+        j.status &&
+        ["Production", "In Progress", "Active", "Processing", "Started"].includes(
+          j.status
+        )
+    ).length;
+    const completed = jobs.filter(
+      (j) =>
+        (typeof j.status === "string" && j.status.toLowerCase() === "completed") ||
+        j.status === "Completed"
+    ).length;
+    const prePress = jobs.filter(
+      (j) =>
+        (typeof j.status === "string" &&
+          ["Pre-Press", "Pending", "DTP"].some(
+            (t) => j.status.toLowerCase() === t.toLowerCase()
+          ))
+    ).length;
+
+    // Build combined counts for known stages & all actual statuses (for cards)
+    const statusCounts: Record<string, number> = {};
+
+    // 1. Cards per configured stages
+    simpleStages.forEach((stage) => {
+      // jobs that have 'current stage' matching stage.name
+      statusCounts[stage.name] = jobs.filter(
+        (j) =>
+          j.status === stage.name ||
+          j.current_stage_name === stage.name ||
+          j.category === stage.name // fallback
+      ).length;
+    });
+
+    // 2. Cards for ALL unique statuses (from jobs)
+    uniqueStatuses.forEach((status) => {
+      if (!(status in statusCounts)) {
+        // Only add missing ones
+        statusCounts[status] = jobs.filter((j) => j.status === status).length;
+      }
+    });
+
+    // Make sure special statuses included too:
+    statusCounts["Pre-Press"] = prePress;
     statusCounts["Completed"] = completed;
 
-    activeJobs.forEach(job => {
-      // Use display_stage_name > current_stage_name > status
-      const stageName = job.display_stage_name || job.current_stage_name || job.status || "Unknown";
-      statusCounts[stageName] = (statusCounts[stageName] || 0) + 1;
-    });
-
     return {
-      total: activeJobs.length,
+      total,
       inProgress,
       completed,
       prePress,
       statusCounts,
-      stages: simpleStageArr,
+      stages: simpleStages,
     };
-  }, [activeJobs, simpleStageArr]);
+  }, [jobs, simpleStages, uniqueStatuses]);
 
-  if (isLoading) {
+  if (isLoading || isLoadingStages) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -92,7 +122,15 @@ const TrackerDashboard = () => {
               lastUpdated={lastUpdated}
               isRefreshing={isRefreshing}
               onRefresh={refreshJobs}
-              getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+              getTimeSinceLastUpdate={() => {
+                if (!lastUpdated) return null;
+                const now = new Date();
+                const diffMs = now.getTime() - lastUpdated.getTime();
+                const diffMins = Math.floor(diffMs / 60000);
+                if (diffMins < 1) return "Just now";
+                if (diffMins === 1) return "1 minute ago";
+                return `${diffMins} minutes ago`;
+              }}
             />
           </div>
         </div>
@@ -111,7 +149,15 @@ const TrackerDashboard = () => {
           lastUpdated={lastUpdated}
           isRefreshing={isRefreshing}
           onRefresh={refreshJobs}
-          getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+          getTimeSinceLastUpdate={() => {
+            if (!lastUpdated) return null;
+            const now = new Date();
+            const diffMs = now.getTime() - lastUpdated.getTime();
+            const diffMins = Math.floor(diffMs / 60000);
+            if (diffMins < 1) return "Just now";
+            if (diffMins === 1) return "1 minute ago";
+            return `${diffMins} minutes ago`;
+          }}
         />
       </div>
       <TrackerOverviewStats stats={stats} />
