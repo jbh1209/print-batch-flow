@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +77,10 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
   };
 
   return (
-    <div className="w-64 bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto">
+    <div
+      className="w-full"
+      style={{ overflowY: "auto", overflowX: "hidden", maxWidth: "100%" }}
+    >
       {/* Production Stages */}
       <Card className="mb-4">
         <CardHeader className="pb-3">
@@ -88,7 +90,6 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
-          {/* All Jobs Button */}
           <Button 
             variant={!selectedStageId ? "default" : "ghost"} 
             size="sm" 
@@ -100,24 +101,21 @@ export const DynamicProductionSidebar: React.FC<DynamicProductionSidebarProps> =
               {activeJobs.length}
             </Badge>
           </Button>
-          
-          {/* Show consolidated stages */}
           {consolidatedStages
             .sort((a, b) => a.stage_name.localeCompare(b.stage_name))
             .map(stage => {
               const jobCount = getJobCountForStage(stage.stage_name);
               const isSelected = selectedStageId === stage.stage_id;
-              
               return (
                 <Button 
                   key={stage.stage_id}
-                  variant={isSelected ? "default" : "ghost"} 
-                  size="sm" 
+                  variant={isSelected ? "default" : "ghost"}
+                  size="sm"
                   className="w-full justify-start text-xs h-8"
                   onClick={() => handleStageClick(stage.stage_id, stage.stage_name)}
                 >
                   <div 
-                    className="w-2 h-2 rounded-full mr-2 flex-shrink-0" 
+                    className="w-2 h-2 rounded-full mr-2 flex-shrink-0"
                     style={{ backgroundColor: stage.stage_color }}
                   />
                   <span className="truncate flex-1 text-left">
