@@ -29,6 +29,9 @@ interface ContextSidebarProps {
 }
 
 export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProps) => {
+  // Early return: never render for dashboard
+  if (activeTab === 'dashboard') return null;
+
   const handleFilterChange = (filterType: string, value: any) => {
     if (onFilterChange) {
       onFilterChange({ [filterType]: value });

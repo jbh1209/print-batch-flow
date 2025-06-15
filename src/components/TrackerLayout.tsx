@@ -62,6 +62,7 @@ const TrackerLayout = () => {
   // Production tab handles its own sidebar internally now
   const isProductionTab = activeTab === 'production';
   const isKanbanTab = activeTab === 'kanban';
+  const isDashboardTab = activeTab === 'dashboard';
 
   return (
     <div className="flex h-screen bg-gray-50 w-full">
@@ -72,8 +73,8 @@ const TrackerLayout = () => {
         />
         
         <div className="flex flex-1 overflow-hidden">
-          {/* Conditional Sidebar - Production handles its own sidebar internally now */}
-          {!isProductionTab && !isKanbanTab && (
+          {/* Conditional Sidebar - Hide for Dashboard, Production, and Kanban */}
+          {!isProductionTab && !isKanbanTab && !isDashboardTab && (
             <ContextSidebar 
               activeTab={activeTab}
               onFilterChange={handleFilterChange}
