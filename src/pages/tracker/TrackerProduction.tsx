@@ -22,7 +22,7 @@ interface TrackerProductionContext {
 }
 
 const TrackerProduction = () => {
-  const context = useOutletContext<TrackerProductionContext>();
+  const context = useOutletContext<TrackerProductionContext & {setSidebarData?: (data: any) => void}>();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
@@ -164,6 +164,17 @@ const TrackerProduction = () => {
     consolidatedStages: consolidatedStages.length,
     lastUpdated: lastUpdated?.toLocaleTimeString()
   });
+
+  // --- ADD: Populate sidebar data for layout ---
+  React.useEffect(() => {
+    if (context?.setSidebarData) {
+      context.setSidebarData({
+        consolidatedStages,
+        activeJobs,
+      });
+    }
+    // Keep this up-to-date as deps change
+  }, [consolidatedStages, activeJobs, context?.setSidebarData]);
 
   if (error) {
     return (

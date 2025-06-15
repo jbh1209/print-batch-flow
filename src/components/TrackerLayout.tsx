@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { DynamicHeader } from "./tracker/DynamicHeader";
@@ -12,6 +11,11 @@ const TrackerLayout = () => {
   const [activeTab, setActiveTab] = useState("orders");
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [filters, setFilters] = useState<any>({});
+  // Store dynamic data for production sidebar
+  const [productionSidebarData, setProductionSidebarData] = useState<any>({
+    consolidatedStages: [],
+    activeJobs: []
+  });
 
   // Map routes to tabs - updated with all routes including users
   const routeToTab = {
@@ -59,8 +63,12 @@ const TrackerLayout = () => {
     setSelectedStageId(stageId);
   };
 
-  // Production tab handles its own sidebar internally now
-  const isProductionTab = activeTab === 'production';
+  // Helper to let production page set sidebar data
+  const setSidebarData = (data: { consolidatedStages: any[]; activeJobs: any[] }) => {
+    setProductionSidebarData(data);
+  };
+
+  // --- Sidebar logic now allows production ---
   const isKanbanTab = activeTab === 'kanban';
   const isDashboardTab = activeTab === 'dashboard';
   const isOrdersTab = activeTab === 'orders';
@@ -74,21 +82,26 @@ const TrackerLayout = () => {
         />
         
         <div className="flex flex-1 overflow-hidden">
-          {/* Conditional Sidebar - Hide for Dashboard, Production, Kanban, and Orders */}
-          {!isProductionTab && !isKanbanTab && !isDashboardTab && !isOrdersTab && (
+          {/* Show ContextSidebar for all tabs except dashboard, kanban, orders */}
+          {!isKanbanTab && !isDashboardTab && !isOrdersTab && (
             <ContextSidebar 
               activeTab={activeTab}
               onFilterChange={handleFilterChange}
+              // Pass additional production props if on production tab
+              productionSidebarData={activeTab === "production" ? productionSidebarData : undefined}
+              onStageSelect={activeTab === "production" ? handleStageSelect : undefined}
+              selectedStageId={activeTab === "production" ? selectedStageId : undefined}
             />
           )}
           
-          <main className={`flex-1 overflow-auto ${isProductionTab ? '' : 'p-6'}`}>
+          <main className={`flex-1 overflow-auto ${activeTab === 'production' ? '' : 'p-6'}`}>
             <Outlet context={{ 
               activeTab, 
               filters,
               selectedStageId,
               onStageSelect: handleStageSelect,
-              onFilterChange: handleFilterChange
+              onFilterChange: handleFilterChange,
+              setSidebarData // Pass this so TrackerProduction can update sidebar
             }} />
           </main>
         </div>

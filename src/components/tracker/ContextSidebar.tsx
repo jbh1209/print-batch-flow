@@ -22,13 +22,24 @@ import {
   Layers,
   Factory
 } from "lucide-react";
+import { DynamicProductionSidebar } from "./production/DynamicProductionSidebar";
 
 interface ContextSidebarProps {
   activeTab: string;
   onFilterChange?: (filters: any) => void;
+  // These three props only used for production tab:
+  productionSidebarData?: { consolidatedStages: any[]; activeJobs: any[] };
+  onStageSelect?: (stageId: string | null) => void;
+  selectedStageId?: string | null;
 }
 
-export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProps) => {
+export const ContextSidebar = ({
+  activeTab, 
+  onFilterChange,
+  productionSidebarData,
+  onStageSelect,
+  selectedStageId
+}: ContextSidebarProps) => {
   // Early return: never render for dashboard
   if (activeTab === 'dashboard') return null;
 
@@ -158,9 +169,18 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
     </Card>
   );
 
-  const renderProductionSidebar = () => (
-    <React.Fragment /> // Entirely removed for production
-  );
+  const renderProductionSidebar = () => {
+    if (!productionSidebarData) return null;
+    return (
+      <DynamicProductionSidebar
+        selectedStageId={selectedStageId}
+        onStageSelect={onStageSelect || (() => {})}
+        onFilterChange={onFilterChange}
+        consolidatedStages={productionSidebarData.consolidatedStages}
+        activeJobs={productionSidebarData.activeJobs}
+      />
+    );
+  };
 
   const renderKanbanSidebar = () => (
     <Card className="compact-spacing">
@@ -432,7 +452,7 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
       case 'orders':
         return renderOrdersSidebar();
       case 'production':
-        return null; // FORCE NO SIDEBAR FOR PRODUCTION
+        return renderProductionSidebar();
       case 'kanban':
         return renderKanbanSidebar();
       case 'factory-floor':
@@ -446,7 +466,7 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
     }
   };
 
-  if (activeTab === 'production') return null;
+  if (activeTab === 'production' && !productionSidebarData) return null;
 
   return (
     <div className="w-64 border-r border-gray-200 bg-white p-3 overflow-y-auto">
