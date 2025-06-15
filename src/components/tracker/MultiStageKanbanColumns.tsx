@@ -1,4 +1,3 @@
-
 import React from "react";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { useKanbanDnDContext } from "./useKanbanDnDContext";
@@ -23,11 +22,15 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsWithLayout
   onSelectJob,
   layout = "horizontal", // default
 }) => {
-  // Layout classes
+  // Responsive grid: each StageColumn min-w-[280px], grid-flow-col for horizontal scroll, always show scrollbar
   const horizontalClass =
-    "grid gap-3 overflow-x-auto pb-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4";
+    "flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 min-h-0"
   const verticalClass =
-    "flex flex-col gap-3 overflow-y-auto pb-2 max-h-[calc(80vh-80px)]"; // stacked: vertical
+    "flex flex-col gap-3 overflow-y-auto pb-2 max-h-[calc(80vh-80px)]"; // vertical, as before
+
+  // --- Horizontal Scrollbar Decoration ---
+  // We rely on native scroll. To always show the scrollbar in modern browsers, ensure overflow-x-auto is present.
+  // Optionally, you can use Tailwind's scrollbar utilities for visibility or customize height for thicker bar.
 
   if (viewMode === "card" && enableDnd) {
     const { sensors, onDragEnd } = useKanbanDnDContext({
@@ -59,32 +62,41 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsWithLayout
         </DndContext>
       );
     }
-    // horizontal (default)
+    // --- Horizontal Scrollable Columns ---
     return (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <div className={horizontalClass}>
+        <div
+          className={horizontalClass}
+          style={{
+            WebkitOverflowScrolling: "touch",
+            // Always present scrollbar on macOS/Win Chrome/Firefox
+            overflowY: "hidden",
+            scrollbarWidth: "auto",
+          }}
+        >
           {stages
             .filter(stage => stage.is_active)
             .sort((a, b) => a.order_index - b.order_index)
             .map(stage => (
-              <StageColumn
-                key={stage.id}
-                stage={stage}
-                jobStages={jobStages}
-                onStageAction={handleStageAction}
-                viewMode={viewMode}
-                enableDnd
-                onReorder={order => handleReorder(stage.id, order)}
-                registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
-                selectedJobId={selectedJobId}
-                onSelectJob={onSelectJob}
-              />
+              <div key={stage.id} className="min-w-[280px] max-w-[350px] w-full flex-shrink-0">
+                <StageColumn
+                  stage={stage}
+                  jobStages={jobStages}
+                  onStageAction={handleStageAction}
+                  viewMode={viewMode}
+                  enableDnd
+                  onReorder={order => handleReorder(stage.id, order)}
+                  registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
+                  selectedJobId={selectedJobId}
+                  onSelectJob={onSelectJob}
+                />
+              </div>
             ))}
         </div>
       </DndContext>
     );
   }
-  // List view fallback: Layout switch works for both card/list
+  // List view fallback: vertical remains unchanged
   if (layout === "vertical") {
     return (
       <div className={verticalClass} style={{ minWidth: 280 }}>
@@ -107,26 +119,33 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsWithLayout
       </div>
     );
   }
-  // Horizontal (default)
+  // --- Horizontal Scrollable Columns (non-DnD/list view) ---
   return (
-    <div className={horizontalClass}>
+    <div
+      className={horizontalClass}
+      style={{
+        WebkitOverflowScrolling: "touch",
+        overflowY: "hidden",
+        scrollbarWidth: "auto",
+      }}
+    >
       {stages
         .filter(stage => stage.is_active)
         .sort((a, b) => a.order_index - b.order_index)
         .map(stage => (
-          <StageColumn
-            key={stage.id}
-            stage={stage}
-            jobStages={jobStages}
-            onStageAction={handleStageAction}
-            viewMode={viewMode}
-            enableDnd={false}
-            onReorder={() => {}}
-            selectedJobId={selectedJobId}
-            onSelectJob={onSelectJob}
-          />
+          <div key={stage.id} className="min-w-[280px] max-w-[350px] w-full flex-shrink-0">
+            <StageColumn
+              stage={stage}
+              jobStages={jobStages}
+              onStageAction={handleStageAction}
+              viewMode={viewMode}
+              enableDnd={false}
+              onReorder={() => {}}
+              selectedJobId={selectedJobId}
+              onSelectJob={onSelectJob}
+            />
+          </div>
         ))}
     </div>
   );
 };
-
