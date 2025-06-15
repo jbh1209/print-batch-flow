@@ -1,6 +1,3 @@
-
-// Remove any phantom "Pre-Press" stage logic and only include real stages from DB
-
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,7 +20,13 @@ export function useWorkflowJobStats() {
         .eq("is_active", true);
 
       if (stagesError) throw stagesError;
-      setStages(stagesData || []);
+      setStages(
+        (stagesData || []).map((s: any) => ({
+          id: s.id,
+          name: s.name, // NOTE: use s.name as canonical status match!
+          color: s.stage_color || "#D1D5DB",
+        }))
+      );
 
       // Fetch all production jobs
       const { data: jobsData, error: jobsError } = await supabase
@@ -56,8 +59,6 @@ export function useWorkflowJobStats() {
       const status = job.status;
       if (status && counts[status] !== undefined) {
         counts[status]++;
-      } else if (status && !counts[status]) {
-        counts[status] = 1;
       }
     });
 
@@ -69,6 +70,7 @@ export function useWorkflowJobStats() {
   const inProgress = jobs.filter(job => job.status && job.status !== "Completed").length;
 
   return {
+    jobs,
     total,
     inProgress,
     completed,

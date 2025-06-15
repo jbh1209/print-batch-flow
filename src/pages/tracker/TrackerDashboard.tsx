@@ -1,14 +1,12 @@
 
 import React from "react";
 import { Loader2 } from "lucide-react";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
-import { useProductionStages } from "@/hooks/tracker/useProductionStages";
+import { useWorkflowJobStats } from "@/hooks/tracker/useWorkflowJobStats";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
-import { useWorkflowJobStats } from "@/hooks/tracker/useWorkflowJobStats";
 
 const TrackerDashboard = () => {
   // Use new workflow stats
@@ -21,6 +19,7 @@ const TrackerDashboard = () => {
     isLoading,
     error,
     refresh,
+    jobs
   } = useWorkflowJobStats();
 
   // Local refresh UI state
@@ -78,14 +77,11 @@ const TrackerDashboard = () => {
     );
   }
 
-  // Build stats shape for cards
+  // Pass jobs and stages for correct card rendering!
   const stats = {
-    total,
-    inProgress,
-    completed,
-    // No prePress key here!
-    statusCounts,
+    jobs,
     stages,
+    statusCounts,
   };
 
   return (
@@ -105,7 +101,7 @@ const TrackerDashboard = () => {
       <TrackerOverviewStats stats={stats} />
       <TrackerStatusBreakdown stats={stats} />
       <TrackerQuickActions />
-      {stats.total === 0 && <TrackerEmptyState />}
+      {stats.jobs.length === 0 && <TrackerEmptyState />}
     </div>
   );
 };

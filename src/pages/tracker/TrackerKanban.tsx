@@ -1,7 +1,8 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Workflow, LayoutGrid, Layers } from "lucide-react";
+import { ArrowLeft, Workflow, LayoutGrid, Layers, Rows3, Rows4 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ProductionKanban } from "@/components/tracker/ProductionKanban";
 import { EnhancedProductionKanban } from "@/components/tracker/EnhancedProductionKanban";
@@ -10,6 +11,7 @@ import { KanbanDataProvider } from "@/contexts/KanbanDataContext";
 
 const TrackerKanban = () => {
   const [activeTab, setActiveTab] = useState("multistage");
+  const [layoutMode, setLayoutMode] = useState<"stacked" | "horizontal">("stacked");
 
   return (
     <div className="h-full flex flex-col">
@@ -28,6 +30,30 @@ const TrackerKanban = () => {
           <div>
             <h1 className="text-3xl font-bold">Production Kanban Board</h1>
             <p className="text-gray-600">Manage jobs through production workflows</p>
+          </div>
+          {/* Layout toggle */}
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline text-xs text-muted-foreground">Layout</span>
+            <Button 
+              variant={layoutMode === "stacked" ? "default" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              aria-pressed={layoutMode === "stacked"}
+              onClick={() => setLayoutMode("stacked")}
+              title="Stacked (Grid)"
+            >
+              <Rows4 />
+            </Button>
+            <Button 
+              variant={layoutMode === "horizontal" ? "default" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              aria-pressed={layoutMode === "horizontal"}
+              onClick={() => setLayoutMode("horizontal")}
+              title="Horizontal Scroll"
+            >
+              <Rows3 />
+            </Button>
           </div>
         </div>
       </div>
@@ -48,15 +74,15 @@ const TrackerKanban = () => {
         </TabsList>
 
         <TabsContent value="multistage" className="flex-1 overflow-hidden mt-4">
-          <MultiStageKanban />
+          <MultiStageKanban layoutMode={layoutMode} />
         </TabsContent>
 
         <TabsContent value="enhanced" className="flex-1 overflow-hidden mt-4">
-          <EnhancedProductionKanban />
+          <EnhancedProductionKanban layoutMode={layoutMode} />
         </TabsContent>
 
         <TabsContent value="basic" className="flex-1 overflow-hidden mt-4">
-          <ProductionKanban />
+          <ProductionKanban layoutMode={layoutMode} />
         </TabsContent>
       </Tabs>
     </div>

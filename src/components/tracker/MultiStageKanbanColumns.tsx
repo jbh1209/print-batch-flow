@@ -1,10 +1,11 @@
+
 import React from "react";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { useKanbanDnDContext } from "./useKanbanDnDContext";
 import StageColumn from "./multistage-kanban/StageColumn";
 import { MultiStageKanbanColumnsProps } from "./MultiStageKanban.types";
 
-export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps> = ({
+export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps & { layoutMode?: "stacked" | "horizontal" }> = ({
   stages,
   jobStages,
   reorderRefs,
@@ -13,15 +14,21 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps> = (
   enableDnd,
   handleReorder,
   selectedJobId,
-  onSelectJob
+  onSelectJob,
+  layoutMode = "stacked" // DEFAULT
 }) => {
+  const columnClass =
+    layoutMode === "horizontal"
+      ? "flex overflow-x-auto pb-2 gap-3"
+      : "grid gap-3 overflow-x-auto pb-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4";
+
   if (viewMode === "card" && enableDnd) {
     const { sensors, onDragEnd } = useKanbanDnDContext({
       stages, jobStages, reorderRefs, handleReorder
     });
     return (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <div className="grid gap-3 overflow-x-auto pb-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+        <div className={columnClass}>
           {stages
             .filter(stage => stage.is_active)
             .sort((a, b) => a.order_index - b.order_index)
@@ -37,6 +44,7 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps> = (
                 registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
                 selectedJobId={selectedJobId}
                 onSelectJob={onSelectJob}
+                layoutMode={layoutMode}
               />
             ))}
         </div>
@@ -45,7 +53,7 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps> = (
   }
   // List view fallback
   return (
-    <div className="grid gap-3 overflow-x-auto pb-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+    <div className={columnClass}>
       {stages
         .filter(stage => stage.is_active)
         .sort((a, b) => a.order_index - b.order_index)
@@ -60,6 +68,7 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps> = (
             onReorder={() => {}}
             selectedJobId={selectedJobId}
             onSelectJob={onSelectJob}
+            layoutMode={layoutMode}
           />
         ))}
     </div>
