@@ -63,6 +63,7 @@ const TrackerLayout = () => {
   const isProductionTab = activeTab === 'production';
   const isKanbanTab = activeTab === 'kanban';
   const isDashboardTab = activeTab === 'dashboard';
+  const isOrdersTab = activeTab === 'orders';
 
   return (
     <div className="flex h-screen bg-gray-50 w-full">
@@ -73,8 +74,8 @@ const TrackerLayout = () => {
         />
         
         <div className="flex flex-1 overflow-hidden">
-          {/* Conditional Sidebar - Hide for Dashboard, Production, and Kanban */}
-          {!isProductionTab && !isKanbanTab && !isDashboardTab && (
+          {/* Conditional Sidebar - Hide for Dashboard, Production, Kanban, and Orders */}
+          {!isProductionTab && !isKanbanTab && !isDashboardTab && !isOrdersTab && (
             <ContextSidebar 
               activeTab={activeTab}
               onFilterChange={handleFilterChange}
