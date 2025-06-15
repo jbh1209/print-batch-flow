@@ -21,8 +21,8 @@ export const ProductionHeader: React.FC<ProductionHeaderProps> = ({
   onQRScanner
 }) => {
   return (
-    <div className="mb-0 flex-shrink-0">
-      <div className="flex items-center gap-3 mb-1 sm:mb-2">
+    <div className="mb-0 pb-0 flex-shrink-0">
+      <div className="flex items-center gap-2 mb-0">
         <Button variant="outline" size="sm" asChild>
           <Link to="/tracker" className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -30,33 +30,29 @@ export const ProductionHeader: React.FC<ProductionHeaderProps> = ({
           </Link>
         </Button>
       </div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="flex flex-row items-center justify-between gap-2 py-1">
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold leading-tight mb-0">Production Workflow</h1>
-          <p className="text-gray-600 text-xs sm:text-sm leading-tight mt-0">
-            Manage stages and monitor jobs in real time
-          </p>
+          <h1 className="text-base sm:text-lg font-bold leading-tight mb-0">Production Workflow</h1>
+          <p className="text-gray-600 text-xs leading-4 mt-0 mb-0">Manage stages and monitor jobs in real time</p>
         </div>
-        <div className="flex flex-row items-center gap-2">
-          {/* Mobile QR Scanner - Always visible on mobile */}
+        <div className="flex flex-row items-center gap-1 space-x-0">
           {isMobile && (
             <MobileQRScanner
               onScanSuccess={onQRScan}
               onJobAction={onStageAction}
             />
           )}
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size={isMobile ? "sm" : "default"}
             onClick={onConfigureStages}
-            className="px-2 sm:px-3"
+            className="px-2 sm:px-2"
           >
             <Settings className="mr-1 h-4 w-4" />
             <span className="hidden sm:inline">Configure Stages</span>
           </Button>
-          {/* Desktop QR Scanner */}
           {!isMobile && (
-            <Button 
+            <Button
               variant="outline"
               size="sm"
               onClick={onQRScanner}

@@ -1,18 +1,16 @@
 
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, ChevronRight, ChevronDown } from "lucide-react";
-import { JobStageProgress } from "../JobStageProgress";
-import { useJobStageInstances } from "@/hooks/tracker/useJobStageInstances";
+import { ChevronRight, ChevronDown } from "lucide-react";
+import { TrafficLightIndicator } from "./TrafficLightIndicator";
 
 interface FilteredJobsViewProps {
   jobs: any[];
   selectedStage?: string;
   isLoading: boolean;
-  onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => void;
+  onStageAction: (jobId: string, stageId: string, action: "start" | "complete" | "qr-scan") => void;
 }
 
 export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
@@ -22,73 +20,26 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
   onStageAction
 }) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [processingStages, setProcessingStages] = useState<Set<string>>(new Set());
-
-  // Get job stage instances for the selected job
-  const { 
-    jobStages, 
-    isLoading: stagesLoading,
-    fetchJobStages,
-    advanceJobStage,
-    recordQRScan 
-  } = useJobStageInstances(
-    selectedJobId || undefined, 
-    'production_jobs'
-  );
 
   const handleJobClick = (jobId: string) => {
-    if (selectedJobId === jobId) {
-      setSelectedJobId(null);
-    } else {
-      setSelectedJobId(jobId);
-    }
-  };
-
-  const handleStageAction = async (stageId: string, action: 'start' | 'complete' | 'qr-scan') => {
-    if (!selectedJobId) return;
-
-    setProcessingStages(prev => new Set([...prev, stageId]));
-    
-    try {
-      if (action === 'complete') {
-        await advanceJobStage(stageId);
-      } else if (action === 'qr-scan') {
-        await recordQRScan(stageId, { action: 'qr_scan', timestamp: new Date().toISOString() });
-      }
-      
-      // Also call the parent handler
-      onStageAction(selectedJobId, stageId, action);
-      
-      // Refresh stages
-      await fetchJobStages();
-    } finally {
-      setProcessingStages(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(stageId);
-        return newSet;
-      });
-    }
+    setSelectedJobId(prev => prev === jobId ? null : jobId);
   };
 
   const getStatusColor = (status?: string) => {
     switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'active':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'pending':
-        return 'bg-gray-100 text-gray-600 border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
+      case "completed": return "bg-green-100 text-green-800 border-green-200";
+      case "active": return "bg-blue-100 text-blue-800 border-blue-200";
+      case "pending": return "bg-gray-100 text-gray-600 border-gray-200";
+      default: return "bg-gray-100 text-gray-600 border-gray-200";
     }
   };
 
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <RefreshCw className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading jobs...</span>
+        <CardContent className="flex items-center justify-center py-8">
+          <span className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2" />
+          <span>Loading jobs...</span>
         </CardContent>
       </Card>
     );
@@ -106,120 +57,52 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="divide-y divide-gray-100">
       {jobs.map((job) => (
-        <Card key={job.id} className="overflow-hidden">
-          <CardHeader 
-            className="cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => handleJobClick(job.id)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    {selectedJobId === job.id ? (
-                      <ChevronDown className="h-4 w-4 text-gray-500" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-gray-500" />
-                    )}
-                    <CardTitle className="text-lg">{job.wo_no}</CardTitle>
-                  </div>
-                  
-                  {job.category && (
-                    <Badge variant="outline">{job.category}</Badge>
-                  )}
-                  
-                  {job.current_stage && (
-                    <Badge className={getStatusColor('active')}>
-                      {job.current_stage}
-                    </Badge>
-                  )}
-                </div>
-                
-                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                  {job.customer && (
-                    <div>
-                      <span className="font-medium">Customer:</span> {job.customer}
-                    </div>
-                  )}
-                  {job.reference && (
-                    <div>
-                      <span className="font-medium">Reference:</span> {job.reference}
-                    </div>
-                  )}
-                  {job.qty && (
-                    <div>
-                      <span className="font-medium">Qty:</span> {job.qty}
-                    </div>
-                  )}
-                  {job.due_date && (
-                    <div>
-                      <span className="font-medium">Due:</span> {new Date(job.due_date).toLocaleDateString()}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                {job.workflow_progress && (
-                  <div className="text-right">
-                    <div className="text-sm font-medium">
-                      {job.workflow_progress.percentage}% Complete
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {job.workflow_progress.completed}/{job.workflow_progress.total} stages
-                    </div>
-                    <Progress 
-                      value={job.workflow_progress.percentage} 
-                      className="w-24 h-2 mt-1" 
-                    />
-                  </div>
-                )}
-                
-                {!job.has_workflow && (
-                  <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
-                    No Workflow
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
+        <div
+          key={job.id}
+          className={`flex items-center hover:bg-gray-50 transition-colors px-2 py-2 cursor-pointer ${selectedJobId === job.id ? 'bg-blue-50' : ''}`}
+          style={{ minHeight: 40 }}
+          onClick={() => handleJobClick(job.id)}
+        >
+          {/* Due / traffic light */}
+          <div className="flex items-center justify-center" style={{ width: 26 }}>
+            <TrafficLightIndicator dueDate={job.due_date} />
+          </div>
           
-          {selectedJobId === job.id && (
-            <CardContent className="border-t bg-gray-50">
-              <div className="py-4">
-                <h4 className="font-medium mb-4">Production Stages</h4>
-                
-                {stagesLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <RefreshCw className="h-6 w-6 animate-spin" />
-                    <span className="ml-2">Loading stages...</span>
-                  </div>
-                ) : jobStages.length > 0 ? (
-                  <JobStageProgress
-                    job={{
-                      id: job.id,
-                      wo_no: job.wo_no,
-                      category_id: job.category_id
-                    }}
-                    jobTableName="production_jobs"
-                    onStageAction={(action, stageId) => {
-                      if (action === 'start') handleStageAction(stageId, 'start');
-                      else if (action === 'complete') handleStageAction(stageId, 'complete');
-                      else if (action === 'qr-scan') handleStageAction(stageId, 'qr-scan');
-                    }}
-                  />
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No workflow stages configured for this job</p>
-                    <p className="text-sm mt-1">Initialize a workflow to see production stages</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          )}
-        </Card>
+          {/* Job info */}
+          <div className="flex-1 min-w-0 truncate ml-2">
+            <span className="font-medium text-sm mr-2">{job.wo_no}</span>
+            {job.category_name && (
+              <Badge variant="outline" className="ml-0.5 mr-0.5">{job.category_name}</Badge>
+            )}
+            {job.customer && (
+              <span className="text-xs text-gray-500 ml-1">{job.customer}</span>
+            )}
+            <span className="text-xs text-gray-400 ml-1">{job.reference}</span>
+          </div>
+          
+          {/* Stage/Status */}
+          <div style={{ width: 120 }} className="truncate">
+            {job.current_stage_name && (
+              <Badge className={getStatusColor(job.stage_status)}>{job.current_stage_name}</Badge>
+            )}
+          </div>
+          {/* Workflow Progress */}
+          <div style={{ width: 80 }} className="pl-1">
+            {typeof job.workflow_progress === "number" && (
+              <Progress value={job.workflow_progress} className="h-1" />
+            )}
+          </div>
+          {/* Expand/Collapse Icon */}
+          <div className="pl-2 pr-1 flex items-center" style={{ width: 30 }}>
+            {selectedJobId === job.id
+              ? <ChevronDown className="h-4 w-4 text-gray-400" />
+              : <ChevronRight className="h-4 w-4 text-gray-400" />}
+          </div>
+        </div>
       ))}
     </div>
   );
 };
+

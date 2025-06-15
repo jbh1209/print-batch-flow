@@ -218,7 +218,7 @@ const TrackerProduction = () => {
 
   return (
     <div className="flex h-full">
-      {/* Production Sidebar */}
+      {/* Sidebar unchanged */}
       <DynamicProductionSidebar
         selectedStageId={selectedStageId}
         onStageSelect={handleStageSelect}
@@ -226,11 +226,10 @@ const TrackerProduction = () => {
         consolidatedStages={consolidatedStages}
         activeJobs={activeJobs}
       />
-      {/* Main Content with proper padding */}
+      {/* Main Content: padding further reduced for density */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header with Refresh Indicator */}
         <TrackerErrorBoundary componentName="Production Header">
-          <div className="border-b bg-white p-2 sm:p-4"> {/* Tightened padding */}
+          <div className="border-b bg-white p-2 sm:p-2"> {/* Even tighter padding */}
             <div className="flex items-center justify-between">
               <ProductionHeader
                 isMobile={isMobile}
@@ -249,25 +248,19 @@ const TrackerProduction = () => {
           </div>
         </TrackerErrorBoundary>
 
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-hidden p-4 sm:p-6">
-          <div className="h-full flex flex-col space-y-4">
-            {/* Statistics */}
+        <div className="flex-1 overflow-hidden p-1 sm:p-2">
+          <div className="h-full flex flex-col space-y-2">
             <TrackerErrorBoundary componentName="Production Stats">
               <ProductionStats 
                 jobs={filteredJobs}
                 jobsWithoutCategory={jobsWithoutCategory}
               />
             </TrackerErrorBoundary>
-
-            {/* Info Banner */}
             <TrackerErrorBoundary componentName="Category Info Banner">
               <CategoryInfoBanner 
                 jobsWithoutCategoryCount={jobsWithoutCategory.length}
               />
             </TrackerErrorBoundary>
-
-            {/* Sorting Controls */}
             <TrackerErrorBoundary componentName="Production Sorting">
               <ProductionSorting
                 sortBy={sortBy}
@@ -275,7 +268,6 @@ const TrackerProduction = () => {
                 onSort={handleSort}
               />
             </TrackerErrorBoundary>
-
             {/* Jobs List */}
             <div className="flex-1 overflow-hidden">
               <div className="h-full overflow-auto bg-white rounded-lg border">
@@ -289,21 +281,19 @@ const TrackerProduction = () => {
                     />
                   }
                 >
-                  <div>
-                    <div className="flex gap-2 items-center text-xs font-bold px-4 py-2 border-b bg-gray-50">
-                      <span style={{ width: 20 }} className="text-center">Due</span>
-                      <span className="flex-1">Job Name / Number</span>
-                      <span className="w-28">Current Stage</span>
-                      <span className="w-36">Customer/Reference</span>
-                      {/* add more columns as needed */}
-                    </div>
-                    <FilteredJobsView
-                      jobs={sortedJobs}
-                      selectedStage={currentFilters.stage}
-                      isLoading={isLoading}
-                      onStageAction={handleStageAction}
-                    />
+                  {/* Header Row */}
+                  <div className="flex gap-x-0 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
+                    <span style={{ width: 26 }} className="text-center">Due</span>
+                    <span className="flex-1">Job Name / Number</span>
+                    <span className="w-28">Current Stage</span>
+                    <span className="w-20">Progress</span>
                   </div>
+                  <FilteredJobsView
+                    jobs={sortedJobs}
+                    selectedStage={currentFilters.stage}
+                    isLoading={isLoading}
+                    onStageAction={handleStageAction}
+                  />
                 </TrackerErrorBoundary>
               </div>
             </div>
