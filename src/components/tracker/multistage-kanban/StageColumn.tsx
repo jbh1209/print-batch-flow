@@ -1,22 +1,12 @@
+// --- STAGE COLUMN REFACTOR (organize by view mode and factor out subcomponents/utils) ---
 import React, { useEffect } from "react";
 import JobStageCard from "./JobStageCard";
-import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { getDueStatusColor } from "@/utils/tracker/trafficLightUtils";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { getDueInfo } from "./getDueInfo";
+import { StageColumnProps } from "./StageColumn.types";
+import SortableJobStageCard from "./SortableJobStageCard";
 
-type Props = {
-  stage: any;
-  jobStages: any[];
-  onStageAction: (stageId: string, action: "start" | "complete" | "scan") => void;
-  viewMode: "card" | "list";
-  enableDnd?: boolean;
-  onReorder?: (orderedIds: string[]) => void;
-  registerReorder?: (fn: (newOrder: string[]) => void) => void;
-  selectedJobId?: string | null;
-  onSelectJob?: (jobId: string) => void;
-};
-
-const StageColumn: React.FC<Props> = ({
+const StageColumn: React.FC<StageColumnProps> = ({
   stage,
   jobStages,
   onStageAction,
@@ -27,8 +17,7 @@ const StageColumn: React.FC<Props> = ({
   selectedJobId,
   onSelectJob,
 }) => {
-  // --- MODIFIED: Filtering only "pending" and "active" jobs for Kanban view ---
-  // Only display jobs in this column if they are not completed or skipped
+  // Filter and sort jobs for this stage (original logic preserved)
   const stageJobStages = jobStages
     .filter(js =>
       js.production_stage_id === stage.id &&
@@ -36,60 +25,23 @@ const StageColumn: React.FC<Props> = ({
       js.status !== "skipped"
     )
     .sort((a, b) => {
-      // Use explicit order in stage, fallback to work order number
       if (a.job_order_in_stage && b.job_order_in_stage) {
         return a.job_order_in_stage - b.job_order_in_stage;
       }
-      // fallback to wo_no if job_order not set
       const aWo = a.production_job?.wo_no || "";
       const bWo = b.production_job?.wo_no || "";
       return aWo.localeCompare(bWo, undefined, { numeric: true });
     });
 
-  // Register reorder handler for this column to parent via ref when DnD is enabled
   useEffect(() => {
     if (enableDnd && registerReorder && onReorder) {
       registerReorder(onReorder);
     }
-  // eslint-disable-next-line
   }, [enableDnd, onReorder, registerReorder]);
 
-  // Helper: is this job selected by work order id?
   const isJobHighlighted = (jobStage: any) => (
     selectedJobId && jobStage.production_job?.id === selectedJobId
   );
-
-  // --- MODIFIED: Add warning if due date is missing and guard against undefined production_job ---
-  function getDueInfo(jobStage: any) {
-    const hasProductionJob = !!jobStage.production_job;
-    if (!hasProductionJob) {
-      // Log to console only ONCE per missing production_job, to avoid flooding
-      if (jobStage._warned !== true) {
-        console.warn(
-          "⛔ Kanban: Stage instance missing production_job",
-          jobStage
-        );
-        jobStage._warned = true; // mark so we don't repeat
-      }
-      return {
-        color: "#F59E42", // amber-400
-        label: "Job not found",
-        code: "yellow",
-        warning: true
-      };
-    }
-    const due = jobStage.production_job?.due_date;
-    const sla = jobStage.production_job?.sla_target_days ?? 3;
-    if (!due) {
-      return {
-        color: "#F59E42", // amber-400
-        label: "Missing Due Date",
-        code: "yellow",
-        warning: true
-      };
-    }
-    return { ...getDueStatusColor(due, sla), warning: false };
-  }
 
   // --- Card & DnD view ---
   if (viewMode === "card" && enableDnd) {
@@ -115,8 +67,6 @@ const StageColumn: React.FC<Props> = ({
             <div className="flex flex-col gap-1">
               {stageJobStages.map(jobStage => {
                 const dueMeta = getDueInfo(jobStage);
-                const woNo = jobStage.production_job?.wo_no ?? "Orphaned";
-                const dueDateDisplay = jobStage.production_job?.due_date ?? "No Due";
                 return (
                   <div
                     key={jobStage.id}
@@ -132,7 +82,13 @@ const StageColumn: React.FC<Props> = ({
                         title={dueMeta.label}
                       />
                     </div>
-                    <JobStageCard jobStage={jobStage} onStageAction={onStageAction} />
+                    {/* Use DnD wrapper */}
+                    <SortableJobStageCard 
+                      jobStage={jobStage}
+                      onStageAction={onStageAction}
+                      highlighted={!!isJobHighlighted(jobStage)}
+                      onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
+                    />
                     <div className="absolute right-2 top-2">
                       {jobStage.production_job?.due_date ? (
                         <span
@@ -174,7 +130,7 @@ const StageColumn: React.FC<Props> = ({
     );
   }
 
-  // --- Table/List view (more compact) ---
+  // --- Table/List view ---
   return (
     <div
       className="bg-gray-50 rounded-lg p-1 min-w-[280px] max-w-full flex flex-col h-[calc(80vh-90px)]"
@@ -285,25 +241,6 @@ const StageColumn: React.FC<Props> = ({
           </tbody>
         </table>
       </div>
-    </div>
-  );
-};
-
-// Sortable wrapper for JobStageCard
-const SortableJobStageCard: React.FC<{ jobStage: any; onStageAction: any; onClick?: () => void; highlighted?: boolean }> = ({ jobStage, onStageAction, onClick, highlighted }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: jobStage.id });
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 10 : undefined,
-    opacity: isDragging ? 0.6 : 1,
-    cursor: "pointer",
-    outline: highlighted ? "2px solid #22c55e" : undefined, // Tailwind green-500
-    borderRadius: highlighted ? 8 : undefined,
-  };
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={onClick} tabIndex={0}>
-      <JobStageCard jobStage={jobStage} onStageAction={onStageAction} />
     </div>
   );
 };
