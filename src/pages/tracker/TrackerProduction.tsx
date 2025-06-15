@@ -13,6 +13,7 @@ import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/Trac
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
 import { TrafficLightIndicator } from "@/components/tracker/production/TrafficLightIndicator";
+import { ProductionDataProvider } from "@/contexts/ProductionDataContext";
 
 interface TrackerProductionContext {
   activeTab: string;
@@ -303,5 +304,11 @@ const TrackerProduction = () => {
     </div>
   );
 };
-
-export default TrackerProduction;
+export default function TrackerProductionWithProvider() {
+  // Use the provider at the page level
+  return (
+    <ProductionDataProvider>
+      <TrackerProduction />
+    </ProductionDataProvider>
+  );
+}
