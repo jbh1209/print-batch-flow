@@ -1,16 +1,15 @@
+
 import React from "react";
-import { Loader2, AlertTriangle } from "lucide-react";
-import { useProductionStages } from "@/hooks/tracker/useProductionStages";
+import { Loader2 } from "lucide-react";
+import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
-import { filterActiveJobs, filterCompletedJobs } from "@/utils/tracker/jobCompletionUtils";
-import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
 
+// --- Dashboard using Unified Production Data ---
 const TrackerDashboard = () => {
-  // --- Use UNIFIED HOOK for production jobs and stages ---
   const {
     activeJobs,
     consolidatedStages,
@@ -19,17 +18,57 @@ const TrackerDashboard = () => {
     error,
     lastUpdated,
     refreshJobs,
-    getJobStats,
-    getTimeSinceLastUpdate
+    getTimeSinceLastUpdate,
   } = useUnifiedProductionData();
 
-  // --- Now use new stats from unified data ---
-  const stats = React.useMemo(
-    () => getJobStats(activeJobs),
-    [activeJobs, getJobStats]
-  );
+  // Simplify stages: only those with id, name, color
+  const simpleStageArr = React.useMemo(() => {
+    return (consolidatedStages || [])
+      .map((stage: any) => ({
+        id: stage.id,
+        name: stage.name,
+        color: stage.color || "#3B82F6",
+      }))
+      .filter(stage => !!stage.id && !!stage.name);
+  }, [consolidatedStages]);
 
-  console.log("TrackerDashboard render - isLoading:", isLoading, "active jobs count:", stats.total, "stages count:", consolidatedStages.length, "error:", error);
+  // Calculate stats in the format that OverviewStats/StatusBreakdown expect
+  const stats = React.useMemo(() => {
+    // In-progress = jobs is_active
+    const inProgress = activeJobs.filter(j => j.is_active).length;
+    // Pre-press = jobs whose status (normalized) is Pre-Press (or in pending/dtp)
+    const prePress = activeJobs.filter(j =>
+      (typeof j.status === "string" && j.status.toLowerCase() === "pre-press") ||
+      (typeof j.current_stage_name === "string" && j.current_stage_name.toLowerCase() === "pre-press")
+    ).length;
+    // Completed: status string matches completed or is_completed flag
+    const completed = activeJobs.filter(j =>
+      (typeof j.status === "string" && j.status.toLowerCase() === "completed") ||
+      j.is_completed
+    ).length;
+    // Status/stage counts: count by current_stage_name, fallback to status
+    const statusCounts: Record<string, number> = {};
+    simpleStageArr.forEach(stage => {
+      statusCounts[stage.name] = 0;
+    });
+    statusCounts["Pre-Press"] = 0;
+    statusCounts["Completed"] = completed;
+
+    activeJobs.forEach(job => {
+      // Use display_stage_name > current_stage_name > status
+      const stageName = job.display_stage_name || job.current_stage_name || job.status || "Unknown";
+      statusCounts[stageName] = (statusCounts[stageName] || 0) + 1;
+    });
+
+    return {
+      total: activeJobs.length,
+      inProgress,
+      completed,
+      prePress,
+      statusCounts,
+      stages: simpleStageArr,
+    };
+  }, [activeJobs, simpleStageArr]);
 
   if (isLoading) {
     return (
@@ -61,8 +100,6 @@ const TrackerDashboard = () => {
     );
   }
 
-  console.log("TrackerDashboard rendering main content with stats:", stats);
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -77,14 +114,9 @@ const TrackerDashboard = () => {
           getTimeSinceLastUpdate={getTimeSinceLastUpdate}
         />
       </div>
-
       <TrackerOverviewStats stats={stats} />
-      <TrackerStatusBreakdown stats={{
-        ...stats,
-        stages: consolidatedStages
-      }} />
+      <TrackerStatusBreakdown stats={stats} />
       <TrackerQuickActions />
-
       {stats.total === 0 && <TrackerEmptyState />}
     </div>
   );
