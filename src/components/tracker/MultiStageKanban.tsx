@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +44,17 @@ export const MultiStageKanban = () => {
   // --- GLOBAL VIEW MODE TOGGLE ---
   const [viewMode, setViewMode] = React.useState<"card" | "list">("list");
 
+  // Highlighted job selection (for cross-column highlighting)
+  const [selectedJobId, setSelectedJobId] = React.useState<string | null>(null);
+
   const handleViewModeChange = (mode: "card" | "list") => setViewMode(mode);
+
+  // When a job stage card/row is clicked, select by job_id. Clicking again will unselect.
+  const handleSelectJob = (jobId: string) => {
+    setSelectedJobId(prev =>
+      prev === jobId ? null : jobId
+    );
+  };
 
   const handleStageAction = async (stageId: string, action: 'start' | 'complete' | 'scan') => {
     try {
@@ -123,7 +132,7 @@ export const MultiStageKanban = () => {
             }
           }}
         >
-          <div className="flex gap-2 overflow-x-auto pb-2">
+          <div className="flex gap-3 overflow-x-auto pb-2">
             {stages
               .filter(stage => stage.is_active)
               .sort((a, b) => a.order_index - b.order_index)
@@ -140,6 +149,8 @@ export const MultiStageKanban = () => {
                     return handleReorder(stage.id, order);
                   }}
                   registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
+                  selectedJobId={selectedJobId}
+                  onSelectJob={handleSelectJob}
                 />
               ))}
           </div>
@@ -148,7 +159,7 @@ export const MultiStageKanban = () => {
     }
     // For list view, simple rendering
     return (
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex gap-3 overflow-x-auto pb-2">
         {stages
           .filter(stage => stage.is_active)
           .sort((a, b) => a.order_index - b.order_index)
@@ -161,6 +172,8 @@ export const MultiStageKanban = () => {
               viewMode={viewMode}
               enableDnd={false}
               onReorder={() => {}} // no-op
+              selectedJobId={selectedJobId}
+              onSelectJob={handleSelectJob}
             />
           ))}
       </div>
