@@ -27,10 +27,13 @@ const StageColumn: React.FC<Props> = ({
   selectedJobId,
   onSelectJob,
 }) => {
-  // Support job ordering: first by job_order_in_stage (if present), fallback to wo_no as string
+
+  // --- MODIFIED: Filtering & warning logic for due dates ---
+  // Filtering: show jobs in this column if their stage instance production_stage_id matches stage.id, regardless of due date or status (allow overdue, missing due, etc)
   const stageJobStages = jobStages
     .filter(js => js.production_stage_id === stage.id)
     .sort((a, b) => {
+      // Use explicit order in stage, fallback to work order number
       if (a.job_order_in_stage && b.job_order_in_stage) {
         return a.job_order_in_stage - b.job_order_in_stage;
       }
@@ -53,11 +56,20 @@ const StageColumn: React.FC<Props> = ({
     selectedJobId && jobStage.production_job?.id === selectedJobId
   );
 
-  // Add helper for determining SLA/due date (use job's due_date or fallback to empty string)
+  // --- MODIFIED: Add warning if due date is missing ---
   function getDueInfo(jobStage: any) {
     const due = jobStage.production_job?.due_date;
-    const sla = jobStage.production_job?.sla_target_days ?? 3; // fallback to 3 if unspecified
-    return getDueStatusColor(due, sla);
+    const sla = jobStage.production_job?.sla_target_days ?? 3;
+    // If due is missing, provide a warning/fallback
+    if (!due) {
+      return {
+        color: "#F59E42", // Tailwind amber-400
+        label: "Missing Due Date",
+        code: "yellow",
+        warning: true
+      };
+    }
+    return { ...getDueStatusColor(due, sla), warning: false };
   }
 
   // --- Card & DnD view ---
@@ -92,17 +104,16 @@ const StageColumn: React.FC<Props> = ({
                     tabIndex={0}
                     style={{ cursor: "pointer" }}
                   >
-                    {/* Traffic light dot and due badge */}
                     <div className="absolute left-2 top-2 flex items-center z-10">
                       <span
                         className="inline-block rounded-full mr-1"
-                        style={{ width: 12, height: 12, background: dueMeta.color }}
+                        style={{ width: 12, height: 12, background: dueMeta.color, border: dueMeta.warning ? "2px dashed #F59E42" : undefined }}
                         title={dueMeta.label}
                       />
                     </div>
                     <JobStageCard jobStage={jobStage} onStageAction={onStageAction} />
                     <div className="absolute right-2 top-2">
-                      {jobStage.production_job?.due_date && (
+                      {jobStage.production_job?.due_date ? (
                         <span
                           className="px-2 py-0.5 rounded-full text-xs font-semibold text-white"
                           style={{
@@ -115,6 +126,16 @@ const StageColumn: React.FC<Props> = ({
                         >
                           {jobStage.production_job.due_date}
                         </span>
+                      ) : (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500 text-white"
+                          style={{
+                            minWidth: 60,
+                            display: 'inline-block',
+                            textAlign: 'center'
+                          }}
+                          title="No due date: will be automatically set soon or needs repair"
+                        >No Due</span>
                       )}
                     </div>
                   </div>
@@ -173,7 +194,7 @@ const StageColumn: React.FC<Props> = ({
                   <td className="px-1 whitespace-nowrap flex items-center gap-2">
                     <span
                       className="inline-block rounded-full"
-                      style={{ width: 10, height: 10, background: dueMeta.color }}
+                      style={{ width: 10, height: 10, background: dueMeta.color, border: dueMeta.warning ? "2px dashed #F59E42" : undefined }}
                       title={dueMeta.label}
                     />
                     {jobStage.production_job?.wo_no}
@@ -196,7 +217,15 @@ const StageColumn: React.FC<Props> = ({
                         {jobStage.production_job.due_date}
                       </span>
                     ) : (
-                      <span className="text-gray-400 text-xs">No Due</span>
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500 text-white"
+                        style={{
+                          minWidth: 60,
+                          display: 'inline-block',
+                          textAlign: 'center'
+                        }}
+                        title="No due date: will be automatically set soon or needs repair"
+                      >No Due</span>
                     )}
                   </td>
                   <td className="px-1 whitespace-nowrap">
