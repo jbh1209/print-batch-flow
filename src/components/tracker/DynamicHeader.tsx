@@ -49,25 +49,27 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
   };
 
   return (
-    <header className="bg-white border-b flex items-center justify-between px-6 py-3 h-16">
-      <div className="flex items-center space-x-6">
+    <header className="bg-white border-b flex items-center justify-between px-4 py-2 h-[56px] min-h-[44px]">
+      <div className="flex items-center space-x-4 min-h-[44px]">
         <div className="flex items-center space-x-2">
           <h1 
-            className="text-xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors"
+            className="text-lg font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors"
             onClick={handleLogoClick}
             title="Go to Dashboard"
+            style={{ lineHeight: "1.2" }}
           >
             Tracker
           </h1>
         </div>
         
-        <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto">
-          <TabsList className="grid grid-cols-6 w-auto bg-gray-100">
+        <Tabs value={activeTab} onValueChange={onTabChange} className="w-auto min-h-[36px]">
+          <TabsList className="grid grid-cols-6 w-auto bg-gray-100 px-0 py-0 gap-0 min-h-[36px]">
             {tabs.map((tab) => (
               <TabsTrigger 
                 key={tab.id} 
                 value={tab.id}
-                className="text-sm font-medium px-6 py-2 data-[state=active]:bg-green-600 data-[state=active]:text-white cursor-pointer"
+                className="text-xs font-medium px-3 py-1 min-h-[28px] data-[state=active]:bg-green-600 data-[state=active]:text-white cursor-pointer"
+                style={{ minWidth: "70px" }}
               >
                 {tab.label}
               </TabsTrigger>
@@ -76,7 +78,7 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
         </Tabs>
       </div>
 
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-2">
         <RefreshIndicator
           lastUpdated={lastUpdated}
           isRefreshing={isRefreshing}
@@ -87,33 +89,34 @@ export const DynamicHeader: React.FC<DynamicHeaderProps> = ({
         />
         
         {(isManager || isAdmin) && (
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/tracker/factory-floor" className="flex items-center gap-2">
-              <Factory size={16} />
-              Factory Floor
+          <Button variant="outline" size="sm" asChild className="px-2 py-1 text-xs">
+            <Link to="/tracker/factory-floor" className="flex items-center gap-1">
+              <Factory size={14} />
+              Factory
             </Link>
           </Button>
         )}
-        <Button variant="ghost" size="icon">
-          <Bell size={20} />
+        <Button variant="ghost" size="icon" className="p-1">
+          <Bell size={18} />
         </Button>
-        <Button variant="ghost" size="icon">
-          <HelpCircle size={20} />
+        <Button variant="ghost" size="icon" className="p-1">
+          <HelpCircle size={18} />
         </Button>
-        <Button variant="ghost" size="icon" onClick={handleSignOut}>
-          <LogOut size={20} />
+        <Button variant="ghost" size="icon" onClick={handleSignOut} className="p-1">
+          <LogOut size={18} />
         </Button>
         <Button 
           asChild 
           variant="ghost" 
           size="icon"
           title="Switch Apps"
+          className="p-1"
         >
           <Link to="/">
-            <Home size={20} />
+            <Home size={18} />
           </Link>
         </Button>
-        <div className="h-8 w-8 rounded-full bg-green-400 flex items-center justify-center text-white font-medium">
+        <div className="h-7 w-7 rounded-full bg-green-400 flex items-center justify-center text-white font-medium text-xs">
           {user?.email?.[0].toUpperCase() || 'U'}
         </div>
       </div>

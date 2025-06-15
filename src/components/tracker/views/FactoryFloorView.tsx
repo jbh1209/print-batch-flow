@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,22 +36,22 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8 h-full">
-        <RefreshCw className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading your jobs...</span>
+      <div className="flex items-center justify-center p-5 h-full">
+        <RefreshCw className="h-7 w-7 animate-spin" />
+        <span className="ml-2 text-base">Loading your jobs...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-2">
         <Card className="border-red-200 bg-red-50">
-          <CardContent className="flex flex-col items-center justify-center p-8">
-            <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-semibold mb-2 text-red-700">Error Loading Jobs</h2>
-            <p className="text-red-600 text-center mb-4">{error}</p>
-            <Button onClick={handleRefresh} variant="outline">
+          <CardContent className="flex flex-col items-center justify-center p-6">
+            <AlertTriangle className="h-10 w-10 text-red-500 mb-2" />
+            <h2 className="text-lg font-semibold mb-1 text-red-700">Error Loading Jobs</h2>
+            <p className="text-red-600 text-center mb-2">{error}</p>
+            <Button onClick={handleRefresh} variant="outline" size="sm">
               Try Again
             </Button>
           </CardContent>
@@ -70,18 +71,18 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6 h-full overflow-y-auto">
+    <div className="p-3 space-y-3 h-full overflow-y-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold">{getHeaderTitle()}</h1>
-          <p className="text-gray-600">{getHeaderSubtitle()}</p>
-          <p className="text-sm text-gray-500 mt-1">
-            Found {jobs.length} accessible job{jobs.length !== 1 ? 's' : ''}
+          <h1 className="text-xl font-bold">{getHeaderTitle()}</h1>
+          <p className="text-gray-600 text-sm">{getHeaderSubtitle()}</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {jobs.length} accessible job{jobs.length !== 1 ? 's' : ''}
           </p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <ViewToggle 
             view={viewMode} 
             onViewChange={setViewMode}
@@ -90,7 +91,8 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
             variant="outline" 
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-2"
+            size="sm"
+            className="flex items-center gap-1"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -99,14 +101,14 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
       </div>
 
       {/* Job Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-8 w-8 text-orange-500" />
+          <CardContent className="p-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-orange-500" />
               <div>
-                <p className="text-sm text-gray-600">Pending Jobs</p>
-                <p className="text-2xl font-bold">
+                <p className="text-xs text-gray-600">Pending</p>
+                <p className="text-base font-bold">
                   {jobs.filter(j => j.current_stage_status === 'pending').length}
                 </p>
               </div>
@@ -115,12 +117,12 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Play className="h-8 w-8 text-blue-500" />
+          <CardContent className="p-2">
+            <div className="flex items-center gap-2">
+              <Play className="h-6 w-6 text-blue-500" />
               <div>
-                <p className="text-sm text-gray-600">Active Jobs</p>
-                <p className="text-2xl font-bold">
+                <p className="text-xs text-gray-600">Active</p>
+                <p className="text-base font-bold">
                   {jobs.filter(j => j.current_stage_status === 'active').length}
                 </p>
               </div>
@@ -129,12 +131,12 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
         </Card>
         
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-500" />
+          <CardContent className="p-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-6 w-6 text-green-500" />
               <div>
-                <p className="text-sm text-gray-600">Total Accessible</p>
-                <p className="text-2xl font-bold">{jobs.length}</p>
+                <p className="text-xs text-gray-600">Total</p>
+                <p className="text-base font-bold">{jobs.length}</p>
               </div>
             </div>
           </CardContent>
@@ -145,21 +147,21 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
       {jobs.length > 0 ? (
         viewMode === 'card' ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Your Work Queue</CardTitle>
+            <CardHeader className="pb-1 pt-3 px-3">
+              <CardTitle className="text-base">Your Work Queue</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="py-2 px-3">
+              <div className="space-y-2">
                 {jobs.map((job) => {
                   // Get the proper display name using consolidated stages
                   const effectiveStageDisplay = job.display_stage_name || 
                     getStageDisplayName(job.current_stage_id || '', consolidatedStages);
 
                   return (
-                    <div key={job.job_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                    <div key={job.job_id} className="flex items-center justify-between p-2 border rounded-md hover:bg-gray-50">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <h4 className="font-medium text-lg">{job.wo_no}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium text-base">{job.wo_no}</h4>
                           {effectiveStageDisplay && (
                             <Badge 
                               variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
@@ -174,14 +176,14 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
                             </Badge>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">
+                        <div className="text-xs text-gray-600 mt-0.5">
                           <span>Customer: {job.customer || 'Unknown'}</span>
                           {job.due_date && (
                             <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
                           )}
                           <span> • Status: {job.status}</span>
                           {job.workflow_progress > 0 && (
-                            <span> • Progress: {job.workflow_progress}%</span>
+                            <span> • {job.workflow_progress}%</span>
                           )}
                         </div>
                       </div>
@@ -206,10 +208,10 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
         )
       ) : (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center p-12">
-            <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Jobs Available</h3>
-            <p className="text-gray-600 text-center">
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <AlertTriangle className="h-12 w-12 text-yellow-500 mb-2" />
+            <h3 className="text-lg font-semibold mb-1">No Jobs</h3>
+            <p className="text-gray-600 text-center text-sm">
               {isDtpOperator 
                 ? "You don't have any DTP or proofing jobs available right now."
                 : "You don't have any jobs that you can work on right now."
