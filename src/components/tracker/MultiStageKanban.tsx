@@ -1,7 +1,5 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { 
   Loader2, 
   AlertTriangle, 
@@ -20,6 +18,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 // DnD kit
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { MultiStageKanbanHeader } from "./MultiStageKanbanHeader";
+import { MultiStageKanbanColumns } from "./MultiStageKanbanColumns";
+import { MultiStageKanbanColumnsProps } from "./MultiStageKanban.types";
 
 export const MultiStageKanban = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError, fetchJobs } = useProductionJobs();
@@ -209,43 +210,31 @@ export const MultiStageKanban = () => {
 
   return (
     <div className="p-2">
-      <div className="mb-2">
-        <div className="flex flex-wrap items-center justify-between gap-2 md:gap-4">
-          <div className="flex flex-col gap-0">
-            <h2 className="text-lg font-bold leading-5">Multi-Stage Kanban</h2>
-            <span className="text-xs text-gray-600">Active jobs in production stages</span>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <ColumnViewToggle viewMode={viewMode} onChange={handleViewModeChange} />
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-blue-100 rounded text-blue-700">
-              {metrics.uniqueJobs} jobs
-            </span>
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-green-100 rounded text-green-700">
-              {metrics.activeStages} active stages
-            </span>
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-yellow-100 rounded text-yellow-700">
-              {metrics.pendingStages} pending
-            </span>
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-purple-100 rounded text-purple-700">
-              {metrics.activeStages + metrics.pendingStages} total stages
-            </span>
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-gray-500">
-              Last: {lastUpdate.toLocaleTimeString()}
-            </span>
-            <Button 
-              variant="outline" size="sm"
-              onClick={() => { refreshStages(); fetchJobs(); }}
-              className="px-2 h-7"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" className="px-2 h-7">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-      {renderColumns()}
+      <MultiStageKanbanHeader
+        metrics={{
+          uniqueJobs: metrics.uniqueJobs,
+          activeStages: metrics.activeStages,
+          pendingStages: metrics.pendingStages,
+        }}
+        lastUpdate={lastUpdate}
+        onRefresh={() => { refreshStages(); fetchJobs(); }}
+        onSettings={() => {}} // Existing settings logic placeholder
+      >
+        <ColumnViewToggle viewMode={viewMode} onChange={handleViewModeChange} />
+      </MultiStageKanbanHeader>
+
+      <MultiStageKanbanColumns
+        stages={stages}
+        jobStages={jobStages}
+        reorderRefs={reorderRefs}
+        handleStageAction={handleStageAction}
+        viewMode={viewMode}
+        enableDnd={viewMode === "card"}
+        handleReorder={handleReorder}
+        selectedJobId={selectedJobId}
+        onSelectJob={handleSelectJob}
+      />
+
       {activeJobs.length === 0 && (
         <Card className="text-center py-6">
           <CardContent>
@@ -257,3 +246,5 @@ export const MultiStageKanban = () => {
     </div>
   );
 };
+
+export default MultiStageKanban;
