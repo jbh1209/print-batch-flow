@@ -8,6 +8,7 @@ interface TrackerOverviewStatsProps {
     jobs: any[];
     stages: Array<{ id: string; name: string; color: string }>;
     statusCounts: Record<string, number>;
+    total: number;
   };
 }
 
@@ -44,7 +45,7 @@ export const TrackerOverviewStats = ({ stats }: TrackerOverviewStatsProps) => {
           <Package className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.jobs.length}</div>
+          <div className="text-2xl font-bold">{stats.total}</div>
           <p className="text-xs text-muted-foreground">All production jobs</p>
         </CardContent>
       </Card>

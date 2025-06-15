@@ -1,4 +1,3 @@
-
 import React from "react";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { useKanbanDnDContext } from "./useKanbanDnDContext";
@@ -44,7 +43,6 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps & { 
                 registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
                 selectedJobId={selectedJobId}
                 onSelectJob={onSelectJob}
-                layoutMode={layoutMode}
               />
             ))}
         </div>
@@ -68,7 +66,6 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps & { 
             onReorder={() => {}}
             selectedJobId={selectedJobId}
             onSelectJob={onSelectJob}
-            layoutMode={layoutMode}
           />
         ))}
     </div>

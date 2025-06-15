@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -78,11 +77,11 @@ const TrackerKanban = () => {
         </TabsContent>
 
         <TabsContent value="enhanced" className="flex-1 overflow-hidden mt-4">
-          <EnhancedProductionKanban layoutMode={layoutMode} />
+          <EnhancedProductionKanban />
         </TabsContent>
 
         <TabsContent value="basic" className="flex-1 overflow-hidden mt-4">
-          <ProductionKanban layoutMode={layoutMode} />
+          <ProductionKanban />
         </TabsContent>
       </Tabs>
     </div>

@@ -82,6 +82,7 @@ const TrackerDashboard = () => {
     jobs,
     stages,
     statusCounts,
+    total, // <--- add total for correct prop typing
   };
 
   return (
