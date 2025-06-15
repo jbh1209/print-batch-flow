@@ -14,15 +14,30 @@ const TrackerDashboard = () => {
   const {
     jobs,
     isLoading,
-    isRefreshing,
     error,
-    lastUpdated,
-    fetchJobs: refreshJobs,
+    fetchJobs,
     getJobStats,
   } = useProductionJobs();
   const { stages, isLoading: isLoadingStages } = useProductionStages();
 
-  // Simplify stages to { id, name, color }
+  // Track last fetch time for "last updated"
+  const [lastFetched, setLastFetched] = React.useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // On mount, set initial lastFetched time
+  React.useEffect(() => {
+    if (!isLoading) setLastFetched(new Date());
+  }, [isLoading]);
+
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchJobs();
+    setLastFetched(new Date());
+    setIsRefreshing(false);
+  };
+
+  // Simplified stages: { id, name, color }
   const simpleStages = React.useMemo(() => {
     return (stages || []).map((s) => ({
       id: s.id,
@@ -31,7 +46,7 @@ const TrackerDashboard = () => {
     }));
   }, [stages]);
 
-  // Compute all statuses in use
+  // Compute all unique statuses in jobs data
   const uniqueStatuses = React.useMemo(() => {
     const set = new Set<string>();
     jobs.forEach((job) => {
@@ -42,7 +57,6 @@ const TrackerDashboard = () => {
 
   // Stats calculations
   const stats = React.useMemo(() => {
-    // Main status numbers
     const total = jobs.length;
     const inProgress = jobs.filter(
       (j) =>
@@ -64,21 +78,20 @@ const TrackerDashboard = () => {
           ))
     ).length;
 
-    // Build combined counts for known stages & all actual statuses (for cards)
+    // Cards per configured stages
     const statusCounts: Record<string, number> = {};
 
-    // 1. Cards per configured stages
+    // 1. Cards per stages: count jobs where status or category_name matches the stage name
     simpleStages.forEach((stage) => {
-      // jobs that have 'current stage' matching stage.name
       statusCounts[stage.name] = jobs.filter(
         (j) =>
           j.status === stage.name ||
-          j.current_stage_name === stage.name ||
-          j.category === stage.name // fallback
+          j.category_name === stage.name || // fallback: could be used as a custom mapping
+          j.category === stage.name // fallback for old data
       ).length;
     });
 
-    // 2. Cards for ALL unique statuses (from jobs)
+    // 2. Cards for all unique statuses (from data)
     uniqueStatuses.forEach((status) => {
       if (!(status in statusCounts)) {
         // Only add missing ones
@@ -86,7 +99,7 @@ const TrackerDashboard = () => {
       }
     });
 
-    // Make sure special statuses included too:
+    // Special statuses
     statusCounts["Pre-Press"] = prePress;
     statusCounts["Completed"] = completed;
 
@@ -99,6 +112,17 @@ const TrackerDashboard = () => {
       stages: simpleStages,
     };
   }, [jobs, simpleStages, uniqueStatuses]);
+
+  // Helper for last updated display
+  const getTimeSinceLastUpdate = () => {
+    if (!lastFetched) return null;
+    const now = new Date();
+    const diffMs = now.getTime() - lastFetched.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins === 1) return "1 minute ago";
+    return `${diffMins} minutes ago`;
+  };
 
   if (isLoading || isLoadingStages) {
     return (
@@ -119,18 +143,10 @@ const TrackerDashboard = () => {
               <p className="text-sm mt-1">{error}</p>
             </div>
             <RefreshIndicator
-              lastUpdated={lastUpdated}
+              lastUpdated={lastFetched}
               isRefreshing={isRefreshing}
-              onRefresh={refreshJobs}
-              getTimeSinceLastUpdate={() => {
-                if (!lastUpdated) return null;
-                const now = new Date();
-                const diffMs = now.getTime() - lastUpdated.getTime();
-                const diffMins = Math.floor(diffMs / 60000);
-                if (diffMins < 1) return "Just now";
-                if (diffMins === 1) return "1 minute ago";
-                return `${diffMins} minutes ago`;
-              }}
+              onRefresh={handleRefresh}
+              getTimeSinceLastUpdate={getTimeSinceLastUpdate}
             />
           </div>
         </div>
@@ -146,18 +162,10 @@ const TrackerDashboard = () => {
           <p className="text-gray-600">Monitor and manage your production workflow</p>
         </div>
         <RefreshIndicator
-          lastUpdated={lastUpdated}
+          lastUpdated={lastFetched}
           isRefreshing={isRefreshing}
-          onRefresh={refreshJobs}
-          getTimeSinceLastUpdate={() => {
-            if (!lastUpdated) return null;
-            const now = new Date();
-            const diffMs = now.getTime() - lastUpdated.getTime();
-            const diffMins = Math.floor(diffMs / 60000);
-            if (diffMins < 1) return "Just now";
-            if (diffMins === 1) return "1 minute ago";
-            return `${diffMins} minutes ago`;
-          }}
+          onRefresh={handleRefresh}
+          getTimeSinceLastUpdate={getTimeSinceLastUpdate}
         />
       </div>
       <TrackerOverviewStats stats={stats} />
