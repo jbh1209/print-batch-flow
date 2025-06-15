@@ -1,7 +1,9 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Settings } from "lucide-react";
+import { RefreshCw, Settings, Columns3, Rows } from "lucide-react";
+
+type LayoutType = "horizontal" | "vertical";
 
 type MultiStageKanbanHeaderProps = {
   metrics: {
@@ -13,10 +15,14 @@ type MultiStageKanbanHeaderProps = {
   onRefresh: () => void;
   onSettings: () => void;
   children?: React.ReactNode;
+  // New layout props:
+  layout: LayoutType;
+  onLayoutChange: (layout: LayoutType) => void;
 };
 
 export const MultiStageKanbanHeader: React.FC<MultiStageKanbanHeaderProps> = ({
-  metrics, lastUpdate, onRefresh, onSettings, children
+  metrics, lastUpdate, onRefresh, onSettings, children,
+  layout, onLayoutChange,
 }) => (
   <div className="mb-2">
     <div className="flex flex-wrap items-center justify-between gap-2 md:gap-4">
@@ -25,6 +31,27 @@ export const MultiStageKanbanHeader: React.FC<MultiStageKanbanHeaderProps> = ({
         <span className="text-xs text-gray-600">Active jobs in production stages</span>
       </div>
       <div className="flex items-center gap-3 flex-wrap">
+        {/* Layout Selector */}
+        <span className="flex items-center gap-0.5">
+          <Button
+            size="icon"
+            variant={layout === "horizontal" ? "default" : "ghost"}
+            aria-label="Horizontal"
+            className="h-7 w-7"
+            onClick={() => onLayoutChange("horizontal")}
+          >
+            <Columns3 className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant={layout === "vertical" ? "default" : "ghost"}
+            aria-label="Stacked"
+            className="h-7 w-7"
+            onClick={() => onLayoutChange("vertical")}
+          >
+            <Rows className="h-4 w-4" />
+          </Button>
+        </span>
         {children}
         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-blue-100 rounded text-blue-700">
           {metrics.uniqueJobs} jobs
@@ -55,3 +82,4 @@ export const MultiStageKanbanHeader: React.FC<MultiStageKanbanHeaderProps> = ({
     </div>
   </div>
 );
+

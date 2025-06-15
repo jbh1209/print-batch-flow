@@ -42,6 +42,9 @@ export const MultiStageKanban = () => {
     getStageMetrics 
   } = useRealTimeJobStages(activeJobs); // Pass only active jobs
 
+  // ---- NEW: Layout selector ----
+  const [layout, setLayout] = React.useState<"horizontal" | "vertical">("horizontal");
+
   // --- GLOBAL VIEW MODE TOGGLE ---
   const [viewMode, setViewMode] = React.useState<"card" | "list">("list");
 
@@ -218,9 +221,12 @@ export const MultiStageKanban = () => {
         }}
         lastUpdate={lastUpdate}
         onRefresh={() => { refreshStages(); fetchJobs(); }}
-        onSettings={() => {}} // Existing settings logic placeholder
+        onSettings={() => {}}
+        // New layout props:
+        layout={layout}
+        onLayoutChange={value => setLayout(value)}
       >
-        <ColumnViewToggle viewMode={viewMode} onChange={handleViewModeChange} />
+        <ColumnViewToggle viewMode={viewMode} onChange={setViewMode} />
       </MultiStageKanbanHeader>
 
       <MultiStageKanbanColumns
@@ -233,6 +239,7 @@ export const MultiStageKanban = () => {
         handleReorder={handleReorder}
         selectedJobId={selectedJobId}
         onSelectJob={handleSelectJob}
+        layout={layout} // passes new layout arg
       />
 
       {activeJobs.length === 0 && (
@@ -246,5 +253,4 @@ export const MultiStageKanban = () => {
     </div>
   );
 };
-
 export default MultiStageKanban;
