@@ -1,4 +1,3 @@
-
 import React from "react";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { useKanbanDnDContext } from "./useKanbanDnDContext";
@@ -21,12 +20,8 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps> = (
       stages, jobStages, reorderRefs, handleReorder
     });
     return (
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={onDragEnd}
-      >
-        <div className="flex gap-3 overflow-x-auto pb-2">
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <div className="grid gap-3 overflow-x-auto pb-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
           {stages
             .filter(stage => stage.is_active)
             .sort((a, b) => a.order_index - b.order_index)
@@ -50,7 +45,7 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps> = (
   }
   // List view fallback
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2">
+    <div className="grid gap-3 overflow-x-auto pb-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
       {stages
         .filter(stage => stage.is_active)
         .sort((a, b) => a.order_index - b.order_index)

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,6 +6,7 @@ import { Link } from "react-router-dom";
 import { ProductionKanban } from "@/components/tracker/ProductionKanban";
 import { EnhancedProductionKanban } from "@/components/tracker/EnhancedProductionKanban";
 import { MultiStageKanban } from "@/components/tracker/MultiStageKanban";
+import { KanbanDataProvider } from "@/contexts/KanbanDataContext";
 
 const TrackerKanban = () => {
   const [activeTab, setActiveTab] = useState("multistage");
@@ -63,4 +63,11 @@ const TrackerKanban = () => {
   );
 };
 
-export default TrackerKanban;
+export default function TrackerKanbanWithProvider() {
+  // Use the provider at the page level
+  return (
+    <KanbanDataProvider>
+      <TrackerKanban />
+    </KanbanDataProvider>
+  );
+}
