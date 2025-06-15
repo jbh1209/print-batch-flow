@@ -8,11 +8,9 @@ import { ProductionHeader } from "@/components/tracker/production/ProductionHead
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
-import { DynamicProductionSidebar } from "@/components/tracker/production/DynamicProductionSidebar";
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
-import { TrafficLightIndicator } from "@/components/tracker/production/TrafficLightIndicator";
 import { ProductionDataProvider } from "@/contexts/ProductionDataContext";
 
 interface TrackerProductionContext {
@@ -169,29 +167,19 @@ const TrackerProduction = () => {
 
   if (error) {
     return (
-      <div className="flex h-full">
-        <DynamicProductionSidebar
-          selectedStageId={selectedStageId}
-          onStageSelect={handleStageSelect}
-          onFilterChange={handleFilterChange}
-          consolidatedStages={consolidatedStages}
-          activeJobs={activeJobs}
-        />
-        
-        <div className="flex-1 p-6">
-          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Error loading production data</p>
-                <p className="text-sm mt-1">{error}</p>
-              </div>
-              <RefreshIndicator
-                lastUpdated={lastUpdated}
-                isRefreshing={isRefreshing}
-                onRefresh={refreshJobs}
-                getTimeSinceLastUpdate={getTimeSinceLastUpdate}
-              />
+      <div className="flex-1 p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Error loading production data</p>
+              <p className="text-sm mt-1">{error}</p>
             </div>
+            <RefreshIndicator
+              lastUpdated={lastUpdated}
+              isRefreshing={isRefreshing}
+              onRefresh={refreshJobs}
+              getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+            />
           </div>
         </div>
       </div>
@@ -200,103 +188,83 @@ const TrackerProduction = () => {
 
   if (isLoading) {
     return (
-      <div className="flex h-full">
-        <DynamicProductionSidebar
-          selectedStageId={selectedStageId}
-          onStageSelect={handleStageSelect}
-          onFilterChange={handleFilterChange}
-          consolidatedStages={consolidatedStages}
-          activeJobs={activeJobs}
-        />
-        
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2">Loading production data...</span>
-        </div>
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Loading production data...</span>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full">
-      {/* Sidebar unchanged */}
-      <DynamicProductionSidebar
-        selectedStageId={selectedStageId}
-        onStageSelect={handleStageSelect}
-        onFilterChange={handleFilterChange}
-        consolidatedStages={consolidatedStages}
-        activeJobs={activeJobs}
-      />
-      {/* Main Content: padding further reduced for density */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TrackerErrorBoundary componentName="Production Header">
-          <div className="border-b bg-white p-2 sm:p-2"> {/* Even tighter padding */}
-            <div className="flex items-center justify-between">
-              <ProductionHeader
-                isMobile={isMobile}
-                onQRScan={handleQRScan}
-                onStageAction={handleStageAction}
-                onConfigureStages={handleConfigureStages}
-                onQRScanner={handleQRScanner}
-              />
-              <RefreshIndicator
-                lastUpdated={lastUpdated}
-                isRefreshing={isRefreshing}
-                onRefresh={refreshJobs}
-                getTimeSinceLastUpdate={getTimeSinceLastUpdate}
-              />
-            </div>
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Main Content: condensed to fill space, sidebar removed */}
+      <TrackerErrorBoundary componentName="Production Header">
+        <div className="border-b bg-white p-2 sm:p-2">
+          <div className="flex items-center justify-between">
+            <ProductionHeader
+              isMobile={isMobile}
+              onQRScan={handleQRScan}
+              onStageAction={handleStageAction}
+              onConfigureStages={handleConfigureStages}
+              onQRScanner={handleQRScanner}
+            />
+            <RefreshIndicator
+              lastUpdated={lastUpdated}
+              isRefreshing={isRefreshing}
+              onRefresh={refreshJobs}
+              getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+            />
           </div>
-        </TrackerErrorBoundary>
+        </div>
+      </TrackerErrorBoundary>
 
-        <div className="flex-1 overflow-hidden p-1 sm:p-2">
-          <div className="h-full flex flex-col space-y-2">
-            <TrackerErrorBoundary componentName="Production Stats">
-              <ProductionStats 
-                jobs={filteredJobs}
-                jobsWithoutCategory={jobsWithoutCategory}
-              />
-            </TrackerErrorBoundary>
-            <TrackerErrorBoundary componentName="Category Info Banner">
-              <CategoryInfoBanner 
-                jobsWithoutCategoryCount={jobsWithoutCategory.length}
-              />
-            </TrackerErrorBoundary>
-            <TrackerErrorBoundary componentName="Production Sorting">
-              <ProductionSorting
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-                onSort={handleSort}
-              />
-            </TrackerErrorBoundary>
-            {/* Jobs List */}
-            <div className="flex-1 overflow-hidden">
-              <div className="h-full overflow-auto bg-white rounded-lg border">
-                <TrackerErrorBoundary 
-                  componentName="Jobs View"
-                  fallback={
-                    <DataLoadingFallback
-                      componentName="production jobs"
-                      onRetry={refreshJobs}
-                      showDetails={false}
-                    />
-                  }
-                >
-                  {/* Header Row */}
-                  <div className="flex gap-x-0 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
-                    <span style={{ width: 26 }} className="text-center">Due</span>
-                    <span className="flex-1">Job Name / Number</span>
-                    <span className="w-28">Current Stage</span>
-                    <span className="w-20">Progress</span>
-                  </div>
-                  <FilteredJobsView
-                    jobs={sortedJobs}
-                    selectedStage={currentFilters.stage}
-                    isLoading={isLoading}
-                    onStageAction={handleStageAction}
+      <div className="flex-1 overflow-hidden p-1 sm:p-2">
+        <div className="h-full flex flex-col space-y-2">
+          <TrackerErrorBoundary componentName="Production Stats">
+            <ProductionStats 
+              jobs={filteredJobs}
+              jobsWithoutCategory={jobsWithoutCategory}
+            />
+          </TrackerErrorBoundary>
+          <TrackerErrorBoundary componentName="Category Info Banner">
+            <CategoryInfoBanner 
+              jobsWithoutCategoryCount={jobsWithoutCategory.length}
+            />
+          </TrackerErrorBoundary>
+          <TrackerErrorBoundary componentName="Production Sorting">
+            <ProductionSorting
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
+          </TrackerErrorBoundary>
+          {/* Jobs List */}
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full overflow-auto bg-white rounded-lg border">
+              <TrackerErrorBoundary 
+                componentName="Jobs View"
+                fallback={
+                  <DataLoadingFallback
+                    componentName="production jobs"
+                    onRetry={refreshJobs}
+                    showDetails={false}
                   />
-                </TrackerErrorBoundary>
-              </div>
+                }
+              >
+                {/* Header Row */}
+                <div className="flex gap-x-0 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
+                  <span style={{ width: 26 }} className="text-center">Due</span>
+                  <span className="flex-1">Job Name / Number</span>
+                  <span className="w-28">Current Stage</span>
+                  <span className="w-20">Progress</span>
+                </div>
+                <FilteredJobsView
+                  jobs={sortedJobs}
+                  selectedStage={currentFilters.stage}
+                  isLoading={isLoading}
+                  onStageAction={handleStageAction}
+                />
+              </TrackerErrorBoundary>
             </div>
           </div>
         </div>

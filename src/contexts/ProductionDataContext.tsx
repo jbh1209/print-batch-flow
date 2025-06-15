@@ -71,12 +71,17 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
 
   const subscriptionRef = useRef<any>(null);
 
-  // Helper: Consolidate stages into master/subsidiaries groups
+  // Helper: Consolidate stages into master/subsidiaries groups and REMOVE "Pre-Press" if present
   const consolidateStages = (allStages: any[]) => {
     const masterQueueMap: { [id: string]: any } = {};
     const result: any[] = [];
 
     allStages?.forEach(stage => {
+      if (!stage.is_active) return; // Only include active stages
+
+      // REMOVE hardcoded/pre-existing "Pre-Press"
+      if (stage.name === "Pre-Press") return;
+
       if (stage.master_queue_id && stage.master_queue_id !== stage.id) {
         // Subsidiary stage
         if (!masterQueueMap[stage.master_queue_id]) {

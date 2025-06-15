@@ -13,6 +13,7 @@ const TrackerKanban = () => {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Remove external sidebar here */}
       <div className="mb-6 flex-shrink-0">
         <div className="flex items-center gap-4 mb-4">
           <Button variant="outline" size="sm" asChild>
@@ -30,7 +31,6 @@ const TrackerKanban = () => {
           </div>
         </div>
       </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="multistage" className="flex items-center gap-2">

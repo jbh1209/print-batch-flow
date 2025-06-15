@@ -156,79 +156,7 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
   );
 
   const renderProductionSidebar = () => (
-    <Card className="compact-spacing">
-      <CardHeader className="card-header-compact">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Package className="h-4 w-4" />
-          Production Overview
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="card-content-compact">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              Design
-            </span>
-            <Badge variant="secondary" className="badge-compact">24</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs flex items-center gap-2">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-              Printing
-            </span>
-            <Badge variant="secondary" className="badge-compact">18</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs flex items-center gap-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              Finishing
-            </span>
-            <Badge variant="secondary" className="badge-compact">12</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              Quality Check
-            </span>
-            <Badge variant="secondary" className="badge-compact">8</Badge>
-          </div>
-        </div>
-
-        <Separator className="my-2" />
-
-        <div className="space-y-2">
-          <Label className="text-xs">Filter by Stage</Label>
-          <Select onValueChange={(value) => handleFilterChange('stage', value)}>
-            <SelectTrigger className="input-compact">
-              <SelectValue placeholder="All Stages" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stages</SelectItem>
-              <SelectItem value="design">Design</SelectItem>
-              <SelectItem value="printing">Printing</SelectItem>
-              <SelectItem value="finishing">Finishing</SelectItem>
-              <SelectItem value="quality">Quality Check</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-xs">Filter by Operator</Label>
-          <Select onValueChange={(value) => handleFilterChange('operator', value)}>
-            <SelectTrigger className="input-compact">
-              <SelectValue placeholder="All Operators" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Operators</SelectItem>
-              <SelectItem value="john">John Smith</SelectItem>
-              <SelectItem value="sarah">Sarah Johnson</SelectItem>
-              <SelectItem value="mike">Mike Wilson</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </CardContent>
-    </Card>
+    <React.Fragment /> // Entirely removed for production
   );
 
   const renderKanbanSidebar = () => (
@@ -501,7 +429,7 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
       case 'orders':
         return renderOrdersSidebar();
       case 'production':
-        return renderProductionSidebar();
+        return null; // FORCE NO SIDEBAR FOR PRODUCTION
       case 'kanban':
         return renderKanbanSidebar();
       case 'factory-floor':
@@ -514,6 +442,8 @@ export const ContextSidebar = ({ activeTab, onFilterChange }: ContextSidebarProp
         return renderDashboardSidebar();
     }
   };
+
+  if (activeTab === 'production') return null;
 
   return (
     <div className="w-64 border-r border-gray-200 bg-white p-3 overflow-y-auto">

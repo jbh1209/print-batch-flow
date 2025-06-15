@@ -1,47 +1,46 @@
-
 import { Layers, FileText, Printer, AlertCircle, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { format, formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect } from "react";
+import { useProductionDataContext, ProductionDataProvider } from "@/contexts/ProductionDataContext";
+import DashboardStatsStages from "@/components/tracker/DashboardStatsStages";
 
-const Dashboard = () => {
-  const navigate = useNavigate();
-  const { 
-    activeBatches, 
-    pendingJobs, 
-    printedToday, 
-    bucketsFilled,
-    batchTypeStats,
-    recentActivity,
+const DashboardContent = () => {
+  // Use the context instead of dashboard stats hook to avoid extra egress
+  const {
+    jobs,
+    consolidatedStages,
     isLoading,
     error,
-    refresh
-  } = useDashboardStats();
+    refresh,
+  } = useProductionDataContext();
+
+  const navigate = useNavigate();
 
   const stats = [
     { 
       title: "Active Batches", 
       icon: <Layers className="h-6 w-6 text-blue-500" />, 
-      value: activeBatches 
+      value: jobs.filter(job => !job.is_completed).length
     },
     { 
       title: "Pending Jobs", 
       icon: <FileText className="h-6 w-6 text-blue-500" />, 
-      value: pendingJobs 
+      value: jobs.filter(job => job.is_pending).length
     },
     { 
-      title: "Printed Today", 
+      title: "Completed Jobs", 
       icon: <Printer className="h-6 w-6 text-blue-500" />, 
-      value: printedToday 
+      value: jobs.filter(job => job.is_completed).length
     },
     { 
-      title: "Buckets at Capacity", 
+      title: "Orphaned Jobs", 
       icon: <AlertCircle className="h-6 w-6 text-blue-500" />, 
-      value: bucketsFilled 
+      value: jobs.filter(job => job.is_orphaned).length
     },
   ];
 
@@ -49,6 +48,7 @@ const Dashboard = () => {
     navigate(`/batches/${type.toLowerCase().replace(" ", "-")}`);
   };
 
+  // Feed real stage data into new summary stats block (no "Pre-Press", use actual stat generation)
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -85,7 +85,7 @@ const Dashboard = () => {
                 <>
                   <div className="text-2xl font-bold">{stat.value}</div>
                   <p className="text-xs text-gray-500">
-                    {error ? "Error loading data" : "Updated just now"}
+                    Updated just now
                   </p>
                 </>
               )}
@@ -94,86 +94,17 @@ const Dashboard = () => {
         ))}
       </div>
 
-      {/* Batch Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Batch Buckets Status</CardTitle>
-            <p className="text-sm text-gray-500">Current bucket fill levels for batch types</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isLoading ? (
-              Array(4).fill(0).map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Skeleton className="h-3 w-24" />
-                    <Skeleton className="h-3 w-12" />
-                  </div>
-                  <Skeleton className="h-2 w-full" />
-                </div>
-              ))
-            ) : (
-              batchTypeStats.map((type, i) => (
-                <div key={i} className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">{type.name}</span>
-                    <span className="text-sm text-gray-500">{type.progress}/{type.total} jobs</span>
-                  </div>
-                  <Progress 
-                    value={(type.progress / type.total) * 100} 
-                    className="h-2" 
-                  />
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Recent Activity</CardTitle>
-            <p className="text-sm text-gray-500">Latest batch and job actions</p>
+            <CardTitle className="text-lg">Jobs by Status</CardTitle>
+            <p className="text-sm text-gray-500">Current distribution of jobs across workflow stages</p>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="space-y-3">
-                {Array(3).fill(0).map((_, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex flex-col gap-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                    <Skeleton className="h-4 w-20" />
-                  </div>
-                ))}
-              </div>
-            ) : recentActivity.length > 0 ? (
-              <div className="space-y-3">
-                {recentActivity.map(activity => (
-                  <div key={activity.id} className="border-b border-gray-100 pb-2 last:border-0">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium text-sm">{activity.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {activity.action} {activity.type}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-40 text-gray-400">
-                No recent activity
-              </div>
-            )}
+            <DashboardStatsStages stages={consolidatedStages} jobs={jobs} isLoading={isLoading} />
           </CardContent>
         </Card>
       </div>
-
       {/* Create New Batch */}
       <Card>
         <CardHeader>
@@ -208,5 +139,11 @@ const Dashboard = () => {
     </div>
   );
 };
+
+const Dashboard = () => (
+  <ProductionDataProvider>
+    <DashboardContent />
+  </ProductionDataProvider>
+);
 
 export default Dashboard;
