@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,11 +20,12 @@ import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
 import StageColumn from "./multistage-kanban/StageColumn";
+import ColumnViewToggle from "./multistage-kanban/ColumnViewToggle";
 
 export const MultiStageKanban = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError, fetchJobs } = useProductionJobs();
   const { stages } = useProductionStages();
-  
+
   // CRITICAL: Filter out completed jobs for kanban view
   const activeJobs = React.useMemo(() => {
     return filterActiveJobs(jobs);
@@ -40,17 +42,15 @@ export const MultiStageKanban = () => {
     getStageMetrics 
   } = useRealTimeJobStages(activeJobs); // Pass only active jobs
 
-  // --- NEW: Per-column view state ---
-  const [columnViews, setColumnViews] = React.useState<Record<string, "card" | "list">>(
-    {}
-  );
-  const handleColumnViewChange = (stageId: string, mode: "card" | "list") => {
-    setColumnViews((prev) => ({ ...prev, [stageId]: mode }));
+  // --- GLOBAL VIEW MODE TOGGLE ---
+  const [viewMode, setViewMode] = React.useState<"card" | "list">("list");
+
+  const handleViewModeChange = (mode: "card" | "list") => {
+    setViewMode(mode);
   };
 
   const handleStageAction = async (stageId: string, action: 'start' | 'complete' | 'scan') => {
     console.log(`Stage action: ${action} on stage ${stageId}`);
-    
     try {
       if (action === 'start') {
         await startStage(stageId);
@@ -93,6 +93,15 @@ export const MultiStageKanban = () => {
 
   const metrics = getStageMetrics();
 
+  // --- Placeholder for future smart automation code ---
+  // useEffect(() => {
+  //   if (viewMode === "card" && jobs && jobs.length && stages) {
+  //     // Idea: Suggest grouping jobs based on future paper/printing specs here.
+  //     // Example (not active): groupJobsByPaperSpec(jobs)
+  //   }
+  // }, [viewMode, jobs, stages]);
+  // --- End Placeholder ---
+
   // --- COMPACT HEADER IMPLEMENTATION ---
   return (
     <div className="p-2">
@@ -103,6 +112,7 @@ export const MultiStageKanban = () => {
             <span className="text-xs text-gray-600">Active jobs in production stages</span>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
+            <ColumnViewToggle viewMode={viewMode} onChange={handleViewModeChange} />
             <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-blue-100 rounded text-blue-700">
               {metrics.uniqueJobs} jobs
             </span>
@@ -142,8 +152,7 @@ export const MultiStageKanban = () => {
               stage={stage}
               jobStages={jobStages}
               onStageAction={handleStageAction}
-              viewMode={columnViews[stage.id] || "card"}
-              onViewModeChange={(mode) => handleColumnViewChange(stage.id, mode)}
+              viewMode={viewMode}
             />
           ))}
       </div>

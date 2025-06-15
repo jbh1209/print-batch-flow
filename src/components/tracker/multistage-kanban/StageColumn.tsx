@@ -1,4 +1,3 @@
-
 import React from "react";
 import JobStageCard from "./JobStageCard";
 import ColumnViewToggle from "./ColumnViewToggle";
@@ -8,13 +7,11 @@ const StageColumn: React.FC<{
   jobStages: any[];
   onStageAction: (stageId: string, action: "start" | "complete" | "scan") => void;
   viewMode: "card" | "list";
-  onViewModeChange: (mode: "card" | "list") => void;
 }> = ({
   stage,
   jobStages,
   onStageAction,
   viewMode,
-  onViewModeChange,
 }) => {
   const stageJobStages = jobStages.filter(js => js.production_stage_id === stage.id);
   const activeStages = stageJobStages.filter(js => js.status === "active");
@@ -33,7 +30,7 @@ const StageColumn: React.FC<{
         </div>
         <div className="flex items-center gap-1">
           <span className="bg-gray-100 text-xs px-1 rounded">{stageJobStages.length}</span>
-          <ColumnViewToggle viewMode={viewMode} onChange={onViewModeChange} />
+          {/* Removed per-column view toggle */}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">

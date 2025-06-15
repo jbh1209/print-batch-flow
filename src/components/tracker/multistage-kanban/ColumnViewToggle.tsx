@@ -12,6 +12,7 @@ const ColumnViewToggle: React.FC<Props> = ({ viewMode, onChange }) => (
       className={`p-1 rounded ${viewMode === "card" ? "bg-green-200" : "bg-gray-100"} text-xs`}
       title="Card View"
       onClick={() => onChange("card")}
+      aria-pressed={viewMode === "card"}
     >
       <svg width={16} height={16} viewBox="0 0 16 16" className="inline">
         <rect x="1" y="1" width="6" height="6" rx="1" fill={viewMode==="card"?"#22c55e":"#e5e7eb"}/>
@@ -24,6 +25,7 @@ const ColumnViewToggle: React.FC<Props> = ({ viewMode, onChange }) => (
       className={`p-1 rounded ${viewMode === "list" ? "bg-green-200" : "bg-gray-100"} text-xs`}
       title="List View"
       onClick={() => onChange("list")}
+      aria-pressed={viewMode === "list"}
     >
       <svg width={16} height={16} viewBox="0 0 16 16" className="inline">
         <rect x="2" y="3" width="12" height="2" rx="1" fill={viewMode==="list"?"#22c55e":"#e5e7eb"}/>
