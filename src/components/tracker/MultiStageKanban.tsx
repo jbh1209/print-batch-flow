@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,11 +7,6 @@ import {
   Loader2, 
   AlertTriangle, 
   Settings, 
-  Clock,
-  Play,
-  CheckCircle,
-  QrCode,
-  Timer,
   RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +18,9 @@ import StageColumn from "./multistage-kanban/StageColumn";
 import ColumnViewToggle from "./multistage-kanban/ColumnViewToggle";
 import { arrayMove } from "@/utils/tracker/reorderUtils";
 import { supabase } from "@/integrations/supabase/client";
+
+// DnD kit
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 export const MultiStageKanban = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError, fetchJobs } = useProductionJobs();
@@ -47,25 +45,126 @@ export const MultiStageKanban = () => {
   // --- GLOBAL VIEW MODE TOGGLE ---
   const [viewMode, setViewMode] = React.useState<"card" | "list">("list");
 
-  const handleViewModeChange = (mode: "card" | "list") => {
-    setViewMode(mode);
-  };
+  const handleViewModeChange = (mode: "card" | "list") => setViewMode(mode);
 
   const handleStageAction = async (stageId: string, action: 'start' | 'complete' | 'scan') => {
-    console.log(`Stage action: ${action} on stage ${stageId}`);
     try {
-      if (action === 'start') {
-        await startStage(stageId);
-      } else if (action === 'complete') {
-        await completeStage(stageId);
-      } else if (action === 'scan') {
-        toast.info('QR Scanner would open here');
-      }
-      // Refresh jobs to update status
+      if (action === 'start') await startStage(stageId);
+      else if (action === 'complete') await completeStage(stageId);
+      else if (action === 'scan') toast.info('QR Scanner would open here');
       fetchJobs();
     } catch (err) {
       console.error('Error performing stage action:', err);
     }
+  };
+
+  // Per-stage reorder handlers
+  const handleReorder = async (stageId: string, newOrderIds: string[]) => {
+    const updates = newOrderIds.map((jobStageId, idx) => {
+      const jobStage = jobStages.find(js => js.id === jobStageId);
+      if (!jobStage) throw new Error("JobStage not found for id: " + jobStageId);
+      return {
+        id: jobStage.id,
+        job_id: jobStage.job_id,
+        job_table_name: jobStage.job_table_name,
+        production_stage_id: jobStage.production_stage_id,
+        stage_order: jobStage.stage_order,
+        job_order_in_stage: idx + 1,
+        status: jobStage.status,
+      };
+    });
+    try {
+      const { error } = await supabase
+        .from("job_stage_instances")
+        .upsert(updates, { onConflict: "id" });
+      if (error) toast.error("Failed to persist job order");
+    } catch (e) {
+      toast.error("Failed to persist job order: " + (e instanceof Error ? e.message : String(e)));
+    }
+    refreshStages();
+    fetchJobs();
+  };
+
+  // Use a ref to hold per-stage reorder handlers, for the drag-end logic below
+  const reorderRefs = React.useRef<Record<string, (newOrder: string[]) => void>>({});
+
+  // ----- DND SETUP -----
+  // Only used for 'card' view mode
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Only in 'card' view, wrap all StageColumns in a top-level DndContext
+  const renderColumns = () => {
+    if (viewMode === "card") {
+      // For each stage, need to register a ref to its reorder function
+      reorderRefs.current = {};
+      return (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={event => {
+            // Find which column (stageId) this drag occurred in
+            for (const stage of stages.filter(s => s.is_active)) {
+              const colJobStages = jobStages.filter(js => js.production_stage_id === stage.id)
+                .sort((a, b) => (a.job_order_in_stage ?? 1) - (b.job_order_in_stage ?? 1) || a.stage_order - b.stage_order);
+              const jobIds = colJobStages.map(js => js.id);
+              // If both active/over ids in this column, process reorder
+              if (
+                jobIds.includes(event.active.id as string) &&
+                jobIds.includes(event.over?.id as string)
+              ) {
+                const oldIndex = jobIds.indexOf(event.active.id as string);
+                const newIndex = jobIds.indexOf(event.over?.id as string);
+                if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                  const newOrder = arrayMove(jobIds, oldIndex, newIndex);
+                  reorderRefs.current[stage.id]?.(newOrder);
+                }
+                break;
+              }
+            }
+          }}
+        >
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {stages
+              .filter(stage => stage.is_active)
+              .sort((a, b) => a.order_index - b.order_index)
+              .map(stage => (
+                <StageColumn
+                  key={stage.id}
+                  stage={stage}
+                  jobStages={jobStages}
+                  onStageAction={handleStageAction}
+                  viewMode={viewMode}
+                  enableDnd
+                  onReorder={order => {
+                    reorderRefs.current[stage.id] = order => handleReorder(stage.id, order);
+                    return handleReorder(stage.id, order);
+                  }}
+                  registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
+                />
+              ))}
+          </div>
+        </DndContext>
+      );
+    }
+    // For list view, simple rendering
+    return (
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {stages
+          .filter(stage => stage.is_active)
+          .sort((a, b) => a.order_index - b.order_index)
+          .map(stage => (
+            <StageColumn
+              key={stage.id}
+              stage={stage}
+              jobStages={jobStages}
+              onStageAction={handleStageAction}
+              viewMode={viewMode}
+              enableDnd={false}
+              onReorder={() => {}} // no-op
+            />
+          ))}
+      </div>
+    );
   };
 
   if (jobsLoading || isLoading) {
@@ -95,54 +194,6 @@ export const MultiStageKanban = () => {
 
   const metrics = getStageMetrics();
 
-  // --- Placeholder for future smart automation code ---
-  // useEffect(() => {
-  //   if (viewMode === "card" && jobs && jobs.length && stages) {
-  //     // Idea: Suggest grouping jobs based on future paper/printing specs here.
-  //     // Example (not active): groupJobsByPaperSpec(jobs)
-  //   }
-  // }, [viewMode, jobs, stages]);
-  // --- End Placeholder ---
-
-  /**
-   * Persist job order in a given stage column
-   * @param stageId
-   * @param newOrderIds
-   */
-  const handleReorder = async (stageId: string, newOrderIds: string[]) => {
-    // Find jobStageInstances for this stage by ID, in new order
-    const updates = newOrderIds.map((jobStageId, idx) => {
-      const jobStage = jobStages.find(js => js.id === jobStageId);
-      if (!jobStage) throw new Error("JobStage not found for id: " + jobStageId);
-      // Populate all NOT NULL fields and id
-      return {
-        id: jobStage.id,
-        job_id: jobStage.job_id,
-        job_table_name: jobStage.job_table_name,
-        production_stage_id: jobStage.production_stage_id,
-        stage_order: jobStage.stage_order,
-        job_order_in_stage: idx + 1,
-        status: jobStage.status,
-      };
-    });
-
-    try {
-      // Batch update order
-      const { error } = await supabase
-        .from("job_stage_instances")
-        .upsert(updates, { onConflict: "id" });
-      if (error) {
-        toast.error("Failed to persist job order");
-      }
-    } catch (e) {
-      toast.error("Failed to persist job order: " + (e instanceof Error ? e.message : String(e)));
-    }
-    // Trigger refresh so all columns update (could be optimized)
-    refreshStages();
-    fetchJobs();
-  };
-
-  // --- COMPACT HEADER IMPLEMENTATION ---
   return (
     <div className="p-2">
       <div className="mb-2">
@@ -181,24 +232,7 @@ export const MultiStageKanban = () => {
           </div>
         </div>
       </div>
-
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {stages
-          .filter(stage => stage.is_active)
-          .sort((a, b) => a.order_index - b.order_index)
-          .map(stage => (
-            <StageColumn
-              key={stage.id}
-              stage={stage}
-              jobStages={jobStages}
-              onStageAction={handleStageAction}
-              viewMode={viewMode}
-              enableDnd={viewMode === "card"}
-              onReorder={newOrder => handleReorder(stage.id, newOrder)}
-            />
-          ))}
-      </div>
-
+      {renderColumns()}
       {activeJobs.length === 0 && (
         <Card className="text-center py-6">
           <CardContent>

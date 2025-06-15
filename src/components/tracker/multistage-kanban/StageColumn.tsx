@@ -1,9 +1,8 @@
-import React from "react";
+
+import React, { useEffect } from "react";
 import JobStageCard from "./JobStageCard";
-import ColumnViewToggle from "./ColumnViewToggle";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { DndContext, closestCenter, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
 
 type Props = {
   stage: any;
@@ -12,6 +11,7 @@ type Props = {
   viewMode: "card" | "list";
   enableDnd?: boolean;
   onReorder?: (orderedIds: string[]) => void;
+  registerReorder?: (fn: (newOrder: string[]) => void) => void;
 };
 
 const StageColumn: React.FC<Props> = ({
@@ -21,17 +21,21 @@ const StageColumn: React.FC<Props> = ({
   viewMode,
   enableDnd,
   onReorder,
+  registerReorder,
 }) => {
-  // Sort by job_order_in_stage then fallback to original (to handle legacy rows)
+  // Sort jobs in stage
   const stageJobStages = jobStages
     .filter(js => js.production_stage_id === stage.id)
     .sort((a, b) => (a.job_order_in_stage ?? 1) - (b.job_order_in_stage ?? 1) || a.stage_order - b.stage_order);
 
-  const activeStages = stageJobStages.filter(js => js.status === "active");
-  const pendingStages = stageJobStages.filter(js => js.status === "pending");
-  const completedStages = stageJobStages.filter(js => js.status === "completed");
+  // Register reorder handler for this column to parent via ref when DnD is enabled
+  useEffect(() => {
+    if (enableDnd && registerReorder && onReorder) {
+      registerReorder(onReorder);
+    }
+  // eslint-disable-next-line
+  }, [enableDnd, onReorder, registerReorder]);
 
-  // DND setup for card view
   if (viewMode === "card" && enableDnd) {
     return (
       <SortableContext
@@ -49,37 +53,18 @@ const StageColumn: React.FC<Props> = ({
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <DndContext
-              sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))}
-              collisionDetection={closestCenter}
-              onDragEnd={(event) => {
-                const { active, over } = event;
-                if (over && active.id !== over.id) {
-                  const oldIndex = stageJobStages.findIndex(js => js.id === active.id);
-                  const newIndex = stageJobStages.findIndex(js => js.id === over.id);
-                  if (onReorder) {
-                    // Array in new order
-                    const reordered = [...stageJobStages];
-                    const moved = reordered.splice(oldIndex, 1)[0];
-                    reordered.splice(newIndex, 0, moved);
-                    onReorder(reordered.map(js => js.id));
-                  }
-                }
-              }}
-            >
-              <div className="flex flex-col gap-2">
-                {stageJobStages.map(jobStage => (
-                  <SortableJobStageCard
-                    key={jobStage.id}
-                    jobStage={jobStage}
-                    onStageAction={onStageAction}
-                  />
-                ))}
-              </div>
-              {stageJobStages.length === 0 && (
-                <div className="text-center py-6 text-gray-400 text-xs">No jobs</div>
-              )}
-            </DndContext>
+            <div className="flex flex-col gap-2">
+              {stageJobStages.map(jobStage => (
+                <SortableJobStageCard
+                  key={jobStage.id}
+                  jobStage={jobStage}
+                  onStageAction={onStageAction}
+                />
+              ))}
+            </div>
+            {stageJobStages.length === 0 && (
+              <div className="text-center py-6 text-gray-400 text-xs">No jobs</div>
+            )}
           </div>
         </div>
       </SortableContext>
