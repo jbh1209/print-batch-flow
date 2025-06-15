@@ -56,14 +56,30 @@ const StageColumn: React.FC<Props> = ({
     selectedJobId && jobStage.production_job?.id === selectedJobId
   );
 
-  // --- MODIFIED: Add warning if due date is missing ---
+  // --- MODIFIED: Add warning if due date is missing and guard against undefined production_job ---
   function getDueInfo(jobStage: any) {
+    const hasProductionJob = !!jobStage.production_job;
+    if (!hasProductionJob) {
+      // Log to console only ONCE per missing production_job, to avoid flooding
+      if (jobStage._warned !== true) {
+        console.warn(
+          "⛔ Kanban: Stage instance missing production_job",
+          jobStage
+        );
+        jobStage._warned = true; // mark so we don't repeat
+      }
+      return {
+        color: "#F59E42", // amber-400
+        label: "Job not found",
+        code: "yellow",
+        warning: true
+      };
+    }
     const due = jobStage.production_job?.due_date;
     const sla = jobStage.production_job?.sla_target_days ?? 3;
-    // If due is missing, provide a warning/fallback
     if (!due) {
       return {
-        color: "#F59E42", // Tailwind amber-400
+        color: "#F59E42", // amber-400
         label: "Missing Due Date",
         code: "yellow",
         warning: true
@@ -96,11 +112,14 @@ const StageColumn: React.FC<Props> = ({
             <div className="flex flex-col gap-2">
               {stageJobStages.map(jobStage => {
                 const dueMeta = getDueInfo(jobStage);
+                // Null-safe: Always check production_job exists before rendering job info
+                const woNo = jobStage.production_job?.wo_no ?? "Orphaned";
+                const dueDateDisplay = jobStage.production_job?.due_date ?? "No Due";
                 return (
                   <div
                     key={jobStage.id}
                     className={`relative ${isJobHighlighted(jobStage) ? "ring-2 ring-green-500 rounded-lg transition" : ""}`}
-                    onClick={() => onSelectJob && onSelectJob(jobStage.production_job?.id)}
+                    onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
                     tabIndex={0}
                     style={{ cursor: "pointer" }}
                   >
@@ -180,6 +199,8 @@ const StageColumn: React.FC<Props> = ({
           <tbody>
             {stageJobStages.map(jobStage => {
               const dueMeta = getDueInfo(jobStage);
+              const woNo = jobStage.production_job?.wo_no ?? "Orphaned";
+              const customer = jobStage.production_job?.customer ?? "Unknown";
               return (
                 <tr
                   key={jobStage.id}
@@ -188,7 +209,7 @@ const StageColumn: React.FC<Props> = ({
                     (isJobHighlighted(jobStage) ? "ring-2 ring-green-500 rounded" : "")
                   }
                   style={{ cursor: "pointer" }}
-                  onClick={() => onSelectJob && onSelectJob(jobStage.production_job?.id)}
+                  onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
                   tabIndex={0}
                 >
                   <td className="px-1 whitespace-nowrap flex items-center gap-2">
@@ -197,10 +218,10 @@ const StageColumn: React.FC<Props> = ({
                       style={{ width: 10, height: 10, background: dueMeta.color, border: dueMeta.warning ? "2px dashed #F59E42" : undefined }}
                       title={dueMeta.label}
                     />
-                    {jobStage.production_job?.wo_no}
+                    {woNo}
                   </td>
                   <td className="px-1 whitespace-nowrap max-w-[220px] truncate" style={{ width: "160px" }}>
-                    {jobStage.production_job?.customer}
+                    {customer}
                   </td>
                   <td className="px-1 whitespace-nowrap">
                     {jobStage.production_job?.due_date ? (
