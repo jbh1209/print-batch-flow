@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -84,28 +85,18 @@ function App() {
           <Routes>
             <Route path="/auth" element={<Auth />} />
             
-            {/* Public proof viewer route */}
+            {/* Public proof viewer route - no authentication required */}
             <Route path="/proof/:token" element={<ProofViewer />} />
-
-            {/* DASHBOARD - NO SIDEBAR */}
-            <Route 
-              path="/" 
-              element={
-                <ProtectedRoute>
-                  <TrackerDashboard />
-                </ProtectedRoute>
-              }
-            />
-            {/* ORDERS/JOBS LIST - NO SIDEBAR */}
+            
             <Route
-              path="/tracker/jobs"
+              path="/"
               element={
                 <ProtectedRoute>
-                  <TrackerJobs />
+                  <AppSelector />
                 </ProtectedRoute>
               }
             />
-
+            
             {/* BatchFlow routes with nested structure */}
             <Route
               path="/batchflow"
@@ -158,9 +149,8 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              {/* Remove index (/) and jobs here! */}
-              {/* <Route index element={<TrackerDashboard />} /> */}
-              {/* <Route path="jobs" element={<TrackerJobs />} /> */}
+              <Route index element={<TrackerDashboard />} />
+              <Route path="jobs" element={<TrackerJobs />} />
               <Route path="production" element={<TrackerProduction />} />
               <Route path="kanban" element={<TrackerKanban />} />
               <Route path="worksheets" element={<TrackerWorkSheets />} />
