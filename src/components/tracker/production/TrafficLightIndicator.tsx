@@ -7,21 +7,23 @@ interface TrafficLightIndicatorProps {
 }
 
 export const TrafficLightIndicator: React.FC<TrafficLightIndicatorProps> = ({ dueDate }) => {
-  const color = getDueStatusColor(dueDate);
-  // Map color names to Tailwind
-  const colorMap: Record<string, string> = {
+  const statusInfo = getDueStatusColor(dueDate);
+
+  // Map code (not the whole object!) to Tailwind classes
+  const colorMap: Record<"red" | "yellow" | "green" | "gray", string> = {
     "red": "bg-red-500",
     "yellow": "bg-yellow-400",
     "green": "bg-green-500",
     "gray": "bg-gray-400"
   };
-  // Default to gray if unknown
-  const bgClass = colorMap[color] || "bg-gray-400";
+
+  // Default to gray if unknown or unexpected code
+  const bgClass = colorMap[statusInfo.code] || "bg-gray-400";
   return (
     <div className="flex items-center" title={`Due: ${dueDate ?? "N/A"}`}>
-      <span 
+      <span
         className={`inline-block w-3 h-3 rounded-full mr-1 border-2 border-white shadow ${bgClass}`}
-        aria-label={`${color} status`}
+        aria-label={`${statusInfo.code} status`}
       />
     </div>
   );

@@ -302,18 +302,6 @@ const TrackerProduction = () => {
                       selectedStage={currentFilters.stage}
                       isLoading={isLoading}
                       onStageAction={handleStageAction}
-                      renderJobRow={(job) => (
-                        <div key={job.id} className="flex gap-2 items-center px-4 py-1 border-b">
-                          {/* Traffic light indicator */}
-                          <div style={{ width: 20 }}>
-                            <TrafficLightIndicator dueDate={job.due_date} />
-                          </div>
-                          <div className="flex-1 truncate">{job.wo_no ?? job.reference ?? job.id}</div>
-                          <div className="w-28 truncate">{job.current_stage_name}</div>
-                          <div className="w-36 truncate">{job.customer ?? ""}</div>
-                          {/* Add controls, status, etc if needed */}
-                        </div>
-                      )}
                     />
                   </div>
                 </TrackerErrorBoundary>
