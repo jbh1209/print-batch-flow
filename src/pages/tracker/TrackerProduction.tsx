@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,6 +12,7 @@ import { DynamicProductionSidebar } from "@/components/tracker/production/Dynami
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
+import { TrafficLightIndicator } from "@/components/tracker/production/TrafficLightIndicator";
 
 interface TrackerProductionContext {
   activeTab: string;
@@ -226,12 +226,11 @@ const TrackerProduction = () => {
         consolidatedStages={consolidatedStages}
         activeJobs={activeJobs}
       />
-      
       {/* Main Content with proper padding */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header with Refresh Indicator */}
         <TrackerErrorBoundary componentName="Production Header">
-          <div className="border-b bg-white p-4">
+          <div className="border-b bg-white p-2 sm:p-4"> {/* Tightened padding */}
             <div className="flex items-center justify-between">
               <ProductionHeader
                 isMobile={isMobile}
@@ -240,7 +239,6 @@ const TrackerProduction = () => {
                 onConfigureStages={handleConfigureStages}
                 onQRScanner={handleQRScanner}
               />
-              
               <RefreshIndicator
                 lastUpdated={lastUpdated}
                 isRefreshing={isRefreshing}
@@ -251,8 +249,8 @@ const TrackerProduction = () => {
           </div>
         </TrackerErrorBoundary>
 
-        {/* Main Content Area with padding */}
-        <div className="flex-1 overflow-hidden p-6">
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-hidden p-4 sm:p-6">
           <div className="h-full flex flex-col space-y-4">
             {/* Statistics */}
             <TrackerErrorBoundary componentName="Production Stats">
@@ -291,12 +289,33 @@ const TrackerProduction = () => {
                     />
                   }
                 >
-                  <FilteredJobsView
-                    jobs={sortedJobs}
-                    selectedStage={currentFilters.stage}
-                    isLoading={isLoading}
-                    onStageAction={handleStageAction}
-                  />
+                  <div>
+                    <div className="flex gap-2 items-center text-xs font-bold px-4 py-2 border-b bg-gray-50">
+                      <span style={{ width: 20 }} className="text-center">Due</span>
+                      <span className="flex-1">Job Name / Number</span>
+                      <span className="w-28">Current Stage</span>
+                      <span className="w-36">Customer/Reference</span>
+                      {/* add more columns as needed */}
+                    </div>
+                    <FilteredJobsView
+                      jobs={sortedJobs}
+                      selectedStage={currentFilters.stage}
+                      isLoading={isLoading}
+                      onStageAction={handleStageAction}
+                      renderJobRow={(job) => (
+                        <div key={job.id} className="flex gap-2 items-center px-4 py-1 border-b">
+                          {/* Traffic light indicator */}
+                          <div style={{ width: 20 }}>
+                            <TrafficLightIndicator dueDate={job.due_date} />
+                          </div>
+                          <div className="flex-1 truncate">{job.wo_no ?? job.reference ?? job.id}</div>
+                          <div className="w-28 truncate">{job.current_stage_name}</div>
+                          <div className="w-36 truncate">{job.customer ?? ""}</div>
+                          {/* Add controls, status, etc if needed */}
+                        </div>
+                      )}
+                    />
+                  </div>
                 </TrackerErrorBoundary>
               </div>
             </div>
