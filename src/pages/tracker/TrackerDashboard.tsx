@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
@@ -15,7 +16,6 @@ const TrackerDashboard = () => {
     total,
     inProgress,
     completed,
-    prePress,
     statusCounts,
     stages,
     isLoading,
@@ -83,7 +83,7 @@ const TrackerDashboard = () => {
     total,
     inProgress,
     completed,
-    prePress,
+    // No prePress key here!
     statusCounts,
     stages,
   };
