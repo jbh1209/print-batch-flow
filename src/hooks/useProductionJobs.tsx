@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 
-interface ProductionJob {
+// --- UPDATED TYPE: Enriched production job with 'categories'
+export interface ProductionJob {
   id: string;
   wo_no: string;
   status: string;
@@ -25,6 +26,15 @@ interface ProductionJob {
   qr_code_url?: string | null;
   created_at?: string;
   updated_at?: string;
+  // Enriched join: categories (for SLA and color)
+  categories?: {
+    id: string;
+    name: string;
+    description?: string;
+    color?: string;
+    sla_target_days?: number | null;
+  } | null;
+  category_name?: string | null; // Helper for consistency
 }
 
 export const useProductionJobs = () => {
@@ -33,7 +43,7 @@ export const useProductionJobs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Optimized data fetching
+  // --- UPDATED QUERY: fetch categories join
   const fetchJobs = useCallback(async () => {
     if (!user?.id) {
       setJobs([]);
@@ -48,7 +58,16 @@ export const useProductionJobs = () => {
 
       const { data, error: fetchError } = await supabase
         .from('production_jobs')
-        .select('*')
+        .select(`
+          *,
+          categories (
+            id,
+            name,
+            description,
+            color,
+            sla_target_days
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -57,7 +76,12 @@ export const useProductionJobs = () => {
       }
 
       console.log("Production jobs fetched:", data?.length || 0, "jobs");
-      setJobs(data || []);
+      // Enrich helper
+      const jobsWithHelpers = (data ?? []).map((job: any) => ({
+        ...job,
+        category_name: job.categories?.name ?? job.category ?? null,
+      }));
+      setJobs(jobsWithHelpers);
     } catch (err) {
       console.error('Error fetching production jobs:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load jobs";
