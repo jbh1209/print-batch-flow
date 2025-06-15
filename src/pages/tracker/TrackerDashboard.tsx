@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
@@ -11,6 +10,7 @@ import { filterActiveJobs, filterCompletedJobs } from "@/utils/tracker/jobComple
 import { useDataManager } from "@/hooks/tracker/useDataManager";
 
 const TrackerDashboard = () => {
+  // --- Confirmed: useDataManager provides full jobs, with correct caching per route now ---
   const { 
     jobs, 
     isLoading: jobsLoading, 
@@ -20,38 +20,38 @@ const TrackerDashboard = () => {
     manualRefresh,
     getTimeSinceLastUpdate
   } = useDataManager();
-  
   const { stages, isLoading: stagesLoading } = useProductionStages();
-  
   const isLoading = jobsLoading || stagesLoading;
   const error = jobsError;
-  
-  // Calculate real-time stats from actual production jobs and stages using unified logic
+
+  // --- PATCH: Compute job stats only from jobs array, don't double-filter ---
   const getJobStats = () => {
-    const activeJobs = filterActiveJobs(jobs);
-    const completedJobs = filterCompletedJobs(jobs);
+    if (!jobs || !Array.isArray(jobs)) {
+      return { total: 0, inProgress: 0, completed: 0, prePress: 0, statusCounts: {}, stages: [] };
+    }
+    // Filter functions
+    const activeJobs = jobs.filter(j => String(j.status || '').toLowerCase() !== "completed" && String(j.status || '').toLowerCase() !== "shipped");
+    const completedJobs = jobs.filter(j => String(j.status || '').toLowerCase() === "completed" || String(j.status || '').toLowerCase() === "shipped");
     const statusCounts: Record<string, number> = {};
-    
+
     // Initialize all actual stages with 0
     stages.forEach(stage => {
       statusCounts[stage.name] = 0;
     });
-    
-    // Add fallback for jobs without workflow stages
+
+    // Fallbacks
     statusCounts["Pre-Press"] = 0;
     statusCounts["Completed"] = completedJobs.length;
-    
-    // Count ONLY ACTIVE jobs by their current stage or default status
+
+    // Count ONLY ACTIVE jobs by their current stage/status
     activeJobs.forEach(job => {
       if (job.current_stage) {
-        // Job has workflow - use current stage
         if (statusCounts.hasOwnProperty(job.current_stage)) {
           statusCounts[job.current_stage]++;
         } else {
           statusCounts[job.current_stage] = 1;
         }
       } else {
-        // Job doesn't have workflow - use status or default to Pre-Press
         const status = job.status || 'Pre-Press';
         if (statusCounts.hasOwnProperty(status)) {
           statusCounts[status]++;
@@ -62,18 +62,15 @@ const TrackerDashboard = () => {
     });
 
     // Calculate summary stats from ACTIVE jobs only
-    const inProgressStages = stages.filter(stage => 
+    const inProgressStages = stages.filter(stage =>
       !['Pre-Press', 'Completed', 'Shipped'].includes(stage.name)
     );
-    
-    const inProgressCount = inProgressStages.reduce((total, stage) => {
-      return total + (statusCounts[stage.name] || 0);
-    }, 0);
-
+    const inProgressCount = inProgressStages.reduce((total, stage) =>
+      total + (statusCounts[stage.name] || 0), 0);
     const prePressCount = statusCounts["Pre-Press"] || 0;
 
     return {
-      total: activeJobs.length, // Only count active jobs
+      total: activeJobs.length,
       inProgress: inProgressCount,
       completed: completedJobs.length,
       prePress: prePressCount,

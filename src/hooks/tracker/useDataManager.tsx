@@ -21,6 +21,9 @@ interface DataManagerState {
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
+// --- NEW: Add a per-route/session cache (scoped by pathname) ---
+const globalRouteCache: Record<string, { jobs: CachedData | null; stages: CachedData | null }> = {};
+
 export const useDataManager = () => {
   const { user } = useAuth();
   const [state, setState] = useState<DataManagerState>({
@@ -32,13 +35,12 @@ export const useDataManager = () => {
     error: null
   });
 
-  const cacheRef = useRef<{
-    jobs: CachedData | null;
-    stages: CachedData | null;
-  }>({
-    jobs: null,
-    stages: null
-  });
+  // --- Use route as cache key ---
+  const routeKey = typeof window !== 'undefined' && window.location ? window.location.pathname : 'default-route-key';
+  if (!globalRouteCache[routeKey]) {
+    globalRouteCache[routeKey] = { jobs: null, stages: null };
+  }
+  const cacheRef = useRef(globalRouteCache[routeKey]);
 
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isManualRefreshRef = useRef(false);
@@ -181,18 +183,11 @@ export const useDataManager = () => {
 
       const now = Date.now();
       
-      // Update cache
-      cacheRef.current.jobs = {
-        data: jobsData,
-        timestamp: now,
-        isStale: false
-      };
-      
-      cacheRef.current.stages = {
-        data: stagesData,
-        timestamp: now,
-        isStale: false
-      };
+      // --- Update route-local cache
+      cacheRef.current.jobs = { data: jobsData, timestamp: now, isStale: false };
+      cacheRef.current.stages = { data: stagesData, timestamp: now, isStale: false };
+      // Propagate to outer/global var for true route-sharing
+      globalRouteCache[routeKey] = cacheRef.current;
 
       setState(prev => ({
         ...prev,
@@ -211,13 +206,12 @@ export const useDataManager = () => {
       console.log('✅ Data loaded successfully:', {
         jobs: jobsData.length,
         stages: stagesData.length,
-        fromCache: false
+        fromCache: false,
+        routeKey
       });
-
     } catch (error) {
       console.error('❌ Error loading data:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
-      
       setState(prev => ({
         ...prev,
         error: errorMessage,
@@ -229,23 +223,22 @@ export const useDataManager = () => {
         toast.error('Failed to refresh data');
       }
     }
-  }, [user?.id, fetchJobs, fetchStages, isCacheValid]);
+  }, [user?.id, fetchJobs, fetchStages, isCacheValid, routeKey]);
 
   const manualRefresh = useCallback(() => {
     console.log('🔄 Manual refresh triggered');
+    // Always force a new fetch and replace this route's cache
     loadData(true);
   }, [loadData]);
 
-  // Setup auto-refresh
+  // Setup auto-refresh for this route
   useEffect(() => {
     if (!user?.id) return;
-
     // Initial load
     loadData(false);
 
-    // Setup auto-refresh interval
+    // Auto-refresh for this page (per route)
     autoRefreshIntervalRef.current = setInterval(() => {
-      console.log('⏰ Auto-refresh triggered');
       loadData(false);
     }, AUTO_REFRESH_INTERVAL);
 
@@ -254,7 +247,7 @@ export const useDataManager = () => {
         clearInterval(autoRefreshIntervalRef.current);
       }
     };
-  }, [user?.id, loadData]);
+  }, [user?.id, loadData, routeKey]);
 
   // Cleanup on unmount
   useEffect(() => {
