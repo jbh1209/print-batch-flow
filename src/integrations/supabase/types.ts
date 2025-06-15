@@ -612,6 +612,7 @@ export type Database = {
           id: string
           is_rework: boolean | null
           job_id: string
+          job_order_in_stage: number
           job_table_name: string
           notes: string | null
           part_name: string | null
@@ -642,6 +643,7 @@ export type Database = {
           id?: string
           is_rework?: boolean | null
           job_id: string
+          job_order_in_stage?: number
           job_table_name: string
           notes?: string | null
           part_name?: string | null
@@ -672,6 +674,7 @@ export type Database = {
           id?: string
           is_rework?: boolean | null
           job_id?: string
+          job_order_in_stage?: number
           job_table_name?: string
           notes?: string | null
           part_name?: string | null

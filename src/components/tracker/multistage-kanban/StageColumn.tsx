@@ -1,48 +1,108 @@
+
 import React from "react";
 import JobStageCard from "./JobStageCard";
 import ColumnViewToggle from "./ColumnViewToggle";
+import { useDroppable, useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { DndContext, closestCenter, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
 
-const StageColumn: React.FC<{
+type Props = {
   stage: any;
   jobStages: any[];
   onStageAction: (stageId: string, action: "start" | "complete" | "scan") => void;
   viewMode: "card" | "list";
-}> = ({
+  enableDnd?: boolean;
+  onReorder?: (orderedIds: string[]) => void;
+};
+
+const StageColumn: React.FC<Props> = ({
   stage,
   jobStages,
   onStageAction,
   viewMode,
+  enableDnd,
+  onReorder,
 }) => {
-  const stageJobStages = jobStages.filter(js => js.production_stage_id === stage.id);
+  // Sort by job_order_in_stage then fallback to original (to handle legacy rows)
+  const stageJobStages = jobStages
+    .filter(js => js.production_stage_id === stage.id)
+    .sort((a, b) => (a.job_order_in_stage ?? 1) - (b.job_order_in_stage ?? 1) || a.stage_order - b.stage_order);
+
   const activeStages = stageJobStages.filter(js => js.status === "active");
   const pendingStages = stageJobStages.filter(js => js.status === "pending");
   const completedStages = stageJobStages.filter(js => js.status === "completed");
 
+  // DND setup for card view
+  if (viewMode === "card" && enableDnd) {
+    return (
+      <SortableContext
+        items={stageJobStages.map(jobStage => jobStage.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="bg-gray-50 rounded-lg p-2 min-w-[260px] max-w-full flex flex-col h-[calc(80vh-90px)]" style={{width: 'auto'}}>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
+              <span className="font-medium text-xs">{stage.name}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="bg-gray-100 text-xs px-1 rounded">{stageJobStages.length}</span>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <DndContext
+              sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))}
+              collisionDetection={closestCenter}
+              onDragEnd={(event) => {
+                const { active, over } = event;
+                if (over && active.id !== over.id) {
+                  const oldIndex = stageJobStages.findIndex(js => js.id === active.id);
+                  const newIndex = stageJobStages.findIndex(js => js.id === over.id);
+                  if (onReorder) {
+                    // Array in new order
+                    const reordered = [...stageJobStages];
+                    const moved = reordered.splice(oldIndex, 1)[0];
+                    reordered.splice(newIndex, 0, moved);
+                    onReorder(reordered.map(js => js.id));
+                  }
+                }
+              }}
+            >
+              <div className="flex flex-col gap-2">
+                {stageJobStages.map(jobStage => (
+                  <SortableJobStageCard
+                    key={jobStage.id}
+                    jobStage={jobStage}
+                    onStageAction={onStageAction}
+                  />
+                ))}
+              </div>
+              {stageJobStages.length === 0 && (
+                <div className="text-center py-6 text-gray-400 text-xs">No jobs</div>
+              )}
+            </DndContext>
+          </div>
+        </div>
+      </SortableContext>
+    );
+  }
+
+  // Default (non-DND) column
   return (
-    <div className="bg-gray-50 rounded-lg p-2 min-w-[210px] max-w-[240px] flex flex-col h-[calc(80vh-90px)]">
+    <div className="bg-gray-50 rounded-lg p-2 min-w-[260px] max-w-full flex flex-col h-[calc(80vh-90px)]" style={{width: 'auto'}}>
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1">
-          <div
-            className="w-2 h-2 rounded-full"
-            style={{ backgroundColor: stage.color }}
-          />
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
           <span className="font-medium text-xs">{stage.name}</span>
         </div>
         <div className="flex items-center gap-1">
           <span className="bg-gray-100 text-xs px-1 rounded">{stageJobStages.length}</span>
-          {/* Removed per-column view toggle */}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
         {viewMode === "card" ? (
-          <div className="space-y-2">
-            {activeStages.map(jobStage => (
-              <JobStageCard key={jobStage.id} jobStage={jobStage} onStageAction={onStageAction} />
-            ))}
-            {pendingStages.map(jobStage => (
-              <JobStageCard key={jobStage.id} jobStage={jobStage} onStageAction={onStageAction} />
-            ))}
-            {completedStages.slice(0, 3).map(jobStage => (
+          <div className="flex flex-col gap-2">
+            {stageJobStages.map(jobStage => (
               <JobStageCard key={jobStage.id} jobStage={jobStage} onStageAction={onStageAction} />
             ))}
             {stageJobStages.length === 0 && (
@@ -50,21 +110,21 @@ const StageColumn: React.FC<{
             )}
           </div>
         ) : (
-          <table className="w-full text-[13px]">
+          <table className="w-auto text-[13px] min-w-max" style={{tableLayout: 'auto'}}>
             <thead>
               <tr className="text-xs text-gray-500 border-b">
-                <th className="text-left px-1 py-1 font-normal">WO</th>
-                <th className="text-left px-1 py-1 font-normal">Customer</th>
-                <th className="text-left px-1 py-1 font-normal">Status</th>
-                <th className="text-left px-1 py-1 font-normal"></th>
+                <th className="text-left px-1 py-1 font-normal whitespace-nowrap">WO</th>
+                <th className="text-left px-1 py-1 font-normal whitespace-nowrap">Customer</th>
+                <th className="text-left px-1 py-1 font-normal whitespace-nowrap">Status</th>
+                <th className="text-left px-1 py-1 font-normal whitespace-nowrap"></th>
               </tr>
             </thead>
             <tbody>
-              {[...activeStages, ...pendingStages, ...completedStages.slice(0,3)].map(jobStage => (
+              {stageJobStages.map(jobStage => (
                 <tr key={jobStage.id} className="hover:bg-green-50 transition group">
-                  <td className="px-1">{jobStage.production_job?.wo_no}</td>
-                  <td className="px-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[100px]">{jobStage.production_job?.customer}</td>
-                  <td className="px-1">
+                  <td className="px-1 whitespace-nowrap">{jobStage.production_job?.wo_no}</td>
+                  <td className="px-1 whitespace-nowrap max-w-none">{jobStage.production_job?.customer}</td>
+                  <td className="px-1 whitespace-nowrap">
                     <span className={`inline-flex rounded px-1 text-xs ${jobStage.status === "active" ? "bg-blue-100 text-blue-700" : jobStage.status === "pending" ? "bg-yellow-50 text-yellow-800" : "bg-gray-100"}`}>
                       {jobStage.status}
                     </span>
@@ -94,6 +154,22 @@ const StageColumn: React.FC<{
           </table>
         )}
       </div>
+    </div>
+  );
+};
+
+// Sortable wrapper for JobStageCard
+const SortableJobStageCard: React.FC<{ jobStage: any; onStageAction: any }> = ({ jobStage, onStageAction }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: jobStage.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <JobStageCard jobStage={jobStage} onStageAction={onStageAction} />
     </div>
   );
 };

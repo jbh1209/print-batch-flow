@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +20,8 @@ import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
 import StageColumn from "./multistage-kanban/StageColumn";
 import ColumnViewToggle from "./multistage-kanban/ColumnViewToggle";
+import { arrayMove } from "@/utils/tracker/reorderUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 export const MultiStageKanban = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError, fetchJobs } = useProductionJobs();
@@ -102,6 +103,36 @@ export const MultiStageKanban = () => {
   // }, [viewMode, jobs, stages]);
   // --- End Placeholder ---
 
+  /**
+   * Persist job order in a given stage column
+   * @param stageId
+   * @param newOrderIds
+   */
+  const handleReorder = async (stageId: string, newOrderIds: string[]) => {
+    // update in UI instantly
+    // Then persist to supabase (batch update)
+    const updates = newOrderIds.map((jobStageId, idx) => ({
+      id: jobStageId,
+      job_order_in_stage: idx + 1,
+    }));
+    // Optimistic UI: update jobStages locally too
+    // (if needed, may want to use setState instead)
+    try {
+      // Batch update order
+      const { error } = await supabase
+        .from("job_stage_instances")
+        .upsert(updates, { onConflict: "id" });
+      if (error) {
+        toast.error("Failed to persist job order");
+      }
+    } catch (e) {
+      toast.error("Failed to persist job order: " + e.message);
+    }
+    // Trigger refresh so all columns update (could be optimized)
+    refreshStages();
+    fetchJobs();
+  };
+
   // --- COMPACT HEADER IMPLEMENTATION ---
   return (
     <div className="p-2">
@@ -153,6 +184,8 @@ export const MultiStageKanban = () => {
               jobStages={jobStages}
               onStageAction={handleStageAction}
               viewMode={viewMode}
+              enableDnd={viewMode === "card"}
+              onReorder={newOrder => handleReorder(stage.id, newOrder)}
             />
           ))}
       </div>
