@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -109,14 +110,22 @@ export const MultiStageKanban = () => {
    * @param newOrderIds
    */
   const handleReorder = async (stageId: string, newOrderIds: string[]) => {
-    // update in UI instantly
-    // Then persist to supabase (batch update)
-    const updates = newOrderIds.map((jobStageId, idx) => ({
-      id: jobStageId,
-      job_order_in_stage: idx + 1,
-    }));
-    // Optimistic UI: update jobStages locally too
-    // (if needed, may want to use setState instead)
+    // Find jobStageInstances for this stage by ID, in new order
+    const updates = newOrderIds.map((jobStageId, idx) => {
+      const jobStage = jobStages.find(js => js.id === jobStageId);
+      if (!jobStage) throw new Error("JobStage not found for id: " + jobStageId);
+      // Populate all NOT NULL fields and id
+      return {
+        id: jobStage.id,
+        job_id: jobStage.job_id,
+        job_table_name: jobStage.job_table_name,
+        production_stage_id: jobStage.production_stage_id,
+        stage_order: jobStage.stage_order,
+        job_order_in_stage: idx + 1,
+        status: jobStage.status,
+      };
+    });
+
     try {
       // Batch update order
       const { error } = await supabase
@@ -126,7 +135,7 @@ export const MultiStageKanban = () => {
         toast.error("Failed to persist job order");
       }
     } catch (e) {
-      toast.error("Failed to persist job order: " + e.message);
+      toast.error("Failed to persist job order: " + (e instanceof Error ? e.message : String(e)));
     }
     // Trigger refresh so all columns update (could be optimized)
     refreshStages();

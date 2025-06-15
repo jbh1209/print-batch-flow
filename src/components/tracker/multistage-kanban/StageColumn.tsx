@@ -1,8 +1,7 @@
-
 import React from "react";
 import JobStageCard from "./JobStageCard";
 import ColumnViewToggle from "./ColumnViewToggle";
-import { useDroppable, useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DndContext, closestCenter, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
 
