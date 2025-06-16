@@ -6,7 +6,7 @@ import { Users as UsersIcon, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { UserManagementProvider } from "@/contexts/UserManagementContext";
 import { AdminSetupForm } from "@/components/users/AdminSetupForm";
-import { SimpleUserManagement } from "@/components/users/SimpleUserManagement";
+import { EnhancedUserManagement } from "@/components/users/EnhancedUserManagement";
 import { LoadingState } from "@/components/users/LoadingState";
 import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMessage";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -27,7 +27,7 @@ const Users = () => {
             <UsersIcon className="h-6 w-6 mr-2 text-batchflow-primary" />
             <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
           </div>
-          <p className="text-gray-500 mt-1">Manage user accounts and permissions</p>
+          <p className="text-gray-500 mt-1">Manage user accounts, roles, and permissions</p>
         </div>
         <Button onClick={() => navigate("/")}>Back to Dashboard</Button>
       </div>
@@ -55,7 +55,7 @@ const Users = () => {
         <AccessRestrictedMessage />
       ) : (
         <UserManagementProvider>
-          <SimpleUserManagement />
+          <EnhancedUserManagement />
         </UserManagementProvider>
       )}
     </div>
