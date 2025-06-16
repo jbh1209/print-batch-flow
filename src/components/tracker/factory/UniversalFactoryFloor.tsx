@@ -46,9 +46,12 @@ export const UniversalFactoryFloor = () => {
     }
   };
 
-  // Filter and categorize jobs with new queue splitting
+  // Filter and categorize jobs with enhanced debugging
   const { dtpJobs, proofJobs, hp12000Jobs, hp7900Jobs, hpT250Jobs, finishingJobs, otherJobs } = useMemo(() => {
+    console.log('🔄 Processing jobs in UniversalFactoryFloor:', jobs?.length || 0);
+    
     if (!jobs || jobs.length === 0) {
+      console.log('❌ No jobs available for processing');
       return { 
         dtpJobs: [], 
         proofJobs: [], 
@@ -61,6 +64,7 @@ export const UniversalFactoryFloor = () => {
     }
 
     let filtered = jobs;
+    console.log('📋 Starting with jobs:', filtered.length);
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -71,10 +75,12 @@ export const UniversalFactoryFloor = () => {
         job.reference?.toLowerCase().includes(query) ||
         job.current_stage_name?.toLowerCase().includes(query)
       );
+      console.log('🔍 After search filter:', filtered.length);
     }
 
     // Apply queue filters for printing jobs
     if (activeQueueFilters.length > 0) {
+      console.log('🎯 Applying queue filters:', activeQueueFilters);
       filtered = filtered.filter(job => {
         const stageName = (job.current_stage_name || '').toLowerCase();
         const displayStageName = (job.display_stage_name || '').toLowerCase();
@@ -96,11 +102,12 @@ export const UniversalFactoryFloor = () => {
         // Non-printing jobs are always shown
         return true;
       });
+      console.log('🎯 After queue filter:', filtered.length);
     }
 
     const categories = categorizeJobs(filtered);
     
-    return {
+    const result = {
       dtpJobs: sortJobsByWONumber(categories.dtpJobs),
       proofJobs: sortJobsByWONumber(categories.proofJobs),
       hp12000Jobs: sortJobsByWONumber(categories.hp12000Jobs),
@@ -109,6 +116,18 @@ export const UniversalFactoryFloor = () => {
       finishingJobs: sortJobsByWONumber(categories.finishingJobs),
       otherJobs: sortJobsByWONumber(categories.otherJobs)
     };
+
+    console.log('✅ Final job groups:', {
+      dtp: result.dtpJobs.length,
+      proof: result.proofJobs.length,
+      hp12000: result.hp12000Jobs.length,
+      hp7900: result.hp7900Jobs.length,
+      hpT250: result.hpT250Jobs.length,
+      finishing: result.finishingJobs.length,
+      other: result.otherJobs.length
+    });
+
+    return result;
   }, [jobs, searchQuery, activeQueueFilters]);
 
   const handleRefresh = async () => {
@@ -182,6 +201,8 @@ export const UniversalFactoryFloor = () => {
   if (otherJobs.length > 0) {
     jobGroups.push({ title: "Other Jobs", jobs: otherJobs, color: "bg-gray-600" });
   }
+
+  console.log('🎨 Rendering job groups:', jobGroups.map(g => ({ title: g.title, count: g.jobs.length })));
 
   const totalJobs = dtpJobs.length + proofJobs.length + hp12000Jobs.length + hp7900Jobs.length + hpT250Jobs.length + finishingJobs.length + otherJobs.length;
 
@@ -274,8 +295,6 @@ export const UniversalFactoryFloor = () => {
                               <OperatorJobCard
                                 key={job.job_id}
                                 job={job}
-                                onStart={startJob}
-                                onComplete={completeJob}
                                 onClick={() => handleJobClick(job)}
                               />
                             ))}
@@ -287,28 +306,31 @@ export const UniversalFactoryFloor = () => {
                 </div>
               </div>
             ) : (
-              /* List View - Single Column */
+              /* List View - Single Column with ALL Groups */
               <ScrollArea className="h-full">
                 <div className="p-4 space-y-6">
-                  {jobGroups.map(group => (
-                    <div key={group.title}>
-                      {/* Section Header */}
-                      <div className={`${group.color} text-white px-4 py-3 rounded-t-lg`}>
-                        <h2 className="font-semibold">
-                          {group.title} ({group.jobs.length})
-                        </h2>
+                  {jobGroups.map(group => {
+                    console.log('🎨 Rendering list group:', group.title, 'Jobs:', group.jobs.length);
+                    return (
+                      <div key={group.title}>
+                        {/* Section Header */}
+                        <div className={`${group.color} text-white px-4 py-3 rounded-t-lg`}>
+                          <h2 className="font-semibold">
+                            {group.title} ({group.jobs.length})
+                          </h2>
+                        </div>
+                        
+                        {/* Job List */}
+                        <JobListView
+                          jobs={group.jobs}
+                          onStart={startJob}
+                          onComplete={completeJob}
+                          onJobClick={handleJobClick}
+                          className="rounded-t-none border-t-0"
+                        />
                       </div>
-                      
-                      {/* Job List */}
-                      <JobListView
-                        jobs={group.jobs}
-                        onStart={startJob}
-                        onComplete={completeJob}
-                        onJobClick={handleJobClick}
-                        className="rounded-t-none border-t-0"
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             )}
@@ -324,6 +346,7 @@ export const UniversalFactoryFloor = () => {
           onClose={handleCloseModal}
           onStart={startJob}
           onComplete={completeJob}
+          onRefresh={refreshJobs}
         />
       )}
     </div>

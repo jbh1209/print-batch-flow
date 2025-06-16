@@ -27,6 +27,11 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
   };
 
   console.log('🔍 Categorizing jobs:', jobs.length);
+  console.log('📋 Raw jobs data:', jobs.map(job => ({
+    wo_no: job.wo_no,
+    current_stage_name: job.current_stage_name,
+    display_stage_name: job.display_stage_name
+  })));
 
   jobs.forEach(job => {
     const stageName = (job.current_stage_name || '').toLowerCase();
@@ -35,9 +40,9 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
     // Use display stage name if available (for master queue consolidation)
     const effectiveStageName = displayStageName || stageName;
     
-    console.log('🏷️ Job:', job.wo_no, 'Stage:', effectiveStageName);
+    console.log('🏷️ Job:', job.wo_no, 'Stage:', effectiveStageName, 'Original:', stageName, 'Display:', displayStageName);
     
-    // Enhanced categorization logic that handles master queues and splits by printer type
+    // Enhanced categorization logic with comprehensive pattern matching
     if (effectiveStageName.includes('dtp') || 
         effectiveStageName.includes('digital') ||
         effectiveStageName.includes('design') ||
@@ -53,26 +58,28 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
       console.log('🔍 Added to Proof:', job.wo_no);
     } else if (effectiveStageName.includes('12000') || 
                effectiveStageName.includes('hp 12000') ||
-               effectiveStageName.includes('hp12000')) {
+               effectiveStageName.includes('hp12000') ||
+               effectiveStageName.includes('printing - 12000') ||
+               effectiveStageName.includes('printing - hp 12000')) {
       categorized.hp12000Jobs.push(job);
       console.log('🖨️ Added to HP 12000:', job.wo_no);
     } else if (effectiveStageName.includes('7900') || 
                effectiveStageName.includes('hp 7900') ||
-               effectiveStageName.includes('hp7900')) {
+               effectiveStageName.includes('hp7900') ||
+               effectiveStageName.includes('printing - 7900') ||
+               effectiveStageName.includes('printing - hp 7900') ||
+               effectiveStageName.includes('7900 - standard') ||
+               effectiveStageName.includes('7900 - multi')) {
       categorized.hp7900Jobs.push(job);
       console.log('🖨️ Added to HP 7900:', job.wo_no);
     } else if (effectiveStageName.includes('t250') || 
                effectiveStageName.includes('hp t250') ||
                effectiveStageName.includes('hpt250') ||
-               effectiveStageName.includes('t 250')) {
+               effectiveStageName.includes('t 250') ||
+               effectiveStageName.includes('printing - t250') ||
+               effectiveStageName.includes('printing - hp t250')) {
       categorized.hpT250Jobs.push(job);
       console.log('🖨️ Added to HP T250:', job.wo_no);
-    } else if (effectiveStageName.includes('print') ||
-               effectiveStageName.includes('hp') ||
-               effectiveStageName.includes('press')) {
-      // Generic printing jobs that don't match specific queues
-      categorized.otherJobs.push(job);
-      console.log('🖨️ Added to Other Print:', job.wo_no);
     } else if (effectiveStageName.includes('finish') ||
                effectiveStageName.includes('cutting') ||
                effectiveStageName.includes('lamination') ||
@@ -80,13 +87,19 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
                effectiveStageName.includes('folding')) {
       categorized.finishingJobs.push(job);
       console.log('✂️ Added to Finishing:', job.wo_no);
+    } else if (effectiveStageName.includes('print') ||
+               effectiveStageName.includes('hp') ||
+               effectiveStageName.includes('press')) {
+      // Generic printing jobs that don't match specific queues
+      categorized.otherJobs.push(job);
+      console.log('🖨️ Added to Other Print:', job.wo_no);
     } else {
       categorized.otherJobs.push(job);
       console.log('❓ Added to Other:', job.wo_no);
     }
   });
 
-  console.log('📊 Categorization results:', {
+  console.log('📊 Final categorization results:', {
     dtp: categorized.dtpJobs.length,
     proof: categorized.proofJobs.length,
     hp12000: categorized.hp12000Jobs.length,
@@ -95,6 +108,17 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
     finishing: categorized.finishingJobs.length,
     other: categorized.otherJobs.length
   });
+
+  // Additional debugging for HP 7900 specifically
+  if (categorized.hp7900Jobs.length === 0) {
+    console.log('⚠️ NO HP 7900 JOBS FOUND! Checking all stage names:');
+    jobs.forEach(job => {
+      const effectiveName = (job.display_stage_name || job.current_stage_name || '').toLowerCase();
+      if (effectiveName.includes('7900')) {
+        console.log('🔍 Found potential HP 7900 job:', job.wo_no, 'Stage:', effectiveName);
+      }
+    });
+  }
 
   return categorized;
 };
