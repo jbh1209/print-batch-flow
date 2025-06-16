@@ -239,7 +239,14 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
           .order('stage_order', { ascending: true });
 
         if (stagesErr) throw stagesErr;
-        jobStagesData = stagesDataRaw || [];
+        
+        // Properly map and type the job stages data
+        jobStagesData = (stagesDataRaw || []).map(stage => ({
+          ...stage,
+          status: ['pending', 'active', 'completed', 'skipped', 'reworked'].includes(stage.status) 
+            ? stage.status as 'pending' | 'active' | 'completed' | 'skipped' | 'reworked'
+            : 'pending'
+        }));
       }
 
       // Consolidate production stages

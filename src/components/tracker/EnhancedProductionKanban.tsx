@@ -122,7 +122,7 @@ export const EnhancedProductionKanban = ({ jobs: propsJobs, stages: propsStages,
     return jobs.map(job => ({
       ...job,
       customer: job.customer || 'Unknown Customer',
-      category: job.category || 'General',
+      category: job.category_name || 'General', // Use category_name instead of category
       due_date: job.due_date || undefined,
       // Use actual job stage instances from the unified data
       stages: job.job_stage_instances?.map((stage: any, index: number) => ({
