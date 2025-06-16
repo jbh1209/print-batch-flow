@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { validateUUIDArray } from "@/utils/uuidValidation";
@@ -9,9 +8,9 @@ const setProperJobOrderInStage = async (jobId: string, jobTableName: string) => 
   try {
     console.log('🔧 Setting proper job_order_in_stage for job:', jobId);
 
-    // Get the job's WO number
+    // Get the job's WO number - always from production_jobs table
     const { data: job, error: jobError } = await supabase
-      .from(jobTableName)
+      .from('production_jobs')
       .select('wo_no')
       .eq('id', jobId)
       .single();

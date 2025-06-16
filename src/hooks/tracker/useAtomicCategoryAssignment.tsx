@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -12,9 +11,9 @@ export const useAtomicCategoryAssignment = () => {
     try {
       console.log('🔧 Setting proper job_order_in_stage for job:', jobId);
 
-      // Get the job's WO number
+      // Get the job's WO number - always from production_jobs table
       const { data: job, error: jobError } = await supabase
-        .from(jobTableName)
+        .from('production_jobs')
         .select('wo_no')
         .eq('id', jobId)
         .single();
