@@ -9,11 +9,7 @@ import { UniversalFactoryFloor } from "@/components/tracker/factory/UniversalFac
  * Dynamically shows columns for stages where the user can work.
  */
 const FactoryFloor = () => {
-  return (
-    <div className="min-h-screen bg-gray-50 w-full">
-      <UniversalFactoryFloor />
-    </div>
-  );
+  return <UniversalFactoryFloor />;
 };
 
 export default FactoryFloor;

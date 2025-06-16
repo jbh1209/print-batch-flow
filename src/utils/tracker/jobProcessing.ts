@@ -4,19 +4,24 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 export interface CategorizedJobs {
   dtpJobs: AccessibleJob[];
   proofJobs: AccessibleJob[];
-  printingJobs: AccessibleJob[];
+  hp12000Jobs: AccessibleJob[];
+  hp7900Jobs: AccessibleJob[];
+  hpT250Jobs: AccessibleJob[];
   finishingJobs: AccessibleJob[];
   otherJobs: AccessibleJob[];
 }
 
 /**
  * Enhanced job categorization that properly handles master queue consolidation
+ * and splits printing jobs by specific queue types
  */
 export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
   const categorized: CategorizedJobs = {
     dtpJobs: [],
     proofJobs: [],
-    printingJobs: [],
+    hp12000Jobs: [],
+    hp7900Jobs: [],
+    hpT250Jobs: [],
     finishingJobs: [],
     otherJobs: []
   };
@@ -28,7 +33,7 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
     // Use display stage name if available (for master queue consolidation)
     const effectiveStageName = displayStageName || stageName;
     
-    // Enhanced categorization logic that handles master queues
+    // Enhanced categorization logic that handles master queues and splits by printer type
     if (effectiveStageName.includes('dtp') || 
         effectiveStageName.includes('digital') ||
         effectiveStageName.includes('design') ||
@@ -40,13 +45,20 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
                effectiveStageName.includes('approval') ||
                effectiveStageName.includes('review')) {
       categorized.proofJobs.push(job);
+    } else if (effectiveStageName.includes('12000') || 
+               effectiveStageName.includes('hp 12000')) {
+      categorized.hp12000Jobs.push(job);
+    } else if (effectiveStageName.includes('7900') || 
+               effectiveStageName.includes('hp 7900')) {
+      categorized.hp7900Jobs.push(job);
+    } else if (effectiveStageName.includes('t250') || 
+               effectiveStageName.includes('hp t250')) {
+      categorized.hpT250Jobs.push(job);
     } else if (effectiveStageName.includes('print') ||
                effectiveStageName.includes('hp') ||
-               effectiveStageName.includes('t250') ||
-               effectiveStageName.includes('12000') ||
-               effectiveStageName.includes('7900') ||
                effectiveStageName.includes('press')) {
-      categorized.printingJobs.push(job);
+      // Generic printing jobs that don't match specific queues
+      categorized.otherJobs.push(job);
     } else if (effectiveStageName.includes('finish') ||
                effectiveStageName.includes('cutting') ||
                effectiveStageName.includes('lamination') ||

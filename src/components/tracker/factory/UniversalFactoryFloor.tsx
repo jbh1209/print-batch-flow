@@ -8,6 +8,8 @@ import { QueueToggleControls } from "./QueueToggleControls";
 import { OperatorJobCard } from "./OperatorJobCard";
 import { DtpJobModal } from "./DtpJobModal";
 import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
+import { JobListView } from "../common/JobListView";
+import { ViewToggle } from "../common/ViewToggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { categorizeJobs, sortJobsByWONumber } from "@/utils/tracker/jobProcessing";
 import { Input } from "@/components/ui/input";
@@ -27,11 +29,35 @@ export const UniversalFactoryFloor = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeQueueFilters, setActiveQueueFilters] = useState<string[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
+    try {
+      return (localStorage.getItem('factory-floor-view-mode') as 'card' | 'list') || 'card';
+    } catch {
+      return 'card';
+    }
+  });
 
-  // Filter and categorize jobs
-  const { dtpJobs, proofJobs, printingJobs, finishingJobs, otherJobs } = useMemo(() => {
+  const handleViewModeChange = (mode: 'card' | 'list') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('factory-floor-view-mode', mode);
+    } catch {
+      // Ignore localStorage errors
+    }
+  };
+
+  // Filter and categorize jobs with new queue splitting
+  const { dtpJobs, proofJobs, hp12000Jobs, hp7900Jobs, hpT250Jobs, finishingJobs, otherJobs } = useMemo(() => {
     if (!jobs || jobs.length === 0) {
-      return { dtpJobs: [], proofJobs: [], printingJobs: [], finishingJobs: [], otherJobs: [] };
+      return { 
+        dtpJobs: [], 
+        proofJobs: [], 
+        hp12000Jobs: [], 
+        hp7900Jobs: [], 
+        hpT250Jobs: [], 
+        finishingJobs: [], 
+        otherJobs: [] 
+      };
     }
 
     let filtered = jobs;
@@ -54,13 +80,12 @@ export const UniversalFactoryFloor = () => {
         const displayStageName = (job.display_stage_name || '').toLowerCase();
         const effectiveStageName = displayStageName || stageName;
 
-        // If it's a printing job, check if it matches active queue filters
+        // Check if it's a printing job and matches filters
         const isPrintingJob = effectiveStageName.includes('print') ||
                              effectiveStageName.includes('hp') ||
-                             effectiveStageName.includes('t250') ||
                              effectiveStageName.includes('12000') ||
                              effectiveStageName.includes('7900') ||
-                             effectiveStageName.includes('press');
+                             effectiveStageName.includes('t250');
 
         if (isPrintingJob) {
           return activeQueueFilters.some(filter => 
@@ -78,7 +103,9 @@ export const UniversalFactoryFloor = () => {
     return {
       dtpJobs: sortJobsByWONumber(categories.dtpJobs),
       proofJobs: sortJobsByWONumber(categories.proofJobs),
-      printingJobs: sortJobsByWONumber(categories.printingJobs),
+      hp12000Jobs: sortJobsByWONumber(categories.hp12000Jobs),
+      hp7900Jobs: sortJobsByWONumber(categories.hp7900Jobs),
+      hpT250Jobs: sortJobsByWONumber(categories.hpT250Jobs),
       finishingJobs: sortJobsByWONumber(categories.finishingJobs),
       otherJobs: sortJobsByWONumber(categories.otherJobs)
     };
@@ -136,8 +163,16 @@ export const UniversalFactoryFloor = () => {
     jobGroups.push({ title: "Proofing Jobs", jobs: proofJobs, color: "bg-purple-600" });
   }
   
-  if (printingJobs.length > 0) {
-    jobGroups.push({ title: "Printing Jobs", jobs: printingJobs, color: "bg-green-600" });
+  if (hp12000Jobs.length > 0) {
+    jobGroups.push({ title: "HP 12000", jobs: hp12000Jobs, color: "bg-green-600" });
+  }
+  
+  if (hp7900Jobs.length > 0) {
+    jobGroups.push({ title: "HP 7900", jobs: hp7900Jobs, color: "bg-emerald-600" });
+  }
+  
+  if (hpT250Jobs.length > 0) {
+    jobGroups.push({ title: "HP T250", jobs: hpT250Jobs, color: "bg-teal-600" });
   }
   
   if (finishingJobs.length > 0) {
@@ -148,10 +183,10 @@ export const UniversalFactoryFloor = () => {
     jobGroups.push({ title: "Other Jobs", jobs: otherJobs, color: "bg-gray-600" });
   }
 
-  const totalJobs = dtpJobs.length + proofJobs.length + printingJobs.length + finishingJobs.length + otherJobs.length;
+  const totalJobs = dtpJobs.length + proofJobs.length + hp12000Jobs.length + hp7900Jobs.length + hpT250Jobs.length + finishingJobs.length + otherJobs.length;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Header */}
       <OperatorHeader 
         title={isDtpOperator ? "DTP & Proofing Jobs" : "Factory Floor"}
@@ -173,8 +208,11 @@ export const UniversalFactoryFloor = () => {
 
           {/* Controls */}
           <div className="flex items-center gap-2">
+            {/* View Toggle */}
+            <ViewToggle view={viewMode} onViewChange={handleViewModeChange} />
+
             {/* Queue Toggle Controls - only show for print operators */}
-            {printingJobs.length > 0 && (
+            {(hp12000Jobs.length > 0 || hp7900Jobs.length > 0 || hpT250Jobs.length > 0) && (
               <div className="relative">
                 <QueueToggleControls 
                   onQueueFiltersChange={setActiveQueueFilters}
@@ -215,36 +253,65 @@ export const UniversalFactoryFloor = () => {
           </div>
         ) : (
           <div className="h-full">
-            {/* Single column for mobile, grid for desktop */}
-            <div className="h-full grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-hidden">
-              {jobGroups.map(group => (
-                <div key={group.title} className="flex flex-col min-h-0">
-                  {/* Column Header */}
-                  <div className={`${group.color} text-white px-4 py-3 rounded-t-lg flex-shrink-0`}>
-                    <h2 className="font-semibold">
-                      {group.title} ({group.jobs.length})
-                    </h2>
-                  </div>
-
-                  {/* Job Cards */}
-                  <div className="flex-1 border-l border-r border-b border-gray-200 rounded-b-lg overflow-hidden">
-                    <ScrollArea className="h-full">
-                      <div className="p-3 space-y-3">
-                        {group.jobs.map(job => (
-                          <OperatorJobCard
-                            key={job.job_id}
-                            job={job}
-                            onStart={startJob}
-                            onComplete={completeJob}
-                            onClick={() => handleJobClick(job)}
-                          />
-                        ))}
+            {viewMode === 'card' ? (
+              /* Card View - Responsive Grid */
+              <div className="h-full overflow-x-auto">
+                <div className="flex gap-4 p-4 min-w-max lg:min-w-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {jobGroups.map(group => (
+                    <div key={group.title} className="flex flex-col min-h-0 w-80 lg:w-auto">
+                      {/* Column Header */}
+                      <div className={`${group.color} text-white px-4 py-3 rounded-t-lg flex-shrink-0`}>
+                        <h2 className="font-semibold">
+                          {group.title} ({group.jobs.length})
+                        </h2>
                       </div>
-                    </ScrollArea>
-                  </div>
+
+                      {/* Job Cards */}
+                      <div className="flex-1 border-l border-r border-b border-gray-200 rounded-b-lg overflow-hidden bg-white">
+                        <ScrollArea className="h-full max-h-96 lg:max-h-none">
+                          <div className="p-3 space-y-3">
+                            {group.jobs.map(job => (
+                              <OperatorJobCard
+                                key={job.job_id}
+                                job={job}
+                                onStart={startJob}
+                                onComplete={completeJob}
+                                onClick={() => handleJobClick(job)}
+                              />
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              /* List View - Single Column */
+              <ScrollArea className="h-full">
+                <div className="p-4 space-y-6">
+                  {jobGroups.map(group => (
+                    <div key={group.title}>
+                      {/* Section Header */}
+                      <div className={`${group.color} text-white px-4 py-3 rounded-t-lg`}>
+                        <h2 className="font-semibold">
+                          {group.title} ({group.jobs.length})
+                        </h2>
+                      </div>
+                      
+                      {/* Job List */}
+                      <JobListView
+                        jobs={group.jobs}
+                        onStart={startJob}
+                        onComplete={completeJob}
+                        onJobClick={handleJobClick}
+                        className="rounded-t-none border-t-0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
           </div>
         )}
       </div>
