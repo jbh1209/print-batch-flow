@@ -16,7 +16,7 @@ import { Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { KanbanColumn } from "./KanbanColumn";
 import { supabase } from "@/integrations/supabase/client";
-import { useProductionDataContext } from "@/contexts/ProductionDataContext";
+import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
 
 const STATUSES = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
 
@@ -28,8 +28,8 @@ interface ProductionKanbanProps {
 }
 
 export const ProductionKanban = ({ jobs: propsJobs, isLoading: propsLoading, error: propsError, onRefresh }: ProductionKanbanProps) => {
-  // Use unified data from context instead of props
-  const { jobs, isLoading, error, refresh } = useProductionDataContext();
+  // Use unified data hook directly instead of context
+  const { jobs, isLoading, error, refreshJobs } = useUnifiedProductionData();
   
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -72,7 +72,7 @@ export const ProductionKanban = ({ jobs: propsJobs, isLoading: propsLoading, err
         return false;
       }
       
-      refresh(); // Use context refresh
+      refreshJobs();
       return true;
     } catch (err) {
       console.error('Error updating job status:', err);

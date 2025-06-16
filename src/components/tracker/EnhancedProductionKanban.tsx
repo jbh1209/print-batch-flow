@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { EnhancedJobCard } from "./EnhancedJobCard";
-import { useProductionDataContext } from "@/contexts/ProductionDataContext";
+import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
 
 interface JobWithStages {
   id: string;
@@ -114,10 +114,10 @@ const StageColumn = ({ stage, jobs, onJobUpdate }: {
 };
 
 export const EnhancedProductionKanban = ({ jobs: propsJobs, stages: propsStages, isLoading: propsLoading, error: propsError, onRefresh }: EnhancedProductionKanbanProps) => {
-  // Use unified data from context instead of props
-  const { jobs, stages, isLoading, error, refresh } = useProductionDataContext();
+  // Use unified data hook directly instead of context
+  const { jobs, consolidatedStages, isLoading, error, refreshJobs } = useUnifiedProductionData();
   
-  // Transform jobs to include stage information - FIX: Use correct job data
+  // Transform jobs to include stage information - using correct job data
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
     return jobs.map(job => ({
       id: job.id,
@@ -127,12 +127,12 @@ export const EnhancedProductionKanban = ({ jobs: propsJobs, stages: propsStages,
       due_date: job.due_date,
       status: job.status || '',
       category_id: job.category_id,
-      // Use actual job stage instances from the unified data
-      stages: job.job_stage_instances?.map((stage: any, index: number) => ({
+      // Use actual job stages from the unified data
+      stages: job.stages?.map((stage: any, index: number) => ({
         id: stage.id,
         production_stage_id: stage.production_stage_id,
-        stage_name: stage.production_stages?.name || 'Unknown Stage',
-        stage_color: stage.production_stages?.color || '#6B7280',
+        stage_name: stage.stage_name,
+        stage_color: stage.stage_color,
         status: stage.status,
         stage_order: stage.stage_order || index + 1,
       })) || []
@@ -140,8 +140,8 @@ export const EnhancedProductionKanban = ({ jobs: propsJobs, stages: propsStages,
   }, [jobs]);
 
   const handleJobUpdate = useCallback(() => {
-    refresh(); // Use context refresh
-  }, [refresh]);
+    refreshJobs();
+  }, [refreshJobs]);
 
   if (isLoading) {
     return (
@@ -182,14 +182,14 @@ export const EnhancedProductionKanban = ({ jobs: propsJobs, stages: propsStages,
           </Button>
         </div>
         <div className="mt-2 text-sm text-gray-500">
-          Total jobs: {jobsWithStages.length} | Active stages: {stages.filter(s => s.is_active).length}
+          Total jobs: {jobsWithStages.length} | Active stages: {consolidatedStages.filter(s => s.is_active !== false).length}
         </div>
       </div>
 
       <div className="flex gap-6 overflow-x-auto pb-6">
-        {stages
-          .filter(stage => stage.is_active)
-          .sort((a, b) => a.order_index - b.order_index)
+        {consolidatedStages
+          .filter(stage => stage.is_active !== false)
+          .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
           .map(stage => (
             <StageColumn
               key={stage.id}

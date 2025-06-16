@@ -11,7 +11,7 @@ import StageColumn from "./multistage-kanban/StageColumn";
 import ColumnViewToggle from "./multistage-kanban/ColumnViewToggle";
 import { arrayMove } from "@/utils/tracker/reorderUtils";
 import { supabase } from "@/integrations/supabase/client";
-import { useProductionDataContext } from "@/contexts/ProductionDataContext";
+import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
 
 // DnD kit
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -27,19 +27,16 @@ interface MultiStageKanbanProps {
 }
 
 export const MultiStageKanban = ({ jobs: propsJobs, stages: propsStages, isLoading: propsLoading, error: propsError, onRefresh }: MultiStageKanbanProps) => {
-  // Use unified data from context instead of props
+  // Use unified data hook directly instead of context
   const { 
     jobs, 
-    stages, 
-    jobStages, 
+    consolidatedStages, 
     isLoading, 
     error, 
     lastUpdated,
-    startStage, 
-    completeStage, 
-    refresh,
-    getStageMetrics 
-  } = useProductionDataContext();
+    refreshJobs,
+    getTimeSinceLastUpdate 
+  } = useUnifiedProductionData();
 
   // CRITICAL: Filter out completed jobs for kanban view
   const activeJobs = React.useMemo(() => {
@@ -66,36 +63,66 @@ export const MultiStageKanban = ({ jobs: propsJobs, stages: propsStages, isLoadi
 
   const handleStageAction = async (stageId: string, action: 'start' | 'complete' | 'scan') => {
     try {
-      if (action === 'start') await startStage(stageId);
-      else if (action === 'complete') await completeStage(stageId);
-      else if (action === 'scan') toast.info('QR Scanner would open here');
-      // No need to call onRefresh as context handles refresh automatically
+      if (action === 'start') {
+        const { error } = await supabase
+          .from('job_stage_instances')
+          .update({
+            status: 'active',
+            started_at: new Date().toISOString(),
+            started_by: (await supabase.auth.getUser()).data.user?.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', stageId);
+        if (error) throw error;
+      } else if (action === 'complete') {
+        const { error } = await supabase
+          .from('job_stage_instances')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            completed_by: (await supabase.auth.getUser()).data.user?.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', stageId);
+        if (error) throw error;
+      } else if (action === 'scan') {
+        toast.info('QR Scanner would open here');
+      }
+      
+      refreshJobs(); // Refresh data after action
     } catch (err) {
       console.error('Error performing stage action:', err);
+      toast.error('Failed to perform stage action');
     }
   };
 
   // Per-stage reorder handlers
   const handleReorder = async (stageId: string, newOrderIds: string[]) => {
+    // Get job stages for this stage
+    const stageJobStages = jobs.flatMap(job => 
+      job.stages?.filter((stage: any) => stage.production_stage_id === stageId) || []
+    );
+    
     const updates = newOrderIds.map((jobStageId, idx) => {
-      const jobStage = jobStages.find(js => js.id === jobStageId);
+      const jobStage = stageJobStages.find(js => js.id === jobStageId);
       if (!jobStage) throw new Error("JobStage not found for id: " + jobStageId);
       return {
         id: jobStage.id,
         job_id: jobStage.job_id,
-        job_table_name: jobStage.job_table_name,
+        job_table_name: 'production_jobs',
         production_stage_id: jobStage.production_stage_id,
         stage_order: jobStage.stage_order,
         job_order_in_stage: idx + 1,
         status: jobStage.status,
       };
     });
+    
     try {
       const { error } = await supabase
         .from("job_stage_instances")
         .upsert(updates, { onConflict: "id" });
       if (error) toast.error("Failed to persist job order");
-      refresh(); // Use context refresh
+      refreshJobs();
     } catch (e) {
       toast.error("Failed to persist job order: " + (e instanceof Error ? e.message : String(e)));
     }
@@ -133,20 +160,34 @@ export const MultiStageKanban = ({ jobs: propsJobs, stages: propsStages, isLoadi
     );
   }
 
-  const metrics = getStageMetrics();
+  // Calculate metrics from active jobs
+  const metrics = {
+    uniqueJobs: activeJobs.length,
+    activeStages: activeJobs.filter(job => job.is_active).length,
+    pendingStages: activeJobs.filter(job => job.is_pending).length,
+  };
+
+  // Transform consolidated stages into job stages for the columns
+  const jobStages = activeJobs.flatMap(job => 
+    job.stages?.map((stage: any) => ({
+      ...stage,
+      production_job: job,
+      production_stage_id: stage.production_stage_id,
+      production_stages: {
+        id: stage.production_stage_id,
+        name: stage.stage_name,
+        color: stage.stage_color
+      }
+    })) || []
+  );
 
   return (
     <div className="p-2">
       <MultiStageKanbanHeader
-        metrics={{
-          uniqueJobs: metrics.uniqueJobs,
-          activeStages: metrics.activeStages,
-          pendingStages: metrics.pendingStages,
-        }}
+        metrics={metrics}
         lastUpdate={lastUpdated}
-        onRefresh={refresh}
+        onRefresh={refreshJobs}
         onSettings={() => {}}
-        // New layout props:
         layout={layout}
         onLayoutChange={value => setLayout(value)}
       >
@@ -154,7 +195,7 @@ export const MultiStageKanban = ({ jobs: propsJobs, stages: propsStages, isLoadi
       </MultiStageKanbanHeader>
 
       <MultiStageKanbanColumns
-        stages={stages}
+        stages={consolidatedStages}
         jobStages={jobStages}
         reorderRefs={reorderRefs}
         handleStageAction={handleStageAction}
@@ -177,4 +218,5 @@ export const MultiStageKanban = ({ jobs: propsJobs, stages: propsStages, isLoadi
     </div>
   );
 };
+
 export default MultiStageKanban;
