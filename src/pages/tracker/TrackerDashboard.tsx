@@ -13,6 +13,7 @@ const TrackerDashboard = () => {
   const {
     jobs,
     activeJobs,
+    consolidatedStages,
     isLoading,
     error,
     lastUpdated,
@@ -72,10 +73,12 @@ const TrackerDashboard = () => {
     statusCounts[status] = (statusCounts[status] || 0) + 1;
   });
 
-  // Get unique stages from jobs
-  const stages = Array.from(new Set(
-    jobs.flatMap(job => job.stages?.map(stage => stage.stage_name) || [])
-  )).map(stageName => ({ name: stageName }));
+  // Map consolidated stages to the format expected by dashboard components
+  const stages = consolidatedStages.map(stage => ({
+    id: stage.stage_id,
+    name: stage.stage_name,
+    color: stage.stage_color
+  }));
 
   const stats = {
     total,
