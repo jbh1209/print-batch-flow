@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,6 +67,24 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
   const getHeaderSubtitle = () => {
     if (isDtpOperator) return "Jobs ready for DTP and proofing work";
     return "Jobs you can work on";
+  };
+
+  // Enhanced job display logic for master queue consolidation
+  const getEffectiveStageDisplay = (job: any) => {
+    // If job has a display_stage_name from the database, use it
+    if (job.display_stage_name) {
+      return job.display_stage_name;
+    }
+    
+    // Otherwise, use the stage consolidation utility
+    return getStageDisplayName(job.current_stage_id || '', consolidatedStages);
+  };
+
+  const getStageStatus = (job: any) => {
+    const status = job.current_stage_status;
+    if (status === 'active') return { label: 'Active', variant: 'default', color: 'bg-green-500' };
+    if (status === 'pending') return { label: 'Pending', variant: 'outline', color: 'text-orange-600 border-orange-200' };
+    return { label: 'Unknown', variant: 'secondary', color: '' };
   };
 
   return (
@@ -156,9 +173,8 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
               <CardContent className="py-2">
                 <div className="space-y-3">
                   {jobs.map((job) => {
-                    // Get the proper display name using consolidated stages
-                    const effectiveStageDisplay = job.display_stage_name || 
-                      getStageDisplayName(job.current_stage_id || '', consolidatedStages);
+                    const effectiveStageDisplay = getEffectiveStageDisplay(job);
+                    const stageStatus = getStageStatus(job);
 
                     return (
                       <div key={job.job_id} className="flex items-center justify-between p-3 border rounded-md hover:bg-gray-50">
@@ -167,17 +183,15 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
                             <h4 className="font-medium text-base">{job.wo_no}</h4>
                             {effectiveStageDisplay && (
                               <Badge 
-                                variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
-                                className={job.current_stage_status === 'active' ? 'bg-green-500' : 'text-orange-600 border-orange-200'}
+                                variant={stageStatus.variant as any}
+                                className={stageStatus.color}
                               >
                                 {effectiveStageDisplay}
                               </Badge>
                             )}
-                            {job.current_stage_status && (
-                              <Badge variant="secondary" className="text-xs">
-                                {job.current_stage_status === 'active' ? 'Active' : 'Pending'}
-                              </Badge>
-                            )}
+                            <Badge variant="secondary" className="text-xs">
+                              {stageStatus.label}
+                            </Badge>
                           </div>
                           <div className="text-xs text-gray-600 mt-1">
                             <span>Customer: {job.customer || 'Unknown'}</span>
@@ -222,6 +236,15 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
                   : "You don't have any jobs that you can work on right now."
                 }
               </p>
+              <Button 
+                onClick={handleRefresh} 
+                variant="outline" 
+                size="sm" 
+                className="mt-3"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Jobs
+              </Button>
             </CardContent>
           </Card>
         )}
