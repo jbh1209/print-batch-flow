@@ -5,7 +5,6 @@ import { DynamicHeader } from "./tracker/DynamicHeader";
 import { ContextSidebar } from "./tracker/ContextSidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { ProductionDataProvider } from "@/contexts/ProductionDataContext";
-import { KanbanDataProvider } from "@/contexts/KanbanDataContext";
 
 const TrackerLayout = () => {
   const { user } = useAuth();
@@ -78,41 +77,39 @@ const TrackerLayout = () => {
 
   return (
     <ProductionDataProvider>
-      <KanbanDataProvider>
-        <div className="flex h-screen bg-gray-50 w-full">
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <DynamicHeader 
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-            />
+      <div className="flex h-screen bg-gray-50 w-full">
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <DynamicHeader 
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+          />
+          
+          <div className="flex flex-1 overflow-hidden">
+            {/* Show ContextSidebar for all tabs except dashboard, kanban, orders */}
+            {!isKanbanTab && !isDashboardTab && !isOrdersTab && (
+              <ContextSidebar 
+                activeTab={activeTab}
+                onFilterChange={handleFilterChange}
+                // Pass additional production props if on production tab
+                productionSidebarData={activeTab === "production" ? productionSidebarData : undefined}
+                onStageSelect={activeTab === "production" ? handleStageSelect : undefined}
+                selectedStageId={activeTab === "production" ? selectedStageId : undefined}
+              />
+            )}
             
-            <div className="flex flex-1 overflow-hidden">
-              {/* Show ContextSidebar for all tabs except dashboard, kanban, orders */}
-              {!isKanbanTab && !isDashboardTab && !isOrdersTab && (
-                <ContextSidebar 
-                  activeTab={activeTab}
-                  onFilterChange={handleFilterChange}
-                  // Pass additional production props if on production tab
-                  productionSidebarData={activeTab === "production" ? productionSidebarData : undefined}
-                  onStageSelect={activeTab === "production" ? handleStageSelect : undefined}
-                  selectedStageId={activeTab === "production" ? selectedStageId : undefined}
-                />
-              )}
-              
-              <main className={`flex-1 overflow-auto ${activeTab === 'production' ? '' : 'p-6'}`}>
-                <Outlet context={{ 
-                  activeTab, 
-                  filters,
-                  selectedStageId,
-                  onStageSelect: handleStageSelect,
-                  onFilterChange: handleFilterChange,
-                  setSidebarData // Pass this so TrackerProduction can update sidebar
-                }} />
-              </main>
-            </div>
+            <main className={`flex-1 overflow-auto ${activeTab === 'production' ? '' : 'p-6'}`}>
+              <Outlet context={{ 
+                activeTab, 
+                filters,
+                selectedStageId,
+                onStageSelect: handleStageSelect,
+                onFilterChange: handleFilterChange,
+                setSidebarData // Pass this so TrackerProduction can update sidebar
+              }} />
+            </main>
           </div>
         </div>
-      </KanbanDataProvider>
+      </div>
     </ProductionDataProvider>
   );
 };
