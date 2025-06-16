@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ interface ProductionDataContextType {
   activeJobs: ProductionJob[];
   orphanedJobs: ProductionJob[];
   consolidatedStages: any[];
+  stages: any[]; // Add raw stages data
   isLoading: boolean;
   isRefreshing: boolean;
   error: string | null;
@@ -63,6 +65,7 @@ let globalCache: {
 
 export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
+  const [stages, setStages] = useState<any[]>([]);
   const [consolidatedStages, setConsolidatedStages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -130,6 +133,7 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
       globalCache.consolidatedStages
     ) {
       setJobs(globalCache.jobs);
+      setStages(globalCache.stages);
       setConsolidatedStages(globalCache.consolidatedStages);
       setLastUpdated(new Date(globalCache.lastUpdated));
       setIsLoading(false);
@@ -180,7 +184,8 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
       // Fetch all available production_stages for sidebar display (regardless of usage in jobs)
       const { data: allStages, error: allStagesErr } = await supabase
         .from('production_stages')
-        .select('*');
+        .select('*')
+        .order('order_index', { ascending: true });
       if (allStagesErr) throw allStagesErr;
 
       // Consolidate production stages
@@ -253,12 +258,13 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
       const now = Date.now();
       globalCache = {
         jobs: processedJobs,
-        stages: allStages,
+        stages: allStages || [],
         lastUpdated: now,
         consolidatedStages: consolidated
       };
 
       setJobs(processedJobs);
+      setStages(allStages || []);
       setConsolidatedStages(consolidated);
       setLastUpdated(new Date(now));
       setError(null);
@@ -326,6 +332,7 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
       activeJobs: jobs.filter(job => job.status !== 'Completed' && !job.is_completed),
       orphanedJobs: jobs.filter(job => job.is_orphaned),
       consolidatedStages,
+      stages, // Expose raw stages data
       isLoading,
       isRefreshing,
       error,

@@ -8,16 +8,12 @@ import { ProductionKanban } from "@/components/tracker/ProductionKanban";
 import { EnhancedProductionKanban } from "@/components/tracker/EnhancedProductionKanban";
 import { MultiStageKanban } from "@/components/tracker/MultiStageKanban";
 import { useProductionDataContext } from "@/contexts/ProductionDataContext";
-import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 
 const TrackerKanban = () => {
   const [activeTab, setActiveTab] = useState("multistage");
   
   // Use cached production data instead of separate kanban data
-  const { jobs, consolidatedStages, isLoading, error, refresh } = useProductionDataContext();
-  
-  // Get production stages for enhanced kanban
-  const { stages } = useProductionStages();
+  const { jobs, consolidatedStages, stages, isLoading, error, refresh } = useProductionDataContext();
 
   return (
     <div className="h-full flex flex-col">
