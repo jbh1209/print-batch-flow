@@ -2,14 +2,11 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { 
   Calendar, 
   User, 
   Clock, 
-  AlertTriangle,
-  Play,
-  CheckCircle
+  AlertTriangle
 } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { cn } from "@/lib/utils";
@@ -23,8 +20,6 @@ interface OperatorJobCardProps {
 
 export const OperatorJobCard: React.FC<OperatorJobCardProps> = ({
   job,
-  onStart,
-  onComplete,
   onClick
 }) => {
   const isOverdue = job.due_date && new Date(job.due_date) < new Date();
@@ -53,9 +48,6 @@ export const OperatorJobCard: React.FC<OperatorJobCardProps> = ({
     if (isDueSoon) return <Clock className="h-4 w-4 text-orange-500" />;
     return null;
   };
-
-  const canStart = job.current_stage_status === 'pending' && job.user_can_work;
-  const canComplete = job.current_stage_status === 'active' && job.user_can_work;
 
   return (
     <Card 
@@ -123,40 +115,9 @@ export const OperatorJobCard: React.FC<OperatorJobCardProps> = ({
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 pt-2">
-            {canStart && (
-              <Button
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (job.current_stage_id) {
-                    onStart?.(job.job_id, job.current_stage_id);
-                  }
-                }}
-                className="flex-1 flex items-center gap-2"
-              >
-                <Play className="h-4 w-4" />
-                Start
-              </Button>
-            )}
-            
-            {canComplete && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (job.current_stage_id) {
-                    onComplete?.(job.job_id, job.current_stage_id);
-                  }
-                }}
-                className="flex-1 flex items-center gap-2"
-              >
-                <CheckCircle className="h-4 w-4" />
-                Complete
-              </Button>
-            )}
+          {/* Click to open modal hint */}
+          <div className="text-xs text-gray-500 text-center pt-2 border-t">
+            Click to view details and manage job
           </div>
         </div>
       </CardContent>

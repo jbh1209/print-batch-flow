@@ -26,12 +26,16 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
     otherJobs: []
   };
 
+  console.log('🔍 Categorizing jobs:', jobs.length);
+
   jobs.forEach(job => {
     const stageName = (job.current_stage_name || '').toLowerCase();
     const displayStageName = (job.display_stage_name || '').toLowerCase();
     
     // Use display stage name if available (for master queue consolidation)
     const effectiveStageName = displayStageName || stageName;
+    
+    console.log('🏷️ Job:', job.wo_no, 'Stage:', effectiveStageName);
     
     // Enhanced categorization logic that handles master queues and splits by printer type
     if (effectiveStageName.includes('dtp') || 
@@ -41,33 +45,55 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
         effectiveStageName.includes('prepress') ||
         effectiveStageName.includes('pre-press')) {
       categorized.dtpJobs.push(job);
+      console.log('📝 Added to DTP:', job.wo_no);
     } else if (effectiveStageName.includes('proof') ||
                effectiveStageName.includes('approval') ||
                effectiveStageName.includes('review')) {
       categorized.proofJobs.push(job);
+      console.log('🔍 Added to Proof:', job.wo_no);
     } else if (effectiveStageName.includes('12000') || 
-               effectiveStageName.includes('hp 12000')) {
+               effectiveStageName.includes('hp 12000') ||
+               effectiveStageName.includes('hp12000')) {
       categorized.hp12000Jobs.push(job);
+      console.log('🖨️ Added to HP 12000:', job.wo_no);
     } else if (effectiveStageName.includes('7900') || 
-               effectiveStageName.includes('hp 7900')) {
+               effectiveStageName.includes('hp 7900') ||
+               effectiveStageName.includes('hp7900')) {
       categorized.hp7900Jobs.push(job);
+      console.log('🖨️ Added to HP 7900:', job.wo_no);
     } else if (effectiveStageName.includes('t250') || 
-               effectiveStageName.includes('hp t250')) {
+               effectiveStageName.includes('hp t250') ||
+               effectiveStageName.includes('hpt250') ||
+               effectiveStageName.includes('t 250')) {
       categorized.hpT250Jobs.push(job);
+      console.log('🖨️ Added to HP T250:', job.wo_no);
     } else if (effectiveStageName.includes('print') ||
                effectiveStageName.includes('hp') ||
                effectiveStageName.includes('press')) {
       // Generic printing jobs that don't match specific queues
       categorized.otherJobs.push(job);
+      console.log('🖨️ Added to Other Print:', job.wo_no);
     } else if (effectiveStageName.includes('finish') ||
                effectiveStageName.includes('cutting') ||
                effectiveStageName.includes('lamination') ||
                effectiveStageName.includes('binding') ||
                effectiveStageName.includes('folding')) {
       categorized.finishingJobs.push(job);
+      console.log('✂️ Added to Finishing:', job.wo_no);
     } else {
       categorized.otherJobs.push(job);
+      console.log('❓ Added to Other:', job.wo_no);
     }
+  });
+
+  console.log('📊 Categorization results:', {
+    dtp: categorized.dtpJobs.length,
+    proof: categorized.proofJobs.length,
+    hp12000: categorized.hp12000Jobs.length,
+    hp7900: categorized.hp7900Jobs.length,
+    hpT250: categorized.hpT250Jobs.length,
+    finishing: categorized.finishingJobs.length,
+    other: categorized.otherJobs.length
   });
 
   return categorized;

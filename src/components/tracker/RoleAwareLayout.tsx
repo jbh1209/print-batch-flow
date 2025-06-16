@@ -4,7 +4,6 @@ import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import TrackerLayout from "@/components/TrackerLayout";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { OperatorHeader } from "./factory/OperatorHeader";
 
 /**
  * Layout component that manages routing based on user roles
@@ -59,16 +58,11 @@ const RoleAwareLayout: React.FC = () => {
     );
   }
 
-  // For pure operators on factory floor, show standalone view with operator header
+  // For pure operators on factory floor, show standalone view without duplicate header
   if (isOperator && !isAdmin && !isManager && location.pathname.includes('/factory-floor')) {
     return (
       <div className="flex flex-col h-screen overflow-hidden">
-        <OperatorHeader 
-          title={isDtpOperator ? "DTP & Proofing Jobs" : "Factory Floor"}
-        />
-        <div className="flex-1 overflow-hidden">
-          <Outlet />
-        </div>
+        <Outlet />
       </div>
     );
   }
