@@ -12,7 +12,8 @@ import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "../error-boundaries/DataLoadingFallback";
 import { ViewToggle } from "../common/ViewToggle";
 import { JobListView } from "../common/JobListView";
-import { categorizeJobs, sortJobsByPriority } from "@/utils/tracker/jobProcessing";
+import { categorizeJobs } from "@/utils/tracker/jobProcessing";
+import { sortJobsByWONumber } from "@/utils/tracker/jobOrderingUtils";
 import { calculateDashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -68,8 +69,8 @@ export const DtpKanbanDashboard = () => {
       const categories = categorizeJobs(filtered);
       
       return {
-        dtpJobs: sortJobsByPriority(categories.dtpJobs),
-        proofJobs: sortJobsByPriority(categories.proofJobs)
+        dtpJobs: sortJobsByWONumber(categories.dtpJobs),
+        proofJobs: sortJobsByWONumber(categories.proofJobs)
       };
     } catch (categorizationError) {
       console.error("❌ Error categorizing jobs:", categorizationError);

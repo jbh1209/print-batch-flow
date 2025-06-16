@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { extractWONumber, getNextOrderInStage } from "@/utils/tracker/jobOrderingUtils";
 
 export const useWorkflowInitialization = () => {
   const [isInitializing, setIsInitializing] = useState(false);
@@ -24,6 +25,106 @@ export const useWorkflowInitialization = () => {
     } catch (error) {
       console.error('Error in checkExistingStages:', error);
       return false;
+    }
+  };
+
+  // Set proper job_order_in_stage for newly created stages
+  const setProperJobOrderInStage = async (jobId: string, jobTableName: string) => {
+    try {
+      console.log('🔧 Setting proper job_order_in_stage for job:', jobId);
+
+      // Get the job's WO number
+      const { data: job, error: jobError } = await supabase
+        .from(jobTableName)
+        .select('wo_no')
+        .eq('id', jobId)
+        .single();
+
+      if (jobError || !job) {
+        console.error('Error fetching job WO number:', jobError);
+        return;
+      }
+
+      const woNumber = extractWONumber(job.wo_no);
+      console.log('📋 Job WO number extracted:', woNumber, 'from', job.wo_no);
+
+      // Get all stages for this job
+      const { data: jobStages, error: stagesError } = await supabase
+        .from('job_stage_instances')
+        .select('id, production_stage_id')
+        .eq('job_id', jobId)
+        .eq('job_table_name', jobTableName);
+
+      if (stagesError || !jobStages) {
+        console.error('Error fetching job stages:', stagesError);
+        return;
+      }
+
+      // For each stage, calculate the proper order based on WO number
+      for (const jobStage of jobStages) {
+        // Get existing jobs in this stage to determine proper order
+        const { data: existingInStage, error: existingError } = await supabase
+          .from('job_stage_instances')
+          .select(`
+            id, 
+            job_order_in_stage,
+            production_jobs!inner(wo_no)
+          `)
+          .eq('production_stage_id', jobStage.production_stage_id)
+          .eq('job_table_name', jobTableName)
+          .neq('id', jobStage.id);
+
+        if (existingError) {
+          console.error('Error fetching existing stages:', existingError);
+          continue;
+        }
+
+        // Calculate proper order based on WO number sequence
+        let properOrder = 1;
+        if (existingInStage && existingInStage.length > 0) {
+          // Sort existing jobs by WO number and find where this job should fit
+          const sortedExisting = existingInStage
+            .map(stage => ({
+              ...stage,
+              woNumber: extractWONumber(stage.production_jobs.wo_no)
+            }))
+            .sort((a, b) => a.woNumber - b.woNumber);
+
+          // Find the position where this job should be inserted
+          let insertPosition = sortedExisting.length + 1;
+          for (let i = 0; i < sortedExisting.length; i++) {
+            if (woNumber < sortedExisting[i].woNumber) {
+              insertPosition = i + 1;
+              break;
+            }
+          }
+          properOrder = insertPosition;
+
+          // Update existing jobs that should come after this one
+          for (let i = insertPosition - 1; i < sortedExisting.length; i++) {
+            const existingStage = sortedExisting[i];
+            await supabase
+              .from('job_stage_instances')
+              .update({ job_order_in_stage: i + 2 })
+              .eq('id', existingStage.id);
+          }
+        }
+
+        // Update this job's order
+        const { error: updateError } = await supabase
+          .from('job_stage_instances')
+          .update({ job_order_in_stage: properOrder })
+          .eq('id', jobStage.id);
+
+        if (updateError) {
+          console.error('Error updating job order:', updateError);
+        } else {
+          console.log(`✅ Set job_order_in_stage to ${properOrder} for stage ${jobStage.production_stage_id}`);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error in setProperJobOrderInStage:', error);
     }
   };
 
@@ -52,7 +153,10 @@ export const useWorkflowInitialization = () => {
         throw new Error(`Failed to initialize workflow: ${error.message}`);
       }
 
-      console.log('✅ Workflow initialized successfully - VERIFYING ALL STAGES ARE PENDING...');
+      console.log('✅ Workflow initialized successfully - SETTING PROPER JOB ORDER...');
+      
+      // Set proper job_order_in_stage based on WO number
+      await setProperJobOrderInStage(jobId, jobTableName);
       
       // CRITICAL: Verify that no stages were auto-started
       const { data: verifyStages } = await supabase
@@ -120,7 +224,10 @@ export const useWorkflowInitialization = () => {
         throw new Error(`Failed to initialize workflow with part assignments: ${error.message}`);
       }
 
-      console.log('✅ Multi-part workflow initialized successfully - VERIFYING ALL STAGES ARE PENDING...');
+      console.log('✅ Multi-part workflow initialized successfully - SETTING PROPER JOB ORDER...');
+      
+      // Set proper job_order_in_stage based on WO number
+      await setProperJobOrderInStage(jobId, jobTableName);
       
       // CRITICAL: Verify that no stages were auto-started
       const { data: verifyStages } = await supabase
@@ -181,7 +288,10 @@ export const useWorkflowInitialization = () => {
         throw new Error(`Failed to repair workflow: ${error.message}`);
       }
 
-      console.log('✅ Job workflow repaired successfully - VERIFYING ALL STAGES ARE PENDING...');
+      console.log('✅ Job workflow repaired successfully - SETTING PROPER JOB ORDER...');
+      
+      // Set proper job_order_in_stage based on WO number
+      await setProperJobOrderInStage(jobId, jobTableName);
       
       // CRITICAL: Verify that no stages were auto-started
       const { data: verifyStages } = await supabase

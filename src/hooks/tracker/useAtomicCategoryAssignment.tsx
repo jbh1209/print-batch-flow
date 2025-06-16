@@ -2,9 +2,110 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { extractWONumber } from "@/utils/tracker/jobOrderingUtils";
 
 export const useAtomicCategoryAssignment = () => {
   const [isAssigning, setIsAssigning] = useState(false);
+
+  // Set proper job_order_in_stage for newly created stages
+  const setProperJobOrderInStage = async (jobId: string, jobTableName: string) => {
+    try {
+      console.log('🔧 Setting proper job_order_in_stage for job:', jobId);
+
+      // Get the job's WO number
+      const { data: job, error: jobError } = await supabase
+        .from(jobTableName)
+        .select('wo_no')
+        .eq('id', jobId)
+        .single();
+
+      if (jobError || !job) {
+        console.error('Error fetching job WO number:', jobError);
+        return;
+      }
+
+      const woNumber = extractWONumber(job.wo_no);
+      console.log('📋 Job WO number extracted:', woNumber, 'from', job.wo_no);
+
+      // Get all stages for this job
+      const { data: jobStages, error: stagesError } = await supabase
+        .from('job_stage_instances')
+        .select('id, production_stage_id')
+        .eq('job_id', jobId)
+        .eq('job_table_name', jobTableName);
+
+      if (stagesError || !jobStages) {
+        console.error('Error fetching job stages:', stagesError);
+        return;
+      }
+
+      // For each stage, calculate the proper order based on WO number
+      for (const jobStage of jobStages) {
+        // Get existing jobs in this stage to determine proper order
+        const { data: existingInStage, error: existingError } = await supabase
+          .from('job_stage_instances')
+          .select(`
+            id, 
+            job_order_in_stage,
+            production_jobs!inner(wo_no)
+          `)
+          .eq('production_stage_id', jobStage.production_stage_id)
+          .eq('job_table_name', jobTableName)
+          .neq('id', jobStage.id);
+
+        if (existingError) {
+          console.error('Error fetching existing stages:', existingError);
+          continue;
+        }
+
+        // Calculate proper order based on WO number sequence
+        let properOrder = 1;
+        if (existingInStage && existingInStage.length > 0) {
+          // Sort existing jobs by WO number and find where this job should fit
+          const sortedExisting = existingInStage
+            .map(stage => ({
+              ...stage,
+              woNumber: extractWONumber(stage.production_jobs.wo_no)
+            }))
+            .sort((a, b) => a.woNumber - b.woNumber);
+
+          // Find the position where this job should be inserted
+          let insertPosition = sortedExisting.length + 1;
+          for (let i = 0; i < sortedExisting.length; i++) {
+            if (woNumber < sortedExisting[i].woNumber) {
+              insertPosition = i + 1;
+              break;
+            }
+          }
+          properOrder = insertPosition;
+
+          // Update existing jobs that should come after this one
+          for (let i = insertPosition - 1; i < sortedExisting.length; i++) {
+            const existingStage = sortedExisting[i];
+            await supabase
+              .from('job_stage_instances')
+              .update({ job_order_in_stage: i + 2 })
+              .eq('id', existingStage.id);
+          }
+        }
+
+        // Update this job's order
+        const { error: updateError } = await supabase
+          .from('job_stage_instances')
+          .update({ job_order_in_stage: properOrder })
+          .eq('id', jobStage.id);
+
+        if (updateError) {
+          console.error('Error updating job order:', updateError);
+        } else {
+          console.log(`✅ Set job_order_in_stage to ${properOrder} for stage ${jobStage.production_stage_id}`);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error in setProperJobOrderInStage:', error);
+    }
+  };
 
   const assignCategoryWithWorkflow = async (
     jobIds: string[],
@@ -16,7 +117,7 @@ export const useAtomicCategoryAssignment = () => {
     let successCount = 0;
     const errorMessages: string[] = [];
 
-    console.log('🚀 Starting atomic assignment with CRITICAL FIX - no auto-start...', { jobIds, categoryId, partAssignments });
+    console.log('🚀 Starting atomic assignment with proper job ordering...', { jobIds, categoryId, partAssignments });
 
     for (const jobId of jobIds) {
       try {
@@ -63,7 +164,10 @@ export const useAtomicCategoryAssignment = () => {
           throw new Error(`Workflow creation failed for job ${jobId}: ${rpcError.message}`);
         }
         
-        console.log(`🎉 Successfully initialized workflow for job ${jobId} - VERIFYING ALL STAGES ARE PENDING...`);
+        console.log(`🎉 Successfully initialized workflow for job ${jobId} - SETTING PROPER JOB ORDER...`);
+        
+        // Step 4: Set proper job_order_in_stage based on WO number
+        await setProperJobOrderInStage(jobId, 'production_jobs');
         
         // CRITICAL: Verify no stages were auto-started
         const { data: verifyStages } = await supabase
@@ -80,7 +184,7 @@ export const useAtomicCategoryAssignment = () => {
             toast.error(`CRITICAL BUG: Job ${jobId} auto-started ${activeStages.length} stages - this is wrong!`);
             // Don't throw error here, but log it for debugging
           } else {
-            console.log(`✅ VERIFIED: Job ${jobId} has all ${verifyStages.length} stages in PENDING state`);
+            console.log(`✅ VERIFIED: Job ${jobId} has all ${verifyStages.length} stages in PENDING state with proper ordering`);
           }
         }
         
@@ -104,7 +208,7 @@ export const useAtomicCategoryAssignment = () => {
 
     // Final user feedback
     if (successCount > 0) {
-      toast.success(`Successfully assigned category to ${successCount} out of ${jobIds.length} job(s) - all stages are PENDING and await operator action.`);
+      toast.success(`Successfully assigned category to ${successCount} out of ${jobIds.length} job(s) - all stages are PENDING and ordered by WO number.`);
     }
 
     if (errorMessages.length > 0) {
@@ -120,7 +224,7 @@ export const useAtomicCategoryAssignment = () => {
     }
 
     setIsAssigning(false);
-    console.log(`🏁 Assignment process finished. Success: ${successCount}/${jobIds.length} - ALL STAGES SHOULD BE PENDING`);
+    console.log(`🏁 Assignment process finished. Success: ${successCount}/${jobIds.length} - ALL STAGES ORDERED BY WO NUMBER`);
     return successCount > 0 && errorMessages.length === 0;
   };
 

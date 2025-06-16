@@ -1,3 +1,4 @@
+
 // --- STAGE COLUMN REFACTOR (organize by view mode and factor out subcomponents/utils) ---
 import React, { useEffect } from "react";
 import JobStageCard from "./JobStageCard";
@@ -5,6 +6,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { getDueInfo } from "./getDueInfo";
 import { StageColumnProps } from "./StageColumn.types";
 import SortableJobStageCard from "./SortableJobStageCard";
+import { sortJobStagesByOrder } from "@/utils/tracker/jobOrderingUtils";
 
 const StageColumn: React.FC<StageColumnProps> = ({
   stage,
@@ -17,21 +19,17 @@ const StageColumn: React.FC<StageColumnProps> = ({
   selectedJobId,
   onSelectJob,
 }) => {
-  // Filter and sort jobs for this stage (original logic preserved)
-  const stageJobStages = jobStages
-    .filter(js =>
+  // Filter jobs for this stage and apply consistent sorting
+  const stageJobStages = React.useMemo(() => {
+    const filtered = jobStages.filter(js =>
       js.production_stage_id === stage.id &&
       js.status !== "completed" &&
       js.status !== "skipped"
-    )
-    .sort((a, b) => {
-      if (a.job_order_in_stage && b.job_order_in_stage) {
-        return a.job_order_in_stage - b.job_order_in_stage;
-      }
-      const aWo = a.production_job?.wo_no || "";
-      const bWo = b.production_job?.wo_no || "";
-      return aWo.localeCompare(bWo, undefined, { numeric: true });
-    });
+    );
+    
+    // Use shared sorting utility for consistent ordering
+    return sortJobStagesByOrder(filtered);
+  }, [jobStages, stage.id]);
 
   useEffect(() => {
     if (enableDnd && registerReorder && onReorder) {
