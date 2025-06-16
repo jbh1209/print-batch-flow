@@ -43,7 +43,7 @@ const setProperJobOrderInStage = async (jobId: string, jobTableName: string) => 
         .select(`
           id, 
           job_order_in_stage,
-          production_jobs!inner(wo_no)
+          job_id
         `)
         .eq('production_stage_id', jobStage.production_stage_id)
         .eq('job_table_name', jobTableName)
@@ -54,17 +54,32 @@ const setProperJobOrderInStage = async (jobId: string, jobTableName: string) => 
         continue;
       }
 
+      // Get WO numbers for existing jobs
+      let sortedExisting: any[] = [];
+      if (existingInStage && existingInStage.length > 0) {
+        const jobIds = existingInStage.map(stage => stage.job_id);
+        const { data: existingJobs, error: jobsError } = await supabase
+          .from('production_jobs')
+          .select('id, wo_no')
+          .in('id', jobIds);
+
+        if (!jobsError && existingJobs) {
+          // Combine stage and job data
+          sortedExisting = existingInStage
+            .map(stage => {
+              const jobData = existingJobs.find(job => job.id === stage.job_id);
+              return {
+                ...stage,
+                woNumber: jobData ? extractWONumber(jobData.wo_no) : 0
+              };
+            })
+            .sort((a, b) => a.woNumber - b.woNumber);
+        }
+      }
+
       // Calculate proper order based on WO number sequence
       let properOrder = 1;
-      if (existingInStage && existingInStage.length > 0) {
-        // Sort existing jobs by WO number and find where this job should fit
-        const sortedExisting = existingInStage
-          .map(stage => ({
-            ...stage,
-            woNumber: extractWONumber(stage.production_jobs.wo_no)
-          }))
-          .sort((a, b) => a.woNumber - b.woNumber);
-
+      if (sortedExisting.length > 0) {
         // Find the position where this job should be inserted
         let insertPosition = sortedExisting.length + 1;
         for (let i = 0; i < sortedExisting.length; i++) {
