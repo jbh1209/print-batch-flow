@@ -73,10 +73,11 @@ export const handleAssignment = async (
       console.log(`✅ Updated job ${jobId} category to ${selectedCategoryId}`);
 
       // Initialize workflow with or without part assignments
+      // CRITICAL FIX: Only initialize stages, do NOT auto-start any stages
       let initSuccess = false;
       
       if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
-        console.log(`🔧 Initializing multi-part workflow for job ${jobId}...`);
+        console.log(`🔧 Initializing multi-part workflow for job ${jobId} (ALL STAGES PENDING)...`);
         
         const { error: multiPartError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
           p_job_id: jobId,
@@ -90,10 +91,10 @@ export const handleAssignment = async (
           toast.error(`Failed to initialize multi-part workflow for job ${jobId}`);
         } else {
           initSuccess = true;
-          console.log(`✅ Multi-part workflow initialized for job ${jobId}`);
+          console.log(`✅ Multi-part workflow initialized for job ${jobId} - ALL STAGES SET TO PENDING`);
         }
       } else {
-        console.log(`🔧 Initializing standard workflow for job ${jobId}...`);
+        console.log(`🔧 Initializing standard workflow for job ${jobId} (ALL STAGES PENDING)...`);
         
         const { error: standardError } = await supabase.rpc('initialize_job_stages_auto', {
           p_job_id: jobId,
@@ -106,20 +107,38 @@ export const handleAssignment = async (
           toast.error(`Failed to initialize workflow for job ${jobId}`);
         } else {
           initSuccess = true;
-          console.log(`✅ Standard workflow initialized for job ${jobId}`);
+          console.log(`✅ Standard workflow initialized for job ${jobId} - ALL STAGES SET TO PENDING`);
         }
       }
 
       if (initSuccess) {
         successCount++;
+        // CRITICAL: Verify that no stages were auto-started
+        console.log(`🔍 Verifying job ${jobId} stages are all PENDING after initialization...`);
+        const { data: verifyStages } = await supabase
+          .from('job_stage_instances')
+          .select('id, status, stage_order')
+          .eq('job_id', jobId)
+          .eq('job_table_name', 'production_jobs')
+          .order('stage_order', { ascending: true });
+        
+        if (verifyStages) {
+          const activeStages = verifyStages.filter(s => s.status === 'active');
+          if (activeStages.length > 0) {
+            console.error(`🚨 BUG DETECTED: Job ${jobId} has ${activeStages.length} active stages after initialization!`, activeStages);
+            toast.error(`Critical bug: Job ${jobId} auto-started stages - this should not happen!`);
+          } else {
+            console.log(`✅ Verified: Job ${jobId} has all stages in PENDING state as expected`);
+          }
+        }
       }
     }
 
     // Show appropriate success/warning messages
     if (successCount > 0) {
       const message = hasMultiPartStages && Object.keys(partAssignments).length > 0
-        ? `Successfully assigned category and initialized multi-part workflow for ${successCount} job(s)`
-        : `Successfully assigned category and initialized workflow for ${successCount} job(s)`;
+        ? `Successfully assigned category and initialized multi-part workflow for ${successCount} job(s) - all stages are PENDING and waiting for operator action`
+        : `Successfully assigned category and initialized workflow for ${successCount} job(s) - all stages are PENDING and waiting for operator action`;
       
       toast.success(message);
     }

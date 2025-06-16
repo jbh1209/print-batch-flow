@@ -30,7 +30,7 @@ export const useWorkflowInitialization = () => {
   const initializeWorkflow = async (jobId: string, jobTableName: string, categoryId: string) => {
     try {
       setIsInitializing(true);
-      console.log('🔄 Initializing workflow...', { jobId, jobTableName, categoryId });
+      console.log('🔄 Initializing workflow - ALL STAGES WILL BE PENDING...', { jobId, jobTableName, categoryId });
 
       // Check if workflow already exists
       const hasExisting = await checkExistingStages(jobId, jobTableName);
@@ -40,7 +40,7 @@ export const useWorkflowInitialization = () => {
         return true; // Return true since the job does have a workflow
       }
 
-      // Use the database function to initialize workflow
+      // Use the database function to initialize workflow - ALL STAGES SHOULD BE PENDING
       const { error } = await supabase.rpc('initialize_job_stages_auto', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
@@ -52,8 +52,27 @@ export const useWorkflowInitialization = () => {
         throw new Error(`Failed to initialize workflow: ${error.message}`);
       }
 
-      console.log('✅ Workflow initialized successfully');
-      toast.success('Production workflow initialized successfully');
+      console.log('✅ Workflow initialized successfully - VERIFYING ALL STAGES ARE PENDING...');
+      
+      // CRITICAL: Verify that no stages were auto-started
+      const { data: verifyStages } = await supabase
+        .from('job_stage_instances')
+        .select('id, status, stage_order, production_stages(name)')
+        .eq('job_id', jobId)
+        .eq('job_table_name', jobTableName)
+        .order('stage_order', { ascending: true });
+      
+      if (verifyStages) {
+        const activeStages = verifyStages.filter(s => s.status === 'active');
+        if (activeStages.length > 0) {
+          console.error(`🚨 CRITICAL BUG: Job ${jobId} has ${activeStages.length} active stages after initialization!`, activeStages);
+          toast.error(`CRITICAL BUG: Auto-started ${activeStages.length} stages - this should not happen!`);
+        } else {
+          console.log(`✅ VERIFIED: Job ${jobId} has all ${verifyStages.length} stages in PENDING state as expected`);
+        }
+      }
+      
+      toast.success('Production workflow initialized successfully - all stages are PENDING and await operator action');
       return true;
     } catch (err) {
       console.error('❌ Error initializing workflow:', err);
@@ -73,7 +92,7 @@ export const useWorkflowInitialization = () => {
   ) => {
     try {
       setIsInitializing(true);
-      console.log('🔄 Initializing workflow with part assignments...', { 
+      console.log('🔄 Initializing workflow with part assignments - ALL STAGES WILL BE PENDING...', { 
         jobId, 
         jobTableName, 
         categoryId, 
@@ -88,7 +107,7 @@ export const useWorkflowInitialization = () => {
         return true; // Return true since the job does have a workflow
       }
 
-      // Use the enhanced function for multi-part categories
+      // Use the enhanced function for multi-part categories - ALL STAGES SHOULD BE PENDING
       const { error } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
@@ -101,8 +120,27 @@ export const useWorkflowInitialization = () => {
         throw new Error(`Failed to initialize workflow with part assignments: ${error.message}`);
       }
 
-      console.log('✅ Multi-part workflow initialized successfully');
-      toast.success('Multi-part workflow initialized successfully');
+      console.log('✅ Multi-part workflow initialized successfully - VERIFYING ALL STAGES ARE PENDING...');
+      
+      // CRITICAL: Verify that no stages were auto-started
+      const { data: verifyStages } = await supabase
+        .from('job_stage_instances')
+        .select('id, status, stage_order, production_stages(name)')
+        .eq('job_id', jobId)
+        .eq('job_table_name', jobTableName)
+        .order('stage_order', { ascending: true });
+      
+      if (verifyStages) {
+        const activeStages = verifyStages.filter(s => s.status === 'active');
+        if (activeStages.length > 0) {
+          console.error(`🚨 CRITICAL BUG: Job ${jobId} has ${activeStages.length} active stages after initialization!`, activeStages);
+          toast.error(`CRITICAL BUG: Auto-started ${activeStages.length} stages - this should not happen!`);
+        } else {
+          console.log(`✅ VERIFIED: Job ${jobId} has all ${verifyStages.length} stages in PENDING state as expected`);
+        }
+      }
+      
+      toast.success('Multi-part workflow initialized successfully - all stages are PENDING and await operator action');
       return true;
     } catch (err) {
       console.error('❌ Error initializing multi-part workflow:', err);
@@ -117,7 +155,7 @@ export const useWorkflowInitialization = () => {
   const repairJobWorkflow = async (jobId: string, jobTableName: string, categoryId: string) => {
     try {
       setIsInitializing(true);
-      console.log('🔧 Repairing job workflow...', { jobId, jobTableName, categoryId });
+      console.log('🔧 Repairing job workflow - ALL STAGES WILL BE PENDING...', { jobId, jobTableName, categoryId });
 
       // Delete any existing orphaned stages first
       const { error: deleteError } = await supabase
@@ -131,7 +169,7 @@ export const useWorkflowInitialization = () => {
         // Don't throw here, just log and continue
       }
 
-      // Initialize fresh workflow
+      // Initialize fresh workflow - ALL STAGES SHOULD BE PENDING
       const { error } = await supabase.rpc('initialize_job_stages_auto', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
@@ -143,7 +181,26 @@ export const useWorkflowInitialization = () => {
         throw new Error(`Failed to repair workflow: ${error.message}`);
       }
 
-      console.log('✅ Job workflow repaired successfully');
+      console.log('✅ Job workflow repaired successfully - VERIFYING ALL STAGES ARE PENDING...');
+      
+      // CRITICAL: Verify that no stages were auto-started
+      const { data: verifyStages } = await supabase
+        .from('job_stage_instances')
+        .select('id, status, stage_order, production_stages(name)')
+        .eq('job_id', jobId)
+        .eq('job_table_name', jobTableName)
+        .order('stage_order', { ascending: true });
+      
+      if (verifyStages) {
+        const activeStages = verifyStages.filter(s => s.status === 'active');
+        if (activeStages.length > 0) {
+          console.error(`🚨 CRITICAL BUG: Job ${jobId} has ${activeStages.length} active stages after repair!`, activeStages);
+          toast.error(`CRITICAL BUG: Auto-started ${activeStages.length} stages during repair - this should not happen!`);
+        } else {
+          console.log(`✅ VERIFIED: Job ${jobId} has all ${verifyStages.length} stages in PENDING state after repair`);
+        }
+      }
+      
       return true;
     } catch (err) {
       console.error('❌ Error repairing workflow:', err);

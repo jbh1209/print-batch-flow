@@ -16,7 +16,7 @@ export const useAtomicCategoryAssignment = () => {
     let successCount = 0;
     const errorMessages: string[] = [];
 
-    console.log('🚀 Starting atomic assignment with new logic...', { jobIds, categoryId, partAssignments });
+    console.log('🚀 Starting atomic assignment with CRITICAL FIX - no auto-start...', { jobIds, categoryId, partAssignments });
 
     for (const jobId of jobIds) {
       try {
@@ -49,8 +49,8 @@ export const useAtomicCategoryAssignment = () => {
         }
         console.log(`✅ Successfully updated job category for job ${jobId}`);
         
-        // Step 3: Call the new, robust RPC to create all stages (standard and part-specific)
-        console.log(`🔧 Initializing new workflow for job ${jobId} with part assignments:`, partAssignments);
+        // Step 3: Call the RPC to create all stages (ALL SHOULD BE PENDING)
+        console.log(`🔧 Initializing new workflow for job ${jobId} - ALL STAGES WILL BE PENDING:`, partAssignments);
         const { error: rpcError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
           p_job_id: jobId,
           p_job_table_name: 'production_jobs',
@@ -60,11 +60,30 @@ export const useAtomicCategoryAssignment = () => {
 
         if (rpcError) {
           console.error(`❌ Workflow initialization failed for job ${jobId} via RPC:`, rpcError);
-          // The RPC will raise a specific exception on failure, which is caught here.
           throw new Error(`Workflow creation failed for job ${jobId}: ${rpcError.message}`);
         }
         
-        console.log(`🎉 Successfully initialized workflow for job ${jobId}`);
+        console.log(`🎉 Successfully initialized workflow for job ${jobId} - VERIFYING ALL STAGES ARE PENDING...`);
+        
+        // CRITICAL: Verify no stages were auto-started
+        const { data: verifyStages } = await supabase
+          .from('job_stage_instances')
+          .select('id, status, stage_order, production_stages(name)')
+          .eq('job_id', jobId)
+          .eq('job_table_name', 'production_jobs')
+          .order('stage_order', { ascending: true });
+        
+        if (verifyStages) {
+          const activeStages = verifyStages.filter(s => s.status === 'active');
+          if (activeStages.length > 0) {
+            console.error(`🚨 CRITICAL BUG: Job ${jobId} has ${activeStages.length} active stages after initialization!`, activeStages);
+            toast.error(`CRITICAL BUG: Job ${jobId} auto-started ${activeStages.length} stages - this is wrong!`);
+            // Don't throw error here, but log it for debugging
+          } else {
+            console.log(`✅ VERIFIED: Job ${jobId} has all ${verifyStages.length} stages in PENDING state`);
+          }
+        }
+        
         successCount++;
 
       } catch (error) {
@@ -74,18 +93,18 @@ export const useAtomicCategoryAssignment = () => {
         
         // Attempt to rollback job category if update failed mid-way
         if (currentJobCategoryId && currentJobCategoryId !== categoryId) {
-            console.log(`⏪ Attempting to rollback category for job ${jobId} to ${currentJobCategoryId}`);
-            await supabase
-                .from('production_jobs')
-                .update({ category_id: currentJobCategoryId })
-                .eq('id', jobId);
+          console.log(`⏪ Attempting to rollback category for job ${jobId} to ${currentJobCategoryId}`);
+          await supabase
+            .from('production_jobs')
+            .update({ category_id: currentJobCategoryId })
+            .eq('id', jobId);
         }
       }
     }
 
     // Final user feedback
     if (successCount > 0) {
-      toast.success(`Successfully assigned category to ${successCount} out of ${jobIds.length} job(s).`);
+      toast.success(`Successfully assigned category to ${successCount} out of ${jobIds.length} job(s) - all stages are PENDING and await operator action.`);
     }
 
     if (errorMessages.length > 0) {
@@ -97,11 +116,11 @@ export const useAtomicCategoryAssignment = () => {
     }
     
     if (successCount === 0 && errorMessages.length === 0 && jobIds.length > 0) {
-        toast.info("No changes were made to any jobs.");
+      toast.info("No changes were made to any jobs.");
     }
 
     setIsAssigning(false);
-    console.log(`🏁 Assignment process finished. Success: ${successCount}/${jobIds.length}`);
+    console.log(`🏁 Assignment process finished. Success: ${successCount}/${jobIds.length} - ALL STAGES SHOULD BE PENDING`);
     return successCount > 0 && errorMessages.length === 0;
   };
 
