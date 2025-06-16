@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import TrackerLayout from "@/components/TrackerLayout";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { OperatorHeader } from "./factory/OperatorHeader";
 
 /**
  * Layout component that manages routing based on user roles
@@ -13,7 +14,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
  * - Admins, managers, and DTP operators see the full tracker layout
  */
 const RoleAwareLayout: React.FC = () => {
-  const { userRole, isLoading, isOperator, isAdmin, isManager } = useUserRole();
+  const { userRole, isLoading, isOperator, isAdmin, isManager, isDtpOperator } = useUserRole();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,6 +26,7 @@ const RoleAwareLayout: React.FC = () => {
       isOperator,
       isAdmin,
       isManager,
+      isDtpOperator,
       currentPath: location.pathname
     });
 
@@ -47,7 +49,7 @@ const RoleAwareLayout: React.FC = () => {
 
     // For admins, managers, and DTP operators - no restrictions, let them access any route
     console.log('✅ User has full access to all routes');
-  }, [userRole, isLoading, isOperator, isAdmin, isManager, navigate, location.pathname]);
+  }, [userRole, isLoading, isOperator, isAdmin, isManager, isDtpOperator, navigate, location.pathname]);
 
   if (isLoading) {
     return (
@@ -57,9 +59,18 @@ const RoleAwareLayout: React.FC = () => {
     );
   }
 
-  // For pure operators on factory floor, show standalone view without TrackerLayout
+  // For pure operators on factory floor, show standalone view with operator header
   if (isOperator && !isAdmin && !isManager && location.pathname.includes('/factory-floor')) {
-    return <Outlet />;
+    return (
+      <div className="flex flex-col h-screen overflow-hidden">
+        <OperatorHeader 
+          title={isDtpOperator ? "DTP & Proofing Jobs" : "Factory Floor"}
+        />
+        <div className="flex-1 overflow-hidden">
+          <Outlet />
+        </div>
+      </div>
+    );
   }
 
   // For everyone else (admins, managers, DTP operators), show full tracker layout

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from "react";
 import { AlertTriangle, FileText, CheckCircle, RefreshCw } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
@@ -9,7 +10,6 @@ import { DtpDashboardHeader } from "./DtpDashboardHeader";
 import { DtpDashboardStats } from "./DtpDashboardStats";
 import { DtpDashboardFilters } from "./DtpDashboardFilters";
 import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
-import { DataLoadingFallback } from "../error-boundaries/DataLoadingFallback";
 import { ViewToggle } from "../common/ViewToggle";
 import { JobListView } from "../common/JobListView";
 import { categorizeJobs } from "@/utils/tracker/jobProcessing";
@@ -152,15 +152,8 @@ export const DtpKanbanDashboard = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
-      <TrackerErrorBoundary componentName="DTP Dashboard Header">
-        <DtpDashboardHeader 
-          onNavigation={handleNavigation}
-          onLogout={handleLogout}
-        />
-      </TrackerErrorBoundary>
-
-      <div className="flex-shrink-0 p-3 sm:p-4 space-y-3 sm:space-y-4">
+    <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
+      <div className="flex-shrink-0 p-3 sm:p-4 space-y-3 sm:space-y-4 bg-white border-b">
         <TrackerErrorBoundary componentName="DTP Dashboard Filters">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <DtpDashboardFilters

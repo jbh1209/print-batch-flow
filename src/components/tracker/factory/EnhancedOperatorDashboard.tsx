@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
@@ -200,9 +201,9 @@ export const EnhancedOperatorDashboard = () => {
   ];
 
   return (
-    <div className="p-2 sm:p-4 space-y-4 sm:space-y-6 h-full overflow-hidden">
-      {/* Header with Search and Filters - Mobile Optimized */}
-      <div className="space-y-3 sm:space-y-4">
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Header with Search and Filters - Fixed */}
+      <div className="flex-shrink-0 p-4 bg-white border-b space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -257,7 +258,7 @@ export const EnhancedOperatorDashboard = () => {
           ))}
         </div>
 
-        {/* Bulk Selection Controls - Mobile Optimized */}
+        {/* Bulk Selection Controls */}
         {filteredJobs.length > 0 && (
           <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-2">
@@ -282,55 +283,32 @@ export const EnhancedOperatorDashboard = () => {
             )}
           </div>
         )}
+
+        {/* Bulk Operations Panel */}
+        {showBulkOperations && selectedJobObjects.length > 0 && (
+          <BulkJobOperations
+            selectedJobs={selectedJobObjects}
+            onBulkStart={handleBulkStart}
+            onBulkComplete={handleBulkComplete}
+            onBulkHold={handleBulkHold}
+            onClearSelection={handleClearSelection}
+          />
+        )}
       </div>
 
-      {/* Bulk Operations Panel - Mobile Optimized */}
-      {showBulkOperations && selectedJobObjects.length > 0 && (
-        <div className="sm:block">
-          <div className="hidden sm:block">
-            <BulkJobOperations
-              selectedJobs={selectedJobObjects}
-              onBulkStart={handleBulkStart}
-              onBulkComplete={handleBulkComplete}
-              onBulkHold={handleBulkHold}
-              onClearSelection={handleClearSelection}
-            />
+      {/* Jobs List - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {filteredJobs.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">
+              {searchQuery ? "No jobs match your search criteria." : "No jobs available."}
+            </p>
           </div>
-          
-          {/* Mobile bulk operations overlay */}
-          <div className="sm:hidden fixed inset-0 bg-black bg-opacity-50 flex items-end z-50">
-            <div className="w-full bg-white rounded-t-lg p-4 max-h-[80vh] overflow-y-auto">
-              <BulkJobOperations
-                selectedJobs={selectedJobObjects}
-                onBulkStart={handleBulkStart}
-                onBulkComplete={handleBulkComplete}
-                onBulkHold={handleBulkHold}
-                onClearSelection={handleClearSelection}
-              />
-              <button
-                onClick={() => setShowBulkOperations(false)}
-                className="w-full mt-4 p-3 bg-gray-100 rounded-lg text-center font-medium touch-manipulation"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Jobs List - Mobile Optimized */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto space-y-2 sm:space-y-4">
-          {filteredJobs.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">
-                {searchQuery ? "No jobs match your search criteria." : "No jobs available."}
-              </p>
-            </div>
-          ) : (
-            filteredJobs.map(job => (
+        ) : (
+          <div className="space-y-3">
+            {filteredJobs.map(job => (
               <div key={job.job_id} className="relative">
-                {/* Selection Checkbox - Touch Optimized */}
+                {/* Selection Checkbox */}
                 <div className="absolute top-3 sm:top-4 left-3 sm:left-4 z-10">
                   <Checkbox
                     checked={selectedJobs.includes(job.job_id)}
@@ -341,7 +319,7 @@ export const EnhancedOperatorDashboard = () => {
                   />
                 </div>
 
-                {/* Job Card - Touch Optimized */}
+                {/* Job Card */}
                 <div 
                   className={cn(
                     "ml-10 sm:ml-8 cursor-pointer transition-all touch-manipulation",
@@ -360,9 +338,9 @@ export const EnhancedOperatorDashboard = () => {
                   />
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* DTP Job Modal */}

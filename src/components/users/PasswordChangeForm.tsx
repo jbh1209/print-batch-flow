@@ -38,10 +38,13 @@ export function PasswordChangeForm({ onSubmit, isCurrentUser = true }: PasswordC
   
   const formSchema = isCurrentUser ? passwordSchema : adminResetSchema;
   
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: isCurrentUser ? {
       currentPassword: "",
+      newPassword: "",
+      confirmPassword: ""
+    } : {
       newPassword: "",
       confirmPassword: ""
     }
