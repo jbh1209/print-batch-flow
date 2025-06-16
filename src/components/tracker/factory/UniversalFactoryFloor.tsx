@@ -1,19 +1,14 @@
+
 import React, { useState, useMemo } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { OperatorHeader } from "./OperatorHeader";
-import { QueueToggleControls } from "./QueueToggleControls";
-import { OperatorJobCard } from "./OperatorJobCard";
+import { QueueFilters } from "./QueueFilters";
+import { JobGroupsDisplay } from "./JobGroupsDisplay";
 import { DtpJobModal } from "./DtpJobModal";
 import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
-import { JobListView } from "../common/JobListView";
-import { ViewToggle } from "../common/ViewToggle";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { categorizeJobs, sortJobsByWONumber } from "@/utils/tracker/jobProcessing";
-import { Input } from "@/components/ui/input";
-import { Search, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
@@ -218,128 +213,29 @@ export const UniversalFactoryFloor = () => {
       />
 
       {/* Controls */}
-      <div className="flex-shrink-0 p-4 bg-white border-b space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search jobs by WO, customer, reference..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          {/* Controls */}
-          <div className="flex items-center gap-2">
-            {/* View Toggle */}
-            <ViewToggle view={viewMode} onViewChange={handleViewModeChange} />
-
-            {/* Queue Toggle Controls - only show for print operators */}
-            {(hp12000Jobs.length > 0 || hp7900Jobs.length > 0 || hpT250Jobs.length > 0) && (
-              <div className="relative">
-                <QueueToggleControls 
-                  onQueueFiltersChange={setActiveQueueFilters}
-                />
-              </div>
-            )}
-
-            {/* Refresh Button */}
-            <Button
-              variant="outline"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Job Count with Master Queue Info */}
-        <div className="text-sm text-gray-600">
-          {totalJobs} job{totalJobs !== 1 ? 's' : ''} available across {jobGroups.length} queue{jobGroups.length !== 1 ? 's' : ''}
-          {searchQuery && ` (filtered)`}
-        </div>
-      </div>
+      <QueueFilters
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        onQueueFiltersChange={setActiveQueueFilters}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+        showQueueControls={hp12000Jobs.length > 0 || hp7900Jobs.length > 0 || hpT250Jobs.length > 0}
+        totalJobs={totalJobs}
+        jobGroupsCount={jobGroups.length}
+      />
 
       {/* Job Groups - Master Queue Display */}
       <div className="flex-1 overflow-hidden">
-        {jobGroups.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <p className="text-gray-500 text-lg mb-2">No jobs available</p>
-              <p className="text-gray-400 text-sm">
-                {searchQuery ? "Try adjusting your search or filters" : "Check back later for new jobs"}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="h-full">
-            {viewMode === 'card' ? (
-              /* Card View - Responsive Grid */
-              <div className="h-full overflow-x-auto">
-                <div className="flex gap-4 p-4 min-w-max lg:min-w-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {jobGroups.map(group => (
-                    <div key={group.title} className="flex flex-col min-h-0 w-80 lg:w-auto">
-                      {/* Column Header */}
-                      <div className={`${group.color} text-white px-4 py-3 rounded-t-lg flex-shrink-0`}>
-                        <h2 className="font-semibold">
-                          {group.title} ({group.jobs.length})
-                        </h2>
-                      </div>
-
-                      {/* Job Cards */}
-                      <div className="flex-1 border-l border-r border-b border-gray-200 rounded-b-lg overflow-hidden bg-white">
-                        <ScrollArea className="h-full max-h-96 lg:max-h-none">
-                          <div className="p-3 space-y-3">
-                            {group.jobs.map(job => (
-                              <OperatorJobCard
-                                key={job.job_id}
-                                job={job}
-                                onClick={() => handleJobClick(job)}
-                              />
-                            ))}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              /* List View - Single Column with ALL Master Queue Groups */
-              <ScrollArea className="h-full">
-                <div className="p-4 space-y-6">
-                  {jobGroups.map(group => {
-                    console.log('🎨 Rendering list group:', group.title, 'Jobs:', group.jobs.length);
-                    return (
-                      <div key={group.title}>
-                        {/* Section Header */}
-                        <div className={`${group.color} text-white px-4 py-3 rounded-t-lg`}>
-                          <h2 className="font-semibold">
-                            {group.title} ({group.jobs.length})
-                          </h2>
-                        </div>
-                        
-                        {/* Job List */}
-                        <JobListView
-                          jobs={group.jobs}
-                          onStart={startJob}
-                          onComplete={completeJob}
-                          onJobClick={handleJobClick}
-                          className="rounded-t-none border-t-0"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            )}
-          </div>
-        )}
+        <JobGroupsDisplay
+          jobGroups={jobGroups}
+          viewMode={viewMode}
+          searchQuery={searchQuery}
+          onJobClick={handleJobClick}
+          onStart={startJob}
+          onComplete={completeJob}
+        />
       </div>
 
       {/* Job Modal */}
