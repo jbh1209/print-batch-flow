@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -252,60 +251,32 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
       // Consolidate production stages
       const consolidated = consolidateStages(allStages || []);
 
+      // SIMPLIFIED job processing - preserve original data
       const processedJobs: ProductionJob[] = (jobsData || []).map(job => {
         const jobStages = jobStagesData.filter(stage => stage.job_id === job.id);
         const hasWorkflow = jobStages.length > 0;
-        const hasCategory = !!job.category_id;
-        const isOrphaned = hasCategory && !hasWorkflow;
         const activeStage = jobStages.find(s => s.status === 'active');
         const pendingStages = jobStages.filter(s => s.status === 'pending');
         const completedStages = jobStages.filter(s => s.status === 'completed');
-        let currentStage = job.status || 'Unknown';
-        let currentStageId = null;
-        let displayStageName = null;
         
-        if (isOrphaned) {
-          currentStage = 'Needs Repair';
-          displayStageName = 'Category assigned but no workflow';
-        } else if (activeStage) {
-          currentStage = activeStage.production_stages?.name || 'Active Stage';
-          currentStageId = activeStage.production_stage_id;
-          const masterQueueName = activeStage.production_stages?.production_stages?.name;
-          displayStageName = masterQueueName ? `${masterQueueName} - ${currentStage}` : currentStage;
-        } else if (pendingStages.length > 0) {
-          const firstPending = pendingStages.sort((a, b) => a.stage_order - b.stage_order)[0];
-          currentStage = firstPending.production_stages?.name || 'Pending Stage';
-          currentStageId = firstPending.production_stage_id;
-          const masterQueueName = firstPending.production_stages?.production_stages?.name;
-          displayStageName = masterQueueName ? `${masterQueueName} - ${currentStage}` : currentStage;
-        } else if (hasWorkflow && completedStages.length === jobStages.length && jobStages.length > 0) {
-          currentStage = 'Completed';
-          displayStageName = 'Completed';
-        } else if (!hasWorkflow && !hasCategory) {
-          currentStage = job.status || 'DTP';
-          displayStageName = currentStage;
-        }
-        
-        const totalStages = jobStages.length;
-        const workflowProgress = totalStages > 0 ? Math.round((completedStages.length / totalStages) * 100) : 0;
-        
+        // Use original job data directly
         return {
           id: job.id,
-          wo_no: job.wo_no,
-          customer: job.customer || 'Unknown Customer',
-          status: job.status || currentStage,
+          wo_no: job.wo_no || '',
+          customer: job.customer || '',
+          status: job.status || 'Pre-Press',
           due_date: job.due_date,
-          reference: job.reference,
+          reference: job.reference || '',
           category_id: job.category_id,
           category_name: job.categories?.name || null,
           category_color: job.categories?.color || null,
-          current_stage_id: currentStageId,
-          current_stage_name: currentStage,
+          current_stage_id: activeStage?.production_stage_id || null,
+          current_stage_name: activeStage?.production_stages?.name || job.status || 'Pre-Press',
           current_stage_color: activeStage?.production_stages?.color || '#6B7280',
-          display_stage_name: displayStageName,
-          workflow_progress: workflowProgress,
+          display_stage_name: activeStage?.production_stages?.name || job.status || 'Pre-Press',
+          workflow_progress: hasWorkflow && jobStages.length > 0 ? Math.round((completedStages.length / jobStages.length) * 100) : 0,
           has_workflow: hasWorkflow,
-          is_orphaned: isOrphaned,
+          is_orphaned: false, // Simplified - no complex orphaned logic
           stages: jobStages.map(stage => ({
             ...stage,
             stage_name: stage.production_stages?.name || 'Unknown Stage',
@@ -314,7 +285,7 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
           job_stage_instances: jobStages,
           is_active: !!activeStage,
           is_pending: !activeStage && pendingStages.length > 0,
-          is_completed: jobStages.length > 0 && completedStages.length === totalStages,
+          is_completed: hasWorkflow && jobStages.length > 0 && completedStages.length === jobStages.length,
           stage_status: activeStage ? 'active' : (pendingStages.length > 0 ? 'pending' : 'unknown')
         };
       });
@@ -344,7 +315,6 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
     }
   }, []);
 
-  // Stage actions for Kanban
   const startStage = useCallback(async (stageId: string) => {
     try {
       const { error } = await supabase

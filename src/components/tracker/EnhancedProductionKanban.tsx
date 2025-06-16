@@ -117,13 +117,16 @@ export const EnhancedProductionKanban = ({ jobs: propsJobs, stages: propsStages,
   // Use unified data from context instead of props
   const { jobs, stages, isLoading, error, refresh } = useProductionDataContext();
   
-  // Transform jobs to include stage information
+  // Transform jobs to include stage information - FIX: Use correct job data
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
     return jobs.map(job => ({
-      ...job,
-      customer: job.customer || 'Unknown Customer',
-      category: job.category_name || 'General', // Use category_name instead of category
-      due_date: job.due_date || undefined,
+      id: job.id,
+      wo_no: job.wo_no || '',
+      customer: job.customer || '',
+      category: job.category_name || 'General',
+      due_date: job.due_date,
+      status: job.status || '',
+      category_id: job.category_id,
       // Use actual job stage instances from the unified data
       stages: job.job_stage_instances?.map((stage: any, index: number) => ({
         id: stage.id,
