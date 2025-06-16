@@ -9,6 +9,7 @@ export const useUnifiedProductionData = () => {
   const [jobs, setJobs] = useState<any[]>([]);
   const [consolidatedStages, setConsolidatedStages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -59,15 +60,21 @@ export const useUnifiedProductionData = () => {
       .sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
     if (!user?.id) {
       setJobs([]);
       setConsolidatedStages([]);
       setIsLoading(false);
+      setIsRefreshing(false);
       return;
     }
 
     try {
+      if (force) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       setError(null);
 
       // Fetch jobs with categories
@@ -160,18 +167,20 @@ export const useUnifiedProductionData = () => {
       setConsolidatedStages(consolidated);
       setLastUpdated(new Date());
       setIsLoading(false);
+      setIsRefreshing(false);
 
     } catch (err) {
       console.error('Error fetching unified production data:', err);
       setError(err instanceof Error ? err.message : "Failed to load production data");
       setIsLoading(false);
+      setIsRefreshing(false);
       toast.error("Failed to load production data");
     }
   }, [user?.id]);
 
   // Initial fetch and refresh function
   const refreshJobs = useCallback(() => {
-    fetchData();
+    fetchData(true);
   }, [fetchData]);
 
   // Initial data load
@@ -238,6 +247,7 @@ export const useUnifiedProductionData = () => {
     orphanedJobs: jobs.filter(job => job.is_orphaned),
     consolidatedStages,
     isLoading,
+    isRefreshing,
     error,
     lastUpdated,
     getFilteredJobs,
