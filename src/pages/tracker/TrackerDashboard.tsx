@@ -1,51 +1,32 @@
 
 import React from "react";
 import { Loader2 } from "lucide-react";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
-import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
-import { useWorkflowJobStats } from "@/hooks/tracker/useWorkflowJobStats";
+import { useProductionDataContext } from "@/contexts/ProductionDataContext";
 
 const TrackerDashboard = () => {
-  // Use new workflow stats
+  // Use cached production data instead of separate API calls
   const {
-    total,
-    inProgress,
-    completed,
-    statusCounts,
-    stages,
+    jobs,
+    activeJobs,
     isLoading,
     error,
+    lastUpdated,
     refresh,
-  } = useWorkflowJobStats();
+    getTimeSinceLastUpdate
+  } = useProductionDataContext();
 
   // Local refresh UI state
   const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [lastFetched, setLastFetched] = React.useState<Date | null>(null);
-
-  React.useEffect(() => {
-    if (!isLoading) setLastFetched(new Date());
-  }, [isLoading]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refresh();
-    setLastFetched(new Date());
     setIsRefreshing(false);
-  };
-
-  const getTimeSinceLastUpdate = () => {
-    if (!lastFetched) return null;
-    const now = new Date();
-    const diffMs = now.getTime() - lastFetched.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return "Just now";
-    if (diffMins === 1) return "1 minute ago";
-    return `${diffMins} minutes ago`;
   };
 
   if (isLoading) {
@@ -67,7 +48,7 @@ const TrackerDashboard = () => {
               <p className="text-sm mt-1">{error}</p>
             </div>
             <RefreshIndicator
-              lastUpdated={lastFetched}
+              lastUpdated={lastUpdated}
               isRefreshing={isRefreshing}
               onRefresh={handleRefresh}
               getTimeSinceLastUpdate={getTimeSinceLastUpdate}
@@ -78,12 +59,29 @@ const TrackerDashboard = () => {
     );
   }
 
-  // Build stats shape for cards
+  // Calculate stats from cached production data
+  const total = jobs.length;
+  const inProgress = activeJobs.filter(job => job.is_active).length;
+  const completed = jobs.filter(job => job.is_completed).length;
+  const pending = activeJobs.filter(job => job.is_pending).length;
+
+  // Build status counts from actual job data
+  const statusCounts: Record<string, number> = {};
+  jobs.forEach(job => {
+    const status = job.status || 'Unknown';
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+  });
+
+  // Get unique stages from jobs
+  const stages = Array.from(new Set(
+    jobs.flatMap(job => job.stages?.map(stage => stage.stage_name) || [])
+  )).map(stageName => ({ name: stageName }));
+
   const stats = {
     total,
     inProgress,
     completed,
-    // No prePress key here!
+    pending,
     statusCounts,
     stages,
   };
@@ -96,7 +94,7 @@ const TrackerDashboard = () => {
           <p className="text-gray-600">Monitor and manage your production workflow</p>
         </div>
         <RefreshIndicator
-          lastUpdated={lastFetched}
+          lastUpdated={lastUpdated}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           getTimeSinceLastUpdate={getTimeSinceLastUpdate}
