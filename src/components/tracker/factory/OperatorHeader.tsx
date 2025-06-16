@@ -12,11 +12,13 @@ import { cleanupAuthState } from "@/utils/authCleanup";
 interface OperatorHeaderProps {
   title?: string;
   showNavigation?: boolean;
+  children?: React.ReactNode;
 }
 
 export const OperatorHeader: React.FC<OperatorHeaderProps> = ({ 
   title = "Factory Floor", 
-  showNavigation = false 
+  showNavigation = false,
+  children
 }) => {
   const { user, signOut } = useAuth();
   const { userRole } = useUserRole();
@@ -47,7 +49,7 @@ export const OperatorHeader: React.FC<OperatorHeaderProps> = ({
 
   return (
     <>
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
           {userRole && (
@@ -58,6 +60,8 @@ export const OperatorHeader: React.FC<OperatorHeaderProps> = ({
         </div>
         
         <div className="flex items-center gap-2">
+          {children}
+          
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
