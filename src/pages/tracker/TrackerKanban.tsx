@@ -7,16 +7,17 @@ import { Link } from "react-router-dom";
 import { ProductionKanban } from "@/components/tracker/ProductionKanban";
 import { EnhancedProductionKanban } from "@/components/tracker/EnhancedProductionKanban";
 import { MultiStageKanban } from "@/components/tracker/MultiStageKanban";
-import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
+import { useProductionDataContext } from "@/contexts/ProductionDataContext";
 
 const TrackerKanban = () => {
   const [activeTab, setActiveTab] = useState("multistage");
   
-  // Use unified production data directly
-  const { jobs, consolidatedStages, isLoading, error, refreshJobs } = useUnifiedProductionData();
+  // Use cached production data instead of separate kanban data
+  const { jobs, consolidatedStages } = useProductionDataContext();
 
   return (
     <div className="h-full flex flex-col">
+      {/* Remove external sidebar here */}
       <div className="mb-6 flex-shrink-0">
         <div className="flex items-center gap-4 mb-4">
           <Button variant="outline" size="sm" asChild>
@@ -37,7 +38,6 @@ const TrackerKanban = () => {
           Total jobs: {jobs.length} | Active stages: {consolidatedStages.filter(s => s.is_active !== false).length}
         </div>
       </div>
-      
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="multistage" className="flex items-center gap-2">
@@ -55,32 +55,15 @@ const TrackerKanban = () => {
         </TabsList>
 
         <TabsContent value="multistage" className="flex-1 overflow-hidden mt-4">
-          <MultiStageKanban 
-            jobs={jobs}
-            stages={consolidatedStages}
-            isLoading={isLoading}
-            error={error}
-            onRefresh={refreshJobs}
-          />
+          <MultiStageKanban />
         </TabsContent>
 
         <TabsContent value="enhanced" className="flex-1 overflow-hidden mt-4">
-          <EnhancedProductionKanban 
-            jobs={jobs}
-            stages={consolidatedStages}
-            isLoading={isLoading}
-            error={error}
-            onRefresh={refreshJobs}
-          />
+          <EnhancedProductionKanban />
         </TabsContent>
 
         <TabsContent value="basic" className="flex-1 overflow-hidden mt-4">
-          <ProductionKanban 
-            jobs={jobs}
-            isLoading={isLoading}
-            error={error}
-            onRefresh={refreshJobs}
-          />
+          <ProductionKanban />
         </TabsContent>
       </Tabs>
     </div>

@@ -5,15 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Settings } from "lucide-react";
 import { toast } from "sonner";
+import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { EnhancedJobCard } from "./EnhancedJobCard";
-import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
 
 interface JobWithStages {
   id: string;
   wo_no: string;
   customer: string;
   category: string;
-  due_date?: string;
+  due_date?: string; // Make optional to match ProductionJob type
   status: string;
   category_id?: string;
   stages: Array<{
@@ -24,14 +25,6 @@ interface JobWithStages {
     status: 'pending' | 'active' | 'completed' | 'skipped';
     stage_order: number;
   }>;
-}
-
-interface EnhancedProductionKanbanProps {
-  jobs: any[];
-  stages: any[];
-  isLoading?: boolean;
-  error?: string | null;
-  onRefresh: () => void;
 }
 
 const EnhancedJobStageCard = ({ job, onJobUpdate }: { 
@@ -113,35 +106,32 @@ const StageColumn = ({ stage, jobs, onJobUpdate }: {
   );
 };
 
-export const EnhancedProductionKanban = ({ jobs: propsJobs, stages: propsStages, isLoading: propsLoading, error: propsError, onRefresh }: EnhancedProductionKanbanProps) => {
-  // Use unified data hook directly instead of context
-  const { jobs, consolidatedStages, isLoading, error, refreshJobs } = useUnifiedProductionData();
-  
-  // Transform jobs to include stage information - using correct job data
+export const EnhancedProductionKanban = () => {
+  const { jobs, isLoading, error, fetchJobs } = useProductionJobs();
+  const { stages } = useProductionStages();
+
+  // Transform jobs to include stage information
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
     return jobs.map(job => ({
-      id: job.id,
-      wo_no: job.wo_no || '',
-      customer: job.customer || '',
-      category: job.category_name || 'General',
-      due_date: job.due_date,
-      status: job.status || '',
-      category_id: job.category_id,
-      // Use actual job stages from the unified data
-      stages: job.stages?.map((stage: any, index: number) => ({
-        id: stage.id,
-        production_stage_id: stage.production_stage_id,
-        stage_name: stage.stage_name,
-        stage_color: stage.stage_color,
-        status: stage.status,
-        stage_order: stage.stage_order || index + 1,
-      })) || []
+      ...job,
+      customer: job.customer || 'Unknown Customer',
+      category: job.category || 'General',
+      due_date: job.due_date || undefined,
+      // For now, simulate stage data - in real implementation, you'd fetch actual job_stage_instances
+      stages: stages.slice(0, 3).map((stage, index) => ({
+        id: `${job.id}-${stage.id}`,
+        production_stage_id: stage.id,
+        stage_name: stage.name,
+        stage_color: stage.color,
+        status: index === 0 ? 'active' : 'pending' as const,
+        stage_order: index + 1,
+      }))
     }));
-  }, [jobs]);
+  }, [jobs, stages]);
 
   const handleJobUpdate = useCallback(() => {
-    refreshJobs();
-  }, [refreshJobs]);
+    fetchJobs();
+  }, [fetchJobs]);
 
   if (isLoading) {
     return (
@@ -182,14 +172,14 @@ export const EnhancedProductionKanban = ({ jobs: propsJobs, stages: propsStages,
           </Button>
         </div>
         <div className="mt-2 text-sm text-gray-500">
-          Total jobs: {jobsWithStages.length} | Active stages: {consolidatedStages.filter(s => s.is_active !== false).length}
+          Total jobs: {jobsWithStages.length} | Active stages: {stages.filter(s => s.is_active).length}
         </div>
       </div>
 
       <div className="flex gap-6 overflow-x-auto pb-6">
-        {consolidatedStages
-          .filter(stage => stage.is_active !== false)
-          .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+        {stages
+          .filter(stage => stage.is_active)
+          .sort((a, b) => a.order_index - b.order_index)
           .map(stage => (
             <StageColumn
               key={stage.id}
