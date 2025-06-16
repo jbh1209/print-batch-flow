@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
@@ -46,9 +45,9 @@ export const UniversalFactoryFloor = () => {
     }
   };
 
-  // Filter and categorize jobs with enhanced debugging
+  // Filter and categorize jobs with enhanced master queue debugging
   const { dtpJobs, proofJobs, hp12000Jobs, hp7900Jobs, hpT250Jobs, finishingJobs, otherJobs } = useMemo(() => {
-    console.log('🔄 Processing jobs in UniversalFactoryFloor:', jobs?.length || 0);
+    console.log('🔄 Processing jobs in UniversalFactoryFloor with master queue logic:', jobs?.length || 0);
     
     if (!jobs || jobs.length === 0) {
       console.log('❌ No jobs available for processing');
@@ -78,15 +77,15 @@ export const UniversalFactoryFloor = () => {
       console.log('🔍 After search filter:', filtered.length);
     }
 
-    // Apply queue filters for printing jobs
+    // Apply queue filters for printing jobs with master queue awareness
     if (activeQueueFilters.length > 0) {
-      console.log('🎯 Applying queue filters:', activeQueueFilters);
+      console.log('🎯 Applying master queue filters:', activeQueueFilters);
       filtered = filtered.filter(job => {
         const stageName = (job.current_stage_name || '').toLowerCase();
         const displayStageName = (job.display_stage_name || '').toLowerCase();
         const effectiveStageName = displayStageName || stageName;
 
-        // Check if it's a printing job and matches filters
+        // Check if it's a printing job and matches master queue filters
         const isPrintingJob = effectiveStageName.includes('print') ||
                              effectiveStageName.includes('hp') ||
                              effectiveStageName.includes('12000') ||
@@ -94,15 +93,20 @@ export const UniversalFactoryFloor = () => {
                              effectiveStageName.includes('t250');
 
         if (isPrintingJob) {
-          return activeQueueFilters.some(filter => 
-            effectiveStageName.includes(filter.toLowerCase())
-          );
+          return activeQueueFilters.some(filter => {
+            const filterLower = filter.toLowerCase();
+            // Match against master queue names
+            if (filterLower.includes('12000') && (effectiveStageName.includes('12000'))) return true;
+            if (filterLower.includes('7900') && (effectiveStageName.includes('7900'))) return true;
+            if (filterLower.includes('t250') && (effectiveStageName.includes('t250') || effectiveStageName.includes('t 250'))) return true;
+            return effectiveStageName.includes(filterLower);
+          });
         }
 
         // Non-printing jobs are always shown
         return true;
       });
-      console.log('🎯 After queue filter:', filtered.length);
+      console.log('🎯 After master queue filter:', filtered.length);
     }
 
     const categories = categorizeJobs(filtered);
@@ -117,7 +121,7 @@ export const UniversalFactoryFloor = () => {
       otherJobs: sortJobsByWONumber(categories.otherJobs)
     };
 
-    console.log('✅ Final job groups:', {
+    console.log('✅ Final master queue groups:', {
       dtp: result.dtpJobs.length,
       proof: result.proofJobs.length,
       hp12000: result.hp12000Jobs.length,
@@ -183,15 +187,15 @@ export const UniversalFactoryFloor = () => {
   }
   
   if (hp12000Jobs.length > 0) {
-    jobGroups.push({ title: "HP 12000", jobs: hp12000Jobs, color: "bg-green-600" });
+    jobGroups.push({ title: "HP 12000 Master Queue", jobs: hp12000Jobs, color: "bg-green-600" });
   }
   
   if (hp7900Jobs.length > 0) {
-    jobGroups.push({ title: "HP 7900", jobs: hp7900Jobs, color: "bg-emerald-600" });
+    jobGroups.push({ title: "HP 7900 Master Queue", jobs: hp7900Jobs, color: "bg-emerald-600" });
   }
   
   if (hpT250Jobs.length > 0) {
-    jobGroups.push({ title: "HP T250", jobs: hpT250Jobs, color: "bg-teal-600" });
+    jobGroups.push({ title: "HP T250 Master Queue", jobs: hpT250Jobs, color: "bg-teal-600" });
   }
   
   if (finishingJobs.length > 0) {
@@ -202,7 +206,7 @@ export const UniversalFactoryFloor = () => {
     jobGroups.push({ title: "Other Jobs", jobs: otherJobs, color: "bg-gray-600" });
   }
 
-  console.log('🎨 Rendering job groups:', jobGroups.map(g => ({ title: g.title, count: g.jobs.length })));
+  console.log('🎨 Rendering master queue job groups:', jobGroups.map(g => ({ title: g.title, count: g.jobs.length })));
 
   const totalJobs = dtpJobs.length + proofJobs.length + hp12000Jobs.length + hp7900Jobs.length + hpT250Jobs.length + finishingJobs.length + otherJobs.length;
 
@@ -210,7 +214,7 @@ export const UniversalFactoryFloor = () => {
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Header */}
       <OperatorHeader 
-        title={isDtpOperator ? "DTP & Proofing Jobs" : "Factory Floor"}
+        title={isDtpOperator ? "DTP & Proofing Jobs" : "Factory Floor - Master Queues"}
       />
 
       {/* Controls */}
@@ -254,14 +258,14 @@ export const UniversalFactoryFloor = () => {
           </div>
         </div>
 
-        {/* Job Count */}
+        {/* Job Count with Master Queue Info */}
         <div className="text-sm text-gray-600">
-          {totalJobs} job{totalJobs !== 1 ? 's' : ''} available
+          {totalJobs} job{totalJobs !== 1 ? 's' : ''} available across {jobGroups.length} queue{jobGroups.length !== 1 ? 's' : ''}
           {searchQuery && ` (filtered)`}
         </div>
       </div>
 
-      {/* Job Groups */}
+      {/* Job Groups - Master Queue Display */}
       <div className="flex-1 overflow-hidden">
         {jobGroups.length === 0 ? (
           <div className="flex items-center justify-center h-full">
@@ -306,7 +310,7 @@ export const UniversalFactoryFloor = () => {
                 </div>
               </div>
             ) : (
-              /* List View - Single Column with ALL Groups */
+              /* List View - Single Column with ALL Master Queue Groups */
               <ScrollArea className="h-full">
                 <div className="p-4 space-y-6">
                   {jobGroups.map(group => {
