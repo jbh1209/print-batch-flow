@@ -8,12 +8,16 @@ import { ProductionKanban } from "@/components/tracker/ProductionKanban";
 import { EnhancedProductionKanban } from "@/components/tracker/EnhancedProductionKanban";
 import { MultiStageKanban } from "@/components/tracker/MultiStageKanban";
 import { useProductionDataContext } from "@/contexts/ProductionDataContext";
+import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 
 const TrackerKanban = () => {
   const [activeTab, setActiveTab] = useState("multistage");
   
   // Use cached production data instead of separate kanban data
-  const { jobs, consolidatedStages } = useProductionDataContext();
+  const { jobs, consolidatedStages, isLoading, error, refresh } = useProductionDataContext();
+  
+  // Get production stages for enhanced kanban
+  const { stages } = useProductionStages();
 
   return (
     <div className="h-full flex flex-col">
@@ -55,15 +59,32 @@ const TrackerKanban = () => {
         </TabsList>
 
         <TabsContent value="multistage" className="flex-1 overflow-hidden mt-4">
-          <MultiStageKanban />
+          <MultiStageKanban 
+            jobs={jobs}
+            stages={stages}
+            isLoading={isLoading}
+            error={error}
+            onRefresh={refresh}
+          />
         </TabsContent>
 
         <TabsContent value="enhanced" className="flex-1 overflow-hidden mt-4">
-          <EnhancedProductionKanban />
+          <EnhancedProductionKanban 
+            jobs={jobs}
+            stages={stages}
+            isLoading={isLoading}
+            error={error}
+            onRefresh={refresh}
+          />
         </TabsContent>
 
         <TabsContent value="basic" className="flex-1 overflow-hidden mt-4">
-          <ProductionKanban />
+          <ProductionKanban 
+            jobs={jobs}
+            isLoading={isLoading}
+            error={error}
+            onRefresh={refresh}
+          />
         </TabsContent>
       </Tabs>
     </div>

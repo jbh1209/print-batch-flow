@@ -5,8 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Settings } from "lucide-react";
 import { toast } from "sonner";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
-import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { EnhancedJobCard } from "./EnhancedJobCard";
 
 interface JobWithStages {
@@ -14,7 +12,7 @@ interface JobWithStages {
   wo_no: string;
   customer: string;
   category: string;
-  due_date?: string; // Make optional to match ProductionJob type
+  due_date?: string;
   status: string;
   category_id?: string;
   stages: Array<{
@@ -25,6 +23,14 @@ interface JobWithStages {
     status: 'pending' | 'active' | 'completed' | 'skipped';
     stage_order: number;
   }>;
+}
+
+interface EnhancedProductionKanbanProps {
+  jobs: any[];
+  stages: any[];
+  isLoading?: boolean;
+  error?: string | null;
+  onRefresh: () => void;
 }
 
 const EnhancedJobStageCard = ({ job, onJobUpdate }: { 
@@ -106,10 +112,7 @@ const StageColumn = ({ stage, jobs, onJobUpdate }: {
   );
 };
 
-export const EnhancedProductionKanban = () => {
-  const { jobs, isLoading, error, fetchJobs } = useProductionJobs();
-  const { stages } = useProductionStages();
-
+export const EnhancedProductionKanban = ({ jobs, stages, isLoading, error, onRefresh }: EnhancedProductionKanbanProps) => {
   // Transform jobs to include stage information
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
     return jobs.map(job => ({
@@ -130,8 +133,8 @@ export const EnhancedProductionKanban = () => {
   }, [jobs, stages]);
 
   const handleJobUpdate = useCallback(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+    onRefresh();
+  }, [onRefresh]);
 
   if (isLoading) {
     return (

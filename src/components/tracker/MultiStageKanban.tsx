@@ -1,13 +1,11 @@
+
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
   Loader2, 
-  AlertTriangle, 
-  Settings, 
-  RefreshCw
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
@@ -20,12 +18,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { MultiStageKanbanHeader } from "./MultiStageKanbanHeader";
 import { MultiStageKanbanColumns } from "./MultiStageKanbanColumns";
-import { MultiStageKanbanColumnsProps } from "./MultiStageKanban.types";
 
-export const MultiStageKanban = () => {
-  const { jobs, isLoading: jobsLoading, error: jobsError, fetchJobs } = useProductionJobs();
-  const { stages } = useProductionStages();
+interface MultiStageKanbanProps {
+  jobs: any[];
+  stages: any[];
+  isLoading?: boolean;
+  error?: string | null;
+  onRefresh: () => void;
+}
 
+export const MultiStageKanban = ({ jobs, stages, isLoading, error, onRefresh }: MultiStageKanbanProps) => {
   // CRITICAL: Filter out completed jobs for kanban view
   const activeJobs = React.useMemo(() => {
     return filterActiveJobs(jobs);
@@ -33,8 +35,8 @@ export const MultiStageKanban = () => {
   
   const { 
     jobStages, 
-    isLoading, 
-    error, 
+    isLoading: stagesLoading, 
+    error: stagesError, 
     lastUpdate,
     startStage, 
     completeStage, 
@@ -65,7 +67,7 @@ export const MultiStageKanban = () => {
       if (action === 'start') await startStage(stageId);
       else if (action === 'complete') await completeStage(stageId);
       else if (action === 'scan') toast.info('QR Scanner would open here');
-      fetchJobs();
+      onRefresh();
     } catch (err) {
       console.error('Error performing stage action:', err);
     }
@@ -95,7 +97,7 @@ export const MultiStageKanban = () => {
       toast.error("Failed to persist job order: " + (e instanceof Error ? e.message : String(e)));
     }
     refreshStages();
-    fetchJobs();
+    onRefresh();
   };
 
   // Use a ref to hold per-stage reorder handlers, for the drag-end logic below
@@ -184,7 +186,7 @@ export const MultiStageKanban = () => {
     );
   };
 
-  if (jobsLoading || isLoading) {
+  if (isLoading || stagesLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -193,7 +195,7 @@ export const MultiStageKanban = () => {
     );
   }
 
-  if (jobsError || error) {
+  if (error || stagesError) {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
@@ -201,7 +203,7 @@ export const MultiStageKanban = () => {
             <AlertTriangle className="h-5 w-5 mr-2" />
             <div>
               <p className="font-medium">Error loading multi-stage kanban</p>
-              <p className="text-sm mt-1">{jobsError || error}</p>
+              <p className="text-sm mt-1">{error || stagesError}</p>
             </div>
           </div>
         </div>
@@ -220,7 +222,7 @@ export const MultiStageKanban = () => {
           pendingStages: metrics.pendingStages,
         }}
         lastUpdate={lastUpdate}
-        onRefresh={() => { refreshStages(); fetchJobs(); }}
+        onRefresh={() => { refreshStages(); onRefresh(); }}
         onSettings={() => {}}
         // New layout props:
         layout={layout}

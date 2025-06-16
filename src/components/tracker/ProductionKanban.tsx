@@ -15,12 +15,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { KanbanColumn } from "./KanbanColumn";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { supabase } from "@/integrations/supabase/client";
 
 const STATUSES = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
 
-export const ProductionKanban = () => {
-  const { jobs, isLoading, error, updateJobStatus, getJobsByStatus } = useProductionJobs();
+interface ProductionKanbanProps {
+  jobs: any[];
+  isLoading?: boolean;
+  error?: string | null;
+  onRefresh: () => void;
+}
+
+export const ProductionKanban = ({ jobs, isLoading, error, onRefresh }: ProductionKanbanProps) => {
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Sensors for drag and drop
@@ -42,6 +48,32 @@ export const ProductionKanban = () => {
       "Completed": "bg-gray-100 text-gray-800"
     };
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
+  };
+
+  // Get jobs by status
+  const getJobsByStatus = (status: string) => {
+    return jobs.filter(job => job.status === status);
+  };
+
+  // Update job status
+  const updateJobStatus = async (jobId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ status: newStatus })
+        .eq('id', jobId);
+      
+      if (error) {
+        console.error('Error updating job status:', error);
+        return false;
+      }
+      
+      onRefresh();
+      return true;
+    } catch (err) {
+      console.error('Error updating job status:', err);
+      return false;
+    }
   };
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -67,7 +99,7 @@ export const ProductionKanban = () => {
     } else {
       toast.error(`Failed to move job ${activeJob.wo_no}`);
     }
-  }, [jobs, updateJobStatus]);
+  }, [jobs, onRefresh]);
 
   if (isLoading) {
     return (
