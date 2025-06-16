@@ -16,6 +16,7 @@ import { Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { KanbanColumn } from "./KanbanColumn";
 import { supabase } from "@/integrations/supabase/client";
+import { useProductionDataContext } from "@/contexts/ProductionDataContext";
 
 const STATUSES = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
 
@@ -26,7 +27,10 @@ interface ProductionKanbanProps {
   onRefresh: () => void;
 }
 
-export const ProductionKanban = ({ jobs, isLoading, error, onRefresh }: ProductionKanbanProps) => {
+export const ProductionKanban = ({ jobs: propsJobs, isLoading: propsLoading, error: propsError, onRefresh }: ProductionKanbanProps) => {
+  // Use unified data from context instead of props
+  const { jobs, isLoading, error, refresh } = useProductionDataContext();
+  
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Sensors for drag and drop
@@ -68,7 +72,7 @@ export const ProductionKanban = ({ jobs, isLoading, error, onRefresh }: Producti
         return false;
       }
       
-      onRefresh();
+      refresh(); // Use context refresh
       return true;
     } catch (err) {
       console.error('Error updating job status:', err);
@@ -99,7 +103,7 @@ export const ProductionKanban = ({ jobs, isLoading, error, onRefresh }: Producti
     } else {
       toast.error(`Failed to move job ${activeJob.wo_no}`);
     }
-  }, [jobs, onRefresh]);
+  }, [jobs]);
 
   if (isLoading) {
     return (

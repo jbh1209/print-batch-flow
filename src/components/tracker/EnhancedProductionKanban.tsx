@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { EnhancedJobCard } from "./EnhancedJobCard";
+import { useProductionDataContext } from "@/contexts/ProductionDataContext";
 
 interface JobWithStages {
   id: string;
@@ -112,7 +113,10 @@ const StageColumn = ({ stage, jobs, onJobUpdate }: {
   );
 };
 
-export const EnhancedProductionKanban = ({ jobs, stages, isLoading, error, onRefresh }: EnhancedProductionKanbanProps) => {
+export const EnhancedProductionKanban = ({ jobs: propsJobs, stages: propsStages, isLoading: propsLoading, error: propsError, onRefresh }: EnhancedProductionKanbanProps) => {
+  // Use unified data from context instead of props
+  const { jobs, stages, isLoading, error, refresh } = useProductionDataContext();
+  
   // Transform jobs to include stage information
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
     return jobs.map(job => ({
@@ -120,21 +124,21 @@ export const EnhancedProductionKanban = ({ jobs, stages, isLoading, error, onRef
       customer: job.customer || 'Unknown Customer',
       category: job.category || 'General',
       due_date: job.due_date || undefined,
-      // For now, simulate stage data - in real implementation, you'd fetch actual job_stage_instances
-      stages: stages.slice(0, 3).map((stage, index) => ({
-        id: `${job.id}-${stage.id}`,
-        production_stage_id: stage.id,
-        stage_name: stage.name,
-        stage_color: stage.color,
-        status: index === 0 ? 'active' : 'pending' as const,
-        stage_order: index + 1,
-      }))
+      // Use actual job stage instances from the unified data
+      stages: job.job_stage_instances?.map((stage: any, index: number) => ({
+        id: stage.id,
+        production_stage_id: stage.production_stage_id,
+        stage_name: stage.production_stages?.name || 'Unknown Stage',
+        stage_color: stage.production_stages?.color || '#6B7280',
+        status: stage.status,
+        stage_order: stage.stage_order || index + 1,
+      })) || []
     }));
-  }, [jobs, stages]);
+  }, [jobs]);
 
   const handleJobUpdate = useCallback(() => {
-    onRefresh();
-  }, [onRefresh]);
+    refresh(); // Use context refresh
+  }, [refresh]);
 
   if (isLoading) {
     return (
