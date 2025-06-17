@@ -52,8 +52,8 @@ import SleeveJobEdit from "./pages/SleeveJobEdit";
 import Stickers from "./pages/Stickers";
 import Posters from "./pages/Posters";
 
-const App: React.FC = () => {
-  const [session, setSession] = useState<any>(null);
+function App() {
+  const [session, setSession] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -166,6 +166,6 @@ const App: React.FC = () => {
       </div>
     </AuthProvider>
   );
-};
+}
 
 export default App;

@@ -1,36 +1,37 @@
 
-import { AccessibleJob } from "./types";
+import { AccessibleJob } from './types';
 
-export const normalizeJobData = (job: any, index: number): AccessibleJob => {
+export const normalizeJobData = (rawJob: any, index: number): AccessibleJob => {
   const normalized: AccessibleJob = {
-    job_id: job.job_id || '',
-    wo_no: job.wo_no || `Job ${index + 1}`,
-    customer: job.customer || 'Unknown Customer',
-    status: job.status || 'Unknown',
-    due_date: job.due_date || '',
-    reference: job.reference || '',
-    category_id: job.category_id || '',
-    category_name: job.category_name || '',
-    category_color: job.category_color || '#6B7280',
-    current_stage_id: job.current_stage_id || '',
-    current_stage_name: job.current_stage_name || 'No Stage',
-    current_stage_color: job.current_stage_color || '#6B7280',
-    current_stage_status: job.current_stage_status || 'pending',
-    user_can_view: Boolean(job.user_can_view),
-    user_can_edit: Boolean(job.user_can_edit),
-    user_can_work: Boolean(job.user_can_work),
-    user_can_manage: Boolean(job.user_can_manage),
-    workflow_progress: Number(job.workflow_progress) || 0,
-    total_stages: Number(job.total_stages) || 0,
-    completed_stages: Number(job.completed_stages) || 0,
-    display_stage_name: job.display_stage_name || job.current_stage_name || 'No Stage' // Use display_stage_name for master queue consolidation
+    job_id: rawJob.job_id || rawJob.id || `temp-${index}`,
+    wo_no: rawJob.wo_no || `WO-${index}`,
+    customer: rawJob.customer || 'Unknown Customer',
+    status: rawJob.status || 'Unknown',
+    due_date: rawJob.due_date || '',
+    reference: rawJob.reference || '',
+    category_id: rawJob.category_id || '',
+    category_name: rawJob.category_name || '',
+    category_color: rawJob.category_color || '#6B7280',
+    current_stage_id: rawJob.current_stage_id || '',
+    current_stage_name: rawJob.current_stage_name || '',
+    current_stage_color: rawJob.current_stage_color || '#6B7280',
+    current_stage_status: rawJob.current_stage_status || 'pending',
+    user_can_view: Boolean(rawJob.user_can_view),
+    user_can_edit: Boolean(rawJob.user_can_edit),
+    user_can_work: Boolean(rawJob.user_can_work),
+    user_can_manage: Boolean(rawJob.user_can_manage),
+    workflow_progress: rawJob.workflow_progress || 0,
+    total_stages: rawJob.total_stages || 0,
+    completed_stages: rawJob.completed_stages || 0,
+    master_queue_id: rawJob.master_queue_id || undefined,
+    display_stage_name: rawJob.display_stage_name || rawJob.current_stage_name || ''
   };
 
-  console.log('🔄 Normalized job data:', {
-    wo_no: normalized.wo_no,
-    current_stage_name: normalized.current_stage_name,
-    display_stage_name: normalized.display_stage_name,
-    stage_status: normalized.current_stage_status
+  console.log(`🔧 Normalized job ${normalized.wo_no}:`, {
+    stage: normalized.current_stage_name,
+    displayStage: normalized.display_stage_name,
+    masterQueue: normalized.master_queue_id,
+    hasConsolidation: normalized.display_stage_name !== normalized.current_stage_name
   });
 
   return normalized;
