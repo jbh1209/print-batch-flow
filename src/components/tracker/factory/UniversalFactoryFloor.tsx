@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { DtpKanbanDashboard } from "./DtpKanbanDashboard";
 import { ManagerDashboard } from "./ManagerDashboard";
-import { FactoryFloorView } from "../views/FactoryFloorView";
+import { EnhancedFactoryFloorDashboard } from "./EnhancedFactoryFloorDashboard";
 
 export const UniversalFactoryFloor = () => {
   const { isDtpOperator, isManager } = useUserRole();
@@ -18,6 +18,6 @@ export const UniversalFactoryFloor = () => {
     return <ManagerDashboard />;
   }
 
-  // Regular operators get the factory floor view
-  return <FactoryFloorView />;
+  // Regular operators get the enhanced factory floor dashboard
+  return <EnhancedFactoryFloorDashboard />;
 };
