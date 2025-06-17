@@ -25,9 +25,9 @@ export const normalizeJobData = (rawJob: any, index: number): AccessibleJob => {
     completed_stages: rawJob.completed_stages || 0,
     master_queue_id: rawJob.master_queue_id || undefined,
     display_stage_name: rawJob.display_stage_name || rawJob.current_stage_name || '',
-    qty: rawJob.qty || 0,
+    qty: rawJob.qty && rawJob.qty > 0 ? rawJob.qty : 0,
     started_by: rawJob.started_by || undefined,
-    started_by_name: rawJob.started_by_name || undefined,
+    started_by_name: rawJob.started_by_name && rawJob.started_by_name !== 'Unknown' ? rawJob.started_by_name : undefined,
     proof_emailed_at: rawJob.proof_emailed_at || undefined
   };
 

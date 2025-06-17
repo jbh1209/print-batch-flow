@@ -91,7 +91,7 @@ export const JobListView: React.FC<JobListViewProps> = ({
                       </div>
                     )}
                     
-                    {job.started_by_name && job.started_by_name !== 'Unknown' && (
+                    {job.started_by_name && job.started_by_name !== 'Unknown' && job.started_by_name !== '' && (
                       <div className="flex items-center gap-1">
                         <User className="h-3 w-3 text-blue-500" />
                         <span className="font-medium text-blue-600">{job.started_by_name}</span>
