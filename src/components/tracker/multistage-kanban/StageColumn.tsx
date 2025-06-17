@@ -4,12 +4,23 @@ import React, { useEffect } from "react";
 import JobStageCard from "./JobStageCard";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { getDueInfo } from "./getDueInfo";
-import { StageColumnProps } from "./StageColumn.types";
 import SortableJobStageCard from "./SortableJobStageCard";
+
+interface StageColumnProps {
+  stage: any;
+  jobs: any[];
+  onStageAction: (jobId: string, stageId: string, action: "start" | "complete" | "scan") => void;
+  viewMode: "card" | "list";
+  enableDnd: boolean;
+  onReorder: (newOrder: string[]) => void;
+  registerReorder: (handler: (newOrder: string[]) => void) => void;
+  selectedJobId: string | null;
+  onSelectJob: (jobId: string) => void;
+}
 
 const StageColumn: React.FC<StageColumnProps> = ({
   stage,
-  jobStages,
+  jobs,
   onStageAction,
   viewMode,
   enableDnd,
@@ -18,25 +29,21 @@ const StageColumn: React.FC<StageColumnProps> = ({
   selectedJobId,
   onSelectJob,
 }) => {
-  // Filter jobs for this stage - EXCLUDE completed jobs and only show active/pending stages
-  const stageJobStages = jobStages
-    .filter(js => {
-      // Filter by stage
-      const isCorrectStage = js.production_stage_id === stage.id;
-      // Filter out completed/skipped stages
-      const isActiveStage = js.status !== "completed" && js.status !== "skipped";
-      // CRITICAL: Filter out job stages where the parent job is completed
-      const isJobActive = js.production_job?.status !== 'Completed';
-      
-      return isCorrectStage && isActiveStage && isJobActive;
+  // Filter jobs for this stage - show jobs where current_stage_id matches this stage
+  const stageJobs = jobs
+    .filter(job => {
+      // Show jobs that are currently in this stage
+      return job.current_stage_id === stage.id;
     })
     .sort((a, b) => {
-      if (a.job_order_in_stage && b.job_order_in_stage) {
-        return a.job_order_in_stage - b.job_order_in_stage;
+      // Sort by job order if available, otherwise by wo_no
+      const aOrder = a.job_stage_instances?.find(jsi => jsi.production_stage_id === stage.id)?.job_order_in_stage || 0;
+      const bOrder = b.job_stage_instances?.find(jsi => jsi.production_stage_id === stage.id)?.job_order_in_stage || 0;
+      
+      if (aOrder && bOrder) {
+        return aOrder - bOrder;
       }
-      const aWo = a.production_job?.wo_no || "";
-      const bWo = b.production_job?.wo_no || "";
-      return aWo.localeCompare(bWo, undefined, { numeric: true });
+      return a.wo_no.localeCompare(b.wo_no, undefined, { numeric: true });
     });
 
   useEffect(() => {
@@ -45,8 +52,8 @@ const StageColumn: React.FC<StageColumnProps> = ({
     }
   }, [enableDnd, onReorder, registerReorder]);
 
-  const isJobHighlighted = (jobStage: any) => (
-    selectedJobId && jobStage.production_job?.id === selectedJobId
+  const isJobHighlighted = (job: any) => (
+    selectedJobId && job.id === selectedJobId
   );
 
   // Format due date as MM-DD
@@ -62,11 +69,18 @@ const StageColumn: React.FC<StageColumnProps> = ({
     }
   };
 
+  // Get current stage instance for a job
+  const getCurrentStageInstance = (job: any) => {
+    return job.job_stage_instances?.find(
+      jsi => jsi.production_stage_id === stage.id && (jsi.status === 'active' || jsi.status === 'pending')
+    );
+  };
+
   // --- Card & DnD view ---
   if (viewMode === "card" && enableDnd) {
     return (
       <SortableContext
-        items={stageJobStages.map(jobStage => jobStage.id)}
+        items={stageJobs.map(job => job.id)}
         strategy={verticalListSortingStrategy}
       >
         <div
@@ -79,20 +93,21 @@ const StageColumn: React.FC<StageColumnProps> = ({
               <span className="font-medium text-[11px]">{stage.name}</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="bg-gray-100 text-[11px] px-1 rounded">{stageJobStages.length}</span>
+              <span className="bg-gray-100 text-[11px] px-1 rounded">{stageJobs.length}</span>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col gap-1">
-              {stageJobStages.map(jobStage => {
-                const dueMeta = getDueInfo(jobStage);
-                const formattedDueDate = formatDueDate(jobStage.production_job?.due_date);
+              {stageJobs.map(job => {
+                const stageInstance = getCurrentStageInstance(job);
+                const dueMeta = getDueInfo({ production_job: job });
+                const formattedDueDate = formatDueDate(job.due_date);
                 
                 return (
                   <div
-                    key={jobStage.id}
-                    className={`relative ${isJobHighlighted(jobStage) ? "ring-2 ring-green-500 rounded-lg transition" : ""}`}
-                    onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
+                    key={job.id}
+                    className={`relative ${isJobHighlighted(job) ? "ring-2 ring-green-500 rounded-lg transition" : ""}`}
+                    onClick={() => onSelectJob && onSelectJob(job.id)}
                     tabIndex={0}
                     style={{ cursor: "pointer", minHeight: 48 }}
                   >
@@ -103,12 +118,16 @@ const StageColumn: React.FC<StageColumnProps> = ({
                         title={dueMeta.label}
                       />
                     </div>
-                    {/* Use DnD wrapper */}
+                    {/* Create a mock job stage for the card */}
                     <SortableJobStageCard 
-                      jobStage={jobStage}
-                      onStageAction={onStageAction}
-                      highlighted={!!isJobHighlighted(jobStage)}
-                      onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
+                      jobStage={{
+                        id: job.id,
+                        production_job: job,
+                        status: stageInstance?.status || 'pending'
+                      }}
+                      onStageAction={(_, action) => onStageAction(job.id, stage.id, action)}
+                      highlighted={!!isJobHighlighted(job)}
+                      onClick={() => onSelectJob && onSelectJob(job.id)}
                     />
                     <div className="absolute right-2 top-2">
                       {formattedDueDate ? (
@@ -121,7 +140,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
                             textAlign: 'center',
                             lineHeight: '16px'
                           }}
-                          title={`Due: ${jobStage.production_job?.due_date}`}
+                          title={`Due: ${job.due_date}`}
                         >
                           {formattedDueDate}
                         </span>
@@ -141,7 +160,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
                   </div>
                 );
               })}
-              {stageJobStages.length === 0 && (
+              {stageJobs.length === 0 && (
                 <div className="text-center py-4 text-gray-400 text-xs">No jobs</div>
               )}
             </div>
@@ -163,7 +182,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
           <span className="font-medium text-[11px]">{stage.name}</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="bg-gray-100 text-[11px] px-1 rounded">{stageJobStages.length}</span>
+          <span className="bg-gray-100 text-[11px] px-1 rounded">{stageJobs.length}</span>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -178,21 +197,23 @@ const StageColumn: React.FC<StageColumnProps> = ({
             </tr>
           </thead>
           <tbody>
-            {stageJobStages.map(jobStage => {
-              const dueMeta = getDueInfo(jobStage);
-              const woNo = jobStage.production_job?.wo_no ?? "Orphaned";
-              const customer = jobStage.production_job?.customer ?? "Unknown";
-              const formattedDueDate = formatDueDate(jobStage.production_job?.due_date);
+            {stageJobs.map(job => {
+              const stageInstance = getCurrentStageInstance(job);
+              const dueMeta = getDueInfo({ production_job: job });
+              const woNo = job.wo_no ?? "Orphaned";
+              const customer = job.customer ?? "Unknown";
+              const formattedDueDate = formatDueDate(job.due_date);
+              const status = stageInstance?.status || 'pending';
               
               return (
                 <tr
-                  key={jobStage.id}
+                  key={job.id}
                   className={
                     "hover:bg-green-50 transition group " +
-                    (isJobHighlighted(jobStage) ? "ring-2 ring-green-500 rounded" : "")
+                    (isJobHighlighted(job) ? "ring-2 ring-green-500 rounded" : "")
                   }
                   style={{ cursor: "pointer", minHeight: 34 }}
-                  onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
+                  onClick={() => onSelectJob && onSelectJob(job.id)}
                   tabIndex={0}
                 >
                   <td className="px-1 whitespace-nowrap flex items-center gap-1">
@@ -217,7 +238,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
                           textAlign: 'center',
                           lineHeight: '16px'
                         }}
-                        title={`Due: ${jobStage.production_job?.due_date}`}
+                        title={`Due: ${job.due_date}`}
                       >
                         {formattedDueDate}
                       </span>
@@ -235,19 +256,19 @@ const StageColumn: React.FC<StageColumnProps> = ({
                     )}
                   </td>
                   <td className="px-0.5 whitespace-nowrap">
-                    <span className={`inline-flex rounded px-1 text-[11px] ${jobStage.status === "active" ? "bg-blue-100 text-blue-700" : jobStage.status === "pending" ? "bg-yellow-50 text-yellow-800" : "bg-gray-100"}`}>
-                      {jobStage.status}
+                    <span className={`inline-flex rounded px-1 text-[11px] ${status === "active" ? "bg-blue-100 text-blue-700" : status === "pending" ? "bg-yellow-50 text-yellow-800" : "bg-gray-100"}`}>
+                      {status}
                     </span>
                   </td>
                   <td className="px-0.5">
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                      {jobStage.status === "pending" && (
-                        <button title="Start" onClick={e => { e.stopPropagation(); onStageAction(jobStage.id, "start"); }} className="text-green-600 hover:text-green-700">
+                      {status === "pending" && (
+                        <button title="Start" onClick={e => { e.stopPropagation(); onStageAction(job.id, stage.id, "start"); }} className="text-green-600 hover:text-green-700">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 3l14 9-14 9V3z" fill="currentColor" /></svg>
                         </button>
                       )}
-                      {jobStage.status === "active" && (
-                        <button title="Complete" onClick={e => { e.stopPropagation(); onStageAction(jobStage.id, "complete"); }} className="text-blue-600 hover:text-green-700">
+                      {status === "active" && (
+                        <button title="Complete" onClick={e => { e.stopPropagation(); onStageAction(job.id, stage.id, "complete"); }} className="text-blue-600 hover:text-green-700">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         </button>
                       )}
@@ -256,7 +277,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
                 </tr>
               );
             })}
-            {stageJobStages.length === 0 && (
+            {stageJobs.length === 0 && (
               <tr>
                 <td colSpan={5} className="text-center py-5 text-xs text-gray-400">No jobs</td>
               </tr>
