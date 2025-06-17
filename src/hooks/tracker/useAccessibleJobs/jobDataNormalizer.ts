@@ -10,7 +10,7 @@ export const normalizeJobData = (rawJob: any, index: number): AccessibleJob => {
     due_date: rawJob.due_date || '',
     reference: rawJob.reference || '',
     category_id: rawJob.category_id || '',
-    category_name: rawJob.category_name || '',
+    category_name: rawJob.category_name || 'No Category',
     category_color: rawJob.category_color || '#6B7280',
     current_stage_id: rawJob.current_stage_id || '',
     current_stage_name: rawJob.current_stage_name || '',
@@ -24,14 +24,20 @@ export const normalizeJobData = (rawJob: any, index: number): AccessibleJob => {
     total_stages: rawJob.total_stages || 0,
     completed_stages: rawJob.completed_stages || 0,
     master_queue_id: rawJob.master_queue_id || undefined,
-    display_stage_name: rawJob.display_stage_name || rawJob.current_stage_name || ''
+    display_stage_name: rawJob.display_stage_name || rawJob.current_stage_name || '',
+    qty: rawJob.qty || 0,
+    started_by: rawJob.started_by || undefined,
+    started_by_name: rawJob.started_by_name || undefined,
+    proof_emailed_at: rawJob.proof_emailed_at || undefined
   };
 
   console.log(`🔧 Normalized job ${normalized.wo_no}:`, {
     stage: normalized.current_stage_name,
     displayStage: normalized.display_stage_name,
-    masterQueue: normalized.master_queue_id,
-    hasConsolidation: normalized.display_stage_name !== normalized.current_stage_name
+    category: normalized.category_name,
+    qty: normalized.qty,
+    activeOperator: normalized.started_by_name,
+    proofEmailed: normalized.proof_emailed_at
   });
 
   return normalized;

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { JobStatusDisplay } from "@/components/tracker/common/JobStatusDisplay";
+import { Package, User } from "lucide-react";
 import { 
   processJobStatus, 
   isJobOverdue, 
@@ -65,6 +66,23 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Quantity and Active Operator Row */}
+          <div className="flex items-center justify-between text-xs text-gray-600">
+            {job.qty && job.qty > 0 && (
+              <div className="flex items-center gap-1">
+                <Package className="h-3 w-3" />
+                <span>Qty: {job.qty.toLocaleString()}</span>
+              </div>
+            )}
+            
+            {job.started_by_name && job.started_by_name !== 'Unknown' && (
+              <div className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                <span className="font-medium">{job.started_by_name}</span>
+              </div>
+            )}
           </div>
 
           {/* Status Display */}

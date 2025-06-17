@@ -22,6 +22,10 @@ export interface AccessibleJob {
   completed_stages: number;
   master_queue_id?: string;
   display_stage_name?: string;
+  qty?: number;
+  started_by?: string;
+  started_by_name?: string;
+  proof_emailed_at?: string;
 }
 
 export interface UseAccessibleJobsOptions {
