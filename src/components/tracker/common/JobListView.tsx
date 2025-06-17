@@ -3,7 +3,7 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, CheckCircle, Clock, User, Calendar, Package, Mail } from "lucide-react";
+import { Play, CheckCircle, Clock, User, Calendar, Package, Mail, Tag } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +56,21 @@ export const JobListView: React.FC<JobListViewProps> = ({
                   <div className="flex items-center gap-3">
                     <h4 className="font-medium text-sm">{job.wo_no}</h4>
                     
+                    {/* Category Badge */}
+                    {job.category_name && job.category_name !== 'No Category' && (
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs px-1.5 py-0.5"
+                        style={{ 
+                          borderColor: job.category_color,
+                          color: job.category_color 
+                        }}
+                      >
+                        <Tag className="h-3 w-3 mr-1" />
+                        {job.category_name}
+                      </Badge>
+                    )}
+                    
                     {isAwaitingClientSignOff(job) ? (
                       <Badge className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 border-blue-300">
                         <Mail className="h-3 w-3 mr-1" />
@@ -102,13 +117,6 @@ export const JobListView: React.FC<JobListViewProps> = ({
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         <span>{new Date(job.due_date).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                    
-                    {job.category_name && job.category_name !== 'No Category' && (
-                      <div className="flex items-center gap-1">
-                        <Package className="h-3 w-3" />
-                        <span>{job.category_name}</span>
                       </div>
                     )}
                     

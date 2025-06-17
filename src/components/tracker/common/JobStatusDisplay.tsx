@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, AlertTriangle, Clock, Mail, User } from "lucide-react";
+import { Calendar, AlertTriangle, Clock, Mail, User, Package, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { 
@@ -100,11 +100,28 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
         </div>
       )}
 
+      {/* Category Info */}
+      {showDetails && hasCategory && job.category_name !== 'No Category' && (
+        <div className="flex items-center gap-2">
+          <Tag className={cn("text-gray-400", iconSize)} />
+          <Badge 
+            variant="outline" 
+            className={cn("text-xs", textSize)}
+            style={{ 
+              borderColor: job.category_color,
+              color: job.category_color 
+            }}
+          >
+            {job.category_name}
+          </Badge>
+        </div>
+      )}
+
       {/* Active Operator */}
       {showDetails && job.started_by_name && job.started_by_name !== 'Unknown' && (
         <div className="flex items-center gap-2">
-          <User className={cn("text-gray-400", iconSize)} />
-          <span className={cn("font-medium text-gray-700", textSize)}>
+          <User className={cn("text-blue-500", iconSize)} />
+          <span className={cn("font-medium text-blue-600", textSize)}>
             {compact ? "" : "Operator: "}{job.started_by_name}
           </span>
         </div>
@@ -113,9 +130,9 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
       {/* Quantity */}
       {showDetails && job.qty && job.qty > 0 && (
         <div className="flex items-center gap-2">
-          <span className={cn("text-gray-500", textSize)}>Qty:</span>
+          <Package className={cn("text-gray-400", iconSize)} />
           <span className={cn("font-medium text-gray-700", textSize)}>
-            {job.qty.toLocaleString()}
+            {compact ? "" : "Qty: "}{job.qty.toLocaleString()}
           </span>
         </div>
       )}
@@ -158,16 +175,6 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
               ? `${job.workflow_progress}%`
               : displayStatus
             }
-          </span>
-        </div>
-      )}
-
-      {/* Category Info */}
-      {showDetails && hasCategory && (
-        <div className="flex items-center gap-2">
-          <span className={cn("text-gray-500", textSize)}>Category:</span>
-          <span className={cn("font-medium text-gray-700", textSize)}>
-            {job.category_name || 'Unknown'}
           </span>
         </div>
       )}

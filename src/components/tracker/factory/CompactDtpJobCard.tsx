@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { JobStatusDisplay } from "@/components/tracker/common/JobStatusDisplay";
-import { Package, User } from "lucide-react";
+import { Package, User, Tag } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { 
   processJobStatus, 
   isJobOverdue, 
@@ -50,6 +51,9 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
   // Display active operator with User icon if available  
   const showOperator = job.started_by_name && job.started_by_name !== 'Unknown' && job.started_by_name !== '';
 
+  // Display category if available and not "No Category"
+  const showCategory = job.category_name && job.category_name !== 'No Category';
+
   return (
     <Card 
       className={cn(
@@ -74,6 +78,23 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
             </div>
           </div>
 
+          {/* Category Badge */}
+          {showCategory && (
+            <div className="flex items-center gap-1">
+              <Tag className="h-3 w-3" />
+              <Badge 
+                variant="outline" 
+                className="text-xs"
+                style={{ 
+                  borderColor: job.category_color,
+                  color: job.category_color 
+                }}
+              >
+                {job.category_name}
+              </Badge>
+            </div>
+          )}
+
           {/* Quantity and Active Operator Row */}
           <div className="flex items-center justify-between text-xs text-gray-600">
             {showQuantity && (
@@ -85,8 +106,8 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
             
             {showOperator && (
               <div className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                <span className="font-medium">{job.started_by_name}</span>
+                <User className="h-3 w-3 text-blue-500" />
+                <span className="font-medium text-blue-600">{job.started_by_name}</span>
               </div>
             )}
           </div>
