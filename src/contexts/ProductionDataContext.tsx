@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -58,6 +59,15 @@ export interface JobStageInstance {
       name: string;
       color: string;
     };
+  };
+  production_job?: {
+    id: string;
+    wo_no: string;
+    customer: string;
+    status: string;
+    due_date?: string;
+    reference?: string;
+    qty?: number;
   };
 }
 
@@ -219,34 +229,40 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
         .order('order_index', { ascending: true });
       if (allStagesErr) throw allStagesErr;
 
-      // Fetch job stage instances
-      const jobIds = jobsData?.map(job => job.id) || [];
-      let jobStagesData: JobStageInstance[] = [];
-      
-      if (jobIds.length > 0) {
-        const { data: stagesDataRaw, error: stagesErr } = await supabase
-          .from('job_stage_instances')
-          .select(`
-            *,
-            production_stages (
-              id, name, description, color, is_multi_part, master_queue_id, 
-              production_stages!master_queue_id ( name, color )
-            )
-          `)
-          .in('job_id', jobIds)
-          .eq('job_table_name', 'production_jobs')
-          .order('stage_order', { ascending: true });
+      // CRITICAL FIX: Fetch job stage instances WITH production_jobs data
+      const { data: stagesDataRaw, error: stagesErr } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          *,
+          production_stages (
+            id, name, description, color, is_multi_part, master_queue_id, 
+            production_stages!master_queue_id ( name, color )
+          ),
+          production_jobs!job_stage_instances_job_id_fkey (
+            id, wo_no, customer, status, due_date, reference, qty
+          )
+        `)
+        .eq('job_table_name', 'production_jobs')
+        .order('stage_order', { ascending: true });
 
-        if (stagesErr) throw stagesErr;
-        
-        // Properly map and type the job stages data
-        jobStagesData = (stagesDataRaw || []).map(stage => ({
-          ...stage,
-          status: ['pending', 'active', 'completed', 'skipped', 'reworked'].includes(stage.status) 
-            ? stage.status as 'pending' | 'active' | 'completed' | 'skipped' | 'reworked'
-            : 'pending'
-        }));
-      }
+      if (stagesErr) throw stagesErr;
+      
+      // Properly map and type the job stages data with production_job attached
+      const jobStagesData: JobStageInstance[] = (stagesDataRaw || []).map(stage => ({
+        ...stage,
+        status: ['pending', 'active', 'completed', 'skipped', 'reworked'].includes(stage.status) 
+          ? stage.status as 'pending' | 'active' | 'completed' | 'skipped' | 'reworked'
+          : 'pending',
+        production_job: stage.production_jobs ? {
+          id: stage.production_jobs.id,
+          wo_no: stage.production_jobs.wo_no || '',
+          customer: stage.production_jobs.customer || 'Unknown',
+          status: stage.production_jobs.status || '',
+          due_date: stage.production_jobs.due_date,
+          reference: stage.production_jobs.reference || '',
+          qty: stage.production_jobs.qty || 0
+        } : undefined
+      }));
 
       // Consolidate production stages
       const consolidated = consolidateStages(allStages || []);
