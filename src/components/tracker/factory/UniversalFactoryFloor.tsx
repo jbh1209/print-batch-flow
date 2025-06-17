@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { DtpKanbanDashboard } from "./DtpKanbanDashboard";
 import { ManagerDashboard } from "./ManagerDashboard";
-import { EnhancedFactoryFloorDashboard } from "./EnhancedFactoryFloorDashboard";
+import MultiStageKanban from "@/components/tracker/MultiStageKanban";
 
 export const UniversalFactoryFloor = () => {
   const { isDtpOperator, isManager } = useUserRole();
@@ -18,6 +18,6 @@ export const UniversalFactoryFloor = () => {
     return <ManagerDashboard />;
   }
 
-  // Regular operators get the enhanced factory floor dashboard
-  return <EnhancedFactoryFloorDashboard />;
+  // Regular operators get the working MultiStageKanban
+  return <MultiStageKanban jobs={[]} stages={[]} onRefresh={() => {}} />;
 };
