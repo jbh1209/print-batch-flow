@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useAccessibleJobsSimple } from "@/hooks/tracker/useAccessibleJobs/useAccessibleJobsSimple";
-import { useSmartPermissionDetectionSimple } from "@/hooks/tracker/useSmartPermissionDetectionSimple";
+import { useSmartPermissionDetection } from "@/hooks/tracker/useSmartPermissionDetection";
 import { OperatorHeader } from "./OperatorHeader";
 import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const SimplifiedFactoryFloor = () => {
-  const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetectionSimple();
+  const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetection();
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobsSimple({
     permissionType: highestPermission
   });
