@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { useSmartPermissionDetection } from "@/hooks/tracker/useSmartPermissionDetection";
 import { OperatorHeader } from "./OperatorHeader";
 import { QueueFilters } from "./QueueFilters";
 import { JobGroupsDisplay } from "./JobGroupsDisplay";
@@ -13,9 +14,13 @@ import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 export const UniversalFactoryFloor = () => {
   const { isDtpOperator, isOperator } = useUserRole();
+  const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetection();
+  
+  // Use smart permission detection for optimal job access
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: 'work'
+    permissionType: highestPermission // Dynamic permission based on user's capabilities
   });
+  
   const { startJob, completeJob } = useJobActions(refreshJobs);
 
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
@@ -41,7 +46,11 @@ export const UniversalFactoryFloor = () => {
 
   // Filter and categorize jobs with enhanced master queue debugging
   const { dtpJobs, proofJobs, hp12000Jobs, hp7900Jobs, hpT250Jobs, finishingJobs, otherJobs } = useMemo(() => {
-    console.log('🔄 Processing jobs in UniversalFactoryFloor with ENHANCED master queue logic:', jobs?.length || 0);
+    console.log('🔄 Processing jobs in UniversalFactoryFloor with SMART PERMISSION DETECTION:', {
+      jobCount: jobs?.length || 0,
+      permissionUsed: highestPermission,
+      permissionLoading
+    });
     
     if (!jobs || jobs.length === 0) {
       console.log('❌ No jobs available for processing');
@@ -57,7 +66,7 @@ export const UniversalFactoryFloor = () => {
     }
 
     let filtered = jobs;
-    console.log('📋 Starting with jobs:', filtered.length);
+    console.log('📋 Starting with jobs:', filtered.length, 'using permission:', highestPermission);
 
     // Enhanced debugging: Show a sample of jobs with their display_stage_name
     console.log('📊 Sample job stages (first 5):', filtered.slice(0, 5).map(job => ({
@@ -124,7 +133,8 @@ export const UniversalFactoryFloor = () => {
       otherJobs: sortJobsByWONumber(categories.otherJobs)
     };
 
-    console.log('✅ ENHANCED master queue groups with permission expansion:', {
+    console.log('✅ SMART PERMISSION job groups with optimal access:', {
+      permission: highestPermission,
       dtp: result.dtpJobs.length,
       proof: result.proofJobs.length,
       hp12000: result.hp12000Jobs.length,
@@ -136,7 +146,7 @@ export const UniversalFactoryFloor = () => {
     });
 
     return result;
-  }, [jobs, searchQuery, activeQueueFilters]);
+  }, [jobs, searchQuery, activeQueueFilters, highestPermission, permissionLoading]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -159,10 +169,11 @@ export const UniversalFactoryFloor = () => {
     setSelectedJob(null);
   };
 
-  if (isLoading) {
+  // Show loading state while detecting permissions
+  if (permissionLoading || isLoading) {
     return (
       <JobListLoading 
-        message="Loading your work queue..."
+        message="Loading your work queue with smart permissions..."
         showProgress={true}
       />
     );
@@ -210,7 +221,10 @@ export const UniversalFactoryFloor = () => {
     jobGroups.push({ title: "Other Jobs", jobs: otherJobs, color: "bg-gray-600" });
   }
 
-  console.log('🎨 Rendering ENHANCED master queue job groups:', jobGroups.map(g => ({ title: g.title, count: g.jobs.length })));
+  console.log('🎨 Rendering SMART PERMISSION job groups:', {
+    permission: highestPermission,
+    groups: jobGroups.map(g => ({ title: g.title, count: g.jobs.length }))
+  });
 
   const totalJobs = dtpJobs.length + proofJobs.length + hp12000Jobs.length + hp7900Jobs.length + hpT250Jobs.length + finishingJobs.length + otherJobs.length;
 
@@ -218,7 +232,7 @@ export const UniversalFactoryFloor = () => {
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Header */}
       <OperatorHeader 
-        title={isDtpOperator ? "DTP & Proofing Jobs" : "Factory Floor - Enhanced Master Queues"}
+        title={isDtpOperator ? "DTP & Proofing Jobs" : `Factory Floor - Smart Permissions (${highestPermission})`}
       />
 
       {/* Controls */}
@@ -235,7 +249,7 @@ export const UniversalFactoryFloor = () => {
         jobGroupsCount={jobGroups.length}
       />
 
-      {/* Job Groups - Enhanced Master Queue Display */}
+      {/* Job Groups - Smart Permission Display */}
       <div className="flex-1 overflow-hidden">
         <JobGroupsDisplay
           jobGroups={jobGroups}

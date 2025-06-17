@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, AlertTriangle, Play, CheckCircle } from "lucide-react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useSmartPermissionDetection } from "@/hooks/tracker/useSmartPermissionDetection";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { ViewToggle } from "@/components/tracker/common/ViewToggle";
 import { JobListView } from "@/components/tracker/common/JobListView";
@@ -19,10 +20,14 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
   stageFilter, 
   isDtpOperator = false 
 }) => {
+  const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetection();
+  
+  // Use smart permission detection for optimal job access
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobs({
-    permissionType: 'work',
+    permissionType: highestPermission, // Dynamic permission based on user's capabilities
     stageFilter: stageFilter || undefined
   });
+  
   const { consolidatedStages } = useUserStagePermissions();
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
@@ -33,11 +38,12 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  if (isLoading) {
+  // Show loading state while detecting permissions
+  if (permissionLoading || isLoading) {
     return (
       <div className="flex items-center justify-center p-5 h-full">
         <RefreshCw className="h-7 w-7 animate-spin" />
-        <span className="ml-2 text-base">Loading your jobs...</span>
+        <span className="ml-2 text-base">Loading with smart permissions...</span>
       </div>
     );
   }
@@ -61,22 +67,18 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
 
   const getHeaderTitle = () => {
     if (isDtpOperator) return "DTP & Proofing Jobs";
-    return "Factory Floor";
+    return `Factory Floor (${highestPermission})`;
   };
 
   const getHeaderSubtitle = () => {
     if (isDtpOperator) return "Jobs ready for DTP and proofing work";
-    return "Jobs you can work on";
+    return `Jobs you can ${highestPermission} - Smart permission detection`;
   };
 
-  // Enhanced job display logic for master queue consolidation
   const getEffectiveStageDisplay = (job: any) => {
-    // If job has a display_stage_name from the database, use it
     if (job.display_stage_name) {
       return job.display_stage_name;
     }
-    
-    // Otherwise, use the stage consolidation utility
     return getStageDisplayName(job.current_stage_id || '', consolidatedStages);
   };
 
@@ -86,6 +88,12 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
     if (status === 'pending') return { label: 'Pending', variant: 'outline', color: 'text-orange-600 border-orange-200' };
     return { label: 'Unknown', variant: 'secondary', color: '' };
   };
+
+  console.log('🎯 FactoryFloorView using smart permission:', {
+    permission: highestPermission,
+    jobCount: jobs.length,
+    isDtpOperator
+  });
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -168,7 +176,7 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
           viewMode === 'card' ? (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Your Work Queue</CardTitle>
+                <CardTitle className="text-base">Your Work Queue (Smart Permissions)</CardTitle>
               </CardHeader>
               <CardContent className="py-2">
                 <div className="space-y-3">
