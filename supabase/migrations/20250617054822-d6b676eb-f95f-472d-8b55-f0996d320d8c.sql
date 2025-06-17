@@ -2,7 +2,7 @@
 -- Drop the existing function first to allow changing the return type
 DROP FUNCTION IF EXISTS public.get_user_accessible_jobs(uuid, text, text, uuid);
 
--- Recreate the function with the enhanced master queue permission expansion and display_stage_name
+-- Recreate the function with FIXED master queue permission expansion and display_stage_name
 CREATE OR REPLACE FUNCTION public.get_user_accessible_jobs(
   p_user_id uuid DEFAULT auth.uid(), 
   p_permission_type text DEFAULT 'work'::text, 
@@ -96,13 +96,14 @@ BEGIN
       AND (p_stage_filter IS NULL OR jcs.current_stage_id = p_stage_filter)
     ORDER BY pj.wo_no;
   ELSE
-    -- Non-admin users - ENHANCED master queue permission expansion
+    -- Non-admin users - COMPLETELY REWRITTEN master queue permission expansion
     RETURN QUERY
     WITH user_groups AS (
       SELECT ugm.group_id
       FROM public.user_group_memberships ugm
       WHERE ugm.user_id = p_user_id
     ),
+    -- Get direct permissions (stages user has direct access to)
     direct_stage_permissions AS (
       SELECT DISTINCT
         ugsp.production_stage_id,
@@ -120,42 +121,65 @@ BEGIN
       )
       GROUP BY ugsp.production_stage_id
     ),
-    -- CRITICAL FIX: Expand master queue permissions to all subsidiary stages
+    -- CRITICAL FIX: Find all master queues the user has access to
+    accessible_master_queues AS (
+      SELECT 
+        dsp.production_stage_id as master_queue_id,
+        dsp.can_view,
+        dsp.can_edit,
+        dsp.can_work,
+        dsp.can_manage
+      FROM direct_stage_permissions dsp
+      -- Only consider stages that ARE master queues (have no master_queue_id themselves)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM public.production_stages ps_check 
+        WHERE ps_check.id = dsp.production_stage_id 
+        AND ps_check.master_queue_id IS NOT NULL
+      )
+    ),
+    -- CRITICAL FIX: Expand permissions to ALL subsidiary stages of accessible master queues
     expanded_stage_permissions AS (
+      -- Include all directly accessible stages
+      SELECT 
+        dsp.production_stage_id,
+        dsp.can_view,
+        dsp.can_edit,
+        dsp.can_work,
+        dsp.can_manage,
+        'direct'::text as permission_source
+      FROM direct_stage_permissions dsp
+      
+      UNION ALL
+      
+      -- Include ALL subsidiary stages of accessible master queues
       SELECT 
         ps.id as production_stage_id,
-        CASE 
-          -- Direct permission on the stage itself
-          WHEN dsp.production_stage_id IS NOT NULL THEN dsp.can_view
-          -- Permission via master queue (if this stage has a master queue that user has access to)
-          WHEN ps.master_queue_id IS NOT NULL AND master_dsp.production_stage_id IS NOT NULL THEN master_dsp.can_view
-          ELSE false
-        END as can_view,
-        CASE 
-          WHEN dsp.production_stage_id IS NOT NULL THEN dsp.can_edit
-          WHEN ps.master_queue_id IS NOT NULL AND master_dsp.production_stage_id IS NOT NULL THEN master_dsp.can_edit
-          ELSE false
-        END as can_edit,
-        CASE 
-          WHEN dsp.production_stage_id IS NOT NULL THEN dsp.can_work
-          WHEN ps.master_queue_id IS NOT NULL AND master_dsp.production_stage_id IS NOT NULL THEN master_dsp.can_work
-          ELSE false
-        END as can_work,
-        CASE 
-          WHEN dsp.production_stage_id IS NOT NULL THEN dsp.can_manage
-          WHEN ps.master_queue_id IS NOT NULL AND master_dsp.production_stage_id IS NOT NULL THEN master_dsp.can_manage
-          ELSE false
-        END as can_manage
+        amq.can_view,
+        amq.can_edit,
+        amq.can_work,
+        amq.can_manage,
+        'master_queue'::text as permission_source
       FROM public.production_stages ps
-      LEFT JOIN direct_stage_permissions dsp ON ps.id = dsp.production_stage_id
-      LEFT JOIN direct_stage_permissions master_dsp ON ps.master_queue_id = master_dsp.production_stage_id
+      INNER JOIN accessible_master_queues amq ON ps.master_queue_id = amq.master_queue_id
       WHERE ps.is_active = true
-        AND (
-          -- User has direct permission on this stage
-          (dsp.production_stage_id IS NOT NULL) OR
-          -- User has permission on the master queue that this stage belongs to
-          (ps.master_queue_id IS NOT NULL AND master_dsp.production_stage_id IS NOT NULL)
-        )
+        AND ps.master_queue_id IS NOT NULL
+    ),
+    -- Aggregate all permissions (direct + inherited from master queues)
+    final_stage_permissions AS (
+      SELECT 
+        esp.production_stage_id,
+        BOOL_OR(esp.can_view) as can_view,
+        BOOL_OR(esp.can_edit) as can_edit,
+        BOOL_OR(esp.can_work) as can_work,
+        BOOL_OR(esp.can_manage) as can_manage
+      FROM expanded_stage_permissions esp
+      WHERE (
+        (p_permission_type = 'view' AND esp.can_view = true) OR
+        (p_permission_type = 'edit' AND esp.can_edit = true) OR
+        (p_permission_type = 'work' AND esp.can_work = true) OR
+        (p_permission_type = 'manage' AND esp.can_manage = true)
+      )
+      GROUP BY esp.production_stage_id
     ),
     accessible_jobs AS (
       SELECT DISTINCT ON (jsi.job_id)
@@ -163,20 +187,14 @@ BEGIN
         jsi.production_stage_id as current_stage_id,
         jsi.status as current_stage_status,
         jsi.category_id,
-        esp.can_view,
-        esp.can_edit,
-        esp.can_work,
-        esp.can_manage
+        fsp.can_view,
+        fsp.can_edit,
+        fsp.can_work,
+        fsp.can_manage
       FROM public.job_stage_instances jsi
-      INNER JOIN expanded_stage_permissions esp ON jsi.production_stage_id = esp.production_stage_id
+      INNER JOIN final_stage_permissions fsp ON jsi.production_stage_id = fsp.production_stage_id
       WHERE jsi.job_table_name = 'production_jobs'
         AND jsi.status IN ('active', 'pending')
-        AND (
-          (p_permission_type = 'view' AND esp.can_view = true) OR
-          (p_permission_type = 'edit' AND esp.can_edit = true) OR
-          (p_permission_type = 'work' AND esp.can_work = true) OR
-          (p_permission_type = 'manage' AND esp.can_manage = true)
-        )
       ORDER BY jsi.job_id, jsi.stage_order ASC
     ),
     job_stage_counts AS (
