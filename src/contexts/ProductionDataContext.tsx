@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -229,7 +228,7 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
         .order('order_index', { ascending: true });
       if (allStagesErr) throw allStagesErr;
 
-      // CRITICAL FIX: Fetch job stage instances WITH production_jobs data
+      // Fetch job stage instances with production_stages data
       const { data: stagesDataRaw, error: stagesErr } = await supabase
         .from('job_stage_instances')
         .select(`
@@ -237,9 +236,6 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
           production_stages (
             id, name, description, color, is_multi_part, master_queue_id, 
             production_stages!master_queue_id ( name, color )
-          ),
-          production_jobs!job_stage_instances_job_id_fkey (
-            id, wo_no, customer, status, due_date, reference, qty
           )
         `)
         .eq('job_table_name', 'production_jobs')
@@ -247,22 +243,31 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
 
       if (stagesErr) throw stagesErr;
       
+      // Create a map of job data for quick lookup
+      const jobsMap = new Map();
+      (jobsData || []).forEach(job => {
+        jobsMap.set(job.id, job);
+      });
+      
       // Properly map and type the job stages data with production_job attached
-      const jobStagesData: JobStageInstance[] = (stagesDataRaw || []).map(stage => ({
-        ...stage,
-        status: ['pending', 'active', 'completed', 'skipped', 'reworked'].includes(stage.status) 
-          ? stage.status as 'pending' | 'active' | 'completed' | 'skipped' | 'reworked'
-          : 'pending',
-        production_job: stage.production_jobs ? {
-          id: stage.production_jobs.id,
-          wo_no: stage.production_jobs.wo_no || '',
-          customer: stage.production_jobs.customer || 'Unknown',
-          status: stage.production_jobs.status || '',
-          due_date: stage.production_jobs.due_date,
-          reference: stage.production_jobs.reference || '',
-          qty: stage.production_jobs.qty || 0
-        } : undefined
-      }));
+      const jobStagesData: JobStageInstance[] = (stagesDataRaw || []).map(stage => {
+        const jobData = jobsMap.get(stage.job_id);
+        return {
+          ...stage,
+          status: ['pending', 'active', 'completed', 'skipped', 'reworked'].includes(stage.status) 
+            ? stage.status as 'pending' | 'active' | 'completed' | 'skipped' | 'reworked'
+            : 'pending',
+          production_job: jobData ? {
+            id: jobData.id,
+            wo_no: jobData.wo_no || '',
+            customer: jobData.customer || 'Unknown',
+            status: jobData.status || '',
+            due_date: jobData.due_date,
+            reference: jobData.reference || '',
+            qty: jobData.qty || 0
+          } : undefined
+        };
+      });
 
       // Consolidate production stages
       const consolidated = consolidateStages(allStages || []);
