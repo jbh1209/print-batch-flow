@@ -29,11 +29,14 @@ const StageColumn: React.FC<StageColumnProps> = ({
   selectedJobId,
   onSelectJob,
 }) => {
-  // Filter jobs for this stage - show jobs where current_stage_id matches this stage
+  // Filter jobs for this stage - show all jobs that have this stage and haven't completed it yet
   const stageJobs = jobs
     .filter(job => {
-      // Show jobs that are currently in this stage
-      return job.current_stage_id === stage.id;
+      // Show jobs that have a stage instance for this stage that is either pending or active
+      const stageInstance = job.job_stage_instances?.find(jsi => 
+        jsi.production_stage_id === stage.id && jsi.status !== 'completed'
+      );
+      return !!stageInstance;
     })
     .sort((a, b) => {
       // Sort by job order if available, otherwise by wo_no
@@ -69,10 +72,10 @@ const StageColumn: React.FC<StageColumnProps> = ({
     }
   };
 
-  // Get current stage instance for a job
-  const getCurrentStageInstance = (job: any) => {
+  // Get stage instance for a job in this stage
+  const getStageInstance = (job: any) => {
     return job.job_stage_instances?.find(
-      jsi => jsi.production_stage_id === stage.id && (jsi.status === 'active' || jsi.status === 'pending')
+      jsi => jsi.production_stage_id === stage.id && jsi.status !== 'completed'
     );
   };
 
@@ -99,7 +102,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col gap-1">
               {stageJobs.map(job => {
-                const stageInstance = getCurrentStageInstance(job);
+                const stageInstance = getStageInstance(job);
                 const dueMeta = getDueInfo({ production_job: job });
                 const formattedDueDate = formatDueDate(job.due_date);
                 
@@ -198,7 +201,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
           </thead>
           <tbody>
             {stageJobs.map(job => {
-              const stageInstance = getCurrentStageInstance(job);
+              const stageInstance = getStageInstance(job);
               const dueMeta = getDueInfo({ production_job: job });
               const woNo = job.wo_no ?? "Orphaned";
               const customer = job.customer ?? "Unknown";
