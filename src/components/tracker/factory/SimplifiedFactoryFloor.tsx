@@ -21,7 +21,11 @@ export const SimplifiedFactoryFloor = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Group jobs by master queue
+  // Log raw job count for debugging
+  console.log('🔍 SimplifiedFactoryFloor - Raw accessible jobs count:', jobs.length);
+  console.log('🔍 SimplifiedFactoryFloor - Sample jobs:', jobs.slice(0, 3));
+
+  // Group jobs by master queue (display_stage_name)
   const jobsByMasterQueue = useMemo(() => {
     const grouped = jobs.reduce((acc, job) => {
       const queueName = job.display_stage_name || job.current_stage_name || 'Unknown Queue';
@@ -104,7 +108,7 @@ export const SimplifiedFactoryFloor = () => {
     );
   }
 
-  console.log('📊 Simplified Factory Floor Debug:', {
+  console.log('📊 Final Display Stats:', {
     permission: highestPermission,
     totalJobsFromDB: jobs.length,
     filteredTotalJobs: totalFilteredJobs,
