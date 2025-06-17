@@ -77,10 +77,10 @@ export const UniversalJobCard: React.FC<UniversalJobCardProps> = ({
             {/* Priority Indicators */}
             <div className="flex items-center gap-1">
               {isOverdue && (
-                <AlertTriangle className="h-4 w-4 text-red-500" title="Overdue" />
+                <AlertTriangle className="h-4 w-4 text-red-500" />
               )}
               {isDueSoon && !isOverdue && (
-                <AlertTriangle className="h-4 w-4 text-orange-500" title="Due Soon" />
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
               )}
             </div>
           </div>
