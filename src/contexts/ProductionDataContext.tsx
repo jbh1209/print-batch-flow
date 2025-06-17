@@ -249,8 +249,17 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
         jobsMap.set(job.id, job);
       });
       
+      // DEFENSIVE FILTERING: Only keep job stages that have valid production jobs
+      const validStagesData = (stagesDataRaw || []).filter(stage => {
+        const hasValidJob = jobsMap.has(stage.job_id);
+        if (!hasValidJob) {
+          console.warn(`Filtering out orphaned job stage instance ${stage.id} for missing job ${stage.job_id}`);
+        }
+        return hasValidJob;
+      });
+      
       // Properly map and type the job stages data with production_job attached
-      const jobStagesData: JobStageInstance[] = (stagesDataRaw || []).map(stage => {
+      const jobStagesData: JobStageInstance[] = validStagesData.map(stage => {
         const jobData = jobsMap.get(stage.job_id);
         return {
           ...stage,
