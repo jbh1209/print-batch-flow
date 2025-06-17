@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,9 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
 }) => {
   const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetection();
   
-  // Use smart permission detection for optimal job access
+  // Simplified job access - let database function do all the work
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobs({
-    permissionType: highestPermission, // Dynamic permission based on user's capabilities
+    permissionType: highestPermission,
     stageFilter: stageFilter || undefined
   });
   
@@ -72,7 +73,7 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
 
   const getHeaderSubtitle = () => {
     if (isDtpOperator) return "Jobs ready for DTP and proofing work";
-    return `Jobs you can ${highestPermission} - Smart permission detection`;
+    return `Jobs you can ${highestPermission} - Simplified permissions`;
   };
 
   const getEffectiveStageDisplay = (job: any) => {
@@ -89,7 +90,7 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
     return { label: 'Unknown', variant: 'secondary', color: '' };
   };
 
-  console.log('🎯 FactoryFloorView using smart permission:', {
+  console.log('🎯 FactoryFloorView using simplified smart permission:', {
     permission: highestPermission,
     jobCount: jobs.length,
     isDtpOperator
@@ -126,7 +127,7 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
           </div>
         </div>
 
-        {/* Job Statistics */}
+        {/* Simple Job Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
           <Card>
             <CardContent className="p-3">
@@ -176,7 +177,7 @@ export const FactoryFloorView: React.FC<FactoryFloorViewProps> = ({
           viewMode === 'card' ? (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Your Work Queue (Smart Permissions)</CardTitle>
+                <CardTitle className="text-base">Your Work Queue (Simplified)</CardTitle>
               </CardHeader>
               <CardContent className="py-2">
                 <div className="space-y-3">

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
@@ -18,7 +19,7 @@ export const UniversalFactoryFloor = () => {
   
   // Use smart permission detection for optimal job access
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: highestPermission // Dynamic permission based on user's capabilities
+    permissionType: highestPermission // Let the database function handle all the filtering
   });
   
   const { startJob, completeJob } = useJobActions(refreshJobs);
@@ -44,9 +45,9 @@ export const UniversalFactoryFloor = () => {
     }
   };
 
-  // Filter and categorize jobs with enhanced master queue debugging
+  // Simple filtering and categorization - let the jobs come pre-filtered from the database
   const { dtpJobs, proofJobs, hp12000Jobs, hp7900Jobs, hpT250Jobs, finishingJobs, otherJobs } = useMemo(() => {
-    console.log('🔄 Processing jobs in UniversalFactoryFloor with SMART PERMISSION DETECTION:', {
+    console.log('🔄 Processing jobs with simplified logic:', {
       jobCount: jobs?.length || 0,
       permissionUsed: highestPermission,
       permissionLoading
@@ -68,15 +69,7 @@ export const UniversalFactoryFloor = () => {
     let filtered = jobs;
     console.log('📋 Starting with jobs:', filtered.length, 'using permission:', highestPermission);
 
-    // Enhanced debugging: Show a sample of jobs with their display_stage_name
-    console.log('📊 Sample job stages (first 5):', filtered.slice(0, 5).map(job => ({
-      wo_no: job.wo_no,
-      current_stage_name: job.current_stage_name,
-      display_stage_name: job.display_stage_name,
-      effective_stage: job.display_stage_name || job.current_stage_name
-    })));
-
-    // Apply search filter
+    // Apply simple search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(job => 
@@ -89,15 +82,15 @@ export const UniversalFactoryFloor = () => {
       console.log('🔍 After search filter:', filtered.length);
     }
 
-    // Apply queue filters for printing jobs with enhanced master queue awareness
+    // Apply simple queue filters for printing jobs
     if (activeQueueFilters.length > 0) {
-      console.log('🎯 Applying enhanced master queue filters:', activeQueueFilters);
+      console.log('🎯 Applying queue filters:', activeQueueFilters);
       filtered = filtered.filter(job => {
         const stageName = (job.current_stage_name || '').toLowerCase();
         const displayStageName = (job.display_stage_name || '').toLowerCase();
         const effectiveStageName = displayStageName || stageName;
 
-        // Check if it's a printing job and matches master queue filters
+        // Check if it's a printing job and matches filters
         const isPrintingJob = effectiveStageName.includes('print') ||
                              effectiveStageName.includes('hp') ||
                              effectiveStageName.includes('12000') ||
@@ -107,10 +100,6 @@ export const UniversalFactoryFloor = () => {
         if (isPrintingJob) {
           return activeQueueFilters.some(filter => {
             const filterLower = filter.toLowerCase();
-            // Match against master queue names
-            if (filterLower.includes('12000') && (effectiveStageName.includes('12000'))) return true;
-            if (filterLower.includes('7900') && (effectiveStageName.includes('7900'))) return true;
-            if (filterLower.includes('t250') && (effectiveStageName.includes('t250') || effectiveStageName.includes('t 250'))) return true;
             return effectiveStageName.includes(filterLower);
           });
         }
@@ -118,9 +107,10 @@ export const UniversalFactoryFloor = () => {
         // Non-printing jobs are always shown
         return true;
       });
-      console.log('🎯 After enhanced master queue filter:', filtered.length);
+      console.log('🎯 After queue filter:', filtered.length);
     }
 
+    // Categorize the filtered jobs
     const categories = categorizeJobs(filtered);
     
     const result = {
@@ -133,7 +123,7 @@ export const UniversalFactoryFloor = () => {
       otherJobs: sortJobsByWONumber(categories.otherJobs)
     };
 
-    console.log('✅ SMART PERMISSION job groups with optimal access:', {
+    console.log('✅ Simplified job categorization complete:', {
       permission: highestPermission,
       dtp: result.dtpJobs.length,
       proof: result.proofJobs.length,
@@ -190,7 +180,7 @@ export const UniversalFactoryFloor = () => {
     );
   }
 
-  // Determine which job groups to show based on user role and available jobs
+  // Simple job groups configuration
   const jobGroups = [];
   
   if (isDtpOperator || dtpJobs.length > 0) {
@@ -221,7 +211,7 @@ export const UniversalFactoryFloor = () => {
     jobGroups.push({ title: "Other Jobs", jobs: otherJobs, color: "bg-gray-600" });
   }
 
-  console.log('🎨 Rendering SMART PERMISSION job groups:', {
+  console.log('🎨 Rendering simplified job groups:', {
     permission: highestPermission,
     groups: jobGroups.map(g => ({ title: g.title, count: g.jobs.length }))
   });
@@ -249,7 +239,7 @@ export const UniversalFactoryFloor = () => {
         jobGroupsCount={jobGroups.length}
       />
 
-      {/* Job Groups - Smart Permission Display */}
+      {/* Job Groups - Simplified Display */}
       <div className="flex-1 overflow-hidden">
         <JobGroupsDisplay
           jobGroups={jobGroups}

@@ -21,7 +21,7 @@ export const useSmartPermissionDetection = () => {
       try {
         setIsLoading(true);
 
-        // Check if user is admin first
+        // Check if user is admin first - admins get 'manage' permission
         const { data: adminCheck } = await supabase
           .from('user_roles')
           .select('role')
@@ -30,12 +30,13 @@ export const useSmartPermissionDetection = () => {
           .single();
 
         if (adminCheck?.role === 'admin') {
+          console.log('👑 Admin user detected - highest permission: manage');
           setHighestPermission('manage');
           setIsLoading(false);
           return;
         }
 
-        // Get user's stage permissions to determine highest level
+        // For non-admin users, get their stage permissions and find the highest level
         const { data: permissions, error } = await supabase.rpc('get_user_accessible_stages', {
           p_user_id: user.id
         });
@@ -48,21 +49,22 @@ export const useSmartPermissionDetection = () => {
         }
 
         if (!permissions || permissions.length === 0) {
+          console.log('No permissions found - defaulting to view');
           setHighestPermission('view');
           setIsLoading(false);
           return;
         }
 
-        // Determine highest permission level across all stages
+        // Find the highest permission level across all accessible stages
         let highest: PermissionType = 'view';
 
         for (const perm of permissions) {
           if (perm.can_manage) {
             highest = 'manage';
-            break; // manage is highest, no need to check further
-          } else if (perm.can_work && highest !== 'manage') {
+            break; // 'manage' is the highest, no need to check further
+          } else if (perm.can_work) {
             highest = 'work';
-          } else if (perm.can_edit && highest !== 'manage' && highest !== 'work') {
+          } else if (perm.can_edit && highest === 'view') {
             highest = 'edit';
           }
         }
