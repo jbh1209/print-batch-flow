@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
@@ -42,7 +41,7 @@ export const UniversalFactoryFloor = () => {
 
   // Filter and categorize jobs with enhanced master queue debugging
   const { dtpJobs, proofJobs, hp12000Jobs, hp7900Jobs, hpT250Jobs, finishingJobs, otherJobs } = useMemo(() => {
-    console.log('🔄 Processing jobs in UniversalFactoryFloor with master queue logic:', jobs?.length || 0);
+    console.log('🔄 Processing jobs in UniversalFactoryFloor with ENHANCED master queue logic:', jobs?.length || 0);
     
     if (!jobs || jobs.length === 0) {
       console.log('❌ No jobs available for processing');
@@ -60,6 +59,14 @@ export const UniversalFactoryFloor = () => {
     let filtered = jobs;
     console.log('📋 Starting with jobs:', filtered.length);
 
+    // Enhanced debugging: Show a sample of jobs with their display_stage_name
+    console.log('📊 Sample job stages (first 5):', filtered.slice(0, 5).map(job => ({
+      wo_no: job.wo_no,
+      current_stage_name: job.current_stage_name,
+      display_stage_name: job.display_stage_name,
+      effective_stage: job.display_stage_name || job.current_stage_name
+    })));
+
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -67,14 +74,15 @@ export const UniversalFactoryFloor = () => {
         job.wo_no?.toLowerCase().includes(query) ||
         job.customer?.toLowerCase().includes(query) ||
         job.reference?.toLowerCase().includes(query) ||
-        job.current_stage_name?.toLowerCase().includes(query)
+        job.current_stage_name?.toLowerCase().includes(query) ||
+        job.display_stage_name?.toLowerCase().includes(query)
       );
       console.log('🔍 After search filter:', filtered.length);
     }
 
-    // Apply queue filters for printing jobs with master queue awareness
+    // Apply queue filters for printing jobs with enhanced master queue awareness
     if (activeQueueFilters.length > 0) {
-      console.log('🎯 Applying master queue filters:', activeQueueFilters);
+      console.log('🎯 Applying enhanced master queue filters:', activeQueueFilters);
       filtered = filtered.filter(job => {
         const stageName = (job.current_stage_name || '').toLowerCase();
         const displayStageName = (job.display_stage_name || '').toLowerCase();
@@ -101,7 +109,7 @@ export const UniversalFactoryFloor = () => {
         // Non-printing jobs are always shown
         return true;
       });
-      console.log('🎯 After master queue filter:', filtered.length);
+      console.log('🎯 After enhanced master queue filter:', filtered.length);
     }
 
     const categories = categorizeJobs(filtered);
@@ -116,14 +124,15 @@ export const UniversalFactoryFloor = () => {
       otherJobs: sortJobsByWONumber(categories.otherJobs)
     };
 
-    console.log('✅ Final master queue groups:', {
+    console.log('✅ ENHANCED master queue groups with permission expansion:', {
       dtp: result.dtpJobs.length,
       proof: result.proofJobs.length,
       hp12000: result.hp12000Jobs.length,
       hp7900: result.hp7900Jobs.length,
       hpT250: result.hpT250Jobs.length,
       finishing: result.finishingJobs.length,
-      other: result.otherJobs.length
+      other: result.otherJobs.length,
+      total: Object.values(result).reduce((acc, arr) => acc + arr.length, 0)
     });
 
     return result;
@@ -201,7 +210,7 @@ export const UniversalFactoryFloor = () => {
     jobGroups.push({ title: "Other Jobs", jobs: otherJobs, color: "bg-gray-600" });
   }
 
-  console.log('🎨 Rendering master queue job groups:', jobGroups.map(g => ({ title: g.title, count: g.jobs.length })));
+  console.log('🎨 Rendering ENHANCED master queue job groups:', jobGroups.map(g => ({ title: g.title, count: g.jobs.length })));
 
   const totalJobs = dtpJobs.length + proofJobs.length + hp12000Jobs.length + hp7900Jobs.length + hpT250Jobs.length + finishingJobs.length + otherJobs.length;
 
@@ -209,7 +218,7 @@ export const UniversalFactoryFloor = () => {
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Header */}
       <OperatorHeader 
-        title={isDtpOperator ? "DTP & Proofing Jobs" : "Factory Floor - Master Queues"}
+        title={isDtpOperator ? "DTP & Proofing Jobs" : "Factory Floor - Enhanced Master Queues"}
       />
 
       {/* Controls */}
@@ -226,7 +235,7 @@ export const UniversalFactoryFloor = () => {
         jobGroupsCount={jobGroups.length}
       />
 
-      {/* Job Groups - Master Queue Display */}
+      {/* Job Groups - Enhanced Master Queue Display */}
       <div className="flex-1 overflow-hidden">
         <JobGroupsDisplay
           jobGroups={jobGroups}

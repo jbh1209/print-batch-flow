@@ -1,4 +1,3 @@
-
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 export interface CategorizedJobs {
@@ -49,9 +48,12 @@ const STAGE_TO_MASTER_QUEUE_MAP: Record<string, string> = {
 };
 
 /**
- * Get master queue category from stage name
+ * Get master queue category from stage name - now uses display_stage_name first
  */
-const getMasterQueueCategory = (stageName: string): string | null => {
+const getMasterQueueCategory = (job: AccessibleJob): string | null => {
+  // Use display_stage_name first (for master queue consolidation), fallback to current_stage_name
+  const stageName = job.display_stage_name || job.current_stage_name || '';
+  
   if (!stageName) return null;
   
   const normalizedStage = stageName.toLowerCase().trim();
@@ -71,7 +73,7 @@ const getMasterQueueCategory = (stageName: string): string | null => {
 
 /**
  * Enhanced job categorization that properly handles master queue consolidation
- * and groups jobs by their master queue assignments
+ * and groups jobs by their master queue assignments using display_stage_name
  */
 export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
   const categorized: CategorizedJobs = {
@@ -84,22 +86,20 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
     otherJobs: []
   };
 
-  console.log('🔍 Starting job categorization with master queue logic:', jobs.length, 'jobs');
+  console.log('🔍 Starting job categorization with enhanced master queue logic:', jobs.length, 'jobs');
   
   // Debug: Log all unique stage names
-  const uniqueStages = new Set<string>();
+  const uniqueDisplayStages = new Set<string>();
+  const uniqueCurrentStages = new Set<string>();
   jobs.forEach(job => {
-    if (job.current_stage_name) uniqueStages.add(job.current_stage_name);
-    if (job.display_stage_name) uniqueStages.add(job.display_stage_name);
+    if (job.display_stage_name) uniqueDisplayStages.add(job.display_stage_name);
+    if (job.current_stage_name) uniqueCurrentStages.add(job.current_stage_name);
   });
-  console.log('📋 Unique stage names found:', Array.from(uniqueStages).sort());
+  console.log('📋 Unique display stage names found:', Array.from(uniqueDisplayStages).sort());
+  console.log('📋 Unique current stage names found:', Array.from(uniqueCurrentStages).sort());
 
   jobs.forEach(job => {
-    const stageName = (job.current_stage_name || '').toLowerCase();
-    const displayStageName = (job.display_stage_name || '').toLowerCase();
-    
-    // Use display stage name if available (for master queue consolidation), otherwise use current stage
-    const effectiveStageName = displayStageName || stageName;
+    const effectiveStageName = (job.display_stage_name || job.current_stage_name || '').toLowerCase();
     
     console.log('🏷️ Processing job:', job.wo_no, {
       current_stage: job.current_stage_name,
@@ -107,8 +107,8 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
       effective_stage: effectiveStageName
     });
     
-    // Check for master queue assignment first
-    const masterQueueCategory = getMasterQueueCategory(effectiveStageName);
+    // Check for master queue assignment first using enhanced logic
+    const masterQueueCategory = getMasterQueueCategory(job);
     
     if (masterQueueCategory) {
       console.log('📍 Master queue detected for job:', job.wo_no, '→', masterQueueCategory);
@@ -172,15 +172,16 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
     other: categorized.otherJobs.length
   };
 
-  console.log('📊 Master Queue Categorization Results:', results);
+  console.log('📊 Enhanced Master Queue Categorization Results:', results);
+  console.log('🎯 Total jobs categorized:', Object.values(results).reduce((a, b) => a + b, 0));
   
-  // Enhanced debugging for missing HP 7900 jobs
+  // Enhanced debugging for missing jobs in master queues
   if (categorized.hp7900Jobs.length === 0) {
-    console.log('⚠️ NO HP 7900 JOBS FOUND! Analyzing all jobs:');
+    console.log('⚠️ NO HP 7900 JOBS FOUND! Analyzing all jobs with display_stage_name:');
     jobs.forEach(job => {
       const allStageVariants = [
-        job.current_stage_name,
-        job.display_stage_name
+        job.display_stage_name,
+        job.current_stage_name
       ].filter(Boolean);
       
       allStageVariants.forEach(stage => {
@@ -189,7 +190,7 @@ export const categorizeJobs = (jobs: AccessibleJob[]): CategorizedJobs => {
             wo_no: job.wo_no,
             stage_name: stage,
             normalized: stage.toLowerCase(),
-            master_queue_result: getMasterQueueCategory(stage)
+            master_queue_result: getMasterQueueCategory(job)
           });
         }
       });

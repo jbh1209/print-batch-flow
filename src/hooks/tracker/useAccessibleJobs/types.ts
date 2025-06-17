@@ -20,8 +20,7 @@ export interface AccessibleJob {
   workflow_progress: number;
   total_stages: number;
   completed_stages: number;
-  master_queue_id?: string;
-  display_stage_name?: string;
+  display_stage_name: string; // New field for master queue consolidation
 }
 
 export interface UseAccessibleJobsOptions {

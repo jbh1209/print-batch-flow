@@ -1770,6 +1770,7 @@ export type Database = {
           workflow_progress: number
           total_stages: number
           completed_stages: number
+          display_stage_name: string
         }[]
       }
       get_user_accessible_stages: {
