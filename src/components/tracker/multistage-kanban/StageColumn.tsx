@@ -1,3 +1,4 @@
+
 // --- STAGE COLUMN REFACTOR (organize by view mode and factor out subcomponents/utils) ---
 import React, { useEffect } from "react";
 import JobStageCard from "./JobStageCard";
@@ -17,13 +18,18 @@ const StageColumn: React.FC<StageColumnProps> = ({
   selectedJobId,
   onSelectJob,
 }) => {
-  // Filter and sort jobs for this stage (original logic preserved)
+  // Filter jobs for this stage - EXCLUDE completed jobs and only show active/pending stages
   const stageJobStages = jobStages
-    .filter(js =>
-      js.production_stage_id === stage.id &&
-      js.status !== "completed" &&
-      js.status !== "skipped"
-    )
+    .filter(js => {
+      // Filter by stage
+      const isCorrectStage = js.production_stage_id === stage.id;
+      // Filter out completed/skipped stages
+      const isActiveStage = js.status !== "completed" && js.status !== "skipped";
+      // CRITICAL: Filter out job stages where the parent job is completed
+      const isJobActive = js.production_job?.status !== 'Completed';
+      
+      return isCorrectStage && isActiveStage && isJobActive;
+    })
     .sort((a, b) => {
       if (a.job_order_in_stage && b.job_order_in_stage) {
         return a.job_order_in_stage - b.job_order_in_stage;
@@ -42,6 +48,19 @@ const StageColumn: React.FC<StageColumnProps> = ({
   const isJobHighlighted = (jobStage: any) => (
     selectedJobId && jobStage.production_job?.id === selectedJobId
   );
+
+  // Format due date as MM-DD
+  const formatDueDate = (dateString?: string) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${month}-${day}`;
+    } catch {
+      return null;
+    }
+  };
 
   // --- Card & DnD view ---
   if (viewMode === "card" && enableDnd) {
@@ -67,6 +86,8 @@ const StageColumn: React.FC<StageColumnProps> = ({
             <div className="flex flex-col gap-1">
               {stageJobStages.map(jobStage => {
                 const dueMeta = getDueInfo(jobStage);
+                const formattedDueDate = formatDueDate(jobStage.production_job?.due_date);
+                
                 return (
                   <div
                     key={jobStage.id}
@@ -90,7 +111,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
                       onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
                     />
                     <div className="absolute right-2 top-2">
-                      {jobStage.production_job?.due_date ? (
+                      {formattedDueDate ? (
                         <span
                           className="px-1.5 py-0.5 rounded-full text-[11px] font-semibold text-white"
                           style={{
@@ -100,9 +121,9 @@ const StageColumn: React.FC<StageColumnProps> = ({
                             textAlign: 'center',
                             lineHeight: '16px'
                           }}
-                          title={`Due: ${jobStage.production_job.due_date}`}
+                          title={`Due: ${jobStage.production_job?.due_date}`}
                         >
-                          {jobStage.production_job.due_date}
+                          {formattedDueDate}
                         </span>
                       ) : (
                         <span
@@ -161,6 +182,8 @@ const StageColumn: React.FC<StageColumnProps> = ({
               const dueMeta = getDueInfo(jobStage);
               const woNo = jobStage.production_job?.wo_no ?? "Orphaned";
               const customer = jobStage.production_job?.customer ?? "Unknown";
+              const formattedDueDate = formatDueDate(jobStage.production_job?.due_date);
+              
               return (
                 <tr
                   key={jobStage.id}
@@ -184,7 +207,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
                     <span className="truncate">{customer}</span>
                   </td>
                   <td className="px-0.5 whitespace-nowrap">
-                    {jobStage.production_job?.due_date ? (
+                    {formattedDueDate ? (
                       <span
                         className="px-1.5 py-0.5 rounded-full text-[11px] font-semibold text-white"
                         style={{
@@ -194,9 +217,9 @@ const StageColumn: React.FC<StageColumnProps> = ({
                           textAlign: 'center',
                           lineHeight: '16px'
                         }}
-                        title={`Due: ${jobStage.production_job.due_date}`}
+                        title={`Due: ${jobStage.production_job?.due_date}`}
                       >
-                        {jobStage.production_job.due_date}
+                        {formattedDueDate}
                       </span>
                     ) : (
                       <span
