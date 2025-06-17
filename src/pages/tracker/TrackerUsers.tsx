@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Users as UsersIcon, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { UserManagementProvider } from "@/contexts/UserManagementContext";
-import { SimpleUserManagement } from "@/components/users/SimpleUserManagement";
+import { EnhancedUserManagement } from "@/components/users/EnhancedUserManagement";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { AccessRestrictedMessage } from "@/components/users/AccessRestrictedMessage";
 import { LoadingState } from "@/components/users/LoadingState";
@@ -48,12 +48,12 @@ const TrackerUsers = () => {
             <UsersIcon className="h-6 w-6 mr-2 text-green-600" />
             <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
           </div>
-          <p className="text-gray-500 mt-1">Manage user accounts and permissions for Tracker</p>
+          <p className="text-gray-500 mt-1">Manage user accounts, roles, and permissions for Tracker</p>
         </div>
       </div>
 
       <UserManagementProvider>
-        <SimpleUserManagement />
+        <EnhancedUserManagement />
       </UserManagementProvider>
     </div>
   );

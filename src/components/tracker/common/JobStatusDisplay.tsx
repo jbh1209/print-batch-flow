@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, AlertTriangle, Clock, Mail, User, Package, Tag } from "lucide-react";
+import { Calendar, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { 
@@ -32,23 +32,15 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
 
   // Enhanced orphaned detection
   const isOrphaned = job.is_orphaned || (job.category_id && (!job.current_stage_id || job.current_stage_id === '00000000-0000-0000-0000-000000000000'));
-  const hasCategory = !!job.category_id && job.category_id !== '00000000-0000-0000-0000-000000000000';
+  const hasCategory = !!job.category_id;
   const hasStage = job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000';
-
-  // Check if this is a proof stage with email sent
-  const isProofEmailSent = job.proof_emailed_at && job.current_stage_name?.toLowerCase().includes('proof');
-  const isAwaitingClientSignOff = isProofEmailSent && job.current_stage_status === 'active';
 
   // Determine display status and styling
   let displayStatus: string;
   let badgeVariant: "default" | "secondary" | "destructive" | "outline";
   let badgeClassName: string;
 
-  if (isAwaitingClientSignOff) {
-    displayStatus = 'Awaiting Client Sign Off';
-    badgeVariant = "secondary";
-    badgeClassName = "bg-blue-100 text-blue-800 border-blue-300";
-  } else if (isOrphaned) {
+  if (isOrphaned) {
     displayStatus = 'Configuration Issue';
     badgeVariant = "destructive";
     badgeClassName = "bg-orange-100 text-orange-800 border-orange-300";
@@ -78,64 +70,16 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
             compact && "text-xs px-2 py-0"
           )}
         >
-          {isAwaitingClientSignOff && <Mail className={cn(iconSize, "mr-1")} />}
           {displayStatus}
         </Badge>
         
-        {jobStatus === 'active' && !isAwaitingClientSignOff && !isOrphaned && hasStage && (
+        {jobStatus === 'active' && !isOrphaned && hasStage && (
           <div className="flex items-center gap-1 text-blue-600">
             <Clock className={cn(iconSize, "animate-pulse")} />
             {!compact && <span className={cn("font-medium", textSize)}>Active</span>}
           </div>
         )}
       </div>
-
-      {/* Proof Email Status */}
-      {isAwaitingClientSignOff && showDetails && (
-        <div className="flex items-center gap-2 text-blue-600">
-          <Mail className={cn(iconSize)} />
-          <span className={cn("text-xs font-medium")}>
-            Proof emailed - waiting for client approval
-          </span>
-        </div>
-      )}
-
-      {/* Category Info */}
-      {showDetails && hasCategory && job.category_name !== 'No Category' && (
-        <div className="flex items-center gap-2">
-          <Tag className={cn("text-gray-400", iconSize)} />
-          <Badge 
-            variant="outline" 
-            className={cn("text-xs", textSize)}
-            style={{ 
-              borderColor: job.category_color,
-              color: job.category_color 
-            }}
-          >
-            {job.category_name}
-          </Badge>
-        </div>
-      )}
-
-      {/* Active Operator */}
-      {showDetails && job.started_by_name && job.started_by_name !== 'Unknown' && (
-        <div className="flex items-center gap-2">
-          <User className={cn("text-blue-500", iconSize)} />
-          <span className={cn("font-medium text-blue-600", textSize)}>
-            {compact ? "" : "Operator: "}{job.started_by_name}
-          </span>
-        </div>
-      )}
-
-      {/* Quantity */}
-      {showDetails && job.qty && job.qty > 0 && (
-        <div className="flex items-center gap-2">
-          <Package className={cn("text-gray-400", iconSize)} />
-          <span className={cn("font-medium text-gray-700", textSize)}>
-            {compact ? "" : "Qty: "}{job.qty.toLocaleString()}
-          </span>
-        </div>
-      )}
 
       {/* Warning for configuration issues */}
       {isOrphaned && showDetails && (
@@ -175,6 +119,16 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
               ? `${job.workflow_progress}%`
               : displayStatus
             }
+          </span>
+        </div>
+      )}
+
+      {/* Category Info */}
+      {showDetails && hasCategory && (
+        <div className="flex items-center gap-2">
+          <span className={cn("text-gray-500", textSize)}>Category:</span>
+          <span className={cn("font-medium text-gray-700", textSize)}>
+            {job.category_name || 'Unknown'}
           </span>
         </div>
       )}

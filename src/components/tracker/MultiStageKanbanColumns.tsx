@@ -1,24 +1,18 @@
-
 import React from "react";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import { useKanbanDnDContext } from "./useKanbanDnDContext";
 import StageColumn from "./multistage-kanban/StageColumn";
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { MultiStageKanbanColumnsProps } from "./MultiStageKanban.types";
 
-interface MultiStageKanbanColumnsProps {
-  stages: any[];
-  jobs: any[];
-  reorderRefs: React.MutableRefObject<Record<string, (newOrder: string[]) => void>>;
-  handleStageAction: (jobId: string, stageId: string, action: "start" | "complete" | "scan") => void;
-  viewMode: "card" | "list";
-  enableDnd: boolean;
-  handleReorder: (stageId: string, newOrderIds: string[]) => void;
-  selectedJobId: string | null;
-  onSelectJob: (jobId: string) => void;
-  layout: "horizontal" | "vertical";
+// Add layout prop type
+type LayoutType = "horizontal" | "vertical";
+interface MultiStageKanbanColumnsWithLayoutProps extends MultiStageKanbanColumnsProps {
+  layout?: LayoutType;
 }
 
-export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps> = ({
+export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsWithLayoutProps> = ({
   stages,
-  jobs,
+  jobStages,
   reorderRefs,
   handleStageAction,
   viewMode,
@@ -26,76 +20,132 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsProps> = (
   handleReorder,
   selectedJobId,
   onSelectJob,
-  layout,
+  layout = "horizontal", // default
 }) => {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Responsive grid: each StageColumn min-w-[280px], grid-flow-col for horizontal scroll, always show scrollbar
+  const horizontalClass =
+    "flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 min-h-0"
+  const verticalClass =
+    "flex flex-col gap-3 overflow-y-auto pb-2 max-h-[calc(80vh-80px)]"; // vertical, as before
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  // --- Horizontal Scrollbar Decoration ---
+  // We rely on native scroll. To always show the scrollbar in modern browsers, ensure overflow-x-auto is present.
+  // Optionally, you can use Tailwind's scrollbar utilities for visibility or customize height for thicker bar.
 
-    // Find which stage this drag operation belongs to
-    const draggedJob = jobs.find(job => job.id === active.id);
-    if (!draggedJob) return;
+  if (viewMode === "card" && enableDnd) {
+    const { sensors, onDragEnd } = useKanbanDnDContext({
+      stages, jobStages, reorderRefs, handleReorder
+    });
 
-    const stageId = draggedJob.current_stage_id;
-    if (!stageId) return;
-
-    // Get all jobs in this stage
-    const stageJobs = jobs.filter(job => job.current_stage_id === stageId);
-    const oldIndex = stageJobs.findIndex(job => job.id === active.id);
-    const newIndex = stageJobs.findIndex(job => job.id === over.id);
-
-    if (oldIndex !== -1 && newIndex !== -1) {
-      const newOrder = [...stageJobs];
-      const [reorderedItem] = newOrder.splice(oldIndex, 1);
-      newOrder.splice(newIndex, 0, reorderedItem);
-
-      // Call the reorder handler with the new order of job IDs
-      handleReorder(stageId, newOrder.map(job => job.id));
+    if (layout === "vertical") {
+      return (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <div className={verticalClass} style={{ minWidth: 280 }}>
+            {stages
+              .filter(stage => stage.is_active)
+              .sort((a, b) => a.order_index - b.order_index)
+              .map(stage => (
+                <StageColumn
+                  key={stage.id}
+                  stage={stage}
+                  jobStages={jobStages}
+                  onStageAction={handleStageAction}
+                  viewMode={viewMode}
+                  enableDnd
+                  onReorder={order => handleReorder(stage.id, order)}
+                  registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
+                  selectedJobId={selectedJobId}
+                  onSelectJob={onSelectJob}
+                />
+              ))}
+          </div>
+        </DndContext>
+      );
     }
-  };
-
-  const renderColumns = () => (
-    <>
-      {stages
-        .filter(stage => stage.is_active !== false)
-        .map(stage => (
-          <StageColumn
-            key={stage.id}
-            stage={stage}
-            jobs={jobs}
-            onStageAction={handleStageAction}
-            viewMode={viewMode}
-            enableDnd={enableDnd}
-            onReorder={(newOrder) => handleReorder(stage.id, newOrder)}
-            registerReorder={(handler) => {
-              reorderRefs.current[stage.id] = handler;
-            }}
-            selectedJobId={selectedJobId}
-            onSelectJob={onSelectJob}
-          />
-        ))}
-    </>
-  );
-
-  if (enableDnd && viewMode === "card") {
+    // --- Horizontal Scrollable Columns ---
     return (
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <div className={`flex gap-2 ${layout === "vertical" ? "flex-col" : "flex-row"} overflow-auto`}>
-          {renderColumns()}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <div
+          className={horizontalClass}
+          style={{
+            WebkitOverflowScrolling: "touch",
+            // Always present scrollbar on macOS/Win Chrome/Firefox
+            overflowY: "hidden",
+            scrollbarWidth: "auto",
+          }}
+        >
+          {stages
+            .filter(stage => stage.is_active)
+            .sort((a, b) => a.order_index - b.order_index)
+            .map(stage => (
+              <div key={stage.id} className="min-w-[280px] max-w-[350px] w-full flex-shrink-0">
+                <StageColumn
+                  stage={stage}
+                  jobStages={jobStages}
+                  onStageAction={handleStageAction}
+                  viewMode={viewMode}
+                  enableDnd
+                  onReorder={order => handleReorder(stage.id, order)}
+                  registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
+                  selectedJobId={selectedJobId}
+                  onSelectJob={onSelectJob}
+                />
+              </div>
+            ))}
         </div>
       </DndContext>
     );
   }
-
+  // List view fallback: vertical remains unchanged
+  if (layout === "vertical") {
+    return (
+      <div className={verticalClass} style={{ minWidth: 280 }}>
+        {stages
+          .filter(stage => stage.is_active)
+          .sort((a, b) => a.order_index - b.order_index)
+          .map(stage => (
+            <StageColumn
+              key={stage.id}
+              stage={stage}
+              jobStages={jobStages}
+              onStageAction={handleStageAction}
+              viewMode={viewMode}
+              enableDnd={false}
+              onReorder={() => {}}
+              selectedJobId={selectedJobId}
+              onSelectJob={onSelectJob}
+            />
+          ))}
+      </div>
+    );
+  }
+  // --- Horizontal Scrollable Columns (non-DnD/list view) ---
   return (
-    <div className={`flex gap-2 ${layout === "vertical" ? "flex-col" : "flex-row"} overflow-auto`}>
-      {renderColumns()}
+    <div
+      className={horizontalClass}
+      style={{
+        WebkitOverflowScrolling: "touch",
+        overflowY: "hidden",
+        scrollbarWidth: "auto",
+      }}
+    >
+      {stages
+        .filter(stage => stage.is_active)
+        .sort((a, b) => a.order_index - b.order_index)
+        .map(stage => (
+          <div key={stage.id} className="min-w-[280px] max-w-[350px] w-full flex-shrink-0">
+            <StageColumn
+              stage={stage}
+              jobStages={jobStages}
+              onStageAction={handleStageAction}
+              viewMode={viewMode}
+              enableDnd={false}
+              onReorder={() => {}}
+              selectedJobId={selectedJobId}
+              onSelectJob={onSelectJob}
+            />
+          </div>
+        ))}
     </div>
   );
 };

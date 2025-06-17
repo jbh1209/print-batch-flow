@@ -3,7 +3,7 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, CheckCircle, Clock, User, Calendar, Package, Mail, Tag } from "lucide-react";
+import { Play, CheckCircle, Clock, User, Calendar, Package } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { cn } from "@/lib/utils";
 
@@ -33,14 +33,6 @@ export const JobListView: React.FC<JobListViewProps> = ({
     }
   };
 
-  const isProofEmailSent = (job: AccessibleJob) => {
-    return job.proof_emailed_at && job.current_stage_name?.toLowerCase().includes('proof');
-  };
-
-  const isAwaitingClientSignOff = (job: AccessibleJob) => {
-    return isProofEmailSent(job) && job.current_stage_status === 'active';
-  };
-
   return (
     <Card className={cn("", className)}>
       <CardContent className="p-0">
@@ -55,36 +47,12 @@ export const JobListView: React.FC<JobListViewProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
                     <h4 className="font-medium text-sm">{job.wo_no}</h4>
-                    
-                    {/* Category Badge */}
-                    {job.category_name && job.category_name !== 'No Category' && (
-                      <Badge 
-                        variant="outline" 
-                        className="text-xs px-1.5 py-0.5"
-                        style={{ 
-                          borderColor: job.category_color,
-                          color: job.category_color 
-                        }}
-                      >
-                        <Tag className="h-3 w-3 mr-1" />
-                        {job.category_name}
-                      </Badge>
-                    )}
-                    
-                    {isAwaitingClientSignOff(job) ? (
-                      <Badge className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 border-blue-300">
-                        <Mail className="h-3 w-3 mr-1" />
-                        Awaiting Client Sign Off
-                      </Badge>
-                    ) : (
-                      <Badge 
-                        variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
-                        className="text-xs px-1.5 py-0.5"
-                      >
-                        {job.current_stage_name}
-                      </Badge>
-                    )}
-                    
+                    <Badge 
+                      variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
+                      className="text-xs px-1.5 py-0.5"
+                    >
+                      {job.current_stage_name}
+                    </Badge>
                     <Badge 
                       variant={job.current_stage_status === 'active' ? 'success' : 'outline'}
                       className="text-xs px-1.5 py-0.5"
@@ -98,28 +66,18 @@ export const JobListView: React.FC<JobListViewProps> = ({
                       <User className="h-3 w-3" />
                       <span>{job.customer || 'Unknown'}</span>
                     </div>
-                    
-                    {job.qty && job.qty > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Package className="h-3 w-3" />
-                        <span>Qty: {job.qty.toLocaleString()}</span>
-                      </div>
-                    )}
-                    
-                    {job.started_by_name && job.started_by_name !== 'Unknown' && job.started_by_name !== '' && (
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3 text-blue-500" />
-                        <span className="font-medium text-blue-600">{job.started_by_name}</span>
-                      </div>
-                    )}
-                    
                     {job.due_date && (
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         <span>{new Date(job.due_date).toLocaleDateString()}</span>
                       </div>
                     )}
-                    
+                    {job.category_name && (
+                      <div className="flex items-center gap-1">
+                        <Package className="h-3 w-3" />
+                        <span>{job.category_name}</span>
+                      </div>
+                    )}
                     {job.workflow_progress > 0 && (
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
@@ -130,7 +88,7 @@ export const JobListView: React.FC<JobListViewProps> = ({
                 </div>
                 
                 <div className="flex items-center gap-2 ml-4">
-                  {job.current_stage_status === 'pending' && onStart && !isAwaitingClientSignOff(job) && (
+                  {job.current_stage_status === 'pending' && onStart && (
                     <Button
                       size="sm"
                       onClick={(e) => handleJobAction(e, job, 'start')}
@@ -140,7 +98,7 @@ export const JobListView: React.FC<JobListViewProps> = ({
                       Start
                     </Button>
                   )}
-                  {job.current_stage_status === 'active' && onComplete && !isAwaitingClientSignOff(job) && (
+                  {job.current_stage_status === 'active' && onComplete && (
                     <Button
                       size="sm"
                       onClick={(e) => handleJobAction(e, job, 'complete')}
@@ -149,12 +107,6 @@ export const JobListView: React.FC<JobListViewProps> = ({
                       <CheckCircle className="h-3 w-3 mr-1" />
                       Complete
                     </Button>
-                  )}
-                  {isAwaitingClientSignOff(job) && (
-                    <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
-                      <Mail className="h-3 w-3 mr-1" />
-                      Awaiting
-                    </Badge>
                   )}
                 </div>
               </div>

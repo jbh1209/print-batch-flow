@@ -1771,10 +1771,6 @@ export type Database = {
           total_stages: number
           completed_stages: number
           display_stage_name: string
-          qty: number
-          started_by: string
-          started_by_name: string
-          proof_emailed_at: string
         }[]
       }
       get_user_accessible_stages: {

@@ -5,8 +5,6 @@ import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { JobStatusDisplay } from "@/components/tracker/common/JobStatusDisplay";
-import { Package, User, Tag } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { 
   processJobStatus, 
   isJobOverdue, 
@@ -45,15 +43,6 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
     }
   };
 
-  // Display quantity with Package icon if available
-  const showQuantity = job.qty && job.qty > 0;
-  
-  // Display active operator with User icon if available  
-  const showOperator = job.started_by_name && job.started_by_name !== 'Unknown' && job.started_by_name !== '';
-
-  // Display category if available and not "No Category"
-  const showCategory = job.category_name && job.category_name !== 'No Category';
-
   return (
     <Card 
       className={cn(
@@ -76,40 +65,6 @@ export const CompactDtpJobCard: React.FC<CompactDtpJobCardProps> = ({
                 </p>
               )}
             </div>
-          </div>
-
-          {/* Category Badge */}
-          {showCategory && (
-            <div className="flex items-center gap-1">
-              <Tag className="h-3 w-3" />
-              <Badge 
-                variant="outline" 
-                className="text-xs"
-                style={{ 
-                  borderColor: job.category_color,
-                  color: job.category_color 
-                }}
-              >
-                {job.category_name}
-              </Badge>
-            </div>
-          )}
-
-          {/* Quantity and Active Operator Row */}
-          <div className="flex items-center justify-between text-xs text-gray-600">
-            {showQuantity && (
-              <div className="flex items-center gap-1">
-                <Package className="h-3 w-3" />
-                <span>Qty: {job.qty.toLocaleString()}</span>
-              </div>
-            )}
-            
-            {showOperator && (
-              <div className="flex items-center gap-1">
-                <User className="h-3 w-3 text-blue-500" />
-                <span className="font-medium text-blue-600">{job.started_by_name}</span>
-              </div>
-            )}
           </div>
 
           {/* Status Display */}

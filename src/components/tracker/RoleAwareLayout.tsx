@@ -13,7 +13,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
  * - Admins, managers, and DTP operators see the full tracker layout
  */
 const RoleAwareLayout: React.FC = () => {
-  const { userRole, isLoading, isOperator, isAdmin, isManager } = useUserRole();
+  const { userRole, isLoading, isOperator, isAdmin, isManager, isDtpOperator } = useUserRole();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,6 +25,7 @@ const RoleAwareLayout: React.FC = () => {
       isOperator,
       isAdmin,
       isManager,
+      isDtpOperator,
       currentPath: location.pathname
     });
 
@@ -47,7 +48,7 @@ const RoleAwareLayout: React.FC = () => {
 
     // For admins, managers, and DTP operators - no restrictions, let them access any route
     console.log('✅ User has full access to all routes');
-  }, [userRole, isLoading, isOperator, isAdmin, isManager, navigate, location.pathname]);
+  }, [userRole, isLoading, isOperator, isAdmin, isManager, isDtpOperator, navigate, location.pathname]);
 
   if (isLoading) {
     return (
@@ -57,9 +58,13 @@ const RoleAwareLayout: React.FC = () => {
     );
   }
 
-  // For pure operators on factory floor, show standalone view without TrackerLayout
+  // For pure operators on factory floor, show standalone view without duplicate header
   if (isOperator && !isAdmin && !isManager && location.pathname.includes('/factory-floor')) {
-    return <Outlet />;
+    return (
+      <div className="flex flex-col h-screen overflow-hidden">
+        <Outlet />
+      </div>
+    );
   }
 
   // For everyone else (admins, managers, DTP operators), show full tracker layout

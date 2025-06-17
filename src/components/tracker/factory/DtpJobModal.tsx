@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +15,8 @@ import { JobOverviewCard } from "./JobOverviewCard";
 import { CurrentStageCard } from "./CurrentStageCard";
 import { JobNotesCard } from "./JobNotesCard";
 import { PartPrintingStageSelector } from "./PartPrintingStageSelector";
-import { Play, CheckCircle, Mail, ThumbsUp, ArrowRight } from "lucide-react";
+import { JobActionButtons } from "../common/JobActionButtons";
+import { Play, CheckCircle, Mail, ThumbsUp, ArrowRight, Pause } from "lucide-react";
 import { getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,13 +72,14 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   });
 
   // Load data when modal opens
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       const loadData = async () => {
         // Reset local state when modal opens
         setLocalJobStatus(job.status);
         setLocalStageStatus(job.current_stage_status);
-        
+        setNotes("");
+
         // Load current stage instance data
         if (job.current_stage_id) {
           const { data: stageData } = await supabase
@@ -87,12 +88,16 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             .eq('job_id', job.job_id)
             .eq('production_stage_id', job.current_stage_id)
             .single();
-          
+
           if (stageData) {
             setStageInstance(stageData);
+          } else {
+            setStageInstance(null);
           }
+        } else {
+          setStageInstance(null);
         }
-        
+
         // Load all available printing stages
         const { data: stages } = await supabase
           .from('production_stages')
@@ -100,14 +105,19 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           .ilike('name', '%printing%')
           .eq('is_active', true)
           .order('name');
-        
+
         if (stages) {
           setAllPrintingStages(stages);
-          
+
           // If there are existing printing stages, pre-select the first one
           if (existingPrintingStages.length > 0) {
             setSelectedPrintingStage(existingPrintingStages[0].id);
+          } else if (stages.length > 0) {
+            setSelectedPrintingStage(stages[0].id);
           }
+        } else {
+          setAllPrintingStages([]);
+          setSelectedPrintingStage("");
         }
 
         // Load job parts if the job has a category
@@ -115,6 +125,9 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           const parts = await getJobParts(job.job_id, job.category_id);
           setJobParts(parts);
           setShowPartSelector(parts.length > 1);
+        } else {
+          setJobParts([]);
+          setShowPartSelector(false);
         }
       };
       loadData();
@@ -229,11 +242,11 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
   const handleStartProof = async () => {
     setIsLoading(true);
-    
+
     // Optimistic update
     setLocalStageStatus('active');
     setLocalJobStatus('Proof In Progress');
-    
+
     try {
       const { error: startError } = await supabase
         .from('job_stage_instances')
@@ -273,9 +286,9 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
   const handleProofEmailed = async () => {
     setIsLoading(true);
-    
+
     const currentTime = new Date().toISOString();
-    
+
     try {
       // Update the stage instance with proof emailed timestamp
       const { error: proofError } = await supabase
@@ -316,7 +329,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
   const handleProofApproved = async () => {
     setIsLoading(true);
-    
+
     try {
       const { error: updateError } = await supabase
         .from('job_stage_instances')
@@ -420,6 +433,36 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     } catch (error) {
       console.error('Error advancing to printing stage:', error);
       toast.error("Failed to advance to printing stage");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleHoldJob = async (jobId: string, reason: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'on_hold',
+          hold_reason: reason,
+          held_at: new Date().toISOString(),
+          held_by: user?.id
+        })
+        .eq('job_id', jobId)
+        .eq('production_stage_id', job.current_stage_id)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      setLocalStageStatus('on_hold');
+      toast.success(`Job placed on hold: ${reason}`);
+      onRefresh?.();
+      return true;
+    } catch (error) {
+      console.error('Error placing job on hold:', error);
+      toast.error('Failed to place job on hold');
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -564,7 +607,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            <span>DTP Workflow: {job.wo_no}</span>
+            <span>Job Details: {job.wo_no}</span>
             <Badge 
               className={cn(statusBadgeInfo.className)}
               variant={statusBadgeInfo.variant}
@@ -580,16 +623,39 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           <JobNotesCard notes={notes} onNotesChange={setNotes} />
         </div>
 
-        <div className="border-t pt-4 space-y-3">
-          {currentStage === 'dtp' && renderDTPActions()}
-          {currentStage === 'proof' && renderProofActions()}
-          
-          {currentStage === 'unknown' && (
-            <div className="text-center text-gray-500">
-              Stage not recognized or no actions available
-            </div>
+        {/* Universal Job Action Buttons */}
+        <div className="border-t pt-4">
+          <h4 className="font-medium mb-3">Job Actions</h4>
+          {job.current_stage_id && (
+            <JobActionButtons
+              job={job}
+              onStart={onStart || (() => Promise.resolve(false))}
+              onComplete={onComplete || (() => Promise.resolve(false))}
+              onHold={handleHoldJob}
+              size="default"
+              layout="horizontal"
+              showHold={true}
+              compact={false}
+            />
           )}
         </div>
+
+        {/* Stage-specific actions can still be added here if needed */}
+        {currentStage === 'dtp' && (
+          <div className="mt-4">
+            {renderDTPActions()}
+          </div>
+        )}
+        {currentStage === 'proof' && (
+          <div className="mt-4">
+            {renderProofActions()}
+          </div>
+        )}
+        {currentStage === 'unknown' && (
+          <div className="text-center text-gray-500 mt-4">
+            Stage not recognized or no actions available
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
