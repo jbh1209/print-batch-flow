@@ -1,15 +1,15 @@
 
 import React from "react";
-import { UniversalFactoryFloor } from "@/components/tracker/factory/UniversalFactoryFloor";
+import { SimplifiedFactoryFloor } from "@/components/tracker/factory/SimplifiedFactoryFloor";
 
 /**
- * Factory Floor page component
+ * Simplified Factory Floor page component
  * 
- * Universal view that displays relevant job stages based on user permissions.
- * Dynamically shows columns for stages where the user can work.
+ * Clean, direct approach that relies on the database function 
+ * for all permission logic and job filtering.
  */
 const FactoryFloor = () => {
-  return <UniversalFactoryFloor />;
+  return <SimplifiedFactoryFloor />;
 };
 
 export default FactoryFloor;
