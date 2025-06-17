@@ -1,6 +1,7 @@
 
 import React from "react";
 import { UniversalFactoryFloor } from "@/components/tracker/factory/UniversalFactoryFloor";
+import { ProductionDataProvider } from "@/contexts/ProductionDataContext";
 
 /**
  * Factory Floor page component
@@ -10,9 +11,11 @@ import { UniversalFactoryFloor } from "@/components/tracker/factory/UniversalFac
  */
 const FactoryFloor = () => {
   return (
-    <div className="min-h-screen bg-gray-50 w-full">
-      <UniversalFactoryFloor />
-    </div>
+    <ProductionDataProvider>
+      <div className="min-h-screen bg-gray-50 w-full">
+        <UniversalFactoryFloor />
+      </div>
+    </ProductionDataProvider>
   );
 };
 
