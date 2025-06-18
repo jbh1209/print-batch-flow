@@ -19,17 +19,47 @@ const StageColumn: React.FC<StageColumnProps> = ({
   selectedJobId,
   onSelectJob,
 }) => {
-  // Filter jobs for this stage and apply consistent sorting
+  // Helper function to check if a job should appear in this stage based on progression logic
+  const shouldShowJobInStage = (jobStage: any) => {
+    // Always show if this stage is active
+    if (jobStage.status === "active") {
+      return true;
+    }
+
+    // For pending stages, check stage progression logic
+    if (jobStage.status === "pending") {
+      // For sequential workflow stages like DTP -> Proof, ensure previous stage is properly completed
+      if (stage.name.toLowerCase().includes('proof')) {
+        // Find the DTP stage for this job
+        const dtpStage = jobStages.find(js => 
+          js.production_job?.id === jobStage.production_job?.id && 
+          js.production_stage?.name?.toLowerCase().includes('dtp')
+        );
+        
+        // If DTP stage exists and is completed, don't show in proof queue
+        if (dtpStage && dtpStage.status === 'completed') {
+          return false;
+        }
+      }
+      
+      return true;
+    }
+
+    return false;
+  };
+
+  // Filter jobs for this stage and apply consistent sorting with progression logic
   const stageJobStages = React.useMemo(() => {
     const filtered = jobStages.filter(js =>
       js.production_stage_id === stage.id &&
       js.status !== "completed" &&
-      js.status !== "skipped"
+      js.status !== "skipped" &&
+      shouldShowJobInStage(js)
     );
     
     // Use shared sorting utility for consistent ordering
     return sortJobStagesByOrder(filtered);
-  }, [jobStages, stage.id]);
+  }, [jobStages, stage.id, stage.name]);
 
   useEffect(() => {
     if (enableDnd && registerReorder && onReorder) {
