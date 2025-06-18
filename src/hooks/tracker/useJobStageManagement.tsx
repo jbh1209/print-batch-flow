@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -160,6 +161,11 @@ export const useJobStageManagement = ({
     return await fetchReworkHistory(jobId, jobTableName);
   }, [fetchReworkHistory, jobId, jobTableName]);
 
+  // Memoized refresh function to prevent re-renders
+  const refreshStages = useCallback(() => {
+    return fetchJobStages();
+  }, [fetchJobStages]);
+
   return {
     // State
     jobStages,
@@ -186,6 +192,6 @@ export const useJobStageManagement = ({
     canReworkStage,
     getWorkflowProgress,
     loadReworkHistory,
-    refreshStages: fetchJobStages
+    refreshStages
   };
 };

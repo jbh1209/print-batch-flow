@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,11 +50,16 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
     categoryId: job?.category_id
   });
 
-  useEffect(() => {
+  // Memoized refresh function to prevent infinite re-renders
+  const handleRefresh = useCallback(async () => {
     if (job && isOpen) {
-      refreshStages();
+      await refreshStages();
     }
   }, [job, isOpen, refreshStages]);
+
+  useEffect(() => {
+    handleRefresh();
+  }, [handleRefresh]);
 
   if (!job) return null;
 

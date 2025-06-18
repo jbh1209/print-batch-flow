@@ -46,7 +46,7 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchJobStages = async () => {
+  const fetchJobStages = useCallback(async () => {
     if (!jobId || !jobTableName) {
       setIsLoading(false);
       return;
@@ -104,9 +104,9 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [jobId, jobTableName]);
 
-  const initializeJobStages = async (jobId: string, jobTableName: string, categoryId: string) => {
+  const initializeJobStages = useCallback(async (jobId: string, jobTableName: string, categoryId: string) => {
     try {
       console.log('🔄 Initializing job stages (all pending)...');
       
@@ -130,9 +130,9 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       toast.error("Failed to initialize job stages");
       return false;
     }
-  };
+  }, [fetchJobStages]);
 
-  const advanceJobStage = async (currentStageId: string, notes?: string) => {
+  const advanceJobStage = useCallback(async (currentStageId: string, notes?: string) => {
     if (!jobId || !jobTableName) return false;
 
     try {
@@ -163,9 +163,9 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       toast.error("Failed to advance job stage");
       return false;
     }
-  };
+  }, [jobId, jobTableName, fetchJobStages]);
 
-  const updateStageNotes = async (stageId: string, notes: string) => {
+  const updateStageNotes = useCallback(async (stageId: string, notes: string) => {
     try {
       console.log('🔄 Updating stage notes...');
       
@@ -191,9 +191,9 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       toast.error("Failed to update stage notes");
       return false;
     }
-  };
+  }, [fetchJobStages]);
 
-  const recordQRScan = async (stageId: string, qrData: any) => {
+  const recordQRScan = useCallback(async (stageId: string, qrData: any) => {
     try {
       console.log('🔄 Recording QR scan...');
       
@@ -218,11 +218,14 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       toast.error("Failed to record QR scan");
       return false;
     }
-  };
+  }, [fetchJobStages]);
 
+  // Only fetch on mount if both jobId and jobTableName are provided
   useEffect(() => {
-    fetchJobStages();
-  }, [jobId, jobTableName]);
+    if (jobId && jobTableName) {
+      fetchJobStages();
+    }
+  }, [jobId, jobTableName, fetchJobStages]);
 
   return {
     jobStages,
