@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -120,6 +121,75 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
     );
   };
 
+  // Helper: Consolidate job stage instances for a single job
+  const consolidateJobStages = (jobStages: any[]) => {
+    const stageMap = new Map();
+    
+    jobStages.forEach(stage => {
+      const key = `${stage.production_stage_id}`;
+      
+      if (!stageMap.has(key)) {
+        // Create consolidated stage entry
+        stageMap.set(key, {
+          ...stage,
+          parts: [],
+          consolidated_status: stage.status,
+          all_parts_completed: false,
+          any_part_active: false,
+          any_part_pending: false
+        });
+      }
+      
+      const consolidated = stageMap.get(key);
+      
+      // Add part information if this is a multi-part stage
+      if (stage.part_name) {
+        consolidated.parts.push({
+          part_name: stage.part_name,
+          status: stage.status,
+          part_order: stage.part_order,
+          started_at: stage.started_at,
+          completed_at: stage.completed_at,
+          notes: stage.notes
+        });
+      }
+      
+      // Update consolidated status based on part statuses
+      if (stage.status === 'active') {
+        consolidated.any_part_active = true;
+        consolidated.consolidated_status = 'active';
+      } else if (stage.status === 'pending' && consolidated.consolidated_status !== 'active') {
+        consolidated.any_part_pending = true;
+        if (consolidated.consolidated_status !== 'active') {
+          consolidated.consolidated_status = 'pending';
+        }
+      } else if (stage.status === 'completed') {
+        // Check if all parts of this stage are completed
+        const allPartsCompleted = jobStages
+          .filter(s => s.production_stage_id === stage.production_stage_id)
+          .every(s => s.status === 'completed');
+        
+        if (allPartsCompleted && !consolidated.any_part_active && !consolidated.any_part_pending) {
+          consolidated.consolidated_status = 'completed';
+          consolidated.all_parts_completed = true;
+        }
+      }
+      
+      // Update timestamps to reflect the most recent activity
+      if (stage.started_at && (!consolidated.started_at || new Date(stage.started_at) > new Date(consolidated.started_at))) {
+        consolidated.started_at = stage.started_at;
+        consolidated.started_by = stage.started_by;
+      }
+      
+      if (stage.completed_at && (!consolidated.completed_at || new Date(stage.completed_at) > new Date(consolidated.completed_at))) {
+        consolidated.completed_at = stage.completed_at;
+        consolidated.completed_by = stage.completed_by;
+      }
+    });
+    
+    return Array.from(stageMap.values()).sort((a, b) => a.stage_order - b.stage_order);
+  };
+
   const fetchData = useCallback(async (force = false) => {
     if (
       !force &&
@@ -191,12 +261,18 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
         const hasWorkflow = jobStages.length > 0;
         const hasCategory = !!job.category_id;
         const isOrphaned = hasCategory && !hasWorkflow;
-        const activeStage = jobStages.find(s => s.status === 'active');
-        const pendingStages = jobStages.filter(s => s.status === 'pending');
-        const completedStages = jobStages.filter(s => s.status === 'completed');
+        
+        // Use consolidated stages for better display
+        const consolidatedJobStages = consolidateJobStages(jobStages);
+        
+        const activeStage = consolidatedJobStages.find(s => s.consolidated_status === 'active');
+        const pendingStages = consolidatedJobStages.filter(s => s.consolidated_status === 'pending');
+        const completedStages = consolidatedJobStages.filter(s => s.consolidated_status === 'completed');
+        
         let currentStage = job.status || 'Unknown';
         let currentStageId = null;
         let displayStageName = null;
+        
         if (isOrphaned) {
           currentStage = 'Needs Repair';
           displayStageName = 'Category assigned but no workflow';
@@ -211,15 +287,17 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
           currentStageId = firstPending.production_stage_id;
           const masterQueueName = firstPending.production_stages?.production_stages?.name;
           displayStageName = masterQueueName ? `${masterQueueName} - ${currentStage}` : currentStage;
-        } else if (hasWorkflow && completedStages.length === jobStages.length && jobStages.length > 0) {
+        } else if (hasWorkflow && completedStages.length === consolidatedJobStages.length && consolidatedJobStages.length > 0) {
           currentStage = 'Completed';
           displayStageName = 'Completed';
         } else if (!hasWorkflow && !hasCategory) {
           currentStage = job.status || 'DTP';
           displayStageName = currentStage;
         }
-        const totalStages = jobStages.length;
+        
+        const totalStages = consolidatedJobStages.length;
         const workflowProgress = totalStages > 0 ? Math.round((completedStages.length / totalStages) * 100) : 0;
+        
         return {
           id: job.id,
           wo_no: job.wo_no,
@@ -237,15 +315,16 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
           workflow_progress: workflowProgress,
           has_workflow: hasWorkflow,
           is_orphaned: isOrphaned,
-          stages: jobStages.map(stage => ({
+          stages: consolidatedJobStages.map(stage => ({
             ...stage,
             stage_name: stage.production_stages?.name || 'Unknown Stage',
             stage_color: stage.production_stages?.color || '#6B7280',
+            status: stage.consolidated_status, // Use consolidated status for display
           })),
           job_stage_instances: jobStages,
           is_active: !!activeStage,
           is_pending: !activeStage && pendingStages.length > 0,
-          is_completed: jobStages.length > 0 && completedStages.length === totalStages,
+          is_completed: consolidatedJobStages.length > 0 && completedStages.length === totalStages,
           stage_status: activeStage ? 'active' : (pendingStages.length > 0 ? 'pending' : 'unknown')
         };
       });
