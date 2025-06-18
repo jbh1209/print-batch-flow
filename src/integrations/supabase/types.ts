@@ -511,7 +511,7 @@ export type Database = {
           paper_weight: string
           pdf_url: string
           quantity: number
-          size: Database["public"]["Enums"]["flyer_size"]
+          size: Database["public"]["Enums"]["size_enum"]
           status: Database["public"]["Enums"]["job_status"]
           updated_at: string
           user_id: string
@@ -528,7 +528,7 @@ export type Database = {
           paper_weight: string
           pdf_url: string
           quantity: number
-          size: Database["public"]["Enums"]["flyer_size"]
+          size: Database["public"]["Enums"]["size_enum"]
           status?: Database["public"]["Enums"]["job_status"]
           updated_at?: string
           user_id: string
@@ -545,7 +545,7 @@ export type Database = {
           paper_weight?: string
           pdf_url?: string
           quantity?: number
-          size?: Database["public"]["Enums"]["flyer_size"]
+          size?: Database["public"]["Enums"]["size_enum"]
           status?: Database["public"]["Enums"]["job_status"]
           updated_at?: string
           user_id?: string
@@ -1945,6 +1945,7 @@ export type Database = {
         | "Shipped"
         | "Completed"
       sheet_size: "455x640mm" | "530x750mm" | "320x455mm"
+      size_enum: "A6" | "A5" | "A4" | "DL" | "A3"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2088,6 +2089,7 @@ export const Constants = {
         "Completed",
       ],
       sheet_size: ["455x640mm", "530x750mm", "320x455mm"],
+      size_enum: ["A6", "A5", "A4", "DL", "A3"],
     },
   },
 } as const
