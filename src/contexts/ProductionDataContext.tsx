@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -121,16 +120,21 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
     );
   };
 
-  // Helper: Consolidate job stage instances for a single job
+  // Helper: Consolidate job stage instances for a single job - FIXED VERSION
   const consolidateJobStages = (jobStages: any[]) => {
-    const stageMap = new Map();
+    console.log('🔍 Consolidating job stages:', jobStages.length, 'raw stages');
+    
+    // Group stages by production_stage_id and stage_order to handle both single and multi-part correctly
+    const stageGroups = new Map();
     
     jobStages.forEach(stage => {
-      const key = `${stage.production_stage_id}`;
+      // Create a unique key that combines production_stage_id and stage_order
+      // This ensures we don't accidentally merge different stages
+      const groupKey = `${stage.production_stage_id}_${stage.stage_order}`;
       
-      if (!stageMap.has(key)) {
-        // Create consolidated stage entry
-        stageMap.set(key, {
+      if (!stageGroups.has(groupKey)) {
+        // Initialize the group with the first stage instance
+        stageGroups.set(groupKey, {
           ...stage,
           parts: [],
           consolidated_status: stage.status,
@@ -140,11 +144,11 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
         });
       }
       
-      const consolidated = stageMap.get(key);
+      const group = stageGroups.get(groupKey);
       
-      // Add part information if this is a multi-part stage
+      // If this stage has part_name, it's a multi-part stage
       if (stage.part_name) {
-        consolidated.parts.push({
+        group.parts.push({
           part_name: stage.part_name,
           status: stage.status,
           part_order: stage.part_order,
@@ -152,42 +156,64 @@ export const ProductionDataProvider: React.FC<{ children: React.ReactNode }> = (
           completed_at: stage.completed_at,
           notes: stage.notes
         });
-      }
-      
-      // Update consolidated status based on part statuses
-      if (stage.status === 'active') {
-        consolidated.any_part_active = true;
-        consolidated.consolidated_status = 'active';
-      } else if (stage.status === 'pending' && consolidated.consolidated_status !== 'active') {
-        consolidated.any_part_pending = true;
-        if (consolidated.consolidated_status !== 'active') {
-          consolidated.consolidated_status = 'pending';
-        }
-      } else if (stage.status === 'completed') {
-        // Check if all parts of this stage are completed
-        const allPartsCompleted = jobStages
-          .filter(s => s.production_stage_id === stage.production_stage_id)
-          .every(s => s.status === 'completed');
         
-        if (allPartsCompleted && !consolidated.any_part_active && !consolidated.any_part_pending) {
-          consolidated.consolidated_status = 'completed';
-          consolidated.all_parts_completed = true;
+        // Update consolidated status based on part statuses
+        if (stage.status === 'active') {
+          group.any_part_active = true;
+          group.consolidated_status = 'active';
+        } else if (stage.status === 'pending' && group.consolidated_status !== 'active') {
+          group.any_part_pending = true;
+          if (group.consolidated_status !== 'active') {
+            group.consolidated_status = 'pending';
+          }
         }
       }
       
       // Update timestamps to reflect the most recent activity
-      if (stage.started_at && (!consolidated.started_at || new Date(stage.started_at) > new Date(consolidated.started_at))) {
-        consolidated.started_at = stage.started_at;
-        consolidated.started_by = stage.started_by;
+      if (stage.started_at && (!group.started_at || new Date(stage.started_at) > new Date(group.started_at))) {
+        group.started_at = stage.started_at;
+        group.started_by = stage.started_by;
       }
       
-      if (stage.completed_at && (!consolidated.completed_at || new Date(stage.completed_at) > new Date(consolidated.completed_at))) {
-        consolidated.completed_at = stage.completed_at;
-        consolidated.completed_by = stage.completed_by;
+      if (stage.completed_at && (!group.completed_at || new Date(stage.completed_at) > new Date(group.completed_at))) {
+        group.completed_at = stage.completed_at;
+        group.completed_by = stage.completed_by;
       }
     });
     
-    return Array.from(stageMap.values()).sort((a, b) => a.stage_order - b.stage_order);
+    // Convert map to array and check completion status for multi-part stages
+    const consolidatedStages = Array.from(stageGroups.values()).map(group => {
+      // For multi-part stages, check if all parts are completed
+      if (group.parts.length > 0) {
+        const allPartsCompleted = group.parts.every(part => part.status === 'completed');
+        const anyPartActive = group.parts.some(part => part.status === 'active');
+        const anyPartPending = group.parts.some(part => part.status === 'pending');
+        
+        if (allPartsCompleted) {
+          group.consolidated_status = 'completed';
+          group.all_parts_completed = true;
+        } else if (anyPartActive) {
+          group.consolidated_status = 'active';
+        } else if (anyPartPending) {
+          group.consolidated_status = 'pending';
+        }
+      }
+      
+      return group;
+    });
+    
+    // Sort by stage_order to maintain workflow sequence
+    const sortedStages = consolidatedStages.sort((a, b) => a.stage_order - b.stage_order);
+    
+    console.log('✅ Consolidated to', sortedStages.length, 'unique stages');
+    console.log('📋 Stage details:', sortedStages.map(s => ({ 
+      name: s.production_stages?.name, 
+      order: s.stage_order, 
+      status: s.consolidated_status,
+      parts: s.parts.length 
+    })));
+    
+    return sortedStages;
   };
 
   const fetchData = useCallback(async (force = false) => {
