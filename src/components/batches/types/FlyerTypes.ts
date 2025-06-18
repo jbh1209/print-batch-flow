@@ -4,7 +4,7 @@ import { BatchStatus, LaminationType } from "@/config/productTypes";
 // Import directly from the config file instead of from ./BatchTypes
 export type { BatchStatus, LaminationType };
 
-export type FlyerSize = "A5" | "A4" | "DL" | "A3";
+export type FlyerSize = "A6" | "A5" | "A4" | "DL" | "A3";
 export type PaperType = "Matt" | "Gloss";
 
 export interface FlyerBatch {

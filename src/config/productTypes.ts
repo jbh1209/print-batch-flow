@@ -117,7 +117,7 @@ export const productConfigs: Record<string, ProductConfig> = {
     jobNumberPrefix: "FL",
     availableSizes: ["A6", "A5", "A4", "DL"],
     availablePaperTypes: ["Matt", "Gloss"],
-    availablePaperWeights: ["115gsm", "130gsm", "170gsm", "200gsm", "250gsm"],
+    availablePaperWeights: ["115gsm", "130gsm", "170gsm", "200gsm", "250gsm", "300gsm", "350gsm"],
     hasSize: true,
     hasPaperType: true,
     hasPaperWeight: true,
