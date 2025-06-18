@@ -6,10 +6,10 @@ import { Settings, Users, Building2, Printer, BarChart3, Wrench } from "lucide-r
 import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
 import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
 import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManagement";
-import { StagePermissionsManager } from "@/components/tracker/admin/StagePermissionsManager";
 import { PrintersManagement } from "@/components/tracker/admin/PrintersManagement";
 import { WorkflowDiagnosticsPanel } from "@/components/tracker/diagnostics/WorkflowDiagnosticsPanel";
-import { TrackerLayout } from "@/components/TrackerLayout";
+import TrackerLayout from "@/components/TrackerLayout";
+import { AdminStagePermissionsManager } from "@/components/tracker/admin/AdminStagePermissionsManager";
 
 export default function TrackerAdmin() {
   const [activeTab, setActiveTab] = useState("workflow-diagnostics");
@@ -65,7 +65,7 @@ export default function TrackerAdmin() {
           </TabsContent>
 
           <TabsContent value="permissions">
-            <StagePermissionsManager />
+            <AdminStagePermissionsManager />
           </TabsContent>
 
           <TabsContent value="user-groups">
