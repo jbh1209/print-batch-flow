@@ -7,17 +7,34 @@ import { Link } from "react-router-dom";
 import { ProductionKanban } from "@/components/tracker/ProductionKanban";
 import { EnhancedProductionKanban } from "@/components/tracker/EnhancedProductionKanban";
 import { MultiStageKanban } from "@/components/tracker/MultiStageKanban";
-import { useProductionDataContext } from "@/contexts/ProductionDataContext";
+import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 
 const TrackerKanban = () => {
   const [activeTab, setActiveTab] = useState("multistage");
   
-  // Use cached production data instead of separate kanban data
-  const { jobs, consolidatedStages } = useProductionDataContext();
+  // Use the same data fetching pattern as Production
+  const { jobs } = useProductionJobs();
+  const { jobStages } = useRealTimeJobStages(jobs);
+
+  // Calculate consolidated stages for display
+  const consolidatedStages = React.useMemo(() => {
+    return jobStages.reduce((acc, stage) => {
+      const existing = acc.find(s => s.stage_id === stage.production_stage_id);
+      if (!existing && stage.production_stage) {
+        acc.push({
+          stage_id: stage.production_stage_id,
+          stage_name: stage.production_stage.name,
+          stage_color: stage.production_stage.color,
+          is_active: true,
+        });
+      }
+      return acc;
+    }, [] as any[]);
+  }, [jobStages]);
 
   return (
     <div className="h-full flex flex-col">
-      {/* Remove external sidebar here */}
       <div className="mb-6 flex-shrink-0">
         <div className="flex items-center gap-4 mb-4">
           <Button variant="outline" size="sm" asChild>

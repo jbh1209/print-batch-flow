@@ -6,28 +6,45 @@ import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerSt
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
-import { useProductionDataContext } from "@/contexts/ProductionDataContext";
+import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 
 const TrackerDashboard = () => {
-  // Use cached production data instead of separate API calls
+  // Use the same data fetching pattern as other working components
   const {
     jobs,
-    activeJobs,
-    consolidatedStages,
-    isLoading,
-    error,
-    lastUpdated,
-    refresh,
-    getTimeSinceLastUpdate
-  } = useProductionDataContext();
+    isLoading: jobsLoading,
+    error: jobsError,
+    fetchJobs
+  } = useProductionJobs();
+
+  const {
+    jobStages,
+    isLoading: stagesLoading,
+    lastUpdate,
+    refreshStages
+  } = useRealTimeJobStages(jobs);
+
+  const isLoading = jobsLoading || stagesLoading;
+  const error = jobsError;
 
   // Local refresh UI state
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await refresh();
+    await Promise.all([fetchJobs(), refreshStages()]);
     setIsRefreshing(false);
+  };
+
+  const getTimeSinceLastUpdate = () => {
+    if (!lastUpdate) return null;
+    const now = new Date();
+    const ms = now.getTime() - lastUpdate.getTime();
+    const mins = Math.floor(ms / (1000 * 60));
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    return `${Math.floor(mins / 60)}h ago`;
   };
 
   if (isLoading) {
@@ -49,7 +66,7 @@ const TrackerDashboard = () => {
               <p className="text-sm mt-1">{error}</p>
             </div>
             <RefreshIndicator
-              lastUpdated={lastUpdated}
+              lastUpdated={lastUpdate}
               isRefreshing={isRefreshing}
               onRefresh={handleRefresh}
               getTimeSinceLastUpdate={getTimeSinceLastUpdate}
@@ -60,11 +77,12 @@ const TrackerDashboard = () => {
     );
   }
 
-  // Calculate stats from cached production data
+  // Calculate stats from production data
+  const activeJobs = jobs.filter(job => job.status !== 'Completed');
   const total = jobs.length;
-  const inProgress = activeJobs.filter(job => job.is_active).length;
-  const completed = jobs.filter(job => job.is_completed).length;
-  const pending = activeJobs.filter(job => job.is_pending).length;
+  const inProgress = jobStages.filter(stage => stage.status === 'active').length;
+  const completed = jobs.filter(job => job.status === 'Completed').length;
+  const pending = jobStages.filter(stage => stage.status === 'pending').length;
 
   // Build status counts from actual job data
   const statusCounts: Record<string, number> = {};
@@ -73,12 +91,18 @@ const TrackerDashboard = () => {
     statusCounts[status] = (statusCounts[status] || 0) + 1;
   });
 
-  // Map consolidated stages to the format expected by dashboard components
-  const stages = consolidatedStages.map(stage => ({
-    id: stage.stage_id,
-    name: stage.stage_name,
-    color: stage.stage_color
-  }));
+  // Get unique stages from jobStages
+  const stages = jobStages.reduce((acc, stage) => {
+    const existing = acc.find(s => s.id === stage.production_stage_id);
+    if (!existing && stage.production_stage) {
+      acc.push({
+        id: stage.production_stage_id,
+        name: stage.production_stage.name,
+        color: stage.production_stage.color
+      });
+    }
+    return acc;
+  }, [] as any[]);
 
   const stats = {
     total,
@@ -97,7 +121,7 @@ const TrackerDashboard = () => {
           <p className="text-gray-600">Monitor and manage your production workflow</p>
         </div>
         <RefreshIndicator
-          lastUpdated={lastUpdated}
+          lastUpdated={lastUpdate}
           isRefreshing={isRefreshing}
           onRefresh={handleRefresh}
           getTimeSinceLastUpdate={getTimeSinceLastUpdate}

@@ -1,8 +1,10 @@
+
 import React, { useState, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
-import { useUnifiedProductionData } from "@/hooks/tracker/useUnifiedProductionData";
+import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
@@ -11,7 +13,6 @@ import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfo
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
-import { ProductionDataProvider } from "@/contexts/ProductionDataContext";
 
 interface TrackerProductionContext {
   activeTab: string;
@@ -19,28 +20,31 @@ interface TrackerProductionContext {
   selectedStageId?: string;
   onStageSelect?: (stageId: string | null) => void;
   onFilterChange?: (filters: any) => void;
+  setSidebarData?: (data: any) => void;
 }
 
 const TrackerProduction = () => {
-  const context = useOutletContext<TrackerProductionContext & {setSidebarData?: (data: any) => void}>();
+  const context = useOutletContext<TrackerProductionContext>();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
-  // Use unified production data
+  // Use the same data fetching pattern as Kanban
   const { 
     jobs, 
-    activeJobs,
-    orphanedJobs,
-    consolidatedStages,
-    isLoading, 
-    isRefreshing,
-    lastUpdated,
-    error,
-    getFilteredJobs,
-    getJobStats,
-    refreshJobs,
-    getTimeSinceLastUpdate
-  } = useUnifiedProductionData();
+    isLoading: jobsLoading, 
+    error: jobsError,
+    fetchJobs 
+  } = useProductionJobs();
+  
+  const { 
+    jobStages, 
+    isLoading: stagesLoading, 
+    error: stagesError,
+    startStage,
+    completeStage,
+    refreshStages,
+    lastUpdate
+  } = useRealTimeJobStages(jobs);
   
   const [activeFilters, setActiveFilters] = useState<any>({});
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
@@ -50,20 +54,84 @@ const TrackerProduction = () => {
   // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
 
-  // Get filtered jobs using the unified hook
-  const filteredJobs = useMemo(() => {
-    return getFilteredJobs({
-      statusFilter: currentFilters.status,
-      stageFilter: currentFilters.stage,
-      categoryFilter: currentFilters.category,
-      searchQuery: currentFilters.search
-    });
-  }, [getFilteredJobs, currentFilters]);
+  const isLoading = jobsLoading || stagesLoading;
+  const error = jobsError || stagesError;
 
-  // Get job statistics
-  const jobStats = useMemo(() => {
-    return getJobStats(filteredJobs);
-  }, [getJobStats, filteredJobs]);
+  // Transform jobs with stage data (same as Kanban logic)
+  const enrichedJobs = useMemo(() => {
+    return jobs.map(job => {
+      const stages = jobStages.filter(stage => stage.job_id === job.id);
+      
+      // Get current active stage
+      const activeStage = stages.find(stage => stage.status === 'active');
+      const currentStageName = activeStage?.production_stage?.name || job.status || 'No Stage';
+      
+      // Calculate stage status
+      const hasActiveStage = stages.some(stage => stage.status === 'active');
+      const hasPendingStages = stages.some(stage => stage.status === 'pending');
+      const allCompleted = stages.length > 0 && stages.every(stage => stage.status === 'completed');
+      
+      let stageStatus = 'unknown';
+      if (hasActiveStage) stageStatus = 'active';
+      else if (hasPendingStages) stageStatus = 'pending';
+      else if (allCompleted) stageStatus = 'completed';
+
+      // Calculate workflow progress
+      const totalStages = stages.length;
+      const completedStages = stages.filter(stage => stage.status === 'completed').length;
+      const workflowProgress = totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
+
+      return {
+        ...job,
+        stages: stages.map(stage => ({
+          ...stage,
+          stage_name: stage.production_stage?.name || 'Unknown Stage',
+          stage_color: stage.production_stage?.color || '#6B7280',
+        })),
+        current_stage_name: currentStageName,
+        stage_status: stageStatus,
+        workflow_progress: workflowProgress,
+        total_stages: totalStages,
+        completed_stages: completedStages
+      };
+    });
+  }, [jobs, jobStages]);
+
+  // Get filtered jobs
+  const filteredJobs = useMemo(() => {
+    let filtered = enrichedJobs;
+
+    if (currentFilters.status) {
+      if (currentFilters.status === 'completed') {
+        filtered = filtered.filter(job => job.stage_status === 'completed');
+      } else {
+        filtered = filtered.filter(job => job.status === currentFilters.status);
+      }
+    }
+
+    if (currentFilters.stage) {
+      filtered = filtered.filter(job => 
+        job.current_stage_name === currentFilters.stage ||
+        job.stages.some(stage => stage.stage_name === currentFilters.stage)
+      );
+    }
+
+    if (currentFilters.category) {
+      filtered = filtered.filter(job => job.category_name === currentFilters.category);
+    }
+
+    if (currentFilters.search) {
+      const q = currentFilters.search.toLowerCase();
+      filtered = filtered.filter(job =>
+        job.wo_no?.toLowerCase().includes(q) ||
+        job.customer?.toLowerCase().includes(q) ||
+        job.reference?.toLowerCase().includes(q) ||
+        job.category_name?.toLowerCase().includes(q)
+      );
+    }
+
+    return filtered;
+  }, [enrichedJobs, currentFilters]);
 
   // Apply sorting to the filtered jobs
   const sortedJobs = useMemo(() => {
@@ -87,8 +155,8 @@ const TrackerProduction = () => {
 
   // Get jobs without categories
   const jobsWithoutCategory = useMemo(() => {
-    return activeJobs.filter(job => !job.category_id);
-  }, [activeJobs]);
+    return enrichedJobs.filter(job => !job.categories?.id);
+  }, [enrichedJobs]);
 
   const handleFilterChange = (filters: any) => {
     console.log("🔄 Filter change:", filters);
@@ -101,9 +169,10 @@ const TrackerProduction = () => {
     setSelectedStageId(stageId);
     
     if (stageId) {
-      const stage = consolidatedStages.find(s => s.stage_id === stageId);
+      // Find stage name from jobStages
+      const stage = jobStages.find(s => s.production_stage_id === stageId);
       if (stage) {
-        handleFilterChange({ stage: stage.stage_name });
+        handleFilterChange({ stage: stage.production_stage?.name });
       }
     } else {
       handleFilterChange({ stage: null });
@@ -114,13 +183,21 @@ const TrackerProduction = () => {
     try {
       console.log(`Stage action: ${action} for job ${jobId}, stage ${stageId}`);
       
-      toast.info(`${action} action performed - data will refresh automatically`);
+      if (action === 'start') {
+        const success = await startStage(stageId);
+        if (success) {
+          toast.success('Stage started successfully');
+        }
+      } else if (action === 'complete') {
+        const success = await completeStage(stageId);
+        if (success) {
+          toast.success('Stage completed successfully');
+        }
+      }
       
-      // Trigger refresh to get updated data
-      setTimeout(() => {
-        refreshJobs();
-      }, 1000);
-
+      // Refresh data
+      await refreshStages();
+      
     } catch (error) {
       console.error('Error performing stage action:', error);
       toast.error('Failed to perform stage action');
@@ -154,27 +231,43 @@ const TrackerProduction = () => {
     }
   };
 
-  console.log("🔍 TrackerProduction - Unified Data:", {
+  const handleRefresh = async () => {
+    await Promise.all([fetchJobs(), refreshStages()]);
+  };
+
+  console.log("🔍 TrackerProduction - Data:", {
     totalJobs: jobs.length,
-    activeJobs: activeJobs.length,
-    orphanedJobs: orphanedJobs.length,
+    jobStages: jobStages.length,
     filteredJobs: filteredJobs.length,
     sortedJobs: sortedJobs.length,
     currentFilters,
-    consolidatedStages: consolidatedStages.length,
-    lastUpdated: lastUpdated?.toLocaleTimeString()
+    lastUpdate: lastUpdate?.toLocaleTimeString()
   });
 
-  // --- ADD: Populate sidebar data for layout ---
+  // Populate sidebar data for layout
   React.useEffect(() => {
     if (context?.setSidebarData) {
+      // Extract unique stages from jobStages for sidebar
+      const consolidatedStages = jobStages.reduce((acc, stage) => {
+        const existing = acc.find(s => s.stage_id === stage.production_stage_id);
+        if (!existing && stage.production_stage) {
+          acc.push({
+            stage_id: stage.production_stage_id,
+            stage_name: stage.production_stage.name,
+            stage_color: stage.production_stage.color,
+            is_master_queue: false,
+            subsidiary_stages: [],
+          });
+        }
+        return acc;
+      }, [] as any[]);
+
       context.setSidebarData({
         consolidatedStages,
-        activeJobs,
+        activeJobs: enrichedJobs.filter(job => job.stage_status !== 'completed'),
       });
     }
-    // Keep this up-to-date as deps change
-  }, [consolidatedStages, activeJobs, context?.setSidebarData]);
+  }, [jobStages, enrichedJobs, context?.setSidebarData]);
 
   if (error) {
     return (
@@ -186,10 +279,10 @@ const TrackerProduction = () => {
               <p className="text-sm mt-1">{error}</p>
             </div>
             <RefreshIndicator
-              lastUpdated={lastUpdated}
-              isRefreshing={isRefreshing}
-              onRefresh={refreshJobs}
-              getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+              lastUpdated={lastUpdate}
+              isRefreshing={isLoading}
+              onRefresh={handleRefresh}
+              getTimeSinceLastUpdate={() => lastUpdate ? `${Math.floor((Date.now() - lastUpdate.getTime()) / 60000)}m ago` : null}
             />
           </div>
         </div>
@@ -208,7 +301,7 @@ const TrackerProduction = () => {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Main Content: condensed to fill space, sidebar removed */}
+      {/* Main Content */}
       <TrackerErrorBoundary componentName="Production Header">
         <div className="border-b bg-white p-2 sm:p-2">
           <div className="flex items-center justify-between">
@@ -220,10 +313,10 @@ const TrackerProduction = () => {
               onQRScanner={handleQRScanner}
             />
             <RefreshIndicator
-              lastUpdated={lastUpdated}
-              isRefreshing={isRefreshing}
-              onRefresh={refreshJobs}
-              getTimeSinceLastUpdate={getTimeSinceLastUpdate}
+              lastUpdated={lastUpdate}
+              isRefreshing={isLoading}
+              onRefresh={handleRefresh}
+              getTimeSinceLastUpdate={() => lastUpdate ? `${Math.floor((Date.now() - lastUpdate.getTime()) / 60000)}m ago` : null}
             />
           </div>
         </div>
@@ -257,7 +350,7 @@ const TrackerProduction = () => {
                 fallback={
                   <DataLoadingFallback
                     componentName="production jobs"
-                    onRetry={refreshJobs}
+                    onRetry={handleRefresh}
                     showDetails={false}
                   />
                 }
@@ -283,11 +376,5 @@ const TrackerProduction = () => {
     </div>
   );
 };
-export default function TrackerProductionWithProvider() {
-  // Use the provider at the page level
-  return (
-    <ProductionDataProvider>
-      <TrackerProduction />
-    </ProductionDataProvider>
-  );
-}
+
+export default TrackerProduction;
