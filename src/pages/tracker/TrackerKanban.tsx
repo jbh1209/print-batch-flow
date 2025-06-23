@@ -7,31 +7,9 @@ import { Link } from "react-router-dom";
 import { ProductionKanban } from "@/components/tracker/ProductionKanban";
 import { EnhancedProductionKanban } from "@/components/tracker/EnhancedProductionKanban";
 import { MultiStageKanban } from "@/components/tracker/MultiStageKanban";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
-import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 
 const TrackerKanban = () => {
   const [activeTab, setActiveTab] = useState("multistage");
-  
-  // Use the same data fetching pattern as Production
-  const { jobs } = useProductionJobs();
-  const { jobStages } = useRealTimeJobStages(jobs);
-
-  // Calculate consolidated stages for display
-  const consolidatedStages = React.useMemo(() => {
-    return jobStages.reduce((acc, stage) => {
-      const existing = acc.find(s => s.stage_id === stage.production_stage_id);
-      if (!existing && stage.production_stage) {
-        acc.push({
-          stage_id: stage.production_stage_id,
-          stage_name: stage.production_stage.name,
-          stage_color: stage.production_stage.color,
-          is_active: true,
-        });
-      }
-      return acc;
-    }, [] as any[]);
-  }, [jobStages]);
 
   return (
     <div className="h-full flex flex-col">
@@ -50,9 +28,6 @@ const TrackerKanban = () => {
             <h1 className="text-3xl font-bold">Production Kanban Board</h1>
             <p className="text-gray-600">Manage jobs through production workflows</p>
           </div>
-        </div>
-        <div className="mt-2 text-sm text-gray-500">
-          Total jobs: {jobs.length} | Active stages: {consolidatedStages.filter(s => s.is_active !== false).length}
         </div>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
