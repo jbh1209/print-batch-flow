@@ -3,7 +3,7 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
-import { useProductionJobs } from "@/hooks/tracker/useProductionJobs";
+import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
@@ -28,9 +28,12 @@ const TrackerProduction = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
-  // Use the same simple data fetching approach as kanban
-  const { jobs, isLoading, error, refreshJobs, lastUpdated } = useProductionJobs();
-  const { stageData, isLoadingStages } = useRealTimeJobStages();
+  // Use the production jobs hook
+  const { jobs, isLoading, error, fetchJobs: refreshJobs } = useProductionJobs();
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
+  
+  // Use real-time job stages with jobs as input
+  const { jobStages, isLoading: isLoadingStages } = useRealTimeJobStages(jobs);
   
   const [activeFilters, setActiveFilters] = useState<any>({});
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
@@ -40,23 +43,43 @@ const TrackerProduction = () => {
   // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
 
+  // Transform job stages into a more usable format
+  const stageData = useMemo(() => {
+    const stagesByJob: Record<string, any[]> = {};
+    
+    jobStages.forEach(stage => {
+      if (!stagesByJob[stage.job_id]) {
+        stagesByJob[stage.job_id] = [];
+      }
+      stagesByJob[stage.job_id].push({
+        id: stage.id,
+        production_stage_id: stage.production_stage_id,
+        stage_name: stage.stage_name || 'Unknown Stage',
+        status: stage.status,
+        stage_order: stage.stage_order || 0
+      });
+    });
+    
+    return stagesByJob;
+  }, [jobStages]);
+
   // Combine jobs with their stage data (same as kanban)
   const jobsWithStages = useMemo(() => {
-    if (!jobs || !stageData) return [];
+    if (!jobs) return [];
     
     return jobs.map(job => {
-      const jobStages = stageData[job.id] || [];
-      const activeStage = jobStages.find(stage => stage.status === 'active');
-      const currentStage = activeStage || jobStages.find(stage => stage.status === 'pending');
+      const jobStagesList = stageData[job.id] || [];
+      const activeStage = jobStagesList.find(stage => stage.status === 'active');
+      const currentStage = activeStage || jobStagesList.find(stage => stage.status === 'pending');
       
       // Calculate workflow progress
-      const totalStages = jobStages.length;
-      const completedStages = jobStages.filter(stage => stage.status === 'completed').length;
+      const totalStages = jobStagesList.length;
+      const completedStages = jobStagesList.filter(stage => stage.status === 'completed').length;
       const workflowProgress = totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
 
       return {
         ...job,
-        stages: jobStages,
+        stages: jobStagesList,
         current_stage_name: currentStage?.stage_name || 'No Stage',
         stage_status: currentStage?.status || 'pending',
         workflow_progress: workflowProgress,
@@ -144,7 +167,7 @@ const TrackerProduction = () => {
       // Find stage name from stage data
       const stageName = Object.values(stageData || {})
         .flat()
-        .find(stage => stage.production_stage_id === stageId)?.stage_name;
+        .find((stage: any) => stage.production_stage_id === stageId)?.stage_name;
       
       if (stageName) {
         handleFilterChange({ stage: stageName });
@@ -163,6 +186,7 @@ const TrackerProduction = () => {
       // Trigger refresh to get updated data
       setTimeout(() => {
         refreshJobs();
+        setLastUpdated(new Date());
       }, 1000);
 
     } catch (error) {
@@ -223,11 +247,11 @@ const TrackerProduction = () => {
     if (context?.setSidebarData && stageData) {
       const allStages = Object.values(stageData).flat();
       const uniqueStages = Array.from(
-        new Map(allStages.map(stage => [stage.production_stage_id, stage])).values()
+        new Map(allStages.map((stage: any) => [stage.production_stage_id, stage])).values()
       );
       
       context.setSidebarData({
-        consolidatedStages: uniqueStages.map(stage => ({
+        consolidatedStages: uniqueStages.map((stage: any) => ({
           stage_id: stage.production_stage_id,
           stage_name: stage.stage_name
         })),

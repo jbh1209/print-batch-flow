@@ -2,11 +2,43 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FactoryFloorDiagnostic } from "@/components/tracker/factory/FactoryFloorDiagnostic";
-import { ProductionStageManager } from "@/components/tracker/admin/ProductionStageManager";
-import { CategoryManager } from "@/components/tracker/admin/CategoryManager";
-import { UserGroupManager } from "@/components/tracker/admin/UserGroupManager";
-import { UserManagement } from "@/components/tracker/admin/UserManagement";
-import { QRCodeGenerator } from "@/components/tracker/admin/QRCodeGenerator";
+import { AdminStagePermissionsManager } from "@/components/tracker/admin/AdminStagePermissionsManager";
+
+// Simple placeholder components for admin features
+const ProductionStageManager = () => (
+  <div className="p-6">
+    <h3 className="text-lg font-semibold mb-4">Production Stages</h3>
+    <p className="text-gray-600">Production stage management coming soon...</p>
+  </div>
+);
+
+const CategoryManager = () => (
+  <div className="p-6">
+    <h3 className="text-lg font-semibold mb-4">Categories</h3>
+    <p className="text-gray-600">Category management coming soon...</p>
+  </div>
+);
+
+const UserGroupManager = () => (
+  <div className="p-6">
+    <h3 className="text-lg font-semibold mb-4">User Groups</h3>
+    <p className="text-gray-600">User group management coming soon...</p>
+  </div>
+);
+
+const UserManagement = () => (
+  <div className="p-6">
+    <h3 className="text-lg font-semibold mb-4">Users</h3>
+    <p className="text-gray-600">User management coming soon...</p>
+  </div>
+);
+
+const QRCodeGenerator = () => (
+  <div className="p-6">
+    <h3 className="text-lg font-semibold mb-4">QR Codes</h3>
+    <p className="text-gray-600">QR code generation coming soon...</p>
+  </div>
+);
 
 const TrackerAdmin = () => {
   const [activeTab, setActiveTab] = useState("users");
