@@ -54,7 +54,7 @@ const TrackerProduction = () => {
       stagesByJob[stage.job_id].push({
         id: stage.id,
         production_stage_id: stage.production_stage_id,
-        stage_name: stage.stage_name || 'Unknown Stage',
+        stage_name: stage.production_stage?.name || 'Unknown Stage',
         status: stage.status,
         stage_order: stage.stage_order || 0
       });
@@ -150,7 +150,7 @@ const TrackerProduction = () => {
 
   // Get jobs without categories
   const jobsWithoutCategory = useMemo(() => {
-    return jobsWithStages.filter(job => !job.category_id);
+    return jobsWithStages.filter(job => !job.categories?.id);
   }, [jobsWithStages]);
 
   const handleFilterChange = (filters: any) => {
