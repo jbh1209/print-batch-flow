@@ -1,88 +1,79 @@
 
 import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FactoryFloorDiagnostic } from "@/components/tracker/factory/FactoryFloorDiagnostic";
+import { Settings, Users, Building2, Printer, BarChart3, Wrench } from "lucide-react";
+import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
+import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
+import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManagement";
+import { PrintersManagement } from "@/components/tracker/admin/PrintersManagement";
+import { WorkflowDiagnosticsPanel } from "@/components/tracker/diagnostics/WorkflowDiagnosticsPanel";
 import { AdminStagePermissionsManager } from "@/components/tracker/admin/AdminStagePermissionsManager";
 
-// Simple placeholder components for admin features
-const ProductionStageManager = () => (
-  <div className="p-6">
-    <h3 className="text-lg font-semibold mb-4">Production Stages</h3>
-    <p className="text-gray-600">Production stage management coming soon...</p>
-  </div>
-);
-
-const CategoryManager = () => (
-  <div className="p-6">
-    <h3 className="text-lg font-semibold mb-4">Categories</h3>
-    <p className="text-gray-600">Category management coming soon...</p>
-  </div>
-);
-
-const UserGroupManager = () => (
-  <div className="p-6">
-    <h3 className="text-lg font-semibold mb-4">User Groups</h3>
-    <p className="text-gray-600">User group management coming soon...</p>
-  </div>
-);
-
-const UserManagement = () => (
-  <div className="p-6">
-    <h3 className="text-lg font-semibold mb-4">Users</h3>
-    <p className="text-gray-600">User management coming soon...</p>
-  </div>
-);
-
-const QRCodeGenerator = () => (
-  <div className="p-6">
-    <h3 className="text-lg font-semibold mb-4">QR Codes</h3>
-    <p className="text-gray-600">QR code generation coming soon...</p>
-  </div>
-);
-
-const TrackerAdmin = () => {
-  const [activeTab, setActiveTab] = useState("users");
+export default function TrackerAdmin() {
+  const [activeTab, setActiveTab] = useState("workflow-diagnostics");
 
   return (
-    <div className="p-6 h-full overflow-auto">
-      <h1 className="text-3xl font-bold mb-6">Tracker Administration</h1>
-      
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Production Tracker Admin</h1>
+        <p className="text-muted-foreground">
+          Manage production stages, categories, permissions, and system diagnostics
+        </p>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="user-groups">User Groups</TabsTrigger>
-          <TabsTrigger value="stages">Production Stages</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="qr-codes">QR Codes</TabsTrigger>
-          <TabsTrigger value="factory-diagnostic">Factory Diagnostic</TabsTrigger>
+          <TabsTrigger value="workflow-diagnostics" className="flex items-center gap-2">
+            <Wrench className="h-4 w-4" />
+            Diagnostics
+          </TabsTrigger>
+          <TabsTrigger value="stages" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Stages
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Categories
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Permissions
+          </TabsTrigger>
+          <TabsTrigger value="user-groups" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            User Groups
+          </TabsTrigger>
+          <TabsTrigger value="printers" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            Printers
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users" className="space-y-6">
-          <UserManagement />
+        <TabsContent value="workflow-diagnostics">
+          <WorkflowDiagnosticsPanel />
         </TabsContent>
 
-        <TabsContent value="user-groups" className="space-y-6">
-          <UserGroupManager />
+        <TabsContent value="stages">
+          <ProductionStagesManagement />
         </TabsContent>
 
-        <TabsContent value="stages" className="space-y-6">
-          <ProductionStageManager />
+        <TabsContent value="categories">
+          <CategoriesManagement />
         </TabsContent>
 
-        <TabsContent value="categories" className="space-y-6">
-          <CategoryManager />
+        <TabsContent value="permissions">
+          <AdminStagePermissionsManager />
         </TabsContent>
 
-        <TabsContent value="qr-codes" className="space-y-6">
-          <QRCodeGenerator />
+        <TabsContent value="user-groups">
+          <UserGroupsManagement />
         </TabsContent>
 
-        <TabsContent value="factory-diagnostic" className="space-y-6">
-          <FactoryFloorDiagnostic />
+        <TabsContent value="printers">
+          <PrintersManagement />
         </TabsContent>
       </Tabs>
     </div>
   );
-};
-
-export default TrackerAdmin;
+}

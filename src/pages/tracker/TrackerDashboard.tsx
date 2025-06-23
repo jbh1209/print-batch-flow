@@ -6,29 +6,28 @@ import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerSt
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useProductionDataContext } from "@/contexts/ProductionDataContext";
 
 const TrackerDashboard = () => {
-  // Use simple production jobs hook
-  const { jobs, isLoading, error, fetchJobs: refresh, getJobStats } = useProductionJobs();
-  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(new Date());
+  // Use cached production data instead of separate API calls
+  const {
+    jobs,
+    activeJobs,
+    consolidatedStages,
+    isLoading,
+    error,
+    lastUpdated,
+    refresh,
+    getTimeSinceLastUpdate
+  } = useProductionDataContext();
+
+  // Local refresh UI state
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refresh();
-    setLastUpdated(new Date());
     setIsRefreshing(false);
-  };
-
-  const getTimeSinceLastUpdate = () => {
-    if (!lastUpdated) return '';
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - lastUpdated.getTime()) / 1000);
-    
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    return `${Math.floor(diff / 3600)}h ago`;
   };
 
   if (isLoading) {
@@ -61,15 +60,33 @@ const TrackerDashboard = () => {
     );
   }
 
-  // Calculate stats from jobs
-  const jobStats = getJobStats();
+  // Calculate stats from cached production data
+  const total = jobs.length;
+  const inProgress = activeJobs.filter(job => job.is_active).length;
+  const completed = jobs.filter(job => job.is_completed).length;
+  const pending = activeJobs.filter(job => job.is_pending).length;
+
+  // Build status counts from actual job data
+  const statusCounts: Record<string, number> = {};
+  jobs.forEach(job => {
+    const status = job.status || 'Unknown';
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+  });
+
+  // Map consolidated stages to the format expected by dashboard components
+  const stages = consolidatedStages.map(stage => ({
+    id: stage.stage_id,
+    name: stage.stage_name,
+    color: stage.stage_color
+  }));
+
   const stats = {
-    total: jobStats.total,
-    inProgress: jobStats.statusCounts['In Progress'] || 0,
-    completed: jobStats.statusCounts['Completed'] || 0,
-    pending: jobStats.statusCounts['Pending'] || 0,
-    statusCounts: jobStats.statusCounts,
-    stages: [],
+    total,
+    inProgress,
+    completed,
+    pending,
+    statusCounts,
+    stages,
   };
 
   return (

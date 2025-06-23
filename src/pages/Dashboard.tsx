@@ -1,8 +1,13 @@
 
 import React from "react";
 import TrackerDashboard from "./tracker/TrackerDashboard";
+import { ProductionDataProvider } from "@/contexts/ProductionDataContext";
 
-// Simple dashboard without ProductionDataProvider
+// Wrap dashboard with ProductionDataProvider to reuse cached data
 export default function Dashboard() {
-  return <TrackerDashboard />;
+  return (
+    <ProductionDataProvider>
+      <TrackerDashboard />
+    </ProductionDataProvider>
+  );
 }

@@ -98,14 +98,12 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
                 <Badge className={getStatusColor(job.stage_status)}>{job.current_stage_name}</Badge>
               )}
             </div>
-            
             {/* Workflow Progress */}
             <div style={{ width: 80 }} className="pl-1">
               {typeof job.workflow_progress === "number" && (
                 <Progress value={job.workflow_progress} className="h-1" />
               )}
             </div>
-            
             {/* Expand/Collapse Icon */}
             <div className="pl-2 pr-1 flex items-center" style={{ width: 30 }}>
               {selectedJobId === job.id
@@ -113,7 +111,6 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
                 : <ChevronRight className="h-4 w-4 text-gray-400" />}
             </div>
           </div>
-          
           {selectedJobId === job.id && (
             <div className="bg-gray-50 px-6 pb-3 pt-2">
               <div className="grid grid-cols-12 gap-x-2 text-xs font-semibold text-gray-600 mb-1">
@@ -124,61 +121,56 @@ export const FilteredJobsView: React.FC<FilteredJobsViewProps> = ({
               </div>
               <div className="space-y-0.5">
                 {Array.isArray(job.stages) && job.stages.length > 0 ? (
-                  job.stages
-                    .sort((a, b) => a.stage_order - b.stage_order)
-                    .map((stage, idx) => (
-                      <div key={stage.id || idx} className="grid grid-cols-12 items-center py-0.5 border-b border-gray-200 last:border-b-0 group">
-                        {/* Stage name with colored dot */}
-                        <div className="col-span-4 flex items-center">
-                          {getStageDot(stage.status)}
-                          <span>{stage.stage_name}</span>
-                        </div>
-                        
-                        {/* Stage status */}
-                        <div className="col-span-2">
-                          <Badge variant="outline" className={getStatusColor(stage.status)}>
-                            {stage.status.charAt(0).toUpperCase() + stage.status.slice(1)}
-                          </Badge>
-                        </div>
-                        
-                        {/* Progress indicator */}
-                        <div className="col-span-3">
-                          {stage.status === "completed" ? (
-                            <span className="text-green-600 font-medium">✓</span>
-                          ) : stage.status === "active" ? (
-                            <span className="text-blue-600">In Progress</span>
-                          ) : (
-                            <span className="text-gray-500">Pending</span>
-                          )}
-                        </div>
-                        
-                        {/* Actions (Start/Complete) */}
-                        <div className="col-span-3 flex items-center justify-end space-x-1">
-                          {stage.status === "pending" && (
-                            <button
-                              className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium hover:bg-blue-200"
-                              onClick={e => {
-                                e.stopPropagation();
-                                onStageAction(job.id, stage.production_stage_id, "start");
-                              }}
-                            >
-                              Start
-                            </button>
-                          )}
-                          {stage.status === "active" && (
-                            <button
-                              className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded font-medium hover:bg-green-200"
-                              onClick={e => {
-                                e.stopPropagation();
-                                onStageAction(job.id, stage.production_stage_id, "complete");
-                              }}
-                            >
-                              Complete
-                            </button>
-                          )}
-                        </div>
+                  job.stages.map((stage, idx) => (
+                    <div key={stage.id || idx} className="grid grid-cols-12 items-center py-0.5 border-b border-gray-200 last:border-b-0 group">
+                      {/* Stage name with colored dot */}
+                      <div className="col-span-4 flex items-center">
+                        {getStageDot(stage.status)}
+                        <span>{stage.stage_name}</span>
                       </div>
-                    ))
+                      {/* Stage status */}
+                      <div className="col-span-2">
+                        <Badge variant="outline" className={getStatusColor(stage.status)}>
+                          {stage.status.charAt(0).toUpperCase() + stage.status.slice(1)}
+                        </Badge>
+                      </div>
+                      {/* (Optional) mini progress or timing */}
+                      <div className="col-span-3">
+                        {stage.status === "completed" ? (
+                          <span className="text-green-600 font-medium">✓</span>
+                        ) : stage.status === "active" ? (
+                          <span className="text-blue-600">In Progress</span>
+                        ) : (
+                          <span className="text-gray-500">Pending</span>
+                        )}
+                      </div>
+                      {/* Actions (Start/Complete) */}
+                      <div className="col-span-3 flex items-center justify-end space-x-1">
+                        {stage.status === "pending" && (
+                          <button
+                            className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium hover:bg-blue-200"
+                            onClick={e => {
+                              e.stopPropagation();
+                              onStageAction(job.id, stage.production_stage_id, "start");
+                            }}
+                          >
+                            Start
+                          </button>
+                        )}
+                        {stage.status === "active" && (
+                          <button
+                            className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded font-medium hover:bg-green-200"
+                            onClick={e => {
+                              e.stopPropagation();
+                              onStageAction(job.id, stage.production_stage_id, "complete");
+                            }}
+                          >
+                            Complete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
                 ) : (
                   <div className="text-gray-400 italic text-sm">No stage details available for this job.</div>
                 )}

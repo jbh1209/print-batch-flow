@@ -7,13 +7,13 @@ import { Link } from "react-router-dom";
 import { ProductionKanban } from "@/components/tracker/ProductionKanban";
 import { EnhancedProductionKanban } from "@/components/tracker/EnhancedProductionKanban";
 import { MultiStageKanban } from "@/components/tracker/MultiStageKanban";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useProductionDataContext } from "@/contexts/ProductionDataContext";
 
 const TrackerKanban = () => {
   const [activeTab, setActiveTab] = useState("multistage");
   
-  // Use simple production jobs hook instead of cached data
-  const { jobs } = useProductionJobs();
+  // Use cached production data instead of separate kanban data
+  const { jobs, consolidatedStages } = useProductionDataContext();
 
   return (
     <div className="h-full flex flex-col">
@@ -35,7 +35,7 @@ const TrackerKanban = () => {
           </div>
         </div>
         <div className="mt-2 text-sm text-gray-500">
-          Total jobs: {jobs.length}
+          Total jobs: {jobs.length} | Active stages: {consolidatedStages.filter(s => s.is_active !== false).length}
         </div>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
