@@ -1,11 +1,10 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, CheckCircle, Clock, Wrench, BarChart3, FileText } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, Wrench, BarChart3, FileText, Target } from "lucide-react";
 import { toast } from "sonner";
 import { 
   runWorkflowDiagnostics, 
@@ -13,6 +12,8 @@ import {
   type WorkflowDiagnostic, 
   type DiagnosticSummary 
 } from "@/utils/tracker/workflowDiagnostics";
+import { BatchRepairManager } from "./BatchRepairManager";
+import { RepairStrategiesPanel } from "./RepairStrategiesPanel";
 
 export const WorkflowDiagnosticsPanel = () => {
   const [diagnostics, setDiagnostics] = useState<WorkflowDiagnostic[]>([]);
@@ -20,6 +21,7 @@ export const WorkflowDiagnosticsPanel = () => {
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
   const [repairResults, setRepairResults] = useState<any>(null);
+  const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
 
   const runDiagnostics = async () => {
     setIsRunningDiagnostics(true);
@@ -65,6 +67,16 @@ export const WorkflowDiagnosticsPanel = () => {
     }
   };
 
+  const handleStrategySelect = (strategy: any) => {
+    setSelectedStrategy(strategy);
+    toast.info(`Selected strategy: ${strategy.name}`);
+  };
+
+  const handleRepairComplete = () => {
+    // Re-run diagnostics after repair completion
+    runDiagnostics();
+  };
+
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'destructive';
@@ -90,7 +102,7 @@ export const WorkflowDiagnosticsPanel = () => {
         <div>
           <h2 className="text-2xl font-bold">Workflow Diagnostics & Repair</h2>
           <p className="text-muted-foreground">
-            Analyze and repair missing stages in production workflows
+            Analyze and repair missing stages in production workflows with advanced strategies
           </p>
         </div>
         <div className="flex gap-2">
@@ -108,7 +120,7 @@ export const WorkflowDiagnosticsPanel = () => {
               disabled={isRepairing}
             >
               <Wrench className="h-4 w-4 mr-2" />
-              {isRepairing ? 'Repairing...' : `Repair ${diagnostics.length} Jobs`}
+              {isRepairing ? 'Repairing...' : `Quick Repair (${diagnostics.length})`}
             </Button>
           )}
         </div>
@@ -174,6 +186,8 @@ export const WorkflowDiagnosticsPanel = () => {
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="strategies">Repair Strategies</TabsTrigger>
+            <TabsTrigger value="batch-repair">Batch Repair</TabsTrigger>
             <TabsTrigger value="jobs">Affected Jobs</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
@@ -181,6 +195,7 @@ export const WorkflowDiagnosticsPanel = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
+            
             <Card>
               <CardHeader>
                 <CardTitle>Diagnostic Overview</CardTitle>
@@ -210,7 +225,23 @@ export const WorkflowDiagnosticsPanel = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="strategies">
+            <RepairStrategiesPanel
+              diagnostics={diagnostics}
+              summary={summary}
+              onStrategySelect={handleStrategySelect}
+            />
+          </TabsContent>
+
+          <TabsContent value="batch-repair">
+            <BatchRepairManager
+              diagnostics={diagnostics}
+              onRepairComplete={handleRepairComplete}
+            />
+          </TabsContent>
+
           <TabsContent value="jobs" className="space-y-4">
+            
             <Card>
               <CardHeader>
                 <CardTitle>Jobs with Missing Stages</CardTitle>
@@ -247,6 +278,7 @@ export const WorkflowDiagnosticsPanel = () => {
           </TabsContent>
 
           <TabsContent value="categories" className="space-y-4">
+            
             <Card>
               <CardHeader>
                 <CardTitle>Most Affected Categories</CardTitle>
@@ -270,6 +302,7 @@ export const WorkflowDiagnosticsPanel = () => {
           </TabsContent>
 
           <TabsContent value="recommendations" className="space-y-4">
+            
             <Card>
               <CardHeader>
                 <CardTitle>Repair Recommendations</CardTitle>
@@ -289,6 +322,7 @@ export const WorkflowDiagnosticsPanel = () => {
 
           {repairResults && (
             <TabsContent value="repair-log" className="space-y-4">
+              
               <Card>
                 <CardHeader>
                   <CardTitle>Repair Results</CardTitle>
