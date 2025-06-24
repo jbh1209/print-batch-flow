@@ -238,6 +238,10 @@ const TrackerProduction = () => {
     }
   };
 
+  const handleConfigureStages = () => {
+    toast.info('Stage configuration - navigate to Admin section');
+  };
+
   const handleSort = (field: 'wo_no' | 'due_date') => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -298,6 +302,7 @@ const TrackerProduction = () => {
                 isMobile={isMobile}
                 onQRScan={handleQRScan}
                 onStageAction={handleStageAction}
+                onConfigureStages={handleConfigureStages}
                 onQRScanner={handleQRScanner}
               />
               <RefreshIndicator
