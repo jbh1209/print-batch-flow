@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -22,13 +23,18 @@ import {
   Layers,
   Factory
 } from "lucide-react";
-import { DynamicProductionSidebar } from "./production/DynamicProductionSidebar";
+import { ProductionSidebar } from "./production/ProductionSidebar";
 
 interface ContextSidebarProps {
   activeTab: string;
   onFilterChange?: (filters: any) => void;
-  // These three props only used for production tab:
-  productionSidebarData?: { consolidatedStages: any[]; activeJobs: any[] };
+  // These props only used for production tab:
+  productionSidebarData?: { 
+    consolidatedStages: any[]; 
+    getJobCountForStage: (stageName: string) => number;
+    getJobCountByStatus: (status: string) => number;
+    totalActiveJobs: number;
+  };
   onStageSelect?: (stageId: string | null) => void;
   selectedStageId?: string | null;
 }
@@ -172,12 +178,14 @@ export const ContextSidebar = ({
   const renderProductionSidebar = () => {
     if (!productionSidebarData) return null;
     return (
-      <DynamicProductionSidebar
+      <ProductionSidebar
         selectedStageId={selectedStageId}
         onStageSelect={onStageSelect || (() => {})}
         onFilterChange={onFilterChange}
         consolidatedStages={productionSidebarData.consolidatedStages}
-        activeJobs={productionSidebarData.activeJobs}
+        getJobCountForStage={productionSidebarData.getJobCountForStage}
+        getJobCountByStatus={productionSidebarData.getJobCountByStatus}
+        totalActiveJobs={productionSidebarData.totalActiveJobs}
       />
     );
   };

@@ -2,14 +2,17 @@
 import React, { useState, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { FilteredJobsView } from "@/components/tracker/production/FilteredJobsView";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
+import { useProductionStageData } from "@/hooks/tracker/useProductionStageData";
+import { useProductionSidebarData } from "@/hooks/tracker/useProductionSidebarData";
+import { useProductionFiltering } from "@/hooks/tracker/useProductionFiltering";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
+import { ProductionJobsView } from "@/components/tracker/production/ProductionJobsView";
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
@@ -28,7 +31,7 @@ const TrackerProduction = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
-  // Use the same data fetching pattern as Kanban
+  // Fetch data using existing hooks
   const { 
     jobs, 
     isLoading: jobsLoading, 
@@ -45,7 +48,16 @@ const TrackerProduction = () => {
     refreshStages,
     lastUpdate
   } = useRealTimeJobStages(jobs);
-  
+
+  // Transform data using production-specific hooks
+  const { enrichedJobs } = useProductionStageData({ jobs, jobStages });
+  const { 
+    consolidatedStages, 
+    activeJobs,
+    getJobCountForStage,
+    getJobCountByStatus 
+  } = useProductionSidebarData({ jobStages, enrichedJobs });
+
   const [activeFilters, setActiveFilters] = useState<any>({});
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -54,86 +66,15 @@ const TrackerProduction = () => {
   // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
 
+  // Filter jobs using production-specific logic
+  const { filteredJobs } = useProductionFiltering({ 
+    enrichedJobs, 
+    filters: currentFilters, 
+    selectedStageId 
+  });
+
   const isLoading = jobsLoading || stagesLoading;
   const error = jobsError || stagesError;
-
-  // Transform jobs with stage data (same as Kanban logic) but EXCLUDE completed jobs
-  const enrichedJobs = useMemo(() => {
-    return jobs
-      .filter(job => job.status !== 'Completed') // Hide completed jobs for production staff
-      .map(job => {
-        const stages = jobStages.filter(stage => stage.job_id === job.id);
-        
-        // Get current active stage
-        const activeStage = stages.find(stage => stage.status === 'active');
-        const currentStageName = activeStage?.production_stage?.name || job.status || 'No Stage';
-        
-        // Calculate stage status
-        const hasActiveStage = stages.some(stage => stage.status === 'active');
-        const hasPendingStages = stages.some(stage => stage.status === 'pending');
-        const allCompleted = stages.length > 0 && stages.every(stage => stage.status === 'completed');
-        
-        let stageStatus = 'unknown';
-        if (hasActiveStage) stageStatus = 'active';
-        else if (hasPendingStages) stageStatus = 'pending';
-        else if (allCompleted) stageStatus = 'completed';
-
-        // Calculate workflow progress
-        const totalStages = stages.length;
-        const completedStages = stages.filter(stage => stage.status === 'completed').length;
-        const workflowProgress = totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
-
-        return {
-          ...job,
-          stages: stages.map(stage => ({
-            ...stage,
-            stage_name: stage.production_stage?.name || 'Unknown Stage',
-            stage_color: stage.production_stage?.color || '#6B7280',
-          })),
-          current_stage_name: currentStageName,
-          stage_status: stageStatus,
-          workflow_progress: workflowProgress,
-          total_stages: totalStages,
-          completed_stages: completedStages
-        };
-      });
-  }, [jobs, jobStages]);
-
-  // Get filtered jobs
-  const filteredJobs = useMemo(() => {
-    let filtered = enrichedJobs;
-
-    if (currentFilters.status) {
-      if (currentFilters.status === 'completed') {
-        filtered = filtered.filter(job => job.stage_status === 'completed');
-      } else {
-        filtered = filtered.filter(job => job.status === currentFilters.status);
-      }
-    }
-
-    if (currentFilters.stage) {
-      filtered = filtered.filter(job => 
-        job.current_stage_name === currentFilters.stage ||
-        job.stages.some(stage => stage.stage_name === currentFilters.stage)
-      );
-    }
-
-    if (currentFilters.category) {
-      filtered = filtered.filter(job => job.category_name === currentFilters.category);
-    }
-
-    if (currentFilters.search) {
-      const q = currentFilters.search.toLowerCase();
-      filtered = filtered.filter(job =>
-        job.wo_no?.toLowerCase().includes(q) ||
-        job.customer?.toLowerCase().includes(q) ||
-        job.reference?.toLowerCase().includes(q) ||
-        job.category_name?.toLowerCase().includes(q)
-      );
-    }
-
-    return filtered;
-  }, [enrichedJobs, currentFilters]);
 
   // Apply sorting to the filtered jobs
   const sortedJobs = useMemo(() => {
@@ -171,10 +112,10 @@ const TrackerProduction = () => {
     setSelectedStageId(stageId);
     
     if (stageId) {
-      // Find stage name from jobStages
-      const stage = jobStages.find(s => s.production_stage_id === stageId);
+      // Find stage name from consolidated stages
+      const stage = consolidatedStages.find(s => s.stage_id === stageId);
       if (stage) {
-        handleFilterChange({ stage: stage.production_stage?.name });
+        handleFilterChange({ stage: stage.stage_name });
       }
     } else {
       handleFilterChange({ stage: null });
@@ -239,37 +180,25 @@ const TrackerProduction = () => {
 
   console.log("🔍 TrackerProduction - Data:", {
     totalJobs: jobs.length,
-    jobStages: jobStages.length,
+    enrichedJobs: enrichedJobs.length,
     filteredJobs: filteredJobs.length,
     sortedJobs: sortedJobs.length,
     currentFilters,
+    selectedStageId,
     lastUpdate: lastUpdate?.toLocaleTimeString()
   });
 
   // Populate sidebar data for layout
   React.useEffect(() => {
     if (context?.setSidebarData) {
-      // Extract unique stages from jobStages for sidebar
-      const consolidatedStages = jobStages.reduce((acc, stage) => {
-        const existing = acc.find(s => s.stage_id === stage.production_stage_id);
-        if (!existing && stage.production_stage) {
-          acc.push({
-            stage_id: stage.production_stage_id,
-            stage_name: stage.production_stage.name,
-            stage_color: stage.production_stage.color,
-            is_master_queue: false,
-            subsidiary_stages: [],
-          });
-        }
-        return acc;
-      }, [] as any[]);
-
       context.setSidebarData({
         consolidatedStages,
-        activeJobs: enrichedJobs.filter(job => job.stage_status !== 'completed'),
+        getJobCountForStage,
+        getJobCountByStatus,
+        totalActiveJobs: activeJobs.length,
       });
     }
-  }, [jobStages, enrichedJobs, context?.setSidebarData]);
+  }, [consolidatedStages, activeJobs.length, context?.setSidebarData, getJobCountForStage, getJobCountByStatus]);
 
   if (error) {
     return (
@@ -344,6 +273,7 @@ const TrackerProduction = () => {
               onSort={handleSort}
             />
           </TrackerErrorBoundary>
+          
           {/* Jobs List */}
           <div className="flex-1 overflow-hidden">
             <div className="h-full overflow-auto bg-white rounded-lg border">
@@ -364,7 +294,7 @@ const TrackerProduction = () => {
                   <span className="w-28">Current Stage</span>
                   <span className="w-20">Progress</span>
                 </div>
-                <FilteredJobsView
+                <ProductionJobsView
                   jobs={sortedJobs}
                   selectedStage={currentFilters.stage}
                   isLoading={isLoading}

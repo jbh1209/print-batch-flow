@@ -15,7 +15,9 @@ const TrackerLayout = () => {
   // Store dynamic data for production sidebar
   const [productionSidebarData, setProductionSidebarData] = useState<any>({
     consolidatedStages: [],
-    activeJobs: []
+    getJobCountForStage: () => 0,
+    getJobCountByStatus: () => 0,
+    totalActiveJobs: 0
   });
 
   // Map routes to tabs - updated with all routes including users
@@ -65,7 +67,12 @@ const TrackerLayout = () => {
   };
 
   // Helper to let production page set sidebar data
-  const setSidebarData = (data: { consolidatedStages: any[]; activeJobs: any[] }) => {
+  const setSidebarData = (data: { 
+    consolidatedStages: any[]; 
+    getJobCountForStage: (stageName: string) => number;
+    getJobCountByStatus: (status: string) => number;
+    totalActiveJobs: number;
+  }) => {
     setProductionSidebarData(data);
   };
 
