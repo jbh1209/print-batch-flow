@@ -95,10 +95,7 @@ const TrackerProduction = () => {
         total_stages: totalStages,
         completed_stages: completedStages,
         display_stage_name: activeStage?.production_stage?.name || 'No Active Stage',
-        qty: job.qty || 0,
-        started_by: activeStage?.started_by || null,
-        started_by_name: 'Unknown',
-        proof_emailed_at: activeStage?.proof_emailed_at || ''
+        qty: job.qty || 0
       };
 
       return {
