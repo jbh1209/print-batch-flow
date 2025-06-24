@@ -43,7 +43,7 @@ export const useProductionJobs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // --- UPDATED QUERY: fetch categories join
+  // --- UPDATED QUERY: Only fetch jobs with active workflows (not all completed stages)
   const fetchJobs = useCallback(async () => {
     if (!user?.id) {
       setJobs([]);
@@ -54,8 +54,29 @@ export const useProductionJobs = () => {
 
     try {
       setError(null);
-      console.log("Fetching production jobs for user:", user.id);
+      console.log("Fetching production jobs with active workflows for user:", user.id);
 
+      // First get jobs that have at least one non-completed stage instance
+      const { data: jobsWithActiveWorkflow, error: activeJobsError } = await supabase
+        .from('job_stage_instances')
+        .select('job_id')
+        .eq('job_table_name', 'production_jobs')
+        .in('status', ['active', 'pending']);
+
+      if (activeJobsError) {
+        throw new Error(`Failed to fetch active jobs: ${activeJobsError.message}`);
+      }
+
+      const activeJobIds = [...new Set(jobsWithActiveWorkflow?.map(j => j.job_id) || [])];
+
+      if (activeJobIds.length === 0) {
+        console.log("No jobs with active workflows found");
+        setJobs([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Now fetch the actual job data for jobs with active workflows
       const { data, error: fetchError } = await supabase
         .from('production_jobs')
         .select(`
@@ -69,13 +90,14 @@ export const useProductionJobs = () => {
           )
         `)
         .eq('user_id', user.id)
+        .in('id', activeJobIds)
         .order('created_at', { ascending: false });
 
       if (fetchError) {
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
 
-      console.log("Production jobs fetched:", data?.length || 0, "jobs");
+      console.log("Production jobs with active workflows fetched:", data?.length || 0, "jobs");
       // Enrich helper
       const jobsWithHelpers = (data ?? []).map((job: any) => ({
         ...job,

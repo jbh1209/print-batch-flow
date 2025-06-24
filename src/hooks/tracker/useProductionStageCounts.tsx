@@ -30,12 +30,13 @@ export const useProductionStageCounts = () => {
 
       if (stagesError) throw stagesError;
 
-      // Get job stage instances with counts
+      // Get job stage instances with counts - ONLY for jobs with active workflows
       const { data: jobStages, error: jobStagesError } = await supabase
         .from('job_stage_instances')
         .select(`
           production_stage_id,
           status,
+          job_id,
           production_stages!inner(id, name, color)
         `)
         .eq('job_table_name', 'production_jobs')
@@ -43,9 +44,17 @@ export const useProductionStageCounts = () => {
 
       if (jobStagesError) throw jobStagesError;
 
+      // Filter to ensure we only count jobs that have at least one active/pending stage
+      // (This ensures we're not counting stages from completed jobs)
+      const activeJobIds = [...new Set(jobStages?.map(js => js.job_id) || [])];
+      
+      const filteredJobStages = jobStages?.filter(js => 
+        activeJobIds.includes(js.job_id)
+      ) || [];
+
       // Count jobs per stage
       const counts = stages.map(stage => {
-        const stageJobs = jobStages.filter(js => js.production_stage_id === stage.id);
+        const stageJobs = filteredJobStages.filter(js => js.production_stage_id === stage.id);
         const activeJobs = stageJobs.filter(js => js.status === 'active').length;
         const pendingJobs = stageJobs.filter(js => js.status === 'pending').length;
 

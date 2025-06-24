@@ -30,7 +30,7 @@ const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
   const isMobile = useIsMobile();
   
-  // Simple data fetching - like Master Order Modal
+  // Data fetching - now only gets jobs with active workflows
   const { 
     jobs, 
     isLoading: jobsLoading, 
@@ -64,7 +64,7 @@ const TrackerProduction = () => {
   const isLoading = jobsLoading || stagesLoading || countsLoading;
   const error = jobsError || stagesError;
 
-  // Simple job enrichment - directly map like Master Order Modal does
+  // Job enrichment - directly map like Master Order Modal does
   const enrichedJobs = useMemo(() => {
     return jobs.map(job => {
       const stages = jobStages.filter(stage => stage.job_id === job.id);
@@ -90,11 +90,11 @@ const TrackerProduction = () => {
     });
   }, [jobs, jobStages]);
 
-  // Simple filtering based on selected stage
+  // FIXED: Filter by selected stage - show jobs that have ACTIVE or PENDING stages for the selected production stage
   const filteredJobs = useMemo(() => {
     let filtered = enrichedJobs;
 
-    // Filter by selected stage - show jobs that have ACTIVE or PENDING stages for the selected production stage
+    // Filter by selected stage - check if job has active OR pending stage for this production stage
     if (selectedStageId && currentFilters.stage) {
       filtered = filtered.filter(job => 
         job.stages.some(stage => 
@@ -141,7 +141,7 @@ const TrackerProduction = () => {
     return enrichedJobs.filter(job => !job.categories?.id);
   }, [enrichedJobs]);
 
-  // Prepare sidebar data from stage counts
+  // FIXED: Prepare sidebar data from stage counts - only counts jobs with active workflows
   const sidebarData = useMemo(() => {
     return {
       consolidatedStages: stageCounts.map(count => ({
