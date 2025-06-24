@@ -53,7 +53,7 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
   };
 
   return (
-    <div className="w-full" style={{ overflowY: "auto", overflowX: "hidden", maxWidth: "100%" }}>
+    <div className="w-full overflow-y-auto">
       {/* Production Stages */}
       <Card className="mb-4">
         <CardHeader className="pb-3">

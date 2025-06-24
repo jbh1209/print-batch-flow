@@ -3,9 +3,6 @@ import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
-import { useProductionJobEnrichment } from "@/hooks/tracker/useProductionJobEnrichment";
-import { useProductionSidebarData } from "@/hooks/tracker/useProductionSidebarData";
-import { useProductionFiltering } from "@/hooks/tracker/useProductionFiltering";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
@@ -30,7 +27,7 @@ const TrackerProduction = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
-  // Fetch data using the Master Order Modal pattern
+  // Simple data fetching - like Master Order Modal
   const { 
     jobs, 
     isLoading: jobsLoading, 
@@ -48,35 +45,125 @@ const TrackerProduction = () => {
     lastUpdate
   } = useRealTimeJobStages(jobs);
 
-  // Enrich jobs with real stage data like Master Order Modal
-  const { enrichedJobs } = useProductionJobEnrichment({ jobs, jobStages });
-  
-  const { 
-    consolidatedStages, 
-    activeJobs,
-    getJobCountForStage,
-    getJobCountByStatus 
-  } = useProductionSidebarData({ jobStages, enrichedJobs });
-
   const [activeFilters, setActiveFilters] = useState<any>({});
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
 
-  // Use context filters or local filters
   const currentFilters = context?.filters || activeFilters;
-
-  // Filter jobs using production-specific logic
-  const { filteredJobs } = useProductionFiltering({ 
-    enrichedJobs, 
-    filters: currentFilters, 
-    selectedStageId 
-  });
-
   const isLoading = jobsLoading || stagesLoading;
   const error = jobsError || stagesError;
 
-  // Apply sorting to the filtered jobs
+  // Simple job enrichment - directly map like Master Order Modal does
+  const enrichedJobs = useMemo(() => {
+    return jobs.map(job => {
+      const stages = jobStages.filter(stage => stage.job_id === job.id);
+      const activeStage = stages.find(stage => stage.status === 'active');
+      const totalStages = stages.length;
+      const completedStages = stages.filter(stage => stage.status === 'completed').length;
+      const workflowProgress = totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
+
+      return {
+        ...job,
+        stages: stages.map(stage => ({
+          ...stage,
+          stage_name: stage.production_stage?.name || 'Unknown Stage',
+          stage_color: stage.production_stage?.color || '#6B7280',
+        })),
+        current_stage_name: activeStage?.production_stage?.name || 'No Active Stage',
+        active_stage_id: activeStage?.production_stage_id || null,
+        workflow_progress: workflowProgress,
+        total_stages: totalStages,
+        completed_stages: completedStages
+      };
+    });
+  }, [jobs, jobStages]);
+
+  // Simple sidebar data - direct counting like Master Order Modal
+  const sidebarData = useMemo(() => {
+    const stageMap = new Map();
+    
+    // Build stages from actual job stage instances
+    jobStages.forEach(stage => {
+      if (stage.production_stage && !stageMap.has(stage.production_stage_id)) {
+        stageMap.set(stage.production_stage_id, {
+          stage_id: stage.production_stage_id,
+          stage_name: stage.production_stage.name,
+          stage_color: stage.production_stage.color,
+        });
+      }
+    });
+    
+    const consolidatedStages = Array.from(stageMap.values()).sort((a, b) => a.stage_name.localeCompare(b.stage_name));
+
+    // Simple counting - jobs with ACTIVE stages for each production stage
+    const getJobCountForStage = (stageName: string) => {
+      return enrichedJobs.filter(job => 
+        job.stages.some(stage => 
+          stage.stage_name === stageName && stage.status === 'active'
+        )
+      ).length;
+    };
+
+    const getJobCountByStatus = (status: string) => {
+      return enrichedJobs.filter(job => {
+        const hasActiveStage = job.stages.some(stage => stage.status === 'active');
+        const hasPendingStages = job.stages.some(stage => stage.status === 'pending');
+        const allCompleted = job.stages.length > 0 && job.stages.every(stage => stage.status === 'completed');
+        
+        switch (status) {
+          case 'completed': return allCompleted;
+          case 'in-progress': return hasActiveStage;
+          case 'pending': return hasPendingStages;
+          case 'overdue':
+            if (!job.due_date) return false;
+            const dueDate = new Date(job.due_date);
+            const today = new Date();
+            return dueDate < today && !allCompleted;
+          default: return false;
+        }
+      }).length;
+    };
+
+    return {
+      consolidatedStages,
+      getJobCountForStage,
+      getJobCountByStatus,
+      totalActiveJobs: enrichedJobs.length,
+    };
+  }, [enrichedJobs, jobStages]);
+
+  // Simple filtering - direct like Master Order Modal
+  const filteredJobs = useMemo(() => {
+    let filtered = enrichedJobs;
+
+    // Filter by selected stage - show jobs that have ACTIVE stages for the selected production stage
+    if (selectedStageId && currentFilters.stage) {
+      filtered = filtered.filter(job => 
+        job.stages.some(stage => 
+          stage.stage_name === currentFilters.stage && stage.status === 'active'
+        )
+      );
+    }
+
+    // Other filters
+    if (currentFilters.status) {
+      // Handle status filtering logic here if needed
+    }
+
+    if (currentFilters.search) {
+      const q = currentFilters.search.toLowerCase();
+      filtered = filtered.filter(job =>
+        job.wo_no?.toLowerCase().includes(q) ||
+        job.customer?.toLowerCase().includes(q) ||
+        job.reference?.toLowerCase().includes(q)
+      );
+    }
+
+    return filtered;
+  }, [enrichedJobs, currentFilters, selectedStageId]);
+
+  // Apply sorting
   const sortedJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
       let aValue, bValue;
@@ -96,24 +183,20 @@ const TrackerProduction = () => {
     });
   }, [filteredJobs, sortBy, sortOrder]);
 
-  // Get jobs without categories
   const jobsWithoutCategory = useMemo(() => {
     return enrichedJobs.filter(job => !job.categories?.id);
   }, [enrichedJobs]);
 
   const handleFilterChange = (filters: any) => {
-    console.log("🔄 Filter change:", filters);
     setActiveFilters(filters);
     context?.onFilterChange?.(filters);
   };
 
   const handleStageSelect = (stageId: string | null) => {
-    console.log("🎯 Stage selected:", stageId);
     setSelectedStageId(stageId);
     
     if (stageId) {
-      // Find stage name from consolidated stages
-      const stage = consolidatedStages.find(s => s.stage_id === stageId);
+      const stage = sidebarData.consolidatedStages.find(s => s.stage_id === stageId);
       if (stage) {
         handleFilterChange({ stage: stage.stage_name });
       }
@@ -124,8 +207,6 @@ const TrackerProduction = () => {
 
   const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => {
     try {
-      console.log(`Stage action: ${action} for job ${jobId}, stage ${stageId}`);
-      
       if (action === 'start') {
         const success = await startStage(stageId);
         if (success) {
@@ -138,7 +219,6 @@ const TrackerProduction = () => {
         }
       }
       
-      // Refresh data
       await refreshStages();
       
     } catch (error) {
@@ -178,27 +258,12 @@ const TrackerProduction = () => {
     await Promise.all([fetchJobs(), refreshStages()]);
   };
 
-  console.log("🔍 TrackerProduction - Data:", {
-    totalJobs: jobs.length,
-    enrichedJobs: enrichedJobs.length,
-    filteredJobs: filteredJobs.length,
-    sortedJobs: sortedJobs.length,
-    currentFilters,
-    selectedStageId,
-    lastUpdate: lastUpdate?.toLocaleTimeString()
-  });
-
-  // Populate sidebar data for layout
+  // Set sidebar data for context
   React.useEffect(() => {
     if (context?.setSidebarData) {
-      context.setSidebarData({
-        consolidatedStages,
-        getJobCountForStage,
-        getJobCountByStatus,
-        totalActiveJobs: activeJobs.length,
-      });
+      context.setSidebarData(sidebarData);
     }
-  }, [consolidatedStages, activeJobs.length, context?.setSidebarData, getJobCountForStage, getJobCountByStatus]);
+  }, [sidebarData, context?.setSidebarData]);
 
   if (error) {
     return (
@@ -232,7 +297,6 @@ const TrackerProduction = () => {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Main Content */}
       <TrackerErrorBoundary componentName="Production Header">
         <div className="border-b bg-white p-2 sm:p-2">
           <div className="flex items-center justify-between">
@@ -261,11 +325,13 @@ const TrackerProduction = () => {
               jobsWithoutCategory={jobsWithoutCategory}
             />
           </TrackerErrorBoundary>
+          
           <TrackerErrorBoundary componentName="Category Info Banner">
             <CategoryInfoBanner 
               jobsWithoutCategoryCount={jobsWithoutCategory.length}
             />
           </TrackerErrorBoundary>
+          
           <TrackerErrorBoundary componentName="Production Sorting">
             <ProductionSorting
               sortBy={sortBy}
@@ -274,7 +340,6 @@ const TrackerProduction = () => {
             />
           </TrackerErrorBoundary>
           
-          {/* Jobs List */}
           <div className="flex-1 overflow-hidden">
             <div className="h-full overflow-auto bg-white rounded-lg border">
               <TrackerErrorBoundary 
@@ -287,7 +352,6 @@ const TrackerProduction = () => {
                   />
                 }
               >
-                {/* Header Row */}
                 <div className="flex gap-x-0 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
                   <span style={{ width: 26 }} className="text-center">Due</span>
                   <span className="flex-1">Job Name / Number</span>

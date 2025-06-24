@@ -12,7 +12,6 @@ const TrackerLayout = () => {
   const [activeTab, setActiveTab] = useState("orders");
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [filters, setFilters] = useState<any>({});
-  // Store dynamic data for production sidebar
   const [productionSidebarData, setProductionSidebarData] = useState<any>({
     consolidatedStages: [],
     getJobCountForStage: () => 0,
@@ -20,7 +19,6 @@ const TrackerLayout = () => {
     totalActiveJobs: 0
   });
 
-  // Map routes to tabs - updated with all routes including users
   const routeToTab = {
     '/tracker': 'dashboard',
     '/tracker/jobs': 'orders',
@@ -34,7 +32,6 @@ const TrackerLayout = () => {
     '/tracker/mobile': 'setup'
   };
 
-  // Update active tab based on current route
   useEffect(() => {
     const currentTab = routeToTab[location.pathname] || 'dashboard';
     setActiveTab(currentTab);
@@ -43,7 +40,6 @@ const TrackerLayout = () => {
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     
-    // Navigate to appropriate route based on tab
     const tabRoutes = {
       'dashboard': '/tracker',
       'orders': '/tracker/jobs',
@@ -58,7 +54,6 @@ const TrackerLayout = () => {
   };
 
   const handleFilterChange = (newFilters: any) => {
-    console.log('Filters changed:', newFilters);
     setFilters(newFilters);
   };
 
@@ -66,17 +61,10 @@ const TrackerLayout = () => {
     setSelectedStageId(stageId);
   };
 
-  // Helper to let production page set sidebar data
-  const setSidebarData = (data: { 
-    consolidatedStages: any[]; 
-    getJobCountForStage: (stageName: string) => number;
-    getJobCountByStatus: (status: string) => number;
-    totalActiveJobs: number;
-  }) => {
+  const setSidebarData = (data: any) => {
     setProductionSidebarData(data);
   };
 
-  // --- Sidebar logic now allows production ---
   const isKanbanTab = activeTab === 'kanban';
   const isDashboardTab = activeTab === 'dashboard';
   const isOrdersTab = activeTab === 'orders';
@@ -90,12 +78,10 @@ const TrackerLayout = () => {
         />
         
         <div className="flex flex-1 overflow-hidden">
-          {/* Show ContextSidebar for all tabs except dashboard, kanban, orders */}
           {!isKanbanTab && !isDashboardTab && !isOrdersTab && (
             <ContextSidebar 
               activeTab={activeTab}
               onFilterChange={handleFilterChange}
-              // Pass additional production props if on production tab
               productionSidebarData={activeTab === "production" ? productionSidebarData : undefined}
               onStageSelect={activeTab === "production" ? handleStageSelect : undefined}
               selectedStageId={activeTab === "production" ? selectedStageId : undefined}
@@ -109,7 +95,7 @@ const TrackerLayout = () => {
               selectedStageId,
               onStageSelect: handleStageSelect,
               onFilterChange: handleFilterChange,
-              setSidebarData // Pass this so TrackerProduction can update sidebar
+              setSidebarData
             }} />
           </main>
         </div>
