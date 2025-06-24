@@ -43,7 +43,7 @@ export const useProductionJobs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // --- UPDATED QUERY: Only fetch jobs with active workflows (not all completed stages)
+  // --- UPDATED QUERY: Fetch ALL jobs with active workflows (removed user filter)
   const fetchJobs = useCallback(async () => {
     if (!user?.id) {
       setJobs([]);
@@ -54,7 +54,7 @@ export const useProductionJobs = () => {
 
     try {
       setError(null);
-      console.log("Fetching production jobs with active workflows for user:", user.id);
+      console.log("Fetching ALL production jobs with active workflows");
 
       // First get jobs that have at least one non-completed stage instance
       const { data: jobsWithActiveWorkflow, error: activeJobsError } = await supabase
@@ -76,7 +76,7 @@ export const useProductionJobs = () => {
         return;
       }
 
-      // Now fetch the actual job data for jobs with active workflows
+      // Now fetch ALL job data for jobs with active workflows (no user filter)
       const { data, error: fetchError } = await supabase
         .from('production_jobs')
         .select(`
@@ -89,7 +89,6 @@ export const useProductionJobs = () => {
             sla_target_days
           )
         `)
-        .eq('user_id', user.id)
         .in('id', activeJobIds)
         .order('created_at', { ascending: false });
 
@@ -97,7 +96,7 @@ export const useProductionJobs = () => {
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
 
-      console.log("Production jobs with active workflows fetched:", data?.length || 0, "jobs");
+      console.log("ALL production jobs with active workflows fetched:", data?.length || 0, "jobs");
       // Enrich helper
       const jobsWithHelpers = (data ?? []).map((job: any) => ({
         ...job,
@@ -152,17 +151,16 @@ export const useProductionJobs = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log("Setting up real-time subscription for user:", user.id);
+    console.log("Setting up real-time subscription for production jobs");
 
     const channel = supabase
-      .channel(`production_jobs_${user.id}`)
+      .channel(`production_jobs_all`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'production_jobs',
-          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
           console.log('Production jobs changed:', payload.eventType);

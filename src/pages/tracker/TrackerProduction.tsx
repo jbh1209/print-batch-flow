@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
@@ -30,7 +29,7 @@ const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
   const isMobile = useIsMobile();
   
-  // Data fetching - now only gets jobs with active workflows
+  // Data fetching - now gets ALL jobs with active workflows
   const { 
     jobs, 
     isLoading: jobsLoading, 
@@ -64,7 +63,7 @@ const TrackerProduction = () => {
   const isLoading = jobsLoading || stagesLoading || countsLoading;
   const error = jobsError || stagesError;
 
-  // Job enrichment - directly map like Master Order Modal does
+  // Job enrichment - convert Production jobs to AccessibleJob format for modal compatibility
   const enrichedJobs = useMemo(() => {
     return jobs.map(job => {
       const stages = jobStages.filter(stage => stage.job_id === job.id);
@@ -73,9 +72,38 @@ const TrackerProduction = () => {
       const completedStages = stages.filter(stage => stage.status === 'completed').length;
       const workflowProgress = totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
 
+      // Map to AccessibleJob format for modal compatibility
+      const accessibleJob: AccessibleJob = {
+        job_id: job.id,
+        wo_no: job.wo_no || '',
+        customer: job.customer || 'Unknown',
+        status: job.status || 'Unknown',
+        due_date: job.due_date || '',
+        reference: job.reference || '',
+        category_id: job.categories?.id || null,
+        category_name: job.categories?.name || job.category || 'No Category',
+        category_color: job.categories?.color || '#6B7280',
+        current_stage_id: activeStage?.production_stage_id || null,
+        current_stage_name: activeStage?.production_stage?.name || 'No Active Stage',
+        current_stage_color: activeStage?.production_stage?.color || '#6B7280',
+        current_stage_status: activeStage?.status || 'pending',
+        user_can_view: true,
+        user_can_edit: true,
+        user_can_work: true,
+        user_can_manage: true,
+        workflow_progress: workflowProgress,
+        total_stages: totalStages,
+        completed_stages: completedStages,
+        display_stage_name: activeStage?.production_stage?.name || 'No Active Stage',
+        qty: job.qty || 0,
+        started_by: activeStage?.started_by || null,
+        started_by_name: 'Unknown',
+        proof_emailed_at: activeStage?.proof_emailed_at || ''
+      };
+
       return {
         ...job,
-        job_id: job.id, // For Master Order Modal compatibility
+        // Keep original job properties
         stages: stages.map(stage => ({
           ...stage,
           stage_name: stage.production_stage?.name || 'Unknown Stage',
@@ -85,7 +113,9 @@ const TrackerProduction = () => {
         active_stage_id: activeStage?.production_stage_id || null,
         workflow_progress: workflowProgress,
         total_stages: totalStages,
-        completed_stages: completedStages
+        completed_stages: completedStages,
+        // Add AccessibleJob properties for modal
+        accessibleJobFormat: accessibleJob
       };
     });
   }, [jobs, jobStages]);
@@ -141,7 +171,7 @@ const TrackerProduction = () => {
     return enrichedJobs.filter(job => !job.categories?.id);
   }, [enrichedJobs]);
 
-  // FIXED: Prepare sidebar data from stage counts - only counts jobs with active workflows
+  // FIXED: Prepare sidebar data from stage counts - counts from ALL jobs with active workflows
   const sidebarData = useMemo(() => {
     return {
       consolidatedStages: stageCounts.map(count => ({
@@ -195,7 +225,8 @@ const TrackerProduction = () => {
   };
 
   const handleJobClick = (job: any) => {
-    setSelectedJob(job);
+    // Use the AccessibleJob format for the modal
+    setSelectedJob(job.accessibleJobFormat);
   };
 
   const handleCloseModal = () => {
