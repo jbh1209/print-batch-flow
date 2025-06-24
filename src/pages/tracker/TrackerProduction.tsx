@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
-import { useProductionStageData } from "@/hooks/tracker/useProductionStageData";
+import { useProductionJobEnrichment } from "@/hooks/tracker/useProductionJobEnrichment";
 import { useProductionSidebarData } from "@/hooks/tracker/useProductionSidebarData";
 import { useProductionFiltering } from "@/hooks/tracker/useProductionFiltering";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -31,7 +30,7 @@ const TrackerProduction = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
-  // Fetch data using existing hooks
+  // Fetch data using the Master Order Modal pattern
   const { 
     jobs, 
     isLoading: jobsLoading, 
@@ -49,8 +48,9 @@ const TrackerProduction = () => {
     lastUpdate
   } = useRealTimeJobStages(jobs);
 
-  // Transform data using production-specific hooks
-  const { enrichedJobs } = useProductionStageData({ jobs, jobStages });
+  // Enrich jobs with real stage data like Master Order Modal
+  const { enrichedJobs } = useProductionJobEnrichment({ jobs, jobStages });
+  
   const { 
     consolidatedStages, 
     activeJobs,

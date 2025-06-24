@@ -8,11 +8,11 @@ interface ProductionSidebarDataProps {
 
 export const useProductionSidebarData = ({ jobStages, enrichedJobs }: ProductionSidebarDataProps) => {
   
-  // Get consolidated stages with job counts based on ACTIVE stages
+  // Get consolidated stages from actual job stage instances
   const consolidatedStages = useMemo(() => {
     const stageMap = new Map();
     
-    // Build unique stages from jobStages
+    // Build unique stages from actual job stage instances
     jobStages.forEach(stage => {
       if (stage.production_stage && !stageMap.has(stage.production_stage_id)) {
         stageMap.set(stage.production_stage_id, {
