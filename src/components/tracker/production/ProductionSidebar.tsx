@@ -92,7 +92,7 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
                 <span className="truncate flex-1 text-left">
                   {stage.stage_name}
                 </span>
-                <Badge variant="secondary" className="ml-auto text-xs">
+                <Badge variant="secondary" className="ml-auto text-xs font-bold">
                   {jobCount}
                 </Badge>
               </Button>

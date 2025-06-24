@@ -30,7 +30,7 @@ export const useProductionStageCounts = () => {
 
       if (stagesError) throw stagesError;
 
-      // Get job stage instances with counts - from ALL jobs with active workflows
+      // Get job stage instances with counts - ONLY active stages (jobs currently IN each stage)
       const { data: jobStages, error: jobStagesError } = await supabase
         .from('job_stage_instances')
         .select(`
@@ -44,7 +44,7 @@ export const useProductionStageCounts = () => {
 
       if (jobStagesError) throw jobStagesError;
 
-      // Count jobs per stage (no user filtering - ALL jobs)
+      // Count jobs per stage - ACTIVE means currently IN that stage, PENDING means waiting for that stage
       const counts = stages.map(stage => {
         const stageJobs = jobStages?.filter(js => js.production_stage_id === stage.id) || [];
         const activeJobs = stageJobs.filter(js => js.status === 'active').length;
@@ -54,12 +54,13 @@ export const useProductionStageCounts = () => {
           stage_id: stage.id,
           stage_name: stage.name,
           stage_color: stage.color,
-          active_jobs: activeJobs,
-          pending_jobs: pendingJobs,
+          active_jobs: activeJobs, // Jobs currently IN this stage
+          pending_jobs: pendingJobs, // Jobs waiting for this stage
           total_jobs: activeJobs + pendingJobs
         };
       });
 
+      console.log('Stage counts calculated:', counts);
       setStageCounts(counts);
     } catch (err) {
       console.error('Error fetching stage counts:', err);

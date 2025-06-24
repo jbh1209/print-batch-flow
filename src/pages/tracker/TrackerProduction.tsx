@@ -117,18 +117,17 @@ const TrackerProduction = () => {
     });
   }, [jobs, jobStages]);
 
-  // FIXED: Filter by selected stage - show jobs that have ACTIVE or PENDING stages for the selected production stage
+  // FIXED: Filter by selected stage - show jobs that have CURRENT ACTIVE stage matching the selected stage
   const filteredJobs = useMemo(() => {
     let filtered = enrichedJobs;
 
-    // Filter by selected stage - check if job has active OR pending stage for this production stage
+    // Filter by selected stage - check if job's CURRENT ACTIVE stage matches the selected stage
     if (selectedStageId && currentFilters.stage) {
-      filtered = filtered.filter(job => 
-        job.stages.some(stage => 
-          stage.production_stage_id === selectedStageId && 
-          (stage.status === 'active' || stage.status === 'pending')
-        )
-      );
+      filtered = filtered.filter(job => {
+        // Only show jobs where the CURRENT ACTIVE stage matches the selected stage
+        const activeStage = job.stages.find(stage => stage.status === 'active');
+        return activeStage?.production_stage_id === selectedStageId;
+      });
     }
 
     // Search filter
@@ -168,7 +167,7 @@ const TrackerProduction = () => {
     return enrichedJobs.filter(job => !job.categories?.id);
   }, [enrichedJobs]);
 
-  // FIXED: Prepare sidebar data from stage counts - counts from ALL jobs with active workflows
+  // FIXED: Prepare sidebar data from stage counts - use actual stage count data
   const sidebarData = useMemo(() => {
     return {
       consolidatedStages: stageCounts.map(count => ({
@@ -178,7 +177,7 @@ const TrackerProduction = () => {
       })),
       getJobCountForStage: (stageName: string) => {
         const stage = stageCounts.find(s => s.stage_name === stageName);
-        return stage ? stage.total_jobs : 0;
+        return stage ? stage.active_jobs : 0; // Show only ACTIVE jobs in each stage
       },
       getJobCountByStatus: (status: string) => {
         return enrichedJobs.filter(job => {
