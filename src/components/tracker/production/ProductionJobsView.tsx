@@ -30,6 +30,30 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
     }
   };
 
+  const formatDueDate = (dateString?: string) => {
+    if (!dateString) return 'No date';
+    
+    const dueDate = new Date(dateString);
+    const today = new Date();
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return `${Math.abs(diffDays)}d overdue`;
+    } else if (diffDays === 0) {
+      return 'Due today';
+    } else if (diffDays === 1) {
+      return 'Due tomorrow';
+    } else if (diffDays <= 7) {
+      return `${diffDays}d left`;
+    } else {
+      return dueDate.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short'
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -82,6 +106,17 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
               <span className="text-xs text-gray-500 ml-1">{job.customer}</span>
             )}
             <span className="text-xs text-gray-400 ml-1">{job.reference}</span>
+          </div>
+          
+          {/* Due Date */}
+          <div style={{ width: 100 }} className="text-xs text-center">
+            <span className={`${
+              job.due_date && new Date(job.due_date) < new Date() 
+                ? 'text-red-600 font-medium' 
+                : 'text-gray-600'
+            }`}>
+              {formatDueDate(job.due_date)}
+            </span>
           </div>
           
           {/* Current Active Stage */}

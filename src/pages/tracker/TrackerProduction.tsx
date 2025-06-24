@@ -272,6 +272,7 @@ const TrackerProduction = () => {
                     <div className="flex gap-x-0 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
                       <span style={{ width: 26 }} className="text-center">Due</span>
                       <span className="flex-1">Job Name / Number</span>
+                      <span style={{ width: 100 }} className="text-center">Due Date</span>
                       <span className="w-28">Current Stage</span>
                       <span className="w-20">Progress</span>
                     </div>

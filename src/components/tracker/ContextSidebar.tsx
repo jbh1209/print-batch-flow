@@ -45,8 +45,8 @@ export const ContextSidebar = ({
   onStageSelect,
   selectedStageId
 }: ContextSidebarProps) => {
-  // Early return: never render for dashboard
-  if (activeTab === 'dashboard') return null;
+  // Early return: never render for dashboard or production
+  if (activeTab === 'dashboard' || activeTab === 'production') return null;
 
   const handleFilterChange = (filterType: string, value: any) => {
     if (onFilterChange) {
@@ -470,8 +470,6 @@ export const ContextSidebar = ({
         return renderDashboardSidebar();
     }
   };
-
-  if (activeTab === 'production' && !productionSidebarData) return null;
 
   // Only apply vertical scroll, prevent horizontal scroll for sidebar
   return (
