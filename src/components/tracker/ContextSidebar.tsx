@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -179,13 +178,11 @@ export const ContextSidebar = ({
     if (!productionSidebarData) return null;
     return (
       <ProductionSidebar
-        selectedStageId={selectedStageId}
-        onStageSelect={onStageSelect || (() => {})}
-        onFilterChange={onFilterChange}
+        jobs={[]} // This will be passed from the actual production page
         consolidatedStages={productionSidebarData.consolidatedStages}
-        getJobCountForStage={productionSidebarData.getJobCountForStage}
-        getJobCountByStatus={productionSidebarData.getJobCountByStatus}
-        totalActiveJobs={productionSidebarData.totalActiveJobs}
+        selectedStageId={selectedStageId}
+        selectedStageName={null}
+        onStageSelect={onStageSelect || (() => {})}
       />
     );
   };
