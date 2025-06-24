@@ -59,7 +59,7 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Settings className="h-4 w-4" />
-            Production Queues
+            Production Stages
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
