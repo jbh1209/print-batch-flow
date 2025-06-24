@@ -1,9 +1,8 @@
+
 import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
-import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
-import { useProductionStageCounts } from "@/hooks/tracker/useProductionStageCounts";
+import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProductionHeader } from "@/components/tracker/production/ProductionHeader";
 import { ProductionStats } from "@/components/tracker/production/ProductionStats";
@@ -29,105 +28,38 @@ const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
   const isMobile = useIsMobile();
   
-  // Data fetching - now gets ALL jobs with active workflows
+  // Use the same data source as the working Kanban page
   const { 
     jobs, 
-    isLoading: jobsLoading, 
-    error: jobsError,
-    fetchJobs 
-  } = useProductionJobs();
-  
-  const { 
-    jobStages, 
-    isLoading: stagesLoading, 
-    error: stagesError,
-    startStage,
-    completeStage,
-    refreshStages,
-    lastUpdate
-  } = useRealTimeJobStages(jobs);
-
-  const {
-    stageCounts,
-    isLoading: countsLoading,
-    refreshCounts
-  } = useProductionStageCounts();
+    isLoading, 
+    error,
+    startJob,
+    completeJob,
+    refreshJobs 
+  } = useAccessibleJobs({
+    permissionType: 'manage' // Get all jobs with manage permissions like ProductionManagerView
+  });
 
   const [activeFilters, setActiveFilters] = useState<any>({});
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
+  const [lastUpdate] = useState<Date>(new Date());
 
   const currentFilters = context?.filters || activeFilters;
-  const isLoading = jobsLoading || stagesLoading || countsLoading;
-  const error = jobsError || stagesError;
 
-  // Job enrichment - convert Production jobs to AccessibleJob format for modal compatibility
-  const enrichedJobs = useMemo(() => {
-    return jobs.map(job => {
-      const stages = jobStages.filter(stage => stage.job_id === job.id);
-      const activeStage = stages.find(stage => stage.status === 'active');
-      const totalStages = stages.length;
-      const completedStages = stages.filter(stage => stage.status === 'completed').length;
-      const workflowProgress = totalStages > 0 ? Math.round((completedStages / totalStages) * 100) : 0;
-
-      // Map to AccessibleJob format for modal compatibility
-      const accessibleJob: AccessibleJob = {
-        job_id: job.id,
-        wo_no: job.wo_no || '',
-        customer: job.customer || 'Unknown',
-        status: job.status || 'Unknown',
-        due_date: job.due_date || '',
-        reference: job.reference || '',
-        category_id: job.categories?.id || null,
-        category_name: job.categories?.name || job.category || 'No Category',
-        category_color: job.categories?.color || '#6B7280',
-        current_stage_id: activeStage?.production_stage_id || null,
-        current_stage_name: activeStage?.production_stage?.name || 'No Active Stage',
-        current_stage_color: activeStage?.production_stage?.color || '#6B7280',
-        current_stage_status: activeStage?.status || 'pending',
-        user_can_view: true,
-        user_can_edit: true,
-        user_can_work: true,
-        user_can_manage: true,
-        workflow_progress: workflowProgress,
-        total_stages: totalStages,
-        completed_stages: completedStages,
-        display_stage_name: activeStage?.production_stage?.name || 'No Active Stage',
-        qty: job.qty || 0
-      };
-
-      return {
-        ...job,
-        // Keep original job properties
-        stages: stages.map(stage => ({
-          ...stage,
-          stage_name: stage.production_stage?.name || 'Unknown Stage',
-          stage_color: stage.production_stage?.color || '#6B7280',
-        })),
-        current_stage_name: activeStage?.production_stage?.name || 'No Active Stage',
-        active_stage_id: activeStage?.production_stage_id || null,
-        workflow_progress: workflowProgress,
-        total_stages: totalStages,
-        completed_stages: completedStages,
-        // Add AccessibleJob properties for modal
-        accessibleJobFormat: accessibleJob
-      };
-    });
-  }, [jobs, jobStages]);
-
-  // FIXED: Filter by selected stage - show jobs that have CURRENT ACTIVE stage matching the selected stage
+  // Simple, direct filtering - just like the working Kanban page
   const filteredJobs = useMemo(() => {
-    let filtered = enrichedJobs;
+    let filtered = jobs;
 
-    // Filter by selected stage - check if job's CURRENT ACTIVE stage matches the selected stage
+    // Filter by selected stage - show jobs that are CURRENTLY IN that stage
     if (selectedStageId && currentFilters.stage) {
-      filtered = filtered.filter(job => {
-        // Only show jobs where the CURRENT ACTIVE stage matches the selected stage
-        const activeStage = job.stages.find(stage => stage.status === 'active');
-        return activeStage?.production_stage_id === selectedStageId;
-      });
+      const selectedStageName = currentFilters.stage;
+      filtered = filtered.filter(job => 
+        job.current_stage_name === selectedStageName ||
+        job.display_stage_name === selectedStageName
+      );
     }
 
     // Search filter
@@ -141,7 +73,7 @@ const TrackerProduction = () => {
     }
 
     return filtered;
-  }, [enrichedJobs, currentFilters, selectedStageId]);
+  }, [jobs, currentFilters, selectedStageId]);
 
   // Apply sorting
   const sortedJobs = useMemo(() => {
@@ -164,26 +96,41 @@ const TrackerProduction = () => {
   }, [filteredJobs, sortBy, sortOrder]);
 
   const jobsWithoutCategory = useMemo(() => {
-    return enrichedJobs.filter(job => !job.categories?.id);
-  }, [enrichedJobs]);
+    return jobs.filter(job => !job.category_id);
+  }, [jobs]);
 
-  // FIXED: Prepare sidebar data from stage counts - use actual stage count data
+  // Get unique stages from the actual job data - like Kanban does
+  const consolidatedStages = useMemo(() => {
+    const stageMap = new Map();
+    
+    jobs.forEach(job => {
+      if (job.current_stage_id && job.current_stage_name) {
+        stageMap.set(job.current_stage_id, {
+          stage_id: job.current_stage_id,
+          stage_name: job.current_stage_name,
+          stage_color: job.current_stage_color || '#6B7280'
+        });
+      }
+    });
+    
+    return Array.from(stageMap.values());
+  }, [jobs]);
+
+  // Prepare sidebar data from the actual AccessibleJob data
   const sidebarData = useMemo(() => {
     return {
-      consolidatedStages: stageCounts.map(count => ({
-        stage_id: count.stage_id,
-        stage_name: count.stage_name,
-        stage_color: count.stage_color,
-      })),
+      consolidatedStages,
       getJobCountForStage: (stageName: string) => {
-        const stage = stageCounts.find(s => s.stage_name === stageName);
-        return stage ? stage.active_jobs : 0; // Show only ACTIVE jobs in each stage
+        return jobs.filter(job => 
+          job.current_stage_name === stageName || 
+          job.display_stage_name === stageName
+        ).length;
       },
       getJobCountByStatus: (status: string) => {
-        return enrichedJobs.filter(job => {
-          const hasActiveStage = job.stages.some(stage => stage.status === 'active');
-          const hasPendingStages = job.stages.some(stage => stage.status === 'pending');
-          const allCompleted = job.stages.length > 0 && job.stages.every(stage => stage.status === 'completed');
+        return jobs.filter(job => {
+          const hasActiveStage = job.current_stage_status === 'active';
+          const hasPendingStages = job.current_stage_status === 'pending';
+          const allCompleted = job.workflow_progress === 100;
           
           switch (status) {
             case 'completed': return allCompleted;
@@ -198,9 +145,9 @@ const TrackerProduction = () => {
           }
         }).length;
       },
-      totalActiveJobs: enrichedJobs.length,
+      totalActiveJobs: jobs.length,
     };
-  }, [stageCounts, enrichedJobs]);
+  }, [consolidatedStages, jobs]);
 
   const handleFilterChange = (filters: any) => {
     setActiveFilters(filters);
@@ -211,7 +158,7 @@ const TrackerProduction = () => {
     setSelectedStageId(stageId);
     
     if (stageId) {
-      const stage = stageCounts.find(s => s.stage_id === stageId);
+      const stage = consolidatedStages.find(s => s.stage_id === stageId);
       if (stage) {
         handleFilterChange({ stage: stage.stage_name });
       }
@@ -221,8 +168,8 @@ const TrackerProduction = () => {
   };
 
   const handleJobClick = (job: any) => {
-    // Use the AccessibleJob format for the modal
-    setSelectedJob(job.accessibleJobFormat);
+    // Use AccessibleJob directly - no conversion needed
+    setSelectedJob(job);
   };
 
   const handleCloseModal = () => {
@@ -232,18 +179,18 @@ const TrackerProduction = () => {
   const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => {
     try {
       if (action === 'start') {
-        const success = await startStage(stageId);
+        const success = await startJob(jobId, stageId);
         if (success) {
           toast.success('Stage started successfully');
         }
       } else if (action === 'complete') {
-        const success = await completeStage(stageId);
+        const success = await completeJob(jobId, stageId);
         if (success) {
           toast.success('Stage completed successfully');
         }
       }
       
-      await Promise.all([refreshStages(), refreshCounts()]);
+      await refreshJobs();
       
     } catch (error) {
       console.error('Error performing stage action:', error);
@@ -279,7 +226,7 @@ const TrackerProduction = () => {
   };
 
   const handleRefresh = async () => {
-    await Promise.all([fetchJobs(), refreshStages(), refreshCounts()]);
+    await refreshJobs();
   };
 
   // Set sidebar data for context
@@ -397,7 +344,7 @@ const TrackerProduction = () => {
         </div>
       </div>
 
-      {/* Master Order Modal */}
+      {/* Use the actual Master Order Modal - no copy needed */}
       {selectedJob && (
         <MasterOrderModal
           isOpen={true}
