@@ -9,6 +9,7 @@ import { ProductionStats } from "@/components/tracker/production/ProductionStats
 import { ProductionSorting } from "@/components/tracker/production/ProductionSorting";
 import { CategoryInfoBanner } from "@/components/tracker/production/CategoryInfoBanner";
 import { ProductionJobsView } from "@/components/tracker/production/ProductionJobsView";
+import { ProductionSidebar } from "@/components/tracker/production/ProductionSidebar";
 import { MasterOrderModal } from "@/components/tracker/modals/MasterOrderModal";
 import { TrackerErrorBoundary } from "@/components/tracker/error-boundaries/TrackerErrorBoundary";
 import { DataLoadingFallback } from "@/components/tracker/error-boundaries/DataLoadingFallback";
@@ -28,7 +29,6 @@ const TrackerProduction = () => {
   const context = useOutletContext<TrackerProductionContext>();
   const isMobile = useIsMobile();
   
-  // Use the same data source as the working Kanban page
   const { 
     jobs, 
     isLoading, 
@@ -37,43 +37,28 @@ const TrackerProduction = () => {
     completeJob,
     refreshJobs 
   } = useAccessibleJobs({
-    permissionType: 'manage' // Get all jobs with manage permissions like ProductionManagerView
+    permissionType: 'manage'
   });
 
-  const [activeFilters, setActiveFilters] = useState<any>({});
   const [sortBy, setSortBy] = useState<'wo_no' | 'due_date'>('wo_no');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [selectedStageName, setSelectedStageName] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  const currentFilters = context?.filters || activeFilters;
-
-  // Simple, direct filtering - just like the working Kanban page
+  // Filter jobs based on selected stage
   const filteredJobs = useMemo(() => {
-    let filtered = jobs;
-
-    // Filter by selected stage - show jobs that are CURRENTLY IN that stage
-    if (selectedStageId && currentFilters.stage) {
-      const selectedStageName = currentFilters.stage;
-      filtered = filtered.filter(job => 
-        job.current_stage_name === selectedStageName ||
-        job.display_stage_name === selectedStageName
-      );
+    if (!selectedStageName) {
+      return jobs; // Show all jobs when no stage is selected
     }
 
-    // Search filter
-    if (currentFilters.search) {
-      const q = currentFilters.search.toLowerCase();
-      filtered = filtered.filter(job =>
-        job.wo_no?.toLowerCase().includes(q) ||
-        job.customer?.toLowerCase().includes(q) ||
-        job.reference?.toLowerCase().includes(q)
-      );
-    }
-
-    return filtered;
-  }, [jobs, currentFilters, selectedStageId]);
+    // Filter to show jobs currently IN the selected stage (active) OR waiting for that stage (pending)
+    return jobs.filter(job => {
+      const currentStage = job.current_stage_name || job.display_stage_name;
+      return currentStage === selectedStageName;
+    });
+  }, [jobs, selectedStageName]);
 
   // Apply sorting
   const sortedJobs = useMemo(() => {
@@ -99,7 +84,7 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Get unique stages from the actual job data - like Kanban does
+  // Get unique stages from the actual job data
   const consolidatedStages = useMemo(() => {
     const stageMap = new Map();
     
@@ -116,59 +101,13 @@ const TrackerProduction = () => {
     return Array.from(stageMap.values());
   }, [jobs]);
 
-  // Prepare sidebar data from the actual AccessibleJob data
-  const sidebarData = useMemo(() => {
-    return {
-      consolidatedStages,
-      getJobCountForStage: (stageName: string) => {
-        return jobs.filter(job => 
-          job.current_stage_name === stageName || 
-          job.display_stage_name === stageName
-        ).length;
-      },
-      getJobCountByStatus: (status: string) => {
-        return jobs.filter(job => {
-          const hasActiveStage = job.current_stage_status === 'active';
-          const hasPendingStages = job.current_stage_status === 'pending';
-          const allCompleted = job.workflow_progress === 100;
-          
-          switch (status) {
-            case 'completed': return allCompleted;
-            case 'in-progress': return hasActiveStage;
-            case 'pending': return hasPendingStages;
-            case 'overdue':
-              if (!job.due_date) return false;
-              const dueDate = new Date(job.due_date);
-              const today = new Date();
-              return dueDate < today && !allCompleted;
-            default: return false;
-          }
-        }).length;
-      },
-      totalActiveJobs: jobs.length,
-    };
-  }, [consolidatedStages, jobs]);
-
-  const handleFilterChange = (filters: any) => {
-    setActiveFilters(filters);
-    context?.onFilterChange?.(filters);
-  };
-
-  const handleStageSelect = (stageId: string | null) => {
+  const handleStageSelect = (stageId: string | null, stageName: string | null) => {
+    console.log('Stage selected:', { stageId, stageName });
     setSelectedStageId(stageId);
-    
-    if (stageId) {
-      const stage = consolidatedStages.find(s => s.stage_id === stageId);
-      if (stage) {
-        handleFilterChange({ stage: stage.stage_name });
-      }
-    } else {
-      handleFilterChange({ stage: null });
-    }
+    setSelectedStageName(stageName);
   };
 
-  const handleJobClick = (job: any) => {
-    // Use AccessibleJob directly - no conversion needed
+  const handleJobClick = (job: AccessibleJob) => {
     setSelectedJob(job);
   };
 
@@ -229,13 +168,6 @@ const TrackerProduction = () => {
     await refreshJobs();
   };
 
-  // Set sidebar data for context
-  React.useEffect(() => {
-    if (context?.setSidebarData) {
-      context.setSidebarData(sidebarData);
-    }
-  }, [sidebarData, context?.setSidebarData]);
-
   if (error) {
     return (
       <div className="flex-1 p-6">
@@ -268,83 +200,96 @@ const TrackerProduction = () => {
 
   return (
     <>
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TrackerErrorBoundary componentName="Production Header">
-          <div className="border-b bg-white p-2 sm:p-2">
-            <div className="flex items-center justify-between">
-              <ProductionHeader
-                isMobile={isMobile}
-                onQRScan={handleQRScan}
-                onStageAction={handleStageAction}
-                onConfigureStages={handleConfigureStages}
-                onQRScanner={handleQRScanner}
-              />
-              <RefreshIndicator
-                lastUpdated={lastUpdate}
-                isRefreshing={isLoading}
-                onRefresh={handleRefresh}
-                getTimeSinceLastUpdate={() => lastUpdate ? `${Math.floor((Date.now() - lastUpdate.getTime()) / 60000)}m ago` : null}
-              />
-            </div>
-          </div>
-        </TrackerErrorBoundary>
+      <div className="flex h-full">
+        {/* Sidebar */}
+        <div className="w-64 border-r bg-white overflow-y-auto">
+          <ProductionSidebar
+            jobs={jobs}
+            consolidatedStages={consolidatedStages}
+            selectedStageId={selectedStageId}
+            selectedStageName={selectedStageName}
+            onStageSelect={handleStageSelect}
+          />
+        </div>
 
-        <div className="flex-1 overflow-hidden p-1 sm:p-2">
-          <div className="h-full flex flex-col space-y-2">
-            <TrackerErrorBoundary componentName="Production Stats">
-              <ProductionStats 
-                jobs={filteredJobs}
-                jobsWithoutCategory={jobsWithoutCategory}
-              />
-            </TrackerErrorBoundary>
-            
-            <TrackerErrorBoundary componentName="Category Info Banner">
-              <CategoryInfoBanner 
-                jobsWithoutCategoryCount={jobsWithoutCategory.length}
-              />
-            </TrackerErrorBoundary>
-            
-            <TrackerErrorBoundary componentName="Production Sorting">
-              <ProductionSorting
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-                onSort={handleSort}
-              />
-            </TrackerErrorBoundary>
-            
-            <div className="flex-1 overflow-hidden">
-              <div className="h-full overflow-auto bg-white rounded-lg border">
-                <TrackerErrorBoundary 
-                  componentName="Jobs View"
-                  fallback={
-                    <DataLoadingFallback
-                      componentName="production jobs"
-                      onRetry={handleRefresh}
-                      showDetails={false}
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <TrackerErrorBoundary componentName="Production Header">
+            <div className="border-b bg-white p-2 sm:p-2">
+              <div className="flex items-center justify-between">
+                <ProductionHeader
+                  isMobile={isMobile}
+                  onQRScan={handleQRScan}
+                  onStageAction={handleStageAction}
+                  onConfigureStages={handleConfigureStages}
+                  onQRScanner={handleQRScanner}
+                />
+                <RefreshIndicator
+                  lastUpdated={lastUpdate}
+                  isRefreshing={isLoading}
+                  onRefresh={handleRefresh}
+                  getTimeSinceLastUpdate={() => lastUpdate ? `${Math.floor((Date.now() - lastUpdate.getTime()) / 60000)}m ago` : null}
+                />
+              </div>
+            </div>
+          </TrackerErrorBoundary>
+
+          <div className="flex-1 overflow-hidden p-1 sm:p-2">
+            <div className="h-full flex flex-col space-y-2">
+              <TrackerErrorBoundary componentName="Production Stats">
+                <ProductionStats 
+                  jobs={filteredJobs}
+                  jobsWithoutCategory={jobsWithoutCategory}
+                />
+              </TrackerErrorBoundary>
+              
+              <TrackerErrorBoundary componentName="Category Info Banner">
+                <CategoryInfoBanner 
+                  jobsWithoutCategoryCount={jobsWithoutCategory.length}
+                />
+              </TrackerErrorBoundary>
+              
+              <TrackerErrorBoundary componentName="Production Sorting">
+                <ProductionSorting
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+              </TrackerErrorBoundary>
+              
+              <div className="flex-1 overflow-hidden">
+                <div className="h-full overflow-auto bg-white rounded-lg border">
+                  <TrackerErrorBoundary 
+                    componentName="Jobs View"
+                    fallback={
+                      <DataLoadingFallback
+                        componentName="production jobs"
+                        onRetry={handleRefresh}
+                        showDetails={false}
+                      />
+                    }
+                  >
+                    <div className="flex gap-x-0 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
+                      <span style={{ width: 26 }} className="text-center">Due</span>
+                      <span className="flex-1">Job Name / Number</span>
+                      <span className="w-28">Current Stage</span>
+                      <span className="w-20">Progress</span>
+                    </div>
+                    <ProductionJobsView
+                      jobs={sortedJobs}
+                      selectedStage={selectedStageName}
+                      isLoading={isLoading}
+                      onJobClick={handleJobClick}
+                      onStageAction={handleStageAction}
                     />
-                  }
-                >
-                  <div className="flex gap-x-0 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
-                    <span style={{ width: 26 }} className="text-center">Due</span>
-                    <span className="flex-1">Job Name / Number</span>
-                    <span className="w-28">Current Stage</span>
-                    <span className="w-20">Progress</span>
-                  </div>
-                  <ProductionJobsView
-                    jobs={sortedJobs}
-                    selectedStage={currentFilters.stage}
-                    isLoading={isLoading}
-                    onJobClick={handleJobClick}
-                    onStageAction={handleStageAction}
-                  />
-                </TrackerErrorBoundary>
+                  </TrackerErrorBoundary>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Use the actual Master Order Modal - no copy needed */}
       {selectedJob && (
         <MasterOrderModal
           isOpen={true}

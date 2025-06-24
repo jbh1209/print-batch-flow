@@ -11,49 +11,76 @@ import {
   AlertCircle,
   Play
 } from "lucide-react";
+import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface ProductionSidebarProps {
-  selectedStageId?: string | null;
-  onStageSelect: (stageId: string | null) => void;
-  onFilterChange?: (filters: any) => void;
+  jobs: AccessibleJob[];
   consolidatedStages: any[];
-  getJobCountForStage: (stageName: string) => number;
-  getJobCountByStatus: (status: string) => number;
-  totalActiveJobs: number;
+  selectedStageId?: string | null;
+  selectedStageName?: string | null;
+  onStageSelect: (stageId: string | null, stageName: string | null) => void;
 }
 
 export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({ 
-  selectedStageId,
-  onStageSelect,
-  onFilterChange,
+  jobs,
   consolidatedStages,
-  getJobCountForStage,
-  getJobCountByStatus,
-  totalActiveJobs
+  selectedStageId,
+  selectedStageName,
+  onStageSelect
 }) => {
 
+  const getJobCountForStage = (stageName: string) => {
+    return jobs.filter(job => {
+      const currentStage = job.current_stage_name || job.display_stage_name;
+      return currentStage === stageName;
+    }).length;
+  };
+
+  const getJobCountByStatus = (status: string) => {
+    return jobs.filter(job => {
+      const hasActiveStage = job.current_stage_status === 'active';
+      const hasPendingStages = job.current_stage_status === 'pending';
+      const allCompleted = job.workflow_progress === 100;
+      
+      switch (status) {
+        case 'completed': return allCompleted;
+        case 'in-progress': return hasActiveStage;
+        case 'pending': return hasPendingStages;
+        case 'overdue':
+          if (!job.due_date) return false;
+          const dueDate = new Date(job.due_date);
+          const today = new Date();
+          return dueDate < today && !allCompleted;
+        default: return false;
+      }
+    }).length;
+  };
+
   const handleStageClick = (stageId: string, stageName: string) => {
+    console.log('Sidebar stage clicked:', { stageId, stageName, selectedStageId, selectedStageName });
+    
     if (selectedStageId === stageId) {
-      onStageSelect(null);
-      onFilterChange?.({ stage: null });
+      // Clicking the same stage - deselect it
+      onStageSelect(null, null);
     } else {
-      onStageSelect(stageId);
-      onFilterChange?.({ stage: stageName });
+      // Select the new stage
+      onStageSelect(stageId, stageName);
     }
   };
 
   const handleAllJobsClick = () => {
-    onStageSelect(null);
-    onFilterChange?.({ stage: null });
+    console.log('All jobs clicked');
+    onStageSelect(null, null);
   };
 
   const handleStatusFilter = (status: string) => {
-    onStageSelect(null);
-    onFilterChange?.({ status: status });
+    console.log('Status filter clicked:', status);
+    // For now, just show all jobs - could extend this later
+    onStageSelect(null, null);
   };
 
   return (
-    <div className="w-full overflow-y-auto">
+    <div className="w-full overflow-y-auto p-4">
       {/* Production Stages */}
       <Card className="mb-4">
         <CardHeader className="pb-3">
@@ -71,7 +98,7 @@ export const ProductionSidebar: React.FC<ProductionSidebarProps> = ({
           >
             All Jobs
             <Badge variant="secondary" className="ml-auto text-xs">
-              {totalActiveJobs}
+              {jobs.length}
             </Badge>
           </Button>
           {consolidatedStages.map(stage => {
