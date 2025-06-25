@@ -43,7 +43,7 @@ export const useProductionJobs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // --- UPDATED QUERY: Fetch ALL jobs with active workflows (removed user filter)
+  // --- UPDATED QUERY: Fetch ALL jobs with ANY workflow stages, filter out only 'Completed'
   const fetchJobs = useCallback(async () => {
     if (!user?.id) {
       setJobs([]);
@@ -54,29 +54,28 @@ export const useProductionJobs = () => {
 
     try {
       setError(null);
-      console.log("Fetching ALL production jobs with active workflows");
+      console.log("Fetching ALL production jobs with workflows (excluding Completed)");
 
-      // First get jobs that have at least one non-completed stage instance
-      const { data: jobsWithActiveWorkflow, error: activeJobsError } = await supabase
+      // First get all jobs that have ANY job_stage_instances (regardless of status)
+      const { data: jobsWithWorkflow, error: workflowJobsError } = await supabase
         .from('job_stage_instances')
         .select('job_id')
-        .eq('job_table_name', 'production_jobs')
-        .in('status', ['active', 'pending']);
+        .eq('job_table_name', 'production_jobs');
 
-      if (activeJobsError) {
-        throw new Error(`Failed to fetch active jobs: ${activeJobsError.message}`);
+      if (workflowJobsError) {
+        throw new Error(`Failed to fetch workflow jobs: ${workflowJobsError.message}`);
       }
 
-      const activeJobIds = [...new Set(jobsWithActiveWorkflow?.map(j => j.job_id) || [])];
+      const workflowJobIds = [...new Set(jobsWithWorkflow?.map(j => j.job_id) || [])];
 
-      if (activeJobIds.length === 0) {
-        console.log("No jobs with active workflows found");
+      if (workflowJobIds.length === 0) {
+        console.log("No jobs with workflows found");
         setJobs([]);
         setIsLoading(false);
         return;
       }
 
-      // Now fetch ALL job data for jobs with active workflows (no user filter)
+      // Now fetch ALL job data for jobs with workflows, excluding only 'Completed' status
       const { data, error: fetchError } = await supabase
         .from('production_jobs')
         .select(`
@@ -89,14 +88,15 @@ export const useProductionJobs = () => {
             sla_target_days
           )
         `)
-        .in('id', activeJobIds)
+        .in('id', workflowJobIds)
+        .neq('status', 'Completed') // Only exclude 'Completed' jobs
         .order('created_at', { ascending: false });
 
       if (fetchError) {
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
 
-      console.log("ALL production jobs with active workflows fetched:", data?.length || 0, "jobs");
+      console.log("Production jobs with workflows (excluding Completed) fetched:", data?.length || 0, "jobs");
       // Enrich helper
       const jobsWithHelpers = (data ?? []).map((job: any) => ({
         ...job,
