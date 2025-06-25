@@ -21,7 +21,8 @@ export interface AccessibleJob {
   total_stages: number;
   completed_stages: number;
   display_stage_name: string;
-  qty: number; // Added missing qty property
+  qty: number;
+  has_custom_workflow: boolean; // Added missing property
 }
 
 export interface UseAccessibleJobsOptions {
