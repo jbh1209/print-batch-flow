@@ -15,14 +15,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { KanbanColumn } from "./KanbanColumn";
-import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useProductionJobs } from "@/hooks/useProductionJobs";
 
 const STATUSES = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
 
 export const ProductionKanban = () => {
-  const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: 'manage'
-  });
+  const { jobs, isLoading, error, updateJobStatus, fetchJobs } = useProductionJobs();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Sensors for drag and drop
@@ -46,31 +44,20 @@ export const ProductionKanban = () => {
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
 
-  // Convert AccessibleJob to format expected by KanbanColumn
+  // Convert ProductionJob to format expected by KanbanColumn
   const getJobsByStatus = (status: string) => {
     return jobs
       .filter(job => job.status === status)
       .map(job => ({
-        id: job.job_id,
+        id: job.id,
         wo_no: job.wo_no,
         status: job.status,
-        customer: job.customer,
-        category: job.category_name,
+        customer: job.customer || '',
+        category: job.category_name || job.category || '',
         qty: job.qty,
         due_date: job.due_date,
         reference: job.reference
       }));
-  };
-
-  const updateJobStatus = async (jobId: string, newStatus: string) => {
-    try {
-      // For now, just refresh jobs - in a real implementation you'd update the job status
-      await refreshJobs();
-      return true;
-    } catch (error) {
-      console.error('Error updating job status:', error);
-      return false;
-    }
   };
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -84,7 +71,7 @@ export const ProductionKanban = () => {
     if (!over || active.id === over.id) return;
 
     const activeJobId = String(active.id);
-    const activeJob = jobs.find(job => job.job_id === activeJobId);
+    const activeJob = jobs.find(job => job.id === activeJobId);
     if (!activeJob) return;
 
     const newStatus = String(over.id);

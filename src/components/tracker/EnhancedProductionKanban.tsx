@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Settings } from "lucide-react";
 import { toast } from "sonner";
-import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useProductionJobs } from "@/hooks/useProductionJobs";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { EnhancedJobCard } from "./EnhancedJobCard";
 
@@ -107,24 +107,22 @@ const StageColumn = ({ stage, jobs, onJobUpdate }: {
 };
 
 export const EnhancedProductionKanban = () => {
-  const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: 'manage'
-  });
+  const { jobs, isLoading, error, fetchJobs } = useProductionJobs();
   const { stages } = useProductionStages();
 
-  // Transform AccessibleJobs to include stage information
+  // Transform ProductionJobs to include stage information
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
     return jobs.map(job => ({
-      id: job.job_id,
+      id: job.id,
       wo_no: job.wo_no,
       customer: job.customer || 'Unknown Customer',
-      category: job.category_name || 'General',
+      category: job.category_name || job.category || 'General',
       due_date: job.due_date || undefined,
       status: job.status,
-      category_id: job.category_id,
+      category_id: job.categories?.id,
       // For now, simulate stage data - in real implementation, you'd fetch actual job_stage_instances
       stages: stages.slice(0, 3).map((stage, index) => ({
-        id: `${job.job_id}-${stage.id}`,
+        id: `${job.id}-${stage.id}`,
         production_stage_id: stage.id,
         stage_name: stage.name,
         stage_color: stage.color,
@@ -135,8 +133,8 @@ export const EnhancedProductionKanban = () => {
   }, [jobs, stages]);
 
   const handleJobUpdate = useCallback(() => {
-    refreshJobs();
-  }, [refreshJobs]);
+    fetchJobs();
+  }, [fetchJobs]);
 
   if (isLoading) {
     return (
