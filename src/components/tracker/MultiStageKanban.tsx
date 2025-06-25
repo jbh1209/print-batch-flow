@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -7,7 +8,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
@@ -23,7 +24,9 @@ import { MultiStageKanbanColumns } from "./MultiStageKanbanColumns";
 import { MultiStageKanbanColumnsProps } from "./MultiStageKanban.types";
 
 export const MultiStageKanban = () => {
-  const { jobs, isLoading: jobsLoading, error: jobsError, fetchJobs } = useProductionJobs();
+  const { jobs, isLoading: jobsLoading, error: jobsError, refreshJobs } = useAccessibleJobs({
+    permissionType: 'manage'
+  });
   const { stages } = useProductionStages();
 
   // CRITICAL: Filter out completed jobs for kanban view
@@ -65,7 +68,7 @@ export const MultiStageKanban = () => {
       if (action === 'start') await startStage(stageId);
       else if (action === 'complete') await completeStage(stageId);
       else if (action === 'scan') toast.info('QR Scanner would open here');
-      fetchJobs();
+      refreshJobs();
     } catch (err) {
       console.error('Error performing stage action:', err);
     }
@@ -95,7 +98,7 @@ export const MultiStageKanban = () => {
       toast.error("Failed to persist job order: " + (e instanceof Error ? e.message : String(e)));
     }
     refreshStages();
-    fetchJobs();
+    refreshJobs();
   };
 
   // Use a ref to hold per-stage reorder handlers, for the drag-end logic below
@@ -220,7 +223,7 @@ export const MultiStageKanban = () => {
           pendingStages: metrics.pendingStages,
         }}
         lastUpdate={lastUpdate}
-        onRefresh={() => { refreshStages(); fetchJobs(); }}
+        onRefresh={() => { refreshStages(); refreshJobs(); }}
         onSettings={() => {}}
         // New layout props:
         layout={layout}

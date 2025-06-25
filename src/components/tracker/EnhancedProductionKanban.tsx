@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Settings } from "lucide-react";
 import { toast } from "sonner";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { EnhancedJobCard } from "./EnhancedJobCard";
 
@@ -14,7 +14,7 @@ interface JobWithStages {
   wo_no: string;
   customer: string;
   category: string;
-  due_date?: string; // Make optional to match ProductionJob type
+  due_date?: string;
   status: string;
   category_id?: string;
   stages: Array<{
@@ -107,19 +107,24 @@ const StageColumn = ({ stage, jobs, onJobUpdate }: {
 };
 
 export const EnhancedProductionKanban = () => {
-  const { jobs, isLoading, error, fetchJobs } = useProductionJobs();
+  const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
+    permissionType: 'manage'
+  });
   const { stages } = useProductionStages();
 
-  // Transform jobs to include stage information
+  // Transform AccessibleJobs to include stage information
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
     return jobs.map(job => ({
-      ...job,
+      id: job.job_id,
+      wo_no: job.wo_no,
       customer: job.customer || 'Unknown Customer',
-      category: job.category || 'General',
+      category: job.category_name || 'General',
       due_date: job.due_date || undefined,
+      status: job.status,
+      category_id: job.category_id,
       // For now, simulate stage data - in real implementation, you'd fetch actual job_stage_instances
       stages: stages.slice(0, 3).map((stage, index) => ({
-        id: `${job.id}-${stage.id}`,
+        id: `${job.job_id}-${stage.id}`,
         production_stage_id: stage.id,
         stage_name: stage.name,
         stage_color: stage.color,
@@ -130,8 +135,8 @@ export const EnhancedProductionKanban = () => {
   }, [jobs, stages]);
 
   const handleJobUpdate = useCallback(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+    refreshJobs();
+  }, [refreshJobs]);
 
   if (isLoading) {
     return (
