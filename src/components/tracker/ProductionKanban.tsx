@@ -15,12 +15,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { KanbanColumn } from "./KanbanColumn";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 
 const STATUSES = ["Pre-Press", "Printing", "Finishing", "Packaging", "Shipped", "Completed"];
 
 export const ProductionKanban = () => {
-  const { jobs, isLoading, error, updateJobStatus, fetchJobs } = useProductionJobs();
+  const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
+    permissionType: 'manage'
+  });
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Sensors for drag and drop
@@ -44,16 +46,16 @@ export const ProductionKanban = () => {
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
 
-  // Convert ProductionJob to format expected by KanbanColumn
+  // Convert AccessibleJob to format expected by KanbanColumn
   const getJobsByStatus = (status: string) => {
     return jobs
       .filter(job => job.status === status)
       .map(job => ({
-        id: job.id,
+        id: job.job_id,
         wo_no: job.wo_no,
         status: job.status,
         customer: job.customer || '',
-        category: job.category_name || job.category || '',
+        category: job.category_name || '',
         qty: job.qty,
         due_date: job.due_date,
         reference: job.reference
@@ -71,19 +73,31 @@ export const ProductionKanban = () => {
     if (!over || active.id === over.id) return;
 
     const activeJobId = String(active.id);
-    const activeJob = jobs.find(job => job.id === activeJobId);
+    const activeJob = jobs.find(job => job.job_id === activeJobId);
     if (!activeJob) return;
 
     const newStatus = String(over.id);
     
-    const success = await updateJobStatus(activeJobId, newStatus);
-    
-    if (success) {
+    try {
+      // Update job status directly in database
+      const { error } = await supabase
+        .from('production_jobs')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', activeJobId);
+
+      if (error) {
+        console.error("Error updating job status:", error);
+        toast.error(`Failed to move job ${activeJob.wo_no}`);
+        return;
+      }
+
       toast.success(`Job ${activeJob.wo_no} moved to ${newStatus}`);
-    } else {
+      await refreshJobs();
+    } catch (err) {
+      console.error('Error updating job status:', err);
       toast.error(`Failed to move job ${activeJob.wo_no}`);
     }
-  }, [jobs, updateJobStatus]);
+  }, [jobs, refreshJobs]);
 
   if (isLoading) {
     return (

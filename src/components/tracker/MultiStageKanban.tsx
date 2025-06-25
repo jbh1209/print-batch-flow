@@ -8,7 +8,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
-import { useProductionJobs } from "@/hooks/useProductionJobs";
+import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { useRealTimeJobStages } from "@/hooks/tracker/useRealTimeJobStages";
 import { filterActiveJobs } from "@/utils/tracker/jobCompletionUtils";
@@ -24,12 +24,15 @@ import { MultiStageKanbanColumns } from "./MultiStageKanbanColumns";
 import { MultiStageKanbanColumnsProps } from "./MultiStageKanban.types";
 
 export const MultiStageKanban = () => {
-  const { jobs, isLoading: jobsLoading, error: jobsError, fetchJobs } = useProductionJobs();
+  const { jobs, isLoading: jobsLoading, error: jobsError, refreshJobs } = useAccessibleJobs({
+    permissionType: 'manage'
+  });
   const { stages } = useProductionStages();
 
   // CRITICAL: Filter out completed jobs for kanban view
   const activeJobs = React.useMemo(() => {
-    return filterActiveJobs(jobs);
+    // AccessibleJobs already filters for active jobs, but we can add extra safety
+    return jobs.filter(job => job.status !== 'Completed');
   }, [jobs]);
   
   const { 
@@ -41,7 +44,7 @@ export const MultiStageKanban = () => {
     completeStage, 
     refreshStages,
     getStageMetrics 
-  } = useRealTimeJobStages(activeJobs); // Pass only active jobs
+  } = useRealTimeJobStages(activeJobs);
 
   // ---- NEW: Layout selector ----
   const [layout, setLayout] = React.useState<"horizontal" | "vertical">("horizontal");
@@ -66,7 +69,7 @@ export const MultiStageKanban = () => {
       if (action === 'start') await startStage(stageId);
       else if (action === 'complete') await completeStage(stageId);
       else if (action === 'scan') toast.info('QR Scanner would open here');
-      fetchJobs();
+      refreshJobs();
     } catch (err) {
       console.error('Error performing stage action:', err);
     }
@@ -96,7 +99,7 @@ export const MultiStageKanban = () => {
       toast.error("Failed to persist job order: " + (e instanceof Error ? e.message : String(e)));
     }
     refreshStages();
-    fetchJobs();
+    refreshJobs();
   };
 
   // Use a ref to hold per-stage reorder handlers, for the drag-end logic below
@@ -105,85 +108,6 @@ export const MultiStageKanban = () => {
   // ----- DND SETUP -----
   // Only used for 'card' view mode
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-  // Only in 'card' view, wrap all StageColumns in a top-level DndContext
-  const renderColumns = () => {
-    if (viewMode === "card") {
-      // For each stage, need to register a ref to its reorder function
-      reorderRefs.current = {};
-      return (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={event => {
-            // Find which column (stageId) this drag occurred in
-            for (const stage of stages.filter(s => s.is_active)) {
-              const colJobStages = jobStages.filter(js => js.production_stage_id === stage.id)
-                .sort((a, b) => (a.job_order_in_stage ?? 1) - (b.job_order_in_stage ?? 1) || a.stage_order - b.stage_order);
-              const jobIds = colJobStages.map(js => js.id);
-              // If both active/over ids in this column, process reorder
-              if (
-                jobIds.includes(event.active.id as string) &&
-                jobIds.includes(event.over?.id as string)
-              ) {
-                const oldIndex = jobIds.indexOf(event.active.id as string);
-                const newIndex = jobIds.indexOf(event.over?.id as string);
-                if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                  const newOrder = arrayMove(jobIds, oldIndex, newIndex);
-                  reorderRefs.current[stage.id]?.(newOrder);
-                }
-                break;
-              }
-            }
-          }}
-        >
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {stages
-              .filter(stage => stage.is_active)
-              .sort((a, b) => a.order_index - b.order_index)
-              .map(stage => (
-                <StageColumn
-                  key={stage.id}
-                  stage={stage}
-                  jobStages={jobStages}
-                  onStageAction={handleStageAction}
-                  viewMode={viewMode}
-                  enableDnd
-                  onReorder={order => {
-                    reorderRefs.current[stage.id] = order => handleReorder(stage.id, order);
-                    return handleReorder(stage.id, order);
-                  }}
-                  registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
-                  selectedJobId={selectedJobId}
-                  onSelectJob={handleSelectJob}
-                />
-              ))}
-          </div>
-        </DndContext>
-      );
-    }
-    // For list view, simple rendering
-    return (
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {stages
-          .filter(stage => stage.is_active)
-          .sort((a, b) => a.order_index - b.order_index)
-          .map(stage => (
-            <StageColumn
-              key={stage.id}
-              stage={stage}
-              jobStages={jobStages}
-              onStageAction={handleStageAction}
-              viewMode={viewMode}
-              enableDnd={false}
-              onReorder={() => {}} // no-op
-              selectedJobId={selectedJobId}
-              onSelectJob={handleSelectJob}
-            />
-          ))}
-      </div>
-    );
-  };
 
   if (jobsLoading || isLoading) {
     return (
@@ -221,7 +145,7 @@ export const MultiStageKanban = () => {
           pendingStages: metrics.pendingStages,
         }}
         lastUpdate={lastUpdate}
-        onRefresh={() => { refreshStages(); fetchJobs(); }}
+        onRefresh={() => { refreshStages(); refreshJobs(); }}
         onSettings={() => {}}
         // New layout props:
         layout={layout}
@@ -240,7 +164,7 @@ export const MultiStageKanban = () => {
         handleReorder={handleReorder}
         selectedJobId={selectedJobId}
         onSelectJob={handleSelectJob}
-        layout={layout} // passes new layout arg
+        layout={layout}
       />
 
       {activeJobs.length === 0 && (
