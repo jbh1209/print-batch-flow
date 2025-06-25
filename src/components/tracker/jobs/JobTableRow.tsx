@@ -57,9 +57,12 @@ export const JobTableRow: React.FC<JobTableRowProps> = ({
   };
 
   const getCategoryDisplay = () => {
-    // Check if this job has a custom workflow (either flag is true or category_id is null with workflow)
-    if (job.has_custom_workflow || (job.category_id === null && job.has_custom_workflow !== false)) {
-      return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Custom</Badge>;
+    // Enhanced custom workflow detection
+    const hasCustomWorkflow = job.has_custom_workflow === true || 
+      (job.category_id === null && job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000');
+    
+    if (hasCustomWorkflow) {
+      return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Custom Workflow</Badge>;
     }
     
     // Check for category name from different possible fields
@@ -88,6 +91,9 @@ export const JobTableRow: React.FC<JobTableRowProps> = ({
     if (!job.current_stage) return "Not Started";
     return job.current_stage;
   };
+
+  const hasCustomWorkflow = job.has_custom_workflow === true || 
+    (job.category_id === null && job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000');
 
   return (
     <tr className="hover:bg-gray-50">
@@ -138,7 +144,7 @@ export const JobTableRow: React.FC<JobTableRowProps> = ({
               Edit Job
             </DropdownMenuItem>
             
-            {(job.has_custom_workflow || job.category_id === null) ? (
+            {hasCustomWorkflow ? (
               <DropdownMenuItem onClick={handleMenuItemClick(() => onCustomWorkflow(job))}>
                 <Settings className="h-4 w-4 mr-2" />
                 Edit Custom Workflow

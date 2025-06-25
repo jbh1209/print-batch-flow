@@ -30,8 +30,12 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   const iconSize = compact ? "h-3 w-3" : "h-4 w-4";
   const textSize = compact ? "text-xs" : "text-sm";
 
-  // Enhanced orphaned detection
-  const isOrphaned = job.is_orphaned || (job.category_id && (!job.current_stage_id || job.current_stage_id === '00000000-0000-0000-0000-000000000000'));
+  // Enhanced custom workflow detection
+  const hasCustomWorkflow = job.has_custom_workflow === true || 
+    (job.category_id === null && job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000');
+  
+  // Enhanced orphaned detection - only if has category but missing workflow
+  const isOrphaned = !hasCustomWorkflow && job.category_id && (!job.current_stage_id || job.current_stage_id === '00000000-0000-0000-0000-000000000000');
   const hasCategory = !!job.category_id;
   const hasStage = job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000';
 
@@ -40,7 +44,11 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   let badgeVariant: "default" | "secondary" | "destructive" | "outline";
   let badgeClassName: string;
 
-  if (isOrphaned) {
+  if (hasCustomWorkflow) {
+    displayStatus = job.current_stage_name || 'Custom Workflow';
+    badgeVariant = "outline";
+    badgeClassName = "bg-purple-50 text-purple-700 border-purple-300";
+  } else if (isOrphaned) {
     displayStatus = 'Configuration Issue';
     badgeVariant = "destructive";
     badgeClassName = "bg-orange-100 text-orange-800 border-orange-300";
@@ -72,6 +80,12 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
         >
           {displayStatus}
         </Badge>
+        
+        {hasCustomWorkflow && showDetails && (
+          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+            Custom
+          </Badge>
+        )}
         
         {jobStatus === 'active' && !isOrphaned && hasStage && (
           <div className="flex items-center gap-1 text-blue-600">
@@ -109,7 +123,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
       )}
 
       {/* Workflow Progress */}
-      {showDetails && !isOrphaned && hasStage && (
+      {showDetails && (hasStage || hasCustomWorkflow) && (
         <div className="flex items-center gap-2">
           <span className={cn("text-gray-500", textSize)}>
             {job.workflow_progress !== undefined ? 'Progress:' : 'Stage:'}
@@ -124,11 +138,13 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
       )}
 
       {/* Category Info */}
-      {showDetails && hasCategory && (
+      {showDetails && (hasCategory || hasCustomWorkflow) && (
         <div className="flex items-center gap-2">
-          <span className={cn("text-gray-500", textSize)}>Category:</span>
+          <span className={cn("text-gray-500", textSize)}>
+            {hasCustomWorkflow ? 'Type:' : 'Category:'}
+          </span>
           <span className={cn("font-medium text-gray-700", textSize)}>
-            {job.category_name || 'Unknown'}
+            {hasCustomWorkflow ? 'Custom Workflow' : job.category_name || 'Unknown'}
           </span>
         </div>
       )}
