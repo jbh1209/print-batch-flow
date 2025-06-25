@@ -36,21 +36,55 @@ export const assignJobCategory = async (
     return false; // Indicates already assigned
   }
 
-  // Update the job's category
+  // Get category data to calculate due date
+  const { data: categoryData, error: categoryError } = await supabase
+    .from('categories')
+    .select('sla_target_days')
+    .eq('id', selectedCategoryId)
+    .single();
+
+  if (categoryError) {
+    console.error('❌ Error fetching category data:', categoryError);
+    throw new Error(`Category fetch failed: ${categoryError.message}`);
+  }
+
+  // Get job's created_at date to calculate due date
+  const { data: jobData, error: jobError } = await supabase
+    .from('production_jobs')
+    .select('created_at')
+    .eq('id', jobId)
+    .single();
+
+  if (jobError) {
+    console.error('❌ Error fetching job data:', jobError);
+    throw new Error(`Job fetch failed: ${jobError.message}`);
+  }
+
+  // Calculate due date: created_at + sla_target_days
+  const createdAt = new Date(jobData.created_at);
+  const slaTargetDays = categoryData.sla_target_days || 3;
+  const dueDate = new Date(createdAt);
+  dueDate.setDate(dueDate.getDate() + slaTargetDays);
+  const dueDateString = dueDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+
+  console.log(`📅 Calculated due date for job ${jobId}: ${dueDateString} (${slaTargetDays} days from ${createdAt.toDateString()})`);
+
+  // Update the job's category and due date
   const { error: updateError } = await supabase
     .from('production_jobs')
     .update({ 
       category_id: selectedCategoryId,
+      due_date: dueDateString,
       updated_at: new Date().toISOString()
     })
     .eq('id', jobId);
 
   if (updateError) {
-    console.error('❌ Error updating job category:', updateError);
+    console.error('❌ Error updating job category and due date:', updateError);
     throw new Error(`Job update failed: ${updateError.message}`);
   }
 
-  console.log(`✅ Updated job ${jobId} category to ${selectedCategoryId}`);
+  console.log(`✅ Updated job ${jobId} category to ${selectedCategoryId} with due date ${dueDateString}`);
 
   // Initialize workflow
   let initSuccess = false;

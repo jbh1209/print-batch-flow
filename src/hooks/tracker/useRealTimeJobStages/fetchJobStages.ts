@@ -28,7 +28,7 @@ export async function fetchJobStagesFromSupabase(
     return undefined;
   };
 
-  // FIXED: Use job_id instead of id to match useAccessibleJobs data structure
+  // Use job_id instead of id to match useAccessibleJobs data structure
   const jobIds = jobs.map((job) => job.job_id || job.id);
   
   console.log('🔍 fetchJobStagesFromSupabase: Processing jobs', {
@@ -84,10 +84,14 @@ export async function fetchJobStagesFromSupabase(
           return null;
         }
         
-        // Defensive null-safe
-        let dueDate: string | undefined =
-          job?.due_date ||
-          computeDueDate(job);
+        // Use the job's due_date first, then compute fallback if needed
+        let dueDate: string | undefined = job?.due_date;
+        
+        // Only compute fallback if job.due_date is null/undefined
+        if (!dueDate) {
+          dueDate = computeDueDate(job);
+          console.log(`📅 Computed fallback due date for job ${job.job_id || job.id}: ${dueDate}`);
+        }
 
         return {
           ...stage,
