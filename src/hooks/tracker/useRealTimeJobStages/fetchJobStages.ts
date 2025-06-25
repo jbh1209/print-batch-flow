@@ -28,56 +28,89 @@ export async function fetchJobStagesFromSupabase(
     return undefined;
   };
 
-  // Get all job stage instances for these jobs
-  const jobIds = jobs.map((job) => job.id);
-  const { data, error } = await supabase
-    .from("job_stage_instances")
-    .select(
-      `
-      *,
-      production_stage:production_stages(
-        id, name, color, description
-      )
-    `
-    )
-    .in("job_id", jobIds)
-    .eq("job_table_name", "production_jobs")
-    .order("stage_order", { ascending: true });
-
-  if (error) throw error;
-
-  // Lookup by id for easy mapping
-  const jobsById: Record<string, any> = {};
-  jobs.forEach((job) => {
-    jobsById[job.id] = job;
+  // FIXED: Use job_id instead of id to match useAccessibleJobs data structure
+  const jobIds = jobs.map((job) => job.job_id || job.id);
+  
+  console.log('🔍 fetchJobStagesFromSupabase: Processing jobs', {
+    totalJobs: jobs.length,
+    jobIds: jobIds.slice(0, 3), // Log first 3 for debugging
+    firstJobStructure: jobs[0] ? Object.keys(jobs[0]) : 'no jobs'
   });
 
-  return (data || [])
-    .map((stage: any) => {
-      const job = jobsById[stage.job_id];
-      // Defensive null-safe
-      let dueDate: string | undefined =
-        job?.due_date ||
-        computeDueDate(job);
+  if (jobIds.length === 0) {
+    console.warn('⚠️ No valid job IDs found in jobs array');
+    return [];
+  }
 
-      return {
-        ...stage,
-        status: stage.status as "pending" | "active" | "completed" | "skipped",
-        production_stage: stage.production_stage,
-        production_job: job
-          ? {
-              id: job.id,
-              wo_no: job.wo_no,
-              customer: job.customer ?? null,
-              category: job.category ?? null,
-              due_date: dueDate ?? null,
-              created_at: job.created_at ?? null,
-              category_name: job.category_name ?? null,
-              categories: job.categories ?? null,
-              sla_target_days: getJobSlaDays(job)
-            }
-          : undefined,
-      };
-    })
-    .filter((stage: JobStageWithDetails) => stage.production_job);
+  try {
+    const { data, error } = await supabase
+      .from("job_stage_instances")
+      .select(
+        `
+        *,
+        production_stage:production_stages(
+          id, name, color, description
+        )
+      `
+      )
+      .in("job_id", jobIds)
+      .eq("job_table_name", "production_jobs")
+      .order("stage_order", { ascending: true });
+
+    if (error) {
+      console.error('❌ Error fetching job stages:', error);
+      throw error;
+    }
+
+    console.log('✅ fetchJobStagesFromSupabase: Fetched stages', {
+      stagesCount: data?.length || 0,
+      uniqueJobIds: new Set(data?.map(s => s.job_id) || []).size
+    });
+
+    // Create lookup by both job_id and id for compatibility
+    const jobsById: Record<string, any> = {};
+    jobs.forEach((job) => {
+      const jobId = job.job_id || job.id;
+      if (jobId) {
+        jobsById[jobId] = job;
+      }
+    });
+
+    return (data || [])
+      .map((stage: any) => {
+        const job = jobsById[stage.job_id];
+        if (!job) {
+          console.warn('⚠️ Job not found for stage:', stage.job_id);
+          return null;
+        }
+        
+        // Defensive null-safe
+        let dueDate: string | undefined =
+          job?.due_date ||
+          computeDueDate(job);
+
+        return {
+          ...stage,
+          status: stage.status as "pending" | "active" | "completed" | "skipped",
+          production_stage: stage.production_stage,
+          production_job: {
+            id: job.job_id || job.id, // Use job_id as primary, fallback to id
+            wo_no: job.wo_no,
+            customer: job.customer ?? null,
+            category: job.category ?? null,
+            due_date: dueDate ?? null,
+            created_at: job.created_at ?? null,
+            category_name: job.category_name ?? null,
+            categories: job.categories ?? null,
+            sla_target_days: getJobSlaDays(job)
+          },
+        };
+      })
+      .filter((stage: JobStageWithDetails | null): stage is JobStageWithDetails => 
+        stage !== null && stage.production_job !== undefined
+      );
+  } catch (err) {
+    console.error('❌ fetchJobStagesFromSupabase error:', err);
+    throw err;
+  }
 }

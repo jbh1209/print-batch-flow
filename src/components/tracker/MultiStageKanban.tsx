@@ -29,10 +29,22 @@ export const MultiStageKanban = () => {
   });
   const { stages } = useProductionStages();
 
-  // CRITICAL: Filter out completed jobs for kanban view
+  // CRITICAL: Filter out completed jobs for kanban view and ensure data consistency
   const activeJobs = React.useMemo(() => {
+    console.log('🔄 MultiStageKanban: Processing jobs for kanban', {
+      totalJobs: jobs.length,
+      firstJobStructure: jobs[0] ? Object.keys(jobs[0]) : 'no jobs'
+    });
+    
     // AccessibleJobs already filters for active jobs, but we can add extra safety
-    return jobs.filter(job => job.status !== 'Completed');
+    const filtered = jobs.filter(job => job.status !== 'Completed');
+    
+    console.log('✅ MultiStageKanban: Filtered active jobs', {
+      activeJobsCount: filtered.length,
+      completedJobsFiltered: jobs.length - filtered.length
+    });
+    
+    return filtered;
   }, [jobs]);
   
   const { 
@@ -45,6 +57,16 @@ export const MultiStageKanban = () => {
     refreshStages,
     getStageMetrics 
   } = useRealTimeJobStages(activeJobs);
+
+  // Add error logging for debugging
+  React.useEffect(() => {
+    if (error) {
+      console.error('❌ MultiStageKanban: Real-time job stages error:', error);
+    }
+    if (jobsError) {
+      console.error('❌ MultiStageKanban: Jobs loading error:', jobsError);
+    }
+  }, [error, jobsError]);
 
   // ---- NEW: Layout selector ----
   const [layout, setLayout] = React.useState<"horizontal" | "vertical">("horizontal");
@@ -66,38 +88,53 @@ export const MultiStageKanban = () => {
 
   const handleStageAction = async (stageId: string, action: 'start' | 'complete' | 'scan') => {
     try {
+      console.log('🔄 MultiStageKanban: Stage action', { stageId, action });
+      
       if (action === 'start') await startStage(stageId);
       else if (action === 'complete') await completeStage(stageId);
       else if (action === 'scan') toast.info('QR Scanner would open here');
+      
       refreshJobs();
     } catch (err) {
-      console.error('Error performing stage action:', err);
+      console.error('❌ MultiStageKanban: Error performing stage action:', err);
+      toast.error(`Failed to ${action} stage`);
     }
   };
 
   // Per-stage reorder handlers
   const handleReorder = async (stageId: string, newOrderIds: string[]) => {
-    const updates = newOrderIds.map((jobStageId, idx) => {
-      const jobStage = jobStages.find(js => js.id === jobStageId);
-      if (!jobStage) throw new Error("JobStage not found for id: " + jobStageId);
-      return {
-        id: jobStage.id,
-        job_id: jobStage.job_id,
-        job_table_name: jobStage.job_table_name,
-        production_stage_id: jobStage.production_stage_id,
-        stage_order: jobStage.stage_order,
-        job_order_in_stage: idx + 1,
-        status: jobStage.status,
-      };
-    });
     try {
+      console.log('🔄 MultiStageKanban: Reordering stage', { stageId, itemCount: newOrderIds.length });
+      
+      const updates = newOrderIds.map((jobStageId, idx) => {
+        const jobStage = jobStages.find(js => js.id === jobStageId);
+        if (!jobStage) throw new Error("JobStage not found for id: " + jobStageId);
+        return {
+          id: jobStage.id,
+          job_id: jobStage.job_id,
+          job_table_name: jobStage.job_table_name,
+          production_stage_id: jobStage.production_stage_id,
+          stage_order: jobStage.stage_order,
+          job_order_in_stage: idx + 1,
+          status: jobStage.status,
+        };
+      });
+      
       const { error } = await supabase
         .from("job_stage_instances")
         .upsert(updates, { onConflict: "id" });
-      if (error) toast.error("Failed to persist job order");
+        
+      if (error) {
+        console.error('❌ MultiStageKanban: Failed to persist job order:', error);
+        toast.error("Failed to persist job order");
+      } else {
+        console.log('✅ MultiStageKanban: Job order updated successfully');
+      }
     } catch (e) {
+      console.error('❌ MultiStageKanban: Reorder error:', e);
       toast.error("Failed to persist job order: " + (e instanceof Error ? e.message : String(e)));
     }
+    
     refreshStages();
     refreshJobs();
   };
@@ -127,6 +164,15 @@ export const MultiStageKanban = () => {
             <div>
               <p className="font-medium">Error loading multi-stage kanban</p>
               <p className="text-sm mt-1">{jobsError || error}</p>
+              <button 
+                onClick={() => {
+                  refreshJobs();
+                  refreshStages();
+                }}
+                className="mt-2 px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
+              >
+                Retry
+              </button>
             </div>
           </div>
         </div>
@@ -145,7 +191,11 @@ export const MultiStageKanban = () => {
           pendingStages: metrics.pendingStages,
         }}
         lastUpdate={lastUpdate}
-        onRefresh={() => { refreshStages(); refreshJobs(); }}
+        onRefresh={() => { 
+          console.log('🔄 MultiStageKanban: Manual refresh triggered');
+          refreshStages(); 
+          refreshJobs(); 
+        }}
         onSettings={() => {}}
         // New layout props:
         layout={layout}
@@ -178,4 +228,5 @@ export const MultiStageKanban = () => {
     </div>
   );
 };
+
 export default MultiStageKanban;
