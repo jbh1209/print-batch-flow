@@ -43,7 +43,7 @@ export const useProductionJobs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // --- UPDATED QUERY: Fetch ALL jobs with ANY workflow stages, filter out only 'Completed'
+  // --- DETAILED DEBUGGING QUERY: Track exactly what gets filtered
   const fetchJobs = useCallback(async () => {
     if (!user?.id) {
       setJobs([]);
@@ -54,28 +54,99 @@ export const useProductionJobs = () => {
 
     try {
       setError(null);
-      console.log("Fetching ALL production jobs with workflows (excluding Completed)");
+      console.log("🔍 DEBUGGING: Fetching production jobs with detailed logging");
 
-      // First get all jobs that have ANY job_stage_instances (regardless of status)
-      const { data: jobsWithWorkflow, error: workflowJobsError } = await supabase
-        .from('job_stage_instances')
-        .select('job_id')
-        .eq('job_table_name', 'production_jobs');
+      // Step 1: Get ALL production jobs first
+      const { data: allJobs, error: allJobsError } = await supabase
+        .from('production_jobs')
+        .select(`
+          id,
+          wo_no,
+          status,
+          category_id,
+          has_custom_workflow,
+          categories (
+            id,
+            name,
+            description,
+            color,
+            sla_target_days
+          )
+        `)
+        .order('wo_no');
 
-      if (workflowJobsError) {
-        throw new Error(`Failed to fetch workflow jobs: ${workflowJobsError.message}`);
+      if (allJobsError) {
+        throw new Error(`Failed to fetch all jobs: ${allJobsError.message}`);
       }
 
-      const workflowJobIds = [...new Set(jobsWithWorkflow?.map(j => j.job_id) || [])];
+      console.log("📊 ALL production jobs in database:", allJobs?.length || 0);
+      
+      // Step 2: Check workflow coverage
+      const { data: allWorkflowJobs, error: workflowError } = await supabase
+        .from('job_stage_instances')
+        .select('job_id, status')
+        .eq('job_table_name', 'production_jobs');
 
-      if (workflowJobIds.length === 0) {
-        console.log("No jobs with workflows found");
+      if (workflowError) {
+        throw new Error(`Failed to fetch workflow data: ${workflowError.message}`);
+      }
+
+      const jobsWithWorkflow = new Set(allWorkflowJobs?.map(j => j.job_id) || []);
+      console.log("🔄 Jobs with ANY workflow stages:", jobsWithWorkflow.size);
+
+      // Step 3: Analyze job eligibility
+      const eligibleJobs = [];
+      const excludedJobs = [];
+
+      allJobs?.forEach(job => {
+        const hasCategory = job.category_id !== null;
+        const hasCustomWorkflow = job.has_custom_workflow === true;
+        const hasWorkflowStages = jobsWithWorkflow.has(job.id);
+        const isCompleted = job.status === 'Completed';
+
+        const isEligible = (hasCategory || hasCustomWorkflow || hasWorkflowStages) && !isCompleted;
+
+        if (isEligible) {
+          eligibleJobs.push({
+            id: job.id,
+            wo_no: job.wo_no,
+            status: job.status,
+            hasCategory,
+            hasCustomWorkflow,
+            hasWorkflowStages,
+            reason: 'eligible'
+          });
+        } else {
+          excludedJobs.push({
+            id: job.id,
+            wo_no: job.wo_no,
+            status: job.status,
+            hasCategory,
+            hasCustomWorkflow,
+            hasWorkflowStages,
+            reason: isCompleted ? 'completed' : 'no_workflow'
+          });
+        }
+      });
+
+      console.log("✅ Eligible jobs:", eligibleJobs.length);
+      console.log("❌ Excluded jobs:", excludedJobs.length);
+      
+      // Log excluded jobs for analysis
+      if (excludedJobs.length > 0) {
+        console.log("🚫 Excluded jobs breakdown:", excludedJobs);
+      }
+
+      // Step 4: Final fetch with full data
+      const eligibleJobIds = eligibleJobs.map(j => j.id);
+      
+      if (eligibleJobIds.length === 0) {
+        console.log("No eligible jobs found");
         setJobs([]);
         setIsLoading(false);
         return;
       }
 
-      // Now fetch ALL job data for jobs with workflows, excluding only 'Completed' status
       const { data, error: fetchError } = await supabase
         .from('production_jobs')
         .select(`
@@ -88,23 +159,24 @@ export const useProductionJobs = () => {
             sla_target_days
           )
         `)
-        .in('id', workflowJobIds)
-        .neq('status', 'Completed') // Only exclude 'Completed' jobs
+        .in('id', eligibleJobIds)
         .order('created_at', { ascending: false });
 
       if (fetchError) {
-        throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
+        throw new Error(`Failed to fetch final job data: ${fetchError.message}`);
       }
 
-      console.log("Production jobs with workflows (excluding Completed) fetched:", data?.length || 0, "jobs");
+      console.log("🎯 Final job count returned:", data?.length || 0);
+      
       // Enrich helper
       const jobsWithHelpers = (data ?? []).map((job: any) => ({
         ...job,
         category_name: job.categories?.name ?? job.category ?? null,
       }));
+
       setJobs(jobsWithHelpers);
     } catch (err) {
-      console.error('Error fetching production jobs:', err);
+      console.error('❌ Error fetching production jobs:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load jobs";
       setError(errorMessage);
       toast.error("Failed to load production jobs");
