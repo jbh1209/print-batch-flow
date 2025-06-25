@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from "react";
 import {
   DndContext,
@@ -14,6 +13,7 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { KanbanColumn } from "./KanbanColumn";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 
