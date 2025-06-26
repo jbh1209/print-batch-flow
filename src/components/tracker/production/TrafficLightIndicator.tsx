@@ -10,7 +10,7 @@ export const TrafficLightIndicator: React.FC<TrafficLightIndicatorProps> = ({ du
   const [statusInfo, setStatusInfo] = useState({
     color: "#9CA3AF",
     label: "Loading...",
-    code: "gray" as const
+    code: "gray" as "red" | "yellow" | "green" | "gray"
   });
 
   useEffect(() => {

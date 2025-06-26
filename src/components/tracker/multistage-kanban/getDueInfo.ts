@@ -4,7 +4,7 @@ import { JobStageWithDetails } from "@/hooks/tracker/useRealTimeJobStages/types"
 import type { DueInfo } from "./StageColumn.types";
 
 // Returns info about current due date for the stage card indicator.
-export function getDueInfo(jobStage: any): DueInfo {
+export async function getDueInfo(jobStage: any): Promise<DueInfo> {
   const hasProductionJob = !!jobStage.production_job;
   if (!hasProductionJob) {
     // Log to console only ONCE per missing production_job, to avoid flooding
@@ -32,5 +32,6 @@ export function getDueInfo(jobStage: any): DueInfo {
       warning: true
     };
   }
-  return { ...getDueStatusColor(due, sla), warning: false };
+  const statusInfo = await getDueStatusColor(due, sla);
+  return { ...statusInfo, warning: false };
 }
