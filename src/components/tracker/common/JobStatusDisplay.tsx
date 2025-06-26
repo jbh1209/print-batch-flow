@@ -30,9 +30,10 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   const iconSize = compact ? "h-3 w-3" : "h-4 w-4";
   const textSize = compact ? "text-xs" : "text-sm";
 
-  // Enhanced custom workflow detection
+  // Enhanced custom workflow detection - check both explicit flag and workflow pattern
   const hasCustomWorkflow = job.has_custom_workflow === true || 
-    (job.category_id === null && job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000');
+    (job.category_id === null && job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000') ||
+    (job.category_id === null && job.current_stage_name && job.current_stage_name !== 'No Stage');
   
   // Enhanced orphaned detection - only if has category but missing workflow
   const isOrphaned = !hasCustomWorkflow && job.category_id && (!job.current_stage_id || job.current_stage_id === '00000000-0000-0000-0000-000000000000');

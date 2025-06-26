@@ -57,9 +57,10 @@ export const JobTableRow: React.FC<JobTableRowProps> = ({
   };
 
   const getCategoryDisplay = () => {
-    // Enhanced custom workflow detection
+    // Enhanced custom workflow detection - check both explicit flag and workflow pattern
     const hasCustomWorkflow = job.has_custom_workflow === true || 
-      (job.category_id === null && job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000');
+      (job.category_id === null && job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000') ||
+      (job.category_id === null && job.current_stage_name && job.current_stage_name !== 'No Stage');
     
     if (hasCustomWorkflow) {
       return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Custom Workflow</Badge>;
@@ -93,7 +94,8 @@ export const JobTableRow: React.FC<JobTableRowProps> = ({
   };
 
   const hasCustomWorkflow = job.has_custom_workflow === true || 
-    (job.category_id === null && job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000');
+    (job.category_id === null && job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000') ||
+    (job.category_id === null && job.current_stage_name && job.current_stage_name !== 'No Stage');
 
   return (
     <tr className="hover:bg-gray-50">
