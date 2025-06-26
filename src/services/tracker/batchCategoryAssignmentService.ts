@@ -40,18 +40,7 @@ export const batchAssignJobCategory = async (
       try {
         console.log(`🔄 Processing job ${jobId}...`);
 
-        // Check if job already has workflow stages
-        const { data: existingStages } = await supabase
-          .from('job_stage_instances')
-          .select('id')
-          .eq('job_id', jobId)
-          .eq('job_table_name', 'production_jobs');
-
-        const hasExistingStages = existingStages && existingStages.length > 0;
-
-        console.log(`Job ${jobId} has existing stages:`, hasExistingStages);
-
-        // Get job's created_at date for due date calculation
+        // Get job's current data
         const { data: jobData } = await supabase
           .from('production_jobs')
           .select('created_at, category_id')
@@ -70,6 +59,8 @@ export const batchAssignJobCategory = async (
           successCount++;
           continue;
         }
+
+        console.log(`🔄 Changing category for job ${jobId} from ${jobData.category_id || 'null'} to ${categoryId || 'null'}`);
 
         // Calculate due date (only if categoryId is provided)
         let dueDateString = null;
@@ -97,22 +88,19 @@ export const batchAssignJobCategory = async (
 
         console.log(`✅ Updated job ${jobId} category to ${categoryId || 'null'}`);
 
-        // Handle workflow stages
-        if (hasExistingStages) {
-          console.log(`🗑️ Deleting existing stages for job ${jobId}...`);
-          // Delete existing workflow stages
-          const { error: deleteError } = await supabase
-            .from('job_stage_instances')
-            .delete()
-            .eq('job_id', jobId)
-            .eq('job_table_name', 'production_jobs');
+        // Always delete existing workflow stages when changing category
+        console.log(`🗑️ Deleting existing stages for job ${jobId}...`);
+        const { error: deleteError } = await supabase
+          .from('job_stage_instances')
+          .delete()
+          .eq('job_id', jobId)
+          .eq('job_table_name', 'production_jobs');
 
-          if (deleteError) {
-            console.error(`❌ Failed to delete existing stages for job ${jobId}:`, deleteError);
-            // Don't fail the whole operation, just log the error
-          } else {
-            console.log(`✅ Deleted existing stages for job ${jobId}`);
-          }
+        if (deleteError) {
+          console.error(`❌ Failed to delete existing stages for job ${jobId}:`, deleteError);
+          throw deleteError;
+        } else {
+          console.log(`✅ Deleted existing stages for job ${jobId}`);
         }
 
         // Initialize new workflow stages (only if categoryId is provided)
