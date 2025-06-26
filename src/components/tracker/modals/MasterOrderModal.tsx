@@ -42,9 +42,9 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
   onRefresh
 }) => {
   const [notes, setNotes] = useState("");
-  const [selectedStageId, setSelectedStageId = useState<string | null>(null);
-  const [showAdminControls, setShowAdminControls = useState(false);
-  const [isAssigningCategory, setIsAssigningCategory = useState(false);
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [showAdminControls, setShowAdminControls] = useState(false);
+  const [isAssigningCategory, setIsAssigningCategory] = useState(false);
   const [job, setJob] = useState<AccessibleJob | null>(initialJob);
   
   const { isManager, isAdmin } = useUserRole();
