@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -61,6 +60,9 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
     categoryId: job?.category_id
   });
 
+  // Move this declaration before it's used
+  const canUseAdminControls = isManager || isAdmin;
+
   // Memoized refresh function to prevent infinite re-renders
   const handleRefresh = useCallback(async () => {
     if (job && isOpen) {
@@ -97,7 +99,6 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
   if (!job) return null;
 
   const progress = getWorkflowProgress();
-  const canUseAdminControls = isManager || isAdmin;
 
   const handleStageAction = async (stageId: string, action: 'start' | 'complete' | 'hold') => {
     try {
