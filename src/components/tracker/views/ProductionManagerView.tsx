@@ -15,7 +15,7 @@ import { useUserRole } from "@/hooks/tracker/useUserRole";
 
 export const ProductionManagerView = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const { jobs, isLoading, error, startJob, completeJob, refreshJobs } = useAccessibleJobs({
+  const { jobs, isLoading, error, startJob, completeJob, refreshJobs, invalidateCache } = useAccessibleJobs({
     permissionType: 'manage',
     statusFilter
   });
@@ -54,6 +54,8 @@ export const ProductionManagerView = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     console.log("🔄 Manual refresh triggered");
+    // Invalidate cache first to ensure fresh data
+    invalidateCache();
     await refreshJobs();
     setTimeout(() => setRefreshing(false), 1000);
   };
@@ -90,7 +92,7 @@ export const ProductionManagerView = () => {
       if (stageError) throw stageError;
 
       toast.success(`Marked ${selectedJobs.length} job(s) as completed`);
-      await refreshJobs();
+      await handleRefresh(); // Use our enhanced refresh
     } catch (err) {
       console.error('Error marking jobs as completed:', err);
       toast.error('Failed to mark jobs as completed');
@@ -178,7 +180,7 @@ export const ProductionManagerView = () => {
               if (error) throw error;
 
               toast.success('Job deleted successfully');
-              await refreshJobs();
+              await handleRefresh(); // Use our enhanced refresh
             } catch (err) {
               console.error('Error deleting job:', err);
               toast.error('Failed to delete job');
@@ -205,7 +207,7 @@ export const ProductionManagerView = () => {
               if (error) throw error;
 
               toast.success(`Updated ${selectedJobs.length} job(s) to ${status} status`);
-              await refreshJobs();
+              await handleRefresh(); // Use our enhanced refresh
             } catch (err) {
               console.error('Error updating job status:', err);
               toast.error('Failed to update job status');
@@ -222,7 +224,7 @@ export const ProductionManagerView = () => {
               if (error) throw error;
 
               toast.success(`Deleted ${selectedJobs.length} job(s) successfully`);
-              await refreshJobs();
+              await handleRefresh(); // Use our enhanced refresh
             } catch (err) {
               console.error('Error deleting jobs:', err);
               toast.error('Failed to delete jobs');
@@ -261,7 +263,7 @@ export const ProductionManagerView = () => {
         selectedJobsForBarcodes={selectedJobsForBarcodes}
         setSelectedJobsForBarcodes={setSelectedJobsForBarcodes}
         categories={categories}
-        onRefresh={refreshJobs}
+        onRefresh={handleRefresh} // Use our enhanced refresh
       />
     </div>
   );

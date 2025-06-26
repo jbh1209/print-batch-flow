@@ -35,7 +35,8 @@ const TrackerProduction = () => {
     error,
     startJob,
     completeJob,
-    refreshJobs 
+    refreshJobs,
+    invalidateCache
   } = useAccessibleJobs({
     permissionType: 'manage'
   });
@@ -165,7 +166,15 @@ const TrackerProduction = () => {
   };
 
   const handleRefresh = async () => {
+    console.log("🔄 TrackerProduction refresh triggered");
+    // Clear cache first to ensure fresh data
+    invalidateCache();
     await refreshJobs();
+  };
+
+  const handleModalRefresh = async () => {
+    console.log("🔄 Modal refresh triggered - updating main view");
+    await handleRefresh();
   };
 
   if (error) {
@@ -296,7 +305,7 @@ const TrackerProduction = () => {
           isOpen={true}
           onClose={handleCloseModal}
           job={selectedJob}
-          onRefresh={handleRefresh}
+          onRefresh={handleModalRefresh}
         />
       )}
     </>

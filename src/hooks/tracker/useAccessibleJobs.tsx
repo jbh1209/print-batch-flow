@@ -218,10 +218,28 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     }
   );
 
-  // Refresh function that forces a fresh fetch
+  // Refresh function that forces a fresh fetch and clears cache
   const refreshJobs = useCallback(async () => {
+    console.log("🔄 Refreshing jobs with cache clear...");
+    
+    // Clear cache to ensure fresh data
+    const cacheKey = getCacheKey();
+    if (cacheKey) {
+      jobsCache.clear(cacheKey);
+    }
+    
+    // Force refresh from API
     await fetchJobs(true);
-  }, [fetchJobs]);
+  }, [fetchJobs, getCacheKey]);
+
+  // Force cache invalidation - useful after external changes like category assignments
+  const invalidateCache = useCallback(() => {
+    console.log("🗑️ Invalidating jobs cache...");
+    const cacheKey = getCacheKey();
+    if (cacheKey) {
+      jobsCache.clear(cacheKey);
+    }
+  }, [getCacheKey]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -257,6 +275,7 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     refreshJobs,
     forceUpdate,
     lastFetchTime,
+    invalidateCache, // New function to clear cache
     
     // Enhanced capabilities
     hasOptimisticUpdates,

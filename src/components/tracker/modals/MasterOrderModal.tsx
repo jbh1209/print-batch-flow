@@ -23,6 +23,7 @@ import { useStageActions } from "@/hooks/tracker/stage-management/useStageAction
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
 import { batchAssignJobCategory } from "@/services/tracker/batchCategoryAssignmentService";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { MasterOrderModalAdminControls } from "./MasterOrderModalAdminControls";
@@ -37,13 +38,14 @@ interface MasterOrderModalProps {
 export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
   isOpen,
   onClose,
-  job,
+  job: initialJob,
   onRefresh
 }) => {
   const [notes, setNotes] = useState("");
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [showAdminControls, setShowAdminControls] = useState(false);
   const [isAssigningCategory, setIsAssigningCategory] = useState(false);
+  const [job, setJob] = useState<AccessibleJob | null>(initialJob);
   
   const { isManager, isAdmin } = useUserRole();
   const { categories } = useProductionCategories();
@@ -60,15 +62,76 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
     categoryId: job?.category_id
   });
 
-  // Move this declaration before it's used
+  // Update local job state when prop changes
+  useEffect(() => {
+    setJob(initialJob);
+  }, [initialJob]);
+
   const canUseAdminControls = isManager || isAdmin;
+
+  // Fetch fresh job data from database
+  const fetchFreshJobData = useCallback(async (): Promise<AccessibleJob | null> => {
+    if (!job?.job_id) return null;
+
+    try {
+      console.log(`🔄 Fetching fresh data for job ${job.job_id}...`);
+      
+      const { data: jobData, error } = await supabase
+        .from('production_jobs')
+        .select(`
+          *,
+          categories (
+            id,
+            name,
+            color
+          )
+        `)
+        .eq('id', job.job_id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching fresh job data:', error);
+        return null;
+      }
+
+      if (!jobData) return null;
+
+      // Create updated job object with fresh data
+      const updatedJob: AccessibleJob = {
+        ...job,
+        category_id: jobData.category_id,
+        category_name: jobData.categories?.name || 'No Category',
+        category_color: jobData.categories?.color || '#6B7280',
+        due_date: jobData.due_date,
+        status: jobData.status,
+        updated_at: jobData.updated_at
+      };
+
+      console.log(`✅ Fresh job data fetched:`, {
+        jobId: updatedJob.job_id,
+        categoryId: updatedJob.category_id,
+        categoryName: updatedJob.category_name,
+        dueDate: updatedJob.due_date
+      });
+
+      return updatedJob;
+    } catch (error) {
+      console.error('Error in fetchFreshJobData:', error);
+      return null;
+    }
+  }, [job?.job_id]);
 
   // Memoized refresh function to prevent infinite re-renders
   const handleRefresh = useCallback(async () => {
     if (job && isOpen) {
       await refreshStages();
+      // Also fetch fresh job data to update category/due date
+      const freshJobData = await fetchFreshJobData();
+      if (freshJobData) {
+        setJob(freshJobData);
+      }
     }
-  }, [job, isOpen, refreshStages]);
+  }, [job, isOpen, refreshStages, fetchFreshJobData]);
 
   useEffect(() => {
     handleRefresh();
@@ -82,12 +145,28 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
       // Handle special "none" value by setting category to null
       const categoryIdToAssign = newCategoryId === "none" ? null : newCategoryId;
       
+      console.log(`🔄 Assigning category ${categoryIdToAssign} to job ${job.job_id}...`);
+      
       const result = await batchAssignJobCategory([job.job_id], categoryIdToAssign || '');
       
       if (result.successCount > 0) {
         toast.success("Category updated successfully");
-        await handleRefresh();
-        onRefresh?.();
+        
+        // Fetch fresh job data immediately after successful category change
+        const freshJobData = await fetchFreshJobData();
+        if (freshJobData) {
+          setJob(freshJobData);
+          console.log(`✅ Modal job data updated with fresh category data`);
+        }
+        
+        // Refresh workflow stages
+        await refreshStages();
+        
+        // Notify parent component to refresh
+        if (onRefresh) {
+          console.log(`🔄 Triggering parent refresh...`);
+          onRefresh();
+        }
       } else {
         toast.error("Failed to update category");
       }
