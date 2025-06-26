@@ -42,9 +42,9 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
   onRefresh
 }) => {
   const [notes, setNotes] = useState("");
-  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
-  const [showAdminControls, setShowAdminControls] = useState(false);
-  const [isAssigningCategory, setIsAssigningCategory] = useState(false);
+  const [selectedStageId, setSelectedStageId = useState<string | null>(null);
+  const [showAdminControls, setShowAdminControls = useState(false);
+  const [isAssigningCategory, setIsAssigningCategory = useState(false);
   const [job, setJob] = useState<AccessibleJob | null>(initialJob);
   
   const { isManager, isAdmin } = useUserRole();
@@ -103,8 +103,7 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
         category_name: jobData.categories?.name || 'No Category',
         category_color: jobData.categories?.color || '#6B7280',
         due_date: jobData.due_date,
-        status: jobData.status,
-        updated_at: jobData.updated_at
+        status: jobData.status
       };
 
       console.log(`✅ Fresh job data fetched:`, {

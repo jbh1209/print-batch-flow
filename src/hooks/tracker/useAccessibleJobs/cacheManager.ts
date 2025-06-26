@@ -61,6 +61,12 @@ class AccessibleJobsCacheManager {
     return entry?.isStale ?? true;
   }
 
+  // Clear cache for a specific key
+  clear(key: CacheKey): void {
+    const cacheKey = this.getCacheKey(key);
+    this.cache.delete(cacheKey);
+  }
+
   invalidate(userId?: string): void {
     if (userId) {
       // Invalidate all entries for a specific user
