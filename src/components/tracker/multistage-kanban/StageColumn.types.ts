@@ -18,6 +18,6 @@ export type StageColumnProps = {
 export interface DueInfo {
   color: string;
   label: string;
-  code: "green" | "yellow" | "red";
+  code: "green" | "yellow" | "red" | "gray";
   warning?: boolean;
 }
