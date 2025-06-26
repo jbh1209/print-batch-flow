@@ -7,17 +7,17 @@ import { JobStageWithDetails } from "./types";
  * Returns an enriched array of JobStageWithDetails.
  */
 export async function fetchJobStagesFromSupabase(
-  jobs: Array<any> // Expects jobs with enriched `categories` info
+  jobs: Array<any>
 ): Promise<JobStageWithDetails[]> {
   if (!jobs || jobs.length === 0) return [];
 
-  // Helper: lookup SLA target days for a job (prefer manual_sla_days, then join, fallback to 3)
+  // Helper: lookup SLA target days for a job
   const getJobSlaDays = (job: any) =>
     job.manual_sla_days ??
     job.categories?.sla_target_days ??
     (typeof job.sla_target_days === "number" ? job.sla_target_days : 3);
 
-  // Helper: compute due date if missing (created_at + SLA)
+  // Helper: compute due date if missing
   const computeDueDate = (job: any): string | undefined => {
     // For custom workflows, prefer manual_due_date
     if (job.has_custom_workflow && job.manual_due_date) {
@@ -35,17 +35,9 @@ export async function fetchJobStagesFromSupabase(
     return undefined;
   };
 
-  // Use job_id instead of id to match useAccessibleJobs data structure
   const jobIds = jobs.map((job) => job.job_id || job.id);
   
-  console.log('🔍 fetchJobStagesFromSupabase: Processing jobs', {
-    totalJobs: jobs.length,
-    jobIds: jobIds.slice(0, 3), // Log first 3 for debugging
-    firstJobStructure: jobs[0] ? Object.keys(jobs[0]) : 'no jobs'
-  });
-
   if (jobIds.length === 0) {
-    console.warn('⚠️ No valid job IDs found in jobs array');
     return [];
   }
 
@@ -65,14 +57,8 @@ export async function fetchJobStagesFromSupabase(
       .order("stage_order", { ascending: true });
 
     if (error) {
-      console.error('❌ Error fetching job stages:', error);
       throw error;
     }
-
-    console.log('✅ fetchJobStagesFromSupabase: Fetched stages', {
-      stagesCount: data?.length || 0,
-      uniqueJobIds: new Set(data?.map(s => s.job_id) || []).size
-    });
 
     // Create lookup by both job_id and id for compatibility
     const jobsById: Record<string, any> = {};
@@ -87,24 +73,17 @@ export async function fetchJobStagesFromSupabase(
       .map((stage: any) => {
         const job = jobsById[stage.job_id];
         if (!job) {
-          console.warn('⚠️ Job not found for stage:', stage.job_id);
           return null;
         }
         
-        // Use the job's due_date first, then compute fallback if needed
-        let dueDate: string | undefined = computeDueDate(job);
-        
-        // Only compute fallback if no due date found
-        if (!dueDate) {
-          console.log(`📅 No due date found for job ${job.job_id || job.id}`);
-        }
+        const dueDate: string | undefined = computeDueDate(job);
 
         return {
           ...stage,
           status: stage.status as "pending" | "active" | "completed" | "skipped",
           production_stage: stage.production_stage,
           production_job: {
-            id: job.job_id || job.id, // Use job_id as primary, fallback to id
+            id: job.job_id || job.id,
             wo_no: job.wo_no,
             customer: job.customer ?? null,
             category: job.category ?? null,
@@ -123,7 +102,7 @@ export async function fetchJobStagesFromSupabase(
         stage !== null && stage.production_job !== undefined
       );
   } catch (err) {
-    console.error('❌ fetchJobStagesFromSupabase error:', err);
+    console.error('Error fetching job stages:', err);
     throw err;
   }
 }

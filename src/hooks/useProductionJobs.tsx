@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,7 +46,6 @@ export const useProductionJobs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // --- DETAILED DEBUGGING QUERY: Track exactly what gets filtered
   const fetchJobs = useCallback(async () => {
     if (!user?.id) {
       setJobs([]);
@@ -56,9 +56,8 @@ export const useProductionJobs = () => {
 
     try {
       setError(null);
-      console.log("🔍 DEBUGGING: Fetching production jobs with detailed logging");
 
-      // Step 1: Get ALL production jobs first
+      // Get ALL production jobs first
       const { data: allJobs, error: allJobsError } = await supabase
         .from('production_jobs')
         .select(`
@@ -82,10 +81,8 @@ export const useProductionJobs = () => {
       if (allJobsError) {
         throw new Error(`Failed to fetch all jobs: ${allJobsError.message}`);
       }
-
-      console.log("📊 ALL production jobs in database:", allJobs?.length || 0);
       
-      // Step 2: Check workflow coverage
+      // Get workflow coverage
       const { data: allWorkflowJobs, error: workflowError } = await supabase
         .from('job_stage_instances')
         .select('job_id, status')
@@ -96,11 +93,9 @@ export const useProductionJobs = () => {
       }
 
       const jobsWithWorkflow = new Set(allWorkflowJobs?.map(j => j.job_id) || []);
-      console.log("🔄 Jobs with ANY workflow stages:", jobsWithWorkflow.size);
 
-      // Step 3: Analyze job eligibility
+      // Filter eligible jobs
       const eligibleJobs = [];
-      const excludedJobs = [];
 
       allJobs?.forEach(job => {
         const hasCategory = job.category_id !== null;
@@ -111,43 +106,11 @@ export const useProductionJobs = () => {
         const isEligible = (hasCategory || hasCustomWorkflow || hasWorkflowStages) && !isCompleted;
 
         if (isEligible) {
-          eligibleJobs.push({
-            id: job.id,
-            wo_no: job.wo_no,
-            status: job.status,
-            hasCategory,
-            hasCustomWorkflow,
-            hasWorkflowStages,
-            hasManualDueDate: !!job.manual_due_date,
-            reason: 'eligible'
-          });
-        } else {
-          excludedJobs.push({
-            id: job.id,
-            wo_no: job.wo_no,
-            status: job.status,
-            hasCategory,
-            hasCustomWorkflow,
-            hasWorkflowStages,
-            hasManualDueDate: !!job.manual_due_date,
-            reason: isCompleted ? 'completed' : 'no_workflow'
-          });
+          eligibleJobs.push(job.id);
         }
       });
-
-      console.log("✅ Eligible jobs:", eligibleJobs.length);
-      console.log("❌ Excluded jobs:", excludedJobs.length);
       
-      // Log excluded jobs for analysis
-      if (excludedJobs.length > 0) {
-        console.log("🚫 Excluded jobs breakdown:", excludedJobs);
-      }
-
-      // Step 4: Final fetch with full data
-      const eligibleJobIds = eligibleJobs.map(j => j.id);
-      
-      if (eligibleJobIds.length === 0) {
-        console.log("No eligible jobs found");
+      if (eligibleJobs.length === 0) {
         setJobs([]);
         setIsLoading(false);
         return;
@@ -165,14 +128,12 @@ export const useProductionJobs = () => {
             sla_target_days
           )
         `)
-        .in('id', eligibleJobIds)
+        .in('id', eligibleJobs)
         .order('created_at', { ascending: false });
 
       if (fetchError) {
         throw new Error(`Failed to fetch final job data: ${fetchError.message}`);
       }
-
-      console.log("🎯 Final job count returned:", data?.length || 0);
       
       // Enrich helper
       const jobsWithHelpers = (data ?? []).map((job: any) => ({
@@ -182,7 +143,6 @@ export const useProductionJobs = () => {
 
       setJobs(jobsWithHelpers);
     } catch (err) {
-      console.error('❌ Error fetching production jobs:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load jobs";
       setError(errorMessage);
       toast.error("Failed to load production jobs");
@@ -200,7 +160,6 @@ export const useProductionJobs = () => {
         .eq('id', jobId);
 
       if (error) {
-        console.error("Error updating job status:", error);
         return false;
       }
 
@@ -213,7 +172,6 @@ export const useProductionJobs = () => {
 
       return true;
     } catch (err) {
-      console.error('Error updating job status:', err);
       return false;
     }
   }, []);
@@ -225,11 +183,9 @@ export const useProductionJobs = () => {
     }
   }, [authLoading, fetchJobs]);
 
-  // Optimized real-time subscription with proper error handling
+  // Optimized real-time subscription
   useEffect(() => {
     if (!user?.id) return;
-
-    console.log("Setting up real-time subscription for production jobs");
 
     const channel = supabase
       .channel(`production_jobs_all`)
@@ -241,8 +197,6 @@ export const useProductionJobs = () => {
           table: 'production_jobs',
         },
         (payload) => {
-          console.log('Production jobs changed:', payload.eventType);
-          
           if (payload.eventType === 'UPDATE' && payload.new) {
             // Optimistic update for status changes
             setJobs(prevJobs => 
@@ -260,20 +214,17 @@ export const useProductionJobs = () => {
         }
       )
       .subscribe((status) => {
-        console.log("Real-time subscription status:", status);
         if (status !== REALTIME_SUBSCRIBE_STATES.SUBSCRIBED && status !== REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR) {
-          console.error("Real-time subscription failed with status:", status);
           setError("Real-time updates unavailable");
         }
       });
 
     return () => {
-      console.log("Cleaning up real-time subscription");
       supabase.removeChannel(channel);
     };
   }, [user?.id, fetchJobs]);
 
-  // Helper functions - now derive status from workflow system instead of hardcoded values
+  // Helper functions
   const getJobsByStatus = useCallback((status: string) => {
     return jobs.filter(job => (job.status || 'Unknown') === status);
   }, [jobs]);

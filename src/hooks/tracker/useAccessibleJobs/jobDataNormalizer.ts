@@ -36,15 +36,5 @@ export const normalizeJobData = (job: any, index: number): AccessibleJob => {
     has_custom_workflow: Boolean(job.has_custom_workflow)
   };
 
-  console.log('🔄 Normalized job data:', {
-    wo_no: normalized.wo_no,
-    current_stage_name: normalized.current_stage_name,
-    display_stage_name: normalized.display_stage_name,
-    stage_status: normalized.current_stage_status,
-    qty: normalized.qty,
-    has_custom_workflow: normalized.has_custom_workflow,
-    due_date: normalized.due_date
-  });
-
   return normalized;
 };

@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,13 +49,6 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    console.log("🔍 Fetching accessible jobs from API with params:", {
-      userId: user.id,
-      permissionType,
-      statusFilter,
-      stageFilter
-    });
-
     try {
       // Check if user is admin first
       const { data: adminCheck } = await supabase
@@ -70,12 +64,10 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       let fetchError;
 
       if (isAdmin) {
-        // Admin gets all jobs with simplified query
-        console.log("👑 Admin user - fetching all jobs");
-        
+        // Admin gets all jobs
         const { data: adminData, error: adminError } = await supabase.rpc('get_user_accessible_jobs', {
           p_user_id: user.id,
-          p_permission_type: 'manage', // Use manage permission for admin to get everything
+          p_permission_type: 'manage',
           p_status_filter: statusFilter,
           p_stage_filter: stageFilter
         });
@@ -83,7 +75,7 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
         data = adminData;
         fetchError = adminError;
       } else {
-        // Regular user - use existing permission system
+        // Regular user
         const { data: userData, error: userError } = await supabase.rpc('get_user_accessible_jobs', {
           p_user_id: user.id,
           p_permission_type: permissionType,
@@ -101,24 +93,16 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       }
 
       if (fetchError) {
-        console.error("❌ Database function error:", fetchError);
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
-
-      console.log("✅ Database function success:", {
-        count: data?.length || 0,
-        isAdmin
-      });
 
       if (data && Array.isArray(data)) {
         const normalizedJobs = data.map((job, index) => {
           return normalizeJobData(job, index);
         });
 
-        console.log("✅ Normalized jobs:", normalizedJobs.length);
         return normalizedJobs;
       } else {
-        console.log("⚠️ No valid data returned from database function");
         return [];
       }
     } finally {
@@ -131,7 +115,6 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
   const fetchJobs = useCallback(async (forceRefresh = false) => {
     const cacheKey = getCacheKey();
     if (!cacheKey) {
-      console.log("❌ No cache key available, skipping fetch");
       setJobs([]);
       setIsLoading(false);
       setError(null);
@@ -145,16 +128,14 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       if (!forceRefresh) {
         const cachedData = jobsCache.get(cacheKey);
         if (cachedData) {
-          console.log("📦 Using cached data, count:", cachedData.length);
           setJobs(cachedData);
           setIsLoading(false);
 
           // If cache is stale, fetch in background
           if (jobsCache.isStale(cacheKey)) {
-            console.log("🔄 Cache is stale, fetching fresh data in background");
             setIsRefreshing(true);
           } else {
-            return; // Fresh cache, no need to fetch
+            return;
           }
         } else {
           setIsLoading(true);
@@ -178,11 +159,9 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       
     } catch (err) {
       if (err instanceof Error && err.message === "Request was aborted") {
-        console.log("🚫 Request was aborted");
         return;
       }
 
-      console.error('❌ Error in fetchJobs:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load accessible jobs";
       
       // Only show error if we don't have cached data
@@ -194,7 +173,6 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
         setJobs([]);
         toast.error(errorMessage);
       } else {
-        console.log("⚠️ Using cached data due to fetch error:", errorMessage);
         toast.warning("Using cached data - connection issue");
       }
     } finally {
@@ -231,12 +209,12 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
 
   // Set up enhanced real-time subscription
   const { forceUpdate, hasPendingUpdates } = useRealtimeSubscription(
-    () => fetchJobs(false), // Use background refresh for real-time updates
+    () => fetchJobs(false),
     {
       onJobUpdate: (jobId, updateType) => {
-        console.log(`🔔 Real-time update for job ${jobId}: ${updateType}`);
+        // Silent update - no console logging
       },
-      batchDelay: 300 // Shorter delay for real-time feel
+      batchDelay: 300
     }
   );
 
@@ -246,15 +224,9 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
   }, [fetchJobs]);
 
   useEffect(() => {
-    console.log("🔄 useAccessibleJobs effect triggered", {
-      authLoading,
-      userId: user?.id
-    });
-    
     if (!authLoading) {
       if (user?.id) {
         fetchJobs().catch(error => {
-          console.error("Failed to fetch jobs in effect:", error);
           setError("Failed to load jobs on initial load");
           setIsLoading(false);
         });
