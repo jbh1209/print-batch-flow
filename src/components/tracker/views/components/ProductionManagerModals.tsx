@@ -1,88 +1,89 @@
 
 import React from "react";
-import { JobEditModal } from "@/components/tracker/jobs/JobEditModal";
-import { CategoryAssignModal } from "@/components/tracker/jobs/CategoryAssignModal";
-import { CustomWorkflowModal } from "@/components/tracker/jobs/CustomWorkflowModal";
-import { BarcodeLabelsManager } from "@/components/tracker/BarcodeLabelsManager";
-import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { EditJobModal } from "@/components/tracker/modals/EditJobModal";
+import { CategoryAssignModal } from "@/components/tracker/modals/CategoryAssignModal";
+import { CustomWorkflowModal } from "@/components/tracker/modals/CustomWorkflowModal";
+import { BarcodeLabelsModal } from "@/components/tracker/modals/BarcodeLabelsModal";
+import { useProductionJobs } from "@/contexts/ProductionJobsContext";
 
 interface ProductionManagerModalsProps {
-  editingJob: AccessibleJob | null;
-  setEditingJob: (job: AccessibleJob | null) => void;
-  categoryAssignJob: any;
-  setCategoryAssignJob: (job: any) => void;
-  showCustomWorkflow: boolean;
-  setShowCustomWorkflow: (show: boolean) => void;
-  customWorkflowJob: AccessibleJob | null;
-  setCustomWorkflowJob: (job: AccessibleJob | null) => void;
-  showBarcodeLabels: boolean;
-  setShowBarcodeLabels: (show: boolean) => void;
-  selectedJobsForBarcodes: AccessibleJob[];
-  setSelectedJobsForBarcodes: (jobs: AccessibleJob[]) => void;
   categories: any[];
-  onRefresh: () => void;
+  onRefresh: () => Promise<void>;
 }
 
 export const ProductionManagerModals: React.FC<ProductionManagerModalsProps> = ({
-  editingJob,
-  setEditingJob,
-  categoryAssignJob,
-  setCategoryAssignJob,
-  showCustomWorkflow,
-  setShowCustomWorkflow,
-  customWorkflowJob,
-  setCustomWorkflowJob,
-  showBarcodeLabels,
-  setShowBarcodeLabels,
-  selectedJobsForBarcodes,
-  setSelectedJobsForBarcodes,
   categories,
-  onRefresh
+  onRefresh,
 }) => {
+  const {
+    editingJob,
+    setEditingJob,
+    categoryAssignJob,
+    setCategoryAssignJob,
+    customWorkflowJob,
+    setCustomWorkflowJob,
+    showCustomWorkflow,
+    setShowCustomWorkflow,
+    showBarcodeLabels,
+    setShowBarcodeLabels,
+    selectedJobsForBarcodes,
+    setSelectedJobsForBarcodes,
+  } = useProductionJobs();
+
+  const handleEditJobSave = async () => {
+    setEditingJob(null);
+    await onRefresh();
+  };
+
+  const handleCategoryAssignComplete = async () => {
+    setCategoryAssignJob(null);
+    await onRefresh();
+  };
+
+  const handleCustomWorkflowSuccess = async () => {
+    setCustomWorkflowJob(null);
+    setShowCustomWorkflow(false);
+    await onRefresh();
+  };
+
   return (
     <>
+      {/* Edit Job Modal */}
       {editingJob && (
-        <JobEditModal
+        <EditJobModal
           job={editingJob}
+          isOpen={true}
           onClose={() => setEditingJob(null)}
-          onSave={() => {
-            setEditingJob(null);
-            onRefresh();
-          }}
+          onSave={handleEditJobSave}
         />
       )}
 
+      {/* Category Assignment Modal */}
       {categoryAssignJob && (
         <CategoryAssignModal
           job={categoryAssignJob}
           categories={categories}
+          isOpen={true}
           onClose={() => setCategoryAssignJob(null)}
-          onAssign={() => {
-            setCategoryAssignJob(null);
-            onRefresh();
-          }}
+          onComplete={handleCategoryAssignComplete}
         />
       )}
 
+      {/* Custom Workflow Modal */}
       {showCustomWorkflow && customWorkflowJob && (
         <CustomWorkflowModal
-          isOpen={showCustomWorkflow}
-          onClose={() => {
-            setShowCustomWorkflow(false);
-            setCustomWorkflowJob(null);
-          }}
           job={customWorkflowJob}
-          onSuccess={() => {
-            setShowCustomWorkflow(false);
-            setCustomWorkflowJob(null);
-            onRefresh();
-          }}
+          isOpen={showCustomWorkflow}
+          onClose={() => setShowCustomWorkflow(false)}
+          onSuccess={handleCustomWorkflowSuccess}
         />
       )}
 
+      {/* Barcode Labels Modal */}
       {showBarcodeLabels && (
-        <BarcodeLabelsManager 
-          selectedJobs={selectedJobsForBarcodes}
+        <BarcodeLabelsModal
+          jobs={selectedJobsForBarcodes}
+          isOpen={showBarcodeLabels}
           onClose={() => {
             setShowBarcodeLabels(false);
             setSelectedJobsForBarcodes([]);

@@ -1,286 +1,349 @@
 
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { 
-  MoreHorizontal, 
+  Search, 
+  MoreVertical, 
+  Play, 
+  CheckCircle, 
   Edit, 
-  Tags, 
-  Settings, 
+  Tag, 
+  Workflow, 
   Trash2,
-  Users,
-  RotateCcw,
-  X,
-  Workflow,
-  Barcode,
-  CheckCircle
+  SortAsc,
+  SortDesc,
+  Filter
 } from "lucide-react";
-import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
-import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { TrafficLightIndicator } from "../production/TrafficLightIndicator";
+import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { useProductionJobs } from "@/contexts/ProductionJobsContext";
 
 interface EnhancedProductionJobsListProps {
   jobs: AccessibleJob[];
-  onStartJob: (jobId: string, stageId: string) => Promise<boolean>;
-  onCompleteJob: (jobId: string, stageId: string) => Promise<boolean>;
-  onEditJob: (job: AccessibleJob) => void;
-  onCategoryAssign: (job: AccessibleJob) => void;
-  onCustomWorkflow: (job: AccessibleJob) => void;
-  onDeleteJob: (jobId: string) => void;
-  onBulkCategoryAssign: (selectedJobs: AccessibleJob[]) => void;
-  onBulkStatusUpdate: (selectedJobs: AccessibleJob[], status: string) => void;
-  onBulkDelete: (selectedJobs: AccessibleJob[]) => void;
-  onGenerateBarcodes: (selectedJobs: AccessibleJob[]) => void;
-  onBulkMarkCompleted?: (selectedJobs: AccessibleJob[]) => void;
-  isAdmin?: boolean;
+  onStartJob: (jobId: string, stageId?: string) => Promise<boolean>;
+  onCompleteJob: (jobId: string, stageId?: string) => Promise<boolean>;
+  onDeleteJob: (jobId: string) => Promise<void>;
+  isAdmin: boolean;
 }
+
+type SortField = 'wo_no' | 'customer' | 'due_date' | 'status' | 'category';
+type SortOrder = 'asc' | 'desc';
 
 export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProps> = ({
   jobs,
   onStartJob,
   onCompleteJob,
-  onEditJob,
-  onCategoryAssign,
-  onCustomWorkflow,
   onDeleteJob,
-  onBulkCategoryAssign,
-  onBulkStatusUpdate,
-  onBulkDelete,
-  onGenerateBarcodes,
-  onBulkMarkCompleted,
-  isAdmin = false
+  isAdmin,
 }) => {
-  const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
+  const {
+    selectedJobs,
+    selectJob,
+    selectAllJobs,
+    setEditingJob,
+    setCategoryAssignJob,
+    setCustomWorkflowJob,
+    setShowCustomWorkflow,
+  } = useProductionJobs();
 
-  const handleSelectJob = (job: AccessibleJob, checked: boolean) => {
-    if (checked) {
-      setSelectedJobs(prev => [...prev, job]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<SortField>('wo_no');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+
+  // Filter and sort jobs
+  const filteredAndSortedJobs = useMemo(() => {
+    let filtered = jobs;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(job =>
+        job.wo_no?.toLowerCase().includes(query) ||
+        job.customer?.toLowerCase().includes(query) ||
+        job.reference?.toLowerCase().includes(query) ||
+        job.category_name?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter) {
+      filtered = filtered.filter(job => job.status === statusFilter);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: any = a[sortField];
+      let bValue: any = b[sortField];
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) aValue = '';
+      if (bValue === null || bValue === undefined) bValue = '';
+
+      // Handle date sorting
+      if (sortField === 'due_date') {
+        aValue = aValue ? new Date(aValue).getTime() : 0;
+        bValue = bValue ? new Date(bValue).getTime() : 0;
+      } else {
+        aValue = aValue.toString().toLowerCase();
+        bValue = bValue.toString().toLowerCase();
+      }
+
+      const comparison = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  }, [jobs, searchQuery, statusFilter, sortField, sortOrder]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      setSelectedJobs(prev => prev.filter(j => j.job_id !== job.job_id));
+      setSortField(field);
+      setSortOrder('asc');
     }
   };
 
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedJobs(jobs);
-    } else {
-      setSelectedJobs([]);
+    selectAllJobs(filteredAndSortedJobs, checked);
+  };
+
+  const handleSelectJob = (jobId: string, checked: boolean) => {
+    selectJob(jobId, checked);
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'active': return 'default';
+      case 'pending': return 'secondary';
+      case 'on hold': return 'destructive';
+      case 'completed': return 'outline';
+      default: return 'secondary';
     }
   };
 
-  const clearSelection = () => {
-    setSelectedJobs([]);
-  };
-
-  const isSelected = (job: AccessibleJob) => {
-    return selectedJobs.some(j => j.job_id === job.job_id);
-  };
+  const uniqueStatuses = Array.from(new Set(jobs.map(job => job.status))).filter(Boolean);
 
   return (
-    <div className="space-y-4">
-      {/* Bulk Actions Bar */}
-      {selectedJobs.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                  {selectedJobs.length} job{selectedJobs.length > 1 ? 's' : ''} selected
-                </Badge>
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => onBulkCategoryAssign(selectedJobs)}
-                    className="flex items-center gap-1"
-                  >
-                    <Users className="h-3 w-3" />
-                    Assign Category
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => onBulkStatusUpdate(selectedJobs, "printing")}
-                    className="flex items-center gap-1"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Update Status
-                  </Button>
-                  {isAdmin && onBulkMarkCompleted && (
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => onBulkMarkCompleted(selectedJobs)}
-                      className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
-                    >
-                      <CheckCircle className="h-3 w-3" />
-                      Mark Completed
-                    </Button>
-                  )}
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => onCustomWorkflow(selectedJobs[0])}
-                    disabled={selectedJobs.length !== 1}
-                    className="flex items-center gap-1"
-                  >
-                    <Workflow className="h-3 w-3" />
-                    Custom Workflow
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => onGenerateBarcodes(selectedJobs)}
-                    className="flex items-center gap-1"
-                  >
-                    <Barcode className="h-3 w-3" />
-                    Barcode Labels
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="destructive"
-                    onClick={() => onBulkDelete(selectedJobs)}
-                    className="flex items-center gap-1"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    Delete
-                  </Button>
-                </div>
-              </div>
-              <Button 
-                size="sm" 
-                variant="ghost"
-                onClick={clearSelection}
-                className="flex items-center gap-1"
-              >
-                <X className="h-3 w-3" />
-                Clear Selection
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Jobs List */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Production Jobs Overview</CardTitle>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={selectedJobs.length === jobs.length && jobs.length > 0}
-                onCheckedChange={handleSelectAll}
-                disabled={jobs.length === 0}
+    <Card className="overflow-hidden">
+      <CardContent className="p-0">
+        {/* Search and Filters - Sticky within the card */}
+        <div className="sticky top-0 z-20 bg-white border-b p-4 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search jobs, customers, references..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
               />
-              <span className="text-sm text-gray-600">Select All</span>
             </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  {statusFilter || 'All Status'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-white">
+                <DropdownMenuItem onClick={() => setStatusFilter('')}>
+                  All Status
+                </DropdownMenuItem>
+                {uniqueStatuses.map((status) => (
+                  <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
+                    {status}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {jobs.map((job) => (
-              <div 
-                key={job.job_id} 
-                className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 ${
-                  isSelected(job) ? 'bg-blue-50 border-blue-200' : ''
-                }`}
-              >
-                <div className="flex items-center gap-3">
+        </div>
+
+        {/* Jobs Table */}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="sticky top-[88px] z-10 bg-gray-50">
+              <TableRow>
+                <TableHead className="w-12">
                   <Checkbox
-                    checked={isSelected(job)}
-                    onCheckedChange={(checked) => handleSelectJob(job, checked as boolean)}
+                    checked={selectedJobs.length === filteredAndSortedJobs.length && filteredAndSortedJobs.length > 0}
+                    onCheckedChange={handleSelectAll}
                   />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                      {job.category_name && (
-                        <Badge variant="secondary" style={{ backgroundColor: job.category_color || '#6B7280', color: 'white' }}>
-                          {job.category_name}
-                        </Badge>
-                      )}
-                      {job.current_stage_name && (
-                        <Badge 
-                          variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
-                          style={{ 
-                            backgroundColor: job.current_stage_status === 'active' ? job.current_stage_color || '#22C55E' : 'transparent',
-                            borderColor: job.current_stage_color || '#6B7280',
-                            color: job.current_stage_status === 'active' ? 'white' : job.current_stage_color || '#6B7280'
+                </TableHead>
+                <TableHead className="w-12">Due</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('wo_no')}
+                >
+                  <div className="flex items-center">
+                    Job Number
+                    {sortField === 'wo_no' && (
+                      sortOrder === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('customer')}
+                >
+                  <div className="flex items-center">
+                    Customer
+                    {sortField === 'customer' && (
+                      sortOrder === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('due_date')}
+                >
+                  <div className="flex items-center">
+                    Due Date
+                    {sortField === 'due_date' && (
+                      sortOrder === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead>Current Stage</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center">
+                    Status
+                    {sortField === 'status' && (
+                      sortOrder === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('category')}
+                >
+                  <div className="flex items-center">
+                    Category
+                    {sortField === 'category' && (
+                      sortOrder === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="w-24">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAndSortedJobs.map((job) => (
+                <TableRow 
+                  key={job.job_id}
+                  className={`hover:bg-gray-50 ${selectedJobs.includes(job.job_id) ? 'bg-blue-50' : ''}`}
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedJobs.includes(job.job_id)}
+                      onCheckedChange={(checked) => handleSelectJob(job.job_id, checked as boolean)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <TrafficLightIndicator dueDate={job.due_date} />
+                  </TableCell>
+                  <TableCell className="font-medium">{job.wo_no || 'N/A'}</TableCell>
+                  <TableCell>{job.customer || 'N/A'}</TableCell>
+                  <TableCell>{job.due_date || 'No due date'}</TableCell>
+                  <TableCell>
+                    <span className="text-sm text-gray-600">
+                      {job.current_stage_name || job.display_stage_name || 'Not started'}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusBadgeVariant(job.status)}>
+                      {job.status || 'Unknown'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {job.category_name ? (
+                      <Badge variant="outline">{job.category_name}</Badge>
+                    ) : (
+                      <span className="text-xs text-gray-400">No category</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-white">
+                        <DropdownMenuItem onClick={() => onStartJob(job.job_id)}>
+                          <Play className="h-4 w-4 mr-2" />
+                          Start
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onCompleteJob(job.job_id)}>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Complete
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setEditingJob(job)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setCategoryAssignJob(job)}>
+                          <Tag className="h-4 w-4 mr-2" />
+                          Assign Category
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            setCustomWorkflowJob(job);
+                            setShowCustomWorkflow(true);
                           }}
                         >
-                          {job.current_stage_name}
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="text-xs">
-                        {job.workflow_progress}% Complete
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      <span>Customer: {job.customer || 'Unknown'}</span>
-                      {job.due_date && (
-                        <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
-                      )}
-                      {job.reference && (
-                        <span> • Reference: {job.reference}</span>
-                      )}
-                      <span> • Stages: {job.completed_stages}/{job.total_stages}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <JobActionButtons
-                    job={job}
-                    onStart={onStartJob}
-                    onComplete={onCompleteJob}
-                  />
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={() => onEditJob(job)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Job
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => onCategoryAssign(job)}>
-                        <Tags className="h-4 w-4 mr-2" />
-                        Assign Category
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => onCustomWorkflow(job)}>
-                        <Settings className="h-4 w-4 mr-2" />
-                        Custom Workflow
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuSeparator />
-                      
-                      <DropdownMenuItem 
-                        onClick={() => onDeleteJob(job.job_id)}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Job
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+                          <Workflow className="h-4 w-4 mr-2" />
+                          Custom Workflow
+                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <DropdownMenuItem 
+                            onClick={() => onDeleteJob(job.job_id)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredAndSortedJobs.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                    No jobs found matching the current filters.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
