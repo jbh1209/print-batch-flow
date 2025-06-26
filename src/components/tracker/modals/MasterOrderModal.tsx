@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Play, 
   Pause, 
@@ -15,11 +16,14 @@ import {
   Calendar,
   Package,
   FileText,
-  Shield
+  Shield,
+  Tags
 } from "lucide-react";
 import { useJobStageManagement } from "@/hooks/tracker/useJobStageManagement";
 import { useStageActions } from "@/hooks/tracker/stage-management/useStageActions";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { useProductionCategories } from "@/hooks/tracker/useProductionCategories";
+import { batchAssignJobCategory } from "@/services/tracker/batchCategoryAssignmentService";
 import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { MasterOrderModalAdminControls } from "./MasterOrderModalAdminControls";
@@ -40,8 +44,10 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
   const [notes, setNotes] = useState("");
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [showAdminControls, setShowAdminControls] = useState(false);
+  const [isAssigningCategory, setIsAssigningCategory] = useState(false);
   
   const { isManager, isAdmin } = useUserRole();
+  const { categories } = useProductionCategories();
   const { startStage, completeStage, isProcessing } = useStageActions();
   
   const {
@@ -65,6 +71,28 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
   useEffect(() => {
     handleRefresh();
   }, [handleRefresh]);
+
+  const handleCategoryChange = async (newCategoryId: string) => {
+    if (!job || !canUseAdminControls) return;
+    
+    setIsAssigningCategory(true);
+    try {
+      const result = await batchAssignJobCategory([job.job_id], newCategoryId);
+      
+      if (result.successCount > 0) {
+        toast.success("Category updated successfully");
+        await handleRefresh();
+        onRefresh?.();
+      } else {
+        toast.error("Failed to update category");
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+      toast.error("Failed to update category");
+    } finally {
+      setIsAssigningCategory(false);
+    }
+  };
 
   if (!job) return null;
 
@@ -169,6 +197,53 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
             <div>
               <label className="text-sm font-medium text-gray-500">Quantity</label>
               <p className="font-medium">{job.qty || 'N/A'}</p>
+            </div>
+            
+            {/* Category Control - Full Width Row */}
+            <div className="col-span-2 md:col-span-4">
+              <label className="text-sm font-medium text-gray-500 flex items-center gap-1">
+                <Tags className="h-4 w-4" />
+                Category
+              </label>
+              {canUseAdminControls ? (
+                <Select
+                  value={job.category_id || ""}
+                  onValueChange={handleCategoryChange}
+                  disabled={isAssigningCategory}
+                >
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Select category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No Category</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: category.color }}
+                          />
+                          {category.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="mt-1 flex items-center gap-2">
+                  {job.category_id ? (
+                    <>
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: job.category_color }}
+                      />
+                      <span className="font-medium">{job.category_name}</span>
+                    </>
+                  ) : (
+                    <span className="text-gray-500 italic">No Category</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
