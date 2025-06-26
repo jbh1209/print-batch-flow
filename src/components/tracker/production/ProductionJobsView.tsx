@@ -2,15 +2,16 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { TrafficLightIndicator } from "./TrafficLightIndicator";
+import { Button } from "@/components/ui/button";
+import { Calendar, Clock, AlertTriangle, Play, CheckCircle } from "lucide-react";
+import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface ProductionJobsViewProps {
-  jobs: any[];
-  selectedStage?: string;
+  jobs: AccessibleJob[];
+  selectedStage: string | null;
   isLoading: boolean;
-  onJobClick?: (job: any) => void;
-  onStageAction: (jobId: string, stageId: string, action: "start" | "complete" | "qr-scan") => void;
+  onJobClick: (job: AccessibleJob) => void;
+  onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => void;
 }
 
 export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
@@ -20,120 +21,157 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
   onJobClick,
   onStageAction
 }) => {
-
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case "completed": return "bg-green-100 text-green-800 border-green-200";
-      case "active": return "bg-blue-100 text-blue-800 border-blue-200";
-      case "pending": return "bg-gray-100 text-gray-600 border-gray-200";
-      default: return "bg-gray-100 text-gray-600 border-gray-200";
-    }
+  const isOverdue = (dueDate?: string) => {
+    if (!dueDate) return false;
+    return new Date(dueDate) < new Date();
   };
 
-  const formatDueDate = (dateString?: string) => {
-    if (!dateString) return 'No date';
-    
-    const dueDate = new Date(dateString);
-    const today = new Date();
-    const diffTime = dueDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) {
-      return `${Math.abs(diffDays)}d overdue`;
-    } else if (diffDays === 0) {
-      return 'Due today';
-    } else if (diffDays === 1) {
-      return 'Due tomorrow';
-    } else if (diffDays <= 7) {
-      return `${diffDays}d left`;
-    } else {
-      return dueDate.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short'
-      });
-    }
+  const getDaysOverdue = (dueDate?: string) => {
+    if (!dueDate) return 0;
+    const due = new Date(dueDate);
+    const now = new Date();
+    const diffTime = now.getTime() - due.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <span className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2" />
-          <span>Loading jobs...</span>
-        </CardContent>
-      </Card>
-    );
-  }
+  const getProgressPercentage = (job: AccessibleJob) => {
+    // Calculate progress based on workflow completion
+    if (job.workflow_progress !== undefined) {
+      return job.workflow_progress;
+    }
+    // Fallback calculation if workflow_progress is not available
+    return 0;
+  };
 
   if (jobs.length === 0) {
     return (
-      <Card>
-        <CardContent className="text-center py-12">
-          <p className="text-gray-500 text-lg">No jobs found</p>
-          <p className="text-gray-400">
-            {selectedStage 
-              ? `No jobs are currently active or pending in the ${selectedStage} stage` 
-              : "Try adjusting your filters"
-            }
-          </p>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-12 text-gray-500">
+        <div className="text-center">
+          <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+          <p className="text-lg font-medium">No jobs in this stage</p>
+          <p className="text-sm">Jobs will appear here when they enter this workflow stage</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="divide-y divide-gray-100">
-      {jobs.map((job) => (
-        <div
-          key={job.id}
-          className="flex items-center hover:bg-gray-50 transition-colors px-2 py-2 cursor-pointer"
-          style={{ minHeight: 40 }}
-          onClick={() => onJobClick?.(job)}
-          data-testid={`job-row-${job.id}`}
-        >
-          {/* Due / traffic light */}
-          <div className="flex items-center justify-center" style={{ width: 26 }}>
-            <TrafficLightIndicator dueDate={job.due_date} />
+    <div className="space-y-1">
+      {jobs.map((job) => {
+        const overdue = isOverdue(job.due_date);
+        const daysOverdue = overdue ? getDaysOverdue(job.due_date) : 0;
+        const progress = getProgressPercentage(job);
+
+        return (
+          <div
+            key={job.job_id}
+            className="flex items-center gap-4 py-2 px-2 hover:bg-gray-50 border-b border-gray-100 cursor-pointer transition-colors"
+            onClick={() => onJobClick(job)}
+          >
+            {/* Due Status Indicator - Fixed width */}
+            <div className="w-8 flex justify-center">
+              {overdue ? (
+                <AlertTriangle className="h-4 w-4 text-red-500" title={`${daysOverdue}d overdue`} />
+              ) : (
+                <div className="w-4 h-4" />
+              )}
+            </div>
+
+            {/* Job Name/Number - Flexible width */}
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm truncate">{job.wo_no}</div>
+              {job.customer && (
+                <div className="text-xs text-gray-500 truncate">{job.customer}</div>
+              )}
+            </div>
+
+            {/* Due Date - Fixed wider width */}
+            <div className="w-32 text-sm">
+              {job.due_date ? (
+                <div className={`flex items-center gap-1 ${overdue ? 'text-red-600' : 'text-gray-600'}`}>
+                  <Calendar className="h-3 w-3" />
+                  <span className="truncate">
+                    {new Date(job.due_date).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      year: new Date(job.due_date).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                    })}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-gray-400 text-xs">No due date</span>
+              )}
+            </div>
+
+            {/* Current Stage - Fixed wider width */}
+            <div className="w-40">
+              {job.current_stage_name ? (
+                <Badge 
+                  variant={job.current_stage_status === 'active' ? 'default' : 'secondary'}
+                  className="text-xs px-2 py-1 truncate max-w-full"
+                  style={{ 
+                    backgroundColor: job.current_stage_color || undefined,
+                    color: job.current_stage_color ? 'white' : undefined
+                  }}
+                >
+                  {job.current_stage_name}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs">No Stage</Badge>
+              )}
+            </div>
+
+            {/* Progress - Fixed width */}
+            <div className="w-24">
+              {progress > 0 ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all"
+                      style={{ width: `${Math.min(progress, 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-600 w-8">{progress}%</span>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400">0%</span>
+              )}
+            </div>
+
+            {/* Action Buttons - Fixed width */}
+            <div className="w-24 flex justify-end">
+              {job.current_stage_id && (
+                <div className="flex gap-1">
+                  {job.current_stage_status === 'pending' && (
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStageAction(job.job_id, job.current_stage_id!, 'start');
+                      }}
+                      className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
+                    >
+                      <Play className="h-3 w-3" />
+                    </Button>
+                  )}
+                  {job.current_stage_status === 'active' && (
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStageAction(job.job_id, job.current_stage_id!, 'complete');
+                      }}
+                      className="h-6 px-2 text-xs bg-blue-600 hover:bg-blue-700"
+                    >
+                      <CheckCircle className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          
-          {/* Job info */}
-          <div className="flex-1 min-w-0 truncate ml-2">
-            <span className="font-medium text-sm mr-2">{job.wo_no}</span>
-            {job.category_name && (
-              <Badge variant="outline" className="ml-0.5 mr-0.5">{job.category_name}</Badge>
-            )}
-            {job.customer && (
-              <span className="text-xs text-gray-500 ml-1">{job.customer}</span>
-            )}
-            <span className="text-xs text-gray-400 ml-1">{job.reference}</span>
-          </div>
-          
-          {/* Due Date */}
-          <div style={{ width: 100 }} className="text-xs text-center">
-            <span className={`${
-              job.due_date && new Date(job.due_date) < new Date() 
-                ? 'text-red-600 font-medium' 
-                : 'text-gray-600'
-            }`}>
-              {formatDueDate(job.due_date)}
-            </span>
-          </div>
-          
-          {/* Current Active Stage */}
-          <div style={{ width: 120 }} className="truncate">
-            {job.current_stage_name && (
-              <Badge className={getStatusColor(job.stage_status)}>{job.current_stage_name}</Badge>
-            )}
-          </div>
-          
-          {/* Workflow Progress */}
-          <div style={{ width: 80 }} className="pl-1">
-            {typeof job.workflow_progress === "number" && (
-              <Progress value={job.workflow_progress} className="h-1" />
-            )}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

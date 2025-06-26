@@ -278,12 +278,14 @@ const TrackerProduction = () => {
                       />
                     }
                   >
-                    <div className="flex gap-x-0 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
-                      <span style={{ width: 26 }} className="text-center">Due</span>
+                    {/* Updated header with better spacing */}
+                    <div className="flex gap-4 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
+                      <span className="w-8 text-center">Due</span>
                       <span className="flex-1">Job Name / Number</span>
-                      <span style={{ width: 100 }} className="text-center">Due Date</span>
-                      <span className="w-28">Current Stage</span>
-                      <span className="w-20">Progress</span>
+                      <span className="w-32">Due Date</span>
+                      <span className="w-40">Current Stage</span>
+                      <span className="w-24">Progress</span>
+                      <span className="w-24 text-right">Actions</span>
                     </div>
                     <ProductionJobsView
                       jobs={sortedJobs}
