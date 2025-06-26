@@ -1,10 +1,10 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import BatchUrgencyIndicator from "@/components/batches/BatchUrgencyIndicator";
-import { calculateJobUrgency } from "@/utils/dateCalculations";
+import { calculateJobUrgency, UrgencyLevel } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
 
 interface BatchSummary {
@@ -23,6 +23,19 @@ interface BatchCardProps {
 
 const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
   const navigate = useNavigate();
+  const [urgencyLevel, setUrgencyLevel] = useState<UrgencyLevel>('low');
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    const calculateUrgency = async () => {
+      const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
+      const urgency = await calculateJobUrgency(batch.due_date, config);
+      setUrgencyLevel(urgency);
+      setIsLoading(false);
+    };
+
+    calculateUrgency();
+  }, [batch.due_date, batch.product_type]);
   
   const formatDate = (dateString: string) => {
     try {
@@ -31,10 +44,6 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
       return dateString;
     }
   };
-  
-  // Get urgency level for the batch
-  const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
-  const urgencyLevel = calculateJobUrgency(batch.due_date, config);
 
   // Get card background color based on status
   const getCardBackgroundColor = () => {
@@ -53,6 +62,17 @@ const BatchCard = ({ batch, getBatchUrl }: BatchCardProps) => {
   };
 
   const isCompletedOrSent = batch.status === 'completed' || batch.status === 'sent_to_print';
+
+  if (isLoading) {
+    return (
+      <div className={`rounded-lg shadow border p-6 ${getCardBackgroundColor()}`}>
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`rounded-lg shadow border p-6 ${getCardBackgroundColor()}`}>

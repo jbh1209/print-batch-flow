@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Calendar, Plus, Edit, Trash2, CalendarDays } from "lucide-react";
 import { usePublicHolidays, PublicHoliday } from "@/hooks/tracker/usePublicHolidays";
 import { format } from "date-fns";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const PublicHolidaysManagement = () => {
   const { holidays, isLoading, addHoliday, updateHoliday, deleteHoliday } = usePublicHolidays();

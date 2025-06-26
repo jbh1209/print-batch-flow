@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { getDueStatusColor } from "@/utils/tracker/trafficLightUtils";
 
 interface TrafficLightIndicatorProps {
@@ -7,9 +7,22 @@ interface TrafficLightIndicatorProps {
 }
 
 export const TrafficLightIndicator: React.FC<TrafficLightIndicatorProps> = ({ dueDate }) => {
-  const statusInfo = getDueStatusColor(dueDate);
+  const [statusInfo, setStatusInfo] = useState({
+    color: "#9CA3AF",
+    label: "Loading...",
+    code: "gray" as const
+  });
 
-  // Map code (not the whole object!) to Tailwind classes
+  useEffect(() => {
+    const getStatus = async () => {
+      const info = await getDueStatusColor(dueDate);
+      setStatusInfo(info);
+    };
+
+    getStatus();
+  }, [dueDate]);
+
+  // Map code to Tailwind classes
   const colorMap: Record<"red" | "yellow" | "green" | "gray", string> = {
     "red": "bg-red-500",
     "yellow": "bg-yellow-400",
@@ -19,6 +32,7 @@ export const TrafficLightIndicator: React.FC<TrafficLightIndicatorProps> = ({ du
 
   // Default to gray if unknown or unexpected code
   const bgClass = colorMap[statusInfo.code] || "bg-gray-400";
+  
   return (
     <div className="flex items-center" title={`Due: ${dueDate ?? "N/A"}`}>
       <span

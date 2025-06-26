@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from "sonner";
 import { productConfigs, BaseJob, ProductConfig } from '@/config/productTypes';
 import { isExistingTable } from "@/utils/database/tableUtils";
-import { calculateJobUrgency } from "@/utils/dateCalculations";
+import { calculateJobUrgency, UrgencyLevel } from "@/utils/dateCalculations";
 
 // Extended job type that includes product type information
 export interface ExtendedJob extends BaseJob {
@@ -46,28 +46,32 @@ export const useAllPendingJobs = () => {
       
       console.log(`Received ${data?.length || 0} ${config.productType} jobs`);
       
-      // Attach the product config to each job and calculate urgency
-      return (data || []).map(job => {
-        // First ensure we have a valid job object by typecasting to unknown first
-        const jobData = job as unknown;
-        
-        // Then properly cast to BaseJob if it appears to be a valid job object
-        if (jobData && typeof jobData === 'object' && 'id' in jobData) {
-          const baseJob = jobData as BaseJob;
-          const urgency = calculateJobUrgency(baseJob.due_date, config);
+      // Attach the product config to each job and calculate urgency asynchronously
+      const jobsWithUrgency = await Promise.all(
+        (data || []).map(async (job) => {
+          // First ensure we have a valid job object by typecasting to unknown first
+          const jobData = job as unknown;
           
-          const extendedJob: ExtendedJob = {
-            ...baseJob,
-            productConfig: config,
-            urgency: urgency
-          };
-          return extendedJob;
-        }
-        
-        // This should never happen if our database is consistent
-        console.error(`Invalid job data received for ${config.productType}:`, job);
-        return null;
-      }).filter(job => job !== null) as ExtendedJob[];
+          // Then properly cast to BaseJob if it appears to be a valid job object
+          if (jobData && typeof jobData === 'object' && 'id' in jobData) {
+            const baseJob = jobData as BaseJob;
+            const urgency = await calculateJobUrgency(baseJob.due_date, config);
+            
+            const extendedJob: ExtendedJob = {
+              ...baseJob,
+              productConfig: config,
+              urgency: urgency
+            };
+            return extendedJob;
+          }
+          
+          // This should never happen if our database is consistent
+          console.error(`Invalid job data received for ${config.productType}:`, job);
+          return null;
+        })
+      );
+      
+      return jobsWithUrgency.filter(job => job !== null) as ExtendedJob[];
     } catch (err) {
       console.error(`Error fetching ${config.productType} jobs:`, err);
       return [];

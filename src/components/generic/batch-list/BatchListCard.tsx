@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Card, 
   CardHeader, 
@@ -19,7 +19,7 @@ import { Eye, File, Trash2, MoreHorizontal } from "lucide-react";
 import { format } from 'date-fns';
 import { BaseBatch } from '@/config/productTypes';
 import BatchUrgencyIndicator from '@/components/batches/BatchUrgencyIndicator';
-import { calculateJobUrgency, getUrgencyBackgroundClass } from "@/utils/dateCalculations";
+import { calculateJobUrgency, getUrgencyBackgroundClass, UrgencyLevel } from "@/utils/dateCalculations";
 import { productConfigs } from "@/config/productTypes";
 
 interface BatchListCardProps {
@@ -35,6 +35,9 @@ export const BatchListCard: React.FC<BatchListCardProps> = ({
   onViewBatchDetails,
   onSetBatchToDelete
 }) => {
+  const [urgencyLevel, setUrgencyLevel] = useState<UrgencyLevel>('low');
+  const [isLoading, setIsLoading] = useState(true);
+
   // Determine product type from batch name pattern (DXB-XX-#####)
   const getProductTypeFromBatchName = (name: string): string => {
     const match = name.match(/DXB-([A-Z]+)-\d+/);
@@ -56,17 +59,42 @@ export const BatchListCard: React.FC<BatchListCardProps> = ({
   };
 
   const productType = getProductTypeFromBatchName(batch.name);
-  const normalizedProductType = productType.replace(/\s+/g, '') as keyof typeof productConfigs;
-  const config = productConfigs[normalizedProductType] || productConfigs["BusinessCards"];
-  const urgencyLevel = calculateJobUrgency(batch.due_date, config);
+
+  useEffect(() => {
+    const calculateUrgency = async () => {
+      const normalizedProductType = productType.replace(/\s+/g, '') as keyof typeof productConfigs;
+      const config = productConfigs[normalizedProductType] || productConfigs["BusinessCards"];
+      const urgency = await calculateJobUrgency(batch.due_date, config);
+      setUrgencyLevel(urgency);
+      setIsLoading(false);
+    };
+
+    calculateUrgency();
+  }, [batch.due_date, productType]);
   
   // Get card background based on urgency
   const getCardBackgroundClass = () => {
     if (['completed', 'sent_to_print', 'cancelled'].includes(batch.status)) {
       return 'bg-white'; // Normal background for completed batches
     }
+    if (urgencyLevel === 'critical') {
+      return 'bg-red-50 border-l-2 border-l-red-500';
+    }
     return getUrgencyBackgroundClass(urgencyLevel).replace('border-l-4', 'border-l-2');
   };
+
+  if (isLoading) {
+    return (
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+          </div>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
     <Card className={`overflow-hidden ${getCardBackgroundClass()}`}>

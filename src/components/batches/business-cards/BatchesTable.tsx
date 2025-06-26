@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -24,17 +24,36 @@ const BatchesTable = ({
   onDeleteBatch,
   onViewDetails
 }: BatchesTableProps) => {
-  if (isLoading) {
+  const [batchesWithUrgency, setBatchesWithUrgency] = useState<(BatchSummary & { urgency: UrgencyLevel })[]>([]);
+  const [urgencyLoading, setUrgencyLoading] = useState(true);
+
+  useEffect(() => {
+    const calculateUrgencies = async () => {
+      if (batches.length === 0) {
+        setBatchesWithUrgency([]);
+        setUrgencyLoading(false);
+        return;
+      }
+
+      const batchesWithUrgencyData = await Promise.all(
+        batches.map(async (batch) => {
+          const config = productConfigs[batch.product_type] || productConfigs["Business Cards"];
+          const urgency = await calculateJobUrgency(batch.due_date, config);
+          return { ...batch, urgency };
+        })
+      );
+      setBatchesWithUrgency(batchesWithUrgencyData);
+      setUrgencyLoading(false);
+    };
+
+    calculateUrgencies();
+  }, [batches]);
+
+  if (isLoading || urgencyLoading) {
     return <TableRow>
       <TableCell colSpan={7} className="text-center py-8">Loading batches...</TableCell>
     </TableRow>;
   }
-
-  // Helper function to determine batch urgency level
-  const getBatchUrgency = (dueDate: string, productType: string): UrgencyLevel => {
-    const config = productConfigs[productType] || productConfigs["Business Cards"];
-    return calculateJobUrgency(dueDate, config);
-  };
 
   // Enhanced row background color based on urgency
   const getRowBackgroundColor = (status: string, urgency: UrgencyLevel) => {
@@ -57,7 +76,7 @@ const BatchesTable = ({
   };
 
   // Sort batches - completed and sent_to_print at the bottom, then by urgency
-  const sortedBatches = [...batches].sort((a, b) => {
+  const sortedBatches = [...batchesWithUrgency].sort((a, b) => {
     const completedStatuses = ['completed', 'sent_to_print'];
     const aIsCompleted = completedStatuses.includes(a.status);
     const bIsCompleted = completedStatuses.includes(b.status);
@@ -66,32 +85,28 @@ const BatchesTable = ({
     if (!aIsCompleted && bIsCompleted) return -1;
     
     // If both have same completion status, sort by urgency (most urgent first)
-    const aUrgency = getBatchUrgency(a.due_date, a.product_type);
-    const bUrgency = getBatchUrgency(b.due_date, b.product_type);
-    
     const urgencyOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3 };
-    return urgencyOrder[aUrgency] - urgencyOrder[bUrgency];
+    return urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
   });
 
   return (
     <>
       {sortedBatches.map((batch) => {
-        const urgency = getBatchUrgency(batch.due_date, batch.product_type);
         return (
           <TableRow 
             key={batch.id} 
-            className={getRowBackgroundColor(batch.status, urgency)}
+            className={getRowBackgroundColor(batch.status, batch.urgency)}
           >
             <TableCell>
               <div className="flex items-center space-x-3">
                 <BatchUrgencyIndicator 
-                  urgencyLevel={urgency}
+                  urgencyLevel={batch.urgency}
                   earliestDueDate={batch.due_date}
                   productType={batch.product_type}
                   size="md"
-                  showLabel={urgency === 'critical' || urgency === 'high'}
+                  showLabel={batch.urgency === 'critical' || batch.urgency === 'high'}
                 />
-                <span className={urgency === 'critical' ? 'font-bold text-red-700' : ''}>{batch.name}</span>
+                <span className={batch.urgency === 'critical' ? 'font-bold text-red-700' : ''}>{batch.name}</span>
               </div>
             </TableCell>
             <TableCell>
@@ -112,7 +127,7 @@ const BatchesTable = ({
             <TableCell>{batch.sheets_required || 0}</TableCell>
             <TableCell>
               <div className="flex items-center space-x-2">
-                <span className={urgency === 'critical' ? 'font-bold text-red-700' : ''}>
+                <span className={batch.urgency === 'critical' ? 'font-bold text-red-700' : ''}>
                   {format(new Date(batch.due_date), 'MMM d, yyyy')}
                 </span>
               </div>
