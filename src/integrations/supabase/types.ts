@@ -1111,6 +1111,8 @@ export type Database = {
           highlighted: boolean | null
           id: string
           location: string | null
+          manual_due_date: string | null
+          manual_sla_days: number | null
           qr_code_data: string | null
           qr_code_url: string | null
           qt_no: string | null
@@ -1135,6 +1137,8 @@ export type Database = {
           highlighted?: boolean | null
           id?: string
           location?: string | null
+          manual_due_date?: string | null
+          manual_sla_days?: number | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           qt_no?: string | null
@@ -1159,6 +1163,8 @@ export type Database = {
           highlighted?: boolean | null
           id?: string
           location?: string | null
+          manual_due_date?: string | null
+          manual_sla_days?: number | null
           qr_code_data?: string | null
           qr_code_url?: string | null
           qt_no?: string | null
@@ -1882,6 +1888,14 @@ export type Database = {
           job_wo_no: string
           category_name: string
           stages_created: number
+        }[]
+      }
+      reset_custom_workflow_stages_to_pending: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          reset_job_id: string
+          wo_no: string
+          stages_reset: number
         }[]
       }
       revoke_user_role: {

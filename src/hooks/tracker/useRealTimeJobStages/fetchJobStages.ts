@@ -11,14 +11,21 @@ export async function fetchJobStagesFromSupabase(
 ): Promise<JobStageWithDetails[]> {
   if (!jobs || jobs.length === 0) return [];
 
-  // Helper: lookup SLA target days for a job (prefer join, fallback to 3)
+  // Helper: lookup SLA target days for a job (prefer manual_sla_days, then join, fallback to 3)
   const getJobSlaDays = (job: any) =>
+    job.manual_sla_days ??
     job.categories?.sla_target_days ??
     (typeof job.sla_target_days === "number" ? job.sla_target_days : 3);
 
   // Helper: compute due date if missing (created_at + SLA)
   const computeDueDate = (job: any): string | undefined => {
+    // For custom workflows, prefer manual_due_date
+    if (job.has_custom_workflow && job.manual_due_date) {
+      return job.manual_due_date;
+    }
+    
     if (job.due_date) return job.due_date;
+    
     const sla = getJobSlaDays(job);
     if (job.created_at) {
       const createdAt = new Date(job.created_at);
@@ -85,12 +92,11 @@ export async function fetchJobStagesFromSupabase(
         }
         
         // Use the job's due_date first, then compute fallback if needed
-        let dueDate: string | undefined = job?.due_date;
+        let dueDate: string | undefined = computeDueDate(job);
         
-        // Only compute fallback if job.due_date is null/undefined
+        // Only compute fallback if no due date found
         if (!dueDate) {
-          dueDate = computeDueDate(job);
-          console.log(`📅 Computed fallback due date for job ${job.job_id || job.id}: ${dueDate}`);
+          console.log(`📅 No due date found for job ${job.job_id || job.id}`);
         }
 
         return {
@@ -106,7 +112,10 @@ export async function fetchJobStagesFromSupabase(
             created_at: job.created_at ?? null,
             category_name: job.category_name ?? null,
             categories: job.categories ?? null,
-            sla_target_days: getJobSlaDays(job)
+            sla_target_days: getJobSlaDays(job),
+            has_custom_workflow: job.has_custom_workflow ?? false,
+            manual_due_date: job.manual_due_date ?? null,
+            manual_sla_days: job.manual_sla_days ?? null
           },
         };
       })

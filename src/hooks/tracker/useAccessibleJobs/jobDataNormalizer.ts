@@ -2,12 +2,20 @@
 import { AccessibleJob } from "./types";
 
 export const normalizeJobData = (job: any, index: number): AccessibleJob => {
+  // Handle due date logic for custom workflows
+  let dueDate = job.due_date || '';
+  
+  // For custom workflows, prefer manual_due_date over due_date
+  if (job.has_custom_workflow && job.manual_due_date) {
+    dueDate = job.manual_due_date;
+  }
+
   const normalized: AccessibleJob = {
     job_id: job.job_id || '',
     wo_no: job.wo_no || `Job ${index + 1}`,
     customer: job.customer || 'Unknown Customer',
     status: job.status || 'Unknown',
-    due_date: job.due_date || '',
+    due_date: dueDate,
     reference: job.reference || '',
     category_id: job.category_id || '',
     category_name: job.category_name || '',
@@ -34,7 +42,8 @@ export const normalizeJobData = (job: any, index: number): AccessibleJob => {
     display_stage_name: normalized.display_stage_name,
     stage_status: normalized.current_stage_status,
     qty: normalized.qty,
-    has_custom_workflow: normalized.has_custom_workflow
+    has_custom_workflow: normalized.has_custom_workflow,
+    due_date: normalized.due_date
   });
 
   return normalized;

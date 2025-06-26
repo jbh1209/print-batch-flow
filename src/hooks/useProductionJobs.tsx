@@ -1,11 +1,10 @@
-
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 
-// --- UPDATED TYPE: Enriched production job with 'categories'
+// --- UPDATED TYPE: Enriched production job with 'categories' and manual SLA fields
 export interface ProductionJob {
   id: string;
   wo_no: string;
@@ -26,6 +25,9 @@ export interface ProductionJob {
   qr_code_url?: string | null;
   created_at?: string;
   updated_at?: string;
+  has_custom_workflow?: boolean;
+  manual_due_date?: string | null;
+  manual_sla_days?: number | null;
   // Enriched join: categories (for SLA and color)
   categories?: {
     id: string;
@@ -65,6 +67,8 @@ export const useProductionJobs = () => {
           status,
           category_id,
           has_custom_workflow,
+          manual_due_date,
+          manual_sla_days,
           categories (
             id,
             name,
@@ -114,6 +118,7 @@ export const useProductionJobs = () => {
             hasCategory,
             hasCustomWorkflow,
             hasWorkflowStages,
+            hasManualDueDate: !!job.manual_due_date,
             reason: 'eligible'
           });
         } else {
@@ -124,6 +129,7 @@ export const useProductionJobs = () => {
             hasCategory,
             hasCustomWorkflow,
             hasWorkflowStages,
+            hasManualDueDate: !!job.manual_due_date,
             reason: isCompleted ? 'completed' : 'no_workflow'
           });
         }

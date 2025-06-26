@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, AlertTriangle, Clock } from "lucide-react";
+import { Calendar, AlertTriangle, Clock, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { 
@@ -82,7 +82,8 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
         </Badge>
         
         {hasCustomWorkflow && showDetails && (
-          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs flex items-center gap-1">
+            <Settings className="h-3 w-3" />
             Custom
           </Badge>
         )}
@@ -117,8 +118,21 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
             textSize
           )}>
             {compact ? "" : "Due: "}{new Date(job.due_date).toLocaleDateString()}
+            {hasCustomWorkflow && (
+              <span className="text-xs text-purple-600 ml-1">(Manual)</span>
+            )}
           </span>
           {isOverdue && <AlertTriangle className={cn("text-red-500", iconSize)} />}
+        </div>
+      )}
+
+      {/* Due Date Missing Warning for Custom Workflows */}
+      {showDetails && hasCustomWorkflow && !job.due_date && (
+        <div className="flex items-center gap-2 text-amber-600">
+          <AlertTriangle className={cn(iconSize)} />
+          <span className={cn("text-xs", "font-medium")}>
+            Manual due date required for custom workflow
+          </span>
         </div>
       )}
 

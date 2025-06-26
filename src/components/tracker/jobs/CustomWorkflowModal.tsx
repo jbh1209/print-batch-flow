@@ -1,11 +1,14 @@
+
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { GripVertical, Plus, X } from "lucide-react";
+import { GripVertical, Plus, X, Calendar } from "lucide-react";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -36,6 +39,8 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [hasExistingWorkflow, setHasExistingWorkflow] = useState(false);
   const [workflowType, setWorkflowType] = useState<'custom' | 'category' | 'blank'>('blank');
+  const [manualDueDate, setManualDueDate] = useState<string>('');
+  const [manualSlaDays, setManualSlaDays] = useState<number>(3);
 
   // Load existing workflow stages or category template when modal opens
   useEffect(() => {
@@ -48,6 +53,24 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     setIsLoadingExisting(true);
     try {
       console.log('🔄 Loading workflow data for job:', job.id);
+
+      // Load existing manual due date and SLA if available
+      const { data: jobData, error: jobError } = await supabase
+        .from('production_jobs')
+        .select('manual_due_date, manual_sla_days')
+        .eq('id', job.id)
+        .single();
+
+      if (jobError) {
+        console.error('❌ Error loading job data:', jobError);
+      } else if (jobData) {
+        if (jobData.manual_due_date) {
+          setManualDueDate(jobData.manual_due_date);
+        }
+        if (jobData.manual_sla_days) {
+          setManualSlaDays(jobData.manual_sla_days);
+        }
+      }
 
       // First, check for existing stage instances
       const { data: existingStages, error } = await supabase
@@ -242,6 +265,15 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
     });
   };
 
+  const calculateDueDateFromSLA = () => {
+    if (manualSlaDays > 0) {
+      const today = new Date();
+      const dueDate = new Date(today);
+      dueDate.setDate(today.getDate() + manualSlaDays);
+      setManualDueDate(dueDate.toISOString().split('T')[0]);
+    }
+  };
+
   const handleInitializeCustomWorkflow = async () => {
     if (selectedStages.length === 0) {
       toast.error("Please select at least one production stage");
@@ -259,7 +291,9 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         jobId: job.id, 
         selectedStages: selectedStages.length,
         hasExistingWorkflow,
-        workflowType
+        workflowType,
+        manualDueDate,
+        manualSlaDays
       });
 
       // If there are existing stages, delete them first
@@ -277,14 +311,13 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         }
       }
 
-      // Create new stage instances
-      console.log('🔄 Creating new stage instances...');
+      // Create new stage instances - ALL START AS PENDING
+      console.log('🔄 Creating new stage instances (ALL PENDING)...');
       
       for (let i = 0; i < selectedStages.length; i++) {
         const stage = selectedStages[i];
-        const isFirstStage = i === 0;
         
-        console.log(`Creating stage ${i + 1}:`, stage);
+        console.log(`Creating stage ${i + 1} as PENDING:`, stage);
         
         const { error: insertError } = await supabase
           .from('job_stage_instances')
@@ -293,9 +326,9 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
             job_table_name: 'production_jobs',
             production_stage_id: stage.id,
             stage_order: stage.order,
-            status: isFirstStage ? 'active' : 'pending',
-            started_at: isFirstStage ? new Date().toISOString() : null,
-            started_by: isFirstStage ? (await supabase.auth.getUser()).data.user?.id : null
+            status: 'pending', // CRITICAL FIX: All stages start as pending
+            started_at: null,   // CRITICAL FIX: No auto-start
+            started_by: null    // CRITICAL FIX: No auto-assignment
           });
 
         if (insertError) {
@@ -304,14 +337,24 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         }
       }
 
-      // Mark the job as having a custom workflow - set category_id to null instead of 'custom'
+      // Update the job with custom workflow flag and manual SLA data
+      const updateData: any = {
+        has_custom_workflow: true,
+        category_id: null, // Set to null instead of 'custom'
+        updated_at: new Date().toISOString()
+      };
+
+      // Add manual due date and SLA if provided
+      if (manualDueDate) {
+        updateData.manual_due_date = manualDueDate;
+      }
+      if (manualSlaDays > 0) {
+        updateData.manual_sla_days = manualSlaDays;
+      }
+
       const { error: updateError } = await supabase
         .from('production_jobs')
-        .update({ 
-          has_custom_workflow: true,
-          category_id: null, // Set to null instead of 'custom'
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', job.id);
 
       if (updateError) {
@@ -353,7 +396,7 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {getModalTitle()}
@@ -364,13 +407,62 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Manual SLA Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Manual SLA Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="sla-days">SLA Target Days</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="sla-days"
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={manualSlaDays}
+                    onChange={(e) => setManualSlaDays(Number(e.target.value))}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={calculateDueDateFromSLA}
+                  >
+                    Calculate
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="due-date">Manual Due Date</Label>
+                <Input
+                  id="due-date"
+                  type="date"
+                  value={manualDueDate}
+                  onChange={(e) => setManualDueDate(e.target.value)}
+                />
+              </div>
+
+              <div className="text-sm text-gray-600">
+                <p className="font-medium">Note:</p>
+                <p>Custom workflows require manual due date management since they don't inherit category SLA settings.</p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Available Stages */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Available Stages</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-2 max-h-96 overflow-y-auto">
               {stages?.map(stage => (
                 <div key={stage.id} className="flex items-center space-x-3 p-2 border rounded">
                   <Checkbox
@@ -402,7 +494,7 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
                 Workflow Order ({selectedStages.length} stages)
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="max-h-96 overflow-y-auto">
               {selectedStages.length === 0 ? (
                 <div className="text-center text-gray-500 py-8">
                   <Plus className="h-8 w-8 mx-auto mb-2 text-gray-300" />
