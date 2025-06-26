@@ -1,9 +1,9 @@
 
 import React from "react";
-import { EditJobModal } from "@/components/tracker/modals/EditJobModal";
-import { CategoryAssignModal } from "@/components/tracker/modals/CategoryAssignModal";
-import { CustomWorkflowModal } from "@/components/tracker/modals/CustomWorkflowModal";
-import { BarcodeLabelsModal } from "@/components/tracker/modals/BarcodeLabelsModal";
+import { JobEditModal } from "@/components/tracker/jobs/JobEditModal";
+import { CategoryAssignModal } from "@/components/tracker/jobs/CategoryAssignModal";
+import { CustomWorkflowModal } from "@/components/tracker/jobs/CustomWorkflowModal";
+import { BarcodeLabelsModal } from "@/components/tracker/QRLabelsManager";
 import { useProductionJobs } from "@/contexts/ProductionJobsContext";
 
 interface ProductionManagerModalsProps {
@@ -50,9 +50,8 @@ export const ProductionManagerModals: React.FC<ProductionManagerModalsProps> = (
     <>
       {/* Edit Job Modal */}
       {editingJob && (
-        <EditJobModal
+        <JobEditModal
           job={editingJob}
-          isOpen={true}
           onClose={() => setEditingJob(null)}
           onSave={handleEditJobSave}
         />
@@ -63,9 +62,8 @@ export const ProductionManagerModals: React.FC<ProductionManagerModalsProps> = (
         <CategoryAssignModal
           job={categoryAssignJob}
           categories={categories}
-          isOpen={true}
           onClose={() => setCategoryAssignJob(null)}
-          onComplete={handleCategoryAssignComplete}
+          onAssign={handleCategoryAssignComplete}
         />
       )}
 
