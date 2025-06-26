@@ -3,7 +3,7 @@ import React from "react";
 import { JobEditModal } from "@/components/tracker/jobs/JobEditModal";
 import { CategoryAssignModal } from "@/components/tracker/jobs/CategoryAssignModal";
 import { CustomWorkflowModal } from "@/components/tracker/jobs/CustomWorkflowModal";
-import { BarcodeLabelsModal } from "@/components/tracker/QRLabelsManager";
+import { QRLabelsManager } from "@/components/tracker/QRLabelsManager";
 import { useProductionJobs } from "@/contexts/ProductionJobsContext";
 
 interface ProductionManagerModalsProps {
@@ -77,11 +77,10 @@ export const ProductionManagerModals: React.FC<ProductionManagerModalsProps> = (
         />
       )}
 
-      {/* Barcode Labels Modal */}
+      {/* QR Labels Modal */}
       {showBarcodeLabels && (
-        <BarcodeLabelsModal
-          jobs={selectedJobsForBarcodes}
-          isOpen={showBarcodeLabels}
+        <QRLabelsManager
+          selectedJobs={selectedJobsForBarcodes}
           onClose={() => {
             setShowBarcodeLabels(false);
             setSelectedJobsForBarcodes([]);
