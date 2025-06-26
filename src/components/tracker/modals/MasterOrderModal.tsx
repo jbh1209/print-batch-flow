@@ -79,7 +79,10 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
     
     setIsAssigningCategory(true);
     try {
-      const result = await batchAssignJobCategory([job.job_id], newCategoryId);
+      // Handle special "none" value by setting category to null
+      const categoryIdToAssign = newCategoryId === "none" ? null : newCategoryId;
+      
+      const result = await batchAssignJobCategory([job.job_id], categoryIdToAssign || '');
       
       if (result.successCount > 0) {
         toast.success("Category updated successfully");
@@ -208,7 +211,7 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
               </label>
               {canUseAdminControls ? (
                 <Select
-                  value={job.category_id || ""}
+                  value={job.category_id || "none"}
                   onValueChange={handleCategoryChange}
                   disabled={isAssigningCategory}
                 >
@@ -216,7 +219,7 @@ export const MasterOrderModal: React.FC<MasterOrderModalProps> = ({
                     <SelectValue placeholder="Select category..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Category</SelectItem>
+                    <SelectItem value="none">No Category</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         <div className="flex items-center gap-2">
