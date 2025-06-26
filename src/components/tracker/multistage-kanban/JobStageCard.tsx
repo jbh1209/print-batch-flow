@@ -1,5 +1,7 @@
-import React from "react";
+
+import React, { useEffect, useState } from "react";
 import { getDueInfo } from "./getDueInfo";
+import type { DueInfo } from "./StageColumn.types";
 
 interface JobStageCardProps {
   jobStage: any;
@@ -14,9 +16,23 @@ const JobStageCard: React.FC<JobStageCardProps> = ({
   highlighted = false,
   onClick,
 }) => {
+  const [dueMeta, setDueMeta] = useState<DueInfo>({
+    color: "#9CA3AF",
+    label: "Loading...",
+    code: "gray",
+    warning: false
+  });
+
+  useEffect(() => {
+    const loadDueInfo = async () => {
+      const info = await getDueInfo(jobStage);
+      setDueMeta(info);
+    };
+    loadDueInfo();
+  }, [jobStage]);
+
   const wo_no = jobStage.production_job?.wo_no ?? "Unknown";
   const customer = jobStage.production_job?.customer ?? "Unknown Customer";
-  const dueMeta = getDueInfo(jobStage);
 
   const handleStartClick = (e: React.MouseEvent) => {
     e.stopPropagation();

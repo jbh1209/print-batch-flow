@@ -1,12 +1,13 @@
 
 // --- STAGE COLUMN REFACTOR (organize by view mode and factor out subcomponents/utils) ---
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import JobStageCard from "./JobStageCard";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { getDueInfo } from "./getDueInfo";
 import { StageColumnProps } from "./StageColumn.types";
 import SortableJobStageCard from "./SortableJobStageCard";
 import { sortJobStagesByOrder } from "@/utils/tracker/jobOrderingUtils";
+import type { DueInfo } from "./StageColumn.types";
 
 const StageColumn: React.FC<StageColumnProps> = ({
   stage,
@@ -19,6 +20,9 @@ const StageColumn: React.FC<StageColumnProps> = ({
   selectedJobId,
   onSelectJob,
 }) => {
+  // Store due info for each job stage
+  const [dueInfoMap, setDueInfoMap] = useState<Record<string, DueInfo>>({});
+
   // Filter jobs for this stage and apply consistent sorting
   const stageJobStages = React.useMemo(() => {
     const filtered = jobStages.filter(js =>
@@ -30,6 +34,22 @@ const StageColumn: React.FC<StageColumnProps> = ({
     // Use shared sorting utility for consistent ordering
     return sortJobStagesByOrder(filtered);
   }, [jobStages, stage.id]);
+
+  // Load due info for all job stages
+  useEffect(() => {
+    const loadDueInfos = async () => {
+      const newDueInfoMap: Record<string, DueInfo> = {};
+      for (const jobStage of stageJobStages) {
+        const dueInfo = await getDueInfo(jobStage);
+        newDueInfoMap[jobStage.id] = dueInfo;
+      }
+      setDueInfoMap(newDueInfoMap);
+    };
+    
+    if (stageJobStages.length > 0) {
+      loadDueInfos();
+    }
+  }, [stageJobStages]);
 
   useEffect(() => {
     if (enableDnd && registerReorder && onReorder) {
@@ -64,7 +84,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col gap-1">
               {stageJobStages.map(jobStage => {
-                const dueMeta = getDueInfo(jobStage);
+                const dueMeta = dueInfoMap[jobStage.id] || { color: "#9CA3AF", label: "Loading...", code: "gray" as const, warning: false };
                 return (
                   <div
                     key={jobStage.id}
@@ -156,7 +176,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
           </thead>
           <tbody>
             {stageJobStages.map(jobStage => {
-              const dueMeta = getDueInfo(jobStage);
+              const dueMeta = dueInfoMap[jobStage.id] || { color: "#9CA3AF", label: "Loading...", code: "gray" as const, warning: false };
               const woNo = jobStage.production_job?.wo_no ?? "Orphaned";
               const customer = jobStage.production_job?.customer ?? "Unknown";
               return (
