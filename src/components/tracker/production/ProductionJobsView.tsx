@@ -53,7 +53,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
         </div>
       </div>
     );
-  }
+  };
 
   return (
     <div className="space-y-1">
@@ -71,7 +71,9 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
             {/* Due Status Indicator - Fixed width */}
             <div className="w-8 flex justify-center">
               {overdue ? (
-                <AlertTriangle className="h-4 w-4 text-red-500" title={`${daysOverdue}d overdue`} />
+                <div title={`${daysOverdue}d overdue`}>
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                </div>
               ) : (
                 <div className="w-4 h-4" />
               )}
