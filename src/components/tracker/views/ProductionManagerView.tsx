@@ -6,11 +6,7 @@ import { RefreshCw, AlertTriangle } from "lucide-react";
 import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
-import { ProductionJobsProvider } from "@/contexts/ProductionJobsContext";
-import { StickyProductionLayout } from "./StickyProductionLayout";
-import { ProductionStickyHeader } from "./components/ProductionStickyHeader";
 import { EnhancedProductionJobsList } from "./EnhancedProductionJobsList";
-import { ProductionManagerModals } from "./components/ProductionManagerModals";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -114,21 +110,43 @@ export const ProductionManagerView = () => {
 
   const uniqueStatuses = Array.from(new Set(jobs.map(job => job.status))).filter(Boolean);
 
-  const stickyHeader = (
-    <ProductionStickyHeader
-      jobs={jobs}
-      statusFilter={statusFilter}
-      setStatusFilter={setStatusFilter}
-      uniqueStatuses={uniqueStatuses}
-      onRefresh={handleRefresh}
-      refreshing={refreshing}
-      refreshJobs={refreshJobs}
-      isAdmin={isAdmin}
-    />
-  );
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Production Management</h1>
+          <p className="text-gray-600">Overview of all production jobs</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Managing {jobs.length} job{jobs.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <select 
+            value={statusFilter || 'all'} 
+            onChange={(e) => setStatusFilter(e.target.value === 'all' ? null : e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="all">All Statuses</option>
+            {uniqueStatuses.map(status => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+          
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
 
-  const scrollableContent = (
-    <div className="p-6">
+      {/* Jobs List */}
       {jobs.length > 0 ? (
         <EnhancedProductionJobsList
           jobs={normalizedJobs}
@@ -149,22 +167,5 @@ export const ProductionManagerView = () => {
         </Card>
       )}
     </div>
-  );
-
-  return (
-    <ProductionJobsProvider>
-      <div className="h-full overflow-hidden">
-        <StickyProductionLayout
-          stickyHeader={stickyHeader}
-          scrollableContent={scrollableContent}
-        />
-        
-        {/* Modals */}
-        <ProductionManagerModals
-          categories={categories}
-          onRefresh={handleRefresh}
-        />
-      </div>
-    </ProductionJobsProvider>
   );
 };
