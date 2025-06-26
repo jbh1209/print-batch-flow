@@ -1318,6 +1318,39 @@ export type Database = {
           },
         ]
       }
+      public_holidays: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sleeve_jobs: {
         Row: {
           batch_id: string | null
@@ -1875,6 +1908,10 @@ export type Database = {
       }
       is_admin_simple: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_public_holiday: {
+        Args: { check_date: string }
         Returns: boolean
       }
       is_user_admin: {

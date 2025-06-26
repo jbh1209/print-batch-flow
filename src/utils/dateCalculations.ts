@@ -1,51 +1,122 @@
 
 import { addBusinessDays, differenceInBusinessDays, isWeekend, isPast } from "date-fns";
 import { ProductConfig } from "@/config/productTypes";
+import { supabase } from "@/integrations/supabase/client";
 
 // Urgency levels for job batching
 export type UrgencyLevel = "critical" | "high" | "medium" | "low";
 
-// Calculate if a date is a working day (not a weekend)
-export const isWorkingDay = (date: Date): boolean => {
-  return !isWeekend(date);
+// Cache for public holidays to avoid repeated database calls
+let holidayCache: Set<string> | null = null;
+let cacheExpiry: number = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Check if a date is a public holiday
+export const isPublicHoliday = async (date: Date): Promise<boolean> => {
+  const dateString = date.toISOString().split('T')[0];
+  
+  // Check cache first
+  const now = Date.now();
+  if (holidayCache && now < cacheExpiry) {
+    return holidayCache.has(dateString);
+  }
+
+  // Refresh cache
+  try {
+    const { data } = await supabase
+      .from('public_holidays')
+      .select('date')
+      .eq('is_active', true);
+
+    holidayCache = new Set(data?.map(h => h.date) || []);
+    cacheExpiry = now + CACHE_DURATION;
+    
+    return holidayCache.has(dateString);
+  } catch (error) {
+    console.error('Error checking public holiday:', error);
+    return false;
+  }
+};
+
+// Calculate if a date is a working day (not a weekend or public holiday)
+export const isWorkingDay = async (date: Date): Promise<boolean> => {
+  if (isWeekend(date)) return false;
+  return !(await isPublicHoliday(date));
+};
+
+// Add working days (excluding weekends and public holidays)
+export const addWorkingDays = async (startDate: Date, daysToAdd: number): Promise<Date> => {
+  let currentDate = new Date(startDate);
+  let daysAdded = 0;
+
+  while (daysAdded < daysToAdd) {
+    currentDate.setDate(currentDate.getDate() + 1);
+    if (await isWorkingDay(currentDate)) {
+      daysAdded++;
+    }
+  }
+
+  return currentDate;
+};
+
+// Calculate working days between two dates
+export const getWorkingDaysBetween = async (startDate: Date, endDate: Date): Promise<number> => {
+  let count = 0;
+  let currentDate = new Date(startDate);
+  
+  while (currentDate <= endDate) {
+    if (await isWorkingDay(currentDate)) {
+      count++;
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return count;
 };
 
 // Calculate the target date when a job should be batched based on SLA
-export const getTargetBatchDate = (dueDate: string | Date, slaTargetDays: number): Date => {
+export const getTargetBatchDate = async (dueDate: string | Date, slaTargetDays: number): Promise<Date> => {
   const dueDateObj = typeof dueDate === 'string' ? new Date(dueDate) : dueDate;
-  return addBusinessDays(dueDateObj, -slaTargetDays);
+  
+  // Calculate backwards from due date
+  let targetDate = new Date(dueDateObj);
+  let daysSubtracted = 0;
+  
+  while (daysSubtracted < slaTargetDays) {
+    targetDate.setDate(targetDate.getDate() - 1);
+    if (await isWorkingDay(targetDate)) {
+      daysSubtracted++;
+    }
+  }
+  
+  return targetDate;
 };
 
-// Calculate the urgency level based on due date and SLA
-export const calculateJobUrgency = (dueDate: string, config: ProductConfig | undefined): UrgencyLevel => {
+// Calculate the urgency level based on due date and SLA (now async)
+export const calculateJobUrgency = async (dueDate: string, config: ProductConfig | undefined): Promise<UrgencyLevel> => {
   const today = new Date();
   const dueDateObj = new Date(dueDate);
   
   // First check if the due date is in the past
   if (isPast(dueDateObj) && dueDateObj.getDate() !== today.getDate()) {
-    // If the due date is already past (and not just today), this is critical urgency
     return "critical";
   }
   
   // Default to a standard SLA of 3 days if config is undefined or slaTargetDays is not set
   const slaTargetDays = config?.slaTargetDays || 3;
   
-  const targetBatchDate = getTargetBatchDate(dueDateObj, slaTargetDays);
+  const targetBatchDate = await getTargetBatchDate(dueDateObj, slaTargetDays);
   
-  // Calculate business days until target batch date
-  const daysUntilTarget = differenceInBusinessDays(targetBatchDate, today);
+  // Calculate working days until target batch date
+  const daysUntilTarget = await getWorkingDaysBetween(today, targetBatchDate);
   
   if (daysUntilTarget < 0) {
-    // Past the target date - critical urgency
     return "critical";
   } else if (daysUntilTarget === 0) {
-    // Today is the target date - high urgency
     return "high";
   } else if (daysUntilTarget <= 1) {
-    // Within 1 business day of target - medium urgency
     return "medium";
   } else {
-    // More than 1 business day until target - low urgency
     return "low";
   }
 };
@@ -82,14 +153,16 @@ export const getUrgencyText = (urgency: UrgencyLevel): string => {
   }
 };
 
-// Calculate batch urgency based on most urgent job's due date
-export const calculateBatchUrgency = (dueDates: string[], config: ProductConfig): UrgencyLevel => {
+// Calculate batch urgency based on most urgent job's due date (now async)
+export const calculateBatchUrgency = async (dueDates: string[], config: ProductConfig): Promise<UrgencyLevel> => {
   if (!dueDates.length) {
     return "low";
   }
   
   // Calculate urgency for each due date
-  const urgencies = dueDates.map(date => calculateJobUrgency(date, config));
+  const urgencies = await Promise.all(
+    dueDates.map(date => calculateJobUrgency(date, config))
+  );
   
   // Return the highest urgency level
   if (urgencies.includes("critical")) return "critical";
