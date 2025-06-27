@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, AlertTriangle, Play, CheckCircle } from "lucide-react";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { useJobRowColors } from "@/hooks/tracker/useJobRowColors";
 
 interface ProductionJobsViewProps {
   jobs: AccessibleJob[];
@@ -21,6 +22,9 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
   onJobClick,
   onStageAction
 }) => {
+  // Use the job row colors hook for traffic light color coding
+  const jobRowColors = useJobRowColors(jobs);
+
   const isOverdue = (dueDate?: string) => {
     if (!dueDate) return false;
     return new Date(dueDate) < new Date();
@@ -61,11 +65,12 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
         const overdue = isOverdue(job.due_date);
         const daysOverdue = overdue ? getDaysOverdue(job.due_date) : 0;
         const progress = getProgressPercentage(job);
+        const rowColorClass = jobRowColors[job.job_id] || '';
 
         return (
           <div
             key={job.job_id}
-            className="flex items-center gap-4 py-2 px-2 hover:bg-gray-50 border-b border-gray-100 cursor-pointer transition-colors"
+            className={`flex items-center gap-4 py-2 px-2 hover:bg-gray-50 border-b border-gray-100 cursor-pointer transition-colors ${rowColorClass}`}
             onClick={() => onJobClick(job)}
           >
             {/* Due Status Indicator - Fixed width */}
