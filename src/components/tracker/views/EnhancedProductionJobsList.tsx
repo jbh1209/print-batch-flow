@@ -60,35 +60,6 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
 }) => {
   const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
 
-  // Helper function to determine if a job has a custom workflow using reverse logic
-  const hasCustomWorkflow = (job: AccessibleJob) => {
-    // Primary check: explicit has_custom_workflow flag
-    if (job.has_custom_workflow === true) {
-      return true;
-    }
-    
-    // Reverse logic: if job has category but unusual workflow indicators
-    if (job.category_name) {
-      // If job has category but no current stage (unusual for standard workflows)
-      if (!job.current_stage_name && job.total_stages > 0) {
-        return true;
-      }
-      
-      // If job has category but workflow progress doesn't match standard patterns
-      if (job.workflow_progress && job.workflow_progress > 0 && !job.current_stage_name) {
-        return true;
-      }
-      
-      // If job has stages but they don't follow standard naming patterns
-      if (job.total_stages > 0 && job.current_stage_name && 
-          !['Pre-Press', 'Printing', 'Finishing', 'Quality Control', 'Dispatch'].includes(job.current_stage_name)) {
-        return true;
-      }
-    }
-    
-    return false;
-  };
-
   const handleSelectJob = (job: AccessibleJob, checked: boolean) => {
     if (checked) {
       setSelectedJobs(prev => [...prev, job]);
@@ -232,15 +203,18 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                      {job.category_name && (
-                        <Badge variant="secondary" style={{ backgroundColor: job.category_color || '#6B7280', color: 'white' }}>
-                          {job.category_name}
-                        </Badge>
-                      )}
-                      {hasCustomWorkflow(job) && (
+                      {job.has_custom_workflow ? (
                         <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                           <Settings className="h-3 w-3 mr-1" />
                           Custom Workflow
+                        </Badge>
+                      ) : job.category_name ? (
+                        <Badge variant="secondary" style={{ backgroundColor: job.category_color || '#6B7280', color: 'white' }}>
+                          {job.category_name}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-gray-600">
+                          No Category
                         </Badge>
                       )}
                       {job.current_stage_name && (
