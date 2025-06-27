@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -344,13 +343,10 @@ export const CustomWorkflowModal: React.FC<CustomWorkflowModalProps> = ({
         updated_at: new Date().toISOString()
       };
 
-      // Add manual due date and SLA if provided
-      if (manualDueDate) {
-        updateData.manual_due_date = manualDueDate;
-      }
-      if (manualSlaDays > 0) {
-        updateData.manual_sla_days = manualSlaDays;
-      }
+      // FIXED: Always include manual_due_date and manual_sla_days in the update
+      // This ensures that clearing dates actually persists to the database
+      updateData.manual_due_date = manualDueDate || null;
+      updateData.manual_sla_days = manualSlaDays > 0 ? manualSlaDays : null;
 
       const { error: updateError } = await supabase
         .from('production_jobs')
