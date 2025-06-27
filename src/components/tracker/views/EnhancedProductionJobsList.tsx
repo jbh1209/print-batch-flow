@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { useCustomWorkflowStatus } from "@/hooks/tracker/useCustomWorkflowStatus";
 
 interface EnhancedProductionJobsListProps {
   jobs: AccessibleJob[];
@@ -60,6 +61,16 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
 }) => {
   const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
 
+  // Get job IDs that might need custom workflow status check
+  const jobIdsForCustomWorkflowCheck = useMemo(() => {
+    return jobs
+      .filter(job => !job.category_name || job.category_name === 'No Category')
+      .map(job => job.job_id);
+  }, [jobs]);
+
+  // Use the custom hook to get real custom workflow status
+  const { customWorkflowStatus } = useCustomWorkflowStatus(jobIdsForCustomWorkflowCheck);
+
   const handleSelectJob = (job: AccessibleJob, checked: boolean) => {
     if (checked) {
       setSelectedJobs(prev => [...prev, job]);
@@ -82,6 +93,16 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
 
   const isSelected = (job: AccessibleJob) => {
     return selectedJobs.some(j => j.job_id === job.job_id);
+  };
+
+  // Helper function to determine if job has custom workflow
+  const hasCustomWorkflow = (job: AccessibleJob) => {
+    // First check the hook's result for jobs without categories
+    if (customWorkflowStatus[job.job_id] !== undefined) {
+      return customWorkflowStatus[job.job_id];
+    }
+    // Fallback to the job's original property
+    return job.has_custom_workflow;
   };
 
   return (
@@ -189,17 +210,7 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
         <CardContent>
           <div className="space-y-3">
             {jobs.map((job) => {
-              // Debug logging for job D425118
-              if (job.wo_no === 'D425118') {
-                console.log('🔍 DEBUG Job D425118:', {
-                  wo_no: job.wo_no,
-                  has_custom_workflow: job.has_custom_workflow,
-                  category_name: job.category_name,
-                  category_id: job.category_id,
-                  category_color: job.category_color,
-                  full_job_object: job
-                });
-              }
+              const jobHasCustomWorkflow = hasCustomWorkflow(job);
               
               return (
                 <div 
@@ -216,12 +227,12 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                        {job.has_custom_workflow ? (
+                        {jobHasCustomWorkflow ? (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                             <Settings className="h-3 w-3 mr-1" />
                             Custom Workflow
                           </Badge>
-                        ) : job.category_name ? (
+                        ) : job.category_name && job.category_name !== 'No Category' ? (
                           <Badge variant="secondary" style={{ backgroundColor: job.category_color || '#6B7280', color: 'white' }}>
                             {job.category_name}
                           </Badge>
