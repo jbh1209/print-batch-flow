@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, AlertTriangle } from "lucide-react";
 import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useCategories } from "@/hooks/tracker/useCategories";
-import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { EnhancedProductionJobsList } from "./EnhancedProductionJobsList";
+import { ProductionManagerHeader } from "./components/ProductionManagerHeader";
+import { ProductionManagerStats } from "./components/ProductionManagerStats";
+import { ProductionManagerModals } from "./components/ProductionManagerModals";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
 
 export const ProductionManagerView = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -19,6 +22,14 @@ export const ProductionManagerView = () => {
   const { categories } = useCategories();
   const { isAdmin } = useUserRole();
   const [refreshing, setRefreshing] = useState(false);
+
+  // Modal states
+  const [editingJob, setEditingJob] = useState<AccessibleJob | null>(null);
+  const [categoryAssignJob, setCategoryAssignJob] = useState<AccessibleJob | null>(null);
+  const [customWorkflowJob, setCustomWorkflowJob] = useState<AccessibleJob | null>(null);
+  const [showCustomWorkflow, setShowCustomWorkflow] = useState(false);
+  const [showBarcodeLabels, setShowBarcodeLabels] = useState(false);
+  const [selectedJobsForBarcodes, setSelectedJobsForBarcodes] = useState<AccessibleJob[]>([]);
 
   // Map job data structure to ensure consistent ID property for UI components
   const normalizedJobs = React.useMemo(() => {
@@ -49,23 +60,42 @@ export const ProductionManagerView = () => {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const handleDeleteJob = async (jobId: string) => {
-    // Use the actual job_id for database operations
-    const actualJobId = jobs.find(j => j.job_id === jobId)?.job_id || jobId;
-    
+  const handleBulkMarkCompleted = async (selectedJobs: AccessibleJob[]) => {
+    if (!isAdmin) {
+      toast.error('Only administrators can mark jobs as completed');
+      return;
+    }
+
     try {
-      const { error } = await supabase
+      // Update job status to completed
+      const { error: jobError } = await supabase
         .from('production_jobs')
-        .delete()
-        .eq('id', actualJobId);
+        .update({ 
+          status: 'Completed',
+          updated_at: new Date().toISOString()
+        })
+        .in('id', selectedJobs.map(j => j.job_id));
 
-      if (error) throw error;
+      if (jobError) throw jobError;
 
-      toast.success('Job deleted successfully');
-      await handleRefresh();
+      // Complete any active stage instances
+      const { error: stageError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          completed_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .in('job_id', selectedJobs.map(j => j.job_id))
+        .in('status', ['active', 'pending']);
+
+      if (stageError) throw stageError;
+
+      toast.success(`Marked ${selectedJobs.length} job(s) as completed`);
+      await handleRefresh(); // Use our enhanced refresh
     } catch (err) {
-      console.error('Error deleting job:', err);
-      toast.error('Failed to delete job');
+      console.error('Error marking jobs as completed:', err);
+      toast.error('Failed to mark jobs as completed');
     }
   };
 
@@ -111,48 +141,99 @@ export const ProductionManagerView = () => {
   const uniqueStatuses = Array.from(new Set(jobs.map(job => job.status))).filter(Boolean);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Production Management</h1>
-          <p className="text-gray-600">Overview of all production jobs</p>
-          <p className="text-sm text-gray-500 mt-1">
-            Managing {jobs.length} job{jobs.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <select 
-            value={statusFilter || 'all'} 
-            onChange={(e) => setStatusFilter(e.target.value === 'all' ? null : e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-          >
-            <option value="all">All Statuses</option>
-            {uniqueStatuses.map(status => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-          
-          <Button 
-            variant="outline" 
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
+    <div className="p-6 space-y-6 h-full overflow-y-auto">
+      {/* Header */}
+      <ProductionManagerHeader
+        jobCount={jobs.length}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        uniqueStatuses={uniqueStatuses}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+      />
 
-      {/* Jobs List */}
+      {/* Production Statistics */}
+      <ProductionManagerStats jobs={jobs} />
+
+      {/* Enhanced Jobs List */}
       {jobs.length > 0 ? (
         <EnhancedProductionJobsList
           jobs={normalizedJobs}
           onStartJob={startJob}
           onCompleteJob={completeJob}
-          onDeleteJob={handleDeleteJob}
+          onEditJob={setEditingJob}
+          onCategoryAssign={setCategoryAssignJob}
+          onCustomWorkflow={(job) => {
+            setCustomWorkflowJob(job);
+            setShowCustomWorkflow(true);
+          }}
+          onDeleteJob={async (jobId) => {
+            // Use the actual job_id for database operations
+            const actualJobId = jobs.find(j => j.job_id === jobId)?.job_id || jobId;
+            
+            try {
+              const { error } = await supabase
+                .from('production_jobs')
+                .delete()
+                .eq('id', actualJobId);
+
+              if (error) throw error;
+
+              toast.success('Job deleted successfully');
+              await handleRefresh(); // Use our enhanced refresh
+            } catch (err) {
+              console.error('Error deleting job:', err);
+              toast.error('Failed to delete job');
+            }
+          }}
+          onBulkCategoryAssign={(selectedJobs) => {
+            if (selectedJobs.length > 0) {
+              const firstJob = {
+                ...selectedJobs[0],
+                id: selectedJobs[0].job_id, // Map job_id to id for UI consistency
+                isMultiple: true,
+                selectedIds: selectedJobs.map(j => j.job_id)
+              };
+              setCategoryAssignJob(firstJob as any);
+            }
+          }}
+          onBulkStatusUpdate={async (selectedJobs, status) => {
+            try {
+              const { error } = await supabase
+                .from('production_jobs')
+                .update({ status })
+                .in('id', selectedJobs.map(j => j.job_id));
+
+              if (error) throw error;
+
+              toast.success(`Updated ${selectedJobs.length} job(s) to ${status} status`);
+              await handleRefresh(); // Use our enhanced refresh
+            } catch (err) {
+              console.error('Error updating job status:', err);
+              toast.error('Failed to update job status');
+            }
+          }}
+          onBulkMarkCompleted={handleBulkMarkCompleted}
+          onBulkDelete={async (selectedJobs) => {
+            try {
+              const { error } = await supabase
+                .from('production_jobs')
+                .delete()
+                .in('id', selectedJobs.map(j => j.job_id));
+
+              if (error) throw error;
+
+              toast.success(`Deleted ${selectedJobs.length} job(s) successfully`);
+              await handleRefresh(); // Use our enhanced refresh
+            } catch (err) {
+              console.error('Error deleting jobs:', err);
+              toast.error('Failed to delete jobs');
+            }
+          }}
+          onGenerateBarcodes={(selectedJobs) => {
+            setSelectedJobsForBarcodes(selectedJobs);
+            setShowBarcodeLabels(true);
+          }}
           isAdmin={isAdmin}
         />
       ) : (
@@ -166,6 +247,24 @@ export const ProductionManagerView = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Modals */}
+      <ProductionManagerModals
+        editingJob={editingJob}
+        setEditingJob={setEditingJob}
+        categoryAssignJob={categoryAssignJob}
+        setCategoryAssignJob={setCategoryAssignJob}
+        showCustomWorkflow={showCustomWorkflow}
+        setShowCustomWorkflow={setShowCustomWorkflow}
+        customWorkflowJob={customWorkflowJob}
+        setCustomWorkflowJob={setCustomWorkflowJob}
+        showBarcodeLabels={showBarcodeLabels}
+        setShowBarcodeLabels={setShowBarcodeLabels}
+        selectedJobsForBarcodes={selectedJobsForBarcodes}
+        setSelectedJobsForBarcodes={setSelectedJobsForBarcodes}
+        categories={categories}
+        onRefresh={handleRefresh} // Use our enhanced refresh
+      />
     </div>
   );
 };
