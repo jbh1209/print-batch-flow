@@ -1,70 +1,174 @@
 
 import React from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
-interface TrackerStatusBreakdownProps {
+interface StatsProps {
   stats: {
     total: number;
+    inProgress: number;
+    completed: number;
+    pending: number;
+    dueToday: number;
+    dueThisWeek: number;
+    overdue: number;
+    critical: number;
     statusCounts: Record<string, number>;
-    stages: Array<{ id: string; name: string; color: string }>;
+    stages: Array<{ name: string; color: string; count: number }>;
   };
 }
 
-export const TrackerStatusBreakdown = ({ stats }: TrackerStatusBreakdownProps) => {
-  // Get all stages plus fallback statuses
-  const allStagesAndStatuses = [
-    { name: "Pre-Press", color: "#3B82F6" },
-    ...stats.stages.map(stage => ({ name: stage.name, color: stage.color }))
-  ];
+export const TrackerStatusBreakdown: React.FC<StatsProps> = ({ stats }) => {
+  // Prepare chart data from stages
+  const stageChartData = stats.stages.map(stage => ({
+    name: stage.name,
+    count: stage.count,
+    fill: stage.color
+  }));
 
-  // Remove duplicates
-  const uniqueStagesAndStatuses = allStagesAndStatuses.filter((item, index, self) => 
-    index === self.findIndex(t => t.name === item.name)
-  );
-
-  const getStatusColor = (color: string) => {
-    // Convert hex color to Tailwind-like classes
-    return `bg-blue-100 text-blue-800 border-blue-200`;
-  };
+  // Prepare status chart data
+  const statusChartData = Object.entries(stats.statusCounts)
+    .filter(([_, count]) => count > 0)
+    .map(([status, count]) => ({
+      name: status,
+      count,
+      fill: status === 'Completed' ? '#10B981' : 
+            status === 'Pre-Press' ? '#F59E0B' :
+            status === 'Printing' ? '#3B82F6' : '#6B7280'
+    }));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Jobs by Status</CardTitle>
-        <CardDescription>Current distribution of jobs across workflow stages</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {uniqueStagesAndStatuses.map(item => {
-            const count = stats.statusCounts[item.name] || 0;
-            return (
-              <div key={item.name} className="text-center">
-                <Badge 
-                  className={`mb-2 ${getStatusColor(item.color)} border`}
-                  style={{ backgroundColor: `${item.color}20`, color: item.color, borderColor: `${item.color}40` }}
-                >
-                  <span className="flex items-center gap-1">
-                    <Package className="h-3 w-3" />
-                    {item.name}
-                  </span>
-                </Badge>
-                <div className="text-2xl font-bold">{count}</div>
-                <div className="text-xs text-gray-500">jobs</div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Active Stages Breakdown */}
+      <Card className="shadow-lg">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl font-semibold flex items-center gap-2">
+            Active Production Stages
+            <Badge variant="secondary" className="ml-2">
+              {stats.stages.reduce((sum, stage) => sum + stage.count, 0)} jobs
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stats.stages.length > 0 ? (
+            <div className="space-y-4">
+              {/* Stage List */}
+              <div className="space-y-3 mb-6">
+                {stats.stages.slice(0, 8).map((stage, index) => (
+                  <div key={stage.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: stage.color }}
+                      />
+                      <span className="font-medium text-lg">{stage.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant="outline" 
+                        className="text-lg px-3 py-1 font-bold"
+                        style={{ 
+                          borderColor: stage.color,
+                          color: stage.color 
+                        }}
+                      >
+                        {stage.count}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
               </div>
-            );
-          })}
-        </div>
 
-        {stats.total === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>No jobs in the system yet</p>
-            <p className="text-sm">Upload jobs to see status breakdown</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              {/* Bar Chart */}
+              {stageChartData.length > 0 && (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={stageChartData}>
+                      <XAxis 
+                        dataKey="name" 
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        fontSize={12}
+                      />
+                      <YAxis fontSize={12} />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <p>No active production stages found</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Status Overview */}
+      <Card className="shadow-lg">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl font-semibold">Job Status Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {statusChartData.length > 0 ? (
+            <div className="space-y-4">
+              {/* Status List */}
+              <div className="space-y-3 mb-6">
+                {statusChartData.map((status) => (
+                  <div key={status.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: status.fill }}
+                      />
+                      <span className="font-medium text-lg">{status.name}</span>
+                    </div>
+                    <Badge 
+                      variant="outline" 
+                      className="text-lg px-3 py-1 font-bold"
+                      style={{ 
+                        borderColor: status.fill,
+                        color: status.fill 
+                      }}
+                    >
+                      {status.count}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pie Chart */}
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusChartData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="count"
+                      label={({ name, value }) => `${name}: ${value}`}
+                      labelLine={false}
+                      fontSize={12}
+                    >
+                      {statusChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <p>No job status data available</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
