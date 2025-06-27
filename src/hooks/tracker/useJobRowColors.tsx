@@ -12,6 +12,16 @@ export const useJobRowColors = (jobs: AccessibleJob[]) => {
       
       for (const job of jobs) {
         try {
+          // Only apply colors if job has both due date and category
+          const hasCategory = job.category_name && job.category_name !== 'No Category';
+          const hasDueDate = job.due_date;
+          
+          if (!hasCategory || !hasDueDate) {
+            // Leave uncolored for admin to identify jobs needing attention
+            colorMap[job.job_id] = '';
+            continue;
+          }
+          
           const statusInfo = await getDueStatusColor(job.due_date);
           // Map traffic light colors to row background classes
           switch (statusInfo.code) {
