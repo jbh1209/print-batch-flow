@@ -27,6 +27,7 @@ import {
 import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useCustomWorkflowStatus } from "@/hooks/tracker/useCustomWorkflowStatus";
+import { getDueStatusColor } from "@/utils/tracker/trafficLightUtils";
 
 interface EnhancedProductionJobsListProps {
   jobs: AccessibleJob[];
@@ -60,6 +61,7 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
   isAdmin = false
 }) => {
   const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
+  const [jobRowColors, setJobRowColors] = useState<Record<string, string>>({});
 
   // Get job IDs that might need custom workflow status check
   const jobIdsForCustomWorkflowCheck = useMemo(() => {
@@ -70,6 +72,42 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
 
   // Use the custom hook to get real custom workflow status
   const { customWorkflowStatus } = useCustomWorkflowStatus(jobIdsForCustomWorkflowCheck);
+
+  // Calculate traffic light colors for all jobs
+  React.useEffect(() => {
+    const calculateRowColors = async () => {
+      const colorMap: Record<string, string> = {};
+      
+      for (const job of jobs) {
+        try {
+          const statusInfo = await getDueStatusColor(job.due_date);
+          // Map traffic light colors to row background classes
+          switch (statusInfo.code) {
+            case 'red':
+              colorMap[job.job_id] = 'bg-red-50 border-l-4 border-red-500';
+              break;
+            case 'yellow':
+              colorMap[job.job_id] = 'bg-yellow-50 border-l-4 border-yellow-500';
+              break;
+            case 'green':
+              colorMap[job.job_id] = 'bg-green-50 border-l-4 border-green-500';
+              break;
+            default:
+              colorMap[job.job_id] = '';
+          }
+        } catch (error) {
+          console.error('Error calculating row color for job:', job.job_id, error);
+          colorMap[job.job_id] = '';
+        }
+      }
+      
+      setJobRowColors(colorMap);
+    };
+
+    if (jobs.length > 0) {
+      calculateRowColors();
+    }
+  }, [jobs]);
 
   const handleSelectJob = (job: AccessibleJob, checked: boolean) => {
     if (checked) {
@@ -211,12 +249,13 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
           <div className="space-y-3">
             {jobs.map((job) => {
               const jobHasCustomWorkflow = hasCustomWorkflow(job);
+              const rowColorClass = jobRowColors[job.job_id] || '';
               
               return (
                 <div 
                   key={job.job_id} 
-                  className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 ${
-                    isSelected(job) ? 'bg-blue-50 border-blue-200' : ''
+                  className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors ${
+                    isSelected(job) ? 'bg-blue-50 border-blue-200' : rowColorClass
                   }`}
                 >
                   <div className="flex items-center gap-3">
