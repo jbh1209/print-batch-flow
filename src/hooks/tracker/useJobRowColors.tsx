@@ -12,11 +12,13 @@ export const useJobRowColors = (jobs: AccessibleJob[]) => {
       
       for (const job of jobs) {
         try {
-          // Only apply colors if job has both due date and category
+          // Check if job has category or custom workflow
           const hasCategory = job.category_name && job.category_name !== 'No Category';
+          const hasCustomWorkflow = job.has_custom_workflow;
           const hasDueDate = job.due_date;
           
-          if (!hasCategory || !hasDueDate) {
+          // Only apply colors if job has due date AND (category OR custom workflow)
+          if (!hasDueDate || (!hasCategory && !hasCustomWorkflow)) {
             // Leave uncolored for admin to identify jobs needing attention
             colorMap[job.job_id] = '';
             continue;
