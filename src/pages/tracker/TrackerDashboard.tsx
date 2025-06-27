@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
@@ -83,9 +82,10 @@ const TrackerDashboard = () => {
       return dueDate < today;
     }).length;
 
-    // Critical = overdue + due today + high priority
+    // Critical = overdue + due today + jobs with low progress and approaching due dates
     const critical = overdue + dueToday + jobs.filter(job => 
-      job.highlighted || (job.workflow_progress && job.workflow_progress < 30 && job.due_date)
+      job.workflow_progress && job.workflow_progress < 30 && job.due_date && 
+      new Date(job.due_date) <= weekFromNow
     ).length;
 
     // Status counts by current stage status
