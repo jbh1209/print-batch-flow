@@ -208,6 +208,12 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
                           {job.category_name}
                         </Badge>
                       )}
+                      {job.has_custom_workflow && (
+                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                          <Settings className="h-3 w-3 mr-1" />
+                          Custom Workflow
+                        </Badge>
+                      )}
                       {job.current_stage_name && (
                         <Badge 
                           variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
