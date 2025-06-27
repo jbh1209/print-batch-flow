@@ -86,87 +86,89 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
 
   return (
     <div className="space-y-4">
-      {/* Bulk Actions Bar */}
+      {/* Sticky Bulk Actions Bar */}
       {selectedJobs.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                  {selectedJobs.length} job{selectedJobs.length > 1 ? 's' : ''} selected
-                </Badge>
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => onBulkCategoryAssign(selectedJobs)}
-                    className="flex items-center gap-1"
-                  >
-                    <Users className="h-3 w-3" />
-                    Assign Category
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => onBulkStatusUpdate(selectedJobs, "printing")}
-                    className="flex items-center gap-1"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Update Status
-                  </Button>
-                  {isAdmin && onBulkMarkCompleted && (
+        <div className="sticky top-0 z-50 bg-white pb-4">
+          <Card className="border-blue-200 bg-blue-50 shadow-lg">
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    {selectedJobs.length} job{selectedJobs.length > 1 ? 's' : ''} selected
+                  </Badge>
+                  <div className="flex gap-2">
                     <Button 
                       size="sm" 
                       variant="outline"
-                      onClick={() => onBulkMarkCompleted(selectedJobs)}
-                      className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                      onClick={() => onBulkCategoryAssign(selectedJobs)}
+                      className="flex items-center gap-1"
                     >
-                      <CheckCircle className="h-3 w-3" />
-                      Mark Completed
+                      <Users className="h-3 w-3" />
+                      Assign Category
                     </Button>
-                  )}
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => onCustomWorkflow(selectedJobs[0])}
-                    disabled={selectedJobs.length !== 1}
-                    className="flex items-center gap-1"
-                  >
-                    <Workflow className="h-3 w-3" />
-                    Custom Workflow
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => onGenerateBarcodes(selectedJobs)}
-                    className="flex items-center gap-1"
-                  >
-                    <Barcode className="h-3 w-3" />
-                    Barcode Labels
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="destructive"
-                    onClick={() => onBulkDelete(selectedJobs)}
-                    className="flex items-center gap-1"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    Delete
-                  </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => onBulkStatusUpdate(selectedJobs, "printing")}
+                      className="flex items-center gap-1"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Update Status
+                    </Button>
+                    {isAdmin && onBulkMarkCompleted && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => onBulkMarkCompleted(selectedJobs)}
+                        className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        Mark Completed
+                      </Button>
+                    )}
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => onCustomWorkflow(selectedJobs[0])}
+                      disabled={selectedJobs.length !== 1}
+                      className="flex items-center gap-1"
+                    >
+                      <Workflow className="h-3 w-3" />
+                      Custom Workflow
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => onGenerateBarcodes(selectedJobs)}
+                      className="flex items-center gap-1"
+                    >
+                      <Barcode className="h-3 w-3" />
+                      Barcode Labels
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="destructive"
+                      onClick={() => onBulkDelete(selectedJobs)}
+                      className="flex items-center gap-1"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Delete
+                    </Button>
+                  </div>
                 </div>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  onClick={clearSelection}
+                  className="flex items-center gap-1"
+                >
+                  <X className="h-3 w-3" />
+                  Clear Selection
+                </Button>
               </div>
-              <Button 
-                size="sm" 
-                variant="ghost"
-                onClick={clearSelection}
-                className="flex items-center gap-1"
-              >
-                <X className="h-3 w-3" />
-                Clear Selection
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Jobs List */}
