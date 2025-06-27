@@ -1,33 +1,12 @@
 
 import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
-import { 
-  MoreHorizontal, 
-  Edit, 
-  Tags, 
-  Settings, 
-  Trash2,
-  Users,
-  RotateCcw,
-  X,
-  Workflow,
-  Barcode,
-  CheckCircle
-} from "lucide-react";
-import { JobActionButtons } from "@/components/tracker/common/JobActionButtons";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useCustomWorkflowStatus } from "@/hooks/tracker/useCustomWorkflowStatus";
-import { getDueStatusColor } from "@/utils/tracker/trafficLightUtils";
+import { useJobRowColors } from "@/hooks/tracker/useJobRowColors";
+import { BulkActionsBar } from "./components/BulkActionsBar";
+import { JobRow } from "./components/JobRow";
 
 interface EnhancedProductionJobsListProps {
   jobs: AccessibleJob[];
@@ -61,7 +40,6 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
   isAdmin = false
 }) => {
   const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
-  const [jobRowColors, setJobRowColors] = useState<Record<string, string>>({});
 
   // Get job IDs that might need custom workflow status check
   const jobIdsForCustomWorkflowCheck = useMemo(() => {
@@ -72,42 +50,9 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
 
   // Use the custom hook to get real custom workflow status
   const { customWorkflowStatus } = useCustomWorkflowStatus(jobIdsForCustomWorkflowCheck);
-
-  // Calculate traffic light colors for all jobs
-  React.useEffect(() => {
-    const calculateRowColors = async () => {
-      const colorMap: Record<string, string> = {};
-      
-      for (const job of jobs) {
-        try {
-          const statusInfo = await getDueStatusColor(job.due_date);
-          // Map traffic light colors to row background classes
-          switch (statusInfo.code) {
-            case 'red':
-              colorMap[job.job_id] = 'bg-red-50 border-l-4 border-red-500';
-              break;
-            case 'yellow':
-              colorMap[job.job_id] = 'bg-yellow-50 border-l-4 border-yellow-500';
-              break;
-            case 'green':
-              colorMap[job.job_id] = 'bg-green-50 border-l-4 border-green-500';
-              break;
-            default:
-              colorMap[job.job_id] = '';
-          }
-        } catch (error) {
-          console.error('Error calculating row color for job:', job.job_id, error);
-          colorMap[job.job_id] = '';
-        }
-      }
-      
-      setJobRowColors(colorMap);
-    };
-
-    if (jobs.length > 0) {
-      calculateRowColors();
-    }
-  }, [jobs]);
+  
+  // Use the custom hook to get row colors
+  const jobRowColors = useJobRowColors(jobs);
 
   const handleSelectJob = (job: AccessibleJob, checked: boolean) => {
     if (checked) {
@@ -145,90 +90,18 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
 
   return (
     <div className="space-y-4">
-      {/* Sticky Bulk Actions Bar */}
-      {selectedJobs.length > 0 && (
-        <div className="sticky top-0 z-50 bg-white pb-4">
-          <Card className="border-blue-200 bg-blue-50 shadow-lg">
-            <CardContent className="py-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                    {selectedJobs.length} job{selectedJobs.length > 1 ? 's' : ''} selected
-                  </Badge>
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => onBulkCategoryAssign(selectedJobs)}
-                      className="flex items-center gap-1"
-                    >
-                      <Users className="h-3 w-3" />
-                      Assign Category
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => onBulkStatusUpdate(selectedJobs, "printing")}
-                      className="flex items-center gap-1"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      Update Status
-                    </Button>
-                    {isAdmin && onBulkMarkCompleted && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => onBulkMarkCompleted(selectedJobs)}
-                        className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
-                      >
-                        <CheckCircle className="h-3 w-3" />
-                        Mark Completed
-                      </Button>
-                    )}
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => onCustomWorkflow(selectedJobs[0])}
-                      disabled={selectedJobs.length !== 1}
-                      className="flex items-center gap-1"
-                    >
-                      <Workflow className="h-3 w-3" />
-                      Custom Workflow
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => onGenerateBarcodes(selectedJobs)}
-                      className="flex items-center gap-1"
-                    >
-                      <Barcode className="h-3 w-3" />
-                      Barcode Labels
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="destructive"
-                      onClick={() => onBulkDelete(selectedJobs)}
-                      className="flex items-center gap-1"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-                <Button 
-                  size="sm" 
-                  variant="ghost"
-                  onClick={clearSelection}
-                  className="flex items-center gap-1"
-                >
-                  <X className="h-3 w-3" />
-                  Clear Selection
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        selectedJobs={selectedJobs}
+        onBulkCategoryAssign={onBulkCategoryAssign}
+        onBulkStatusUpdate={onBulkStatusUpdate}
+        onBulkMarkCompleted={onBulkMarkCompleted}
+        onCustomWorkflow={onCustomWorkflow}
+        onGenerateBarcodes={onGenerateBarcodes}
+        onBulkDelete={onBulkDelete}
+        onClearSelection={clearSelection}
+        isAdmin={isAdmin}
+      />
 
       {/* Jobs List */}
       <Card>
@@ -247,112 +120,22 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {jobs.map((job) => {
-              const jobHasCustomWorkflow = hasCustomWorkflow(job);
-              const rowColorClass = jobRowColors[job.job_id] || '';
-              
-              return (
-                <div 
-                  key={job.job_id} 
-                  className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors ${
-                    isSelected(job) ? 'bg-blue-50 border-blue-200' : rowColorClass
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={isSelected(job)}
-                      onCheckedChange={(checked) => handleSelectJob(job, checked as boolean)}
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h4 className="font-medium text-lg">{job.wo_no}</h4>
-                        {jobHasCustomWorkflow ? (
-                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                            <Settings className="h-3 w-3 mr-1" />
-                            Custom Workflow
-                          </Badge>
-                        ) : job.category_name && job.category_name !== 'No Category' ? (
-                          <Badge variant="secondary" style={{ backgroundColor: job.category_color || '#6B7280', color: 'white' }}>
-                            {job.category_name}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-gray-600">
-                            No Category
-                          </Badge>
-                        )}
-                        {job.current_stage_name && (
-                          <Badge 
-                            variant={job.current_stage_status === 'active' ? 'default' : 'outline'}
-                            style={{ 
-                              backgroundColor: job.current_stage_status === 'active' ? job.current_stage_color || '#22C55E' : 'transparent',
-                              borderColor: job.current_stage_color || '#6B7280',
-                              color: job.current_stage_status === 'active' ? 'white' : job.current_stage_color || '#6B7280'
-                            }}
-                          >
-                            {job.current_stage_name}
-                          </Badge>
-                        )}
-                        <Badge variant="outline" className="text-xs">
-                          {job.workflow_progress}% Complete
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        <span>Customer: {job.customer || 'Unknown'}</span>
-                        {job.due_date && (
-                          <span> • Due: {new Date(job.due_date).toLocaleDateString()}</span>
-                        )}
-                        {job.reference && (
-                          <span> • Reference: {job.reference}</span>
-                        )}
-                        <span> • Stages: {job.completed_stages}/{job.total_stages}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <JobActionButtons
-                      job={job}
-                      onStart={onStartJob}
-                      onComplete={onCompleteJob}
-                    />
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={() => onEditJob(job)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Job
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuItem onClick={() => onCategoryAssign(job)}>
-                          <Tags className="h-4 w-4 mr-2" />
-                          Assign Category
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuItem onClick={() => onCustomWorkflow(job)}>
-                          <Settings className="h-4 w-4 mr-2" />
-                          Custom Workflow
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuSeparator />
-                        
-                        <DropdownMenuItem 
-                          onClick={() => onDeleteJob(job.job_id)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete Job
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              );
-            })}
+            {jobs.map((job) => (
+              <JobRow
+                key={job.job_id}
+                job={job}
+                isSelected={isSelected(job)}
+                hasCustomWorkflow={hasCustomWorkflow(job)}
+                rowColorClass={jobRowColors[job.job_id] || ''}
+                onSelectJob={handleSelectJob}
+                onStartJob={onStartJob}
+                onCompleteJob={onCompleteJob}
+                onEditJob={onEditJob}
+                onCategoryAssign={onCategoryAssign}
+                onCustomWorkflow={onCustomWorkflow}
+                onDeleteJob={onDeleteJob}
+              />
+            ))}
           </div>
         </CardContent>
       </Card>
