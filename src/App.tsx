@@ -37,6 +37,7 @@ import BusinessCardJobs from "./pages/BusinessCardJobs";
 import BusinessCardJobNew from "./pages/BusinessCardJobNew";
 import BusinessCardJobEdit from "./pages/BusinessCardJobEdit";
 import BusinessCardBatches from "./pages/BusinessCardBatches";
+import BusinessCardBatchDetails from "./pages/BusinessCardBatchDetails";
 import Flyers from "./pages/Flyers";
 import FlyerJobs from "./pages/FlyerJobs";
 import FlyerJobNew from "./pages/FlyerJobNew";
@@ -45,12 +46,18 @@ import FlyerBatches from "./pages/FlyerBatches";
 import FlyerBatchDetails from "./pages/FlyerBatchDetails";
 import Postcards from "./pages/Postcards";
 import PostcardJobEdit from "./pages/PostcardJobEdit";
+import PostcardBatchDetails from "./pages/PostcardBatchDetails";
 import Boxes from "./pages/Boxes";
+import BoxBatchDetails from "./pages/BoxBatchDetails";
 import Covers from "./pages/Covers";
+import CoverBatchDetails from "./pages/CoverBatchDetails";
 import Sleeves from "./pages/Sleeves";
 import SleeveJobEdit from "./pages/SleeveJobEdit";
+import SleeveBatchDetails from "./pages/SleeveBatchDetails";
 import Stickers from "./pages/Stickers";
+import StickerBatchDetails from "./pages/StickerBatchDetails";
 import Posters from "./pages/Posters";
+import PosterBatchDetails from "./pages/PosterBatchDetails";
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -118,6 +125,7 @@ const App: React.FC = () => {
               <Route path="batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
               <Route path="batches/business-cards/jobs/:id/edit" element={<BusinessCardJobEdit />} />
               <Route path="batches/business-cards/batches" element={<BusinessCardBatches />} />
+              <Route path="batches/business-cards/batches/:batchId" element={<BusinessCardBatchDetails />} />
               
               {/* Flyers */}
               <Route path="batches/flyers" element={<Flyers />} />
@@ -130,14 +138,28 @@ const App: React.FC = () => {
               {/* Postcards */}
               <Route path="batches/postcards" element={<Postcards />} />
               <Route path="batches/postcards/jobs/:id/edit" element={<PostcardJobEdit />} />
+              <Route path="batches/postcards/batches/:batchId" element={<PostcardBatchDetails />} />
               
-              {/* Other Products */}
+              {/* Boxes */}
               <Route path="batches/boxes" element={<Boxes />} />
+              <Route path="batches/boxes/batches/:batchId" element={<BoxBatchDetails />} />
+              
+              {/* Covers */}
               <Route path="batches/covers" element={<Covers />} />
+              <Route path="batches/covers/batches/:batchId" element={<CoverBatchDetails />} />
+              
+              {/* Sleeves */}
               <Route path="batches/sleeves" element={<Sleeves />} />
               <Route path="batches/sleeves/jobs/:id/edit" element={<SleeveJobEdit />} />
+              <Route path="batches/sleeves/batches/:batchId" element={<SleeveBatchDetails />} />
+              
+              {/* Stickers */}
               <Route path="batches/stickers" element={<Stickers />} />
+              <Route path="batches/stickers/batches/:batchId" element={<StickerBatchDetails />} />
+              
+              {/* Posters */}
               <Route path="batches/posters" element={<Posters />} />
+              <Route path="batches/posters/batches/:batchId" element={<PosterBatchDetails />} />
             </Route>
             
             {/* Tracker routes with role-aware layout */}
