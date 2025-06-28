@@ -126,7 +126,7 @@ export const WorkflowMonitoringWidget: React.FC<WorkflowMonitoringWidgetProps> =
                     <div className="text-muted-foreground truncate">{alert.message}</div>
                   </div>
                   {alert.auto_repairable && (
-                    <Zap className="h-3 w-3 text-green-500" title="Auto-repairable" />
+                    <Zap className="h-3 w-3 text-green-500" />
                   )}
                 </div>
               ))}
