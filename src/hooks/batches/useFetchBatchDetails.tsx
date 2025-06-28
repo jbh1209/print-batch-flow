@@ -34,7 +34,7 @@ export function useFetchBatchDetails({
     try {
       console.log(`Fetching batch details for batch ID: ${batchId}`);
       
-      // Removed the user_id filter to allow any user to view any batch
+      // Fetch batch details
       const { data, error } = await supabase
         .from("batches")
         .select("*")
@@ -60,7 +60,7 @@ export function useFetchBatchDetails({
       console.log("Batch details received:", data?.id);
       console.log("Full batch data:", data);
       
-      // Create BatchDetailsType object, ensuring overview_pdf_url is properly set
+      // Create BatchDetailsType object
       const batchData: BatchDetailsType = {
         id: data.id,
         name: data.name,
@@ -68,103 +68,129 @@ export function useFetchBatchDetails({
         sheets_required: data.sheets_required,
         front_pdf_url: data.front_pdf_url,
         back_pdf_url: data.back_pdf_url,
-        // Use overview_pdf_url if it exists, otherwise fall back to back_pdf_url
         overview_pdf_url: data.overview_pdf_url || data.back_pdf_url,
         due_date: data.due_date,
         created_at: data.created_at,
-        status: data.status as BatchStatus, // Cast to the imported type
+        status: data.status as BatchStatus,
       };
       
       setBatch(batchData);
       
+      // Fetch related jobs based on product type
       let jobsData: Job[] = [];
       
       // Get the appropriate table name and fields based on product type
-      const getJobTableConfig = (productType: string) => {
+      const getJobQuery = async (productType: string) => {
         switch (productType) {
           case "Business Cards":
-            return {
-              tableName: "business_card_jobs",
-              fields: "id, name, quantity, status, pdf_url, file_name, lamination_type, due_date, uploaded_at, double_sided, job_number, updated_at, user_id"
-            };
+            const { data: businessCardJobs, error: bcError } = await supabase
+              .from("business_card_jobs")
+              .select("id, name, quantity, status, pdf_url, file_name, lamination_type, due_date, uploaded_at, double_sided, job_number, updated_at, user_id")
+              .eq("batch_id", batchId)
+              .order("name");
+            
+            if (bcError) throw bcError;
+            return businessCardJobs || [];
+            
           case "Flyers":
-            return {
-              tableName: "flyer_jobs", 
-              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id"
-            };
+            const { data: flyerJobs, error: flyerError } = await supabase
+              .from("flyer_jobs")
+              .select("id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id")
+              .eq("batch_id", batchId)
+              .order("name");
+            
+            if (flyerError) throw flyerError;
+            return flyerJobs || [];
+            
           case "Postcards":
-            return {
-              tableName: "postcard_jobs",
-              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
-            };
+            const { data: postcardJobs, error: postcardError } = await supabase
+              .from("postcard_jobs")
+              .select("id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type")
+              .eq("batch_id", batchId)
+              .order("name");
+            
+            if (postcardError) throw postcardError;
+            return postcardJobs || [];
+            
           case "Boxes":
-            return {
-              tableName: "box_jobs",
-              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
-            };
+            const { data: boxJobs, error: boxError } = await supabase
+              .from("box_jobs")
+              .select("id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type")
+              .eq("batch_id", batchId)
+              .order("name");
+            
+            if (boxError) throw boxError;
+            return boxJobs || [];
+            
           case "Covers":
-            return {
-              tableName: "cover_jobs",
-              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
-            };
+            const { data: coverJobs, error: coverError } = await supabase
+              .from("cover_jobs")
+              .select("id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type")
+              .eq("batch_id", batchId)
+              .order("name");
+            
+            if (coverError) throw coverError;
+            return coverJobs || [];
+            
           case "Sleeves":
-            return {
-              tableName: "sleeve_jobs",
-              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id"
-            };
+            const { data: sleeveJobs, error: sleeveError } = await supabase
+              .from("sleeve_jobs")
+              .select("id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id")
+              .eq("batch_id", batchId)
+              .order("name");
+            
+            if (sleeveError) throw sleeveError;
+            return sleeveJobs || [];
+            
           case "Stickers":
-            return {
-              tableName: "sticker_jobs",
-              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
-            };
+            const { data: stickerJobs, error: stickerError } = await supabase
+              .from("sticker_jobs")
+              .select("id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type")
+              .eq("batch_id", batchId)
+              .order("name");
+            
+            if (stickerError) throw stickerError;
+            return stickerJobs || [];
+            
           case "Posters":
-            return {
-              tableName: "poster_jobs",
-              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
-            };
+            const { data: posterJobs, error: posterError } = await supabase
+              .from("poster_jobs")
+              .select("id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type")
+              .eq("batch_id", batchId)
+              .order("name");
+            
+            if (posterError) throw posterError;
+            return posterJobs || [];
+            
           default:
-            return null;
+            return [];
         }
       };
 
-      const jobConfig = getJobTableConfig(productType);
+      const jobs = await getJobQuery(productType);
       
-      if (jobConfig) {
-        console.log(`Fetching ${productType.toLowerCase()} jobs for batch ID: ${batchId}`);
-        const { data: jobs, error: jobsError } = await supabase
-          .from(jobConfig.tableName)
-          .select(jobConfig.fields)
-          .eq("batch_id", batchId)
-          .order("name");
+      if (jobs && jobs.length > 0) {
+        console.log(`Found ${jobs.length} jobs for batch ID: ${batchId}`);
+        console.log("First job sample:", jobs[0]);
         
-        if (jobsError) {
-          console.error("Error fetching jobs:", jobsError);
-          throw jobsError;
-        }
-        
-        if (jobs && jobs.length > 0) {
-          console.log(`Found ${jobs.length} jobs for batch ID: ${batchId}`);
-          console.log("First job sample:", jobs[0]);
-          
-          // Map jobs to consistent Job interface
-          jobsData = jobs.map(job => ({
-            id: job.id,
-            name: job.name,
-            file_name: job.file_name || job.name || "",
-            lamination_type: job.lamination_type || "none",
-            quantity: job.quantity || 0,
-            due_date: job.due_date || new Date().toISOString(),
-            uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
-            status: job.status as JobStatus,
-            pdf_url: job.pdf_url || null,
-            job_number: job.job_number || job.name || "",
-            updated_at: job.updated_at || new Date().toISOString(),
-            user_id: job.user_id || "",
-            double_sided: job.double_sided !== undefined ? job.double_sided : false
-          })) as Job[];
-        } else {
-          console.warn(`No jobs found for batch ID: ${batchId}`);
-        }
+        // Map jobs to consistent Job interface
+        jobsData = jobs.map(job => ({
+          id: job.id,
+          name: job.name,
+          file_name: job.file_name || job.name || "",
+          lamination_type: job.lamination_type || "none",
+          quantity: job.quantity || 0,
+          due_date: job.due_date || new Date().toISOString(),
+          uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
+          status: job.status as JobStatus,
+          pdf_url: job.pdf_url || null,
+          job_number: job.job_number || job.name || "",
+          updated_at: job.updated_at || new Date().toISOString(),
+          user_id: job.user_id || "",
+          double_sided: job.double_sided !== undefined ? job.double_sided : false
+        })) as Job[];
+      } else {
+        console.warn(`No jobs found for batch ID: ${batchId}`);
       }
       
       setRelatedJobs(jobsData);

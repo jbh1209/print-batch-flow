@@ -6,7 +6,7 @@ import BatchDetailsContent from "./BatchDetailsContent";
 import BatchDetailsLoading from "./BatchDetailsLoading";
 import BatchNotFound from "./BatchNotFound";
 import { StandardDeleteBatchDialog } from "./StandardDeleteBatchDialog";
-import { useBatchDeletion } from "@/hooks/batches/useBatchDeletion";
+import { useBatchDeletion } from "@/hooks/useBatchDeletion";
 
 interface BatchDetailsProps {
   batchId: string;
@@ -26,7 +26,8 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
   const {
     batchToDelete,
     isDeleting,
-    setBatchToDelete,
+    initiateDeletion,
+    cancelDeletion,
     handleDeleteBatch
   } = useBatchDeletion({
     productType,
@@ -47,7 +48,7 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
             batch={batch}
             relatedJobs={relatedJobs}
             productType={productType}
-            onDeleteClick={() => setBatchToDelete(batch.id)}
+            onDeleteClick={() => initiateDeletion(batch.id)}
             onRefresh={fetchBatchDetails}
           />
 
@@ -56,7 +57,7 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
             isOpen={!!batchToDelete}
             isDeleting={isDeleting}
             batchName={batch?.name}
-            onCancel={() => setBatchToDelete(null)}
+            onCancel={cancelDeletion}
             onConfirm={handleDeleteBatch}
           />
         </>
