@@ -1,11 +1,12 @@
 
 import { useState } from "react";
-import { useBatchDetails } from "@/hooks/useBatchDetails";
+import { useFetchBatchDetails } from "@/hooks/batches/useFetchBatchDetails";
 import BatchDetailsHeader from "./BatchDetailsHeader";
 import BatchDetailsContent from "./BatchDetailsContent";
 import BatchDetailsLoading from "./BatchDetailsLoading";
 import BatchNotFound from "./BatchNotFound";
 import { StandardDeleteBatchDialog } from "./StandardDeleteBatchDialog";
+import { useBatchDeletion } from "@/hooks/batches/useBatchDeletion";
 
 interface BatchDetailsProps {
   batchId: string;
@@ -19,11 +20,18 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
     relatedJobs,
     isLoading,
     error,
+    fetchBatchDetails
+  } = useFetchBatchDetails({ batchId, productType, backUrl });
+
+  const {
     batchToDelete,
     isDeleting,
     setBatchToDelete,
     handleDeleteBatch
-  } = useBatchDetails({ batchId, productType, backUrl });
+  } = useBatchDeletion({
+    productType,
+    onSuccess: fetchBatchDetails
+  });
 
   return (
     <div>
@@ -40,6 +48,7 @@ const BatchDetails = ({ batchId, productType, backUrl }: BatchDetailsProps) => {
             relatedJobs={relatedJobs}
             productType={productType}
             onDeleteClick={() => setBatchToDelete(batch.id)}
+            onRefresh={fetchBatchDetails}
           />
 
           {/* Standardized Delete Confirmation Dialog */}

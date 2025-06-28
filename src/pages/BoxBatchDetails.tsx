@@ -1,11 +1,14 @@
 
 import React from "react";
+import { useParams } from "react-router-dom";
 import BatchDetails from "@/components/batches/BatchDetails";
 
 const BoxBatchDetails = () => {
+  const { batchId } = useParams<{ batchId: string }>();
+  
   return (
     <BatchDetails 
-      batchId="" // Will be extracted from URL params by the component
+      batchId={batchId || ""} 
       productType="Boxes" 
       backUrl="/batchflow/batches/boxes/batches" 
     />

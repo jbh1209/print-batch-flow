@@ -79,11 +79,61 @@ export function useFetchBatchDetails({
       
       let jobsData: Job[] = [];
       
-      if (productType === "Business Cards") {
-        console.log(`Fetching business card jobs for batch ID: ${batchId}`);
+      // Get the appropriate table name and fields based on product type
+      const getJobTableConfig = (productType: string) => {
+        switch (productType) {
+          case "Business Cards":
+            return {
+              tableName: "business_card_jobs",
+              fields: "id, name, quantity, status, pdf_url, file_name, lamination_type, due_date, uploaded_at, double_sided, job_number, updated_at, user_id"
+            };
+          case "Flyers":
+            return {
+              tableName: "flyer_jobs", 
+              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id"
+            };
+          case "Postcards":
+            return {
+              tableName: "postcard_jobs",
+              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
+            };
+          case "Boxes":
+            return {
+              tableName: "box_jobs",
+              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
+            };
+          case "Covers":
+            return {
+              tableName: "cover_jobs",
+              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
+            };
+          case "Sleeves":
+            return {
+              tableName: "sleeve_jobs",
+              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id"
+            };
+          case "Stickers":
+            return {
+              tableName: "sticker_jobs",
+              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
+            };
+          case "Posters":
+            return {
+              tableName: "poster_jobs",
+              fields: "id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id, lamination_type"
+            };
+          default:
+            return null;
+        }
+      };
+
+      const jobConfig = getJobTableConfig(productType);
+      
+      if (jobConfig) {
+        console.log(`Fetching ${productType.toLowerCase()} jobs for batch ID: ${batchId}`);
         const { data: jobs, error: jobsError } = await supabase
-          .from("business_card_jobs")
-          .select("id, name, quantity, status, pdf_url, file_name, lamination_type, due_date, uploaded_at, double_sided, job_number, updated_at, user_id")
+          .from(jobConfig.tableName)
+          .select(jobConfig.fields)
           .eq("batch_id", batchId)
           .order("name");
         
@@ -96,42 +146,24 @@ export function useFetchBatchDetails({
           console.log(`Found ${jobs.length} jobs for batch ID: ${batchId}`);
           console.log("First job sample:", jobs[0]);
           
-          // Cast to Job[] with proper type assertion
-          jobsData = jobs.map(job => ({
-            ...job,
-            double_sided: typeof job.double_sided === 'boolean' ? job.double_sided : false,
-            status: job.status as JobStatus
-          })) as Job[];
-        } else {
-          console.warn(`No jobs found for batch ID: ${batchId}`);
-        }
-      } else if (productType === "Flyers") {
-        const { data: jobs, error: jobsError } = await supabase
-          .from("flyer_jobs")
-          .select("id, name, quantity, status, pdf_url, file_name, job_number, created_at, updated_at, due_date, user_id")
-          .eq("batch_id", batchId)
-          .order("name");
-        
-        if (jobsError) throw jobsError;
-
-        // Add missing properties to flyer jobs to match Job interface
-        if (jobs) {
-          // Map each job to ensure it has all required properties
+          // Map jobs to consistent Job interface
           jobsData = jobs.map(job => ({
             id: job.id,
             name: job.name,
             file_name: job.file_name || job.name || "",
-            lamination_type: "none", // Default for flyers
+            lamination_type: job.lamination_type || "none",
             quantity: job.quantity || 0,
             due_date: job.due_date || new Date().toISOString(),
-            uploaded_at: job.created_at || new Date().toISOString(),
+            uploaded_at: job.uploaded_at || job.created_at || new Date().toISOString(),
             status: job.status as JobStatus,
             pdf_url: job.pdf_url || null,
             job_number: job.job_number || job.name || "",
             updated_at: job.updated_at || new Date().toISOString(),
             user_id: job.user_id || "",
-            double_sided: false // Default for flyers
+            double_sided: job.double_sided !== undefined ? job.double_sided : false
           })) as Job[];
+        } else {
+          console.warn(`No jobs found for batch ID: ${batchId}`);
         }
       }
       
