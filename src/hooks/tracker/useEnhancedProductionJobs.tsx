@@ -136,6 +136,11 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
           stage_color: stage.production_stages?.color || '#6B7280',
           status: stage.status
         }));
+
+        // Handle due date for custom workflows - prefer manual_due_date
+        const effectiveDueDate = job.has_custom_workflow && job.manual_due_date 
+          ? job.manual_due_date 
+          : job.due_date;
         
         const processedJob = {
           ...job,
@@ -147,6 +152,10 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
           job_stage_instances: jobStages,
           stages: processedStages,
           category_id: job.category_id || null,
+          // Use effective due date that considers manual_due_date for custom workflows
+          due_date: effectiveDueDate,
+          // Preserve original fields
+          manual_due_date: job.manual_due_date,
           // Ensure we have consistent status handling
           status: job.status || currentStage,
           // Add computed fields for easier filtering
@@ -165,7 +174,10 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
           stagesCount: processedJob.stages.length,
           workflowProgress: processedJob.workflow_progress,
           isActive: processedJob.is_active,
-          isPending: processedJob.is_pending
+          isPending: processedJob.is_pending,
+          hasCustomWorkflow: job.has_custom_workflow,
+          manualDueDate: job.manual_due_date,
+          effectiveDueDate: effectiveDueDate
         });
 
         return processedJob;

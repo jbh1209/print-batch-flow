@@ -33,7 +33,8 @@ export const normalizeJobData = (job: any, index: number): AccessibleJob => {
     completed_stages: Number(job.completed_stages) || 0,
     display_stage_name: job.display_stage_name || job.current_stage_name || 'No Stage',
     qty: Number(job.qty) || 0,
-    has_custom_workflow: Boolean(job.has_custom_workflow)
+    has_custom_workflow: Boolean(job.has_custom_workflow),
+    manual_due_date: job.manual_due_date || null
   };
 
   return normalized;

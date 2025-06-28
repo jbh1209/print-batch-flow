@@ -8,7 +8,7 @@ export interface AccessibleJob {
   reference: string;
   category_id: string;
   category_name: string;
-  category_color: string;
+  category_color: string; 
   current_stage_id: string;
   current_stage_name: string;
   current_stage_color: string;
@@ -22,7 +22,8 @@ export interface AccessibleJob {
   completed_stages: number;
   display_stage_name: string;
   qty: number;
-  has_custom_workflow: boolean; // Added missing property
+  has_custom_workflow: boolean;
+  manual_due_date?: string | null;
 }
 
 export interface UseAccessibleJobsOptions {

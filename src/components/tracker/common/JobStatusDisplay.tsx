@@ -40,6 +40,9 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   const hasCategory = !!job.category_id;
   const hasStage = job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000';
 
+  // Get the effective due date - prefer manual_due_date for custom workflows
+  const effectiveDueDate = hasCustomWorkflow && job.manual_due_date ? job.manual_due_date : job.due_date;
+
   // Determine display status and styling
   let displayStatus: string;
   let badgeVariant: "default" | "secondary" | "destructive" | "outline";
@@ -107,8 +110,8 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
         </div>
       )}
 
-      {/* Due Date */}
-      {showDetails && job.due_date && (
+      {/* Due Date - Use effective due date */}
+      {showDetails && effectiveDueDate && (
         <div className="flex items-center gap-2">
           <Calendar className={cn("text-gray-400", iconSize)} />
           <span className={cn(
@@ -118,7 +121,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
             "text-gray-700",
             textSize
           )}>
-            {compact ? "" : "Due: "}{new Date(job.due_date).toLocaleDateString()}
+            {compact ? "" : "Due: "}{new Date(effectiveDueDate).toLocaleDateString()}
             {hasCustomWorkflow && (
               <span className="text-xs text-purple-600 ml-1">(Manual)</span>
             )}
@@ -128,7 +131,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
       )}
 
       {/* Due Date Missing Warning for Custom Workflows */}
-      {showDetails && hasCustomWorkflow && !job.due_date && (
+      {showDetails && hasCustomWorkflow && !effectiveDueDate && (
         <div className="flex items-center gap-2 text-amber-600">
           <AlertTriangle className={cn(iconSize)} />
           <span className={cn("text-xs", "font-medium")}>
