@@ -24,6 +24,10 @@ export interface AccessibleJob {
   qty: number;
   has_custom_workflow: boolean;
   manual_due_date?: string | null;
+  // Additional fields for enhanced compatibility
+  started_by?: string | null;
+  started_by_name?: string | null;
+  proof_emailed_at?: string | null;
 }
 
 export interface UseAccessibleJobsOptions {

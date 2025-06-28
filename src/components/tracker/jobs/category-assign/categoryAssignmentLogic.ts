@@ -19,9 +19,17 @@ export const handleAssignment = async (
 
   try {
     setIsAssigning(true);
+    console.log('🚀 Starting bulletproof category assignment...');
     
     const jobIds = job.isMultiple ? job.selectedIds : [job.id];
     const hasPartAssignments = hasMultiPartStages && Object.keys(partAssignments).length > 0;
+    
+    // Show user what we're about to do
+    const jobCount = jobIds.length;
+    const jobText = jobCount === 1 ? 'job' : 'jobs';
+    const workflowType = hasPartAssignments ? 'multi-part workflow' : 'standard workflow';
+    
+    console.log(`📋 Processing ${jobCount} ${jobText} with ${workflowType}...`);
     
     const result = await batchAssignJobCategory(
       jobIds,
@@ -29,26 +37,35 @@ export const handleAssignment = async (
       hasPartAssignments ? partAssignments : undefined
     );
 
-    // Show results
+    // Show detailed results to user
     if (result.successCount > 0) {
-      const message = hasPartAssignments
-        ? `Successfully assigned category and initialized multi-part workflow for ${result.successCount} job(s)`
-        : `Successfully assigned category and initialized workflow for ${result.successCount} job(s)`;
+      const successMessage = hasPartAssignments
+        ? `Successfully assigned category and initialized multi-part workflow for ${result.successCount} ${jobText}`
+        : `Successfully assigned category and initialized workflow for ${result.successCount} ${jobText}`;
       
-      toast.success(message);
+      toast.success(successMessage);
     }
 
+    // Show any failures with details
     if (result.failedCount > 0) {
-      toast.error(`Failed to assign category to ${result.failedCount} job(s)`);
+      const failureMessage = `Failed to assign category to ${result.failedCount} ${jobText}`;
+      toast.error(failureMessage);
+      
+      // Log detailed errors for debugging
+      result.errors.forEach(error => {
+        console.error('❌ Category assignment error:', error);
+      });
     }
 
-    // Close modal and refresh data
-    onAssign();
-    onClose();
+    // Close modal and refresh data if we had any success
+    if (result.successCount > 0) {
+      onAssign();
+      onClose();
+    }
 
   } catch (error) {
-    console.error('Category assignment error:', error);
-    toast.error('Failed to assign category');
+    console.error('💥 Unexpected category assignment error:', error);
+    toast.error('Failed to assign category - unexpected error occurred');
   } finally {
     setIsAssigning(false);
   }

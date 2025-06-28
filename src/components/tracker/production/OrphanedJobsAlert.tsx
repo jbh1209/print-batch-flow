@@ -9,7 +9,6 @@ import { toast } from "sonner";
 
 interface OrphanedJobsAlertProps {
   onRepaired: () => void;
-  // orphanedJobsCount prop is removed, component will fetch its own.
 }
 
 export const OrphanedJobsAlert: React.FC<OrphanedJobsAlertProps> = ({
@@ -78,7 +77,6 @@ export const OrphanedJobsAlert: React.FC<OrphanedJobsAlertProps> = ({
   useEffect(() => {
     fetchOrphanedJobCount();
   }, []);
-
 
   const handleBulkRepair = async () => {
     setIsRepairing(true);

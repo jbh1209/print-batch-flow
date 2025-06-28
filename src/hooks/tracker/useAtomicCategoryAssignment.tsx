@@ -15,25 +15,41 @@ export const useAtomicCategoryAssignment = () => {
     setIsAssigning(true);
 
     try {
+      console.log('🔒 Starting atomic category assignment with force-reset...', {
+        jobCount: jobIds.length,
+        categoryId: categoryId.substring(0, 8),
+        hasPartAssignments: partAssignments && Object.keys(partAssignments).length > 0,
+        previousCategoryId: currentJobCategoryId?.substring(0, 8)
+      });
+
       const result = await batchAssignJobCategory(
         jobIds,
         categoryId,
         partAssignments
       );
 
-      // Show user feedback
+      // Show user feedback with detailed results
       if (result.successCount > 0) {
-        toast.success(`Successfully assigned category to ${result.successCount} out of ${result.totalCount} job(s)`);
+        const jobText = result.totalCount === 1 ? 'job' : 'jobs';
+        toast.success(`Successfully assigned category to ${result.successCount} out of ${result.totalCount} ${jobText}`);
       }
 
       if (result.failedCount > 0) {
-        toast.error(`Failed to assign category to ${result.failedCount} job(s)`);
+        const failedText = result.failedCount === 1 ? 'job' : 'jobs';
+        toast.error(`Failed to assign category to ${result.failedCount} ${failedText}`);
+        
+        // Log errors for debugging
+        console.group('🔍 Category Assignment Errors:');
+        result.errors.forEach(error => {
+          console.error(error);
+        });
+        console.groupEnd();
       }
 
       return result.successCount > 0 && result.failedCount === 0;
 
     } catch (error) {
-      console.error('Atomic assignment error:', error);
+      console.error('💥 Atomic assignment error:', error);
       toast.error('Failed to assign categories');
       return false;
     } finally {
