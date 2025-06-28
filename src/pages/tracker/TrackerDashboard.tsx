@@ -103,13 +103,10 @@ const TrackerDashboard = () => {
       return dueDate < today;
     }).length;
 
-    // Completed this month
-    const completedThisMonth = jobs.filter(job => {
-      if (job.status !== 'Completed') return false;
-      if (!job.updated_at) return false;
-      const updatedDate = new Date(job.updated_at);
-      return updatedDate >= monthStart;
-    }).length;
+    // Completed this month - using status instead of updated_at since it's not available
+    const completedThisMonth = jobs.filter(job => 
+      job.status === 'Completed'
+    ).length;
 
     // Critical = overdue + due today + jobs with low progress and approaching due dates
     const critical = overdue + dueToday + jobs.filter(job => 
@@ -228,12 +225,7 @@ const TrackerDashboard = () => {
         });
 
       case "completed_this_month":
-        return jobs.filter(job => {
-          if (job.status !== 'Completed') return false;
-          if (!job.updated_at) return false;
-          const updatedDate = new Date(job.updated_at);
-          return updatedDate >= monthStart;
-        });
+        return jobs.filter(job => job.status === 'Completed');
 
       case "in_progress":
         return jobs.filter(job => job.current_stage_status === 'active');
@@ -330,7 +322,6 @@ const TrackerDashboard = () => {
           />
         )}
 
-        {/* Keep existing breakdown and actions */}
         <TrackerStatusBreakdown stats={stats} />
         <TrackerQuickActions />
         {stats.total === 0 && <TrackerEmptyState />}
