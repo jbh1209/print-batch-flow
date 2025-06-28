@@ -1,10 +1,9 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { AccessibleJob } from "./types";
-import { processJobsArray } from "./jobDataProcessor";
+import { processJobsArray, RawJobData } from "./jobDataProcessor";
 
 interface UseAccessibleJobsSimpleOptions {
   permissionType?: 'view' | 'edit' | 'work' | 'manage';
@@ -58,8 +57,14 @@ export const useAccessibleJobsSimple = (options: UseAccessibleJobsSimpleOptions 
       });
 
       if (data && Array.isArray(data)) {
+        // Map the data to ensure it matches RawJobData interface
+        const rawJobData: RawJobData[] = data.map(job => ({
+          ...job,
+          id: job.job_id || job.id || '', // Ensure id is present
+        }));
+        
         // Use centralized processor - this ensures custom workflow dates work consistently
-        const processedJobs = processJobsArray(data);
+        const processedJobs = processJobsArray(rawJobData);
         console.log("✅ Simplified jobs loaded with centralized processor:", processedJobs.length);
         setJobs(processedJobs);
       } else {
