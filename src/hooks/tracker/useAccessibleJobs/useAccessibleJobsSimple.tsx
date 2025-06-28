@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { AccessibleJob } from "./types";
-import { normalizeJobData } from "./jobDataNormalizer";
+import { processJobsArray } from "./jobDataProcessor";
 
 interface UseAccessibleJobsSimpleOptions {
   permissionType?: 'view' | 'edit' | 'work' | 'manage';
@@ -58,9 +58,10 @@ export const useAccessibleJobsSimple = (options: UseAccessibleJobsSimpleOptions 
       });
 
       if (data && Array.isArray(data)) {
-        const normalizedJobs = data.map((job, index) => normalizeJobData(job, index));
-        console.log("✅ Simplified jobs loaded:", normalizedJobs.length);
-        setJobs(normalizedJobs);
+        // Use centralized processor - this ensures custom workflow dates work consistently
+        const processedJobs = processJobsArray(data);
+        console.log("✅ Simplified jobs loaded with centralized processor:", processedJobs.length);
+        setJobs(processedJobs);
       } else {
         console.log("⚠️ No valid data returned");
         setJobs([]);
