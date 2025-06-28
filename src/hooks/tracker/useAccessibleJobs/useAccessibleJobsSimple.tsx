@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -60,7 +61,7 @@ export const useAccessibleJobsSimple = (options: UseAccessibleJobsSimpleOptions 
         // Map the data to ensure it matches RawJobData interface
         const rawJobData: RawJobData[] = data.map(job => ({
           ...job,
-          id: job.job_id || job.id || '', // Ensure id is present
+          id: job.job_id || '', // Use job_id as the id since that's what the database returns
         }));
         
         // Use centralized processor - this ensures custom workflow dates work consistently
