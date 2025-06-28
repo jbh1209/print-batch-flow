@@ -1,11 +1,13 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
-import { TrackerOverviewStats } from "@/components/tracker/dashboard/TrackerOverviewStats";
+import { InteractiveOverviewStats } from "@/components/tracker/dashboard/InteractiveOverviewStats";
+import { FilteredJobsList } from "@/components/tracker/dashboard/FilteredJobsList";
 import { TrackerStatusBreakdown } from "@/components/tracker/dashboard/TrackerStatusBreakdown";
 import { TrackerQuickActions } from "@/components/tracker/dashboard/TrackerQuickActions";
 import { TrackerEmptyState } from "@/components/tracker/dashboard/TrackerEmptyState";
 import { RefreshIndicator } from "@/components/tracker/RefreshIndicator";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useCategories } from "@/hooks/tracker/useCategories";
 
 const TrackerDashboard = () => {
   const {
@@ -15,8 +17,13 @@ const TrackerDashboard = () => {
     refreshJobs,
     lastFetchTime
   } = useAccessibleJobs({
-    permissionType: 'manage' // Get all jobs with admin permissions
+    permissionType: 'manage'
   });
+
+  const { categories } = useCategories();
+
+  // Dashboard filter state
+  const [activeFilter, setActiveFilter] = React.useState<string | null>(null);
 
   // Local refresh UI state
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -46,9 +53,11 @@ const TrackerDashboard = () => {
         completed: 0,
         pending: 0,
         dueToday: 0,
+        dueTomorrow: 0,
         dueThisWeek: 0,
         overdue: 0,
         critical: 0,
+        completedThisMonth: 0,
         statusCounts: {},
         stages: []
       };
@@ -57,8 +66,13 @@ const TrackerDashboard = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
     const weekFromNow = new Date(today);
     weekFromNow.setDate(today.getDate() + 7);
+
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
     // Calculate time-based metrics
     const dueToday = jobs.filter(job => {
@@ -66,6 +80,13 @@ const TrackerDashboard = () => {
       const dueDate = new Date(job.due_date);
       dueDate.setHours(0, 0, 0, 0);
       return dueDate.getTime() === today.getTime();
+    }).length;
+
+    const dueTomorrow = jobs.filter(job => {
+      if (!job.due_date) return false;
+      const dueDate = new Date(job.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate.getTime() === tomorrow.getTime();
     }).length;
 
     const dueThisWeek = jobs.filter(job => {
@@ -80,6 +101,14 @@ const TrackerDashboard = () => {
       const dueDate = new Date(job.due_date);
       dueDate.setHours(0, 0, 0, 0);
       return dueDate < today;
+    }).length;
+
+    // Completed this month
+    const completedThisMonth = jobs.filter(job => {
+      if (job.status !== 'Completed') return false;
+      if (!job.updated_at) return false;
+      const updatedDate = new Date(job.updated_at);
+      return updatedDate >= monthStart;
     }).length;
 
     // Critical = overdue + due today + jobs with low progress and approaching due dates
@@ -131,13 +160,99 @@ const TrackerDashboard = () => {
       completed,
       pending,
       dueToday,
+      dueTomorrow,
       dueThisWeek,
       overdue,
       critical,
+      completedThisMonth,
       statusCounts,
       stages
     };
   }, [jobs]);
+
+  // Filter jobs based on active filter
+  const filteredJobs = React.useMemo(() => {
+    if (!activeFilter || !jobs) return [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    const weekFromNow = new Date(today);
+    weekFromNow.setDate(today.getDate() + 7);
+
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    switch (activeFilter) {
+      case "overdue":
+        return jobs.filter(job => {
+          if (!job.due_date || job.status === 'Completed') return false;
+          const dueDate = new Date(job.due_date);
+          dueDate.setHours(0, 0, 0, 0);
+          return dueDate < today;
+        });
+
+      case "due_today":
+        return jobs.filter(job => {
+          if (!job.due_date) return false;
+          const dueDate = new Date(job.due_date);
+          dueDate.setHours(0, 0, 0, 0);
+          return dueDate.getTime() === today.getTime();
+        });
+
+      case "due_tomorrow":
+        return jobs.filter(job => {
+          if (!job.due_date) return false;
+          const dueDate = new Date(job.due_date);
+          dueDate.setHours(0, 0, 0, 0);
+          return dueDate.getTime() === tomorrow.getTime();
+        });
+
+      case "due_this_week":
+        return jobs.filter(job => {
+          if (!job.due_date) return false;
+          const dueDate = new Date(job.due_date);
+          dueDate.setHours(0, 0, 0, 0);
+          return dueDate > today && dueDate <= weekFromNow;
+        });
+
+      case "critical":
+        return jobs.filter(job => {
+          const isOverdue = job.due_date && new Date(job.due_date) < today && job.status !== 'Completed';
+          const isDueToday = job.due_date && new Date(job.due_date).setHours(0,0,0,0) === today.getTime();
+          const isLowProgress = job.workflow_progress && job.workflow_progress < 30 && 
+                               job.due_date && new Date(job.due_date) <= weekFromNow;
+          return isOverdue || isDueToday || isLowProgress;
+        });
+
+      case "completed_this_month":
+        return jobs.filter(job => {
+          if (job.status !== 'Completed') return false;
+          if (!job.updated_at) return false;
+          const updatedDate = new Date(job.updated_at);
+          return updatedDate >= monthStart;
+        });
+
+      case "in_progress":
+        return jobs.filter(job => job.current_stage_status === 'active');
+
+      case "total":
+        return jobs;
+
+      default:
+        return [];
+    }
+  }, [jobs, activeFilter]);
+
+  const handleFilterClick = (filter: string) => {
+    if (activeFilter === filter) {
+      setActiveFilter(null); // Toggle off if same filter clicked
+    } else {
+      setActiveFilter(filter);
+    }
+  };
 
   // Auto-refresh every 30 seconds for factory display
   React.useEffect(() => {
@@ -183,11 +298,11 @@ const TrackerDashboard = () => {
 
   return (
     <div className="space-y-4 bg-gray-50 min-h-screen">
-      {/* Reduced header height by 25% */}
+      {/* Header */}
       <div className="flex items-center justify-between bg-white px-6 py-4 border-b shadow-sm">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Production Dashboard</h1>
-          <p className="text-gray-600">Real-time production monitoring</p>
+          <p className="text-gray-600">Real-time production monitoring - Click stats to filter jobs</p>
         </div>
         <RefreshIndicator
           lastUpdated={new Date(lastFetchTime)}
@@ -198,7 +313,24 @@ const TrackerDashboard = () => {
       </div>
 
       <div className="px-6 space-y-4">
-        <TrackerOverviewStats stats={stats} />
+        {/* Interactive Overview Stats */}
+        <InteractiveOverviewStats 
+          stats={stats} 
+          activeFilter={activeFilter}
+          onFilterClick={handleFilterClick}
+        />
+
+        {/* Filtered Jobs List */}
+        {activeFilter && (
+          <FilteredJobsList
+            jobs={filteredJobs}
+            activeFilter={activeFilter}
+            onClose={() => setActiveFilter(null)}
+            categories={categories}
+          />
+        )}
+
+        {/* Keep existing breakdown and actions */}
         <TrackerStatusBreakdown stats={stats} />
         <TrackerQuickActions />
         {stats.total === 0 && <TrackerEmptyState />}
