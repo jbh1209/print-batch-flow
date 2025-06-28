@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatWONumber } from "@/utils/woNumberFormatter";
+import { processJobsArray, RawJobData } from "./useAccessibleJobs/jobDataProcessor";
 
 interface UseEnhancedProductionJobsOptions {
   fetchAllJobs?: boolean; // New option to fetch all jobs instead of user-specific
@@ -19,7 +20,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
     try {
       setError(null);
       setIsLoading(true);
-      console.log("🔍 Fetching enhanced production jobs...", { fetchAllJobs, userId: user?.id });
+      console.log("🔍 Fetching enhanced production jobs with centralized processor...", { fetchAllJobs, userId: user?.id });
 
       // Build the query - conditionally add user filter
       let query = supabase
@@ -86,7 +87,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
       }
 
       // Process jobs with enhanced stage information
-      const processedJobs = jobsData.map(job => {
+      const enhancedJobsData = jobsData.map(job => {
         const formattedWoNo = formatWONumber(job.wo_no);
         
         // Get stages for this job
@@ -106,21 +107,17 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
           // Use the active stage name
           currentStage = activeStage.production_stages?.name || 'Active Stage';
           currentStageId = activeStage.production_stage_id;
-          console.log(`🎯 Job ${job.wo_no}: Active stage = ${currentStage}`);
         } else if (pendingStages.length > 0) {
           // If no active stage, the first pending stage is current
           const firstPending = pendingStages.sort((a, b) => a.stage_order - b.stage_order)[0];
           currentStage = firstPending.production_stages?.name || 'Pending Stage';
           currentStageId = firstPending.production_stage_id;
-          console.log(`🎯 Job ${job.wo_no}: First pending stage = ${currentStage}`);
         } else if (hasWorkflow && completedStages.length === jobStages.length && jobStages.length > 0) {
           // All stages completed
           currentStage = 'Completed';
-          console.log(`🎯 Job ${job.wo_no}: All stages completed`);
         } else if (!hasWorkflow) {
           // No workflow - use job status or fallback
           currentStage = job.status || 'DTP';
-          console.log(`🎯 Job ${job.wo_no}: No workflow, using status = ${currentStage}`);
         }
         
         // Calculate workflow progress
@@ -137,54 +134,53 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
           status: stage.status
         }));
 
-        // Handle due date for custom workflows - prefer manual_due_date
-        const effectiveDueDate = job.has_custom_workflow && job.manual_due_date 
-          ? job.manual_due_date 
-          : job.due_date;
-        
-        const processedJob = {
+        // Convert to RawJobData format for the centralized processor
+        const rawJobData: RawJobData = {
           ...job,
+          id: job.id,
+          job_id: job.id,
           wo_no: formattedWoNo,
-          has_workflow: hasWorkflow,
-          current_stage: currentStage, // This is now properly set!
+          current_stage: currentStage,
           current_stage_id: currentStageId,
+          current_stage_name: currentStage,
           workflow_progress: workflowProgress,
-          job_stage_instances: jobStages,
-          stages: processedStages,
-          category_id: job.category_id || null,
-          // Use effective due date that considers manual_due_date for custom workflows
-          due_date: effectiveDueDate,
-          // Preserve original fields
+          total_stages: totalStages,
+          completed_stages: completedStages.length,
+          has_custom_workflow: job.has_custom_workflow,
           manual_due_date: job.manual_due_date,
-          // Ensure we have consistent status handling
-          status: job.status || currentStage,
-          // Add computed fields for easier filtering
-          is_active: activeStage ? true : false,
-          is_pending: !activeStage && pendingStages.length > 0,
-          is_completed: jobStages.length > 0 && completedStages.length === totalStages,
-          stage_status: activeStage ? 'active' : (pendingStages.length > 0 ? 'pending' : 'unknown')
+          due_date: job.due_date,
+          stages: processedStages,
+          job_stage_instances: jobStages
         };
 
-        console.log("📋 Enhanced job processing:", {
-          woNo: processedJob.wo_no,
-          originalStatus: job.status,
-          currentStage: processedJob.current_stage, // This should now be the stage name
-          currentStageId: processedJob.current_stage_id?.substring(0, 8),
-          hasWorkflow: processedJob.has_workflow,
-          stagesCount: processedJob.stages.length,
-          workflowProgress: processedJob.workflow_progress,
-          isActive: processedJob.is_active,
-          isPending: processedJob.is_pending,
-          hasCustomWorkflow: job.has_custom_workflow,
-          manualDueDate: job.manual_due_date,
-          effectiveDueDate: effectiveDueDate
-        });
-
-        return processedJob;
+        return rawJobData;
       });
 
-      console.log("✅ Enhanced production jobs processed:", processedJobs.length, "jobs");
-      setJobs(processedJobs);
+      // Use centralized processor to handle custom workflow dates consistently
+      console.log("🔧 Processing enhanced jobs with centralized processor...");
+      const processedJobs = processJobsArray(enhancedJobsData);
+
+      // Convert back to enhanced format with additional fields
+      const finalJobs = processedJobs.map((processedJob, index) => {
+        const originalData = enhancedJobsData[index];
+        
+        return {
+          ...processedJob,
+          // Preserve enhanced fields
+          has_workflow: originalData.stages?.length > 0,
+          stages: originalData.stages,
+          job_stage_instances: originalData.job_stage_instances,
+          category_id: processedJob.category_id || null,
+          // Add computed fields for easier filtering
+          is_active: originalData.stages?.some((s: any) => s.status === 'active') || false,
+          is_pending: !originalData.stages?.some((s: any) => s.status === 'active') && originalData.stages?.some((s: any) => s.status === 'pending') || false,
+          is_completed: originalData.stages?.length > 0 && originalData.stages?.every((s: any) => s.status === 'completed') || false,
+          stage_status: originalData.stages?.some((s: any) => s.status === 'active') ? 'active' : (originalData.stages?.some((s: any) => s.status === 'pending') ? 'pending' : 'unknown')
+        };
+      });
+
+      console.log("✅ Enhanced production jobs processed with centralized processor:", finalJobs.length, "jobs");
+      setJobs(finalJobs);
     } catch (err) {
       console.error('❌ Error fetching enhanced production jobs:', err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load jobs";
@@ -195,7 +191,6 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
     }
   }, [fetchAllJobs, user?.id]);
 
-  // Stage management functions
   const startStage = useCallback(async (jobId: string, stageId: string) => {
     try {
       console.log('Starting stage:', { jobId, stageId });

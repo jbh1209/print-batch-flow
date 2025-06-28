@@ -22,6 +22,16 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   showDetails = true,
   compact = false
 }) => {
+  // Get the effective due date - this should already be processed by the centralized processor
+  const effectiveDueDate = job.due_date; // The centralized processor already handles manual_due_date logic
+  
+  console.log(`🎯 JobStatusDisplay for ${job.wo_no}:`, {
+    hasCustomWorkflow: job.has_custom_workflow,
+    effectiveDueDate: effectiveDueDate,
+    manualDueDate: job.manual_due_date,
+    originalDueDate: job.due_date
+  });
+
   const isOverdue = isJobOverdue(job);
   const isDueSoon = isJobDueSoon(job);
   const jobStatus = processJobStatus(job);
@@ -39,9 +49,6 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
   const isOrphaned = !hasCustomWorkflow && job.category_id && (!job.current_stage_id || job.current_stage_id === '00000000-0000-0000-0000-000000000000');
   const hasCategory = !!job.category_id;
   const hasStage = job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000';
-
-  // Get the effective due date - prefer manual_due_date for custom workflows
-  const effectiveDueDate = hasCustomWorkflow && job.manual_due_date ? job.manual_due_date : job.due_date;
 
   // Determine display status and styling
   let displayStatus: string;
@@ -110,7 +117,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
         </div>
       )}
 
-      {/* Due Date - Use effective due date */}
+      {/* Due Date - Use the effective due date that's already processed */}
       {showDetails && effectiveDueDate && (
         <div className="flex items-center gap-2">
           <Calendar className={cn("text-gray-400", iconSize)} />
@@ -122,7 +129,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
             textSize
           )}>
             {compact ? "" : "Due: "}{new Date(effectiveDueDate).toLocaleDateString()}
-            {hasCustomWorkflow && (
+            {hasCustomWorkflow && job.manual_due_date && (
               <span className="text-xs text-purple-600 ml-1">(Manual)</span>
             )}
           </span>

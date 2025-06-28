@@ -1,10 +1,9 @@
-
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
-import { normalizeJobData } from "./useAccessibleJobs/jobDataNormalizer";
+import { processJobsArray } from "./useAccessibleJobs/jobDataProcessor";
 import { jobsCache } from "./useAccessibleJobs/cacheManager";
 import { requestDeduplicator } from "./useAccessibleJobs/requestDeduplicator";
 import { useRealtimeSubscription } from "./useAccessibleJobs/useRealtimeSubscription";
@@ -50,6 +49,13 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     abortControllerRef.current = abortController;
 
     try {
+      console.log("🔄 Fetching jobs with centralized processor...", {
+        userId: user.id.substring(0, 8),
+        permissionType,
+        statusFilter,
+        stageFilter
+      });
+
       // Check if user is admin first
       const { data: adminCheck } = await supabase
         .from('user_roles')
@@ -97,11 +103,13 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
       }
 
       if (data && Array.isArray(data)) {
-        const normalizedJobs = data.map((job, index) => {
-          return normalizeJobData(job, index);
-        });
-
-        return normalizedJobs;
+        console.log(`🔧 Processing ${data.length} jobs from get_user_accessible_jobs`);
+        
+        // Use centralized processor - this ensures custom workflow dates work everywhere
+        const processedJobs = processJobsArray(data);
+        
+        console.log(`✅ Processed ${processedJobs.length} jobs with centralized processor`);
+        return processedJobs;
       } else {
         return [];
       }
@@ -218,7 +226,6 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     }
   );
 
-  // Refresh function that forces a fresh fetch and clears cache
   const refreshJobs = useCallback(async () => {
     console.log("🔄 Refreshing jobs with cache clear...");
     
@@ -275,7 +282,7 @@ export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
     refreshJobs,
     forceUpdate,
     lastFetchTime,
-    invalidateCache, // New function to clear cache
+    invalidateCache,
     
     // Enhanced capabilities
     hasOptimisticUpdates,
