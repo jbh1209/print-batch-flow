@@ -35,7 +35,7 @@ export const FilteredJobsList: React.FC<FilteredJobsListProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   if (!activeFilter || jobs.length === 0) {
     return null;
@@ -73,7 +73,7 @@ export const FilteredJobsList: React.FC<FilteredJobsListProps> = ({
       job.customer?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       job.reference?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesCategory = !categoryFilter || job.category === categoryFilter;
+    const matchesCategory = categoryFilter === "all" || job.category === categoryFilter;
     
     return matchesSearch && matchesCategory;
   });
@@ -150,7 +150,7 @@ export const FilteredJobsList: React.FC<FilteredJobsListProps> = ({
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.name}>
                     {category.name}
