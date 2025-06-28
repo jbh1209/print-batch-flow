@@ -19,6 +19,7 @@ import {
   X
 } from "lucide-react";
 import { format } from "date-fns";
+import { JobStatusDisplay } from "../common/JobStatusDisplay";
 
 interface FilteredJobsListProps {
   jobs: any[];
@@ -77,34 +78,6 @@ export const FilteredJobsList: React.FC<FilteredJobsListProps> = ({
     
     return matchesSearch && matchesCategory;
   });
-
-  const getDueDateStatus = (dueDate: string | null) => {
-    if (!dueDate) return { text: "No due date", color: "gray" };
-    
-    const due = new Date(dueDate);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    
-    today.setHours(0, 0, 0, 0);
-    due.setHours(0, 0, 0, 0);
-    tomorrow.setHours(0, 0, 0, 0);
-    
-    if (due < today) return { text: "Overdue", color: "red" };
-    if (due.getTime() === today.getTime()) return { text: "Due today", color: "orange" };
-    if (due.getTime() === tomorrow.getTime()) return { text: "Due tomorrow", color: "yellow" };
-    return { text: format(due, "MMM dd"), color: "blue" };
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "completed": return "bg-green-100 text-green-800";
-      case "in progress": case "active": return "bg-blue-100 text-blue-800";
-      case "pending": return "bg-yellow-100 text-yellow-800";
-      case "overdue": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
 
   return (
     <Card className={`${getFilterColor(activeFilter)} shadow-lg`}>
@@ -172,27 +145,19 @@ export const FilteredJobsList: React.FC<FilteredJobsListProps> = ({
           ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {filteredJobs.map((job) => {
-                const dueDateStatus = getDueDateStatus(job.due_date);
-                
                 return (
                   <div 
                     key={job.job_id} 
-                    className="flex items-center justify-between p-4 bg-white border rounded-lg hover:shadow-md transition-shadow"
+                    className="flex items-start justify-between p-4 bg-white border rounded-lg hover:shadow-md transition-shadow"
                   >
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 space-y-3">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="font-semibold text-gray-900 truncate">
                           {job.wo_no}
                         </h3>
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${getStatusBadgeColor(job.status)}`}
-                        >
-                          {job.status || 'Unknown'}
-                        </Badge>
                       </div>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-gray-600">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
                         {job.customer && (
                           <div className="flex items-center gap-1">
                             <Building className="h-3 w-3" />
@@ -200,57 +165,48 @@ export const FilteredJobsList: React.FC<FilteredJobsListProps> = ({
                           </div>
                         )}
                         
-                        {job.category && (
+                        {job.reference && (
                           <div className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            <span className="truncate">{job.category}</span>
+                            <span className="text-xs text-gray-500 truncate">
+                              Ref: {job.reference}
+                            </span>
                           </div>
                         )}
-                        
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs ${
-                              dueDateStatus.color === 'red' ? 'border-red-300 text-red-700' :
-                              dueDateStatus.color === 'orange' ? 'border-orange-300 text-orange-700' :
-                              dueDateStatus.color === 'yellow' ? 'border-yellow-300 text-yellow-700' :
-                              'border-blue-300 text-blue-700'
-                            }`}
-                          >
-                            {dueDateStatus.text}
-                          </Badge>
-                        </div>
                       </div>
-                      
-                      {job.reference && (
-                        <div className="mt-2 text-xs text-gray-500">
-                          Ref: {job.reference}
-                        </div>
-                      )}
                     </div>
 
-                    <div className="flex items-center gap-2 ml-4">
-                      {job.workflow_progress !== undefined && (
-                        <div className="text-right">
-                          <div className="text-sm font-medium">{job.workflow_progress}%</div>
-                          <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-blue-500 transition-all duration-300"
-                              style={{ width: `${job.workflow_progress}%` }}
-                            />
+                    <div className="flex items-start gap-4 ml-4">
+                      <div className="text-right">
+                        {job.workflow_progress !== undefined && (
+                          <div className="mb-2">
+                            <div className="text-sm font-medium">{job.workflow_progress}%</div>
+                            <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-blue-500 transition-all duration-300"
+                                style={{ width: `${job.workflow_progress}%` }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                      
+                      {/* Use JobStatusDisplay component instead of basic badges */}
+                      <div className="min-w-0">
+                        <JobStatusDisplay 
+                          job={job} 
+                          showDetails={true}
+                          compact={true}
+                        />
+                      </div>
                       
                       {activeFilter === 'overdue' && (
-                        <AlertTriangle className="h-5 w-5 text-red-500" />
+                        <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
                       )}
                       {activeFilter === 'completed_this_month' && (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
+                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       )}
                       {(activeFilter === 'due_today' || activeFilter === 'due_tomorrow') && (
-                        <Clock className="h-5 w-5 text-orange-500" />
+                        <Clock className="h-5 w-5 text-orange-500 flex-shrink-0" />
                       )}
                     </div>
                   </div>

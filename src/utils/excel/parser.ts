@@ -12,6 +12,20 @@ const safeGetCellValue = (row: any[], index: number): any => {
   return value === null || value === undefined ? '' : value;
 };
 
+// Function to normalize status values - filter out unwanted statuses from MIS system
+const normalizeStatus = (statusValue: any, logger: ExcelImportDebugger): string => {
+  const rawStatus = String(statusValue || "").trim();
+  
+  // Filter out "Production" status as it's just a MIS marker with no value
+  if (rawStatus.toLowerCase() === 'production') {
+    logger.addDebugInfo(`Filtering out "Production" status - using default "Pre-Press"`);
+    return "Pre-Press";
+  }
+  
+  // Return the status as-is if it's not the filtered value
+  return rawStatus || "Pre-Press";
+};
+
 export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): Promise<ParsedData> => {
   logger.addDebugInfo(`Starting to process file: ${file.name}`);
   
@@ -91,9 +105,12 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
     const qtyValue = safeGetCellValue(row, columnMap.qty);
     const locationValue = safeGetCellValue(row, columnMap.location);
 
+    // Use the new status normalization function
+    const normalizedStatus = normalizeStatus(statusValue, logger);
+
     const job: ParsedJob = {
       wo_no: woNo,
-      status: String(statusValue || "").trim() || "Pre-Press",
+      status: normalizedStatus,
       date: formattedDate,
       rep: String(repValue || "").trim(),
       category: String(categoryValue || "").trim(),
