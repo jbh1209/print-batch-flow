@@ -1107,9 +1107,13 @@ export type Database = {
           customer: string | null
           date: string | null
           due_date: string | null
+          expedite_reason: string | null
+          expedited_at: string | null
+          expedited_by: string | null
           has_custom_workflow: boolean | null
           highlighted: boolean | null
           id: string
+          is_expedited: boolean | null
           location: string | null
           manual_due_date: string | null
           manual_sla_days: number | null
@@ -1133,9 +1137,13 @@ export type Database = {
           customer?: string | null
           date?: string | null
           due_date?: string | null
+          expedite_reason?: string | null
+          expedited_at?: string | null
+          expedited_by?: string | null
           has_custom_workflow?: boolean | null
           highlighted?: boolean | null
           id?: string
+          is_expedited?: boolean | null
           location?: string | null
           manual_due_date?: string | null
           manual_sla_days?: number | null
@@ -1159,9 +1167,13 @@ export type Database = {
           customer?: string | null
           date?: string | null
           due_date?: string | null
+          expedite_reason?: string | null
+          expedited_at?: string | null
+          expedited_by?: string | null
           has_custom_workflow?: boolean | null
           highlighted?: boolean | null
           id?: string
+          is_expedited?: boolean | null
           location?: string | null
           manual_due_date?: string | null
           manual_sla_days?: number | null
@@ -1688,6 +1700,14 @@ export type Database = {
         Args: { check_user_id?: string }
         Returns: boolean
       }
+      expedite_job_factory_wide: {
+        Args: {
+          p_job_id: string
+          p_expedite_reason: string
+          p_expedited_by?: string
+        }
+        Returns: boolean
+      }
       get_admin_status: {
         Args: { check_user_id?: string }
         Returns: {
@@ -1940,6 +1960,10 @@ export type Database = {
           success: boolean
           error_message: string
         }[]
+      }
+      remove_job_expedite_status: {
+        Args: { p_job_id: string; p_removed_by?: string }
+        Returns: boolean
       }
       repair_jobs_missing_stages: {
         Args: Record<PropertyKey, never>

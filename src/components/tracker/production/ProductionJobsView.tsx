@@ -2,6 +2,7 @@
 import React from "react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { CompactDtpJobCard } from "@/components/tracker/factory/CompactDtpJobCard";
+import { ExpediteButton } from "@/components/tracker/common/ExpediteButton";
 
 interface ProductionJobsViewProps {
   jobs: AccessibleJob[];
@@ -9,6 +10,7 @@ interface ProductionJobsViewProps {
   isLoading: boolean;
   onJobClick: (job: AccessibleJob) => void;
   onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete') => Promise<void>;
+  onJobUpdated?: () => void;
 }
 
 export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
@@ -16,7 +18,8 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
   selectedStage,
   isLoading,
   onJobClick,
-  onStageAction
+  onStageAction,
+  onJobUpdated = () => {}
 }) => {
   if (isLoading) {
     return (
@@ -56,11 +59,14 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
         const isOverdue = job.due_date && new Date(job.due_date) < new Date();
         const isDueSoon = job.due_date && !isOverdue && 
           new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        
+        const isExpedited = (job as any).is_expedited === true;
 
         return (
           <div 
             key={job.job_id}
             className={`flex items-center gap-4 p-2 hover:bg-gray-50 cursor-pointer border-l-4 ${
+              isExpedited ? 'border-red-500 bg-red-50' :
               job.current_stage_status === 'active' ? 'border-blue-500 bg-blue-50' :
               isOverdue ? 'border-red-500 bg-red-50' :
               isDueSoon ? 'border-orange-500 bg-orange-50' :
@@ -68,14 +74,15 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
             }`}
             onClick={() => onJobClick(job)}
           >
-            {/* Due indicator */}
+            {/* Due/Priority indicator */}
             <div className="w-8 text-center">
-              {isOverdue && (
+              {isExpedited ? (
+                <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
+              ) : isOverdue ? (
                 <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-              )}
-              {isDueSoon && !isOverdue && (
+              ) : isDueSoon ? (
                 <div className="w-3 h-3 bg-orange-500 rounded-full" />
-              )}
+              ) : null}
             </div>
 
             {/* Job details */}
@@ -141,6 +148,18 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
                   {job.workflow_progress}%
                 </span>
               </div>
+            </div>
+
+            {/* Expedite Button */}
+            <div className="w-20">
+              <ExpediteButton
+                job={job as any}
+                onJobUpdated={onJobUpdated}
+                size="sm"
+                variant="ghost"
+                showLabel={false}
+                compact={true}
+              />
             </div>
 
             {/* Actions */}

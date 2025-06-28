@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, AlertTriangle, Clock, Settings } from "lucide-react";
+import { Calendar, AlertTriangle, Clock, Settings, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { 
@@ -12,7 +12,12 @@ import {
 } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 
 interface JobStatusDisplayProps {
-  job: AccessibleJob & { is_orphaned?: boolean };
+  job: AccessibleJob & { 
+    is_orphaned?: boolean;
+    is_expedited?: boolean;
+    expedite_reason?: string;
+    expedited_at?: string;
+  };
   showDetails?: boolean;
   compact?: boolean;
 }
@@ -29,13 +34,15 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
     hasCustomWorkflow: job.has_custom_workflow,
     effectiveDueDate: effectiveDueDate,
     manualDueDate: job.manual_due_date,
-    originalDueDate: job.due_date
+    originalDueDate: job.due_date,
+    isExpedited: job.is_expedited
   });
 
   const isOverdue = isJobOverdue(job);
   const isDueSoon = isJobDueSoon(job);
   const jobStatus = processJobStatus(job);
   const statusBadgeInfo = getJobStatusBadgeInfo(job);
+  const isExpedited = job.is_expedited === true;
 
   const iconSize = compact ? "h-3 w-3" : "h-4 w-4";
   const textSize = compact ? "text-xs" : "text-sm";
@@ -79,6 +86,21 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
 
   return (
     <div className="space-y-2">
+      {/* Expedite Status - Show prominently if expedited */}
+      {isExpedited && (
+        <div className="flex items-center gap-2">
+          <Badge className="bg-red-100 text-red-800 border-red-300 flex items-center gap-1">
+            <Zap className="h-3 w-3" />
+            {compact ? "RUSH" : "EXPEDITED"}
+          </Badge>
+          {showDetails && job.expedite_reason && (
+            <span className={cn("text-red-700 font-medium", textSize)}>
+              {job.expedite_reason}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Status Badge */}
       <div className="flex items-center gap-2">
         <Badge 
@@ -123,6 +145,7 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
           <Calendar className={cn("text-gray-400", iconSize)} />
           <span className={cn(
             "font-medium",
+            isExpedited ? "text-red-600" :
             isOverdue ? "text-red-600" : 
             isDueSoon ? "text-orange-600" : 
             "text-gray-700",
@@ -132,8 +155,11 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
             {hasCustomWorkflow && job.manual_due_date && (
               <span className="text-xs text-purple-600 ml-1">(Manual)</span>
             )}
+            {isExpedited && (
+              <span className="text-xs text-red-600 ml-1">(EXPEDITED)</span>
+            )}
           </span>
-          {isOverdue && <AlertTriangle className={cn("text-red-500", iconSize)} />}
+          {(isOverdue || isExpedited) && <AlertTriangle className={cn("text-red-500", iconSize)} />}
         </div>
       )}
 
@@ -170,6 +196,16 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
           </span>
           <span className={cn("font-medium text-gray-700", textSize)}>
             {hasCustomWorkflow ? 'Custom Workflow' : job.category_name || 'Unknown'}
+          </span>
+        </div>
+      )}
+
+      {/* Expedite Details */}
+      {showDetails && isExpedited && job.expedited_at && (
+        <div className="flex items-center gap-2">
+          <span className={cn("text-gray-500", textSize)}>Expedited:</span>
+          <span className={cn("font-medium text-red-700", textSize)}>
+            {new Date(job.expedited_at).toLocaleDateString()}
           </span>
         </div>
       )}

@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, CheckCircle, Pause } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { ExpediteButton } from "./ExpediteButton";
 import { 
   canStartJob, 
   canCompleteJob,
@@ -14,10 +15,12 @@ interface JobActionButtonsProps {
   onStart: (jobId: string, stageId: string) => Promise<boolean>;
   onComplete: (jobId: string, stageId: string) => Promise<boolean>;
   onHold?: (jobId: string, reason: string) => Promise<boolean>;
+  onJobUpdated?: () => void;
   size?: "sm" | "default" | "lg";
   variant?: "default" | "outline" | "secondary";
   layout?: "horizontal" | "vertical";
   showHold?: boolean;
+  showExpedite?: boolean;
   compact?: boolean;
 }
 
@@ -26,10 +29,12 @@ export const JobActionButtons: React.FC<JobActionButtonsProps> = ({
   onStart,
   onComplete,
   onHold,
+  onJobUpdated = () => {},
   size = "sm",
   variant = "default",
   layout = "horizontal",
   showHold = false,
+  showExpedite = true,
   compact = false
 }) => {
   const [isActionInProgress, setIsActionInProgress] = useState(false);
@@ -37,7 +42,16 @@ export const JobActionButtons: React.FC<JobActionButtonsProps> = ({
 
   // Return null if no stage or no work permission
   if (!job.current_stage_id || !job.user_can_work) {
-    return null;
+    return showExpedite ? (
+      <ExpediteButton
+        job={job as any}
+        onJobUpdated={onJobUpdated}
+        size={size}
+        variant="outline"
+        showLabel={!compact}
+        compact={compact}
+      />
+    ) : null;
   }
 
   const jobStatus = processJobStatus(job);
@@ -136,6 +150,17 @@ export const JobActionButtons: React.FC<JobActionButtonsProps> = ({
           <Pause className={compact ? "h-3 w-3" : "h-4 w-4"} />
           {compact ? "Hold" : "Hold"}
         </Button>
+      )}
+
+      {showExpedite && (
+        <ExpediteButton
+          job={job as any}
+          onJobUpdated={onJobUpdated}
+          size={size}
+          variant="outline"
+          showLabel={!compact}
+          compact={compact}
+        />
       )}
     </div>
   );
