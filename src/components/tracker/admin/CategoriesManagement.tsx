@@ -7,19 +7,9 @@ import { Trash2, Edit, Settings, Workflow } from "lucide-react";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { CategoryForm } from "./CategoryForm";
 import { CategoryStageBuilder } from "./CategoryStageBuilder";
+import { SafeCategoryDeleteDialog } from "./SafeCategoryDeleteDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -31,8 +21,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 
 export const CategoriesManagement = () => {
-  const { categories, isLoading, error, createCategory, updateCategory, deleteCategory } = useCategories();
-  const [selectedCategoryForWorkflow, setSelectedCategoryForWorkflow] = useState<{id: string, name: string} | null>(null);
+  const { categories, isLoading, error, createCategory, updateCategory, fetchCategories } = useCategories();
+  const [categoryToDelete, setCategoryToDelete] = useState<any>(null);
+
+  const handleCategoryDeleted = () => {
+    setCategoryToDelete(null);
+    fetchCategories(); // Refresh the categories list
+  };
 
   if (isLoading) {
     return (
@@ -118,27 +113,14 @@ export const CategoriesManagement = () => {
                         </Button>
                       }
                     />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "{category.name}"? This will also remove all associated workflow stages. This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteCategory(category.id)}>
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setCategoryToDelete(category)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -150,6 +132,16 @@ export const CategoriesManagement = () => {
             </div>
           </CardContent>
         </Card>
+
+        {categoryToDelete && (
+          <SafeCategoryDeleteDialog
+            isOpen={!!categoryToDelete}
+            onClose={() => setCategoryToDelete(null)}
+            category={categoryToDelete}
+            allCategories={categories}
+            onDeleted={handleCategoryDeleted}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );

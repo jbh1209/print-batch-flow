@@ -1744,6 +1744,16 @@ export type Database = {
           last_sign_in_at: string
         }[]
       }
+      get_category_usage_stats: {
+        Args: { p_category_id: string }
+        Returns: {
+          production_jobs_count: number
+          job_stage_instances_count: number
+          category_production_stages_count: number
+          can_delete: boolean
+          blocking_reason: string
+        }[]
+      }
       get_department_job_queue: {
         Args: { p_department_id: string }
         Returns: {
@@ -1918,6 +1928,19 @@ export type Database = {
         Args: { check_user_id?: string }
         Returns: boolean
       }
+      reassign_jobs_to_category: {
+        Args: {
+          p_from_category_id: string
+          p_to_category_id: string
+          p_user_id?: string
+        }
+        Returns: {
+          jobs_reassigned: number
+          stages_updated: number
+          success: boolean
+          error_message: string
+        }[]
+      }
       repair_jobs_missing_stages: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1949,6 +1972,14 @@ export type Database = {
           p_reworked_by?: string
         }
         Returns: boolean
+      }
+      safe_delete_category: {
+        Args: { p_category_id: string; p_user_id?: string }
+        Returns: {
+          success: boolean
+          message: string
+          deleted_stages: number
+        }[]
       }
       set_user_role: {
         Args: { target_user_id: string; new_role: string }
