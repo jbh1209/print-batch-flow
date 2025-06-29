@@ -9,7 +9,7 @@ import { BaseJob } from '@/config/productTypes';
 import { toast } from 'sonner';
 
 const SleeveJobEdit = () => {
-  const { jobId } = useParams();
+  const { id } = useParams(); // Changed from jobId to id
   const { user } = useAuth();
   const navigate = useNavigate();
   const [job, setJob] = useState<BaseJob | null>(null);
@@ -17,14 +17,14 @@ const SleeveJobEdit = () => {
 
   useEffect(() => {
     const fetchJob = async () => {
-      if (!user || !jobId) return;
+      if (!user || !id) return; // Changed from jobId to id
 
       try {
         // Remove user_id filter to allow any authenticated user to edit any job
         const { data, error } = await supabase
           .from('sleeve_jobs')
           .select('*')
-          .eq('id', jobId)
+          .eq('id', id) // Changed from jobId to id
           .single();
 
         if (error) throw error;
@@ -39,7 +39,7 @@ const SleeveJobEdit = () => {
     };
 
     fetchJob();
-  }, [jobId, user, navigate]);
+  }, [id, user, navigate]); // Changed from jobId to id
 
   if (isLoading) {
     return (

@@ -8,7 +8,7 @@ import { FlyerJob } from '@/components/batches/types/FlyerTypes';
 import { toast } from 'sonner';
 
 const FlyerJobEdit = () => {
-  const { jobId } = useParams();
+  const { id } = useParams(); // Changed from jobId to id
   const { user } = useAuth();
   const navigate = useNavigate();
   const [job, setJob] = useState<FlyerJob | null>(null);
@@ -16,13 +16,13 @@ const FlyerJobEdit = () => {
 
   useEffect(() => {
     const fetchJob = async () => {
-      if (!user || !jobId) return;
+      if (!user || !id) return; // Changed from jobId to id
 
       try {
         const { data, error } = await supabase
           .from('flyer_jobs')
           .select('*')
-          .eq('id', jobId)
+          .eq('id', id) // Changed from jobId to id
           .single();
 
         if (error) throw error;
@@ -37,7 +37,7 @@ const FlyerJobEdit = () => {
     };
 
     fetchJob();
-  }, [jobId, user, navigate]);
+  }, [id, user, navigate]); // Changed from jobId to id
 
   if (isLoading) {
     return (
