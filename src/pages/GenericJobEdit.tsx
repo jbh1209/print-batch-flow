@@ -12,7 +12,7 @@ interface GenericJobEditProps {
 }
 
 const GenericJobEdit = ({ config }: GenericJobEditProps) => {
-  const { jobId } = useParams();
+  const { id } = useParams(); // Changed from jobId to id to match route pattern
   const { user } = useAuth();
   const navigate = useNavigate();
   const [job, setJob] = useState<BaseJob | null>(null);
@@ -20,7 +20,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
 
   useEffect(() => {
     const fetchJob = async () => {
-      if (!user || !jobId) return;
+      if (!user || !id) return;
 
       try {
         let data: any = null;
@@ -31,7 +31,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
             const posterResult = await supabase
               .from('poster_jobs')
               .select('*')
-              .eq('id', jobId)
+              .eq('id', id)
               .single();
             data = posterResult.data;
             error = posterResult.error;
@@ -40,7 +40,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
             const boxResult = await supabase
               .from('box_jobs')
               .select('*')
-              .eq('id', jobId)
+              .eq('id', id)
               .single();
             data = boxResult.data;
             error = boxResult.error;
@@ -49,7 +49,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
             const coverResult = await supabase
               .from('cover_jobs')
               .select('*')
-              .eq('id', jobId)
+              .eq('id', id)
               .single();
             data = coverResult.data;
             error = coverResult.error;
@@ -58,7 +58,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
             const stickerResult = await supabase
               .from('sticker_jobs')
               .select('*')
-              .eq('id', jobId)
+              .eq('id', id)
               .single();
             data = stickerResult.data;
             error = stickerResult.error;
@@ -81,7 +81,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
     };
 
     fetchJob();
-  }, [jobId, user, navigate, config]);
+  }, [id, user, navigate, config]);
 
   if (isLoading) {
     return (

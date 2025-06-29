@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -66,6 +65,10 @@ import StickerJobNewPage from "./pages/generic/StickerJobNewPage";
 import PosterJobNewPage from "./pages/generic/PosterJobNewPage";
 import CoverJobNewPage from "./pages/generic/CoverJobNewPage";
 import BoxJobNewPage from "./pages/generic/BoxJobNewPage";
+import BoxJobEditPage from "./pages/generic/BoxJobEditPage";
+import CoverJobEditPage from "./pages/generic/CoverJobEditPage";
+import StickerJobEditPage from "./pages/generic/StickerJobEditPage";
+import PosterJobEditPage from "./pages/generic/PosterJobEditPage";
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -152,11 +155,13 @@ const App: React.FC = () => {
               {/* Boxes */}
               <Route path="batches/boxes" element={<Boxes />} />
               <Route path="batches/boxes/jobs/new" element={<BoxJobNewPage />} />
+              <Route path="batches/boxes/jobs/:id/edit" element={<BoxJobEditPage />} />
               <Route path="batches/boxes/batches/:batchId" element={<BoxBatchDetails />} />
               
               {/* Covers */}
               <Route path="batches/covers" element={<Covers />} />
               <Route path="batches/covers/jobs/new" element={<CoverJobNewPage />} />
+              <Route path="batches/covers/jobs/:id/edit" element={<CoverJobEditPage />} />
               <Route path="batches/covers/batches/:batchId" element={<CoverBatchDetails />} />
               
               {/* Sleeves */}
@@ -168,11 +173,13 @@ const App: React.FC = () => {
               {/* Stickers */}
               <Route path="batches/stickers" element={<Stickers />} />
               <Route path="batches/stickers/jobs/new" element={<StickerJobNewPage />} />
+              <Route path="batches/stickers/jobs/:id/edit" element={<StickerJobEditPage />} />
               <Route path="batches/stickers/batches/:batchId" element={<StickerBatchDetails />} />
               
               {/* Posters */}
               <Route path="batches/posters" element={<Posters />} />
               <Route path="batches/posters/jobs/new" element={<PosterJobNewPage />} />
+              <Route path="batches/posters/jobs/:id/edit" element={<PosterJobEditPage />} />
               <Route path="batches/posters/batches/:batchId" element={<PosterBatchDetails />} />
             </Route>
             
