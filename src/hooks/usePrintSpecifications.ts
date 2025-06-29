@@ -1,146 +1,93 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
-export interface PrintSpecification {
+interface PrintSpecification {
   id: string;
-  category: string;
   name: string;
   display_name: string;
   description?: string;
   properties: Record<string, any>;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-  created_by?: string;
-}
-
-export interface ProductCompatibility {
-  id: string;
-  product_type: string;
-  specification_id: string;
-  is_compatible: boolean;
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
+  is_default?: boolean;
 }
 
 export const usePrintSpecifications = () => {
-  const [specifications, setSpecifications] = useState<PrintSpecification[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [specifications, setSpecifications] = useState<Record<string, PrintSpecification[]>>({});
+  const [isLoading, setIsLoading] = useState(false);
 
-  const fetchSpecifications = async () => {
+  const getCompatibleSpecifications = async (productType: string, category: string): Promise<PrintSpecification[]> => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('print_specifications')
-        .select('*')
-        .order('category, sort_order, display_name');
+      
+      const { data, error } = await supabase.rpc('get_compatible_specifications', {
+        p_product_type: productType,
+        p_category: category
+      });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching specifications:', error);
+        return [];
+      }
+
+      const specs = data || [];
       
-      // Type conversion to handle Json type from database
-      const typedData = (data || []).map(spec => ({
-        ...spec,
-        properties: typeof spec.properties === 'object' && spec.properties !== null 
-          ? spec.properties as Record<string, any>
-          : {}
+      // Cache the results
+      setSpecifications(prev => ({
+        ...prev,
+        [`${productType}_${category}`]: specs
       }));
-      
-      setSpecifications(typedData);
+
+      return specs;
     } catch (error) {
-      console.error('Error fetching print specifications:', error);
-      toast.error('Failed to load print specifications');
+      console.error('Error in getCompatibleSpecifications:', error);
+      return [];
     } finally {
       setIsLoading(false);
     }
   };
 
-  const createSpecification = async (spec: Omit<PrintSpecification, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
+  const saveJobSpecifications = async (
+    jobId: string,
+    jobTableName: string,
+    specifications: Record<string, string>
+  ) => {
     try {
-      const { data, error } = await supabase
-        .from('print_specifications')
-        .insert([spec])
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      await fetchSpecifications();
-      toast.success('Specification created successfully');
-      return data;
-    } catch (error) {
-      console.error('Error creating specification:', error);
-      toast.error('Failed to create specification');
-      throw error;
-    }
-  };
-
-  const updateSpecification = async (id: string, updates: Partial<PrintSpecification>) => {
-    try {
-      const { error } = await supabase
-        .from('print_specifications')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id);
-
-      if (error) throw error;
-      
-      await fetchSpecifications();
-      toast.success('Specification updated successfully');
-    } catch (error) {
-      console.error('Error updating specification:', error);
-      toast.error('Failed to update specification');
-      throw error;
-    }
-  };
-
-  const deleteSpecification = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('print_specifications')
+      // First, clear existing specifications for this job
+      const { error: deleteError } = await supabase
+        .from('job_print_specifications')
         .delete()
-        .eq('id', id);
+        .eq('job_id', jobId)
+        .eq('job_table_name', jobTableName);
 
-      if (error) throw error;
-      
-      await fetchSpecifications();
-      toast.success('Specification deleted successfully');
+      if (deleteError) throw deleteError;
+
+      // Insert new specifications
+      const specsToInsert = Object.entries(specifications).map(([category, specId]) => ({
+        job_id: jobId,
+        job_table_name: jobTableName,
+        specification_category: category,
+        specification_id: specId
+      }));
+
+      if (specsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('job_print_specifications')
+          .insert(specsToInsert);
+
+        if (insertError) throw insertError;
+      }
+
+      return true;
     } catch (error) {
-      console.error('Error deleting specification:', error);
-      toast.error('Failed to delete specification');
-      throw error;
+      console.error('Error saving job specifications:', error);
+      return false;
     }
   };
-
-  const getCompatibleSpecifications = async (productType: string, category: string) => {
-    try {
-      const { data, error } = await supabase
-        .rpc('get_compatible_specifications', {
-          p_product_type: productType,
-          p_category: category
-        });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching compatible specifications:', error);
-      return [];
-    }
-  };
-
-  useEffect(() => {
-    fetchSpecifications();
-  }, []);
 
   return {
     specifications,
     isLoading,
-    createSpecification,
-    updateSpecification,
-    deleteSpecification,
     getCompatibleSpecifications,
-    refetch: fetchSpecifications
+    saveJobSpecifications
   };
 };

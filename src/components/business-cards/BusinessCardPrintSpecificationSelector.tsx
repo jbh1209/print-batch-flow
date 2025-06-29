@@ -21,9 +21,10 @@ export const BusinessCardPrintSpecificationSelector: React.FC<BusinessCardPrintS
   const [specificationOptions, setSpecificationOptions] = useState<Record<string, any[]>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Only show categories relevant to business cards
+  // Business card categories including paper weight
   const categories = [
     { key: 'paper_type', label: 'Paper Type', required: true },
+    { key: 'paper_weight', label: 'Paper Weight', required: true },
     { key: 'lamination_type', label: 'Lamination Type', required: true }
   ];
 
@@ -48,7 +49,11 @@ export const BusinessCardPrintSpecificationSelector: React.FC<BusinessCardPrintS
     const specification = specificationOptions[category]?.find(spec => spec.id === specificationId);
     if (specification) {
       // Update form field with display name to maintain compatibility with existing validation
-      setValue(category === 'paper_type' ? 'paperType' : 'laminationType', specification.display_name);
+      const formFieldName = category === 'paper_type' ? 'paperType' : 
+                           category === 'paper_weight' ? 'paperWeight' :
+                           category === 'lamination_type' ? 'laminationType' : category;
+      
+      setValue(formFieldName, specification.display_name);
       
       // Notify parent component for future automated batching logic
       onSpecificationChange?.(category, specificationId, specification);
@@ -70,10 +75,12 @@ export const BusinessCardPrintSpecificationSelector: React.FC<BusinessCardPrintS
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {categories.map(category => {
           const options = specificationOptions[category.key] || [];
-          const formFieldName = category.key === 'paper_type' ? 'paperType' : 'laminationType';
+          const formFieldName = category.key === 'paper_type' ? 'paperType' : 
+                               category.key === 'paper_weight' ? 'paperWeight' :
+                               category.key === 'lamination_type' ? 'laminationType' : category.key;
           
           return (
             <FormField

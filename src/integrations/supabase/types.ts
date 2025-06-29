@@ -1280,6 +1280,10 @@ export type Database = {
       }
       production_jobs: {
         Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
+          batch_category: string | null
+          batch_ready: boolean | null
           category: string | null
           category_id: string | null
           created_at: string | null
@@ -1310,6 +1314,10 @@ export type Database = {
           wo_no: string
         }
         Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
+          batch_category?: string | null
+          batch_ready?: boolean | null
           category?: string | null
           category_id?: string | null
           created_at?: string | null
@@ -1340,6 +1348,10 @@ export type Database = {
           wo_no: string
         }
         Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
+          batch_category?: string | null
+          batch_ready?: boolean | null
           category?: string | null
           category_id?: string | null
           created_at?: string | null

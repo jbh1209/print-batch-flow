@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,7 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
     const stageName = job.current_stage_name?.toLowerCase() || '';
     if (stageName.includes('dtp')) return 'dtp';
     if (stageName.includes('proof')) return 'proof';
+    if (stageName.includes('batch allocation') || stageName.includes('batch_allocation')) return 'batch_allocation';
     return 'unknown';
   };
 
@@ -287,6 +289,9 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
     }
   };
 
+  const currentStage = getCurrentStage();
+  const stageStatus = getStageStatus();
+
   const getStatusBadge = () => {
     const status = job.status;
     let variant: "default" | "secondary" | "destructive" | "outline" = "default";
@@ -301,7 +306,7 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
     } else if (status.includes('Awaiting')) {
       variant = "outline";
       color = "bg-orange-100 text-orange-800 border-orange-200";
-    } else if (status.includes('Approved')) {
+    } else if (status.includes('Approved') || status.includes('Allocated')) {
       variant = "secondary";
       color = "bg-green-100 text-green-800 border-green-200";
     }
@@ -341,6 +346,7 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
           printingStages={printingStages}
           selectedPrintingStage={selectedPrintingStage}
           isAssigning={isAssigning}
+          job={job}
           onStartDtp={handleStartDTP}
           onCompleteDtp={handleCompleteDTP}
           onStartProof={handleStartProof}
@@ -349,6 +355,7 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
           onSelectedPrintingStageChange={setSelectedPrintingStage}
           onAdvanceToPartSpecificPrinting={handleAdvanceToPartSpecificPrinting}
           onAdvanceToPrintingStage={handleAdvanceToPrintingStage}
+          onRefresh={onRefresh}
         />
       </CardContent>
     </Card>
