@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { FlyerJobFormValues } from "../schema/flyerJobSchema";
+import { FlyerJobFormValues, FlyerJobData } from "../schema/flyerJobSchema";
 
 export const useFlyerJobForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,19 +64,21 @@ export const useFlyerJobForm = () => {
       }
 
       // Create the data object with ONLY fields that exist in the flyer_jobs table
-      const flyerJobData = {
+      const flyerJobData: FlyerJobData = {
         name: data.name,
         job_number: data.job_number,
-        size: data.size,
+        size: data.size, // Now accepts any string
         paper_weight: data.paper_weight,
-        paper_type: data.paper_type,
+        paper_type: data.paper_type, // Now accepts any string
         quantity: data.quantity,
         due_date: data.due_date.toISOString(),
+        user_id: user.id,
+        status: 'queued'
       };
 
       if (jobId) {
         // Update existing job
-        const updateData: any = { ...flyerJobData };
+        const updateData: Partial<FlyerJobData> = { ...flyerJobData };
         
         // Only include file data if a new file was uploaded
         if (pdfUrl && fileName) {
@@ -103,12 +105,10 @@ export const useFlyerJobForm = () => {
           throw new Error("File upload is required for new jobs");
         }
 
-        const insertData = {
+        const insertData: FlyerJobData = {
           ...flyerJobData,
           pdf_url: pdfUrl,
-          file_name: fileName,
-          user_id: user.id,
-          status: 'queued' as const
+          file_name: fileName
         };
 
         console.log('Creating new flyer job with data:', insertData);

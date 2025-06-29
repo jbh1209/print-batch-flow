@@ -4,8 +4,9 @@ import { BatchStatus, LaminationType } from "@/config/productTypes";
 // Import directly from the config file instead of from ./BatchTypes
 export type { BatchStatus, LaminationType };
 
-export type FlyerSize = "A6" | "A5" | "A4" | "DL" | "A3";
-export type PaperType = "Matt" | "Gloss";
+// Updated to be more flexible - these can now be any string
+export type FlyerSize = string; // Changed from enum to string
+export type PaperType = string; // Changed from enum to string
 
 export interface FlyerBatch {
   id: string;
@@ -32,9 +33,9 @@ export interface FlyerJob {
   id: string;
   name: string;
   job_number: string;
-  size: FlyerSize;
+  size: string; // Changed from FlyerSize enum to string
   paper_weight: string;
-  paper_type: PaperType;
+  paper_type: string; // Changed from PaperType enum to string
   quantity: number;
   due_date: string;
   batch_id: string | null;
