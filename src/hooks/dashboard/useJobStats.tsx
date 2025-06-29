@@ -37,26 +37,26 @@ export const useJobStats = () => {
       let totalPendingJobs = 0;
       
       // Count active jobs using unified completion logic
-      if (businessCardJobs.status === 'fulfilled' && !businessCardJobs.value.error) {
-        const activeJobs = filterActiveJobs(businessCardJobs.value.data || []);
+      if (businessCardJobs.status === 'fulfilled' && !businessCardJobs.value.error && businessCardJobs.value.data) {
+        const activeJobs = filterActiveJobs(businessCardJobs.value.data);
         totalPendingJobs += activeJobs.filter(job => job.status === 'queued').length;
         console.log("Business card active jobs:", activeJobs.length);
       }
       
-      if (flyerJobs.status === 'fulfilled' && !flyerJobs.value.error) {
-        const activeJobs = filterActiveJobs(flyerJobs.value.data || []);
+      if (flyerJobs.status === 'fulfilled' && !flyerJobs.value.error && flyerJobs.value.data) {
+        const activeJobs = filterActiveJobs(flyerJobs.value.data);
         totalPendingJobs += activeJobs.filter(job => job.status === 'queued').length;
         console.log("Flyer active jobs:", activeJobs.length);
       }
       
-      if (postcardJobs.status === 'fulfilled' && !postcardJobs.value.error) {
-        const activeJobs = filterActiveJobs(postcardJobs.value.data || []);
+      if (postcardJobs.status === 'fulfilled' && !postcardJobs.value.error && postcardJobs.value.data) {
+        const activeJobs = filterActiveJobs(postcardJobs.value.data);
         totalPendingJobs += activeJobs.filter(job => job.status === 'queued').length;
         console.log("Postcard active jobs:", activeJobs.length);
       }
 
-      if (productionJobs.status === 'fulfilled' && !productionJobs.value.error) {
-        const activeJobs = filterActiveJobs(productionJobs.value.data || []);
+      if (productionJobs.status === 'fulfilled' && !productionJobs.value.error && productionJobs.value.data) {
+        const activeJobs = filterActiveJobs(productionJobs.value.data);
         totalPendingJobs += activeJobs.length;
         console.log("Production active jobs:", activeJobs.length);
       }
@@ -75,29 +75,29 @@ export const useJobStats = () => {
       
       let totalCompletedToday = 0;
       
-      if (completedBusinessCards.status === 'fulfilled' && !completedBusinessCards.value.error) {
-        const completedJobs = (completedBusinessCards.value.data || []).filter(job => 
+      if (completedBusinessCards.status === 'fulfilled' && !completedBusinessCards.value.error && completedBusinessCards.value.data) {
+        const completedJobs = completedBusinessCards.value.data.filter(job => 
           job.status === 'completed'
         );
         totalCompletedToday += completedJobs.length;
       }
       
-      if (completedFlyers.status === 'fulfilled' && !completedFlyers.value.error) {
-        const completedJobs = (completedFlyers.value.data || []).filter(job => 
+      if (completedFlyers.status === 'fulfilled' && !completedFlyers.value.error && completedFlyers.value.data) {
+        const completedJobs = completedFlyers.value.data.filter(job => 
           job.status === 'completed'
         );
         totalCompletedToday += completedJobs.length;
       }
       
-      if (completedPostcards.status === 'fulfilled' && !completedPostcards.value.error) {
-        const completedJobs = (completedPostcards.value.data || []).filter(job => 
+      if (completedPostcards.status === 'fulfilled' && !completedPostcards.value.error && completedPostcards.value.data) {
+        const completedJobs = completedPostcards.value.data.filter(job => 
           job.status === 'completed'
         );
         totalCompletedToday += completedJobs.length;
       }
 
-      if (completedProduction.status === 'fulfilled' && !completedProduction.value.error) {
-        const completedJobs = (completedProduction.value.data || []).filter(job => 
+      if (completedProduction.status === 'fulfilled' && !completedProduction.value.error && completedProduction.value.data) {
+        const completedJobs = completedProduction.value.data.filter(job => 
           job.status?.toLowerCase().includes('completed') || 
           job.status?.toLowerCase().includes('shipped') ||
           job.status?.toLowerCase().includes('delivered')

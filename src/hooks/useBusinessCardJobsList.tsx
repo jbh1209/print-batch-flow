@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -81,11 +82,18 @@ export const useBusinessCardJobsList = () => {
 
       console.log("Business card jobs fetched:", data?.length || 0, "jobs");
       
-      const jobsWithDefaults = (data || []).map(job => ({
-        ...job,
-        double_sided: job.double_sided || false,
+      // Transform data to match Job interface
+      const jobsWithDefaults: Job[] = (data || []).map(job => ({
+        id: job.id,
+        name: job.name,
+        file_name: job.file_name,
+        quantity: job.quantity,
         lamination_type: job.lamination_type || 'none',
-        paper_type: job.paper_type || '350gsm Matt'
+        due_date: job.due_date,
+        uploaded_at: job.created_at,
+        status: job.status,
+        pdf_url: job.pdf_url,
+        double_sided: job.double_sided || false
       }));
 
       setJobs(jobsWithDefaults);

@@ -90,7 +90,22 @@ export const useBusinessCardJobs = (): UseBusinessCardJobsReturn => {
       }
 
       console.log("Jobs fetched successfully:", data?.length || 0);
-      setJobs(data || []);
+      
+      // Transform data to match Job interface
+      const transformedJobs: Job[] = (data || []).map(job => ({
+        id: job.id,
+        name: job.name,
+        file_name: job.file_name,
+        quantity: job.quantity,
+        lamination_type: job.lamination_type,
+        due_date: job.due_date,
+        uploaded_at: job.created_at,
+        status: job.status,
+        pdf_url: job.pdf_url,
+        double_sided: job.double_sided || false
+      }));
+      
+      setJobs(transformedJobs);
 
       // Get filter counts
       const { data: allJobs } = await supabase

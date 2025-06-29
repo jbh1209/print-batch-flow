@@ -271,6 +271,7 @@ export type Database = {
           paper_type: string
           pdf_url: string
           quantity: number
+          status: string
           updated_at: string
           uploaded_at: string
           user_id: string
@@ -291,6 +292,7 @@ export type Database = {
           paper_type?: string
           pdf_url: string
           quantity: number
+          status?: string
           updated_at?: string
           uploaded_at?: string
           user_id: string
@@ -311,6 +313,7 @@ export type Database = {
           paper_type?: string
           pdf_url?: string
           quantity?: number
+          status?: string
           updated_at?: string
           uploaded_at?: string
           user_id?: string
