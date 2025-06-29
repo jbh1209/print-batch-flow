@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,11 +14,11 @@ import { usePrintSpecifications, PrintSpecification } from '@/hooks/usePrintSpec
 import { toast } from 'sonner';
 
 const SPECIFICATION_CATEGORIES = [
-  { value: 'paper_type', label: 'Paper Type', description: 'Paper surface finish and coating' },
-  { value: 'paper_weight', label: 'Paper Weight', description: 'Paper thickness and weight specifications' },
-  { value: 'size', label: 'Size', description: 'Print dimensions and format sizes' },
+  { value: 'paper_type', label: 'Paper Type', description: 'Paper surface finish and coating options' },
+  { value: 'paper_weight', label: 'Paper Weight', description: 'Paper thickness and weight options' },
+  { value: 'size', label: 'Size', description: 'Available print dimensions and formats' },
   { value: 'lamination_type', label: 'Lamination Type', description: 'Post-printing lamination finishes' },
-  { value: 'uv_varnish', label: 'UV Varnish', description: 'UV coating applications' }
+  { value: 'uv_varnish', label: 'UV Varnish', description: 'UV coating application options' }
 ];
 
 export const PrintSpecificationsManagement = () => {
@@ -33,7 +32,6 @@ export const PrintSpecificationsManagement = () => {
     name: '',
     display_name: '',
     description: '',
-    properties: '{}',
     is_active: true,
     sort_order: 0
   });
@@ -44,7 +42,6 @@ export const PrintSpecificationsManagement = () => {
       name: '',
       display_name: '',
       description: '',
-      properties: '{}',
       is_active: true,
       sort_order: 0
     });
@@ -55,14 +52,9 @@ export const PrintSpecificationsManagement = () => {
     e.preventDefault();
     
     try {
-      let properties = {};
-      if (formData.properties.trim()) {
-        properties = JSON.parse(formData.properties);
-      }
-
       const specData = {
         ...formData,
-        properties
+        properties: {} // Handle properties behind the scenes
       };
 
       if (editingSpec) {
@@ -74,9 +66,7 @@ export const PrintSpecificationsManagement = () => {
       resetForm();
       setIsCreateDialogOpen(false);
     } catch (error) {
-      if (error instanceof SyntaxError) {
-        toast.error('Invalid JSON in properties field');
-      }
+      toast.error('Failed to save specification');
     }
   };
 
@@ -86,7 +76,6 @@ export const PrintSpecificationsManagement = () => {
       name: spec.name,
       display_name: spec.display_name,
       description: spec.description || '',
-      properties: JSON.stringify(spec.properties, null, 2),
       is_active: spec.is_active,
       sort_order: spec.sort_order
     });
@@ -112,7 +101,7 @@ export const PrintSpecificationsManagement = () => {
         <div>
           <h2 className="text-2xl font-bold">Print Specifications Management</h2>
           <p className="text-muted-foreground">
-            Manage central print specifications for all products
+            Manage print options available for all products
           </p>
         </div>
       </div>
@@ -151,34 +140,32 @@ export const PrintSpecificationsManagement = () => {
                       Add {category.label}
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="max-w-lg">
                     <DialogHeader>
                       <DialogTitle>
                         {editingSpec ? 'Edit' : 'Add'} {categoryInfo?.label}
                       </DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="name">Name/Key</Label>
-                          <Input
-                            id="name"
-                            value={formData.name}
-                            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="e.g., matt_170gsm"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="display_name">Display Name</Label>
-                          <Input
-                            id="display_name"
-                            value={formData.display_name}
-                            onChange={(e) => setFormData(prev => ({ ...prev, display_name: e.target.value }))}
-                            placeholder="e.g., Matt 170gsm"
-                            required
-                          />
-                        </div>
+                      <div>
+                        <Label htmlFor="display_name">Name*</Label>
+                        <Input
+                          id="display_name"
+                          value={formData.display_name}
+                          onChange={(e) => {
+                            const displayName = e.target.value;
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              display_name: displayName,
+                              name: displayName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+                            }));
+                          }}
+                          placeholder="e.g., Matt 170gsm"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          This is what users will see when selecting options
+                        </p>
                       </div>
                       
                       <div>
@@ -187,22 +174,8 @@ export const PrintSpecificationsManagement = () => {
                           id="description"
                           value={formData.description}
                           onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Optional description"
+                          placeholder="Optional description for this option"
                         />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="properties">Properties (JSON)</Label>
-                        <Textarea
-                          id="properties"
-                          value={formData.properties}
-                          onChange={(e) => setFormData(prev => ({ ...prev, properties: e.target.value }))}
-                          placeholder='{"weight": 170, "finish": "matt"}'
-                          rows={4}
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Additional properties as JSON object
-                        </p>
                       </div>
 
                       <div className="flex items-center justify-between">
@@ -212,16 +185,17 @@ export const PrintSpecificationsManagement = () => {
                             checked={formData.is_active}
                             onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
                           />
-                          <Label htmlFor="is_active">Active</Label>
+                          <Label htmlFor="is_active">Available for use</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Label htmlFor="sort_order">Sort Order</Label>
+                          <Label htmlFor="sort_order">Display Order</Label>
                           <Input
                             id="sort_order"
                             type="number"
                             value={formData.sort_order}
                             onChange={(e) => setFormData(prev => ({ ...prev, sort_order: parseInt(e.target.value) || 0 }))}
                             className="w-20"
+                            min="0"
                           />
                         </div>
                       </div>
@@ -244,16 +218,18 @@ export const PrintSpecificationsManagement = () => {
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="text-center py-8">Loading specifications...</div>
+                  <div className="text-center py-8">Loading options...</div>
                 ) : filteredSpecs.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    No {category.label.toLowerCase()} specifications created yet.
+                    No {category.label.toLowerCase()} options created yet.
                     <br />
-                    Click "Add {category.label}" to create your first specification.
+                    Click "Add {category.label}" to create your first option.
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {filteredSpecs.map((spec) => (
+                    {filteredSpecs
+                      .sort((a, b) => a.sort_order - b.sort_order || a.display_name.localeCompare(b.display_name))
+                      .map((spec) => (
                       <div
                         key={spec.id}
                         className="flex items-center justify-between p-3 border rounded-lg"
@@ -262,16 +238,12 @@ export const PrintSpecificationsManagement = () => {
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{spec.display_name}</span>
                             <Badge variant={spec.is_active ? "default" : "secondary"}>
-                              {spec.is_active ? "Active" : "Inactive"}
+                              {spec.is_active ? "Available" : "Hidden"}
                             </Badge>
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            Key: {spec.name}
-                            {spec.description && ` • ${spec.description}`}
-                          </div>
-                          {Object.keys(spec.properties).length > 0 && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Properties: {JSON.stringify(spec.properties)}
+                          {spec.description && (
+                            <div className="text-sm text-muted-foreground">
+                              {spec.description}
                             </div>
                           )}
                         </div>
