@@ -46,7 +46,7 @@ const JobActions = ({ jobId, pdfUrl, onJobDeleted, isDeleting = false }: JobActi
 
   const handleEditJob = () => {
     try {
-      navigate(`/batches/business-cards/jobs/edit/${jobId}`);
+      navigate(`/batchflow/batches/business-cards/jobs/${jobId}/edit`);
     } catch (error) {
       console.error("Error navigating to edit:", error);
       sonnerToast.error("Failed to open edit page");
