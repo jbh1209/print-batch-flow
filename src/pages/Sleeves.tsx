@@ -152,7 +152,7 @@ const Sleeves = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate("/batches/sleeves/jobs/new")}
+                onClick={() => navigate("/batchflow/batches/sleeves/jobs/new")}
               >
                 Add New Job
               </Button>
