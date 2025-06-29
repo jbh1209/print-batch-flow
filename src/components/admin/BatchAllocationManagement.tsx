@@ -35,7 +35,7 @@ export const BatchAllocationManagement = () => {
     try {
       setIsLoading(true);
       
-      // Fetch from multiple job tables with explicit typing
+      // Fetch from multiple job tables with proper typing
       const tables = [
         'business_card_jobs',
         'flyer_jobs', 
@@ -51,18 +51,19 @@ export const BatchAllocationManagement = () => {
 
       for (const table of tables) {
         try {
-          // Use raw SQL for dynamic table queries to avoid TypeScript issues
+          // Use direct table queries instead of dynamic SQL
           const { data, error } = await supabase
-            .rpc('execute_sql', {
-              query: `SELECT * FROM ${table} WHERE status = 'queued' AND batch_id IS NULL`
-            });
+            .from(table as any)
+            .select('*')
+            .eq('status', 'queued')
+            .is('batch_id', null);
 
           if (error) {
             console.error(`Error fetching ${table}:`, error);
             continue;
           }
 
-          // Map the raw data to our interface with proper typing
+          // Map the data to our interface with proper typing
           const typedJobs = (data || [])
             .filter((job: any) => job && typeof job === 'object' && job.id)
             .map((job: any) => ({
@@ -145,13 +146,17 @@ export const BatchAllocationManagement = () => {
 
       if (batchError) throw batchError;
 
-      // Update selected jobs with batch_id using individual updates
+      // Update selected jobs with batch_id using individual table updates
       for (const job of selectedJobData) {
         try {
-          // Use RPC function to update jobs dynamically
-          await supabase.rpc('execute_sql', {
-            query: `UPDATE ${job.table_name} SET batch_id = '${batch.id}', status = 'batched' WHERE id = '${job.id}'`
-          });
+          // Use direct table updates instead of dynamic SQL
+          await supabase
+            .from(job.table_name as any)
+            .update({ 
+              batch_id: batch.id, 
+              status: 'batched' 
+            })
+            .eq('id', job.id);
         } catch (updateError) {
           console.error(`Error updating job ${job.id}:`, updateError);
         }
