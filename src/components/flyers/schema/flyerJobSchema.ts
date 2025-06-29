@@ -1,17 +1,12 @@
-
 import * as z from "zod";
 
-// Flyer-specific types that match the database exactly
-export type FlyerSize = "A6" | "A5" | "A4" | "DL" | "A3";
-export type FlyerPaperType = "Matt" | "Gloss";
-
-// Base schema for flyer jobs - matches flyer_jobs table exactly (NO SIDES FIELD)
+// Base schema for flyer jobs - now more flexible to work with dynamic specifications
 export const flyerJobBaseSchema = z.object({
   name: z.string().min(1, "Client name is required"),
   job_number: z.string().min(1, "Job number is required"),
-  size: z.enum(["A6", "A5", "A4", "DL", "A3"]),
+  size: z.string().min(1, "Size is required"),
   paper_weight: z.string().min(1, "Paper weight is required"),
-  paper_type: z.enum(["Matt", "Gloss"]),
+  paper_type: z.string().min(1, "Paper type is required"),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
   due_date: z.date(),
 });
@@ -30,7 +25,11 @@ export type FlyerJobFormValues = z.infer<typeof flyerJobBaseSchema> & {
   file?: File;
 };
 
-// Form options that match database constraints and product config
+// Keep legacy types for backward compatibility, but these will be deprecated
+export type FlyerSize = "A6" | "A5" | "A4" | "DL" | "A3";
+export type FlyerPaperType = "Matt" | "Gloss";
+
+// Legacy options - these are now deprecated in favor of dynamic specifications
 export const flyerPaperWeightOptions = ["115gsm", "130gsm", "170gsm", "200gsm", "250gsm", "300gsm", "350gsm"];
 export const flyerSizeOptions: FlyerSize[] = ["A6", "A5", "A4", "DL", "A3"];
 export const flyerPaperTypeOptions: FlyerPaperType[] = ["Matt", "Gloss"];

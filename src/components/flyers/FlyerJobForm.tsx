@@ -9,6 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { FlyerJobFormFields } from "./components/FlyerJobFormFields";
 import { useFlyerJobForm } from "./hooks/useFlyerJobForm";
+import { useJobSpecifications } from "@/hooks/useJobSpecifications";
 import { 
   flyerJobCreateSchema, 
   flyerJobEditSchema, 
@@ -43,11 +44,28 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
     defaultValues: {
       name: "",
       job_number: "",
-      size: "A4",
-      paper_weight: "115gsm",
-      paper_type: "Matt",
+      size: "",
+      paper_weight: "",
+      paper_type: "",
       quantity: 0,
       due_date: new Date()
+    }
+  });
+
+  // Handle specification changes
+  const { handleSpecificationChange } = useJobSpecifications({
+    productType: 'flyer',
+    onSpecificationChange: (specifications) => {
+      // Update form values when specifications change
+      if (specifications.size) {
+        form.setValue('size', specifications.size.display_name);
+      }
+      if (specifications.paper_type) {
+        form.setValue('paper_type', specifications.paper_type.display_name);
+      }
+      if (specifications.paper_weight) {
+        form.setValue('paper_weight', specifications.paper_weight.display_name);
+      }
     }
   });
 
@@ -79,7 +97,7 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
     console.log('Form submission data:', data);
     console.log('Selected file:', selectedFile);
     
-    // Ensure we only submit fields that exist in the database schema - NO SIDES FIELD
+    // Ensure we only submit fields that exist in the database schema
     const cleanedData = {
       name: data.name,
       job_number: data.job_number,
