@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -80,7 +81,7 @@ const Postcards = () => {
             <ArrowLeft size={16} className="mr-1" />
             <span>Back to Dashboard</span>
           </Button>
-          <Button onClick={() => navigate(config.routes.newJobPath)}>
+          <Button onClick={() => navigate("/batchflow/batches/postcards/jobs/new")}>
             <Plus size={16} className="mr-1" />
             Add New Job
           </Button>
@@ -152,7 +153,7 @@ const Postcards = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate("/batches/postcards/jobs/new")}
+                onClick={() => navigate("/batchflow/batches/postcards/jobs/new")}
               >
                 Add New Job
               </Button>
@@ -195,7 +196,7 @@ const Postcards = () => {
                   <FileText className="mr-2 h-4 w-4" />
                   Batch Jobs
                 </Button>
-                <Button onClick={() => navigate(config.routes.newJobPath)}>
+                <Button onClick={() => navigate("/batchflow/batches/postcards/jobs/new")}>
                   <Plus className="mr-2 h-4 w-4" />
                   New Job
                 </Button>
@@ -234,7 +235,7 @@ const Postcards = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Postcard Batches</h2>
-              <Button onClick={() => navigate(config.routes.newJobPath)}>
+              <Button onClick={() => navigate("/batchflow/batches/postcards/jobs/new")}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Job
               </Button>
