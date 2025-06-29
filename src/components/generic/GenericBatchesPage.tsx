@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { ProductConfig, BaseBatch } from "@/config/productTypes";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
+import { LaminationType } from "@/components/batches/types/FlyerTypes";
 import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 
 interface GenericBatchesPageProps {
@@ -41,10 +42,18 @@ const GenericBatchesPage = ({ config, useBatchesHook }: GenericBatchesPageProps)
 
   console.log(`${config.productType} batches loaded:`, batches.length);
 
-  // Convert BaseBatch[] to BatchSummary[] by adding the product_type property
+  // Convert BaseBatch[] to BatchSummary[] by adding the product_type property and ensuring proper types
   const batchSummaries: BatchSummary[] = batches.map(batch => ({
-    ...batch,
+    id: batch.id,
+    name: batch.name,
+    due_date: batch.due_date,
+    status: batch.status as string,
     product_type: config.productType,
+    sheets_required: batch.sheets_required,
+    lamination_type: (batch.lamination_type as LaminationType) || null,
+    front_pdf_url: batch.front_pdf_url,
+    back_pdf_url: batch.back_pdf_url,
+    created_at: batch.created_at,
   }));
 
   return (

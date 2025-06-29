@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BatchDetailsType, Job, JobStatus } from "@/components/batches/types/BatchTypes";
+import { LaminationType } from "@/components/batches/types/FlyerTypes";
 
 interface GenericBatchDetailsPageProps {
   config: ProductConfig;
@@ -95,7 +96,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
   const batchDetailsData: BatchDetailsType = {
     id: batch.id,
     name: batch.name,
-    lamination_type: batch.lamination_type,
+    lamination_type: (batch.lamination_type as LaminationType) || null,
     sheets_required: batch.sheets_required,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
@@ -109,7 +110,7 @@ const GenericBatchDetailsPage: React.FC<GenericBatchDetailsPageProps> = ({ confi
   const jobsWithRequiredProps: Job[] = relatedJobs.map(job => ({
     ...job,
     file_name: job.file_name || "",
-    lamination_type: job.lamination_type || "none",
+    lamination_type: (job.lamination_type as LaminationType) || "none",
     due_date: job.due_date || new Date().toISOString(),
     // Add the missing uploaded_at property
     uploaded_at: job.created_at || new Date().toISOString(),

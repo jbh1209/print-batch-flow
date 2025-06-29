@@ -20,7 +20,15 @@ export interface FlyerJob {
   batch_allocated_by?: string | null;
 }
 
-export type LaminationType = "gloss" | "matt" | "soft_touch" | "none";
+// Update LaminationType to include all possible lamination types from both systems
+export type LaminationType = 
+  | "gloss" 
+  | "matt" 
+  | "soft_touch" 
+  | "none"
+  | "front_gloss_lam"
+  | "front_matt_lam" 
+  | "no_lam";
 
 export interface BatchProperties {
   paperType: string;

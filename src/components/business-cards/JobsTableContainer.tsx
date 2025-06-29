@@ -46,9 +46,9 @@ const JobsTableContainer = ({
             jobs={jobs}
             isLoading={isLoading}
             selectedJobs={selectedJobs}
-            onSelectJob={onSelectJob}
-            onSelectAllJobs={onSelectAllJobs}
-            onJobDeleted={onJobDeleted}
+            onJobSelect={onSelectJob}
+            onSelectAll={onSelectAllJobs}
+            onDeleteJob={onJobDeleted}
           />
         </TableBody>
       </Table>

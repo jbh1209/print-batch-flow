@@ -1,3 +1,4 @@
+
 import { LaminationType } from "./FlyerTypes";
 
 // Make JobStatus flexible to handle database string values
@@ -29,11 +30,11 @@ export interface BatchSummary {
   due_date: string;
   status: BatchStatus; // Now accepts any string
   product_type: string;
-  sheets_required?: number;
+  sheets_required: number; // Make this required to match usage
   lamination_type?: LaminationType | null;
   front_pdf_url?: string | null;
   back_pdf_url?: string | null;
-  created_at: string;
+  created_at: string; // Make this required to match usage
 }
 
 export interface BatchDetailsType {

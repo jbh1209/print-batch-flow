@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import BatchDeleteDialog from "@/components/batches/flyers/BatchDeleteDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import { BatchDetailsType, Job, JobStatus } from "@/components/batches/types/BatchTypes";
+import { LaminationType } from "@/components/batches/types/FlyerTypes";
 
 interface GenericBatchDetailsProps {
   batchId: string;
@@ -62,7 +63,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
   const batchDetailsData: BatchDetailsType = {
     id: batch.id,
     name: batch.name,
-    lamination_type: batch.lamination_type || 'none',
+    lamination_type: (batch.lamination_type as LaminationType) || 'none',
     sheets_required: batch.sheets_required,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
@@ -76,7 +77,7 @@ const GenericBatchDetails: React.FC<GenericBatchDetailsProps> = ({ batchId, conf
   const jobsWithRequiredProps: Job[] = relatedJobs.map(job => ({
     ...job,
     file_name: job.file_name || "",
-    lamination_type: job.lamination_type || "none",
+    lamination_type: (job.lamination_type as LaminationType) || "none",
     due_date: job.due_date || new Date().toISOString(),
     uploaded_at: job.created_at || new Date().toISOString(),
     // Safely access the double_sided property with a fallback
