@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useMemo } from "react";
-import { AlertTriangle, FileText, CheckCircle, RefreshCw } from "lucide-react";
+import { AlertTriangle, FileText, CheckCircle, RefreshCw, Package } from "lucide-react";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,9 +47,9 @@ export const DtpKanbanDashboard = () => {
     return calculateDashboardMetrics(jobs);
   }, [jobs]);
 
-  const { dtpJobs, proofJobs } = useMemo(() => {
+  const { dtpJobs, proofJobs, batchAllocationJobs } = useMemo(() => {
     if (!jobs || jobs.length === 0) {
-      return { dtpJobs: [], proofJobs: [] };
+      return { dtpJobs: [], proofJobs: [], batchAllocationJobs: [] };
     }
 
     try {
@@ -67,14 +67,21 @@ export const DtpKanbanDashboard = () => {
 
       const categories = categorizeJobs(filtered);
       
+      // Extract batch allocation jobs
+      const batchJobs = filtered.filter(job => {
+        const stageName = job.current_stage_name?.toLowerCase() || '';
+        return stageName.includes('batch allocation') || stageName.includes('batch_allocation');
+      });
+      
       return {
         dtpJobs: sortJobsByWONumber(categories.dtpJobs),
-        proofJobs: sortJobsByWONumber(categories.proofJobs)
+        proofJobs: sortJobsByWONumber(categories.proofJobs),
+        batchAllocationJobs: sortJobsByWONumber(batchJobs)
       };
     } catch (categorizationError) {
       console.error("❌ Error categorizing jobs:", categorizationError);
       toast.error("Error processing jobs data");
-      return { dtpJobs: [], proofJobs: [] };
+      return { dtpJobs: [], proofJobs: [], batchAllocationJobs: [] };
     }
   }, [jobs, searchQuery, dashboardMetrics]);
 
@@ -92,7 +99,7 @@ export const DtpKanbanDashboard = () => {
   }, [refreshJobs]);
 
   const handleScanSuccess = useCallback((data: string) => {
-    const allJobs = [...dtpJobs, ...proofJobs];
+    const allJobs = [...dtpJobs, ...proofJobs, ...batchAllocationJobs];
     const job = allJobs.find(j => {
       const woMatch = j.wo_no?.toLowerCase().includes(data.toLowerCase());
       const referenceMatch = j.reference && j.reference.toLowerCase().includes(data.toLowerCase());
@@ -105,7 +112,7 @@ export const DtpKanbanDashboard = () => {
     } else {
       toast.warning(`No job found for: ${data}`);
     }
-  }, [dtpJobs, proofJobs]);
+  }, [dtpJobs, proofJobs, batchAllocationJobs]);
 
   const handleJobClick = useCallback((job) => {
     setSelectedJob(job);
@@ -178,6 +185,7 @@ export const DtpKanbanDashboard = () => {
           <DtpDashboardStats
             dtpJobs={dtpJobs}
             proofJobs={proofJobs}
+            batchAllocationJobs={batchAllocationJobs}
             metrics={dashboardMetrics}
           />
         </TrackerErrorBoundary>
@@ -218,9 +226,21 @@ export const DtpKanbanDashboard = () => {
                 icon={<CheckCircle className="h-4 w-4" />}
               />
             </div>
+
+            <div className="flex-1 min-h-0">
+              <DtpKanbanColumnWithBoundary
+                title="Batch Allocation"
+                jobs={batchAllocationJobs}
+                onStart={startJob}
+                onComplete={completeJob}
+                onJobClick={handleJobClick}
+                colorClass="bg-orange-600"
+                icon={<Package className="h-4 w-4" />}
+              />
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 h-full overflow-hidden">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 sm:gap-4 h-full overflow-hidden">
             <div className="flex flex-col space-y-2 min-h-0">
               <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md">
                 <FileText className="h-4 w-4 flex-shrink-0" />
@@ -247,6 +267,23 @@ export const DtpKanbanDashboard = () => {
                 <div className="pr-4">
                   <JobListView
                     jobs={proofJobs}
+                    onStart={startJob}
+                    onComplete={completeJob}
+                    onJobClick={handleJobClick}
+                  />
+                </div>
+              </ScrollArea>
+            </div>
+
+            <div className="flex flex-col space-y-2 min-h-0">
+              <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-md">
+                <Package className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium text-sm truncate">Batch Allocation ({batchAllocationJobs.length})</span>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="pr-4">
+                  <JobListView
+                    jobs={batchAllocationJobs}
                     onStart={startJob}
                     onComplete={completeJob}
                     onJobClick={handleJobClick}

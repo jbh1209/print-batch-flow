@@ -1,358 +1,344 @@
 
-import React, { useState, useMemo } from "react";
-import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
-import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
-import { useUserRole } from "@/hooks/tracker/useUserRole";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { DtpJobModal } from "./DtpJobModal";
-import { EnhancedOperatorJobCard } from "./EnhancedOperatorJobCard";
-import { BulkJobOperations } from "@/components/tracker/common/BulkJobOperations";
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { 
-  Search, 
-  Filter,
-  Users,
-  CheckSquare,
-  Square
+  RefreshCw, 
+  Users, 
+  Settings,
+  FileText,
+  CheckCircle,
+  Package,
+  Printer,
+  Clock,
+  BarChart3,
+  AlertTriangle
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { calculateFilterCounts } from "@/hooks/tracker/useAccessibleJobs/pureJobProcessor";
-import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-
-type FilterType = 'all' | 'available' | 'my-active' | 'urgent';
+import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { categorizeJobs, calculateJobCounts } from "@/utils/tracker/jobProcessing";
+import { DtpDashboardStats } from "./DtpDashboardStats";
+import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
+import { toast } from "sonner";
 
 export const EnhancedOperatorDashboard = () => {
-  const { isDtpOperator } = useUserRole();
-  const { jobs, isLoading, refreshJobs } = useAccessibleJobs();
-  const { startJob, completeJob } = useJobActions(refreshJobs);
+  const { user, signOut } = useAuth();
+  const { userRole, isOperator, isDtpOperator } = useUserRole();
+  const navigate = useNavigate();
+  const [refreshing, setRefreshing] = useState(false);
   
-  const [selectedModal, setSelectedModal] = useState<AccessibleJob | null>(null);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
-  const [showBulkOperations, setShowBulkOperations] = useState(false);
+  const { 
+    jobs, 
+    isLoading, 
+    error, 
+    refreshJobs 
+  } = useAccessibleJobs({
+    permissionType: 'work'
+  });
 
-  // Filter and search jobs
-  const filteredJobs = useMemo(() => {
-    if (!jobs) return [];
-
-    let filtered = [...jobs];
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(job => 
-        job.wo_no?.toLowerCase().includes(query) ||
-        job.customer?.toLowerCase().includes(query) ||
-        job.reference?.toLowerCase().includes(query) ||
-        job.current_stage_name?.toLowerCase().includes(query)
-      );
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success('Logged out successfully');
+    } catch (error) {
+      console.error('❌ Logout failed:', error);
+      toast.error('Logout failed');
     }
+  };
 
-    // Apply status filter
-    switch (activeFilter) {
-      case 'available':
-        filtered = filtered.filter(job => 
-          job.current_stage_status === 'pending' && job.user_can_work
-        );
-        break;
-      case 'my-active':
-        filtered = filtered.filter(job => 
-          job.current_stage_status === 'active' && job.user_can_work
-        );
-        break;
-      case 'urgent':
-        const now = new Date();
-        const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-        filtered = filtered.filter(job => {
-          if (!job.due_date) return false;
-          const dueDate = new Date(job.due_date);
-          return dueDate < now || (dueDate <= threeDaysFromNow && dueDate >= now);
-        });
-        break;
-      case 'all':
-      default:
-        // No additional filtering
-        break;
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshJobs();
+      toast.success('Dashboard refreshed');
+    } catch (error) {
+      console.error('❌ Refresh failed:', error);
+      toast.error('Failed to refresh dashboard');
+    } finally {
+      setTimeout(() => setRefreshing(false), 1000);
     }
+  };
 
-    return filtered;
-  }, [jobs, searchQuery, activeFilter]);
+  const handleNavigation = (path: string) => {
+    navigate(path);
+  };
 
-  const filterCounts = useMemo(() => {
-    return calculateFilterCounts(jobs || []);
+  // Categorize jobs for display
+  const jobCategories = React.useMemo(() => {
+    if (!jobs || jobs.length === 0) {
+      return { 
+        dtpJobs: [], 
+        proofJobs: [], 
+        batchAllocationJobs: [],
+        printingJobs: [],
+        finishingJobs: []
+      };
+    }
+    
+    const categories = categorizeJobs(jobs);
+    
+    // Extract different job types
+    const batchJobs = jobs.filter(job => {
+      const stageName = job.current_stage_name?.toLowerCase() || '';
+      return stageName.includes('batch allocation') || stageName.includes('batch_allocation');
+    });
+
+    const printingJobs = jobs.filter(job => {
+      const stageName = job.current_stage_name?.toLowerCase() || '';
+      return stageName.includes('print') && !stageName.includes('pre');
+    });
+
+    const finishingJobs = jobs.filter(job => {
+      const stageName = job.current_stage_name?.toLowerCase() || '';
+      return stageName.includes('cut') || stageName.includes('finish') || stageName.includes('pack');
+    });
+    
+    return {
+      dtpJobs: categories.dtpJobs,
+      proofJobs: categories.proofJobs,
+      batchAllocationJobs: batchJobs,
+      printingJobs,
+      finishingJobs
+    };
   }, [jobs]);
 
-  const selectedJobObjects = useMemo(() => {
-    return filteredJobs.filter(job => selectedJobs.includes(job.job_id));
-  }, [filteredJobs, selectedJobs]);
-
-  const handleJobSelection = (jobId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedJobs(prev => [...prev, jobId]);
-    } else {
-      setSelectedJobs(prev => prev.filter(id => id !== jobId));
-    }
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedJobs(filteredJobs.map(job => job.job_id));
-    } else {
-      setSelectedJobs([]);
-    }
-  };
-
-  const handleClearSelection = () => {
-    setSelectedJobs([]);
-    setShowBulkOperations(false);
-  };
-
-  // Single job operation handlers
-  const handleNotesUpdate = async (jobId: string, notes: string) => {
-    console.log('Updating notes for job:', jobId, notes);
-    // TODO: Implement notes update API call
-  };
-
-  const handleTimeUpdate = async (jobId: string, timeData: any) => {
-    console.log('Updating time for job:', jobId, timeData);
-    // TODO: Implement time tracking API call
-  };
-
-  const handleHoldJob = async (jobId: string, reason: string, notes?: string) => {
-    console.log('Holding job:', jobId, reason, notes);
-    // TODO: Implement job hold API call
-    return true;
-  };
-
-  const handleReleaseJob = async (jobId: string, notes?: string) => {
-    console.log('Releasing job:', jobId, notes);
-    // TODO: Implement job release API call
-    return true;
-  };
-
-  // Bulk operation handlers that handle arrays of job IDs
-  const handleBulkStart = async (jobIds: string[]) => {
-    console.log('Bulk starting jobs:', jobIds);
-    try {
-      for (const jobId of jobIds) {
-        // For bulk start, we need to get the current stage ID for each job
-        const job = jobs?.find(j => j.job_id === jobId);
-        if (job && job.current_stage_id) {
-          await startJob(jobId, job.current_stage_id);
-        }
-      }
-      await refreshJobs();
-      return true;
-    } catch (error) {
-      console.error('Failed to bulk start jobs:', error);
-      return false;
-    }
-  };
-
-  const handleBulkComplete = async (jobIds: string[]) => {
-    console.log('Bulk completing jobs:', jobIds);
-    try {
-      for (const jobId of jobIds) {
-        // For bulk complete, we need to get the current stage ID for each job
-        const job = jobs?.find(j => j.job_id === jobId);
-        if (job && job.current_stage_id) {
-          await completeJob(jobId, job.current_stage_id);
-        }
-      }
-      await refreshJobs();
-      return true;
-    } catch (error) {
-      console.error('Failed to bulk complete jobs:', error);
-      return false;
-    }
-  };
-
-  const handleBulkHold = async (jobIds: string[], reason: string, notes?: string) => {
-    console.log('Bulk holding jobs:', jobIds, reason, notes);
-    try {
-      for (const jobId of jobIds) {
-        await handleHoldJob(jobId, reason, notes);
-      }
-      await refreshJobs();
-      return true;
-    } catch (error) {
-      console.error('Failed to bulk hold jobs:', error);
-      return false;
-    }
-  };
+  const jobStats = React.useMemo(() => {
+    return calculateJobCounts(jobs);
+  }, [jobs]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <LoadingSpinner />
+      <div className="flex flex-col h-full bg-gray-50">
+        <div className="flex-shrink-0 p-4 bg-white border-b">
+          <div className="flex items-center justify-center py-12">
+            <RefreshCw className="h-8 w-8 animate-spin mr-2" />
+            <span>Loading operator dashboard...</span>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const filters: { key: FilterType; label: string; count: number }[] = [
-    { key: 'all', label: 'All Jobs', count: filterCounts.all },
-    { key: 'available', label: 'Available', count: filterCounts.available },
-    { key: 'my-active', label: 'My Active', count: filterCounts['my-active'] },
-    { key: 'urgent', label: 'Urgent', count: filterCounts.urgent }
-  ];
+  if (error) {
+    return (
+      <div className="flex flex-col h-full bg-gray-50">
+        <div className="flex-shrink-0 p-4 bg-white border-b">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+              <p className="text-red-600 font-medium mb-2">Error loading dashboard</p>
+              <p className="text-gray-600 text-sm mb-4">{error}</p>
+              <Button onClick={handleRefresh} variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Header with Search and Filters - Fixed */}
-      <div className="flex-shrink-0 p-4 bg-white border-b space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search jobs by WO, customer, reference..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 sm:h-10 text-base sm:text-sm touch-manipulation"
-            />
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* Header */}
+      <div className="flex-shrink-0 p-4 bg-white border-b">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Operator Dashboard
+              {userRole && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {userRole}
+                </Badge>
+              )}
+            </h1>
+            <p className="text-gray-600">Welcome back, {user?.email?.split('@')[0] || 'Operator'}</p>
           </div>
-          
-          {selectedJobs.length > 0 && (
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={() => setShowBulkOperations(!showBulkOperations)}
-              className="flex items-center gap-2 h-12 sm:h-10 touch-manipulation"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="flex items-center gap-2"
             >
               <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Bulk Operations</span>
-              <span className="sm:hidden">Actions</span>
-              <Badge variant="secondary" className="ml-1">
-                {selectedJobs.length}
-              </Badge>
+              Logout
             </Button>
-          )}
-        </div>
-
-        {/* Filter Tabs - Responsive */}
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 sm:pb-0 sm:overflow-visible">
-          {filters.map(filter => (
-            <Button
-              key={filter.key}
-              variant={activeFilter === filter.key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveFilter(filter.key)}
-              className={cn(
-                "flex-shrink-0 h-10 sm:h-8 px-3 sm:px-2 touch-manipulation",
-                "flex items-center gap-2"
-              )}
-            >
-              <span className="text-sm sm:text-xs">{filter.label}</span>
-              <Badge 
-                variant="secondary" 
-                className={cn(
-                  "text-xs px-1.5 py-0",
-                  activeFilter === filter.key ? "bg-white/20 text-white" : ""
-                )}
-              >
-                {filter.count}
-              </Badge>
-            </Button>
-          ))}
-        </div>
-
-        {/* Bulk Selection Controls */}
-        {filteredJobs.length > 0 && (
-          <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={
-                  selectedJobs.length === filteredJobs.length && filteredJobs.length > 0
-                }
-                onCheckedChange={handleSelectAll}
-                className="h-5 w-5 sm:h-4 sm:w-4 touch-manipulation"
-              />
-              <span className="text-sm font-medium">
-                <span className="hidden sm:inline">Select All</span>
-                <span className="sm:hidden">All</span>
-                ({filteredJobs.length})
-              </span>
-            </div>
-            
-            {selectedJobs.length > 0 && (
-              <Badge variant="secondary" className="ml-auto">
-                {selectedJobs.length} selected
-              </Badge>
-            )}
           </div>
-        )}
+        </div>
 
-        {/* Bulk Operations Panel */}
-        {showBulkOperations && selectedJobObjects.length > 0 && (
-          <BulkJobOperations
-            selectedJobs={selectedJobObjects}
-            onBulkStart={handleBulkStart}
-            onBulkComplete={handleBulkComplete}
-            onBulkHold={handleBulkHold}
-            onClearSelection={handleClearSelection}
-          />
-        )}
+        {/* Stats Overview */}
+        <TrackerErrorBoundary componentName="Operator Dashboard Stats">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-600">Total Jobs</p>
+                    <p className="text-2xl font-bold text-blue-900">{jobStats.total}</p>
+                  </div>
+                  <BarChart3 className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-green-600">Ready to Start</p>
+                    <p className="text-2xl font-bold text-green-900">{jobStats.pending}</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-purple-600">In Progress</p>
+                    <p className="text-2xl font-bold text-purple-900">{jobStats.active}</p>
+                  </div>
+                  <RefreshCw className="h-8 w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Completed</p>
+                    <p className="text-2xl font-bold text-gray-900">{jobStats.completed}</p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 text-gray-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TrackerErrorBoundary>
       </div>
 
-      {/* Jobs List - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {filteredJobs.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">
-              {searchQuery ? "No jobs match your search criteria." : "No jobs available."}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredJobs.map(job => (
-              <div key={job.job_id} className="relative">
-                {/* Selection Checkbox */}
-                <div className="absolute top-3 sm:top-4 left-3 sm:left-4 z-10">
-                  <Checkbox
-                    checked={selectedJobs.includes(job.job_id)}
-                    onCheckedChange={(checked) => 
-                      handleJobSelection(job.job_id, checked as boolean)
-                    }
-                    className="h-5 w-5 sm:h-4 sm:w-4 bg-white border-2 touch-manipulation"
-                  />
-                </div>
-
-                {/* Job Card */}
-                <div 
-                  className={cn(
-                    "ml-10 sm:ml-8 cursor-pointer transition-all touch-manipulation",
-                    selectedJobs.includes(job.job_id) && "ring-2 ring-blue-500"
-                  )}
-                  onClick={() => setSelectedModal(job)}
+      {/* Workflow Sections */}
+      <div className="flex-1 p-4 overflow-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* DTP Workflow - Show for DTP operators */}
+          {isDtpOperator && (
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-blue-700">
+                  <FileText className="h-5 w-5" />
+                  DTP Workflow
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-blue-600 mb-3">
+                  Design, typesetting, and proofing workflow
+                </p>
+                <Button 
+                  onClick={() => handleNavigation('/tracker/dtp-workflow')}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
                 >
-                  <EnhancedOperatorJobCard
-                    job={job}
-                    onStart={startJob}
-                    onComplete={completeJob}
-                    onHold={handleHoldJob}
-                    onRelease={handleReleaseJob}
-                    onNotesUpdate={handleNotesUpdate}
-                    onTimeUpdate={handleTimeUpdate}
-                  />
+                  Open DTP Dashboard
+                </Button>
+                <div className="mt-3 flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs bg-blue-600 text-white">
+                    {jobCategories.dtpJobs.length} DTP
+                  </Badge>
+                  <Badge variant="outline" className="text-xs bg-purple-600 text-white">
+                    {jobCategories.proofJobs.length} Proof
+                  </Badge>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Production Workflow */}
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-green-700">
+                <Printer className="h-5 w-5" />
+                Production
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-green-600 mb-3">
+                Printing and production workflow
+              </p>
+              <Button 
+                onClick={() => handleNavigation('/tracker/kanban')}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                Production Kanban
+              </Button>
+              <div className="mt-3">
+                <Badge variant="outline" className="text-xs bg-green-600 text-white">
+                  {jobCategories.printingJobs.length} Printing
+                </Badge>
               </div>
-            ))}
-          </div>
+            </CardContent>
+          </Card>
+
+          {/* Batch Processing */}
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-orange-700">
+                <Package className="h-5 w-5" />
+                Batch Processing
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-orange-600 mb-3">
+                Batch allocation and scheduling
+              </p>
+              <Button 
+                onClick={() => handleNavigation('/tracker/production')}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
+                Manage Batches
+              </Button>
+              <div className="mt-3">
+                <Badge variant="outline" className="text-xs bg-orange-600 text-white">
+                  {jobCategories.batchAllocationJobs.length} Ready
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* No Jobs State */}
+        {jobs.length === 0 && (
+          <Card className="mt-6">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Users className="h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Jobs Available</h3>
+              <p className="text-gray-600 text-center max-w-md">
+                There are currently no jobs assigned to you. Check with your supervisor or refresh the dashboard.
+              </p>
+              <Button onClick={handleRefresh} variant="outline" className="mt-4">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Dashboard
+              </Button>
+            </CardContent>
+          </Card>
         )}
       </div>
-
-      {/* DTP Job Modal */}
-      {selectedModal && (
-        <DtpJobModal
-          job={selectedModal}
-          isOpen={true}
-          onClose={() => setSelectedModal(null)}
-          onStart={startJob}
-          onComplete={completeJob}
-        />
-      )}
     </div>
   );
 };

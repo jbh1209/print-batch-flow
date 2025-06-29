@@ -8,7 +8,8 @@ import {
   TrendingUp, 
   CheckCircle,
   FileText,
-  Users
+  Users,
+  Package
 } from "lucide-react";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 import type { DashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboardUtils";
@@ -16,12 +17,14 @@ import type { DashboardMetrics } from "@/hooks/tracker/useAccessibleJobs/dashboa
 interface DtpDashboardStatsProps {
   dtpJobs: AccessibleJob[];
   proofJobs: AccessibleJob[];
+  batchAllocationJobs?: AccessibleJob[];
   metrics?: DashboardMetrics;
 }
 
 export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({ 
   dtpJobs, 
   proofJobs, 
+  batchAllocationJobs = [],
   metrics 
 }) => {
   // Calculate DTP-specific metrics
@@ -29,6 +32,8 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
   const dtpPending = dtpJobs.filter(j => j.current_stage_status === 'pending').length;
   const proofActive = proofJobs.filter(j => j.current_stage_status === 'active').length;
   const proofPending = proofJobs.filter(j => j.current_stage_status === 'pending').length;
+  const batchActive = batchAllocationJobs.filter(j => j.current_stage_status === 'active').length;
+  const batchPending = batchAllocationJobs.filter(j => j.current_stage_status === 'pending').length;
 
   const dtpUrgent = dtpJobs.filter(j => {
     if (!j.due_date) return false;
@@ -38,6 +43,13 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
   }).length;
 
   const proofUrgent = proofJobs.filter(j => {
+    if (!j.due_date) return false;
+    const dueDate = new Date(j.due_date);
+    const now = new Date();
+    return dueDate <= new Date(now.getTime() + 24 * 60 * 60 * 1000); // Due within 24 hours
+  }).length;
+
+  const batchUrgent = batchAllocationJobs.filter(j => {
     if (!j.due_date) return false;
     const dueDate = new Date(j.due_date);
     const now = new Date();
@@ -92,18 +104,25 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
         </CardContent>
       </Card>
 
-      {/* Total Pending */}
+      {/* Batch Allocation Jobs Summary */}
       <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-orange-600">Pending Work</p>
-              <p className="text-2xl font-bold text-orange-900">{dtpPending + proofPending}</p>
-              <p className="text-xs text-orange-700 mt-1">
-                {dtpPending} DTP, {proofPending} Proof
-              </p>
+              <p className="text-sm font-medium text-orange-600">Batch Allocation</p>
+              <p className="text-2xl font-bold text-orange-900">{batchAllocationJobs.length}</p>
+              <div className="flex gap-1 mt-1">
+                <Badge variant="outline" className="text-xs bg-orange-600 text-white">
+                  {batchActive} Active
+                </Badge>
+                {batchUrgent > 0 && (
+                  <Badge variant="destructive" className="text-xs">
+                    {batchUrgent} Urgent
+                  </Badge>
+                )}
+              </div>
             </div>
-            <Clock className="h-8 w-8 text-orange-600" />
+            <Package className="h-8 w-8 text-orange-600" />
           </div>
         </CardContent>
       </Card>
@@ -113,12 +132,12 @@ export const DtpDashboardStats: React.FC<DtpDashboardStatsProps> = ({
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-600">Progress</p>
+              <p className="text-sm font-medium text-green-600">Total Progress</p>
               <p className="text-2xl font-bold text-green-900">
-                {metrics?.averageProgress || 0}%
+                {dtpJobs.length + proofJobs.length + batchAllocationJobs.length}
               </p>
               <p className="text-xs text-green-700 mt-1">
-                Average completion
+                {dtpPending + proofPending + batchPending} Pending
               </p>
             </div>
             <TrendingUp className="h-8 w-8 text-green-600" />
