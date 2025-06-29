@@ -623,39 +623,26 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           <JobNotesCard notes={notes} onNotesChange={setNotes} />
         </div>
 
-        {/* Universal Job Action Buttons */}
+        {/* Action buttons based on current stage and status */}
         <div className="border-t pt-4">
           <h4 className="font-medium mb-3">Job Actions</h4>
-          {job.current_stage_id && (
+          
+          {currentStage === 'dtp' && renderDTPActions()}
+          {currentStage === 'proof' && renderProofActions()}
+          
+          {/* Fallback: Show universal job action buttons if no specific actions */}
+          {!renderDTPActions() && !renderProofActions() && job.current_stage_id && (
             <JobActionButtons
               job={job}
               onStart={onStart || (() => Promise.resolve(false))}
               onComplete={onComplete || (() => Promise.resolve(false))}
-              onHold={handleHoldJob}
+              onJobUpdated={onRefresh}
               size="default"
-              layout="horizontal"
-              showHold={true}
-              compact={false}
+              layout="vertical"
+              showExpedite={true}
             />
           )}
         </div>
-
-        {/* Stage-specific actions can still be added here if needed */}
-        {currentStage === 'dtp' && (
-          <div className="mt-4">
-            {renderDTPActions()}
-          </div>
-        )}
-        {currentStage === 'proof' && (
-          <div className="mt-4">
-            {renderProofActions()}
-          </div>
-        )}
-        {currentStage === 'unknown' && (
-          <div className="text-center text-gray-500 mt-4">
-            Stage not recognized or no actions available
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
