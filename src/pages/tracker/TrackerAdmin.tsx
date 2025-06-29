@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar } from "lucide-react";
+import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar, Package, Layers } from "lucide-react";
 import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
 import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
 import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManagement";
@@ -10,6 +10,8 @@ import { PrintersManagement } from "@/components/tracker/admin/PrintersManagemen
 import { WorkflowDiagnosticsPanel } from "@/components/tracker/diagnostics/WorkflowDiagnosticsPanel";
 import { AdminStagePermissionsManager } from "@/components/tracker/admin/AdminStagePermissionsManager";
 import PublicHolidaysManagement from "@/components/tracker/admin/PublicHolidaysManagement";
+import { PrintSpecificationsManagement } from "@/components/admin/PrintSpecificationsManagement";
+import { BatchAllocationManagement } from "@/components/admin/BatchAllocationManagement";
 
 export default function TrackerAdmin() {
   const [activeTab, setActiveTab] = useState("workflow-diagnostics");
@@ -19,12 +21,12 @@ export default function TrackerAdmin() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Production Tracker Admin</h1>
         <p className="text-muted-foreground">
-          Manage production stages, categories, permissions, and system diagnostics
+          Manage production stages, categories, permissions, specifications, and system diagnostics
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="workflow-diagnostics" className="flex items-center gap-2">
             <Wrench className="h-4 w-4" />
             Diagnostics
@@ -36,6 +38,14 @@ export default function TrackerAdmin() {
           <TabsTrigger value="categories" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Categories
+          </TabsTrigger>
+          <TabsTrigger value="specifications" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Specifications
+          </TabsTrigger>
+          <TabsTrigger value="batch-allocation" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Batching
           </TabsTrigger>
           <TabsTrigger value="holidays" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
@@ -65,6 +75,14 @@ export default function TrackerAdmin() {
 
         <TabsContent value="categories">
           <CategoriesManagement />
+        </TabsContent>
+
+        <TabsContent value="specifications">
+          <PrintSpecificationsManagement />
+        </TabsContent>
+
+        <TabsContent value="batch-allocation">
+          <BatchAllocationManagement />
         </TabsContent>
 
         <TabsContent value="holidays">

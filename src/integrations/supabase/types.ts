@@ -188,7 +188,10 @@ export type Database = {
       }
       box_jobs: {
         Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
           batch_id: string | null
+          batch_ready: boolean | null
           created_at: string
           due_date: string
           file_name: string
@@ -204,7 +207,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date: string
           file_name: string
@@ -220,7 +226,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date?: string
           file_name?: string
@@ -247,7 +256,10 @@ export type Database = {
       }
       business_card_jobs: {
         Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
           batch_id: string | null
+          batch_ready: boolean | null
           created_at: string
           double_sided: boolean
           due_date: string
@@ -265,7 +277,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           double_sided?: boolean
           due_date: string
@@ -283,7 +298,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           double_sided?: boolean
           due_date?: string
@@ -399,7 +417,10 @@ export type Database = {
       }
       cover_jobs: {
         Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
           batch_id: string | null
+          batch_ready: boolean | null
           created_at: string
           due_date: string
           file_name: string
@@ -418,7 +439,10 @@ export type Database = {
           uv_varnish: string
         }
         Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date: string
           file_name: string
@@ -437,7 +461,10 @@ export type Database = {
           uv_varnish?: string
         }
         Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date?: string
           file_name?: string
@@ -500,7 +527,10 @@ export type Database = {
       }
       flyer_jobs: {
         Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
           batch_id: string | null
+          batch_ready: boolean | null
           created_at: string
           due_date: string
           file_name: string
@@ -517,7 +547,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date: string
           file_name: string
@@ -534,7 +567,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date?: string
           file_name?: string
@@ -556,6 +592,51 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_print_specifications: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          job_table_name: string
+          printer_id: string | null
+          specification_category: string
+          specification_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          job_table_name: string
+          printer_id?: string | null
+          specification_category: string
+          specification_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          job_table_name?: string
+          printer_id?: string | null
+          specification_category?: string
+          specification_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_print_specifications_printer_id_fkey"
+            columns: ["printer_id"]
+            isOneToOne: false
+            referencedRelation: "printers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_print_specifications_specification_id_fkey"
+            columns: ["specification_id"]
+            isOneToOne: false
+            referencedRelation: "print_specifications"
             referencedColumns: ["id"]
           },
         ]
@@ -721,7 +802,10 @@ export type Database = {
       }
       postcard_jobs: {
         Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
           batch_id: string | null
+          batch_ready: boolean | null
           created_at: string
           due_date: string
           file_name: string
@@ -739,7 +823,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date: string
           file_name: string
@@ -757,7 +844,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date?: string
           file_name?: string
@@ -786,7 +876,10 @@ export type Database = {
       }
       poster_jobs: {
         Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
           batch_id: string | null
+          batch_ready: boolean | null
           created_at: string
           due_date: string
           file_name: string
@@ -805,7 +898,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date: string
           file_name: string
@@ -824,7 +920,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date?: string
           file_name?: string
@@ -851,6 +950,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      print_specifications: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean
+          name: string
+          properties: Json | null
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean
+          name: string
+          properties?: Json | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          properties?: Json | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       printers: {
         Row: {
@@ -1059,6 +1200,44 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "product_page_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_specification_compatibility: {
+        Row: {
+          created_at: string
+          id: string
+          is_compatible: boolean
+          is_default: boolean
+          product_type: string
+          specification_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_compatible?: boolean
+          is_default?: boolean
+          product_type: string
+          specification_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_compatible?: boolean
+          is_default?: boolean
+          product_type?: string
+          specification_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_specification_compatibility_specification_id_fkey"
+            columns: ["specification_id"]
+            isOneToOne: false
+            referencedRelation: "print_specifications"
             referencedColumns: ["id"]
           },
         ]
@@ -1365,7 +1544,10 @@ export type Database = {
       }
       sleeve_jobs: {
         Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
           batch_id: string | null
+          batch_ready: boolean | null
           created_at: string | null
           due_date: string
           file_name: string
@@ -1381,7 +1563,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string | null
           due_date: string
           file_name: string
@@ -1397,7 +1582,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string | null
           due_date?: string
           file_name?: string
@@ -1424,7 +1612,10 @@ export type Database = {
       }
       sticker_jobs: {
         Row: {
+          batch_allocated_at: string | null
+          batch_allocated_by: string | null
           batch_id: string | null
+          batch_ready: boolean | null
           created_at: string
           due_date: string
           file_name: string
@@ -1440,7 +1631,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date: string
           file_name: string
@@ -1456,7 +1650,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          batch_allocated_at?: string | null
+          batch_allocated_by?: string | null
           batch_id?: string | null
+          batch_ready?: boolean | null
           created_at?: string
           due_date?: string
           file_name?: string
@@ -1774,6 +1971,17 @@ export type Database = {
           blocking_reason: string
         }[]
       }
+      get_compatible_specifications: {
+        Args: { p_product_type: string; p_category: string }
+        Returns: {
+          id: string
+          name: string
+          display_name: string
+          description: string
+          properties: Json
+          is_default: boolean
+        }[]
+      }
       get_department_job_queue: {
         Args: { p_department_id: string }
         Returns: {
@@ -1796,6 +2004,18 @@ export type Database = {
           rework_count: number
           last_rework_reason: string
           total_reworks: number
+        }[]
+      }
+      get_job_specifications: {
+        Args: { p_job_id: string; p_job_table_name: string }
+        Returns: {
+          category: string
+          specification_id: string
+          name: string
+          display_name: string
+          properties: Json
+          printer_id: string
+          printer_name: string
         }[]
       }
       get_next_active_stage: {
@@ -1946,6 +2166,10 @@ export type Database = {
       }
       is_user_admin: {
         Args: { check_user_id?: string }
+        Returns: boolean
+      }
+      mark_job_ready_for_batching: {
+        Args: { p_job_id: string; p_job_table_name: string; p_user_id?: string }
         Returns: boolean
       }
       reassign_jobs_to_category: {
