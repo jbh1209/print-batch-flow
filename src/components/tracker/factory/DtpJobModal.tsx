@@ -16,7 +16,10 @@ import { CurrentStageCard } from "./CurrentStageCard";
 import { JobNotesCard } from "./JobNotesCard";
 import { PartPrintingStageSelector } from "./PartPrintingStageSelector";
 import { JobActionButtons } from "../common/JobActionButtons";
-import { Play, CheckCircle, Mail, ThumbsUp, ArrowRight, Pause } from "lucide-react";
+import { BatchAllocationSection } from "./dtp/BatchAllocationSection";
+import { BatchCategorySelector } from "../batch-allocation/BatchCategorySelector";
+import { BatchJobForm } from "../batch-allocation/BatchJobForm";
+import { Play, CheckCircle, Mail, ThumbsUp, ArrowRight, Pause, Package, Printer } from "lucide-react";
 import { getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +45,8 @@ interface StageInstance {
   client_name?: string;
 }
 
+type ProofApprovalFlow = 'pending' | 'choosing_allocation' | 'batch_allocation' | 'direct_printing';
+
 export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   job,
   isOpen,
@@ -61,6 +66,10 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const [localJobStatus, setLocalJobStatus] = useState(job.status);
   const [localStageStatus, setLocalStageStatus] = useState(job.current_stage_status);
   const [stageInstance, setStageInstance] = useState<StageInstance | null>(null);
+  
+  // New states for batch allocation flow
+  const [proofApprovalFlow, setProofApprovalFlow] = useState<ProofApprovalFlow>('pending');
+  const [selectedBatchCategory, setSelectedBatchCategory] = useState<string>("");
 
   const { assignPartsToStages, getJobParts, isAssigning } = usePartPrintingAssignment();
   const { printingStages: existingPrintingStages, isLoading: printingStagesLoading } = useJobPrintingStages(job.job_id);
@@ -79,6 +88,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
         setLocalJobStatus(job.status);
         setLocalStageStatus(job.current_stage_status);
         setNotes("");
+        setProofApprovalFlow('pending');
+        setSelectedBatchCategory("");
 
         // Load current stage instance data
         if (job.current_stage_id) {
@@ -327,6 +338,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     }
   };
 
+  // Updated proof approval handler - now shows allocation options
   const handleProofApproved = async () => {
     setIsLoading(true);
 
@@ -341,21 +353,44 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
       if (updateError) throw updateError;
 
-      // Complete the current stage and advance
-      if (onComplete && job.current_stage_id) {
-        const success = await onComplete(job.job_id, job.current_stage_id);
-        if (success) {
-          toast.success('Proof approved and job advanced');
-          onRefresh?.();
-          onClose();
-        }
-      }
+      // Update stage instance state
+      setStageInstance(prev => prev ? { ...prev, proof_approved_manually_at: new Date().toISOString() } : null);
+      
+      // Move to allocation choice flow
+      setProofApprovalFlow('choosing_allocation');
+      
+      toast.success('Proof approved! Choose next step.');
     } catch (error) {
       console.error('Error marking proof as approved:', error);
       toast.error('Failed to mark proof as approved');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle batch allocation choice
+  const handleBatchAllocation = () => {
+    setProofApprovalFlow('batch_allocation');
+  };
+
+  // Handle direct printing choice
+  const handleDirectPrinting = async () => {
+    setProofApprovalFlow('direct_printing');
+    // Proceed with existing direct printing logic
+    await handleAdvanceToPrintingStage();
+  };
+
+  // Handle batch job creation completion
+  const handleBatchJobCreated = () => {
+    toast.success("Job successfully allocated to batch processing");
+    onRefresh?.();
+    onClose();
+  };
+
+  // Handle canceling batch allocation
+  const handleCancelBatchAllocation = () => {
+    setProofApprovalFlow('choosing_allocation');
+    setSelectedBatchCategory("");
   };
 
   const handleAdvanceToPartSpecificPrinting = async () => {
@@ -500,6 +535,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
   const renderProofActions = () => {
     const hasProofBeenEmailed = stageInstance?.proof_emailed_at;
+    const hasProofBeenApproved = stageInstance?.proof_approved_manually_at;
 
     if (stageStatus === 'pending') {
       return (
@@ -515,7 +551,20 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     }
 
     if (stageStatus === 'active') {
-      if (hasProofBeenEmailed) {
+      if (!hasProofBeenEmailed) {
+        return (
+          <Button 
+            onClick={handleProofEmailed}
+            disabled={isLoading}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            Proof Emailed
+          </Button>
+        );
+      }
+
+      if (hasProofBeenEmailed && !hasProofBeenApproved) {
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-md">
@@ -533,69 +582,83 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
               className="w-full bg-green-600 hover:bg-green-700"
             >
               <ThumbsUp className="h-4 w-4 mr-2" />
-              Mark as Approved & Advance
+              Mark as Approved
             </Button>
-
-            {/* Show printing stage selection after proof is emailed */}
-            <Label className="text-sm font-medium">Assigned Printing Stages:</Label>
-            <div className="space-y-2">
-              {existingPrintingStages.map((stage, index) => (
-                <div key={stage.id} className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
-                  <div 
-                    className="w-4 h-4 rounded-full flex-shrink-0" 
-                    style={{ backgroundColor: stage.color }}
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium">{stage.name}</div>
-                    {stage.part_name && (
-                      <div className="text-sm text-gray-500">Part: {stage.part_name}</div>
-                    )}
-                  </div>
-                  <Select 
-                    value={index === 0 ? selectedPrintingStage || stage.id : stage.id} 
-                    onValueChange={(value) => {
-                      if (index === 0) {
-                        setSelectedPrintingStage(value);
-                      }
-                    }}
-                    disabled={index !== 0}
-                  >
-                    <SelectTrigger className={cn(
-                      "w-48",
-                      index !== 0 && "opacity-50 cursor-not-allowed"
-                    )}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[60vh]">
-                      {allPrintingStages.map((availableStage) => (
-                        <SelectItem key={availableStage.id} value={availableStage.id}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full" 
-                              style={{ backgroundColor: availableStage.color }}
-                            />
-                            {availableStage.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
-            </div>
           </div>
         );
-      } else {
-        return (
-          <Button 
-            onClick={handleProofEmailed}
-            disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700"
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            Proof Emailed
-          </Button>
-        );
+      }
+
+      // Proof has been approved - show allocation flow
+      if (hasProofBeenApproved) {
+        if (proofApprovalFlow === 'choosing_allocation') {
+          return (
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-2 text-green-600 bg-green-50 p-3 rounded-md">
+                <ThumbsUp className="h-4 w-4" />
+                <span className="text-sm font-medium">Proof Approved - Choose Next Step</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <Button 
+                  onClick={handleBatchAllocation}
+                  disabled={isLoading}
+                  className="w-full bg-orange-600 hover:bg-orange-700"
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  Send to Batch Processing
+                </Button>
+                
+                <Button 
+                  onClick={handleDirectPrinting}
+                  disabled={isLoading}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  variant="outline"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Send Directly to Printing
+                </Button>
+              </div>
+            </div>
+          );
+        }
+
+        if (proofApprovalFlow === 'batch_allocation') {
+          if (!selectedBatchCategory) {
+            return (
+              <div className="space-y-4">
+                <BatchCategorySelector
+                  onSelectCategory={setSelectedBatchCategory}
+                  selectedCategory={selectedBatchCategory}
+                  disabled={isLoading}
+                />
+                <Button 
+                  onClick={handleCancelBatchAllocation}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Back to Options
+                </Button>
+              </div>
+            );
+          } else {
+            return (
+              <div className="space-y-4">
+                <BatchJobForm
+                  jobData={{
+                    wo_no: job.wo_no,
+                    customer: job.customer || '',
+                    qty: job.qty || 1,
+                    due_date: job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                  }}
+                  batchCategory={selectedBatchCategory}
+                  onJobCreated={handleBatchJobCreated}
+                  onCancel={handleCancelBatchAllocation}
+                  isProcessing={isLoading}
+                />
+              </div>
+            );
+          }
+        }
       }
     }
 
