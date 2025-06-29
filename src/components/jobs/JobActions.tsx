@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -340,7 +341,7 @@ const JobActions = ({ job, onJobDeleted, onJobUpdated }: JobActionsProps) => {
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm">
             <MoreHorizontal size={16} />
