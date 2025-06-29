@@ -149,12 +149,16 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           throw error;
         }
 
-        // Handle the case where insertResult might not have the expected structure
-        if (!insertResult || typeof insertResult !== 'object' || !('id' in insertResult)) {
-          throw new Error("Failed to create job - no ID returned");
+        // More explicit null check and type assertion
+        if (!insertResult) {
+          throw new Error("Failed to create job - no result returned");
+        }
+        
+        if (typeof insertResult !== 'object' || !('id' in insertResult)) {
+          throw new Error("Failed to create job - invalid result structure");
         }
 
-        finalJobId = (insertResult as { id: string }).id;
+        finalJobId = insertResult.id as string;
         
         toast.success(`${config.ui.jobFormTitle} created successfully`);
       }
