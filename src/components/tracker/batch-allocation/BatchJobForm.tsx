@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Upload, X } from 'lucide-react';
 import { BusinessCardPrintSpecificationSelector } from '@/components/business-cards/BusinessCardPrintSpecificationSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { productConfigs } from '@/config/productTypes';
+import { useFileUpload } from '@/hooks/useFileUpload';
 
 interface JobData {
   wo_no: string;
@@ -38,13 +39,51 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
   const [clientName, setClientName] = useState(jobData.customer);
   const [quantity, setQuantity] = useState(jobData.qty);
   const [specifications, setSpecifications] = useState<Record<string, any>>({});
+  const [isUploading, setIsUploading] = useState(false);
 
-  const config = productConfigs[batchCategory as keyof typeof productConfigs];
+  // File upload hook
+  const { 
+    selectedFile, 
+    setSelectedFile, 
+    handleFileChange, 
+    fileInfo,
+    clearSelectedFile 
+  } = useFileUpload({
+    acceptedTypes: ['application/pdf'],
+    maxSizeInMB: 10
+  });
+
+  // Map category key to config key
+  const configKey = batchCategory === 'business_cards' ? 'BusinessCards' : batchCategory;
+  const config = productConfigs[configKey as keyof typeof productConfigs];
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!selectedFile) {
+      toast.error('Please select a PDF file to upload');
+      return;
+    }
+    
     try {
+      setIsUploading(true);
+
+      // Upload file to Supabase storage
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `batch-jobs/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('pdf_files')
+        .upload(filePath, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('pdf_files')
+        .getPublicUrl(filePath);
+
       // Get the table name for this batch category
       const tableName = config?.tableName;
       if (!tableName) {
@@ -59,6 +98,8 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
         quantity: quantity,
         due_date: new Date(jobData.due_date).toISOString(),
         status: 'queued',
+        pdf_url: publicUrl,
+        file_name: selectedFile.name,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -92,6 +133,8 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
     } catch (error) {
       console.error('Error creating batch job:', error);
       toast.error('Failed to create batch job');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -109,7 +152,7 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
       <CardHeader>
         <CardTitle>Create {config?.ui.jobFormTitle || 'Batch Job'}</CardTitle>
         <p className="text-sm text-gray-600">
-          Job details pre-populated from production order
+          Job details pre-populated from production order. Please upload the PDF file for this job.
         </p>
       </CardHeader>
       <CardContent>
@@ -156,28 +199,85 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
             </div>
           </div>
 
+          {/* File Upload Section */}
+          <div className="space-y-2">
+            <Label htmlFor="pdfFile">PDF File *</Label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+              {!selectedFile ? (
+                <div className="text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="mt-2">
+                    <Label htmlFor="pdfFile" className="cursor-pointer">
+                      <span className="text-sm font-medium text-blue-600 hover:text-blue-500">
+                        Click to upload PDF
+                      </span>
+                      <Input
+                        id="pdfFile"
+                        type="file"
+                        accept="application/pdf"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </Label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">PDF files only, max 10MB</p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex-shrink-0">
+                      <Upload className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {fileInfo?.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {fileInfo?.sizeInKB}KB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelectedFile}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {batchCategory === 'business_cards' && (
             <BusinessCardPrintSpecificationSelector
               onSpecificationChange={handleSpecificationChange}
               selectedSpecifications={specifications}
-              disabled={isProcessing}
+              disabled={isProcessing || isUploading}
             />
           )}
 
           <div className="flex gap-3">
             <Button
               type="submit"
-              disabled={isProcessing}
+              disabled={isProcessing || isUploading || !selectedFile}
               className="flex items-center gap-2"
             >
-              {isProcessing ? (
+              {(isProcessing || isUploading) ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Create Batch Job
+              {isUploading ? 'Uploading...' : 'Create Batch Job'}
             </Button>
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onCancel}
+              disabled={isProcessing || isUploading}
+            >
               Cancel
             </Button>
           </div>
