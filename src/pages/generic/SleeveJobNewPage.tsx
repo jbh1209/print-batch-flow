@@ -1,8 +1,15 @@
 
-import { SleeveJobForm } from "@/components/sleeves/SleeveJobForm";
+import { GenericJobForm } from "@/components/generic/GenericJobForm";
+import { productConfigs } from "@/config/productTypes";
 
 const SleeveJobNewPage = () => {
-  return <SleeveJobForm mode="create" />;
+  const config = productConfigs["Sleeves"];
+  
+  return (
+    <div className="container mx-auto py-6">
+      <GenericJobForm config={config} mode="create" />
+    </div>
+  );
 };
 
 export default SleeveJobNewPage;
