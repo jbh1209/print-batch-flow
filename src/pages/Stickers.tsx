@@ -152,7 +152,7 @@ const Stickers = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate("/batches/stickers/jobs/new")}
+                onClick={() => navigate("/batchflow/batches/stickers/jobs/new")}
               >
                 Add New Job
               </Button>
