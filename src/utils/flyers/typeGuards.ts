@@ -90,7 +90,7 @@ export function convertFlyerBatchToBatchDetails(flyerBatch: FlyerBatch): BatchDe
       overview_pdf_url: flyerBatch.overview_pdf_url || flyerBatch.back_pdf_url,
       due_date: flyerBatch.due_date,
       created_at: flyerBatch.created_at,
-      status: flyerBatch.status
+      status: flyerBatch.status as any // Cast to allow flexible status types
     };
   } catch (error) {
     console.error('Error converting FlyerBatch to BatchDetailsType:', error);

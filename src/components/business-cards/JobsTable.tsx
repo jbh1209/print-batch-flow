@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, FileDown, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { DueDateIndicator } from "./DueDateIndicator";
+import DueDateIndicator from "./DueDateIndicator";
 
 // Make JobStatus more flexible to handle database string values
 export type JobStatus = "queued" | "batched" | "completed" | "cancelled" | string;

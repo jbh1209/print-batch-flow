@@ -45,8 +45,6 @@ const JobsTableContainer = ({
           <JobsTable
             jobs={jobs}
             isLoading={isLoading}
-            error={error}
-            onRefresh={onRefresh}
             selectedJobs={selectedJobs}
             onSelectJob={onSelectJob}
             onSelectAllJobs={onSelectAllJobs}
