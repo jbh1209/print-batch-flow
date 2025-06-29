@@ -2,23 +2,56 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-interface PrintSpecification {
+export interface PrintSpecification {
   id: string;
   name: string;
   display_name: string;
   description?: string;
+  category: string;
   properties: Record<string, any>;
+  is_active: boolean;
+  sort_order: number;
   is_default?: boolean;
 }
 
 export const usePrintSpecifications = () => {
-  const [specifications, setSpecifications] = useState<Record<string, PrintSpecification[]>>({});
+  const [specifications, setSpecifications] = useState<PrintSpecification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const getCompatibleSpecifications = async (productType: string, category: string): Promise<PrintSpecification[]> => {
+  const loadAllSpecifications = async () => {
     try {
       setIsLoading(true);
       
+      const { data, error } = await supabase
+        .from('print_specifications')
+        .select('*')
+        .eq('is_active', true)
+        .order('category, sort_order, display_name');
+
+      if (error) {
+        console.error('Error fetching specifications:', error);
+        return;
+      }
+
+      const specs = (data || []).map(spec => ({
+        ...spec,
+        properties: typeof spec.properties === 'string' ? JSON.parse(spec.properties) : spec.properties || {}
+      }));
+      
+      setSpecifications(specs);
+    } catch (error) {
+      console.error('Error in loadAllSpecifications:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllSpecifications();
+  }, []);
+
+  const getCompatibleSpecifications = async (productType: string, category: string): Promise<PrintSpecification[]> => {
+    try {
       const { data, error } = await supabase.rpc('get_compatible_specifications', {
         p_product_type: productType,
         p_category: category
@@ -29,20 +62,74 @@ export const usePrintSpecifications = () => {
         return [];
       }
 
-      const specs = data || [];
-      
-      // Cache the results
-      setSpecifications(prev => ({
-        ...prev,
-        [`${productType}_${category}`]: specs
+      return (data || []).map((spec: any) => ({
+        ...spec,
+        properties: typeof spec.properties === 'string' ? JSON.parse(spec.properties) : spec.properties || {}
       }));
-
-      return specs;
     } catch (error) {
       console.error('Error in getCompatibleSpecifications:', error);
       return [];
-    } finally {
-      setIsLoading(false);
+    }
+  };
+
+  const createSpecification = async (specData: Omit<PrintSpecification, 'id'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('print_specifications')
+        .insert([{
+          ...specData,
+          properties: JSON.stringify(specData.properties)
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await loadAllSpecifications();
+      return data;
+    } catch (error) {
+      console.error('Error creating specification:', error);
+      throw error;
+    }
+  };
+
+  const updateSpecification = async (id: string, specData: Partial<PrintSpecification>) => {
+    try {
+      const updateData = {
+        ...specData,
+        properties: specData.properties ? JSON.stringify(specData.properties) : undefined
+      };
+
+      const { data, error } = await supabase
+        .from('print_specifications')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await loadAllSpecifications();
+      return data;
+    } catch (error) {
+      console.error('Error updating specification:', error);
+      throw error;
+    }
+  };
+
+  const deleteSpecification = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('print_specifications')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await loadAllSpecifications();
+    } catch (error) {
+      console.error('Error deleting specification:', error);
+      throw error;
     }
   };
 
@@ -88,6 +175,9 @@ export const usePrintSpecifications = () => {
     specifications,
     isLoading,
     getCompatibleSpecifications,
-    saveJobSpecifications
+    saveJobSpecifications,
+    createSpecification,
+    updateSpecification,
+    deleteSpecification
   };
 };

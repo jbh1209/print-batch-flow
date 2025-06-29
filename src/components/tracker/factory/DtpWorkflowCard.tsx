@@ -70,9 +70,6 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
     return job.current_stage_status || 'pending';
   };
 
-  const currentStage = getCurrentStage();
-  const stageStatus = getStageStatus();
-
   const handleStartDTP = async () => {
     setIsLoading(true);
     try {
@@ -289,6 +286,7 @@ export const DtpWorkflowCard: React.FC<DtpWorkflowCardProps> = ({
     }
   };
 
+  // Get current stage and status
   const currentStage = getCurrentStage();
   const stageStatus = getStageStatus();
 
