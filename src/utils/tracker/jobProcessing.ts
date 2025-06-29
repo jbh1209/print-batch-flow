@@ -1,4 +1,3 @@
-
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 export interface CategorizedJobs {
@@ -10,6 +9,48 @@ export interface CategorizedJobs {
   finishingJobs: AccessibleJob[];
   otherJobs: AccessibleJob[];
 }
+
+export interface JobCounts {
+  total: number;
+  pending: number;
+  active: number;
+  completed: number;
+}
+
+/**
+ * Calculate job counts and statistics from a list of jobs
+ */
+export const calculateJobCounts = (jobs: AccessibleJob[]): JobCounts => {
+  if (!jobs || jobs.length === 0) {
+    return {
+      total: 0,
+      pending: 0,
+      active: 0,
+      completed: 0
+    };
+  }
+
+  const counts = {
+    total: jobs.length,
+    pending: 0,
+    active: 0,
+    completed: 0
+  };
+
+  jobs.forEach(job => {
+    const status = job.current_stage_status?.toLowerCase() || '';
+    
+    if (status === 'pending') {
+      counts.pending++;
+    } else if (status === 'active') {
+      counts.active++;
+    } else if (status === 'completed') {
+      counts.completed++;
+    }
+  });
+
+  return counts;
+};
 
 /**
  * Enhanced stage to Master Queue mapping - more comprehensive and case-insensitive

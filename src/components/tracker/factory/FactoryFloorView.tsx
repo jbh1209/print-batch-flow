@@ -46,9 +46,13 @@ export const FactoryFloorView = () => {
   };
 
   // Categorize jobs for display
-  const { dtpJobs, proofJobs } = React.useMemo(() => {
+  const jobCategories = React.useMemo(() => {
     if (!jobs || jobs.length === 0) {
-      return { dtpJobs: [], proofJobs: [] };
+      return { 
+        dtpJobs: [], 
+        proofJobs: [], 
+        batchAllocationJobs: []
+      };
     }
     
     const categories = categorizeJobs(jobs);
@@ -141,9 +145,9 @@ export const FactoryFloorView = () => {
         {/* Stats */}
         <TrackerErrorBoundary componentName="Factory Floor Stats">
           <DtpDashboardStats
-            dtpJobs={dtpJobs}
-            proofJobs={proofJobs}
-            batchAllocationJobs={dtpJobs.batchAllocationJobs || []}
+            dtpJobs={jobCategories.dtpJobs}
+            proofJobs={jobCategories.proofJobs}
+            batchAllocationJobs={jobCategories.batchAllocationJobs}
           />
         </TrackerErrorBoundary>
       </div>
@@ -171,10 +175,10 @@ export const FactoryFloorView = () => {
               </Button>
               <div className="mt-3 flex items-center gap-2">
                 <Badge variant="outline" className="text-xs bg-blue-600 text-white">
-                  {dtpJobs.length} DTP Jobs
+                  {jobCategories.dtpJobs.length} DTP Jobs
                 </Badge>
                 <Badge variant="outline" className="text-xs bg-purple-600 text-white">
-                  {proofJobs.length} Proof Jobs
+                  {jobCategories.proofJobs.length} Proof Jobs
                 </Badge>
               </div>
             </CardContent>
@@ -226,7 +230,7 @@ export const FactoryFloorView = () => {
               </Button>
               <div className="mt-3">
                 <Badge variant="outline" className="text-xs bg-orange-600 text-white">
-                  Batch Ready
+                  {jobCategories.batchAllocationJobs.length} Batch Ready
                 </Badge>
               </div>
             </CardContent>
