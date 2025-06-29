@@ -66,13 +66,13 @@ export const useFlyerJobSubmit = () => {
       }
 
       if (jobId) {
-        // We're updating an existing job
-        const updateData: Partial<FlyerJobData> = {
+        // We're updating an existing job - use type assertion for Supabase operation
+        const updateData: any = {
           name: data.name,
           job_number: data.job_number,
-          size: data.size, // Now accepts any string
+          size: data.size,
           paper_weight: data.paper_weight,
-          paper_type: data.paper_type, // Now accepts any string  
+          paper_type: data.paper_type,
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
         };
@@ -100,12 +100,13 @@ export const useFlyerJobSubmit = () => {
           throw new Error("File upload is required for new jobs");
         }
 
-        const jobData: FlyerJobData = {
+        // Create job data with required fields
+        const jobData: any = {
           name: data.name,
           job_number: data.job_number,
-          size: data.size, // Now accepts any string
+          size: data.size,
           paper_weight: data.paper_weight,
-          paper_type: data.paper_type, // Now accepts any string
+          paper_type: data.paper_type,
           quantity: data.quantity,
           due_date: data.due_date.toISOString(),
           pdf_url: pdfUrl,

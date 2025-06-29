@@ -27,17 +27,17 @@ export function useFlyerJobOperations() {
   };
 
   // Add the createJob method
-  const createJob = async (jobData: Omit<FlyerJob, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'status' | 'batch_id'>) => {
+  const createJob = async (jobData: any) => {
     if (!user) {
       throw new Error('User not authenticated');
     }
 
     try {
-      // Fixed: Create a proper new job object with all required fields
-      const newJob = {
+      // Create a proper new job object with all required fields
+      const newJob: any = {
         ...jobData,
         user_id: user.id,
-        status: 'queued' as const,
+        status: 'queued',
         batch_id: null
       };
 

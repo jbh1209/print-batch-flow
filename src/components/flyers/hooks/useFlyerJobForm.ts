@@ -63,22 +63,17 @@ export const useFlyerJobForm = () => {
         fileName = selectedFile.name;
       }
 
-      // Create the data object with ONLY fields that exist in the flyer_jobs table
-      const flyerJobData: FlyerJobData = {
-        name: data.name,
-        job_number: data.job_number,
-        size: data.size, // Now accepts any string
-        paper_weight: data.paper_weight,
-        paper_type: data.paper_type, // Now accepts any string
-        quantity: data.quantity,
-        due_date: data.due_date.toISOString(),
-        user_id: user.id,
-        status: 'queued'
-      };
-
       if (jobId) {
-        // Update existing job
-        const updateData: Partial<FlyerJobData> = { ...flyerJobData };
+        // Update existing job - use type assertion for Supabase operation
+        const updateData: any = {
+          name: data.name,
+          job_number: data.job_number,
+          size: data.size,
+          paper_weight: data.paper_weight,
+          paper_type: data.paper_type,
+          quantity: data.quantity,
+          due_date: data.due_date.toISOString(),
+        };
         
         // Only include file data if a new file was uploaded
         if (pdfUrl && fileName) {
@@ -100,15 +95,23 @@ export const useFlyerJobForm = () => {
         
         toast.success("Flyer job updated successfully");
       } else {
-        // Create new job
+        // Create new job - use type assertion for Supabase operation
         if (!pdfUrl || !fileName) {
           throw new Error("File upload is required for new jobs");
         }
 
-        const insertData: FlyerJobData = {
-          ...flyerJobData,
+        const insertData: any = {
+          name: data.name,
+          job_number: data.job_number,
+          size: data.size,
+          paper_weight: data.paper_weight,
+          paper_type: data.paper_type,
+          quantity: data.quantity,
+          due_date: data.due_date.toISOString(),
           pdf_url: pdfUrl,
-          file_name: fileName
+          file_name: fileName,
+          user_id: user.id,
+          status: 'queued'
         };
 
         console.log('Creating new flyer job with data:', insertData);

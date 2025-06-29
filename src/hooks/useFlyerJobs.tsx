@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -54,16 +53,16 @@ export const useFlyerJobs = () => {
     }
   }, [authLoading, fetchJobs]);
 
-  const createJob = async (jobData: Omit<FlyerJob, 'id' | 'user_id' | 'status' | 'batch_id' | 'created_at' | 'updated_at'>) => {
+  const createJob = async (jobData: any) => {
     if (!user) {
       throw new Error('User not authenticated');
     }
 
     try {
-      const newJob = {
+      const newJob: any = {
         ...jobData,
         user_id: user.id,
-        status: 'queued' as const
+        status: 'queued'
       };
 
       const { data, error } = await supabase
@@ -82,7 +81,7 @@ export const useFlyerJobs = () => {
     }
   };
 
-  const updateJob = async (jobId: string, jobData: Partial<FlyerJob>) => {
+  const updateJob = async (jobId: string, jobData: any) => {
     try {
       // Remove user_id filter to allow any user to update any job
       const { data, error } = await supabase

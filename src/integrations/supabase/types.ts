@@ -271,7 +271,6 @@ export type Database = {
           paper_type: string
           pdf_url: string
           quantity: number
-          status: Database["public"]["Enums"]["job_status"]
           updated_at: string
           uploaded_at: string
           user_id: string
@@ -292,7 +291,6 @@ export type Database = {
           paper_type?: string
           pdf_url: string
           quantity: number
-          status?: Database["public"]["Enums"]["job_status"]
           updated_at?: string
           uploaded_at?: string
           user_id: string
@@ -313,7 +311,6 @@ export type Database = {
           paper_type?: string
           pdf_url?: string
           quantity?: number
-          status?: Database["public"]["Enums"]["job_status"]
           updated_at?: string
           uploaded_at?: string
           user_id?: string
@@ -537,12 +534,12 @@ export type Database = {
           id: string
           job_number: string
           name: string
-          paper_type: Database["public"]["Enums"]["paper_type"]
+          paper_type: string
           paper_weight: string
           pdf_url: string
           quantity: number
-          size: Database["public"]["Enums"]["size_enum"]
-          status: Database["public"]["Enums"]["job_status"]
+          size: string
+          status: string
           updated_at: string
           user_id: string
         }
@@ -557,12 +554,12 @@ export type Database = {
           id?: string
           job_number: string
           name: string
-          paper_type: Database["public"]["Enums"]["paper_type"]
+          paper_type: string
           paper_weight: string
           pdf_url: string
           quantity: number
-          size: Database["public"]["Enums"]["size_enum"]
-          status?: Database["public"]["Enums"]["job_status"]
+          size: string
+          status: string
           updated_at?: string
           user_id: string
         }
@@ -577,12 +574,12 @@ export type Database = {
           id?: string
           job_number?: string
           name?: string
-          paper_type?: Database["public"]["Enums"]["paper_type"]
+          paper_type?: string
           paper_weight?: string
           pdf_url?: string
           quantity?: number
-          size?: Database["public"]["Enums"]["size_enum"]
-          status?: Database["public"]["Enums"]["job_status"]
+          size?: string
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -2256,8 +2253,6 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "sent_to_print"
-      flyer_size: "A5" | "A4" | "DL" | "A3"
-      job_status: "queued" | "batched" | "completed" | "cancelled"
       lamination_type: "gloss" | "matt" | "soft_touch" | "none"
       page_status:
         | "queued"
@@ -2398,8 +2393,6 @@ export const Constants = {
         "cancelled",
         "sent_to_print",
       ],
-      flyer_size: ["A5", "A4", "DL", "A3"],
-      job_status: ["queued", "batched", "completed", "cancelled"],
       lamination_type: ["gloss", "matt", "soft_touch", "none"],
       page_status: [
         "queued",
