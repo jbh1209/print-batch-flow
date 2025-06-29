@@ -149,14 +149,14 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           throw error;
         }
 
-        // Use type assertion with proper null check
+        // Proper null check first
         if (!insertResult) {
           throw new Error("Failed to create job - no result returned");
         }
         
-        // Type assertion after null check
-        const jobResult = insertResult as { id: string };
-        if (!jobResult.id) {
+        // Safe type assertion through unknown
+        const jobResult = insertResult as unknown as { id: string };
+        if (!jobResult?.id) {
           throw new Error("Failed to create job - no ID in result");
         }
 
