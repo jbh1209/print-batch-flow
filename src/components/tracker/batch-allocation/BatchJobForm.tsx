@@ -1,16 +1,15 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, Save, Upload, X } from 'lucide-react';
-import { BusinessCardPrintSpecificationSelector } from '@/components/business-cards/BusinessCardPrintSpecificationSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { productConfigs } from '@/config/productTypes';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { JobFormFields } from './JobFormFields';
+import { FileUploadSection } from './FileUploadSection';
+import { SpecificationSection } from './SpecificationSection';
+import { FormActions } from './FormActions';
 
 interface JobData {
   wo_no: string;
@@ -177,130 +176,36 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="jobNumber">Job Number</Label>
-              <Input
-                id="jobNumber"
-                value={jobNumber}
-                onChange={(e) => setJobNumber(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="clientName">Client Name</Label>
-              <Input
-                id="clientName"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value))}
-                min="1"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="dueDate">Due Date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={jobData.due_date}
-                disabled
-                className="bg-gray-50"
-              />
-            </div>
-          </div>
+          <JobFormFields
+            jobNumber={jobNumber}
+            clientName={clientName}
+            quantity={quantity}
+            dueDate={jobData.due_date}
+            onJobNumberChange={setJobNumber}
+            onClientNameChange={setClientName}
+            onQuantityChange={setQuantity}
+          />
 
-          {/* File Upload Section */}
-          <div className="space-y-2">
-            <Label htmlFor="pdfFile">PDF File *</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-              {!selectedFile ? (
-                <div className="text-center">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="mt-2">
-                    <Label htmlFor="pdfFile" className="cursor-pointer">
-                      <span className="text-sm font-medium text-blue-600 hover:text-blue-500">
-                        Click to upload PDF
-                      </span>
-                      <Input
-                        id="pdfFile"
-                        type="file"
-                        accept="application/pdf"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                    </Label>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">PDF files only, max 10MB</p>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex-shrink-0">
-                      <Upload className="h-5 w-5 text-green-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {fileInfo?.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {fileInfo?.sizeInKB}KB
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearSelectedFile}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
+          <FileUploadSection
+            selectedFile={selectedFile}
+            onFileChange={handleFileChange}
+            onClearFile={clearSelectedFile}
+            fileInfo={fileInfo}
+          />
 
-          {batchCategory === 'business_cards' && (
-            <BusinessCardPrintSpecificationSelector
-              onSpecificationChange={handleSpecificationChange}
-              selectedSpecifications={specifications}
-              disabled={isProcessing || isUploading}
-            />
-          )}
+          <SpecificationSection
+            batchCategory={batchCategory}
+            specifications={specifications}
+            onSpecificationChange={handleSpecificationChange}
+            disabled={isProcessing || isUploading}
+          />
 
-          <div className="flex gap-3">
-            <Button
-              type="submit"
-              disabled={isProcessing || isUploading || !selectedFile}
-              className="flex items-center gap-2"
-            >
-              {(isProcessing || isUploading) ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {isUploading ? 'Uploading...' : 'Create Batch Job'}
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onCancel}
-              disabled={isProcessing || isUploading}
-            >
-              Cancel
-            </Button>
-          </div>
+          <FormActions
+            isProcessing={isProcessing}
+            isUploading={isUploading}
+            hasSelectedFile={!!selectedFile}
+            onCancel={onCancel}
+          />
         </form>
       </CardContent>
     </Card>
