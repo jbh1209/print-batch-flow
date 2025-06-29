@@ -40,7 +40,16 @@ export const usePrintSpecifications = () => {
         .order('category, sort_order, display_name');
 
       if (error) throw error;
-      setSpecifications(data || []);
+      
+      // Type conversion to handle Json type from database
+      const typedData = (data || []).map(spec => ({
+        ...spec,
+        properties: typeof spec.properties === 'object' && spec.properties !== null 
+          ? spec.properties as Record<string, any>
+          : {}
+      }));
+      
+      setSpecifications(typedData);
     } catch (error) {
       console.error('Error fetching print specifications:', error);
       toast.error('Failed to load print specifications');

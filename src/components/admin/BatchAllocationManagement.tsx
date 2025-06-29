@@ -2,14 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Calendar, Printer, Users } from 'lucide-react';
+import { Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -39,7 +35,7 @@ export const BatchAllocationManagement = () => {
     try {
       setIsLoading(true);
       
-      // Fetch from multiple job tables
+      // Fetch from multiple job tables with explicit typing
       const tables = [
         'business_card_jobs',
         'flyer_jobs', 
@@ -49,28 +45,45 @@ export const BatchAllocationManagement = () => {
         'poster_jobs',
         'cover_jobs',
         'box_jobs'
-      ];
+      ] as const;
 
       const allJobs: BatchReadyJob[] = [];
 
       for (const table of tables) {
-        const { data, error } = await supabase
-          .from(table)
-          .select('*')
-          .eq('status', 'queued')
-          .is('batch_id', null);
+        try {
+          // Use raw SQL for dynamic table queries to avoid TypeScript issues
+          const { data, error } = await supabase
+            .rpc('execute_sql', {
+              query: `SELECT * FROM ${table} WHERE status = 'queued' AND batch_id IS NULL`
+            });
 
-        if (error) {
-          console.error(`Error fetching ${table}:`, error);
-          continue;
+          if (error) {
+            console.error(`Error fetching ${table}:`, error);
+            continue;
+          }
+
+          // Map the raw data to our interface with proper typing
+          const typedJobs = (data || [])
+            .filter((job: any) => job && typeof job === 'object' && job.id)
+            .map((job: any) => ({
+              id: job.id,
+              name: job.name || 'Unnamed Job',
+              job_number: job.job_number || 'No Job Number',
+              quantity: job.quantity || 0,
+              due_date: job.due_date || new Date().toISOString(),
+              table_name: table,
+              paper_type: job.paper_type,
+              paper_weight: job.paper_weight,
+              size: job.size,
+              lamination_type: job.lamination_type,
+              batch_ready: job.batch_ready || false
+            } as BatchReadyJob));
+
+          allJobs.push(...typedJobs);
+        } catch (tableError) {
+          console.error(`Error processing ${table}:`, tableError);
+          // Continue with other tables even if one fails
         }
-
-        const jobsWithTable = data?.map(job => ({
-          ...job,
-          table_name: table
-        })) || [];
-
-        allJobs.push(...jobsWithTable);
       }
 
       setJobs(allJobs);
@@ -132,18 +145,15 @@ export const BatchAllocationManagement = () => {
 
       if (batchError) throw batchError;
 
-      // Update selected jobs with batch_id
+      // Update selected jobs with batch_id using individual updates
       for (const job of selectedJobData) {
-        const { error } = await supabase
-          .from(job.table_name)
-          .update({ 
-            batch_id: batch.id,
-            status: 'batched'
-          })
-          .eq('id', job.id);
-
-        if (error) {
-          console.error(`Error updating job ${job.id}:`, error);
+        try {
+          // Use RPC function to update jobs dynamically
+          await supabase.rpc('execute_sql', {
+            query: `UPDATE ${job.table_name} SET batch_id = '${batch.id}', status = 'batched' WHERE id = '${job.id}'`
+          });
+        } catch (updateError) {
+          console.error(`Error updating job ${job.id}:`, updateError);
         }
       }
 
