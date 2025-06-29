@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -9,19 +8,20 @@ import { SleeveJobFormValues } from "@/lib/schema/sleeveJobFormSchema";
 import { ProductConfig } from "@/config/productTypes";
 import { isExistingTable } from "@/utils/database/tableUtils";
 import { transformJobDataForTable } from "@/utils/database/productDataTransformers";
+import { useJobSpecificationStorage } from "@/hooks/useJobSpecificationStorage";
 
 export const useGenericJobSubmit = (config: ProductConfig) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { saveJobSpecifications } = useJobSpecificationStorage();
 
   const handleSubmit = async (
     data: GenericJobFormValues | SleeveJobFormValues,
     selectedFile: File | null,
-    jobId?: string
+    jobId?: string,
+    specifications?: Record<string, any>
   ) => {
-    // If we're editing a job and no new file was selected, we can proceed
-    // If we're creating a new job, we need a file
     if (!selectedFile && !jobId) {
       toast.error("Please upload a PDF file");
       return false;
@@ -30,18 +30,15 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
     setIsSubmitting(true);
     
     try {
-      // If we're editing and there's no new file, we don't need to upload again
       let pdfUrl = undefined;
       let fileName = undefined;
       
-      // Only upload a new file if one is selected
       if (selectedFile) {
         const uniqueFileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
         const filePath = `${user?.id}/${uniqueFileName}`;
         
         toast.loading("Uploading PDF file...");
         
-        // Check if the bucket exists
         const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
         if (bucketsError) {
           console.error('Error checking buckets:', bucketsError);
@@ -79,13 +76,11 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
 
       const tableName = config.tableName;
       
-      // Check if the table exists in the database before operations
       if (!isExistingTable(tableName)) {
         toast.error(`Table ${tableName} is not yet implemented in the database`);
         return false;
       }
 
-      // Create base job data that all products need
       const baseJobData = {
         name: data.name,
         job_number: data.job_number,
@@ -95,11 +90,11 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         status: 'queued'
       };
 
+      let finalJobId = jobId;
+
       if (jobId) {
-        // We're updating an existing job
         const updateData = { ...baseJobData };
         
-        // Only include file data if a new file was uploaded
         if (pdfUrl && fileName) {
           Object.assign(updateData, {
             pdf_url: pdfUrl,
@@ -107,18 +102,15 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           });
         }
         
-        // Use transformer to get the correct fields for this table
         const transformedData = transformJobDataForTable(tableName, data, {
           ...baseJobData,
           pdf_url: pdfUrl || '',
           file_name: fileName || ''
         });
         
-        // Remove fields that shouldn't be in update (like user_id, status for updates)
         const { user_id, status, pdf_url: _, file_name: __, ...updateFields } = transformedData;
         const finalUpdateData = { ...updateFields };
         
-        // Add file data back if we have it
         if (pdfUrl && fileName) {
           Object.assign(finalUpdateData, {
             pdf_url: pdfUrl,
@@ -137,7 +129,6 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         
         toast.success(`${config.ui.jobFormTitle} updated successfully`);
       } else {
-        // We're creating a new job
         const newJobData = transformJobDataForTable(tableName, data, {
           ...baseJobData,
           pdf_url: pdfUrl!,
@@ -146,16 +137,29 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         
         console.log(`Creating ${config.productType} job with data:`, newJobData);
         
-        const { error } = await supabase
+        const { data: createdJob, error } = await supabase
           .from(tableName as any)
-          .insert(newJobData);
+          .insert(newJobData)
+          .select('id')
+          .single();
 
         if (error) {
           console.error(`Database error for ${config.productType}:`, error);
           throw error;
         }
+
+        finalJobId = createdJob.id;
         
         toast.success(`${config.ui.jobFormTitle} created successfully`);
+      }
+
+      if (finalJobId && specifications && Object.keys(specifications).length > 0) {
+        try {
+          await saveJobSpecifications(finalJobId, tableName, specifications);
+        } catch (specError) {
+          console.error('Failed to save specifications:', specError);
+          toast.error('Job created but failed to save specifications');
+        }
       }
       
       navigate(config.routes.jobsPath);

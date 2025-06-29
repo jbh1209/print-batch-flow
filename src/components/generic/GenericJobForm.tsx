@@ -1,5 +1,4 @@
-
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,6 +25,7 @@ export const GenericJobForm = ({
 }: GenericJobFormProps) => {
   const navigate = useNavigate();
   const { handleSubmit, isSubmitting } = useGenericJobSubmit(config);
+  const [selectedSpecifications, setSelectedSpecifications] = useState<Record<string, any>>({});
   
   const { 
     selectedFile, 
@@ -77,7 +77,23 @@ export const GenericJobForm = ({
   }, [selectedFile, form, mode]);
 
   const onSubmit = async (data: GenericJobFormValues) => {
-    await handleSubmit(data, selectedFile, mode === 'edit' ? initialData?.id : undefined);
+    await handleSubmit(
+      data, 
+      selectedFile, 
+      mode === 'edit' ? initialData?.id : undefined,
+      selectedSpecifications
+    );
+  };
+
+  const handleSpecificationChange = (category: string, specificationId: string, specification: any) => {
+    setSelectedSpecifications(prev => ({
+      ...prev,
+      [category]: {
+        id: specificationId,
+        category,
+        ...specification
+      }
+    }));
   };
 
   return (
@@ -106,6 +122,7 @@ export const GenericJobForm = ({
               setSelectedFile={setSelectedFile}
               handleFileChange={handleFileChange}
               isEdit={mode === 'edit'}
+              onSpecificationChange={handleSpecificationChange}
             />
 
             <FormActions 

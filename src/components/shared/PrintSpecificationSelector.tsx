@@ -1,48 +1,47 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useFormContext } from 'react-hook-form';
 import { usePrintSpecifications } from '@/hooks/usePrintSpecifications';
-import { Separator } from '@/components/ui/separator';
 
 interface PrintSpecificationSelectorProps {
   productType: string;
-  onSpecificationChange: (category: string, specificationId: string, specification: any) => void;
+  onSpecificationChange?: (category: string, specificationId: string, specification: any) => void;
   selectedSpecifications?: Record<string, string>;
   disabled?: boolean;
 }
 
-export const PrintSpecificationSelector = ({
+export const PrintSpecificationSelector: React.FC<PrintSpecificationSelectorProps> = ({
   productType,
   onSpecificationChange,
   selectedSpecifications = {},
   disabled = false
-}: PrintSpecificationSelectorProps) => {
+}) => {
+  const { control, setValue, watch } = useFormContext();
   const { getCompatibleSpecifications } = usePrintSpecifications();
-  const [availableSpecs, setAvailableSpecs] = useState<Record<string, any[]>>({});
+  const [specificationOptions, setSpecificationOptions] = useState<Record<string, any[]>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const categories = [
+    { key: 'size', label: 'Size', required: true },
     { key: 'paper_type', label: 'Paper Type', required: true },
     { key: 'paper_weight', label: 'Paper Weight', required: true },
-    { key: 'size', label: 'Size', required: true },
-    { key: 'lamination_type', label: 'Lamination', required: false },
+    { key: 'lamination_type', label: 'Lamination Type', required: false },
     { key: 'uv_varnish', label: 'UV Varnish', required: false }
   ];
 
   useEffect(() => {
     const loadSpecifications = async () => {
       setIsLoading(true);
-      const specs: Record<string, any[]> = {};
+      const options: Record<string, any[]> = {};
       
       for (const category of categories) {
-        const categorySpecs = await getCompatibleSpecifications(productType, category.key);
-        specs[category.key] = categorySpecs;
+        const specs = await getCompatibleSpecifications(productType, category.key);
+        options[category.key] = specs;
       }
       
-      setAvailableSpecs(specs);
+      setSpecificationOptions(options);
       setIsLoading(false);
     };
 
@@ -50,93 +49,89 @@ export const PrintSpecificationSelector = ({
   }, [productType]);
 
   const handleSpecificationChange = (category: string, specificationId: string) => {
-    const specification = availableSpecs[category]?.find(spec => spec.id === specificationId);
+    const specification = specificationOptions[category]?.find(spec => spec.id === specificationId);
     if (specification) {
-      onSpecificationChange(category, specificationId, specification);
+      // Update form field with display name
+      setValue(category, specification.display_name);
+      
+      // Notify parent component
+      onSpecificationChange?.(category, specificationId, specification);
     }
   };
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Print Specifications</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-4">Loading specifications...</div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {categories.map(category => (
+          <div key={category.key} className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded mb-2 w-1/4"></div>
+            <div className="h-10 bg-gray-200 rounded"></div>
+          </div>
+        ))}
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Print Specifications</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Select the print specifications for this job
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {categories.map((category, index) => {
-          const specs = availableSpecs[category.key] || [];
-          const selectedSpec = specs.find(spec => spec.id === selectedSpecifications[category.key]);
+    <div className="space-y-4">
+      <h3 className="text-lg font-medium">Print Specifications</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {categories.map(category => {
+          const options = specificationOptions[category.key] || [];
           
           return (
-            <div key={category.key}>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor={category.key}>
+            <FormField
+              key={category.key}
+              control={control}
+              name={category.key}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
                     {category.label}
-                  </Label>
-                  {category.required && (
-                    <Badge variant="destructive" className="text-xs">Required</Badge>
-                  )}
-                  {selectedSpec?.is_default && (
-                    <Badge variant="secondary" className="text-xs">Default</Badge>
-                  )}
-                </div>
-                
-                <Select
-                  value={selectedSpecifications[category.key] || ''}
-                  onValueChange={(value) => handleSpecificationChange(category.key, value)}
-                  disabled={disabled}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={`Select ${category.label.toLowerCase()}`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {specs.length === 0 ? (
-                      <SelectItem value="" disabled>
-                        No {category.label.toLowerCase()} options available
-                      </SelectItem>
-                    ) : (
-                      specs.map((spec) => (
-                        <SelectItem key={spec.id} value={spec.id}>
-                          <div className="flex items-center justify-between w-full">
-                            <span>{spec.display_name}</span>
-                            {spec.is_default && (
-                              <Badge variant="secondary" className="ml-2 text-xs">Default</Badge>
+                    {category.required && <span className="text-red-500 ml-1">*</span>}
+                  </FormLabel>
+                  <Select
+                    disabled={disabled || options.length === 0}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      const spec = options.find(opt => opt.display_name === value);
+                      if (spec) {
+                        handleSpecificationChange(category.key, spec.id);
+                      }
+                    }}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue 
+                          placeholder={
+                            options.length === 0 
+                              ? "No options available" 
+                              : `Select ${category.label.toLowerCase()}`
+                          } 
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {options.map((spec) => (
+                        <SelectItem key={spec.id} value={spec.display_name}>
+                          <div>
+                            <div className="font-medium">{spec.display_name}</div>
+                            {spec.description && (
+                              <div className="text-sm text-gray-500">{spec.description}</div>
                             )}
                           </div>
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                
-                {selectedSpec?.description && (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedSpec.description}
-                  </p>
-                )}
-              </div>
-              
-              {index < categories.length - 1 && <Separator className="my-4" />}
-            </div>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           );
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
