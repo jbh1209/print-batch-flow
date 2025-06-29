@@ -30,3 +30,23 @@ export interface BatchProperties {
   sheetSize: string;
   slaTargetDays: number;
 }
+
+export interface FlyerBatch {
+  id: string;
+  name: string;
+  status: string;
+  sheets_required: number;
+  front_pdf_url: string | null;
+  back_pdf_url: string | null;
+  overview_pdf_url: string | null;
+  due_date: string;
+  created_at: string;
+  lamination_type: LaminationType | null;
+  paper_type: string;
+  paper_weight: string;
+  sheet_size: string;
+  printer_type: string;
+  created_by: string;
+  updated_at: string;
+  date_created: string;
+}

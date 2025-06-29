@@ -39,7 +39,7 @@ export function convertFlyerJobToJob(flyerJob: FlyerJob): Job {
       lamination_type: "none",
       due_date: flyerJob.due_date,
       uploaded_at: flyerJob.created_at,
-      status: flyerJob.status,
+      status: flyerJob.status as any, // Cast to allow flexible status types
       pdf_url: flyerJob.pdf_url,
       user_id: flyerJob.user_id || "",
       updated_at: flyerJob.updated_at || "",

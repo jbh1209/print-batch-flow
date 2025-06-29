@@ -70,6 +70,11 @@ export function FlyerBatchCreateDialog({
       setSelectedJobIds([]);
     }
   };
+
+  // Create a wrapper function to handle the setState call
+  const handleLaminationTypeChange = (value: LaminationType) => {
+    setLaminationType(value);
+  };
   
   const handleCreateBatch = async () => {
     try {
@@ -112,7 +117,7 @@ export function FlyerBatchCreateDialog({
             paperWeight={paperWeight}
             setPaperWeight={setPaperWeight}
             laminationType={laminationType}
-            setLaminationType={setLaminationType}
+            setLaminationType={handleLaminationTypeChange}
             printerType={printerType}
             setPrinterType={setPrinterType}
             sheetSize={sheetSize}
