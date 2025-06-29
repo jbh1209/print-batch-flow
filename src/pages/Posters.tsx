@@ -152,7 +152,7 @@ const Posters = () => {
               
               <Button 
                 className="w-full mt-4"
-                onClick={() => navigate("/batches/posters/jobs/new")}
+                onClick={() => navigate(config.routes.newJobPath)}
               >
                 Add New Job
               </Button>
