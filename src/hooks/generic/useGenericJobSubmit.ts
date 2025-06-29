@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -137,7 +138,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         
         console.log(`Creating ${config.productType} job with data:`, newJobData);
         
-        const { data: createdJob, error } = await supabase
+        const { data: insertResult, error } = await supabase
           .from(tableName as any)
           .insert(newJobData)
           .select('id')
@@ -148,7 +149,11 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           throw error;
         }
 
-        finalJobId = createdJob.id;
+        if (!insertResult || !insertResult.id) {
+          throw new Error("Failed to create job - no ID returned");
+        }
+
+        finalJobId = insertResult.id;
         
         toast.success(`${config.ui.jobFormTitle} created successfully`);
       }
