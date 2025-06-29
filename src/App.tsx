@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -14,6 +15,7 @@ import TrackerProduction from "./pages/tracker/TrackerProduction";
 import TrackerKanban from "./pages/tracker/TrackerKanban";
 import TrackerWorkSheets from "./pages/tracker/TrackerWorkSheets";
 import TrackerAdmin from "./pages/tracker/TrackerAdmin";
+import TrackerDTPWorkflow from "./pages/tracker/TrackerDTPWorkflow";
 import RoleAwareLayout from "./components/tracker/RoleAwareLayout";
 import { AuthProvider } from "./hooks/useAuth";
 import { Toaster } from "sonner";
@@ -203,6 +205,7 @@ const App: React.FC = () => {
               <Route path="upload" element={<TrackerUpload />} />
               <Route path="mobile" element={<TrackerMobileScanner />} />
               <Route path="factory-floor" element={<FactoryFloor />} />
+              <Route path="dtp-workflow" element={<TrackerDTPWorkflow />} />
             </Route>
           </Routes>
         </Router>
