@@ -68,21 +68,33 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
     try {
       setIsUploading(true);
 
-      // Upload file to Supabase storage
+      // Upload file to Supabase storage using the same approach as BatchFlow
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `batch-jobs/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('pdf_files')
-        .upload(filePath, selectedFile);
+      console.log('Uploading file:', { fileName, filePath, size: selectedFile.size });
 
-      if (uploadError) throw uploadError;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('pdf_files')
+        .upload(filePath, selectedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw new Error(`File upload failed: ${uploadError.message}`);
+      }
+
+      console.log('File uploaded successfully:', uploadData);
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('pdf_files')
         .getPublicUrl(filePath);
+
+      console.log('Public URL generated:', publicUrl);
 
       // Get the table name for this batch category
       const tableName = config?.tableName;
@@ -121,18 +133,26 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
         ...categorySpecificData
       };
 
-      // Insert into the appropriate job table
-      const { error } = await supabase
-        .from(tableName as any)
-        .insert(finalJobData);
+      console.log('Inserting job data:', finalJobData);
 
-      if (error) throw error;
+      // Insert into the appropriate job table
+      const { data: insertedData, error: insertError } = await supabase
+        .from(tableName as any)
+        .insert(finalJobData)
+        .select();
+
+      if (insertError) {
+        console.error('Database insert error:', insertError);
+        throw new Error(`Database insert failed: ${insertError.message}`);
+      }
+
+      console.log('Job created successfully:', insertedData);
 
       toast.success(`${config?.ui.jobFormTitle || 'Job'} created successfully`);
       onJobCreated();
     } catch (error) {
       console.error('Error creating batch job:', error);
-      toast.error('Failed to create batch job');
+      toast.error(error instanceof Error ? error.message : 'Failed to create batch job');
     } finally {
       setIsUploading(false);
     }
