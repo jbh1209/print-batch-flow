@@ -59,6 +59,14 @@ import StickerBatchDetails from "./pages/StickerBatchDetails";
 import Posters from "./pages/Posters";
 import PosterBatchDetails from "./pages/PosterBatchDetails";
 
+// Add missing imports for new job pages
+import PostcardJobNewPage from "./pages/generic/PostcardJobNewPage";
+import SleeveJobNewPage from "./pages/generic/SleeveJobNewPage";
+import StickerJobNewPage from "./pages/generic/StickerJobNewPage";
+import PosterJobNewPage from "./pages/generic/PosterJobNewPage";
+import CoverJobNewPage from "./pages/generic/CoverJobNewPage";
+import BoxJobNewPage from "./pages/generic/BoxJobNewPage";
+
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
 
@@ -137,28 +145,34 @@ const App: React.FC = () => {
               
               {/* Postcards */}
               <Route path="batches/postcards" element={<Postcards />} />
+              <Route path="batches/postcards/jobs/new" element={<PostcardJobNewPage />} />
               <Route path="batches/postcards/jobs/:id/edit" element={<PostcardJobEdit />} />
               <Route path="batches/postcards/batches/:batchId" element={<PostcardBatchDetails />} />
               
               {/* Boxes */}
               <Route path="batches/boxes" element={<Boxes />} />
+              <Route path="batches/boxes/jobs/new" element={<BoxJobNewPage />} />
               <Route path="batches/boxes/batches/:batchId" element={<BoxBatchDetails />} />
               
               {/* Covers */}
               <Route path="batches/covers" element={<Covers />} />
+              <Route path="batches/covers/jobs/new" element={<CoverJobNewPage />} />
               <Route path="batches/covers/batches/:batchId" element={<CoverBatchDetails />} />
               
               {/* Sleeves */}
               <Route path="batches/sleeves" element={<Sleeves />} />
+              <Route path="batches/sleeves/jobs/new" element={<SleeveJobNewPage />} />
               <Route path="batches/sleeves/jobs/:id/edit" element={<SleeveJobEdit />} />
               <Route path="batches/sleeves/batches/:batchId" element={<SleeveBatchDetails />} />
               
               {/* Stickers */}
               <Route path="batches/stickers" element={<Stickers />} />
+              <Route path="batches/stickers/jobs/new" element={<StickerJobNewPage />} />
               <Route path="batches/stickers/batches/:batchId" element={<StickerBatchDetails />} />
               
               {/* Posters */}
               <Route path="batches/posters" element={<Posters />} />
+              <Route path="batches/posters/jobs/new" element={<PosterJobNewPage />} />
               <Route path="batches/posters/batches/:batchId" element={<PosterBatchDetails />} />
             </Route>
             
