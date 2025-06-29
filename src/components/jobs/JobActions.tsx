@@ -50,28 +50,28 @@ const JobActions = ({ job, onJobDeleted, onJobUpdated }: JobActionsProps) => {
     
     switch (job.productConfig?.productType) {
       case 'Business Cards':
-        editPath = `/batches/business-cards/jobs/edit/${job.id}`;
+        editPath = `/batchflow/batches/business-cards/jobs/edit/${job.id}`;
         break;
       case 'Flyers':
-        editPath = `/batches/flyers/jobs/edit/${job.id}`;
+        editPath = `/batchflow/batches/flyers/jobs/edit/${job.id}`;
         break;
       case 'Postcards':
-        editPath = `/batches/postcards/jobs/edit/${job.id}`;
+        editPath = `/batchflow/batches/postcards/jobs/edit/${job.id}`;
         break;
       case 'Posters':
-        editPath = `/batches/posters/jobs/edit/${job.id}`;
+        editPath = `/batchflow/batches/posters/jobs/edit/${job.id}`;
         break;
       case 'Sleeves':
-        editPath = `/batches/sleeves/jobs/edit/${job.id}`;
+        editPath = `/batchflow/batches/sleeves/jobs/edit/${job.id}`;
         break;
       case 'Boxes':
-        editPath = `/batches/boxes/jobs/edit/${job.id}`;
+        editPath = `/batchflow/batches/boxes/jobs/edit/${job.id}`;
         break;
       case 'Covers':
-        editPath = `/batches/covers/jobs/edit/${job.id}`;
+        editPath = `/batchflow/batches/covers/jobs/edit/${job.id}`;
         break;
       case 'Stickers':
-        editPath = `/batches/stickers/jobs/edit/${job.id}`;
+        editPath = `/batchflow/batches/stickers/jobs/edit/${job.id}`;
         break;
       default:
         toast.error(`Edit functionality not available for ${job.productConfig?.productType}`);
