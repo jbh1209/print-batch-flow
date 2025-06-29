@@ -149,11 +149,12 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           throw error;
         }
 
-        if (!insertResult || !insertResult.id) {
+        // Handle the case where insertResult might not have the expected structure
+        if (!insertResult || typeof insertResult !== 'object' || !('id' in insertResult)) {
           throw new Error("Failed to create job - no ID returned");
         }
 
-        finalJobId = insertResult.id;
+        finalJobId = (insertResult as { id: string }).id;
         
         toast.success(`${config.ui.jobFormTitle} created successfully`);
       }
