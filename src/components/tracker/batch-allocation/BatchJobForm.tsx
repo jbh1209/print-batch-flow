@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { productConfigs } from '@/config/productTypes';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { getProductConfigByCategory, getCategorySpecificFields } from '@/utils/batch/categoryMapper';
 import { JobFormFields } from './JobFormFields';
 import { FileUploadSection } from './FileUploadSection';
 import { SpecificationSection } from './SpecificationSection';
@@ -52,9 +52,26 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
     maxSizeInMB: 10
   });
 
-  // Map category key to config key
-  const configKey = batchCategory === 'business_cards' ? 'BusinessCards' : batchCategory;
-  const config = productConfigs[configKey as keyof typeof productConfigs];
+  // Get product configuration using the category mapper
+  let config;
+  try {
+    config = getProductConfigByCategory(batchCategory);
+  } catch (error) {
+    console.error('Category mapping error:', error);
+    toast.error(error instanceof Error ? error.message : 'Invalid batch category');
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center text-red-600">
+            <p>Error: Invalid batch category "{batchCategory}"</p>
+            <button onClick={onCancel} className="mt-4 px-4 py-2 bg-gray-500 text-white rounded">
+              Go Back
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +84,7 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
     try {
       setIsUploading(true);
 
-      // Upload file to Supabase storage using the same approach as BatchFlow
+      // Upload file to Supabase storage
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `batch-jobs/${fileName}`;
@@ -96,7 +113,7 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
       console.log('Public URL generated:', publicUrl);
 
       // Get the table name for this batch category
-      const tableName = config?.tableName;
+      const tableName = config.tableName;
       if (!tableName) {
         throw new Error(`No table configuration found for category: ${batchCategory}`);
       }
@@ -116,16 +133,7 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
       };
 
       // Add category-specific fields based on specifications
-      let categorySpecificData = {};
-      if (batchCategory === 'business_cards') {
-        categorySpecificData = {
-          paper_type: specifications.paperType || '350gsm Matt',
-          lamination_type: specifications.laminationType || 'none',
-          double_sided: specifications.doubleSided || false,
-          paper_weight: specifications.paperWeight || '350gsm'
-        };
-      }
-      // Add other category handlers as needed
+      const categorySpecificData = getCategorySpecificFields(batchCategory, specifications);
 
       const finalJobData = {
         ...baseJobData,
@@ -147,7 +155,7 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
 
       console.log('Job created successfully:', insertedData);
 
-      toast.success(`${config?.ui.jobFormTitle || 'Job'} created successfully`);
+      toast.success(`${config.ui.jobFormTitle} created successfully`);
       onJobCreated();
     } catch (error) {
       console.error('Error creating batch job:', error);
@@ -162,14 +170,19 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
       ...prev,
       [category === 'paper_type' ? 'paperType' : 
        category === 'lamination_type' ? 'laminationType' :
-       category === 'paper_weight' ? 'paperWeight' : category]: specification.display_name
+       category === 'paper_weight' ? 'paperWeight' :
+       category === 'size' ? 'size' :
+       category === 'sides' ? 'sides' :
+       category === 'uv_varnish' ? 'uvVarnish' :
+       category === 'single_sided' ? 'singleSided' :
+       category === 'double_sided' ? 'doubleSided' : category]: specification.display_name || specification
     }));
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create {config?.ui.jobFormTitle || 'Batch Job'}</CardTitle>
+        <CardTitle>Create {config.ui.jobFormTitle}</CardTitle>
         <p className="text-sm text-gray-600">
           Job details pre-populated from production order. Please upload the PDF file for this job.
         </p>

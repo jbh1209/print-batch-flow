@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { BusinessCardPrintSpecificationSelector } from '@/components/business-cards/BusinessCardPrintSpecificationSelector';
+import { PrintSpecificationSelector } from '@/components/shared/PrintSpecificationSelector';
 
 interface SpecificationSectionProps {
   batchCategory: string;
@@ -25,6 +26,13 @@ export const SpecificationSection: React.FC<SpecificationSectionProps> = ({
     );
   }
 
-  // Add other category handlers as needed
-  return null;
+  // For other categories, use the generic print specification selector
+  return (
+    <PrintSpecificationSelector
+      productType={batchCategory}
+      onSpecificationChange={onSpecificationChange}
+      selectedSpecifications={specifications}
+      disabled={disabled}
+    />
+  );
 };
