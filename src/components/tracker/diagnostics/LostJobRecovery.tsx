@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, RefreshCw, Tool, CheckCircle } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Settings, CheckCircle } from 'lucide-react';
 import { findLostJobs, recoverLostJob } from '@/utils/batch/batchIntegrationService';
 import { toast } from 'sonner';
 
@@ -112,7 +112,7 @@ export const LostJobRecovery: React.FC = () => {
                 className="bg-green-600 hover:bg-green-700"
                 size="sm"
               >
-                <Tool className="h-4 w-4 mr-2" />
+                <Settings className="h-4 w-4 mr-2" />
                 Recover All
               </Button>
             </div>
@@ -159,7 +159,7 @@ export const LostJobRecovery: React.FC = () => {
                         {isRecovering === job.id ? (
                           <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                         ) : (
-                          <Tool className="h-4 w-4 mr-2" />
+                          <Settings className="h-4 w-4 mr-2" />
                         )}
                         Recover
                       </Button>

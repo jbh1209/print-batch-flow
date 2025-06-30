@@ -43,8 +43,8 @@ export async function createBatchJobFromProduction({
       throw new Error(`Unknown batch category: ${batchCategory}`);
     }
 
-    // Create the batch job
-    const { data: batchJob, error: createError } = await supabase
+    // Create the batch job using a type assertion for the dynamic table name
+    const { data: batchJob, error: createError } = await (supabase as any)
       .from(batchTableName)
       .insert({
         name: `Batch Job - ${wo_no}`,
@@ -110,6 +110,7 @@ async function createBatchReference(productionJobId: string, batchJobId: string,
         production_job_id: productionJobId,
         batch_job_id: batchJobId,
         batch_job_table: batchTableName,
+        batch_id: '', // Will be set when job is added to a batch
         status: 'processing'
       });
 
