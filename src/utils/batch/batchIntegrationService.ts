@@ -20,6 +20,33 @@ export interface ProductionJobBatchData {
   qty: number;
   due_date: string;
   batchCategory: string;
+  pdfFile?: File; // Add optional PDF file support
+}
+
+/**
+ * Upload file to Supabase storage
+ */
+async function uploadBatchJobFile(file: File, jobNumber: string): Promise<string> {
+  const fileName = `${jobNumber}_${Date.now()}_${file.name}`;
+  const filePath = `batch-jobs/${fileName}`;
+  
+  const { data, error } = await supabase.storage
+    .from('pdf_files')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (error) {
+    throw new Error(`File upload failed: ${error.message}`);
+  }
+
+  // Get the public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('pdf_files')
+    .getPublicUrl(filePath);
+
+  return publicUrl;
 }
 
 /**
@@ -31,7 +58,8 @@ export async function createBatchJobFromProduction({
   customer,
   qty,
   due_date,
-  batchCategory
+  batchCategory,
+  pdfFile
 }: ProductionJobBatchData): Promise<BatchIntegrationResult> {
   try {
     console.log(`🔄 Creating ${batchCategory} batch job from production job ${wo_no}`);
@@ -43,17 +71,33 @@ export async function createBatchJobFromProduction({
       throw new Error(`Unknown batch category: ${batchCategory}`);
     }
 
+    const jobNumber = `BATCH-${wo_no}-${Date.now()}`;
+    let pdfUrl = '';
+    let fileName = '';
+
+    // Upload PDF file if provided
+    if (pdfFile) {
+      try {
+        pdfUrl = await uploadBatchJobFile(pdfFile, jobNumber);
+        fileName = pdfFile.name;
+        console.log(`✅ Uploaded PDF file: ${fileName}`);
+      } catch (uploadError) {
+        console.error('❌ File upload failed:', uploadError);
+        throw new Error(`Failed to upload PDF file: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+      }
+    }
+
     // Create the batch job using a type assertion for the dynamic table name
     const { data: batchJob, error: createError } = await (supabase as any)
       .from(batchTableName)
       .insert({
         name: `Batch Job - ${wo_no}`,
-        job_number: `BATCH-${wo_no}-${Date.now()}`,
+        job_number: jobNumber,
         quantity: qty,
         due_date: due_date,
         user_id: (await supabase.auth.getUser()).data.user?.id,
-        pdf_url: '', // Will be populated later
-        file_name: `${wo_no}_batch.pdf`,
+        pdf_url: pdfUrl,
+        file_name: fileName,
         status: 'queued'
       })
       .select()

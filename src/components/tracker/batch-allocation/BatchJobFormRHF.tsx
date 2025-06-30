@@ -6,7 +6,9 @@ import * as z from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useJobSpecificationStorage } from "@/hooks/useJobSpecificationStorage";
+import { useFileUpload } from "@/hooks/useFileUpload";
 import { SpecificationSectionRHF } from "./SpecificationSectionRHF";
+import { FileUploadSectionRHF } from "./FileUploadSectionRHF";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +16,10 @@ import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Upload } from "lucide-react";
 import { format } from "date-fns";
 
-// Form validation schema
+// Form validation schema - file is required
 const jobFormSchema = z.object({
   wo_no: z.string().min(1, "Work Order Number is required"),
   customer: z.string().min(1, "Customer is required"),
@@ -25,7 +27,8 @@ const jobFormSchema = z.object({
   qty: z.number().min(1, "Quantity must be at least 1"),
   due_date: z.date(),
   location: z.string().optional(),
-  specifications: z.record(z.any()).optional()
+  specifications: z.record(z.any()).optional(),
+  file: z.instanceof(File, { message: "PDF file is required" })
 });
 
 type JobFormData = z.infer<typeof jobFormSchema>;
@@ -52,6 +55,22 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { saveJobSpecifications } = useJobSpecificationStorage();
+  
+  // File upload functionality
+  const { 
+    selectedFile, 
+    setSelectedFile, 
+    handleFileChange, 
+    clearSelectedFile, 
+    fileInfo 
+  } = useFileUpload({
+    acceptedTypes: ["application/pdf"],
+    maxSizeInMB: 10,
+    onFileSelected: (file) => {
+      form.setValue('file', file);
+      form.clearErrors('file');
+    }
+  });
 
   const form = useForm<JobFormData>({
     resolver: zodResolver(jobFormSchema),
@@ -74,61 +93,115 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
     });
   };
 
+  const uploadFileToStorage = async (file: File, jobId: string): Promise<string> => {
+    const fileName = `${jobId}_${file.name}`;
+    const filePath = `batch-jobs/${fileName}`;
+    
+    const { data, error } = await supabase.storage
+      .from('pdf_files')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) {
+      throw new Error(`File upload failed: ${error.message}`);
+    }
+
+    // Get the public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('pdf_files')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
   const onSubmit = async (data: JobFormData) => {
     if (!user) {
       toast.error("User not authenticated");
       return;
     }
 
+    if (!data.file) {
+      toast.error("PDF file is required");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Create the production job first
-      const { data: jobData, error: jobError } = await supabase
-        .from('production_jobs')
+      // Get the batch table name
+      const getBatchTableFromCategory = (category: string): string | null => {
+        const categoryMap: Record<string, string> = {
+          'business_cards': 'business_card_jobs',
+          'flyers': 'flyer_jobs',
+          'postcards': 'postcard_jobs',
+          'posters': 'poster_jobs',
+          'stickers': 'sticker_jobs',
+          'covers': 'cover_jobs',
+          'sleeves': 'sleeve_jobs',
+          'boxes': 'box_jobs'
+        };
+        return categoryMap[category.toLowerCase()] || null;
+      };
+
+      const batchTableName = getBatchTableFromCategory(batchCategory);
+      if (!batchTableName) {
+        throw new Error(`Unknown batch category: ${batchCategory}`);
+      }
+
+      // Create a temporary job ID for file naming
+      const tempJobId = `temp_${Date.now()}`;
+      
+      // Upload the file first
+      const fileUrl = await uploadFileToStorage(data.file, tempJobId);
+      
+      // Create the batch job with file URL
+      const { data: jobData, error: jobError } = await (supabase as any)
+        .from(batchTableName)
         .insert({
-          wo_no: data.wo_no,
-          customer: data.customer,
-          reference: data.reference || "",
-          qty: data.qty,
+          name: `Batch Job - ${data.wo_no}`,
+          job_number: `BATCH-${data.wo_no}-${Date.now()}`,
+          quantity: data.qty,
           due_date: data.due_date.toISOString().split('T')[0],
-          location: data.location || "",
           user_id: user.id,
-          category: batchCategory,
-          status: 'Pre-Press'
+          pdf_url: fileUrl,
+          file_name: data.file.name,
+          status: 'queued'
         })
         .select()
         .single();
 
       if (jobError) {
-        console.error('Job creation error:', jobError);
+        console.error('Batch job creation error:', jobError);
         throw jobError;
       }
 
       if (!jobData) {
-        throw new Error('No job data returned');
+        throw new Error('No batch job data returned');
       }
 
-      console.log('Job created successfully:', jobData);
+      console.log('Batch job created successfully:', jobData);
 
       // Store specifications if any were selected
       if (data.specifications && Object.keys(data.specifications).length > 0) {
         try {
-          await saveJobSpecifications(jobData.id, 'production_jobs', data.specifications);
+          await saveJobSpecifications(jobData.id, batchTableName, data.specifications);
           console.log('Specifications stored successfully');
         } catch (specError) {
           console.error('Error storing specifications:', specError);
           // Don't fail the whole operation if specification storage fails
-          toast.error('Job created but specifications could not be saved');
+          toast.warning('Job created but specifications could not be saved');
         }
       }
 
-      toast.success("Job created successfully");
+      toast.success("Batch job created successfully with PDF file");
       form.reset();
+      clearSelectedFile();
       onJobCreated();
     } catch (error) {
-      console.error('Error creating job:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to create job");
+      console.error('Error creating batch job:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to create batch job");
     } finally {
       setIsSubmitting(false);
     }
@@ -246,6 +319,34 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
             )}
           />
 
+          {/* File Upload Section */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">PDF File *</Label>
+            <FileUploadSectionRHF
+              selectedFile={selectedFile}
+              onFileChange={handleFileChange}
+              onClearFile={() => {
+                clearSelectedFile();
+                form.setValue('file', undefined as any);
+              }}
+              fileInfo={fileInfo}
+            />
+            <FormField
+              control={form.control}
+              name="file"
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <FormControl>
+                    <input type="hidden" {...field} />
+                  </FormControl>
+                  {fieldState.error && (
+                    <FormMessage>{fieldState.error.message}</FormMessage>
+                  )}
+                </FormItem>
+              )}
+            />
+          </div>
+
           <SpecificationSectionRHF
             batchCategory={batchCategory}
             onSpecificationChange={handleSpecificationChange}
@@ -253,11 +354,18 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
           />
 
           <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Job"}
+            <Button type="submit" disabled={isSubmitting || !selectedFile}>
+              {isSubmitting ? (
+                <>
+                  <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                  Creating Batch Job...
+                </>
+              ) : (
+                "Create Batch Job"
+              )}
             </Button>
           </div>
         </form>
