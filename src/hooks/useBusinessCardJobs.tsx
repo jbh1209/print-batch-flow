@@ -1,231 +1,86 @@
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { Job, LaminationType } from "@/components/business-cards/JobsTable";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useJobSpecificationDisplay } from '@/hooks/useJobSpecificationDisplay';
 
-interface UseBusinessCardJobsReturn {
-  jobs: Job[];
-  isLoading: boolean;
-  error: string | null;
-  selectedJobs: string[];
-  filterView: "all" | "queued" | "batched" | "completed";
-  laminationFilter: LaminationType | null;
-  filterCounts: {
-    all: number;
-    queued: number;
-    batched: number;
-    completed: number;
-  };
-  // Actions
-  setFilterView: (view: "all" | "queued" | "batched" | "completed") => void;
-  setLaminationFilter: (filter: LaminationType | null) => void;
-  handleSelectJob: (jobId: string, isSelected: boolean) => void;
-  handleSelectAllJobs: (isSelected: boolean) => void;
-  handleDeleteJob: (jobId: string) => Promise<void>;
-  refreshJobs: () => void;
-  getSelectedJobObjects: () => Job[];
+interface BusinessCardJob {
+  id: string;
+  name: string;
+  file_name: string;
+  quantity: number;
+  double_sided: boolean;
+  uploaded_at: string;
+  due_date: string;
+  batch_id?: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  batch_ready: boolean;
+  batch_allocated_at?: string;
+  batch_allocated_by?: string;
+  pdf_url: string;
+  job_number: string;
+  status: string;
+  // Dynamic specification properties will be added at runtime
+  lamination_type?: string;
+  paper_type?: string;
+  paper_weight?: string;
+  size?: string;
 }
 
-export const useBusinessCardJobs = (): UseBusinessCardJobsReturn => {
+export const useBusinessCardJobs = () => {
   const { user } = useAuth();
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<BusinessCardJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
-  const [filterView, setFilterView] = useState<"all" | "queued" | "batched" | "completed">("all");
-  const [laminationFilter, setLaminationFilter] = useState<LaminationType | null>(null);
-  const [filterCounts, setFilterCounts] = useState({
-    all: 0,
-    queued: 0,
-    batched: 0,
-    completed: 0
-  });
+  const { getJobSpecifications } = useJobSpecificationDisplay();
 
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const isRequestInProgressRef = useRef(false);
-
-  const fetchJobs = useCallback(async () => {
-    if (!user || isRequestInProgressRef.current) {
-      console.log("Skipping fetch - no user or request in progress");
-      return;
-    }
-
-    // Cancel any existing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    abortControllerRef.current = new AbortController();
-    isRequestInProgressRef.current = true;
-    setIsLoading(true);
-    setError(null);
+  const fetchJobs = async () => {
+    if (!user) return;
 
     try {
-      console.log("Fetching business card jobs with filters:", { filterView, laminationFilter });
+      setIsLoading(true);
+      setError(null);
 
-      let query = supabase
+      const { data, error: fetchError } = await supabase
         .from('business_card_jobs')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (filterView !== 'all') {
-        query = query.eq('status', filterView);
-      }
+      if (fetchError) throw fetchError;
 
-      if (laminationFilter && laminationFilter !== 'none') {
-        query = query.eq('lamination_type', laminationFilter);
-      }
+      // Enhance jobs with specifications
+      const enhancedJobs = await Promise.all(
+        (data || []).map(async (job) => {
+          const specifications = await getJobSpecifications(job.id, 'business_card_jobs');
+          
+          return {
+            ...job,
+            // Add specifications as properties
+            ...specifications
+          } as BusinessCardJob;
+        })
+      );
 
-      const { data, error: fetchError } = await query;
-
-      if (abortControllerRef.current?.signal.aborted) {
-        console.log("Request was aborted");
-        return;
-      }
-
-      if (fetchError) {
-        console.error("Fetch error:", fetchError);
-        throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
-      }
-
-      console.log("Jobs fetched successfully:", data?.length || 0);
-      
-      // Transform data to match Job interface
-      const transformedJobs: Job[] = (data || []).map(job => ({
-        id: job.id,
-        name: job.name,
-        file_name: job.file_name,
-        quantity: job.quantity,
-        lamination_type: job.lamination_type,
-        due_date: job.due_date,
-        uploaded_at: job.created_at,
-        status: job.status,
-        pdf_url: job.pdf_url,
-        double_sided: job.double_sided || false
-      }));
-      
-      setJobs(transformedJobs);
-
-      // Get filter counts
-      const { data: allJobs } = await supabase
-        .from('business_card_jobs')
-        .select('status');
-
-      if (allJobs && !abortControllerRef.current?.signal.aborted) {
-        setFilterCounts({
-          all: allJobs.length,
-          queued: allJobs.filter(job => job.status === 'queued').length,
-          batched: allJobs.filter(job => job.status === 'batched').length,
-          completed: allJobs.filter(job => job.status === 'completed').length
-        });
-      }
-
-      // Clear selections when data changes
-      setSelectedJobs([]);
-
-    } catch (error) {
-      if (!abortControllerRef.current?.signal.aborted) {
-        console.error('Error fetching jobs:', error);
-        const errorMessage = error instanceof Error ? error.message : "Failed to load jobs";
-        setError(errorMessage);
-      }
+      setJobs(enhancedJobs);
+    } catch (err) {
+      console.error('Error fetching business card jobs:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load jobs');
     } finally {
-      isRequestInProgressRef.current = false;
       setIsLoading(false);
     }
-  }, [user, filterView, laminationFilter]);
+  };
 
-  // Initial fetch and filter changes
   useEffect(() => {
     fetchJobs();
-
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      isRequestInProgressRef.current = false;
-    };
-  }, [fetchJobs]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
-
-  const handleSelectJob = useCallback((jobId: string, isSelected: boolean) => {
-    setSelectedJobs(prev => 
-      isSelected 
-        ? [...prev, jobId]
-        : prev.filter(id => id !== jobId)
-    );
-  }, []);
-
-  const handleSelectAllJobs = useCallback((isSelected: boolean) => {
-    setSelectedJobs(isSelected ? jobs.map(job => job.id) : []);
-  }, [jobs]);
-
-  const handleDeleteJob = useCallback(async (jobId: string) => {
-    console.log("Deleting job:", jobId);
-
-    try {
-      // Optimistic update - remove job immediately
-      setJobs(prev => prev.filter(job => job.id !== jobId));
-      setSelectedJobs(prev => prev.filter(id => id !== jobId));
-
-      const { error } = await supabase
-        .from('business_card_jobs')
-        .delete()
-        .eq('id', jobId);
-
-      if (error) {
-        console.error("Delete error:", error);
-        // Revert optimistic update on error
-        fetchJobs();
-        throw new Error(`Failed to delete job: ${error.message}`);
-      }
-
-      console.log("Job deleted successfully");
-      
-      // Update filter counts
-      setFilterCounts(prev => ({
-        ...prev,
-        all: Math.max(0, prev.all - 1),
-        queued: Math.max(0, prev.queued - 1), // Assume it was queued
-      }));
-
-    } catch (error) {
-      console.error("Job deletion failed:", error);
-      throw error;
-    }
-  }, [fetchJobs]);
-
-  const refreshJobs = useCallback(() => {
-    fetchJobs();
-  }, [fetchJobs]);
-
-  const getSelectedJobObjects = useCallback(() => {
-    return jobs.filter(job => selectedJobs.includes(job.id));
-  }, [jobs, selectedJobs]);
+  }, [user]);
 
   return {
     jobs,
     isLoading,
     error,
-    selectedJobs,
-    filterView,
-    laminationFilter,
-    filterCounts,
-    setFilterView,
-    setLaminationFilter,
-    handleSelectJob,
-    handleSelectAllJobs,
-    handleDeleteJob,
-    refreshJobs,
-    getSelectedJobObjects
+    refetch: fetchJobs
   };
 };

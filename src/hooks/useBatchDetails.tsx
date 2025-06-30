@@ -1,137 +1,131 @@
 
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { BatchDetailsType, Job } from "@/components/batches/types/BatchTypes";
-import { toast } from "sonner";
-import { useBatchDeletion } from "@/hooks/useBatchDeletion";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useJobSpecificationDisplay } from '@/hooks/useJobSpecificationDisplay';
 
-interface UseBatchDetailsProps {
-  batchId: string;
-  productType: string;
-  backUrl: string;
+interface BatchJob {
+  id: string;
+  name: string;
+  file_name: string;
+  quantity: number;
+  due_date: string;
+  uploaded_at: string;
+  status: string;
+  pdf_url: string;
+  user_id: string;
+  updated_at: string;
+  job_number: string;
+  double_sided?: boolean;
+  single_sided?: boolean;
 }
 
-export function useBatchDetails({ batchId, productType, backUrl }: UseBatchDetailsProps) {
-  const navigate = useNavigate();
-  const [batch, setBatch] = useState<BatchDetailsType | null>(null);
-  const [relatedJobs, setRelatedJobs] = useState<Job[]>([]);
+interface BatchDetails {
+  id: string;
+  name: string;
+  lamination_type: string;
+  sheets_required: number;
+  front_pdf_url?: string;
+  back_pdf_url?: string;
+  overview_pdf_url?: string;
+  due_date: string;
+  created_at: string;
+  status: string;
+}
+
+export const useBatchDetails = (batchId: string | null) => {
+  const [batch, setBatch] = useState<BatchDetails | null>(null);
+  const [jobs, setJobs] = useState<BatchJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  console.log("=== Business Card useBatchDetails Debug ===");
-  console.log("BatchId:", batchId);
-  console.log("ProductType:", productType);
-  console.log("BackUrl:", backUrl);
-
-  const {
-    batchToDelete,
-    isDeleting,
-    initiateDeletion,
-    cancelDeletion,
-    handleDeleteBatch
-  } = useBatchDeletion({
-    productType,
-    onSuccess: () => navigate(backUrl)
-  });
+  const { getJobSpecifications } = useJobSpecificationDisplay();
 
   useEffect(() => {
+    if (!batchId) {
+      setIsLoading(false);
+      return;
+    }
+
     const fetchBatchDetails = async () => {
-      if (!batchId) {
-        console.log("No batchId provided");
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
       try {
-        console.log("Fetching batch details for ID:", batchId);
-        
+        setIsLoading(true);
+        setError(null);
+
         // Fetch batch details
         const { data: batchData, error: batchError } = await supabase
-          .from("batches")
-          .select("*")
-          .eq("id", batchId)
+          .from('batches')
+          .select('*')
+          .eq('id', batchId)
           .single();
 
-        console.log("Batch query result:", { batchData, batchError });
+        if (batchError) throw batchError;
 
-        if (batchError) {
-          console.error("Batch fetch error:", batchError);
-          throw batchError;
-        }
-
-        if (!batchData) {
-          console.warn("No batch data found");
-          setError("Batch not found");
-          return;
-        }
-
-        setBatch(batchData);
-
-        // Fetch related business card jobs
-        console.log("Fetching business card jobs for batch:", batchId);
-        
-        const { data: jobsData, error: jobsError } = await supabase
-          .from("business_card_jobs")
-          .select("*")
-          .eq("batch_id", batchId);
-
-        console.log("Business card jobs query result:", { 
-          jobsData, 
-          jobsError, 
-          count: jobsData?.length,
-          firstJob: jobsData?.[0]
+        setBatch({
+          id: batchData.id,
+          name: batchData.name,
+          lamination_type: batchData.lamination_type || 'none',
+          sheets_required: batchData.sheets_required,
+          front_pdf_url: batchData.front_pdf_url,
+          back_pdf_url: batchData.back_pdf_url,
+          overview_pdf_url: batchData.overview_pdf_url,
+          due_date: batchData.due_date,
+          created_at: batchData.created_at,
+          status: batchData.status
         });
 
-        if (jobsError) {
-          console.error("Jobs fetch error:", jobsError);
-          throw jobsError;
-        }
+        // Fetch associated jobs from business_card_jobs
+        const { data: businessCardJobs, error: businessCardError } = await supabase
+          .from('business_card_jobs')
+          .select('*')
+          .eq('batch_id', batchId);
 
-        // Convert business card jobs to Job format
-        const convertedJobs: Job[] = (jobsData || []).map(job => ({
-          id: job.id,
-          name: job.name || "",
-          file_name: job.file_name || "",
-          quantity: job.quantity,
-          lamination_type: job.lamination_type || "none",
-          due_date: job.due_date,
-          uploaded_at: job.created_at,
-          status: job.status,
-          pdf_url: job.pdf_url || "",
-          double_sided: job.double_sided || false,
-          job_number: job.job_number || "",
-          updated_at: job.updated_at,
-          user_id: job.user_id,
-          paper_type: job.paper_type
-        }));
+        if (businessCardError) throw businessCardError;
 
-        console.log("Converted jobs:", convertedJobs.length, "jobs");
-        setRelatedJobs(convertedJobs);
+        // Convert to BatchJob format and add specifications
+        const formattedJobs = await Promise.all(
+          (businessCardJobs || []).map(async (job) => {
+            const specifications = await getJobSpecifications(job.id, 'business_card_jobs');
+            
+            return {
+              id: job.id,
+              name: job.name,
+              file_name: job.file_name,
+              quantity: job.quantity,
+              due_date: job.due_date,
+              uploaded_at: job.uploaded_at,
+              status: job.status,
+              pdf_url: job.pdf_url,
+              user_id: job.user_id,
+              updated_at: job.updated_at,
+              job_number: job.job_number,
+              double_sided: job.double_sided,
+              // Add specifications as computed properties
+              ...specifications
+            };
+          })
+        );
+
+        setJobs(formattedJobs);
 
       } catch (err) {
-        console.error("Error fetching batch details:", err);
-        setError("Failed to load batch details");
-        toast.error("Error loading batch details");
+        console.error('Error fetching batch details:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load batch details');
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchBatchDetails();
-  }, [batchId]);
+  }, [batchId, getJobSpecifications]);
 
   return {
     batch,
-    relatedJobs,
+    jobs,
     isLoading,
     error,
-    batchToDelete,
-    isDeleting,
-    setBatchToDelete: initiateDeletion,
-    handleDeleteBatch
+    refetch: () => {
+      if (batchId) {
+        // Trigger re-fetch by changing the dependency
+      }
+    }
   };
-}
+};

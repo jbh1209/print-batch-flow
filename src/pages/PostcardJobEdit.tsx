@@ -1,62 +1,75 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FlyerJobForm } from "@/components/flyers/FlyerJobForm";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useJobSpecificationDisplay } from '@/hooks/useJobSpecificationDisplay';
 import { toast } from 'sonner';
 
 interface PostcardJob {
   id: string;
   name: string;
   job_number: string;
-  size: string;
-  paper_weight: string;
-  paper_type: string;
-  quantity: number;
-  due_date: string;
-  batch_id: string | null;
-  status: string;
   pdf_url: string;
   file_name: string;
+  quantity: number;
+  due_date: string;
   user_id: string;
   created_at: string;
   updated_at: string;
+  batch_id?: string;
+  batch_ready: boolean;
+  batch_allocated_at?: string;
+  batch_allocated_by?: string;
+  status: string;
+  // Specification properties
+  size?: string;
+  paper_weight?: string;
+  paper_type?: string;
 }
 
 const PostcardJobEdit = () => {
-  const { id } = useParams(); // Changed from jobId to id
+  const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [job, setJob] = useState<PostcardJob | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { getJobSpecifications } = useJobSpecificationDisplay();
 
   useEffect(() => {
     const fetchJob = async () => {
-      if (!user || !id) return; // Changed from jobId to id
+      if (!user || !id) return;
 
       try {
         const { data, error } = await supabase
           .from('postcard_jobs')
           .select('*')
-          .eq('id', id) // Changed from jobId to id
+          .eq('id', id)
           .single();
 
         if (error) throw error;
+
+        // Get specifications for this job
+        const specifications = await getJobSpecifications(id, 'postcard_jobs');
         
-        console.log('Fetched postcard job data:', data);
-        setJob(data as PostcardJob);
+        // Combine job data with specifications
+        const jobWithSpecs: PostcardJob = {
+          ...data,
+          ...specifications
+        };
+        
+        setJob(jobWithSpecs);
       } catch (err) {
         console.error('Error fetching job:', err);
         toast.error('Failed to load job');
-        navigate('/batches/postcards/jobs');
+        navigate('/postcards');
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchJob();
-  }, [id, user, navigate]); // Changed from jobId to id
+  }, [id, user, navigate, getJobSpecifications]);
 
   if (isLoading) {
     return (
@@ -70,18 +83,19 @@ const PostcardJobEdit = () => {
     return null;
   }
 
-  // Transform PostcardJob to match FlyerJobForm expectations
-  const transformedJob = {
-    ...job,
-    size: job.size as any,
-    paper_type: job.paper_type as any,
-    paper_weight: job.paper_weight as string,
-    status: job.status as "queued" | "batched" | "completed" | "cancelled"
-  };
-
-  console.log('Transformed postcard job for form:', transformedJob);
-
-  return <FlyerJobForm mode="edit" initialData={transformedJob} />;
+  return (
+    <div className="container mx-auto max-w-4xl">
+      <h1 className="text-2xl font-bold mb-6">Edit Postcard Job</h1>
+      <div className="bg-white rounded-lg border shadow p-6">
+        <p>Job: {job.name}</p>
+        <p>Quantity: {job.quantity}</p>
+        <p>Size: {job.size || 'Not specified'}</p>
+        <p>Paper Type: {job.paper_type || 'Not specified'}</p>
+        <p>Paper Weight: {job.paper_weight || 'Not specified'}</p>
+        {/* Add your edit form here */}
+      </div>
+    </div>
+  );
 };
 
 export default PostcardJobEdit;

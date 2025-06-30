@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useBatchStatsCore } from './useBatchStatsCore';
 
 interface BatchStats {
   businessCardBatches: number;
@@ -24,7 +23,19 @@ export const useBatchStats = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { getJobCountForProductType } = useBatchStatsCore();
+  const getJobCountForProductType = async (tableName: 'business_card_jobs' | 'flyer_jobs') => {
+    try {
+      const { count, error } = await supabase
+        .from(tableName)
+        .select('*', { count: 'exact', head: true });
+
+      if (error) throw error;
+      return count || 0;
+    } catch (err) {
+      console.error(`Error fetching count for ${tableName}:`, err);
+      return 0;
+    }
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -67,7 +78,7 @@ export const useBatchStats = () => {
     };
 
     fetchStats();
-  }, [getJobCountForProductType]);
+  }, []);
 
   return {
     stats,

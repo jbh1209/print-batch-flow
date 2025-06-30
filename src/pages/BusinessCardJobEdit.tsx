@@ -20,6 +20,13 @@ const BusinessCardJobEdit = () => {
     );
   }
 
+  // Ensure jobData has required properties for the form
+  const formJobData = jobData ? {
+    ...jobData,
+    lamination_type: jobData.lamination_type || 'none',
+    paper_type: jobData.paper_type || 'Standard'
+  } : null;
+
   return (
     <div className="container mx-auto max-w-4xl">
       <JobFormHeader isEditing={true} />
@@ -29,7 +36,7 @@ const BusinessCardJobEdit = () => {
           <FormLoadingSpinner />
         ) : (
           <JobEditForm
-            jobData={jobData}
+            jobData={formJobData}
             isSaving={isSaving}
             onSubmit={updateJob}
           />

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,12 +34,20 @@ interface BatchJobFormRHFProps {
   batchCategory: string;
   onJobCreated: () => void;
   onCancel: () => void;
+  wo_no?: string;
+  customer?: string;
+  qty?: number;
+  due_date?: string;
 }
 
 export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
   batchCategory,
   onJobCreated,
-  onCancel
+  onCancel,
+  wo_no = "",
+  customer = "",
+  qty = 1,
+  due_date
 }) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,22 +56,18 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
   const form = useForm<JobFormData>({
     resolver: zodResolver(jobFormSchema),
     defaultValues: {
-      wo_no: "",
-      customer: "",
+      wo_no: wo_no,
+      customer: customer,
       reference: "",
-      qty: 1,
-      due_date: new Date(),
+      qty: qty,
+      due_date: due_date ? new Date(due_date) : new Date(),
       location: "",
       specifications: {}
     }
   });
 
-  const handleSpecificationChange = (category: string, specificationId: string, specification: any) => {
-    const currentSpecs = form.getValues('specifications') || {};
-    form.setValue('specifications', {
-      ...currentSpecs,
-      [category]: specification
-    });
+  const handleSpecificationChange = (specifications: Record<string, any>) => {
+    form.setValue('specifications', specifications);
   };
 
   const onSubmit = async (data: JobFormData) => {

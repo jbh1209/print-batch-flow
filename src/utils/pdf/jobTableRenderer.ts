@@ -4,7 +4,7 @@ import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { BaseJob } from "@/config/productTypes";
 import { isBusinessCardJobs, isSleeveJobs } from "./jobTypeUtils";
 import { drawTableHeader } from "./tableHeaderRenderer";
-import { drawTableRows } from "./tableRowRenderer";
+import { renderFlyerJobTableRow, renderBaseJobTableRow } from "./tableRowRenderer";
 
 export function drawCompactJobsTable(
   page: any, 
@@ -35,15 +35,31 @@ export function drawCompactJobsTable(
   
   // Draw the table rows in a more compact layout - reduced vertical spacing
   const rowY = tableY - 20; // Reduced from 25 to 20
-  const finalY = drawTableRows(
-    page,
-    jobs,
-    rowY,
-    colStarts,
-    helveticaFont,
-    distribution
-  );
+  let currentY = rowY;
+  
+  jobs.forEach((job, index) => {
+    // Render each job row based on type
+    if ('pdf_url' in job && 'quantity' in job) {
+      // This is a FlyerJob or BaseJob
+      const rowHtml = 'file_name' in job ? 
+        renderFlyerJobTableRow(job as FlyerJob) : 
+        renderBaseJobTableRow(job as BaseJob);
+      
+      // Simple text rendering for PDF (HTML rendering would require additional parsing)
+      page.drawText(
+        `${job.name} | ${job.quantity} | ${new Date(job.due_date).toLocaleDateString()}`, 
+        {
+          x: colStarts[0],
+          y: currentY,
+          size: 10,
+          font: helveticaFont,
+        }
+      );
+      
+      currentY -= 15;
+    }
+  });
   
   // Return the final Y position to help position elements that follow
-  return finalY;
+  return currentY;
 }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,21 +17,29 @@ interface BatchJobFormProps {
   batchCategory: string;
   onJobCreated: () => void;
   onCancel: () => void;
+  wo_no?: string;
+  customer?: string;
+  qty?: number;
+  due_date?: string;
 }
 
 export const BatchJobForm: React.FC<BatchJobFormProps> = ({
   batchCategory,
   onJobCreated,
-  onCancel
+  onCancel,
+  wo_no = "",
+  customer = "",
+  qty = 0,
+  due_date
 }) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    wo_no: "",
-    customer: "",
+    wo_no: wo_no,
+    customer: customer,
     reference: "",
-    qty: 0,
-    due_date: new Date(),
+    qty: qty,
+    due_date: due_date ? new Date(due_date) : new Date(),
     location: ""
   });
 
