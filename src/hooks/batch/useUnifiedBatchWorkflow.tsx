@@ -96,7 +96,8 @@ export const useUnifiedBatchWorkflow = () => {
     batchJobId: string
   ) => {
     try {
-      const { error } = await supabase
+      // Use type assertion for the new table
+      const { error } = await (supabase as any)
         .from('batch_job_references')
         .insert({
           production_job_id: productionJobId,

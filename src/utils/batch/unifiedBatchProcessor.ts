@@ -89,19 +89,23 @@ export async function processProductionJobsForBatch({
         .eq('status', 'active');
 
       // Create batch reference instead of duplicating job data
-      const { error: refError } = await supabase
-        .from('batch_job_references')
-        .insert({
-          production_job_id: jobId,
-          batch_id: batchId,
-          batch_job_table: getBatchTableName(batchType),
-          status: 'processing',
-          created_at: new Date().toISOString()
-        });
+      try {
+        const { error: refError } = await (supabase as any)
+          .from('batch_job_references')
+          .insert({
+            production_job_id: jobId,
+            batch_id: batchId,
+            batch_job_table: getBatchTableName(batchType),
+            status: 'processing',
+            created_at: new Date().toISOString()
+          });
 
-      if (refError) {
-        console.warn(`⚠️ Could not create batch reference for job ${jobId}:`, refError);
-        // This is non-critical, so we don't fail the entire operation
+        if (refError) {
+          console.warn(`⚠️ Could not create batch reference for job ${jobId}:`, refError);
+          // This is non-critical, so we don't fail the entire operation
+        }
+      } catch (error) {
+        console.warn(`⚠️ Batch reference creation failed for job ${jobId}:`, error);
       }
 
       result.processedCount++;
@@ -139,8 +143,8 @@ export async function completeBatchForProductionJobs(
   try {
     console.log(`🔄 Completing batch processing for batch ${batchId}`);
 
-    // Get all production jobs in this batch
-    const { data: batchRefs, error: fetchError } = await supabase
+    // Get all production jobs in this batch using type assertion
+    const { data: batchRefs, error: fetchError } = await (supabase as any)
       .from('batch_job_references')
       .select('production_job_id')
       .eq('batch_id', batchId)
@@ -156,7 +160,7 @@ export async function completeBatchForProductionJobs(
       return true;
     }
 
-    const productionJobIds = batchRefs.map(ref => ref.production_job_id);
+    const productionJobIds = batchRefs.map((ref: any) => ref.production_job_id);
 
     // Update all production jobs
     for (const jobId of productionJobIds) {
@@ -198,14 +202,18 @@ export async function completeBatchForProductionJobs(
       }
     }
 
-    // Update batch references
-    await supabase
-      .from('batch_job_references')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString()
-      })
-      .eq('batch_id', batchId);
+    // Update batch references using type assertion
+    try {
+      await (supabase as any)
+        .from('batch_job_references')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('batch_id', batchId);
+    } catch (error) {
+      console.warn('⚠️ Could not update batch references:', error);
+    }
 
     console.log(`✅ Batch processing completed for ${productionJobIds.length} jobs`);
     return true;
@@ -240,7 +248,7 @@ function getBatchTableName(batchType: string): string {
  */
 export async function getBatchJobsWithProductionDetails(batchId: string) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('batch_job_references')
       .select(`
         *,

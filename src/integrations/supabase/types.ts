@@ -120,6 +120,50 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_job_references: {
+        Row: {
+          batch_id: string
+          batch_job_id: string | null
+          batch_job_table: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          production_job_id: string
+          status: string
+        }
+        Insert: {
+          batch_id: string
+          batch_job_id?: string | null
+          batch_job_table: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          production_job_id: string
+          status?: string
+        }
+        Update: {
+          batch_id?: string
+          batch_job_id?: string | null
+          batch_job_table?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          production_job_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_job_references_production_job_id_fkey"
+            columns: ["production_job_id"]
+            isOneToOne: false
+            referencedRelation: "production_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batches: {
         Row: {
           back_pdf_url: string | null
