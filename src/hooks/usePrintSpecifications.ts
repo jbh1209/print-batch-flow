@@ -50,6 +50,28 @@ export const usePrintSpecifications = () => {
     loadAllSpecifications();
   }, []);
 
+  const getAvailableCategories = async (productType: string): Promise<string[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('print_specifications')
+        .select('category')
+        .eq('is_active', true)
+        .neq('name', '_category');
+
+      if (error) {
+        console.error('Error fetching categories:', error);
+        return [];
+      }
+
+      // Get unique categories
+      const categories = [...new Set(data.map(spec => spec.category))];
+      return categories.filter(Boolean);
+    } catch (error) {
+      console.error('Error in getAvailableCategories:', error);
+      return [];
+    }
+  };
+
   const getCompatibleSpecifications = async (productType: string, category: string): Promise<PrintSpecification[]> => {
     try {
       const { data, error } = await supabase.rpc('get_compatible_specifications', {
@@ -174,6 +196,7 @@ export const usePrintSpecifications = () => {
   return {
     specifications,
     isLoading,
+    getAvailableCategories,
     getCompatibleSpecifications,
     saveJobSpecifications,
     createSpecification,

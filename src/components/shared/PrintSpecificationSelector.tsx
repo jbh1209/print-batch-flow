@@ -19,33 +19,32 @@ export const PrintSpecificationSelector: React.FC<PrintSpecificationSelectorProp
   disabled = false
 }) => {
   const { control, setValue, watch } = useFormContext();
-  const { getCompatibleSpecifications } = usePrintSpecifications();
+  const { getCompatibleSpecifications, getAvailableCategories } = usePrintSpecifications();
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [specificationOptions, setSpecificationOptions] = useState<Record<string, any[]>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  const categories = [
-    { key: 'size', label: 'Size', required: true },
-    { key: 'paper_type', label: 'Paper Type', required: true },
-    { key: 'paper_weight', label: 'Paper Weight', required: true },
-    { key: 'lamination_type', label: 'Lamination Type', required: false },
-    { key: 'uv_varnish', label: 'UV Varnish', required: false }
-  ];
-
   useEffect(() => {
-    const loadSpecifications = async () => {
+    const loadCategoriesAndSpecifications = async () => {
       setIsLoading(true);
+      
+      // First, get all available categories for this product type
+      const categories = await getAvailableCategories(productType);
+      setAvailableCategories(categories);
+      
+      // Then load specifications for each category
       const options: Record<string, any[]> = {};
       
       for (const category of categories) {
-        const specs = await getCompatibleSpecifications(productType, category.key);
-        options[category.key] = specs;
+        const specs = await getCompatibleSpecifications(productType, category);
+        options[category] = specs;
       }
       
       setSpecificationOptions(options);
       setIsLoading(false);
     };
 
-    loadSpecifications();
+    loadCategoriesAndSpecifications();
   }, [productType]);
 
   const handleSpecificationChange = (category: string, specificationId: string) => {
@@ -59,15 +58,30 @@ export const PrintSpecificationSelector: React.FC<PrintSpecificationSelectorProp
     }
   };
 
+  const getCategoryLabel = (category: string) => {
+    // Convert category key to readable label
+    return category
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {categories.map(category => (
-          <div key={category.key} className="animate-pulse">
-            <div className="h-4 bg-gray-200 rounded mb-2 w-1/4"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-          </div>
-        ))}
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded mb-2 w-1/4"></div>
+          <div className="h-10 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (availableCategories.length === 0) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Print Specifications</h3>
+        <p className="text-sm text-gray-500">No specifications available for this product type.</p>
       </div>
     );
   }
@@ -76,27 +90,25 @@ export const PrintSpecificationSelector: React.FC<PrintSpecificationSelectorProp
     <div className="space-y-4">
       <h3 className="text-lg font-medium">Print Specifications</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {categories.map(category => {
-          const options = specificationOptions[category.key] || [];
+        {availableCategories.map(category => {
+          const options = specificationOptions[category] || [];
+          const categoryLabel = getCategoryLabel(category);
           
           return (
             <FormField
-              key={category.key}
+              key={category}
               control={control}
-              name={category.key}
+              name={category}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {category.label}
-                    {category.required && <span className="text-red-500 ml-1">*</span>}
-                  </FormLabel>
+                  <FormLabel>{categoryLabel}</FormLabel>
                   <Select
                     disabled={disabled || options.length === 0}
                     onValueChange={(value) => {
                       field.onChange(value);
                       const spec = options.find(opt => opt.display_name === value);
                       if (spec) {
-                        handleSpecificationChange(category.key, spec.id);
+                        handleSpecificationChange(category, spec.id);
                       }
                     }}
                     value={field.value}
@@ -107,7 +119,7 @@ export const PrintSpecificationSelector: React.FC<PrintSpecificationSelectorProp
                           placeholder={
                             options.length === 0 
                               ? "No options available" 
-                              : `Select ${category.label.toLowerCase()}`
+                              : `Select ${categoryLabel.toLowerCase()}`
                           } 
                         />
                       </SelectTrigger>
