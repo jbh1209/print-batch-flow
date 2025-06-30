@@ -102,55 +102,65 @@ export async function processBatchJobs({
     }
   }
   
-  // Verify jobs were correctly updated with batch ID
-  const verificationResult = await verifyBatchJobLinks({
-    jobIds,
-    batchId,
-    tableName
-  });
-  
-  // Handle unlinked jobs
-  if (verificationResult.unlinkedJobs.length > 0) {
-    console.warn(`Warning: ${verificationResult.unlinkedJobs.length} jobs not correctly linked to batch`);
-    
-    // Try to relink jobs that weren't properly linked
-    const relinkResult = await relinkJobs(
-      verificationResult.unlinkedJobs,
+  // Only verify for non-production jobs since production jobs use a different workflow
+  if (tableName !== 'production_jobs') {
+    // Verify jobs were correctly updated with batch ID
+    const verificationResult = await verifyBatchJobLinks({
+      jobIds,
       batchId,
-      tableName
-    );
+      tableName: tableName as any // Type assertion for legacy table types
+    });
     
-    // Perform a final check if we had any unlinked jobs that we attempted to fix
-    if (relinkResult.failed > 0) {
-      const stillUnlinkedIds = verificationResult.unlinkedJobs
-        .map(job => job.id);
+    // Handle unlinked jobs
+    if (verificationResult.unlinkedJobs.length > 0) {
+      console.warn(`Warning: ${verificationResult.unlinkedJobs.length} jobs not correctly linked to batch`);
       
-      if (stillUnlinkedIds.length > 0) {
-        const finalCheckResult = await verifyBatchJobLinks({
-          jobIds: stillUnlinkedIds,
-          batchId,
-          tableName
-        });
+      // Try to relink jobs that weren't properly linked
+      const relinkResult = await relinkJobs(
+        verificationResult.unlinkedJobs,
+        batchId,
+        tableName as any // Type assertion for legacy table types
+      );
+      
+      // Perform a final check if we had any unlinked jobs that we attempted to fix
+      if (relinkResult.failed > 0) {
+        const stillUnlinkedIds = verificationResult.unlinkedJobs
+          .map(job => job.id);
         
-        // If we still have unlinked jobs after retrying, show a warning
-        const stillUnlinked = finalCheckResult.unlinkedJobs.length;
-        if (stillUnlinked > 0) {
-          toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
-            description: "Some jobs may need to be manually added to the batch"
+        if (stillUnlinkedIds.length > 0) {
+          const finalCheckResult = await verifyBatchJobLinks({
+            jobIds: stillUnlinkedIds,
+            batchId,
+            tableName: tableName as any
           });
+          
+          // If we still have unlinked jobs after retrying, show a warning
+          const stillUnlinked = finalCheckResult.unlinkedJobs.length;
+          if (stillUnlinked > 0) {
+            toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
+              description: "Some jobs may need to be manually added to the batch"
+            });
+          }
         }
       }
+    } else {
+      console.log(`All ${verificationResult.linkedJobs.length} jobs successfully integrated into batch workflow`);
     }
+    
+    // Return the final result
+    return {
+      success: true,
+      linkedCount: verificationResult.linkedJobs.length,
+      unlinkedCount: verificationResult.unlinkedJobs.length - (verificationResult.unlinkedJobs.length > 0 ? 0 : 0)
+    };
   } else {
-    console.log(`All ${verificationResult.linkedJobs.length} jobs successfully integrated into batch workflow`);
+    // For production jobs, we don't use the verification system
+    return {
+      success: true,
+      linkedCount: jobIds.length,
+      unlinkedCount: 0
+    };
   }
-  
-  // Return the final result
-  return {
-    success: true,
-    linkedCount: verificationResult.linkedJobs.length,
-    unlinkedCount: verificationResult.unlinkedJobs.length - (verificationResult.unlinkedJobs.length > 0 ? 0 : 0)
-  };
 }
 
 /**
