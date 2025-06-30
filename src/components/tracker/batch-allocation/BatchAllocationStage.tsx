@@ -157,16 +157,13 @@ export const BatchAllocationStage: React.FC<BatchAllocationStageProps> = ({
 
       {showJobForm && selectedCategory && (
         <BatchJobForm
-          jobData={{
-            wo_no: job.wo_no,
-            customer: job.customer,
-            qty: job.qty,
-            due_date: job.due_date
-          }}
+          wo_no={job.wo_no}
+          customer={job.customer}
+          qty={job.qty}
+          due_date={job.due_date}
           batchCategory={selectedCategory}
           onJobCreated={handleJobCreated}
           onCancel={() => setShowJobForm(false)}
-          isProcessing={isProcessing}
         />
       )}
     </div>

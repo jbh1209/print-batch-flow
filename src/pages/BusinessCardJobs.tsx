@@ -35,15 +35,6 @@ const BusinessCardJobs = () => {
     fetchJobs();
   };
 
-  const handleJobDeleted = async (jobId: string) => {
-    try {
-      await handleJobDeleted(jobId);
-    } catch (error) {
-      // Error is already handled in the hook and JobActions
-      throw error;
-    }
-  };
-
   const handleFixOrphanedJobs = async () => {
     try {
       sonnerToast.info("Fixing orphaned jobs...");
@@ -74,6 +65,15 @@ const BusinessCardJobs = () => {
       sonnerToast.error("Failed to fix orphaned jobs");
     }
   };
+
+  // Transform jobs to match JobsTable component interface
+  const transformedJobs = jobs.map(job => ({
+    ...job,
+    lamination_type: 'none' as const, // Default lamination type since we don't store this anymore
+    uploaded_at: job.uploaded_at,
+    job_number: job.job_number || '',
+    updated_at: job.updated_at || ''
+  }));
 
   return (
     <div>
@@ -135,7 +135,7 @@ const BusinessCardJobs = () => {
         )}
         
         <JobsTableContainer 
-          jobs={jobs}
+          jobs={transformedJobs}
           isLoading={isLoading}
           error={error}
           onRefresh={() => fetchJobs()}

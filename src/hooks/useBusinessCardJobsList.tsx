@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -142,7 +143,7 @@ export const useBusinessCardJobsList = () => {
       setIsLoading(false);
       isRequestInProgressRef.current = false;
     }
-  }, [authLoading, toast]);
+  }, [authLoading, toast, setFilterCounts]);
 
   // Initial fetch when auth is ready
   useEffect(() => {
@@ -217,33 +218,7 @@ export const useBusinessCardJobsList = () => {
     handleSelectAllJobs,
     getSelectedJobObjects,
     fetchJobs,
-    handleJobDeleted: async (jobId: string) => {
-      try {
-        const { error } = await supabase
-          .from("business_card_jobs")
-          .delete()
-          .eq("id", jobId);
-
-        if (error) throw error;
-
-        setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
-        setSelectedJobs(prevSelected => prevSelected.filter(id => id !== jobId));
-
-        toast({
-          title: "Job deleted",
-          description: "The job has been successfully deleted.",
-        });
-
-        await fetchJobs(false);
-      } catch (error) {
-        console.error("Error deleting job:", error);
-        toast({
-          title: "Error deleting job",
-          description: "Failed to delete the job. Please try again.",
-          variant: "destructive",
-        });
-      }
-    },
+    handleJobDeleted,
     fixBatchedJobsWithoutBatch,
     isFixingBatchedJobs,
   };
