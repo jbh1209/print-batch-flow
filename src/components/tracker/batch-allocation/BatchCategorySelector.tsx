@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Package, FileText, Image, Sticker, Box, Bookmark } from 'lucide-react';
+import { Package, FileText, Image, Sticker, Box, Bookmark, Package2, ImageIcon } from 'lucide-react';
 
 interface BatchCategory {
   id: string;
@@ -42,11 +42,25 @@ const batchCategories: BatchCategory[] = [
     color: 'bg-purple-100 text-purple-800'
   },
   {
+    id: 'posters',
+    name: 'Posters',
+    description: 'Large format posters',
+    icon: ImageIcon,
+    color: 'bg-pink-100 text-pink-800'
+  },
+  {
     id: 'stickers',
     name: 'Stickers',
     description: 'Custom stickers and labels',
     icon: Sticker,
     color: 'bg-yellow-100 text-yellow-800'
+  },
+  {
+    id: 'sleeves',
+    name: 'Sleeves',
+    description: 'Protective sleeves and covers',
+    icon: Package2,
+    color: 'bg-violet-100 text-violet-800'
   },
   {
     id: 'boxes',
@@ -78,7 +92,7 @@ export const BatchCategorySelector: React.FC<BatchCategorySelectorProps> = ({
         </p>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {batchCategories.map((category) => {
             const Icon = category.icon;
             const isSelected = selectedCategory === category.id;
