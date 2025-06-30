@@ -8,11 +8,11 @@ type JobData = {
   name: string;
   quantity: number;
   double_sided: boolean;
-  lamination_type: "none" | "gloss" | "matt" | "soft_touch";
-  paper_type: string;
   due_date: string;
   pdf_url?: string;
   file_name?: string;
+  // Specifications are now stored separately
+  // Legacy fields removed: lamination_type, paper_type
 };
 
 export function useBusinessCardJob(jobId: string | undefined) {
@@ -42,7 +42,17 @@ export function useBusinessCardJob(jobId: string | undefined) {
           return;
         }
         
-        setJobData(data);
+        // Map database fields to expected interface
+        const mappedData: JobData = {
+          name: data.name,
+          quantity: data.quantity,
+          double_sided: data.double_sided,
+          due_date: data.due_date,
+          pdf_url: data.pdf_url,
+          file_name: data.file_name
+        };
+        
+        setJobData(mappedData);
       } catch (error) {
         console.error("Error fetching job:", error);
         setError("Failed to load job details.");
@@ -99,13 +109,11 @@ export function useBusinessCardJob(jobId: string | undefined) {
         fileName = selectedFile.name;
       }
 
-      // Update job data in the database
+      // Update job data in the database - only core fields
       const updateData: Record<string, any> = {
         name: formData.name,
         quantity: formData.quantity,
         double_sided: formData.doubleSided,
-        lamination_type: formData.laminationType,
-        paper_type: formData.paperType,
         due_date: formData.dueDate.toISOString(),
         updated_at: new Date().toISOString(),
       };

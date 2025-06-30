@@ -36,7 +36,27 @@ export const useFlyerJobs = () => {
       if (fetchError) throw fetchError;
 
       console.log("Flyer jobs fetched:", data?.length || 0, "jobs");
-      setJobs(data || []);
+      
+      // Map data to FlyerJob interface (only core fields)
+      const mappedJobs: FlyerJob[] = (data || []).map(job => ({
+        id: job.id,
+        user_id: job.user_id,
+        name: job.name,
+        job_number: job.job_number,
+        quantity: job.quantity,
+        due_date: job.due_date,
+        pdf_url: job.pdf_url,
+        file_name: job.file_name,
+        status: job.status,
+        batch_id: job.batch_id,
+        created_at: job.created_at,
+        updated_at: job.updated_at,
+        batch_ready: job.batch_ready,
+        batch_allocated_at: job.batch_allocated_at,
+        batch_allocated_by: job.batch_allocated_by
+      }));
+      
+      setJobs(mappedJobs);
     } catch (err) {
       console.error('Error fetching flyer jobs:', err);
       setError('Failed to load flyer jobs');
@@ -73,8 +93,26 @@ export const useFlyerJobs = () => {
 
       if (error) throw error;
 
-      setJobs(prevJobs => [data, ...prevJobs]);
-      return data;
+      const mappedJob: FlyerJob = {
+        id: data.id,
+        user_id: data.user_id,
+        name: data.name,
+        job_number: data.job_number,
+        quantity: data.quantity,
+        due_date: data.due_date,
+        pdf_url: data.pdf_url,
+        file_name: data.file_name,
+        status: data.status,
+        batch_id: data.batch_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        batch_ready: data.batch_ready,
+        batch_allocated_at: data.batch_allocated_at,
+        batch_allocated_by: data.batch_allocated_by
+      };
+
+      setJobs(prevJobs => [mappedJob, ...prevJobs]);
+      return mappedJob;
     } catch (err) {
       console.error('Error creating flyer job:', err);
       throw err;
@@ -83,7 +121,6 @@ export const useFlyerJobs = () => {
 
   const updateJob = async (jobId: string, jobData: any) => {
     try {
-      // Remove user_id filter to allow any user to update any job
       const { data, error } = await supabase
         .from('flyer_jobs')
         .update(jobData)
@@ -93,8 +130,26 @@ export const useFlyerJobs = () => {
 
       if (error) throw error;
 
+      const mappedJob: FlyerJob = {
+        id: data.id,
+        user_id: data.user_id,
+        name: data.name,
+        job_number: data.job_number,
+        quantity: data.quantity,
+        due_date: data.due_date,
+        pdf_url: data.pdf_url,
+        file_name: data.file_name,
+        status: data.status,
+        batch_id: data.batch_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        batch_ready: data.batch_ready,
+        batch_allocated_at: data.batch_allocated_at,
+        batch_allocated_by: data.batch_allocated_by
+      };
+
       setJobs(prevJobs => 
-        prevJobs.map(job => job.id === jobId ? { ...job, ...data } : job)
+        prevJobs.map(job => job.id === jobId ? mappedJob : job)
       );
       return data;
     } catch (err) {
@@ -105,7 +160,6 @@ export const useFlyerJobs = () => {
 
   const deleteJob = async (jobId: string) => {
     try {
-      // Remove user_id filter to allow any user to delete any job
       const { error } = await supabase
         .from('flyer_jobs')
         .delete()
@@ -124,7 +178,6 @@ export const useFlyerJobs = () => {
 
   const getJobById = async (jobId: string) => {
     try {
-      // Remove user_id filter to allow any user to get any job
       const { data, error } = await supabase
         .from('flyer_jobs')
         .select('*')
@@ -143,7 +196,6 @@ export const useFlyerJobs = () => {
     try {
       console.log("Fixing batched flyer jobs without valid batch references");
       
-      // Remove user filtering for fix operation
       const { data: batchedJobs, error: fetchError } = await supabase
         .from('flyer_jobs')
         .select('id, batch_id')
@@ -156,7 +208,6 @@ export const useFlyerJobs = () => {
         return 0;
       }
 
-      // Check which batches actually exist
       const batchIds = [...new Set(batchedJobs.map(job => job.batch_id).filter(Boolean))];
       const { data: existingBatches, error: batchError } = await supabase
         .from('batches')
@@ -175,7 +226,6 @@ export const useFlyerJobs = () => {
         return 0;
       }
 
-      // Reset jobs to queued status
       const { error: updateError } = await supabase
         .from('flyer_jobs')
         .update({ 

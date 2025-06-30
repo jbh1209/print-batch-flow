@@ -140,7 +140,7 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
       }
 
       // Create the job data with only core fields (no hardcoded specifications)
-      const jobData = {
+      const finalJobData = {
         user_id: user?.id,
         name: data.clientName,
         job_number: data.jobNumber,
@@ -153,18 +153,22 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
         updated_at: new Date().toISOString()
       };
 
-      console.log('Inserting job data:', jobData);
+      console.log('Inserting job data:', finalJobData);
 
       // Insert into the appropriate job table
       const { data: insertedData, error: insertError } = await supabase
         .from(tableName as any)
-        .insert(jobData)
+        .insert(finalJobData)
         .select()
         .single();
 
       if (insertError) {
         console.error('Database insert error:', insertError);
         throw new Error(`Database insert failed: ${insertError.message}`);
+      }
+
+      if (!insertedData) {
+        throw new Error('No data returned from insert operation');
       }
 
       console.log('Job created successfully:', insertedData);
