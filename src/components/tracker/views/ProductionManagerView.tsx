@@ -2,13 +2,14 @@
 import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, AlertTriangle } from "lucide-react";
+import { RefreshCw, AlertTriangle, Package } from "lucide-react";
 import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { EnhancedProductionJobsList } from "./EnhancedProductionJobsList";
 import { ProductionManagerHeader } from "./components/ProductionManagerHeader";
 import { ProductionManagerStats } from "./components/ProductionManagerStats";
 import { ProductionManagerModals } from "./components/ProductionManagerModals";
+import { LostJobRecovery } from "../diagnostics/LostJobRecovery";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
@@ -22,6 +23,7 @@ export const ProductionManagerView = () => {
   const { categories } = useCategories();
   const { isAdmin } = useUserRole();
   const [refreshing, setRefreshing] = useState(false);
+  const [showLostJobRecovery, setShowLostJobRecovery] = useState(false);
 
   // Modal states
   const [editingJob, setEditingJob] = useState<AccessibleJob | null>(null);
@@ -40,6 +42,11 @@ export const ProductionManagerView = () => {
     }));
   }, [jobs]);
 
+  // Count jobs in batch processing
+  const batchProcessingJobs = React.useMemo(() => {
+    return jobs.filter(job => job.status === 'In Batch Processing').length;
+  }, [jobs]);
+
   // Debug logging
   React.useEffect(() => {
     console.log("📊 ProductionManagerView state:", {
@@ -47,9 +54,10 @@ export const ProductionManagerView = () => {
       error,
       jobsCount: jobs.length,
       normalizedJobsCount: normalizedJobs.length,
+      batchProcessingJobs,
       statusFilter
     });
-  }, [isLoading, error, jobs, normalizedJobs, statusFilter]);
+  }, [isLoading, error, jobs, normalizedJobs, statusFilter, batchProcessingJobs]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -154,6 +162,38 @@ export const ProductionManagerView = () => {
 
       {/* Production Statistics */}
       <ProductionManagerStats jobs={jobs} />
+
+      {/* Batch Processing Alert */}
+      {batchProcessingJobs > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <Package className="h-5 w-5 text-orange-600" />
+              <div>
+                <h3 className="font-medium text-orange-800">
+                  {batchProcessingJobs} Job{batchProcessingJobs !== 1 ? 's' : ''} in Batch Processing
+                </h3>
+                <p className="text-sm text-orange-700">
+                  These jobs are currently being processed in BatchFlow
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowLostJobRecovery(!showLostJobRecovery)}
+              variant="outline"
+              size="sm"
+              className="bg-white"
+            >
+              {showLostJobRecovery ? 'Hide' : 'Show'} Recovery Tools
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lost Job Recovery Tool */}
+      {showLostJobRecovery && (
+        <LostJobRecovery />
+      )}
 
       {/* Enhanced Jobs List */}
       {jobs.length > 0 ? (
