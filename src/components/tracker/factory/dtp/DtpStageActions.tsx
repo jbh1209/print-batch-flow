@@ -80,6 +80,7 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
     if (onComplete && job.current_stage_id) {
       const success = await onComplete(job.job_id, job.current_stage_id);
       if (success) {
+        onJobStatusUpdate('Ready for Proof', 'completed');
         onRefresh?.();
         onClose();
       }
@@ -108,6 +109,7 @@ export const DtpStageActions: React.FC<DtpStageActionsProps> = ({
       if (jobError) throw jobError;
 
       toast.success("DTP completed - moved to Proof");
+      onJobStatusUpdate('Ready for Proof', 'completed');
       onRefresh?.();
       onClose();
     } catch (error) {

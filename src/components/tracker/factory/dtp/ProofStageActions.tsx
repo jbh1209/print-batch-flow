@@ -63,8 +63,6 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
   const handleStartProof = async () => {
     try {
-      onJobStatusUpdate('Proof In Progress', 'active');
-
       const { error: startError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -88,11 +86,11 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
       if (jobError) throw jobError;
 
+      onJobStatusUpdate('Proof In Progress', 'active');
       toast.success("Proof stage started");
       onRefresh?.();
     } catch (error) {
       console.error('Error starting proof:', error);
-      onJobStatusUpdate(job.status, job.current_stage_status);
       toast.error("Failed to start proof stage");
     }
   };
@@ -145,6 +143,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
       onProofApprovalFlowChange('choosing_allocation');
       toast.success('Proof approved! Choose next step.');
+      // Trigger refresh to update stageInstance data
+      onRefresh?.();
     } catch (error) {
       console.error('Error marking proof as approved:', error);
       toast.error('Failed to mark proof as approved');
