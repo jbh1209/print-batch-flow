@@ -41,8 +41,7 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
   const loadModalData = useCallback(async () => {
     if (!isOpen) return;
 
-    // Reset state
-    setProofApprovalFlow('pending');
+    // Reset batch category selection
     setSelectedBatchCategory("");
 
     // Load current stage instance data
@@ -55,8 +54,18 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
         .single();
 
       setStageInstance(stageData || null);
+
+      // Initialize proofApprovalFlow based on the actual database state
+      if (stageData?.proof_approved_manually_at) {
+        // If proof has been approved, show the allocation options
+        setProofApprovalFlow('choosing_allocation');
+      } else {
+        // If proof hasn't been approved yet, start with pending flow
+        setProofApprovalFlow('pending');
+      }
     } else {
       setStageInstance(null);
+      setProofApprovalFlow('pending');
     }
 
     // Load all available printing stages
