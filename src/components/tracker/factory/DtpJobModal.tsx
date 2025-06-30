@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePartPrintingAssignment } from "@/hooks/tracker/usePartPrintingAssignment";
 import { useJobPrintingStages } from "@/hooks/tracker/useJobPrintingStages";
+import { useJobStageManagement } from "@/hooks/tracker/useJobStageManagement";
 
 interface DtpJobModalProps {
   job: AccessibleJob;
@@ -73,6 +74,16 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
   const { assignPartsToStages, getJobParts, isAssigning } = usePartPrintingAssignment();
   const { printingStages: existingPrintingStages, isLoading: printingStagesLoading } = useJobPrintingStages(job.job_id);
+  
+  // Use the proper workflow management system
+  const {
+    advanceJobStage,
+    isProcessing: isStageProcessing
+  } = useJobStageManagement({
+    jobId: job.job_id,
+    jobTableName: 'production_jobs',
+    categoryId: job.category_id
+  });
 
   const statusBadgeInfo = getJobStatusBadgeInfo({
     ...job,
@@ -421,23 +432,33 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     }
   };
 
+  // FIXED: Use proper workflow management instead of manual stage creation
   const handleAdvanceToPrintingStage = async () => {
     if (!selectedPrintingStage) {
       toast.error("Please select a printing stage");
       return;
     }
 
+    if (!job.current_stage_id) {
+      toast.error("No current stage found");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { error: completeError } = await supabase.rpc('advance_job_stage', {
-        p_job_id: job.job_id,
-        p_job_table_name: 'production_jobs',
-        p_current_stage_id: job.current_stage_id,
-        p_notes: notes || 'Proof approved - advancing to printing'
-      });
+      console.log('🔄 Advancing to printing stage using proper workflow management');
+      
+      // Use the proper workflow management system to advance the stage
+      const success = await advanceJobStage(
+        job.current_stage_id,
+        notes || 'Proof approved - advancing to printing'
+      );
 
-      if (completeError) throw completeError;
+      if (!success) {
+        throw new Error('Failed to advance job stage');
+      }
 
+      // Now create the printing stage instance using the established pattern
       const { error: insertError } = await supabase
         .from('job_stage_instances')
         .insert({
@@ -445,12 +466,13 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           job_table_name: 'production_jobs',
           category_id: job.category_id,
           production_stage_id: selectedPrintingStage,
-          stage_order: 999,
+          stage_order: 1000, // Set high order for printing stages
           status: 'pending'
         });
 
       if (insertError) throw insertError;
 
+      // Update job status
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({
@@ -466,7 +488,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
       onRefresh?.();
       onClose();
     } catch (error) {
-      console.error('Error advancing to printing stage:', error);
+      console.error('❌ Error advancing to printing stage:', error);
       toast.error("Failed to advance to printing stage");
     } finally {
       setIsLoading(false);
@@ -610,12 +632,12 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                 
                 <Button 
                   onClick={handleDirectPrinting}
-                  disabled={isLoading}
+                  disabled={isLoading || isStageProcessing}
                   className="w-full bg-blue-600 hover:bg-blue-700"
                   variant="outline"
                 >
                   <Printer className="h-4 w-4 mr-2" />
-                  Send Directly to Printing
+                  {isStageProcessing ? 'Processing...' : 'Send Directly to Printing'}
                 </Button>
               </div>
             </div>
@@ -658,6 +680,50 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
               </div>
             );
           }
+        }
+
+        if (proofApprovalFlow === 'direct_printing') {
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-md">
+                <Printer className="h-4 w-4" />
+                <span className="text-sm font-medium">Select Printing Stage</span>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="printing-stage">Printing Stage</Label>
+                <Select value={selectedPrintingStage} onValueChange={setSelectedPrintingStage}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select printing stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allPrintingStages.map((stage) => (
+                      <SelectItem key={stage.id} value={stage.id}>
+                        {stage.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleAdvanceToPrintingStage}
+                  disabled={isLoading || isStageProcessing || !selectedPrintingStage}
+                  className="flex-1"
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  {isLoading || isStageProcessing ? 'Processing...' : 'Advance to Printing'}
+                </Button>
+                <Button 
+                  onClick={() => setProofApprovalFlow('choosing_allocation')}
+                  variant="outline"
+                >
+                  Back
+                </Button>
+              </div>
+            </div>
+          );
         }
       }
     }
