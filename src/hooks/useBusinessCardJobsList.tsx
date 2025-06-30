@@ -7,7 +7,7 @@ import { useJobFilters } from "./business-cards/useJobFilters";
 import { useJobSelection } from "./business-cards/useJobSelection";
 import { useBatchCleanup } from "./business-cards/useBatchCleanup";
 
-// Updated Job interface without hardcoded specifications
+// Updated Job interface with lamination_type
 export interface Job {
   id: string;
   name: string;
@@ -21,8 +21,7 @@ export interface Job {
   job_number: string;
   updated_at: string;
   user_id: string;
-  // Specifications are now stored separately
-  // Legacy field removed: lamination_type
+  lamination_type: 'gloss' | 'matt' | 'soft_touch' | 'none';
 }
 
 export const useBusinessCardJobsList = () => {
@@ -99,7 +98,7 @@ export const useBusinessCardJobsList = () => {
 
       console.log("Business card jobs fetched:", data?.length || 0, "jobs");
       
-      // Transform data to match Job interface - only core fields
+      // Transform data to match Job interface with lamination_type
       const jobsWithDefaults: Job[] = (data || []).map(job => ({
         id: job.id,
         name: job.name,
@@ -112,7 +111,8 @@ export const useBusinessCardJobsList = () => {
         double_sided: job.double_sided || false,
         job_number: job.job_number,
         updated_at: job.updated_at,
-        user_id: job.user_id
+        user_id: job.user_id,
+        lamination_type: 'none' as const // Default lamination type
       }));
 
       setJobs(jobsWithDefaults);
@@ -198,8 +198,7 @@ export const useBusinessCardJobsList = () => {
 
   const filteredJobs = jobs.filter(job => {
     const statusMatch = filterView === 'all' || job.status === filterView;
-    // Note: lamination filtering would need to be handled by fetching from job_print_specifications
-    const laminationMatch = laminationFilter === 'all' || laminationFilter === null || true; // Simplified for now
+    const laminationMatch = laminationFilter === 'all' || laminationFilter === null || true;
     return statusMatch && laminationMatch;
   });
 

@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -352,7 +353,6 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
                 batchCategory={selectedBatchCategory}
                 onJobCreated={handleBatchJobCreated}
                 onCancel={() => onProofApprovalFlowChange('choosing_allocation')}
-                isProcessing={isLoading || isStageInstancesLoading}
               />
             </div>
           );

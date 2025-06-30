@@ -66,15 +66,6 @@ const BusinessCardJobs = () => {
     }
   };
 
-  // Transform jobs to match JobsTable component interface
-  const transformedJobs = jobs.map(job => ({
-    ...job,
-    lamination_type: 'none' as const, // Default lamination type since we don't store this anymore
-    uploaded_at: job.uploaded_at,
-    job_number: job.job_number || '',
-    updated_at: job.updated_at || ''
-  }));
-
   return (
     <div>
       <JobsHeader 
@@ -135,7 +126,7 @@ const BusinessCardJobs = () => {
         )}
         
         <JobsTableContainer 
-          jobs={transformedJobs}
+          jobs={jobs}
           isLoading={isLoading}
           error={error}
           onRefresh={() => fetchJobs()}
