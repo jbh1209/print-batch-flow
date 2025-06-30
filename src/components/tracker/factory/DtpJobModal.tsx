@@ -76,6 +76,10 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     setLocalStageStatus(newStageStatus);
   };
 
+  const handleModalDataRefresh = () => {
+    loadModalData(); // This will refresh stageInstance and other modal data
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -119,6 +123,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             onProofApprovalFlowChange={setProofApprovalFlow}
             onBatchCategoryChange={setSelectedBatchCategory}
             onPrintingStageChange={setSelectedPrintingStage}
+            onModalDataRefresh={handleModalDataRefresh} // Pass the refresh function
           />
         </div>
       </DialogContent>

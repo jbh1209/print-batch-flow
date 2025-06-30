@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -39,6 +38,7 @@ interface ProofStageActionsProps {
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
   onPrintingStageChange: (stageId: string) => void;
+  onModalDataRefresh?: () => void; // Add this prop to refresh modal data
 }
 
 export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
@@ -56,7 +56,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   onJobStatusUpdate,
   onProofApprovalFlowChange,
   onBatchCategoryChange,
-  onPrintingStageChange
+  onPrintingStageChange,
+  onModalDataRefresh
 }) => {
   const { user } = useAuth();
   const { advanceJobStage, isLoading: isStageInstancesLoading } = useJobStageInstances(job.job_id, 'production_jobs');
@@ -89,6 +90,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       onJobStatusUpdate('Proof In Progress', 'active');
       toast.success("Proof stage started");
       onRefresh?.();
+      onModalDataRefresh?.(); // Refresh modal data
     } catch (error) {
       console.error('Error starting proof:', error);
       toast.error("Failed to start proof stage");
@@ -123,6 +125,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       onJobStatusUpdate('Awaiting Client Sign Off', stageStatus);
       toast.success("Proof marked as emailed");
       onRefresh?.();
+      onModalDataRefresh?.(); // Refresh modal data
     } catch (error) {
       console.error('Error marking proof as emailed:', error);
       toast.error("Failed to mark proof as emailed");
@@ -143,8 +146,8 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
       onProofApprovalFlowChange('choosing_allocation');
       toast.success('Proof approved! Choose next step.');
-      // Trigger refresh to update stageInstance data
       onRefresh?.();
+      onModalDataRefresh?.(); // Refresh modal data to update stageInstance
     } catch (error) {
       console.error('Error marking proof as approved:', error);
       toast.error('Failed to mark proof as approved');

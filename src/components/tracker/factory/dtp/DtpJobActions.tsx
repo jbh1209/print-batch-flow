@@ -35,6 +35,7 @@ interface DtpJobActionsProps {
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
   onPrintingStageChange: (stageId: string) => void;
+  onModalDataRefresh?: () => void; // Add this prop
 }
 
 export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
@@ -55,7 +56,8 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
   onJobStatusUpdate,
   onProofApprovalFlowChange,
   onBatchCategoryChange,
-  onPrintingStageChange
+  onPrintingStageChange,
+  onModalDataRefresh
 }) => {
   if (currentStage === 'dtp') {
     return (
@@ -91,6 +93,7 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onProofApprovalFlowChange={onProofApprovalFlowChange}
         onBatchCategoryChange={onBatchCategoryChange}
         onPrintingStageChange={onPrintingStageChange}
+        onModalDataRefresh={onModalDataRefresh} // Pass it through
       />
     );
   }
