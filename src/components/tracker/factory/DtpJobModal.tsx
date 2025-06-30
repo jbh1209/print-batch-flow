@@ -18,7 +18,7 @@ import { PartPrintingStageSelector } from "./PartPrintingStageSelector";
 import { JobActionButtons } from "../common/JobActionButtons";
 import { BatchAllocationSection } from "./dtp/BatchAllocationSection";
 import { BatchCategorySelector } from "../batch-allocation/BatchCategorySelector";
-import { BatchJobForm } from "../batch-allocation/BatchJobForm";
+import { BatchJobFormRHF } from "../batch-allocation/BatchJobFormRHF";
 import { Play, CheckCircle, Mail, ThumbsUp, ArrowRight, Pause, Package, Printer } from "lucide-react";
 import { getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { useAuth } from "@/hooks/useAuth";
@@ -643,7 +643,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           } else {
             return (
               <div className="space-y-4">
-                <BatchJobForm
+                <BatchJobFormRHF
                   jobData={{
                     wo_no: job.wo_no,
                     customer: job.customer || '',

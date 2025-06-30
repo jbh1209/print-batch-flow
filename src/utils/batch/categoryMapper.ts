@@ -29,65 +29,65 @@ export const getProductConfigByCategory = (batchCategory: string) => {
 };
 
 // Get category-specific field mapping for database insertion
-export const getCategorySpecificFields = (batchCategory: string, specifications: Record<string, any>) => {
+export const getCategorySpecificFields = (batchCategory: string, formData: Record<string, any>) => {
   switch (batchCategory) {
     case 'business_cards':
       return {
-        paper_type: specifications.paperType || '350gsm Matt',
-        lamination_type: specifications.laminationType || 'none',
-        double_sided: specifications.doubleSided || false,
-        paper_weight: specifications.paperWeight || '350gsm'
+        paper_type: formData.paper_type || '350gsm Matt',
+        lamination_type: formData.lamination_type || 'none',
+        double_sided: formData.double_sided || false,
+        paper_weight: formData.paper_weight || '350gsm'
       };
     
     case 'flyers':
       return {
-        size: specifications.size || 'A4',
-        paper_type: specifications.paperType || 'Matt',
-        paper_weight: specifications.paperWeight || '130gsm'
+        size: formData.size || 'A4',
+        paper_type: formData.paper_type || 'Matt',
+        paper_weight: formData.paper_weight || '130gsm'
       };
     
     case 'postcards':
       return {
-        size: specifications.size || 'A6',
-        paper_type: specifications.paperType || 'Gloss',
-        paper_weight: specifications.paperWeight || '300gsm',
-        sides: specifications.sides || 'single',
-        lamination_type: specifications.laminationType || 'no_lam'
+        size: formData.size || 'A6',
+        paper_type: formData.paper_type || 'Gloss',
+        paper_weight: formData.paper_weight || '300gsm',
+        sides: formData.sides || 'single',
+        lamination_type: formData.lamination_type || 'no_lam'
       };
     
     case 'posters':
       return {
-        size: specifications.size || 'A4',
-        paper_type: specifications.paperType || 'Matt',
-        paper_weight: specifications.paperWeight || '200gsm',
-        sides: specifications.sides || 'single'
+        size: formData.size || 'A4',
+        paper_type: formData.paper_type || 'Matt',
+        paper_weight: formData.paper_weight || '200gsm',
+        sides: formData.sides || 'single'
       };
     
     case 'sleeves':
       return {
-        stock_type: specifications.paperType || 'Kraft',
-        single_sided: specifications.singleSided !== false
+        stock_type: formData.paper_type || 'Kraft',
+        single_sided: formData.single_sided !== false
       };
     
     case 'stickers':
       return {
-        paper_type: specifications.paperType || 'Paper',
-        lamination_type: specifications.laminationType || 'none'
+        paper_type: formData.paper_type || 'Paper',
+        lamination_type: formData.lamination_type || 'none'
       };
     
     case 'boxes':
       return {
-        paper_type: specifications.paperType || 'FBB 230gsm',
-        lamination_type: specifications.laminationType || 'matt'
+        paper_type: formData.paper_type || 'FBB 230gsm',
+        lamination_type: formData.lamination_type || 'matt'
       };
     
     case 'covers':
       return {
-        paper_type: specifications.paperType || '250gsm Matt',
-        paper_weight: specifications.paperWeight || '250gsm',
-        lamination_type: specifications.laminationType || 'none',
-        sides: specifications.sides || 'single',
-        uv_varnish: specifications.uvVarnish || 'none'
+        paper_type: formData.paper_type || '250gsm Matt',
+        paper_weight: formData.paper_weight || '250gsm',
+        lamination_type: formData.lamination_type || 'none',
+        sides: formData.sides || 'single',
+        uv_varnish: formData.uv_varnish || 'none'
       };
     
     default:
