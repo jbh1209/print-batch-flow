@@ -95,13 +95,13 @@ const BusinessCardJobs = () => {
       
       <div className="bg-white rounded-lg border shadow mb-8">
         <StatusFilterTabs 
-          filterView={filterView} 
+          filterView={filterView as "all" | "queued" | "batched" | "completed" | "cancelled"} 
           filterCounts={filterCounts} 
           setFilterView={setFilterView} 
         />
         
         <FilterBar 
-          laminationFilter={laminationFilter}
+          laminationFilter={laminationFilter === 'all' ? null : laminationFilter}
           setLaminationFilter={setLaminationFilter}
           selectedJobs={getSelectedJobObjects(jobs)}
           allAvailableJobs={jobs}
