@@ -10,6 +10,7 @@ import { useFileUpload } from "@/hooks/useFileUpload";
 import { FlyerJobFormFields } from "./components/FlyerJobFormFields";
 import { useFlyerJobForm } from "./hooks/useFlyerJobForm";
 import { useJobSpecifications } from "@/hooks/useJobSpecifications";
+import { useJobSpecificationDisplay } from "@/hooks/useJobSpecificationDisplay";
 import { 
   flyerJobCreateSchema, 
   flyerJobEditSchema, 
@@ -52,6 +53,12 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
     }
   });
 
+  // Get specifications for display if editing
+  const { getSize, getPaperType, getPaperWeight } = useJobSpecificationDisplay(
+    initialData?.id || '', 
+    'flyer_jobs'
+  );
+
   // Handle specification changes
   const { handleSpecificationChange } = useJobSpecifications({
     productType: 'flyer',
@@ -76,14 +83,14 @@ export const FlyerJobForm = ({ mode = 'create', initialData }: FlyerJobFormProps
       form.reset({
         name: initialData.name,
         job_number: initialData.job_number,
-        size: initialData.size,
-        paper_weight: initialData.paper_weight,
-        paper_type: initialData.paper_type,
+        size: getSize(),
+        paper_weight: getPaperWeight(),
+        paper_type: getPaperType(),
         quantity: initialData.quantity,
         due_date: new Date(initialData.due_date)
       });
     }
-  }, [initialData, form, mode]);
+  }, [initialData, form, mode, getSize, getPaperType, getPaperWeight]);
 
   useEffect(() => {
     if (selectedFile) {

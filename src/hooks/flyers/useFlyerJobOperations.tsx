@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -118,7 +119,8 @@ export function useFlyerJobOperations() {
     try {
       setIsCreatingBatch(true);
       
-      // Calculate sheets required based on job quantities and sizes
+      // Calculate sheets required based on job quantities
+      // Since sizes are now dynamic, we'll use a general calculation
       const sheetsRequired = calculateSheetsRequired(selectedJobs);
       
       // Generate batch name with standardized format
@@ -188,34 +190,12 @@ export function useFlyerJobOperations() {
   
   // Helper function to calculate sheets required
   const calculateSheetsRequired = (jobs: FlyerJob[]): number => {
-    
     let totalSheets = 0;
     
     for (const job of jobs) {
-      // Calculate sheets based on size and quantity
-      let sheetsPerJob = 0;
-      
-      switch (job.size) {
-        case 'A5':
-          // Assuming 2 A5s per sheet
-          sheetsPerJob = Math.ceil(job.quantity / 2);
-          break;
-        case 'A4':
-          // Assuming 1 A4 per sheet
-          sheetsPerJob = job.quantity;
-          break;
-        case 'DL':
-          // Assuming 3 DLs per sheet
-          sheetsPerJob = Math.ceil(job.quantity / 3);
-          break;
-        case 'A3':
-          // Assuming 1 A3 per sheet (special case)
-          sheetsPerJob = job.quantity * 1.5; // A3 might require more paper
-          break;
-        default:
-          sheetsPerJob = job.quantity;
-      }
-      
+      // Since sizes are now dynamic, we'll use a general calculation
+      // Assuming an average of 2 items per sheet for flyers
+      const sheetsPerJob = Math.ceil(job.quantity / 2);
       totalSheets += sheetsPerJob;
     }
     

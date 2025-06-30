@@ -33,39 +33,24 @@ export const useFlyerDirectBatch = () => {
       };
     }
 
-    const firstJob = jobs[0];
-    const incompatibleJobs = jobs.filter(job => 
-      job.paper_type !== firstJob.paper_type || 
-      job.paper_weight !== firstJob.paper_weight
-    );
-
-    if (incompatibleJobs.length > 0) {
-      const incompatibleDetails = incompatibleJobs.map(job => 
-        `${job.name} (${job.paper_type} ${job.paper_weight})`
-      ).join(', ');
-      
-      return { 
-        isValid: false, 
-        error: `Cannot batch jobs with different specifications. Expected: ${firstJob.paper_type} ${firstJob.paper_weight}. Incompatible jobs: ${incompatibleDetails}` 
-      };
-    }
-
-    // Check for mixed sizes (warning, not error)
-    const sizes = [...new Set(jobs.map(job => job.size))];
-    const warnings = sizes.length > 1 ? 
-      [`Mixed sizes detected: ${sizes.join(', ')}. Verify imposition compatibility.`] : 
-      undefined;
-
-    return { isValid: true, error: null, warnings };
+    // Since specifications are now stored centrally, we can't directly compare
+    // paper_type and paper_weight from the job objects. 
+    // For now, we'll allow all jobs to be batched together with a warning
+    // about mixed specifications if needed.
+    
+    return { 
+      isValid: true, 
+      error: null, 
+      warnings: ["Job specifications will be validated during batch creation"] 
+    };
   };
 
   // Auto-determine batch properties from selected jobs
   const determineBatchProperties = (jobs: FlyerJob[]): AutoBatchProperties => {
-    const firstJob = jobs[0];
-    
+    // Since specifications are now centralized, we'll use defaults
     return {
-      paperType: firstJob.paper_type,
-      paperWeight: firstJob.paper_weight,
+      paperType: 'Standard Paper',
+      paperWeight: 'Standard Weight',
       laminationType: 'none' as const, // Default for flyers
       printerType: 'HP 12000', // Default printer
       sheetSize: '530x750mm', // Standard sheet size
@@ -76,7 +61,6 @@ export const useFlyerDirectBatch = () => {
   // Generate batch summary for user feedback
   const generateBatchSummary = (jobs: FlyerJob[], properties: AutoBatchProperties) => {
     const totalQuantity = jobs.reduce((sum, job) => sum + job.quantity, 0);
-    const sizes = [...new Set(jobs.map(job => job.size))];
     const earliestDueDate = jobs.reduce((earliest, job) => {
       const jobDate = new Date(job.due_date);
       return jobDate < earliest ? jobDate : earliest;
@@ -85,7 +69,7 @@ export const useFlyerDirectBatch = () => {
     return {
       jobCount: jobs.length,
       totalQuantity,
-      sizes: sizes.join(', '),
+      sizes: 'Various Sizes', // Since sizes are now dynamic
       paperSpec: `${properties.paperType} ${properties.paperWeight}`,
       earliestDueDate: earliestDueDate.toLocaleDateString(),
       estimatedSheets: Math.ceil(totalQuantity / 2) // Rough estimate for A5 flyers

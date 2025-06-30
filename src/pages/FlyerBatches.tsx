@@ -10,6 +10,7 @@ import { BatchSummary } from "@/components/batches/types/BatchTypes";
 import { StandardDeleteBatchDialog } from "@/components/batches/StandardDeleteBatchDialog";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import { useBatchDeletion } from "@/hooks/useBatchDeletion";
+import { LaminationType } from "@/components/batches/types/FlyerTypes";
 
 const FlyerBatches = () => {
   const { batchId } = useParams();
@@ -47,7 +48,7 @@ const FlyerBatches = () => {
     status: batch.status,
     product_type: "Flyers",
     sheets_required: batch.sheets_required,
-    lamination_type: batch.lamination_type,
+    lamination_type: (batch.lamination_type || 'none') as LaminationType,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
     created_at: batch.created_at

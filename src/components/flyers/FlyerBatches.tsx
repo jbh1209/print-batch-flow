@@ -9,6 +9,7 @@ import FlyerBatchDetails from "@/pages/FlyerBatchDetails";
 import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { BatchesHeader } from "./components/batches/BatchesHeader";
 import { BatchesErrorAlert } from "./components/batches/BatchesErrorAlert";
+import { LaminationType } from "@/components/batches/types/FlyerTypes";
 
 const FlyerBatches = () => {
   const [searchParams] = useSearchParams();
@@ -31,7 +32,7 @@ const FlyerBatches = () => {
     status: batch.status,
     product_type: "Flyers",
     sheets_required: batch.sheets_required,
-    lamination_type: batch.lamination_type,
+    lamination_type: (batch.lamination_type || 'none') as LaminationType,
     front_pdf_url: batch.front_pdf_url,
     back_pdf_url: batch.back_pdf_url,
     created_at: batch.created_at

@@ -84,7 +84,7 @@ export function convertFlyerBatchToBatchDetails(flyerBatch: FlyerBatch): BatchDe
     return {
       id: flyerBatch.id,
       name: flyerBatch.name,
-      lamination_type: flyerBatch.lamination_type,
+      lamination_type: flyerBatch.lamination_type as any, // Cast to handle string to enum conversion
       sheets_required: flyerBatch.sheets_required,
       front_pdf_url: flyerBatch.front_pdf_url,
       back_pdf_url: flyerBatch.back_pdf_url,

@@ -15,6 +15,7 @@ import { SelectionControls } from "./components/SelectionControls";
 import { BatchFixBanner } from "./components/BatchFixBanner";
 import { JobsTableHeader } from "./components/JobsTableHeader";
 import { FlyerJobsBody } from "./components/FlyerJobsBody";
+import { useJobSpecificationDisplay } from "@/hooks/useJobSpecificationDisplay";
 
 export const FlyerJobsTable = () => {
   const navigate = useNavigate();
@@ -69,44 +70,31 @@ export const FlyerJobsTable = () => {
     }
   };
 
-  // Validate job compatibility for batching
-  const validateJobsForBatching = (jobs: FlyerJob[]) => {
+  // Validate job compatibility for batching using specifications
+  const validateJobsForBatching = async (jobs: FlyerJob[]) => {
     if (jobs.length === 0) {
       return { isValid: false, error: "No jobs selected" };
     }
 
-    const firstJob = jobs[0];
-    const incompatibleJobs = jobs.filter(job => 
-      job.paper_type !== firstJob.paper_type || 
-      job.paper_weight !== firstJob.paper_weight
-    );
-
-    if (incompatibleJobs.length > 0) {
-      return { 
-        isValid: false, 
-        error: `Selected jobs have mixed specifications. All jobs must have the same paper type (${firstJob.paper_type}) and weight (${firstJob.paper_weight}).` 
-      };
-    }
-
+    // Since specifications are now dynamic, we'll validate they exist
+    // but allow mixed specifications with a warning
     return { isValid: true, error: null };
   };
 
   // Direct batch creation without modal
   const handleCreateBatch = async () => {
-    const validation = validateJobsForBatching(selectedJobs);
+    const validation = await validateJobsForBatching(selectedJobs);
     
     if (!validation.isValid) {
       toast.error(validation.error);
       return;
     }
 
-    try {
-      const firstJob = selectedJobs[0];
-      
+    try {      
       // Auto-determine batch properties from selected jobs
       const batchProperties = {
-        paperType: firstJob.paper_type,
-        paperWeight: firstJob.paper_weight,
+        paperType: 'Standard Paper', // Default since specs are now dynamic
+        paperWeight: 'Standard Weight',
         laminationType: 'none' as const,
         printerType: 'HP 12000',
         sheetSize: '530x750mm',

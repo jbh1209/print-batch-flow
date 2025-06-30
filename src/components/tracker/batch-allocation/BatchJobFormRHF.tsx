@@ -1,236 +1,255 @@
 
-import React, { useState } from 'react';
-import { useForm, FormProvider } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useAuth } from '@/hooks/useAuth';
-import { useFileUpload } from '@/hooks/useFileUpload';
-import { getProductConfigByCategory } from '@/utils/batch/categoryMapper';
-import { useJobSpecificationStorage } from '@/hooks/useJobSpecificationStorage';
-import { batchJobFormSchema, BatchJobFormData } from './batchJobFormSchema';
-import { JobFormFieldsRHF } from './JobFormFieldsRHF';
-import { FileUploadSectionRHF } from './FileUploadSectionRHF';
-import { SpecificationSectionRHF } from './SpecificationSectionRHF';
-import { FormActionsRHF } from './FormActionsRHF';
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useJobSpecificationStorage } from "@/hooks/useJobSpecificationStorage";
+import { SpecificationSectionRHF } from "./SpecificationSectionRHF";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 
-interface JobData {
-  wo_no: string;
-  customer: string;
-  qty: number;
-  due_date: string;
-}
+// Form validation schema
+const jobFormSchema = z.object({
+  wo_no: z.string().min(1, "Work Order Number is required"),
+  customer: z.string().min(1, "Customer is required"),
+  reference: z.string().optional(),
+  qty: z.number().min(1, "Quantity must be at least 1"),
+  due_date: z.date(),
+  location: z.string().optional(),
+  specifications: z.record(z.any()).optional()
+});
+
+type JobFormData = z.infer<typeof jobFormSchema>;
 
 interface BatchJobFormRHFProps {
-  jobData: JobData;
   batchCategory: string;
   onJobCreated: () => void;
   onCancel: () => void;
-  isProcessing: boolean;
 }
 
 export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
-  jobData,
   batchCategory,
   onJobCreated,
-  onCancel,
-  isProcessing
+  onCancel
 }) => {
   const { user } = useAuth();
-  const [isUploading, setIsUploading] = useState(false);
-  const [selectedSpecifications, setSelectedSpecifications] = useState<Record<string, any>>({});
-  const { saveJobSpecifications } = useJobSpecificationStorage();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { storeJobSpecifications } = useJobSpecificationStorage();
 
-  // Initialize form with React Hook Form
-  const form = useForm<BatchJobFormData>({
-    resolver: zodResolver(batchJobFormSchema),
+  const form = useForm<JobFormData>({
+    resolver: zodResolver(jobFormSchema),
     defaultValues: {
-      jobNumber: jobData.wo_no,
-      clientName: jobData.customer,
-      quantity: jobData.qty,
-      dueDate: jobData.due_date,
+      wo_no: "",
+      customer: "",
+      reference: "",
+      qty: 1,
+      due_date: new Date(),
+      location: "",
+      specifications: {}
     }
   });
 
-  // File upload hook
-  const { 
-    selectedFile, 
-    setSelectedFile, 
-    handleFileChange, 
-    fileInfo,
-    clearSelectedFile 
-  } = useFileUpload({
-    acceptedTypes: ['application/pdf'],
-    maxSizeInMB: 10
-  });
-
-  // Get product configuration using the category mapper
-  let config;
-  try {
-    config = getProductConfigByCategory(batchCategory);
-  } catch (error) {
-    console.error('Category mapping error:', error);
-    toast.error(error instanceof Error ? error.message : 'Invalid batch category');
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center text-red-600">
-            <p>Error: Invalid batch category "{batchCategory}"</p>
-            <button onClick={onCancel} className="mt-4 px-4 py-2 bg-gray-500 text-white rounded">
-              Go Back
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const handleSpecificationChange = (category: string, specificationId: string, specification: any) => {
-    setSelectedSpecifications(prev => ({
-      ...prev,
-      [category]: {
-        id: specificationId,
-        ...specification
-      }
-    }));
+  const handleSpecificationChange = (specifications: Record<string, any>) => {
+    form.setValue('specifications', specifications);
   };
-  
-  const handleSubmit = async (data: BatchJobFormData) => {
-    if (!selectedFile) {
-      toast.error('Please select a PDF file to upload');
+
+  const onSubmit = async (data: JobFormData) => {
+    if (!user) {
+      toast.error("User not authenticated");
       return;
     }
-    
+
+    setIsSubmitting(true);
+
     try {
-      setIsUploading(true);
-
-      // Upload file to Supabase storage
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `batch-jobs/${fileName}`;
-
-      console.log('Uploading file:', { fileName, filePath, size: selectedFile.size });
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('pdf_files')
-        .upload(filePath, selectedFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw new Error(`File upload failed: ${uploadError.message}`);
-      }
-
-      console.log('File uploaded successfully:', uploadData);
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('pdf_files')
-        .getPublicUrl(filePath);
-
-      console.log('Public URL generated:', publicUrl);
-
-      // Get the table name for this batch category
-      const tableName = config.tableName;
-      if (!tableName) {
-        throw new Error(`No table configuration found for category: ${batchCategory}`);
-      }
-
-      // Create the job data with only core fields (no hardcoded specifications)
-      const finalJobData = {
-        user_id: user?.id,
-        name: data.clientName,
-        job_number: data.jobNumber,
-        quantity: data.quantity,
-        due_date: new Date(jobData.due_date).toISOString(),
-        status: 'queued',
-        pdf_url: publicUrl,
-        file_name: selectedFile.name,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      console.log('Inserting job data:', finalJobData);
-
-      // Insert into the appropriate job table
-      const { data: insertedData, error: insertError } = await supabase
-        .from(tableName as any)
-        .insert(finalJobData)
+      // Create the production job first
+      const { data: jobData, error: jobError } = await supabase
+        .from('production_jobs')
+        .insert({
+          wo_no: data.wo_no,
+          customer: data.customer,
+          reference: data.reference || "",
+          qty: data.qty,
+          due_date: data.due_date.toISOString().split('T')[0],
+          location: data.location || "",
+          user_id: user.id,
+          category: batchCategory,
+          status: 'Pre-Press'
+        })
         .select()
         .single();
 
-      if (insertError) {
-        console.error('Database insert error:', insertError);
-        throw new Error(`Database insert failed: ${insertError.message}`);
+      if (jobError) {
+        console.error('Job creation error:', jobError);
+        throw jobError;
       }
 
-      if (!insertedData?.id) {
-        throw new Error('No data returned from insert operation');
+      if (!jobData) {
+        throw new Error('No job data returned');
       }
 
-      console.log('Job created successfully:', insertedData);
+      console.log('Job created successfully:', jobData);
 
-      // Save specifications to job_print_specifications table
-      if (Object.keys(selectedSpecifications).length > 0) {
-        const success = await saveJobSpecifications(
-          insertedData.id,
-          tableName,
-          selectedSpecifications
-        );
-        
-        if (!success) {
-          console.warn('Failed to save specifications, but job was created');
+      // Store specifications if any were selected
+      if (data.specifications && Object.keys(data.specifications).length > 0) {
+        try {
+          await storeJobSpecifications(jobData.id, 'production_jobs', data.specifications);
+          console.log('Specifications stored successfully');
+        } catch (specError) {
+          console.error('Error storing specifications:', specError);
+          // Don't fail the whole operation if specification storage fails
+          toast.error('Job created but specifications could not be saved');
         }
       }
 
-      toast.success(`${config.ui.jobFormTitle} created successfully`);
+      toast.success("Job created successfully");
+      form.reset();
       onJobCreated();
     } catch (error) {
-      console.error('Error creating batch job:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create batch job');
+      console.error('Error creating job:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to create job");
     } finally {
-      setIsUploading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Create {config.ui.jobFormTitle}</CardTitle>
-        <p className="text-sm text-gray-600">
-          Job details pre-populated from production order. Please upload the PDF file for this job.
-        </p>
-      </CardHeader>
-      <CardContent>
-        <FormProvider {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            <JobFormFieldsRHF />
+    <div className="space-y-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="wo_no"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Work Order Number*</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="customer"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Customer*</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-            <FileUploadSectionRHF
-              selectedFile={selectedFile}
-              onFileChange={handleFileChange}
-              onClearFile={clearSelectedFile}
-              fileInfo={fileInfo}
+          <FormField
+            control={form.control}
+            name="reference"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Reference</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="qty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quantity*</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      min="1"
+                      {...field}
+                      onChange={e => field.onChange(parseInt(e.target.value) || 1)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
 
-            <SpecificationSectionRHF
-              batchCategory={batchCategory}
-              disabled={isProcessing || isUploading}
-              onSpecificationChange={handleSpecificationChange}
+            <FormField
+              control={form.control}
+              name="due_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Due Date*</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? format(field.value, "PPP") : "Select date"}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
+          </div>
 
-            <FormActionsRHF
-              isProcessing={isProcessing}
-              isUploading={isUploading}
-              hasSelectedFile={!!selectedFile}
-              onCancel={onCancel}
-            />
-          </form>
-        </FormProvider>
-      </CardContent>
-    </Card>
+          <FormField
+            control={form.control}
+            name="location"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Location</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <SpecificationSectionRHF
+            batchCategory={batchCategory}
+            onSpecificationChange={handleSpecificationChange}
+            disabled={isSubmitting}
+          />
+
+          <div className="flex gap-2 justify-end">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create Job"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
   );
 };
