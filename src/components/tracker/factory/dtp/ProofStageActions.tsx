@@ -1,0 +1,369 @@
+
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, Mail, ThumbsUp, Package, Printer, ArrowRight } from "lucide-react";
+import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
+import { BatchCategorySelector } from "../../batch-allocation/BatchCategorySelector";
+import { BatchJobFormRHF } from "../../batch-allocation/BatchJobFormRHF";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useJobStageInstances } from "@/hooks/tracker/useJobStageInstances";
+
+interface StageInstance {
+  id: string;
+  status: string;
+  proof_emailed_at?: string;
+  proof_approved_manually_at?: string;
+  client_email?: string;
+  client_name?: string;
+}
+
+type ProofApprovalFlow = 'pending' | 'choosing_allocation' | 'batch_allocation' | 'direct_printing';
+
+interface ProofStageActionsProps {
+  job: AccessibleJob;
+  stageStatus: string;
+  stageInstance: StageInstance | null;
+  proofApprovalFlow: ProofApprovalFlow;
+  selectedBatchCategory: string;
+  selectedPrintingStage: string;
+  allPrintingStages: any[];
+  notes: string;
+  isLoading: boolean;
+  onRefresh?: () => void;
+  onClose: () => void;
+  onJobStatusUpdate: (status: string, stageStatus: string) => void;
+  onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
+  onBatchCategoryChange: (category: string) => void;
+  onPrintingStageChange: (stageId: string) => void;
+}
+
+export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
+  job,
+  stageStatus,
+  stageInstance,
+  proofApprovalFlow,
+  selectedBatchCategory,
+  selectedPrintingStage,
+  allPrintingStages,
+  notes,
+  isLoading,
+  onRefresh,
+  onClose,
+  onJobStatusUpdate,
+  onProofApprovalFlowChange,
+  onBatchCategoryChange,
+  onPrintingStageChange
+}) => {
+  const { user } = useAuth();
+  const { advanceJobStage, isLoading: isStageInstancesLoading } = useJobStageInstances(job.job_id, 'production_jobs');
+
+  const handleStartProof = async () => {
+    try {
+      onJobStatusUpdate('Proof In Progress', 'active');
+
+      const { error: startError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'active',
+          started_at: new Date().toISOString(),
+          started_by: user?.id
+        })
+        .eq('job_id', job.job_id)
+        .eq('production_stage_id', job.current_stage_id)
+        .eq('status', 'pending');
+
+      if (startError) throw startError;
+
+      const { error: jobError } = await supabase
+        .from('production_jobs')
+        .update({
+          status: 'Proof In Progress',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.job_id);
+
+      if (jobError) throw jobError;
+
+      toast.success("Proof stage started");
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error starting proof:', error);
+      onJobStatusUpdate(job.status, job.current_stage_status);
+      toast.error("Failed to start proof stage");
+    }
+  };
+
+  const handleProofEmailed = async () => {
+    const currentTime = new Date().toISOString();
+
+    try {
+      const { error: proofError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          proof_emailed_at: currentTime,
+          updated_at: currentTime
+        })
+        .eq('job_id', job.job_id)
+        .eq('production_stage_id', job.current_stage_id);
+
+      if (proofError) throw proofError;
+
+      const { error: jobError } = await supabase
+        .from('production_jobs')
+        .update({
+          status: 'Awaiting Client Sign Off',
+          updated_at: currentTime
+        })
+        .eq('id', job.job_id);
+
+      if (jobError) throw jobError;
+
+      onJobStatusUpdate('Awaiting Client Sign Off', stageStatus);
+      toast.success("Proof marked as emailed");
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error marking proof as emailed:', error);
+      toast.error("Failed to mark proof as emailed");
+    }
+  };
+
+  const handleProofApproved = async () => {
+    try {
+      const { error: updateError } = await supabase
+        .from('job_stage_instances')
+        .update({
+          proof_approved_manually_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stageInstance?.id);
+
+      if (updateError) throw updateError;
+
+      onProofApprovalFlowChange('choosing_allocation');
+      toast.success('Proof approved! Choose next step.');
+    } catch (error) {
+      console.error('Error marking proof as approved:', error);
+      toast.error('Failed to mark proof as approved');
+    }
+  };
+
+  const handleAdvanceToPrintingStage = async () => {
+    if (!job.current_stage_id) {
+      toast.error("No current stage found");
+      return;
+    }
+
+    try {
+      console.log('🔄 Advancing from proof stage to next stage in workflow');
+      
+      const success = await advanceJobStage(
+        job.current_stage_id,
+        notes || 'Proof approved - advancing to printing'
+      );
+
+      if (!success) {
+        throw new Error('Failed to advance job stage');
+      }
+
+      const { error: jobError } = await supabase
+        .from('production_jobs')
+        .update({
+          status: 'Ready to Print',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.job_id);
+
+      if (jobError) throw jobError;
+
+      toast.success("Job advanced to printing stage");
+      onRefresh?.();
+      onClose();
+    } catch (error) {
+      console.error('❌ Error advancing to printing stage:', error);
+      toast.error("Failed to advance to printing stage");
+    }
+  };
+
+  const handleBatchJobCreated = () => {
+    toast.success("Job successfully allocated to batch processing");
+    onRefresh?.();
+    onClose();
+  };
+
+  const hasProofBeenEmailed = stageInstance?.proof_emailed_at;
+  const hasProofBeenApproved = stageInstance?.proof_approved_manually_at;
+
+  if (stageStatus === 'pending') {
+    return (
+      <Button 
+        onClick={handleStartProof}
+        disabled={isLoading}
+        className="w-full bg-green-600 hover:bg-green-700"
+      >
+        <Play className="h-4 w-4 mr-2" />
+        Start Proof Process
+      </Button>
+    );
+  }
+
+  if (stageStatus === 'active') {
+    if (!hasProofBeenEmailed) {
+      return (
+        <Button 
+          onClick={handleProofEmailed}
+          disabled={isLoading}
+          className="w-full bg-blue-600 hover:bg-blue-700"
+        >
+          <Mail className="h-4 w-4 mr-2" />
+          Proof Emailed
+        </Button>
+      );
+    }
+
+    if (hasProofBeenEmailed && !hasProofBeenApproved) {
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-md">
+            <Mail className="h-4 w-4" />
+            <span className="text-sm font-medium">Proof Emailed - Awaiting Client Response</span>
+          </div>
+          
+          <div className="text-xs text-gray-500 text-center">
+            Emailed: {new Date(hasProofBeenEmailed).toLocaleDateString()} at {new Date(hasProofBeenEmailed).toLocaleTimeString()}
+          </div>
+
+          <Button 
+            onClick={handleProofApproved}
+            disabled={isLoading}
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
+            <ThumbsUp className="h-4 w-4 mr-2" />
+            Mark as Approved
+          </Button>
+        </div>
+      );
+    }
+
+    if (hasProofBeenApproved) {
+      if (proofApprovalFlow === 'choosing_allocation') {
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-2 text-green-600 bg-green-50 p-3 rounded-md">
+              <ThumbsUp className="h-4 w-4" />
+              <span className="text-sm font-medium">Proof Approved - Choose Next Step</span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <Button 
+                onClick={() => onProofApprovalFlowChange('batch_allocation')}
+                disabled={isLoading}
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
+                <Package className="h-4 w-4 mr-2" />
+                Send to Batch Processing
+              </Button>
+              
+              <Button 
+                onClick={() => onProofApprovalFlowChange('direct_printing')}
+                disabled={isLoading || isStageInstancesLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                variant="outline"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                {isStageInstancesLoading ? 'Processing...' : 'Send Directly to Printing'}
+              </Button>
+            </div>
+          </div>
+        );
+      }
+
+      if (proofApprovalFlow === 'batch_allocation') {
+        if (!selectedBatchCategory) {
+          return (
+            <div className="space-y-4">
+              <BatchCategorySelector
+                onSelectCategory={onBatchCategoryChange}
+                selectedCategory={selectedBatchCategory}
+                disabled={isLoading}
+              />
+              <Button 
+                onClick={() => onProofApprovalFlowChange('choosing_allocation')}
+                variant="outline"
+                className="w-full"
+              >
+                Back to Options
+              </Button>
+            </div>
+          );
+        } else {
+          return (
+            <div className="space-y-4">
+              <BatchJobFormRHF
+                jobData={{
+                  wo_no: job.wo_no,
+                  customer: job.customer || '',
+                  qty: job.qty || 1,
+                  due_date: job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                }}
+                batchCategory={selectedBatchCategory}
+                onJobCreated={handleBatchJobCreated}
+                onCancel={() => onProofApprovalFlowChange('choosing_allocation')}
+                isProcessing={isLoading}
+              />
+            </div>
+          );
+        }
+      }
+
+      if (proofApprovalFlow === 'direct_printing') {
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-md">
+              <Printer className="h-4 w-4" />
+              <span className="text-sm font-medium">Select Printing Stage</span>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="printing-stage">Printing Stage</Label>
+              <Select value={selectedPrintingStage} onValueChange={onPrintingStageChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select printing stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allPrintingStages.map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleAdvanceToPrintingStage}
+                disabled={isLoading || isStageInstancesLoading || !selectedPrintingStage}
+                className="flex-1"
+              >
+                <ArrowRight className="h-4 w-4 mr-2" />
+                {isLoading || isStageInstancesLoading ? 'Processing...' : 'Advance to Printing'}
+              </Button>
+              <Button 
+                onClick={() => onProofApprovalFlowChange('choosing_allocation')}
+                variant="outline"
+              >
+                Back
+              </Button>
+            </div>
+          </div>
+        );
+      }
+    }
+  }
+
+  return null;
+};
