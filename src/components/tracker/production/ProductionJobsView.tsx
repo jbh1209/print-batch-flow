@@ -13,7 +13,7 @@ interface ProductionJobsViewProps {
   selectedStage?: string | null;
   isLoading: boolean;
   onJobClick: (job: AccessibleJob) => void;
-  onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete' | 'scan') => void;
+  onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => void;
 }
 
 export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({

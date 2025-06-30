@@ -115,7 +115,7 @@ const TrackerProduction = () => {
     setSelectedJob(null);
   };
 
-  const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'scan') => {
+  const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => {
     try {
       if (action === 'start') {
         const success = await startJob(jobId, stageId);
@@ -127,7 +127,7 @@ const TrackerProduction = () => {
         if (success) {
           toast.success('Stage completed successfully');
         }
-      } else if (action === 'scan') {
+      } else if (action === 'qr-scan') {
         // Handle QR scan action
         toast.info('QR scan action triggered');
       }
@@ -142,7 +142,7 @@ const TrackerProduction = () => {
 
   const handleQRScan = (data: any) => {
     if (data?.jobId && data?.stageId) {
-      handleStageAction(data.jobId, data.stageId, data.action || 'scan');
+      handleStageAction(data.jobId, data.stageId, data.action || 'qr-scan');
     }
   };
 

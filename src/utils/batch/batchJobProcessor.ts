@@ -1,12 +1,11 @@
 
-import { BaseJob, ExistingTableName } from "@/config/productTypes";
+import { BaseJob } from "@/config/productTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
   verifyBatchJobLinks, 
   relinkJobs 
 } from "@/utils/batch/batchVerificationUtils";
-import { LinkedJobResult } from "@/hooks/generic/batch-operations/types/batchVerificationTypes";
 
 /**
  * Parameters for processing batch jobs
@@ -14,7 +13,7 @@ import { LinkedJobResult } from "@/hooks/generic/batch-operations/types/batchVer
 interface ProcessBatchJobsParams {
   jobIds: string[];
   batchId: string;
-  tableName: ExistingTableName;
+  tableName: string;
 }
 
 /**
@@ -67,10 +66,9 @@ export async function processBatchJobs({
 
         // Update the production job status
         const { error: jobUpdateError } = await supabase
-          .from(tableName)
+          .from('production_jobs')
           .update({
             status: "In Batch Processing",
-            batch_id: batchId,
             batch_ready: true,
             batch_allocated_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -91,7 +89,7 @@ export async function processBatchJobs({
   } else {
     // For other job types, use the original logic
     const { error: updateError } = await supabase
-      .from(tableName)
+      .from(tableName as any)
       .update({
         status: "batched",
         batch_id: batchId
@@ -166,7 +164,7 @@ export async function completeBatchProcessing(batchId: string, nextStageId?: str
     const { data: batchJobs, error: fetchError } = await supabase
       .from('production_jobs')
       .select('id, wo_no')
-      .eq('batch_id', batchId)
+      .eq('batch_ready', true)
       .eq('status', 'In Batch Processing');
 
     if (fetchError) {
