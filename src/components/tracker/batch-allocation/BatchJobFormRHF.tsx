@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, Upload } from "lucide-react";
 import { format } from "date-fns";
 
-// Form validation schema - file is required
+// Form validation schema - file is required but tracked separately
 const jobFormSchema = z.object({
   wo_no: z.string().min(1, "Work Order Number is required"),
   customer: z.string().min(1, "Customer is required"),
@@ -28,7 +28,9 @@ const jobFormSchema = z.object({
   due_date: z.date(),
   location: z.string().optional(),
   specifications: z.record(z.any()).optional(),
-  file: z.instanceof(File, { message: "PDF file is required" })
+  hasFile: z.boolean().refine(val => val === true, {
+    message: "PDF file is required"
+  })
 });
 
 type JobFormData = z.infer<typeof jobFormSchema>;
@@ -67,8 +69,9 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
     acceptedTypes: ["application/pdf"],
     maxSizeInMB: 10,
     onFileSelected: (file) => {
-      form.setValue('file', file);
-      form.clearErrors('file');
+      // Update the hasFile field when a file is selected
+      form.setValue('hasFile', true);
+      form.clearErrors('hasFile');
     }
   });
 
@@ -81,7 +84,8 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
       qty: qty,
       due_date: due_date ? new Date(due_date) : new Date(),
       location: "",
-      specifications: {}
+      specifications: {},
+      hasFile: false
     }
   });
 
@@ -122,7 +126,7 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
       return;
     }
 
-    if (!data.file) {
+    if (!selectedFile) {
       toast.error("PDF file is required");
       return;
     }
@@ -154,7 +158,7 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
       const tempJobId = `temp_${Date.now()}`;
       
       // Upload the file first
-      const fileUrl = await uploadFileToStorage(data.file, tempJobId);
+      const fileUrl = await uploadFileToStorage(selectedFile, tempJobId);
       
       // Create the batch job with file URL
       const { data: jobData, error: jobError } = await (supabase as any)
@@ -166,7 +170,7 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
           due_date: data.due_date.toISOString().split('T')[0],
           user_id: user.id,
           pdf_url: fileUrl,
-          file_name: data.file.name,
+          file_name: selectedFile.name,
           status: 'queued'
         })
         .select()
@@ -327,18 +331,15 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
               onFileChange={handleFileChange}
               onClearFile={() => {
                 clearSelectedFile();
-                form.setValue('file', undefined as any);
+                form.setValue('hasFile', false);
               }}
               fileInfo={fileInfo}
             />
             <FormField
               control={form.control}
-              name="file"
+              name="hasFile"
               render={({ field, fieldState }) => (
                 <FormItem>
-                  <FormControl>
-                    <input type="hidden" {...field} />
-                  </FormControl>
                   {fieldState.error && (
                     <FormMessage>{fieldState.error.message}</FormMessage>
                   )}
