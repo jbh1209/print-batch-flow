@@ -167,7 +167,7 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
         throw new Error(`Database insert failed: ${insertError.message}`);
       }
 
-      if (!insertedData) {
+      if (!insertedData?.id) {
         throw new Error('No data returned from insert operation');
       }
 

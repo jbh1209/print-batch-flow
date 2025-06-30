@@ -11,8 +11,9 @@ export function drawFlyerInfo(
   helveticaFont: any,
   sheetsRequired: number
 ): void {
-  const paperWeight = jobs[0]?.paper_weight || 'N/A';
-  const paperType = jobs[0]?.paper_type || 'N/A';
+  // Since specifications are no longer hardcoded, we'll show generic paper info
+  const paperWeight = 'Standard';
+  const paperType = 'Paper';
   
   page.drawRectangle({
     x: margin - 5,

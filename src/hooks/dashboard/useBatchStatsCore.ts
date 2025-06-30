@@ -11,6 +11,17 @@ interface BatchStats {
   averageJobsPerBatch: number;
 }
 
+const JOB_TABLES = [
+  'business_card_jobs',
+  'flyer_jobs', 
+  'sleeve_jobs',
+  'box_jobs',
+  'cover_jobs',
+  'poster_jobs',
+  'postcard_jobs',
+  'sticker_jobs'
+] as const;
+
 export const useBatchStatsCore = () => {
   const [stats, setStats] = useState<BatchStats>({
     totalBatches: 0,
@@ -37,19 +48,8 @@ export const useBatchStatsCore = () => {
         if (batchError) throw batchError;
 
         // Count total jobs across all batch job tables
-        const jobTables = [
-          'business_card_jobs',
-          'flyer_jobs', 
-          'sleeve_jobs',
-          'box_jobs',
-          'cover_jobs',
-          'poster_jobs',
-          'postcard_jobs',
-          'sticker_jobs'
-        ];
-
         let totalJobs = 0;
-        for (const table of jobTables) {
+        for (const table of JOB_TABLES) {
           try {
             const { count, error } = await supabase
               .from(table)
@@ -65,13 +65,13 @@ export const useBatchStatsCore = () => {
 
         const batchCount = batches?.length || 0;
         const pendingCount = batches?.filter(b => b.status === 'pending').length || 0;
-        const inProgressCount = batches?.filter(b => b.status === 'in_progress').length || 0;
+        const processingCount = batches?.filter(b => b.status === 'processing').length || 0;
         const completedCount = batches?.filter(b => b.status === 'completed').length || 0;
 
         setStats({
           totalBatches: batchCount,
           pendingBatches: pendingCount,
-          inProgressBatches: inProgressCount,
+          inProgressBatches: processingCount,
           completedBatches: completedCount,
           totalJobs,
           averageJobsPerBatch: batchCount > 0 ? Math.round(totalJobs / batchCount) : 0

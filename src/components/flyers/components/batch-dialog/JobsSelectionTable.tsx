@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { useJobSpecificationDisplay } from "@/hooks/useJobSpecificationDisplay";
 import { EmptyJobsMessage } from "../EmptyJobsMessage";
 
 interface JobsSelectionTableProps {
@@ -11,6 +12,19 @@ interface JobsSelectionTableProps {
   handleSelectJob: (jobId: string, isSelected: boolean) => void;
   handleSelectAllJobs: (isSelected: boolean) => void;
 }
+
+const JobSpecificationDisplay = ({ job }: { job: FlyerJob }) => {
+  const { getSize, getPaperType, getPaperWeight } = useJobSpecificationDisplay(job.id, 'flyer_jobs');
+  
+  return (
+    <>
+      <TableCell>{getSize()}</TableCell>
+      <TableCell>
+        {getPaperWeight()} {getPaperType()}
+      </TableCell>
+    </>
+  );
+};
 
 export const JobsSelectionTable = ({
   availableJobs,
@@ -55,10 +69,7 @@ export const JobsSelectionTable = ({
                   </TableCell>
                   <TableCell className="font-medium">{job.name}</TableCell>
                   <TableCell>{job.job_number}</TableCell>
-                  <TableCell>{job.size}</TableCell>
-                  <TableCell>
-                    {job.paper_weight} {job.paper_type}
-                  </TableCell>
+                  <JobSpecificationDisplay job={job} />
                   <TableCell>{job.quantity}</TableCell>
                   <TableCell>
                     {format(new Date(job.due_date), "dd MMM yyyy")}

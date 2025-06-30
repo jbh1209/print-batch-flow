@@ -19,4 +19,24 @@ export interface FlyerJob {
   // Legacy fields removed: size, paper_weight, paper_type
 }
 
+export interface FlyerBatch {
+  id: string;
+  name: string;
+  status: string;
+  sheets_required: number;
+  front_pdf_url?: string;
+  back_pdf_url?: string;
+  overview_pdf_url?: string;
+  due_date: string;
+  created_at: string;
+  lamination_type: string;
+  paper_type: string;
+  paper_weight: string;
+  sheet_size: string;
+  printer_type: string;
+  created_by: string;
+  updated_at: string;
+  date_created: string;
+}
+
 export type LaminationType = "none" | "gloss" | "matt" | "soft_touch";

@@ -67,9 +67,10 @@ export function convertFlyerJobToBaseJob(flyerJob: FlyerJob): BaseJob {
       batch_id: flyerJob.batch_id,
       file_name: flyerJob.file_name,
       job_number: flyerJob.job_number,
-      paper_type: flyerJob.paper_type,
-      paper_weight: flyerJob.paper_weight,
-      size: flyerJob.size
+      // Specifications will be loaded separately via useJobSpecificationDisplay
+      paper_type: 'N/A',
+      paper_weight: 'N/A',
+      size: 'N/A'
     };
   } catch (error) {
     console.error('Error converting FlyerJob to BaseJob:', error);

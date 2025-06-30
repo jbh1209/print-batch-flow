@@ -9,6 +9,7 @@ import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
+import { useJobSpecificationDisplay } from "@/hooks/useJobSpecificationDisplay";
 import { useState } from "react";
 
 interface FlyerJobRowProps {
@@ -26,6 +27,9 @@ export const FlyerJobRow = ({
   const { deleteJob } = useFlyerJobs();
   const [isDeleting, setIsDeleting] = useState(false);
   const canSelect = job.status === "queued";
+  
+  // Get specifications for display
+  const { getSize, getPaperType, getPaperWeight } = useJobSpecificationDisplay(job.id, 'flyer_jobs');
   
   const handleDelete = async () => {
     if (isDeleting) return; // Prevent double-clicks
@@ -64,9 +68,9 @@ export const FlyerJobRow = ({
       </TableCell>
       <TableCell className="font-medium">{job.job_number}</TableCell>
       <TableCell>{job.name}</TableCell>
-      <TableCell>{job.size}</TableCell>
+      <TableCell>{getSize()}</TableCell>
       <TableCell>
-        {job.paper_weight} {job.paper_type}
+        {getPaperWeight()} {getPaperType()}
       </TableCell>
       <TableCell>{job.quantity}</TableCell>
       <TableCell>

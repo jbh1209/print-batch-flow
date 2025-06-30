@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import JobStatusBadge from "@/components/JobStatusBadge";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
+import { useJobSpecificationDisplay } from "@/hooks/useJobSpecificationDisplay";
 import PdfViewer from "@/components/pdf/PdfViewer";
 
 const FlyerJobDetail = () => {
@@ -18,6 +20,12 @@ const FlyerJobDetail = () => {
   const [job, setJob] = useState<FlyerJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Get specifications for display
+  const { getSize, getPaperType, getPaperWeight } = useJobSpecificationDisplay(
+    jobId || '', 
+    'flyer_jobs'
+  );
 
   useEffect(() => {
     const fetchJobDetails = async () => {
@@ -119,11 +127,11 @@ const FlyerJobDetail = () => {
             </div>
             <div>
               <h4 className="text-sm font-medium text-gray-500">Size</h4>
-              <p>{job.size}</p>
+              <p>{getSize()}</p>
             </div>
             <div>
               <h4 className="text-sm font-medium text-gray-500">Paper</h4>
-              <p>{job.paper_weight} {job.paper_type}</p>
+              <p>{getPaperWeight()} {getPaperType()}</p>
             </div>
             <div>
               <h4 className="text-sm font-medium text-gray-500">Quantity</h4>

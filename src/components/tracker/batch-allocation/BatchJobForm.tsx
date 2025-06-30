@@ -148,7 +148,7 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
         throw new Error(`Database insert failed: ${insertError.message}`);
       }
 
-      if (!insertedData) {
+      if (!insertedData?.id) {
         throw new Error('No data returned from insert operation');
       }
 
