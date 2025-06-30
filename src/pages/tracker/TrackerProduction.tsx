@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
@@ -116,7 +115,7 @@ const TrackerProduction = () => {
     setSelectedJob(null);
   };
 
-  const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'qr-scan') => {
+  const handleStageAction = async (jobId: string, stageId: string, action: 'start' | 'complete' | 'scan') => {
     try {
       if (action === 'start') {
         const success = await startJob(jobId, stageId);
@@ -128,6 +127,9 @@ const TrackerProduction = () => {
         if (success) {
           toast.success('Stage completed successfully');
         }
+      } else if (action === 'scan') {
+        // Handle QR scan action
+        toast.info('QR scan action triggered');
       }
       
       await refreshJobs();
@@ -140,7 +142,7 @@ const TrackerProduction = () => {
 
   const handleQRScan = (data: any) => {
     if (data?.jobId && data?.stageId) {
-      handleStageAction(data.jobId, data.stageId, data.action || 'qr-scan');
+      handleStageAction(data.jobId, data.stageId, data.action || 'scan');
     }
   };
 

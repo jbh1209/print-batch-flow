@@ -24,6 +24,7 @@ export interface AccessibleJob {
   qty: number;
   has_custom_workflow: boolean;
   manual_due_date?: string | null;
+  batch_category?: string | null;
   // Additional fields for enhanced compatibility
   started_by?: string | null;
   started_by_name?: string | null;

@@ -125,7 +125,10 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
                     {job.display_stage_name || job.current_stage_name || 'Unknown Stage'}
                   </Badge>
                   {isInBatchProcessing && (
-                    <Package className="h-4 w-4 text-blue-600" title="In Batch Processing" />
+                    <div className="relative">
+                      <Package className="h-4 w-4 text-blue-600" />
+                      <span className="sr-only">In Batch Processing</span>
+                    </div>
                   )}
                 </div>
               )}
