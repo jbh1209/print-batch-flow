@@ -4,7 +4,7 @@ import JobsHeader from "@/components/business-cards/JobsHeader";
 import StatusFilterTabs from "@/components/business-cards/StatusFilterTabs";
 import JobsTableContainer from "@/components/business-cards/JobsTableContainer";
 import FilterBar from "@/components/business-cards/FilterBar";
-import { useBusinessCardJobs } from "@/hooks/useBusinessCardJobs";
+import { useBusinessCardJobsList } from "@/hooks/useBusinessCardJobsList";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
@@ -24,18 +24,20 @@ const BusinessCardJobs = () => {
     setLaminationFilter, 
     handleSelectJob, 
     handleSelectAllJobs,
-    handleDeleteJob,
-    refreshJobs,
-    getSelectedJobObjects
-  } = useBusinessCardJobs();
+    handleJobDeleted,
+    fetchJobs,
+    getSelectedJobObjects,
+    fixBatchedJobsWithoutBatch,
+    isFixingBatchedJobs
+  } = useBusinessCardJobsList();
 
   const handleBatchComplete = () => {
-    refreshJobs();
+    fetchJobs();
   };
 
   const handleJobDeleted = async (jobId: string) => {
     try {
-      await handleDeleteJob(jobId);
+      await handleJobDeleted(jobId);
     } catch (error) {
       // Error is already handled in the hook and JobActions
       throw error;
@@ -63,7 +65,7 @@ const BusinessCardJobs = () => {
         if (updateError) throw updateError;
         
         sonnerToast.success(`Fixed ${orphanedJobs.length} orphaned jobs`);
-        refreshJobs();
+        fetchJobs();
       } else {
         sonnerToast.info("No orphaned jobs found");
       }
@@ -91,7 +93,7 @@ const BusinessCardJobs = () => {
                 variant="outline" 
                 size="sm" 
                 className="mt-2"
-                onClick={refreshJobs}
+                onClick={() => fetchJobs()}
               >
                 Try Again
               </Button>
@@ -136,11 +138,11 @@ const BusinessCardJobs = () => {
           jobs={jobs}
           isLoading={isLoading}
           error={error}
-          onRefresh={refreshJobs}
+          onRefresh={() => fetchJobs()}
           selectedJobs={selectedJobs}
           onSelectJob={handleSelectJob}
           onSelectAllJobs={(isSelected) => handleSelectAllJobs(isSelected)}
-          onJobDeleted={handleJobDeleted}
+          onJobDeleted={(jobId: string) => handleJobDeleted(jobId)}
         />
       </div>
     </div>

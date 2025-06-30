@@ -55,7 +55,9 @@ const PostcardJobEdit = () => {
         // Combine job data with specifications
         const jobWithSpecs: PostcardJob = {
           ...data,
-          ...specifications
+          size: specifications.size || 'Not specified',
+          paper_type: specifications.paper_type || 'Not specified',
+          paper_weight: specifications.paper_weight || 'Not specified'
         };
         
         setJob(jobWithSpecs);

@@ -10,7 +10,7 @@ interface JobSpecification {
   properties: any;
 }
 
-export const useJobSpecificationDisplay = (jobId: string, jobTableName: string) => {
+export const useJobSpecificationDisplay = (jobId?: string, jobTableName?: string) => {
   const [specifications, setSpecifications] = useState<JobSpecification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +46,30 @@ export const useJobSpecificationDisplay = (jobId: string, jobTableName: string) 
     fetchSpecifications();
   }, [jobId, jobTableName]);
 
+  // Helper function to get specifications for a job
+  const getJobSpecifications = async (jobId: string, jobTableName: string) => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .rpc('get_job_specifications', {
+          p_job_id: jobId,
+          p_job_table_name: jobTableName
+        });
+
+      if (fetchError) throw fetchError;
+
+      // Convert to key-value pairs for backward compatibility
+      const specs: Record<string, string> = {};
+      (data || []).forEach((spec: JobSpecification) => {
+        specs[spec.category] = spec.display_name;
+      });
+
+      return specs;
+    } catch (err) {
+      console.error('Error fetching job specifications:', err);
+      return {};
+    }
+  };
+
   // Helper functions to get specific specification values
   const getSpecificationValue = (category: string, defaultValue: string = 'N/A') => {
     const spec = specifications.find(s => s.category === category);
@@ -65,6 +89,7 @@ export const useJobSpecificationDisplay = (jobId: string, jobTableName: string) 
     getPaperType,
     getPaperWeight,
     getLamination,
-    getSpecificationValue
+    getSpecificationValue,
+    getJobSpecifications
   };
 };

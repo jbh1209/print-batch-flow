@@ -66,8 +66,12 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
     }
   });
 
-  const handleSpecificationChange = (specifications: Record<string, any>) => {
-    form.setValue('specifications', specifications);
+  const handleSpecificationChange = (category: string, specificationId: string, specification: any) => {
+    const currentSpecs = form.getValues('specifications') || {};
+    form.setValue('specifications', {
+      ...currentSpecs,
+      [category]: specification
+    });
   };
 
   const onSubmit = async (data: JobFormData) => {

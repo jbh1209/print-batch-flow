@@ -23,8 +23,8 @@ const BusinessCardJobEdit = () => {
   // Ensure jobData has required properties for the form
   const formJobData = jobData ? {
     ...jobData,
-    lamination_type: jobData.lamination_type || 'none',
-    paper_type: jobData.paper_type || 'Standard'
+    lamination_type: 'none' as const, // Default value for form compatibility
+    paper_type: 'Standard' // Default value for form compatibility
   } : null;
 
   return (
