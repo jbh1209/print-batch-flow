@@ -430,13 +430,8 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     }
   };
 
-  // FIXED: Use proper workflow management instead of manual stage creation
+  // FIXED: Simplified function that only advances the current stage
   const handleAdvanceToPrintingStage = async () => {
-    if (!selectedPrintingStage) {
-      toast.error("Please select a printing stage");
-      return;
-    }
-
     if (!job.current_stage_id) {
       toast.error("No current stage found");
       return;
@@ -444,9 +439,9 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
     setIsLoading(true);
     try {
-      console.log('🔄 Advancing to printing stage using proper workflow management');
+      console.log('🔄 Advancing from proof stage to next stage in workflow');
       
-      // Use the proper workflow system to advance the current stage
+      // Simply advance the current proof stage - the workflow will naturally progress to printing
       const success = await advanceJobStage(
         job.current_stage_id,
         notes || 'Proof approved - advancing to printing'
@@ -456,21 +451,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
         throw new Error('Failed to advance job stage');
       }
 
-      // Now create the printing stage instance using the established pattern
-      const { error: insertError } = await supabase
-        .from('job_stage_instances')
-        .insert({
-          job_id: job.job_id,
-          job_table_name: 'production_jobs',
-          category_id: job.category_id,
-          production_stage_id: selectedPrintingStage,
-          stage_order: 1000, // Set high order for printing stages
-          status: 'pending'
-        });
-
-      if (insertError) throw insertError;
-
-      // Update job status
+      // Update job status to reflect the transition
       const { error: jobError } = await supabase
         .from('production_jobs')
         .update({
@@ -481,8 +462,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
 
       if (jobError) throw jobError;
 
-      const selectedStage = allPrintingStages.find(s => s.id === selectedPrintingStage);
-      toast.success(`Job advanced to ${selectedStage?.name || 'printing stage'}`);
+      toast.success("Job advanced to printing stage");
       onRefresh?.();
       onClose();
     } catch (error) {
