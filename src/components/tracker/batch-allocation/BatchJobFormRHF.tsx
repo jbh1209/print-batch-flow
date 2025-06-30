@@ -7,7 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useFileUpload } from '@/hooks/useFileUpload';
-import { getProductConfigByCategory, getCategorySpecificFields } from '@/utils/batch/categoryMapper';
+import { getProductConfigByCategory } from '@/utils/batch/categoryMapper';
+import { useJobSpecificationStorage } from '@/hooks/useJobSpecificationStorage';
 import { batchJobFormSchema, BatchJobFormData } from './batchJobFormSchema';
 import { JobFormFieldsRHF } from './JobFormFieldsRHF';
 import { FileUploadSectionRHF } from './FileUploadSectionRHF';
@@ -38,6 +39,8 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
 }) => {
   const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedSpecifications, setSelectedSpecifications] = useState<Record<string, any>>({});
+  const { saveJobSpecifications } = useJobSpecificationStorage();
 
   // Initialize form with React Hook Form
   const form = useForm<BatchJobFormData>({
@@ -82,6 +85,16 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
       </Card>
     );
   }
+
+  const handleSpecificationChange = (category: string, specificationId: string, specification: any) => {
+    setSelectedSpecifications(prev => ({
+      ...prev,
+      [category]: {
+        id: specificationId,
+        ...specification
+      }
+    }));
+  };
   
   const handleSubmit = async (data: BatchJobFormData) => {
     if (!selectedFile) {
@@ -126,8 +139,8 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
         throw new Error(`No table configuration found for category: ${batchCategory}`);
       }
 
-      // Create the job data based on the batch category
-      const baseJobData = {
+      // Create the job data with only core fields (no hardcoded specifications)
+      const jobData = {
         user_id: user?.id,
         name: data.clientName,
         job_number: data.jobNumber,
@@ -140,21 +153,14 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
         updated_at: new Date().toISOString()
       };
 
-      // Add category-specific fields based on form data
-      const categorySpecificData = getCategorySpecificFields(batchCategory, data);
-
-      const finalJobData = {
-        ...baseJobData,
-        ...categorySpecificData
-      };
-
-      console.log('Inserting job data:', finalJobData);
+      console.log('Inserting job data:', jobData);
 
       // Insert into the appropriate job table
       const { data: insertedData, error: insertError } = await supabase
         .from(tableName as any)
-        .insert(finalJobData)
-        .select();
+        .insert(jobData)
+        .select()
+        .single();
 
       if (insertError) {
         console.error('Database insert error:', insertError);
@@ -162,6 +168,19 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
       }
 
       console.log('Job created successfully:', insertedData);
+
+      // Save specifications to job_print_specifications table
+      if (Object.keys(selectedSpecifications).length > 0) {
+        const success = await saveJobSpecifications(
+          insertedData.id,
+          tableName,
+          selectedSpecifications
+        );
+        
+        if (!success) {
+          console.warn('Failed to save specifications, but job was created');
+        }
+      }
 
       toast.success(`${config.ui.jobFormTitle} created successfully`);
       onJobCreated();
@@ -196,6 +215,7 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
             <SpecificationSectionRHF
               batchCategory={batchCategory}
               disabled={isProcessing || isUploading}
+              onSpecificationChange={handleSpecificationChange}
             />
 
             <FormActionsRHF

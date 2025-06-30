@@ -103,21 +103,8 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           });
         }
         
-        const transformedData = transformJobDataForTable(tableName, data, {
-          ...baseJobData,
-          pdf_url: pdfUrl || '',
-          file_name: fileName || ''
-        });
-        
-        const { user_id, status, pdf_url: _, file_name: __, ...updateFields } = transformedData;
-        const finalUpdateData = { ...updateFields };
-        
-        if (pdfUrl && fileName) {
-          Object.assign(finalUpdateData, {
-            pdf_url: pdfUrl,
-            file_name: fileName
-          });
-        }
+        // No more transformJobDataForTable for specifications - they're stored separately
+        const finalUpdateData = { ...updateData };
         
         console.log(`Updating ${config.productType} job with data:`, finalUpdateData);
         
@@ -130,11 +117,12 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         
         toast.success(`${config.ui.jobFormTitle} updated successfully`);
       } else {
-        const newJobData = transformJobDataForTable(tableName, data, {
+        // Create new job with only core fields
+        const newJobData = {
           ...baseJobData,
           pdf_url: pdfUrl!,
           file_name: fileName!
-        });
+        };
         
         console.log(`Creating ${config.productType} job with data:`, newJobData);
         
@@ -149,12 +137,10 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
           throw error;
         }
 
-        // Proper null check first
         if (!insertResult) {
           throw new Error("Failed to create job - no result returned");
         }
         
-        // Safe type assertion through unknown
         const jobResult = insertResult as unknown as { id: string };
         if (!jobResult?.id) {
           throw new Error("Failed to create job - no ID in result");
@@ -165,6 +151,7 @@ export const useGenericJobSubmit = (config: ProductConfig) => {
         toast.success(`${config.ui.jobFormTitle} created successfully`);
       }
 
+      // Save specifications to job_print_specifications table
       if (finalJobId && specifications && Object.keys(specifications).length > 0) {
         try {
           await saveJobSpecifications(finalJobId, tableName, specifications);

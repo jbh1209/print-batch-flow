@@ -28,69 +28,10 @@ export const getProductConfigByCategory = (batchCategory: string) => {
   return config;
 };
 
-// Get category-specific field mapping for database insertion
+// No more category-specific field mapping - all specifications now handled centrally
+// This function is kept for backward compatibility but returns empty object
 export const getCategorySpecificFields = (batchCategory: string, formData: Record<string, any>) => {
-  switch (batchCategory) {
-    case 'business_cards':
-      return {
-        paper_type: formData.paper_type || '350gsm Matt',
-        lamination_type: formData.lamination_type || 'none',
-        double_sided: formData.double_sided || false,
-        paper_weight: formData.paper_weight || '350gsm'
-      };
-    
-    case 'flyers':
-      return {
-        size: formData.size || 'A4',
-        paper_type: formData.paper_type || 'Matt',
-        paper_weight: formData.paper_weight || '130gsm'
-      };
-    
-    case 'postcards':
-      return {
-        size: formData.size || 'A6',
-        paper_type: formData.paper_type || 'Gloss',
-        paper_weight: formData.paper_weight || '300gsm',
-        sides: formData.sides || 'single',
-        lamination_type: formData.lamination_type || 'no_lam'
-      };
-    
-    case 'posters':
-      return {
-        size: formData.size || 'A4',
-        paper_type: formData.paper_type || 'Matt',
-        paper_weight: formData.paper_weight || '200gsm',
-        sides: formData.sides || 'single'
-      };
-    
-    case 'sleeves':
-      return {
-        stock_type: formData.paper_type || 'Kraft',
-        single_sided: formData.single_sided !== false
-      };
-    
-    case 'stickers':
-      return {
-        paper_type: formData.paper_type || 'Paper',
-        lamination_type: formData.lamination_type || 'none'
-      };
-    
-    case 'boxes':
-      return {
-        paper_type: formData.paper_type || 'FBB 230gsm',
-        lamination_type: formData.lamination_type || 'matt'
-      };
-    
-    case 'covers':
-      return {
-        paper_type: formData.paper_type || '250gsm Matt',
-        paper_weight: formData.paper_weight || '250gsm',
-        lamination_type: formData.lamination_type || 'none',
-        sides: formData.sides || 'single',
-        uv_varnish: formData.uv_varnish || 'none'
-      };
-    
-    default:
-      return {};
-  }
+  // All specifications are now stored in job_print_specifications table
+  // No hardcoded fields needed in the job tables anymore
+  return {};
 };

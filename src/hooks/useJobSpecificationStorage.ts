@@ -1,73 +1,69 @@
 
-import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 export const useJobSpecificationStorage = () => {
-  const [isLoading, setIsLoading] = useState(false);
-
   const saveJobSpecifications = async (
     jobId: string,
     jobTableName: string,
-    specifications: Record<string, { id: string; category: string; printerId?: string }>
+    specifications: Record<string, any>
   ) => {
-    setIsLoading(true);
-    
     try {
-      // Clear existing specifications for this job
-      await supabase
+      // First, clear existing specifications for this job
+      const { error: deleteError } = await supabase
         .from('job_print_specifications')
         .delete()
         .eq('job_id', jobId)
         .eq('job_table_name', jobTableName);
 
+      if (deleteError) throw deleteError;
+
       // Insert new specifications
-      const specificationRecords = Object.entries(specifications).map(([category, spec]) => ({
+      const specsToInsert = Object.entries(specifications).map(([category, specData]) => ({
         job_id: jobId,
         job_table_name: jobTableName,
         specification_category: category,
-        specification_id: spec.id,
-        printer_id: spec.printerId || null
+        specification_id: specData.id
       }));
 
-      if (specificationRecords.length > 0) {
-        const { error } = await supabase
+      if (specsToInsert.length > 0) {
+        const { error: insertError } = await supabase
           .from('job_print_specifications')
-          .insert(specificationRecords);
+          .insert(specsToInsert);
 
-        if (error) throw error;
+        if (insertError) throw insertError;
       }
 
-      console.log(`Saved ${specificationRecords.length} specifications for job ${jobId}`);
+      return true;
     } catch (error) {
       console.error('Error saving job specifications:', error);
-      toast.error('Failed to save job specifications');
-      throw error;
-    } finally {
-      setIsLoading(false);
+      return false;
     }
   };
 
-  const loadJobSpecifications = async (jobId: string, jobTableName: string) => {
+  const getJobSpecifications = async (jobId: string, jobTableName: string) => {
     try {
       const { data, error } = await supabase
-        .rpc('get_job_specifications', {
-          p_job_id: jobId,
-          p_job_table_name: jobTableName
-        });
+        .from('job_print_specifications')
+        .select(`
+          specification_category,
+          specification_id,
+          print_specifications (
+            id,
+            name,
+            display_name,
+            properties
+          )
+        `)
+        .eq('job_id', jobId)
+        .eq('job_table_name', jobTableName);
 
       if (error) throw error;
-      
-      // Convert to the format expected by the form
+
       const specifications: Record<string, any> = {};
-      data?.forEach((spec: any) => {
-        specifications[spec.category] = {
-          id: spec.specification_id,
-          name: spec.name,
-          display_name: spec.display_name,
-          properties: spec.properties,
-          printerId: spec.printer_id
-        };
+      data?.forEach(spec => {
+        if (spec.print_specifications) {
+          specifications[spec.specification_category] = spec.print_specifications;
+        }
       });
 
       return specifications;
@@ -79,7 +75,6 @@ export const useJobSpecificationStorage = () => {
 
   return {
     saveJobSpecifications,
-    loadJobSpecifications,
-    isLoading
+    getJobSpecifications
   };
 };

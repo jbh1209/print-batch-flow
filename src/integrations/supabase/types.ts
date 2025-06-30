@@ -241,9 +241,7 @@ export type Database = {
           file_name: string
           id: string
           job_number: string
-          lamination_type: string
           name: string
-          paper_type: string
           pdf_url: string
           quantity: number
           status: string
@@ -260,9 +258,7 @@ export type Database = {
           file_name: string
           id?: string
           job_number: string
-          lamination_type?: string
           name: string
-          paper_type: string
           pdf_url: string
           quantity: number
           status?: string
@@ -279,9 +275,7 @@ export type Database = {
           file_name?: string
           id?: string
           job_number?: string
-          lamination_type?: string
           name?: string
-          paper_type?: string
           pdf_url?: string
           quantity?: number
           status?: string
@@ -310,9 +304,7 @@ export type Database = {
           file_name: string
           id: string
           job_number: string
-          lamination_type: Database["public"]["Enums"]["lamination_type"]
           name: string
-          paper_type: string
           pdf_url: string
           quantity: number
           status: string
@@ -331,9 +323,7 @@ export type Database = {
           file_name: string
           id?: string
           job_number: string
-          lamination_type?: Database["public"]["Enums"]["lamination_type"]
           name: string
-          paper_type?: string
           pdf_url: string
           quantity: number
           status?: string
@@ -352,9 +342,7 @@ export type Database = {
           file_name?: string
           id?: string
           job_number?: string
-          lamination_type?: Database["public"]["Enums"]["lamination_type"]
           name?: string
-          paper_type?: string
           pdf_url?: string
           quantity?: number
           status?: string
@@ -470,17 +458,12 @@ export type Database = {
           file_name: string
           id: string
           job_number: string
-          lamination_type: string
           name: string
-          paper_type: string
-          paper_weight: string
           pdf_url: string
           quantity: number
-          sides: string
           status: string
           updated_at: string
           user_id: string
-          uv_varnish: string
         }
         Insert: {
           batch_allocated_at?: string | null
@@ -492,17 +475,12 @@ export type Database = {
           file_name: string
           id?: string
           job_number: string
-          lamination_type?: string
           name: string
-          paper_type: string
-          paper_weight: string
           pdf_url: string
           quantity: number
-          sides?: string
           status?: string
           updated_at?: string
           user_id: string
-          uv_varnish?: string
         }
         Update: {
           batch_allocated_at?: string | null
@@ -514,17 +492,12 @@ export type Database = {
           file_name?: string
           id?: string
           job_number?: string
-          lamination_type?: string
           name?: string
-          paper_type?: string
-          paper_weight?: string
           pdf_url?: string
           quantity?: number
-          sides?: string
           status?: string
           updated_at?: string
           user_id?: string
-          uv_varnish?: string
         }
         Relationships: [
           {
@@ -581,11 +554,8 @@ export type Database = {
           id: string
           job_number: string
           name: string
-          paper_type: string
-          paper_weight: string
           pdf_url: string
           quantity: number
-          size: string
           status: string
           updated_at: string
           user_id: string
@@ -601,11 +571,8 @@ export type Database = {
           id?: string
           job_number: string
           name: string
-          paper_type: string
-          paper_weight: string
           pdf_url: string
           quantity: number
-          size: string
           status: string
           updated_at?: string
           user_id: string
@@ -621,11 +588,8 @@ export type Database = {
           id?: string
           job_number?: string
           name?: string
-          paper_type?: string
-          paper_weight?: string
           pdf_url?: string
           quantity?: number
-          size?: string
           status?: string
           updated_at?: string
           user_id?: string
@@ -855,13 +819,9 @@ export type Database = {
           file_name: string
           id: string
           job_number: string
-          lamination_type: string
           name: string
-          paper_type: string
-          paper_weight: string
           pdf_url: string
           quantity: number
-          size: string
           status: string
           updated_at: string
           user_id: string
@@ -876,13 +836,9 @@ export type Database = {
           file_name: string
           id?: string
           job_number: string
-          lamination_type?: string
           name: string
-          paper_type: string
-          paper_weight: string
           pdf_url: string
           quantity: number
-          size?: string
           status?: string
           updated_at?: string
           user_id: string
@@ -897,13 +853,9 @@ export type Database = {
           file_name?: string
           id?: string
           job_number?: string
-          lamination_type?: string
           name?: string
-          paper_type?: string
-          paper_weight?: string
           pdf_url?: string
           quantity?: number
-          size?: string
           status?: string
           updated_at?: string
           user_id?: string
@@ -929,14 +881,9 @@ export type Database = {
           file_name: string
           id: string
           job_number: string
-          lamination_type: string
           name: string
-          paper_type: string
-          paper_weight: string
           pdf_url: string
           quantity: number
-          sides: string
-          size: string
           status: string
           updated_at: string
           user_id: string
@@ -951,14 +898,9 @@ export type Database = {
           file_name: string
           id?: string
           job_number: string
-          lamination_type?: string
           name: string
-          paper_type: string
-          paper_weight: string
           pdf_url: string
           quantity: number
-          sides?: string
-          size: string
           status?: string
           updated_at?: string
           user_id: string
@@ -973,14 +915,9 @@ export type Database = {
           file_name?: string
           id?: string
           job_number?: string
-          lamination_type?: string
           name?: string
-          paper_type?: string
-          paper_weight?: string
           pdf_url?: string
           quantity?: number
-          sides?: string
-          size?: string
           status?: string
           updated_at?: string
           user_id?: string
@@ -1614,7 +1551,6 @@ export type Database = {
           quantity: number
           single_sided: boolean
           status: string
-          stock_type: string
           updated_at: string | null
           user_id: string
         }
@@ -1633,7 +1569,6 @@ export type Database = {
           quantity: number
           single_sided?: boolean
           status?: string
-          stock_type: string
           updated_at?: string | null
           user_id: string
         }
@@ -1652,7 +1587,6 @@ export type Database = {
           quantity?: number
           single_sided?: boolean
           status?: string
-          stock_type?: string
           updated_at?: string | null
           user_id?: string
         }
@@ -1677,9 +1611,7 @@ export type Database = {
           file_name: string
           id: string
           job_number: string
-          lamination_type: string
           name: string
-          paper_type: string
           pdf_url: string
           quantity: number
           status: string
@@ -1696,9 +1628,7 @@ export type Database = {
           file_name: string
           id?: string
           job_number: string
-          lamination_type?: string
           name: string
-          paper_type: string
           pdf_url: string
           quantity: number
           status?: string
@@ -1715,9 +1645,7 @@ export type Database = {
           file_name?: string
           id?: string
           job_number?: string
-          lamination_type?: string
           name?: string
-          paper_type?: string
           pdf_url?: string
           quantity?: number
           status?: string

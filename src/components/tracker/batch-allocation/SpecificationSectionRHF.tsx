@@ -6,18 +6,23 @@ import { PrintSpecificationSelector } from '@/components/shared/PrintSpecificati
 interface SpecificationSectionRHFProps {
   batchCategory: string;
   disabled: boolean;
+  onSpecificationChange?: (category: string, specificationId: string, specification: any) => void;
 }
 
 export const SpecificationSectionRHF: React.FC<SpecificationSectionRHFProps> = ({
   batchCategory,
-  disabled
+  disabled,
+  onSpecificationChange
 }) => {
   const { setValue, watch } = useFormContext();
   const formValues = watch();
 
   const handleSpecificationChange = (category: string, specificationId: string, specification: any) => {
-    // Update form field with the specification display name
+    // Update form field with the specification display name for display purposes
     setValue(category, specification.display_name);
+    
+    // Notify parent component with full specification data
+    onSpecificationChange?.(category, specificationId, specification);
   };
 
   // Convert form values back to specification selections for the selector
