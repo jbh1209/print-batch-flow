@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +7,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
@@ -37,7 +35,7 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
   });
 
   const [specifications, setSpecifications] = useState<Record<string, any>>({});
-  const { storeJobSpecifications } = useJobSpecificationStorage();
+  const { saveJobSpecifications } = useJobSpecificationStorage();
 
   const handleSpecificationChange = (category: string, specificationId: string, specification: any) => {
     console.log('Specification changed:', { category, specificationId, specification });
@@ -89,7 +87,7 @@ export const BatchJobForm: React.FC<BatchJobFormProps> = ({
       // Store specifications if any were selected
       if (Object.keys(specifications).length > 0) {
         try {
-          await storeJobSpecifications(jobData.id, 'production_jobs', specifications);
+          await saveJobSpecifications(jobData.id, 'production_jobs', specifications);
           console.log('Specifications stored successfully');
         } catch (specError) {
           console.error('Error storing specifications:', specError);

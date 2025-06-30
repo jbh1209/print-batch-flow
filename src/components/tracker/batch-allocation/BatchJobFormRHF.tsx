@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,7 +42,7 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
 }) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { storeJobSpecifications } = useJobSpecificationStorage();
+  const { saveJobSpecifications } = useJobSpecificationStorage();
 
   const form = useForm<JobFormData>({
     resolver: zodResolver(jobFormSchema),
@@ -58,8 +57,12 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
     }
   });
 
-  const handleSpecificationChange = (specifications: Record<string, any>) => {
-    form.setValue('specifications', specifications);
+  const handleSpecificationChange = (category: string, specificationId: string, specification: any) => {
+    const currentSpecs = form.getValues('specifications') || {};
+    form.setValue('specifications', {
+      ...currentSpecs,
+      [category]: specification
+    });
   };
 
   const onSubmit = async (data: JobFormData) => {
@@ -102,7 +105,7 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
       // Store specifications if any were selected
       if (data.specifications && Object.keys(data.specifications).length > 0) {
         try {
-          await storeJobSpecifications(jobData.id, 'production_jobs', data.specifications);
+          await saveJobSpecifications(jobData.id, 'production_jobs', data.specifications);
           console.log('Specifications stored successfully');
         } catch (specError) {
           console.error('Error storing specifications:', specError);
