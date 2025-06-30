@@ -26,7 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePartPrintingAssignment } from "@/hooks/tracker/usePartPrintingAssignment";
 import { useJobPrintingStages } from "@/hooks/tracker/useJobPrintingStages";
-import { useJobStageManagement } from "@/hooks/tracker/useJobStageManagement";
+import { useJobStageInstances } from "@/hooks/tracker/useJobStageInstances";
 
 interface DtpJobModalProps {
   job: AccessibleJob;
@@ -75,15 +75,13 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const { assignPartsToStages, getJobParts, isAssigning } = usePartPrintingAssignment();
   const { printingStages: existingPrintingStages, isLoading: printingStagesLoading } = useJobPrintingStages(job.job_id);
   
-  // Use the proper workflow management system
+  // Use the job stage instances hook for proper workflow management
   const {
+    jobStages,
+    isLoading: isStageInstancesLoading,
     advanceJobStage,
-    isProcessing: isStageProcessing
-  } = useJobStageManagement({
-    jobId: job.job_id,
-    jobTableName: 'production_jobs',
-    categoryId: job.category_id
-  });
+    updateStageNotes
+  } = useJobStageInstances(job.job_id, 'production_jobs');
 
   const statusBadgeInfo = getJobStatusBadgeInfo({
     ...job,
@@ -448,7 +446,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     try {
       console.log('🔄 Advancing to printing stage using proper workflow management');
       
-      // Use the proper workflow management system to advance the stage
+      // Use the proper workflow system to advance the current stage
       const success = await advanceJobStage(
         job.current_stage_id,
         notes || 'Proof approved - advancing to printing'
@@ -632,12 +630,12 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
                 
                 <Button 
                   onClick={handleDirectPrinting}
-                  disabled={isLoading || isStageProcessing}
+                  disabled={isLoading || isStageInstancesLoading}
                   className="w-full bg-blue-600 hover:bg-blue-700"
                   variant="outline"
                 >
                   <Printer className="h-4 w-4 mr-2" />
-                  {isStageProcessing ? 'Processing...' : 'Send Directly to Printing'}
+                  {isStageInstancesLoading ? 'Processing...' : 'Send Directly to Printing'}
                 </Button>
               </div>
             </div>
@@ -709,11 +707,11 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
               <div className="flex gap-2">
                 <Button 
                   onClick={handleAdvanceToPrintingStage}
-                  disabled={isLoading || isStageProcessing || !selectedPrintingStage}
+                  disabled={isLoading || isStageInstancesLoading || !selectedPrintingStage}
                   className="flex-1"
                 >
                   <ArrowRight className="h-4 w-4 mr-2" />
-                  {isLoading || isStageProcessing ? 'Processing...' : 'Advance to Printing'}
+                  {isLoading || isStageInstancesLoading ? 'Processing...' : 'Advance to Printing'}
                 </Button>
                 <Button 
                   onClick={() => setProofApprovalFlow('choosing_allocation')}
