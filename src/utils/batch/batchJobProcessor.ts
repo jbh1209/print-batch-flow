@@ -2,10 +2,7 @@
 import { BaseJob } from "@/config/productTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { 
-  verifyBatchJobLinks, 
-  relinkJobs 
-} from "@/utils/batch/batchVerificationUtils";
+import { processProductionJobsForBatch, completeBatchForProductionJobs } from "./unifiedBatchProcessor";
 
 /**
  * Parameters for processing batch jobs
@@ -26,7 +23,7 @@ interface BatchJobsProcessResult {
 }
 
 /**
- * Links selected jobs to a batch and performs verification - updated for workflow integration
+ * Links selected jobs to a batch - updated to use unified workflow for production jobs
  */
 export async function processBatchJobs({
   jobIds,
@@ -43,123 +40,59 @@ export async function processBatchJobs({
   
   console.log(`Processing ${jobIds.length} jobs for batch integration in table ${tableName}`);
   
-  // For production jobs, we need to handle the workflow integration
+  // For production jobs, use the unified batch processor
   if (tableName === 'production_jobs') {
-    for (const jobId of jobIds) {
-      try {
-        // Complete the batch allocation stage and advance to printing
-        const { error: completeError } = await supabase
-          .from('job_stage_instances')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            notes: `Batch allocation completed - assigned to batch ${batchId}`
-          })
-          .eq('job_id', jobId)
-          .eq('job_table_name', tableName)
-          .eq('status', 'active')
-          .like('notes', '%batch allocation%');
-
-        if (completeError) {
-          console.error(`❌ Error completing batch allocation for job ${jobId}:`, completeError);
-        }
-
-        // Update the production job status
-        const { error: jobUpdateError } = await supabase
-          .from('production_jobs')
-          .update({
-            status: "In Batch Processing",
-            batch_ready: true,
-            batch_allocated_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", jobId);
-
-        if (jobUpdateError) {
-          console.error(`❌ Error updating job ${jobId}:`, jobUpdateError);
-          throw jobUpdateError;
-        }
-
-        console.log(`✅ Job ${jobId} successfully integrated into batch workflow`);
-      } catch (error) {
-        console.error(`❌ Error processing job ${jobId} for batch:`, error);
-        // Continue with other jobs even if one fails
-      }
-    }
-  } else {
-    // For other job types, use the original logic
-    const { error: updateError } = await supabase
-      .from(tableName as any)
-      .update({
-        status: "batched",
-        batch_id: batchId
-      })
-      .in("id", jobIds);
-    
-    if (updateError) {
-      console.error("Error updating jobs with batch ID:", updateError);
-      throw new Error(`Failed to link jobs to batch: ${updateError.message}`);
-    }
-  }
-  
-  // Only verify for non-production jobs since production jobs use a different workflow
-  if (tableName !== 'production_jobs') {
-    // Verify jobs were correctly updated with batch ID
-    const verificationResult = await verifyBatchJobLinks({
-      jobIds,
-      batchId,
-      tableName: tableName as any // Type assertion for legacy table types
-    });
-    
-    // Handle unlinked jobs
-    if (verificationResult.unlinkedJobs.length > 0) {
-      console.warn(`Warning: ${verificationResult.unlinkedJobs.length} jobs not correctly linked to batch`);
-      
-      // Try to relink jobs that weren't properly linked
-      const relinkResult = await relinkJobs(
-        verificationResult.unlinkedJobs,
+    try {
+      const result = await processProductionJobsForBatch({
+        productionJobIds: jobIds,
         batchId,
-        tableName as any // Type assertion for legacy table types
-      );
-      
-      // Perform a final check if we had any unlinked jobs that we attempted to fix
-      if (relinkResult.failed > 0) {
-        const stillUnlinkedIds = verificationResult.unlinkedJobs
-          .map(job => job.id);
-        
-        if (stillUnlinkedIds.length > 0) {
-          const finalCheckResult = await verifyBatchJobLinks({
-            jobIds: stillUnlinkedIds,
-            batchId,
-            tableName: tableName as any
-          });
-          
-          // If we still have unlinked jobs after retrying, show a warning
-          const stillUnlinked = finalCheckResult.unlinkedJobs.length;
-          if (stillUnlinked > 0) {
-            toast.warning(`${stillUnlinked} jobs could not be linked to the batch`, {
-              description: "Some jobs may need to be manually added to the batch"
-            });
-          }
-        }
-      }
-    } else {
-      console.log(`All ${verificationResult.linkedJobs.length} jobs successfully integrated into batch workflow`);
+        batchType: 'mixed' // You might want to determine this based on batch category
+      });
+
+      return {
+        success: result.success,
+        linkedCount: result.processedCount,
+        unlinkedCount: result.failedCount
+      };
+    } catch (error) {
+      console.error('❌ Error processing production jobs for batch:', error);
+      return {
+        success: false,
+        linkedCount: 0,
+        unlinkedCount: jobIds.length
+      };
     }
-    
-    // Return the final result
-    return {
-      success: true,
-      linkedCount: verificationResult.linkedJobs.length,
-      unlinkedCount: verificationResult.unlinkedJobs.length - (verificationResult.unlinkedJobs.length > 0 ? 0 : 0)
-    };
   } else {
-    // For production jobs, we don't use the verification system
-    return {
-      success: true,
-      linkedCount: jobIds.length,
-      unlinkedCount: 0
-    };
+    // For other job types, use the original logic (legacy batch system)
+    try {
+      const { error: updateError } = await supabase
+        .from(tableName as any)
+        .update({
+          status: "batched",
+          batch_id: batchId
+        })
+        .in("id", jobIds);
+      
+      if (updateError) {
+        console.error("Error updating jobs with batch ID:", updateError);
+        throw new Error(`Failed to link jobs to batch: ${updateError.message}`);
+      }
+
+      console.log(`All ${jobIds.length} jobs successfully linked to batch`);
+      
+      return {
+        success: true,
+        linkedCount: jobIds.length,
+        unlinkedCount: 0
+      };
+    } catch (error) {
+      console.error('❌ Error processing legacy batch jobs:', error);
+      return {
+        success: false,
+        linkedCount: 0,
+        unlinkedCount: jobIds.length
+      };
+    }
   }
 }
 
@@ -170,67 +103,14 @@ export async function completeBatchProcessing(batchId: string, nextStageId?: str
   try {
     console.log(`🔄 Completing batch processing for batch ${batchId}`);
 
-    // Get all jobs in this batch
-    const { data: batchJobs, error: fetchError } = await supabase
-      .from('production_jobs')
-      .select('id, wo_no')
-      .eq('batch_ready', true)
-      .eq('status', 'In Batch Processing');
-
-    if (fetchError) {
-      console.error('❌ Error fetching batch jobs:', fetchError);
-      throw fetchError;
+    // Use the unified batch processor for production jobs
+    const success = await completeBatchForProductionJobs(batchId, nextStageId);
+    
+    if (success) {
+      toast.success("Batch processing completed successfully");
     }
-
-    if (!batchJobs || batchJobs.length === 0) {
-      console.log('ℹ️ No jobs found in batch processing status');
-      return true;
-    }
-
-    // Update all jobs to advance to next stage
-    for (const job of batchJobs) {
-      try {
-        // Update job status
-        const { error: jobUpdateError } = await supabase
-          .from('production_jobs')
-          .update({
-            status: nextStageId ? 'Ready to Print' : 'Batch Complete',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', job.id);
-
-        if (jobUpdateError) {
-          console.error(`❌ Error updating job ${job.wo_no}:`, jobUpdateError);
-          continue;
-        }
-
-        // If next stage specified, activate it
-        if (nextStageId) {
-          const { error: stageError } = await supabase
-            .from('job_stage_instances')
-            .update({
-              status: 'active',
-              started_at: new Date().toISOString(),
-              notes: `Advanced from batch processing to next stage`
-            })
-            .eq('job_id', job.id)
-            .eq('job_table_name', 'production_jobs')
-            .eq('production_stage_id', nextStageId)
-            .eq('status', 'pending');
-
-          if (stageError) {
-            console.error(`❌ Error activating next stage for job ${job.wo_no}:`, stageError);
-          }
-        }
-
-        console.log(`✅ Job ${job.wo_no} advanced from batch processing`);
-      } catch (error) {
-        console.error(`❌ Error processing job ${job.wo_no}:`, error);
-      }
-    }
-
-    console.log(`✅ Batch processing completed for ${batchJobs.length} jobs`);
-    return true;
+    
+    return success;
   } catch (error) {
     console.error('❌ Error completing batch processing:', error);
     toast.error("Failed to complete batch processing");

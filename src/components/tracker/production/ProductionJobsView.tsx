@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Play, CheckCircle, Package, AlertTriangle } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { BatchAllocationIndicator } from "./BatchAllocationIndicator";
-import { useBatchAllocationStage } from "@/hooks/tracker/useBatchAllocationStage";
+import { useUnifiedBatchWorkflow } from "@/hooks/batch/useUnifiedBatchWorkflow";
 
 interface ProductionJobsViewProps {
   jobs: AccessibleJob[];
@@ -23,10 +23,10 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
   onJobClick,
   onStageAction
 }) => {
-  const { completeBatchAllocation, isProcessing } = useBatchAllocationStage();
+  const { completeBatchProcessing, isProcessing } = useUnifiedBatchWorkflow();
 
   const handleAdvanceToPrinting = async (jobId: string) => {
-    const success = await completeBatchAllocation(jobId);
+    const success = await completeBatchProcessing(jobId);
     if (success) {
       // This will trigger a refresh of the jobs list
       window.location.reload();
@@ -43,9 +43,16 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
         return 'bg-green-100 text-green-800 border-green-300';
       case 'in progress':
         return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'batch complete':
+        return 'bg-purple-100 text-purple-800 border-purple-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-300';
     }
+  };
+
+  const isBatchRelatedStatus = (status: string) => {
+    const batchStatuses = ['batch allocation', 'in batch processing', 'batch complete'];
+    return batchStatuses.includes(status.toLowerCase());
   };
 
   if (isLoading) {
@@ -68,8 +75,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
   return (
     <div className="space-y-1">
       {jobs.map((job) => {
-        const isBatchAllocation = job.status === 'Batch Allocation';
-        const isInBatchProcessing = job.status === 'In Batch Processing';
+        const isBatchStatus = isBatchRelatedStatus(job.status);
         
         return (
           <div
@@ -107,12 +113,14 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
               {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'No due date'}
             </div>
 
-            {/* Current Stage */}
+            {/* Current Stage / Batch Status */}
             <div className="w-40">
-              {isBatchAllocation ? (
+              {isBatchStatus ? (
                 <BatchAllocationIndicator
                   jobId={job.job_id}
+                  woNo={job.wo_no}
                   batchCategory={job.batch_category}
+                  status={job.status}
                   onAdvanceToPrinting={handleAdvanceToPrinting}
                   isProcessing={isProcessing}
                 />
@@ -122,9 +130,9 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
                     variant="outline" 
                     className={getStatusBadgeColor(job.status)}
                   >
-                    {job.display_stage_name || job.current_stage_name || 'Unknown Stage'}
+                    {job.display_stage_name || job.current_stage_name || job.status || 'Unknown Stage'}
                   </Badge>
-                  {isInBatchProcessing && (
+                  {job.status === 'In Batch Processing' && (
                     <div className="relative">
                       <Package className="h-4 w-4 text-blue-600" />
                       <span className="sr-only">In Batch Processing</span>
@@ -141,7 +149,7 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
 
             {/* Actions */}
             <div className="w-24 flex justify-end">
-              {!isBatchAllocation && !isInBatchProcessing && job.current_stage_id && (
+              {!isBatchStatus && job.current_stage_id && (
                 <div className="flex gap-1">
                   {job.current_stage_status === 'pending' && (
                     <Button
