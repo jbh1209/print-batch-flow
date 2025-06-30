@@ -38,7 +38,7 @@ interface ProofStageActionsProps {
   onProofApprovalFlowChange: (flow: ProofApprovalFlow) => void;
   onBatchCategoryChange: (category: string) => void;
   onPrintingStageChange: (stageId: string) => void;
-  onModalDataRefresh?: () => void; // Add this prop to refresh modal data
+  onModalDataRefresh?: () => void;
 }
 
 export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
@@ -90,7 +90,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       onJobStatusUpdate('Proof In Progress', 'active');
       toast.success("Proof stage started");
       onRefresh?.();
-      onModalDataRefresh?.(); // Refresh modal data
+      onModalDataRefresh?.();
     } catch (error) {
       console.error('Error starting proof:', error);
       toast.error("Failed to start proof stage");
@@ -125,7 +125,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       onJobStatusUpdate('Awaiting Client Sign Off', stageStatus);
       toast.success("Proof marked as emailed");
       onRefresh?.();
-      onModalDataRefresh?.(); // Refresh modal data
+      onModalDataRefresh?.();
     } catch (error) {
       console.error('Error marking proof as emailed:', error);
       toast.error("Failed to mark proof as emailed");
@@ -147,10 +147,50 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       onProofApprovalFlowChange('choosing_allocation');
       toast.success('Proof approved! Choose next step.');
       onRefresh?.();
-      onModalDataRefresh?.(); // Refresh modal data to update stageInstance
+      onModalDataRefresh?.();
     } catch (error) {
       console.error('Error marking proof as approved:', error);
       toast.error('Failed to mark proof as approved');
+    }
+  };
+
+  const handleSendToBatchAllocation = async () => {
+    if (!job.current_stage_id) {
+      toast.error("No current stage found");
+      return;
+    }
+
+    try {
+      console.log('🔄 Advancing from proof stage to batch allocation');
+      
+      // Complete the current proof stage
+      const success = await advanceJobStage(
+        job.current_stage_id,
+        notes || 'Proof approved - sending to batch allocation'
+      );
+
+      if (!success) {
+        throw new Error('Failed to advance job stage');
+      }
+
+      // Update job status to indicate batch processing
+      const { error: jobError } = await supabase
+        .from('production_jobs')
+        .update({
+          status: 'Batch Allocation',
+          batch_category: selectedBatchCategory,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.job_id);
+
+      if (jobError) throw jobError;
+
+      toast.success("Job sent to batch allocation successfully");
+      onRefresh?.();
+      onClose();
+    } catch (error) {
+      console.error('❌ Error sending to batch allocation:', error);
+      toast.error("Failed to send job to batch allocation");
     }
   };
 
@@ -191,10 +231,9 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     }
   };
 
-  const handleBatchJobCreated = () => {
-    toast.success("Job successfully allocated to batch processing");
-    onRefresh?.();
-    onClose();
+  const handleBatchJobCreated = async () => {
+    // When batch job is created, we need to advance the main production job
+    await handleSendToBatchAllocation();
   };
 
   const hasProofBeenEmailed = stageInstance?.proof_emailed_at;
@@ -315,7 +354,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
                 batchCategory={selectedBatchCategory}
                 onJobCreated={handleBatchJobCreated}
                 onCancel={() => onProofApprovalFlowChange('choosing_allocation')}
-                isProcessing={isLoading}
+                isProcessing={isLoading || isStageInstancesLoading}
               />
             </div>
           );

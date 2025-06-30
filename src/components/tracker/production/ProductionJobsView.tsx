@@ -1,16 +1,19 @@
 
 import React from "react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Play, CheckCircle, Package, AlertTriangle } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
-import { CompactDtpJobCard } from "@/components/tracker/factory/CompactDtpJobCard";
-import { ExpediteButton } from "@/components/tracker/common/ExpediteButton";
+import { BatchAllocationIndicator } from "./BatchAllocationIndicator";
+import { useBatchAllocationStage } from "@/hooks/tracker/useBatchAllocationStage";
 
 interface ProductionJobsViewProps {
   jobs: AccessibleJob[];
-  selectedStage: string | null;
+  selectedStage?: string | null;
   isLoading: boolean;
   onJobClick: (job: AccessibleJob) => void;
-  onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete') => Promise<void>;
-  onJobUpdated?: () => void;
+  onStageAction: (jobId: string, stageId: string, action: 'start' | 'complete' | 'scan') => void;
 }
 
 export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
@@ -18,13 +21,37 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
   selectedStage,
   isLoading,
   onJobClick,
-  onStageAction,
-  onJobUpdated = () => {}
+  onStageAction
 }) => {
+  const { completeBatchAllocation, isProcessing } = useBatchAllocationStage();
+
+  const handleAdvanceToPrinting = async (jobId: string) => {
+    const success = await completeBatchAllocation(jobId);
+    if (success) {
+      // This will trigger a refresh of the jobs list
+      window.location.reload();
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'batch allocation':
+        return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'in batch processing':
+        return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'ready to print':
+        return 'bg-green-100 text-green-800 border-green-300';
+      case 'in progress':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
         <span className="ml-2">Loading jobs...</span>
       </div>
     );
@@ -32,161 +59,112 @@ export const ProductionJobsView: React.FC<ProductionJobsViewProps> = ({
 
   if (jobs.length === 0) {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-500">
-          {selectedStage 
-            ? `No jobs found for stage: ${selectedStage}`
-            : "No jobs found"
-          }
-        </p>
+      <div className="text-center py-8 text-gray-500">
+        {selectedStage ? `No jobs found for ${selectedStage} stage` : 'No jobs found'}
       </div>
     );
   }
 
-  const handleStart = async (jobId: string, stageId: string) => {
-    await onStageAction(jobId, stageId, 'start');
-    return true;
-  };
-
-  const handleComplete = async (jobId: string, stageId: string) => {
-    await onStageAction(jobId, stageId, 'complete');
-    return true;
-  };
-
   return (
     <div className="space-y-1">
       {jobs.map((job) => {
-        const isOverdue = job.due_date && new Date(job.due_date) < new Date();
-        const isDueSoon = job.due_date && !isOverdue && 
-          new Date(job.due_date) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        const isBatchAllocation = job.status === 'Batch Allocation';
+        const isInBatchProcessing = job.status === 'In Batch Processing';
         
-        const isExpedited = (job as any).is_expedited === true;
-
         return (
-          <div 
+          <div
             key={job.job_id}
-            className={`flex items-center gap-4 p-2 hover:bg-gray-50 cursor-pointer border-l-4 ${
-              isExpedited ? 'border-red-500 bg-red-50' :
-              job.current_stage_status === 'active' ? 'border-blue-500 bg-blue-50' :
-              isOverdue ? 'border-red-500 bg-red-50' :
-              isDueSoon ? 'border-orange-500 bg-orange-50' :
-              'border-gray-200'
-            }`}
+            className="flex gap-4 items-center p-2 hover:bg-gray-50 border-b cursor-pointer"
             onClick={() => onJobClick(job)}
           >
-            {/* Due/Priority indicator */}
+            {/* Due Date Indicator */}
             <div className="w-8 text-center">
-              {isExpedited ? (
-                <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
-              ) : isOverdue ? (
-                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-              ) : isDueSoon ? (
-                <div className="w-3 h-3 bg-orange-500 rounded-full" />
-              ) : null}
+              {job.due_date && (
+                <div className="text-xs">
+                  {new Date(job.due_date) < new Date() ? (
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                  ) : (
+                    <div className="text-gray-400">
+                      {Math.ceil((new Date(job.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}d
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Job details */}
+            {/* Job Info */}
             <div className="flex-1 min-w-0">
-              <div className="font-bold text-sm text-gray-900">
-                {job.wo_no}
+              <div className="font-medium text-sm truncate">
+                {job.wo_no} - {job.customer || 'Unknown Customer'}
               </div>
-              <div className="text-xs text-gray-600 truncate">
-                {job.customer || 'Unknown Customer'}
-                {job.reference && (
-                  <span className="ml-2">
-                    Ref: {job.reference}
-                  </span>
-                )}
+              <div className="text-xs text-gray-500 truncate">
+                {job.reference || 'No reference'}
               </div>
             </div>
 
             {/* Due Date */}
-            <div className="w-32 text-xs">
-              {job.due_date ? (
-                <span className={`${
-                  isOverdue ? 'text-red-600 font-medium' : 
-                  isDueSoon ? 'text-orange-600 font-medium' : 
-                  'text-gray-600'
-                }`}>
-                  {new Date(job.due_date).toLocaleDateString()}
-                </span>
-              ) : (
-                <span className="text-gray-400">No due date</span>
-              )}
+            <div className="w-32 text-xs text-gray-600">
+              {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'No due date'}
             </div>
 
             {/* Current Stage */}
-            <div className="w-40 text-xs">
-              {job.current_stage_name ? (
-                <span 
-                  className={`px-2 py-1 rounded text-white text-xs ${
-                    job.current_stage_status === 'active' ? 'bg-green-600' : 'bg-gray-500'
-                  }`}
-                  style={{ 
-                    backgroundColor: job.current_stage_status === 'active' 
-                      ? job.current_stage_color || '#22C55E' 
-                      : '#6B7280' 
-                  }}
-                >
-                  {job.current_stage_name}
-                </span>
+            <div className="w-40">
+              {isBatchAllocation ? (
+                <BatchAllocationIndicator
+                  jobId={job.job_id}
+                  batchCategory={job.batch_category}
+                  onAdvanceToPrinting={handleAdvanceToPrinting}
+                  isProcessing={isProcessing}
+                />
               ) : (
-                <span className="text-gray-400">No Stage</span>
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant="outline" 
+                    className={getStatusBadgeColor(job.status)}
+                  >
+                    {job.display_stage_name || job.current_stage_name || 'Unknown Stage'}
+                  </Badge>
+                  {isInBatchProcessing && (
+                    <Package className="h-4 w-4 text-blue-600" title="In Batch Processing" />
+                  )}
+                </div>
               )}
             </div>
 
             {/* Progress */}
             <div className="w-24 text-xs text-center">
-              <div className="flex items-center gap-1">
-                <div className="w-8 h-1 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-blue-500 transition-all duration-300"
-                    style={{ width: `${job.workflow_progress}%` }}
-                  />
-                </div>
-                <span className="text-gray-600 font-medium">
-                  {job.workflow_progress}%
-                </span>
-              </div>
-            </div>
-
-            {/* Expedite Button */}
-            <div className="w-20">
-              <ExpediteButton
-                job={job as any}
-                onJobUpdated={onJobUpdated}
-                size="sm"
-                variant="ghost"
-                showLabel={false}
-                compact={true}
-              />
+              {job.workflow_progress ? `${job.workflow_progress}%` : 'N/A'}
             </div>
 
             {/* Actions */}
-            <div className="w-24 text-right">
-              {job.user_can_work && job.current_stage_id && (
-                <div className="flex gap-1 justify-end">
+            <div className="w-24 flex justify-end">
+              {!isBatchAllocation && !isInBatchProcessing && job.current_stage_id && (
+                <div className="flex gap-1">
                   {job.current_stage_status === 'pending' && (
-                    <button
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleStart(job.job_id, job.current_stage_id!);
+                        onStageAction(job.job_id, job.current_stage_id!, 'start');
                       }}
-                      className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                      className="h-6 px-2 text-xs"
                     >
-                      Start
-                    </button>
+                      <Play className="h-3 w-3" />
+                    </Button>
                   )}
                   {job.current_stage_status === 'active' && (
-                    <button
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleComplete(job.job_id, job.current_stage_id!);
+                        onStageAction(job.job_id, job.current_stage_id!, 'complete');
                       }}
-                      className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      className="h-6 px-2 text-xs"
                     >
-                      Complete
-                    </button>
+                      <CheckCircle className="h-3 w-3" />
+                    </Button>
                   )}
                 </div>
               )}
