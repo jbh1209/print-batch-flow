@@ -199,7 +199,7 @@ export const useBusinessCardJobsList = () => {
   const filteredJobs = jobs.filter(job => {
     const statusMatch = filterView === 'all' || job.status === filterView;
     // Note: lamination filtering would need to be handled by fetching from job_print_specifications
-    const laminationMatch = laminationFilter === 'all' || true; // Simplified for now
+    const laminationMatch = laminationFilter === 'all' || laminationFilter === null || true; // Simplified for now
     return statusMatch && laminationMatch;
   });
 

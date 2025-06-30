@@ -112,7 +112,7 @@ const BusinessCardJobs = () => {
         <FilterBar 
           laminationFilter={laminationFilter}
           setLaminationFilter={setLaminationFilter}
-          selectedJobs={getSelectedJobObjects()}
+          selectedJobs={getSelectedJobObjects(jobs)}
           allAvailableJobs={jobs}
           onBatchComplete={handleBatchComplete}
           onSelectJob={handleSelectJob}
@@ -141,7 +141,7 @@ const BusinessCardJobs = () => {
           onRefresh={() => fetchJobs()}
           selectedJobs={selectedJobs}
           onSelectJob={handleSelectJob}
-          onSelectAllJobs={(isSelected) => handleSelectAllJobs(isSelected)}
+          onSelectAllJobs={(isSelected) => handleSelectAllJobs(isSelected, jobs)}
           onJobDeleted={(jobId: string) => handleJobDeleted(jobId)}
         />
       </div>

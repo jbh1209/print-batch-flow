@@ -345,12 +345,10 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
           return (
             <div className="space-y-4">
               <BatchJobFormRHF
-                jobData={{
-                  wo_no: job.wo_no,
-                  customer: job.customer || '',
-                  qty: job.qty || 1,
-                  due_date: job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-                }}
+                wo_no={job.wo_no}
+                customer={job.customer || ''}
+                qty={job.qty || 1}
+                due_date={job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
                 batchCategory={selectedBatchCategory}
                 onJobCreated={handleBatchJobCreated}
                 onCancel={() => onProofApprovalFlowChange('choosing_allocation')}
