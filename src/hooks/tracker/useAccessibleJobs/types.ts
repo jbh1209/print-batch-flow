@@ -1,4 +1,5 @@
 
+
 export interface AccessibleJob {
   job_id: string;
   id: string;
@@ -7,10 +8,10 @@ export interface AccessibleJob {
   status: string;
   due_date: string;
   reference: string;
-  category_id: string;
+  category_id?: string;
   category_name: string;
   category_color: string; 
-  current_stage_id: string;
+  current_stage_id?: string;
   current_stage_name: string;
   current_stage_color: string;
   current_stage_status: string;
@@ -38,3 +39,4 @@ export interface UseAccessibleJobsOptions {
   statusFilter?: string | null;
   stageFilter?: string | null;
 }
+

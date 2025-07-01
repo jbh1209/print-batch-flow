@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -112,7 +111,6 @@ export const MultiStageKanban = () => {
           wo_no: job.wo_no,
           customer: job.customer,
           due_date: job.due_date,
-          reference: job.reference,
           qty: job.qty,
           status: job.status
         },

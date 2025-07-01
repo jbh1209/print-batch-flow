@@ -1,46 +1,10 @@
 
+
 import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-
-export interface AccessibleJob {
-  job_id: string;
-  id: string;
-  wo_no: string;
-  customer: string;
-  status: string;
-  due_date: string;
-  reference: string;
-  category_id?: string;
-  category_name: string;
-  category_color: string;
-  current_stage_id?: string;
-  current_stage_name: string;
-  current_stage_color: string;
-  current_stage_status: string;
-  display_stage_name: string;
-  user_can_view: boolean;
-  user_can_edit: boolean;
-  user_can_work: boolean;
-  user_can_manage: boolean;
-  workflow_progress: number;
-  total_stages: number;
-  completed_stages: number;
-  qty: number;
-  started_by?: string;
-  started_by_name: string;
-  proof_emailed_at: string;
-  batch_category?: string;
-  is_in_batch_processing: boolean;
-  has_custom_workflow: boolean;
-  manual_due_date?: string | null;
-}
-
-interface UseAccessibleJobsOptions {
-  permissionType?: 'work' | 'manage' | 'view';
-  statusFilter?: string | null;
-}
+import type { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
 
 export const useAccessibleJobs = ({ 
   permissionType = 'work', 
@@ -110,10 +74,10 @@ export const useAccessibleJobs = ({
         status: job.status || 'Unknown',
         due_date: job.due_date || '',
         reference: job.reference || '',
-        category_id: job.category_id,
+        category_id: job.category_id || undefined,
         category_name: job.category_name || 'No Category',
         category_color: job.category_color || '#6B7280',
-        current_stage_id: job.current_stage_id,
+        current_stage_id: job.current_stage_id || undefined,
         current_stage_name: job.current_stage_name || 'No Stage',
         current_stage_color: stageColor,
         current_stage_status: job.current_stage_status || 'pending',
@@ -126,11 +90,11 @@ export const useAccessibleJobs = ({
         total_stages: job.total_stages || 0,
         completed_stages: job.completed_stages || 0,
         qty: job.qty || 0,
-        started_by: job.started_by,
-        started_by_name: job.started_by_name || 'Unknown',
-        proof_emailed_at: job.proof_emailed_at || '',
+        started_by: job.started_by || null,
+        started_by_name: job.started_by_name || null,
+        proof_emailed_at: job.proof_emailed_at || null,
         // Add batch-related fields
-        batch_category: job.batch_category,
+        batch_category: job.batch_category || null,
         is_in_batch_processing: job.status === 'In Batch Processing',
         has_custom_workflow: job.has_custom_workflow || false,
         manual_due_date: job.manual_due_date || null
@@ -224,3 +188,7 @@ export const useAccessibleJobs = ({
     invalidateCache
   };
 };
+
+// Re-export types for compatibility
+export type { AccessibleJob } from "./useAccessibleJobs/types";
+
