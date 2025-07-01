@@ -25,6 +25,20 @@ import TrackerDTPWorkflow from "@/pages/tracker/TrackerDTPWorkflow";
 import FactoryFloor from "@/pages/tracker/FactoryFloor";
 import MobileFactory from "@/pages/tracker/MobileFactory";
 
+// BatchFlow imports
+import BatchFlowHome from "@/pages/BatchFlowHome";
+import AllBatches from "@/pages/AllBatches";
+import BusinessCardBatches from "@/pages/BusinessCardBatches";
+import BusinessCardBatchDetails from "@/pages/BusinessCardBatchDetails";
+import FlyerBatches from "@/pages/FlyerBatches";
+import FlyerBatchDetails from "@/pages/FlyerBatchDetails";
+import PostcardBatchDetails from "@/pages/PostcardBatchDetails";
+import BoxBatchDetails from "@/pages/BoxBatchDetails";
+import SleeveBatchDetails from "@/pages/SleeveBatchDetails";
+import CoverBatchDetails from "@/pages/CoverBatchDetails";
+import PosterBatchDetails from "@/pages/PosterBatchDetails";
+import StickerBatchDetails from "@/pages/StickerBatchDetails";
+
 import "./App.css";
 
 const queryClient = new QueryClient();
@@ -48,6 +62,68 @@ function App() {
                 <Route path="/users" element={
                   <ProtectedRoute>
                     <Users />
+                  </ProtectedRoute>
+                } />
+                
+                {/* BatchFlow routes */}
+                <Route path="/batchflow" element={
+                  <ProtectedRoute>
+                    <BatchFlowHome />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches" element={
+                  <ProtectedRoute>
+                    <AllBatches />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/business-cards" element={
+                  <ProtectedRoute>
+                    <BusinessCardBatches />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/business-cards/batches/:batchId" element={
+                  <ProtectedRoute>
+                    <BusinessCardBatchDetails />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/flyers" element={
+                  <ProtectedRoute>
+                    <FlyerBatches />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/flyers/batches/:batchId" element={
+                  <ProtectedRoute>
+                    <FlyerBatchDetails />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/postcards/batches/:batchId" element={
+                  <ProtectedRoute>
+                    <PostcardBatchDetails />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/boxes/batches/:batchId" element={
+                  <ProtectedRoute>
+                    <BoxBatchDetails />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/sleeves/batches/:batchId" element={
+                  <ProtectedRoute>
+                    <SleeveBatchDetails />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/covers/batches/:batchId" element={
+                  <ProtectedRoute>
+                    <CoverBatchDetails />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/posters/batches/:batchId" element={
+                  <ProtectedRoute>
+                    <PosterBatchDetails />
+                  </ProtectedRoute>
+                } />
+                <Route path="/batchflow/batches/stickers/batches/:batchId" element={
+                  <ProtectedRoute>
+                    <StickerBatchDetails />
                   </ProtectedRoute>
                 } />
                 
