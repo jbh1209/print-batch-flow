@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -9,9 +10,6 @@ import RoleAwareLayout from "@/components/tracker/RoleAwareLayout";
 import Auth from "@/pages/Auth";
 import BusinessCardJobs from "@/pages/BusinessCardJobs";
 import Users from "@/pages/Users";
-import Upload from "@/pages/Upload";
-import Labels from "@/pages/Labels";
-import Mobile from "@/pages/Mobile";
 
 import "./App.css";
 
@@ -44,21 +42,6 @@ function App() {
                 <Route path="/users" element={
                   <ProtectedRoute>
                     <Users />
-                  </ProtectedRoute>
-                } />
-                <Route path="/upload" element={
-                  <ProtectedRoute>
-                    <Upload />
-                  </ProtectedRoute>
-                } />
-                 <Route path="/labels" element={
-                  <ProtectedRoute>
-                    <Labels />
-                  </ProtectedRoute>
-                } />
-                 <Route path="/mobile" element={
-                  <ProtectedRoute>
-                    <Mobile />
                   </ProtectedRoute>
                 } />
               </Routes>
