@@ -89,8 +89,8 @@ export function useFlyerBatches(batchId: string | null = null) {
   };
 
   const handleViewBatchDetails = (batchId: string) => {
-    // Update to use path parameter instead of query parameter
-    navigate(`/batches/flyers/batches/${batchId}`);
+    // Updated to use the correct batchflow prefix
+    navigate(`/batchflow/batches/flyers/batches/${batchId}`);
   };
   
   const handleDeleteBatch = async () => {

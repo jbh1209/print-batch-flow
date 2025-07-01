@@ -87,14 +87,14 @@ export const useBatchesList = () => {
   const getProductUrl = (productType: string) => {
     // Convert product type to URL format and use proper batchflow prefix
     switch(productType) {
-      case "Business Cards": return "/batchflow/batches/business-cards/batches";
-      case "Flyers": return "/batchflow/batches/flyers/batches";
-      case "Postcards": return "/batchflow/batches/postcards/batches";
-      case "Boxes": return "/batchflow/batches/boxes/batches";
-      case "Stickers": return "/batchflow/batches/stickers/batches";
-      case "Covers": return "/batchflow/batches/covers/batches";
-      case "Posters": return "/batchflow/batches/posters/batches";
-      case "Sleeves": return "/batchflow/batches/sleeves/batches";
+      case "Business Cards": return "/batchflow/batches/business-cards";
+      case "Flyers": return "/batchflow/batches/flyers";
+      case "Postcards": return "/batchflow/batches/postcards";
+      case "Boxes": return "/batchflow/batches/boxes";
+      case "Stickers": return "/batchflow/batches/stickers";
+      case "Covers": return "/batchflow/batches/covers";
+      case "Posters": return "/batchflow/batches/posters";
+      case "Sleeves": return "/batchflow/batches/sleeves";
       default: return "/batchflow/batches";
     }
   };
@@ -106,10 +106,10 @@ export const useBatchesList = () => {
       return `/batchflow/batches`;
     }
     
-    console.log(`Generating batch URL: ${productPath}/${batch.id} for product type: ${batch.product_type}`);
+    console.log(`Generating batch URL: ${productPath}/batches/${batch.id} for product type: ${batch.product_type}`);
     
     // Use the direct path pattern for all batch types with batchflow prefix
-    return `${productPath}/${batch.id}`;
+    return `${productPath}/batches/${batch.id}`;
   };
 
   return {

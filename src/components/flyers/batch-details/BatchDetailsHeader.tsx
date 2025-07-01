@@ -13,7 +13,7 @@ const BatchDetailsHeader = ({ batchName, onDeleteClick }: BatchDetailsHeaderProp
   
   const handleBackClick = () => {
     try {
-      navigate("/batchflow/batches/flyers/batches");
+      navigate("/batchflow/batches/flyers");
     } catch (error) {
       console.error('Navigation error:', error);
       // Fallback navigation

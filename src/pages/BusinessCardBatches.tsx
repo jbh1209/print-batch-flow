@@ -61,7 +61,7 @@ const BusinessCardBatches = () => {
       <BatchDetails 
         batchId={batchId} 
         productType="Business Cards" 
-        backUrl="/batches/business-cards/batches" 
+        backUrl="/batchflow/batches/business-cards" 
       />
     );
   }
