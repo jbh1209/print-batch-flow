@@ -112,7 +112,8 @@ export const MultiStageKanban = () => {
           customer: job.customer,
           due_date: job.due_date,
           qty: job.qty,
-          status: job.status
+          status: job.status,
+          reference: job.reference
         },
         production_stage: {
           id: 'virtual-batch-processing',

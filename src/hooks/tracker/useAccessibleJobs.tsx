@@ -1,3 +1,4 @@
+
 import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,7 +16,8 @@ export const useAccessibleJobs = ({
     data: rawJobs = [],
     isLoading,
     error,
-    refetch
+    refetch,
+    dataUpdatedAt
   } = useQuery({
     queryKey: ['accessible-jobs', user?.id, permissionType, statusFilter],
     queryFn: async () => {
@@ -72,10 +74,10 @@ export const useAccessibleJobs = ({
         status: job.status || 'Unknown',
         due_date: job.due_date || '',
         reference: job.reference || '',
-        category_id: job.category_id || undefined,
+        category_id: job.category_id || '',
         category_name: job.category_name || 'No Category',
         category_color: job.category_color || '#6B7280',
-        current_stage_id: job.current_stage_id || undefined,
+        current_stage_id: job.current_stage_id || '',
         current_stage_name: job.current_stage_name || 'No Stage',
         current_stage_color: stageColor,
         current_stage_status: job.current_stage_status || 'pending',
@@ -183,7 +185,10 @@ export const useAccessibleJobs = ({
     startJob,
     completeJob,
     refreshJobs,
-    invalidateCache
+    invalidateCache,
+    hasOptimisticUpdates: false,
+    hasPendingUpdates: () => false,
+    lastFetchTime: dataUpdatedAt
   };
 };
 

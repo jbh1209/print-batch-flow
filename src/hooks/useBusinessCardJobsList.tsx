@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
 import { useJobFilters } from "./business-cards/useJobFilters";
 import { useJobSelection } from "./business-cards/useJobSelection";
 import { useBatchCleanup } from "./business-cards/useBatchCleanup";
@@ -111,7 +112,7 @@ export const useBusinessCardJobsList = () => {
         job_number: job.job_number,
         updated_at: job.updated_at,
         user_id: job.user_id,
-        lamination_type: job.lamination_type || 'none' as const // Ensure lamination_type is included
+        lamination_type: (job as any).lamination_type || 'none' as const // Ensure lamination_type is included with safe fallback
       }));
 
       setJobs(jobsWithDefaults);

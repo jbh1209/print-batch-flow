@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom"; 
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import StatusFilterTabs from "@/components/business-cards/StatusFilterTabs";
@@ -116,14 +115,14 @@ const BusinessCardJobs = () => {
       
       <div className="bg-white rounded-lg border shadow mb-8">
         <StatusFilterTabs 
-          filterView={filterView} 
+          filterView={filterView as any} 
           filterCounts={filterCounts} 
-          setFilterView={setFilterView} 
+          setFilterView={setFilterView as any} 
         />
         
         <FilterBar 
-          laminationFilter={laminationFilter}
-          setLaminationFilter={setLaminationFilter}
+          laminationFilter={laminationFilter as any}
+          setLaminationFilter={setLaminationFilter as any}
           selectedJobs={getSelectedJobObjects(jobs)}
           allAvailableJobs={jobs}
           onBatchComplete={handleBatchComplete}
