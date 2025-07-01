@@ -15,6 +15,7 @@ import { JobNotesCard } from "./JobNotesCard";
 import { getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
 import { DtpJobActions } from "./dtp/DtpJobActions";
 import { useDtpJobModal } from "./dtp/useDtpJobModal";
+import { ConditionalStageRenderer } from "./ConditionalStageRenderer";
 
 interface DtpJobModalProps {
   job: AccessibleJob;
@@ -100,6 +101,20 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           <CurrentStageCard job={{...job, status: localJobStatus, current_stage_status: localStageStatus}} statusInfo={statusBadgeInfo} />
           <JobNotesCard notes={notes} onNotesChange={setNotes} />
         </div>
+
+        {/* Conditional Stage Renderer - shows for batch allocation and other conditional stages */}
+        {job.current_stage_name === 'Batch Allocation' && (
+          <div className="border-t pt-4">
+            <ConditionalStageRenderer
+              job={job}
+              onStageComplete={() => {
+                handleModalDataRefresh();
+                onRefresh?.();
+              }}
+              onCancel={onClose}
+            />
+          </div>
+        )}
 
         <div className="border-t pt-4">
           <h4 className="font-medium mb-3">Job Actions</h4>
