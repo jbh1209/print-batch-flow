@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useFlyerJobs } from "@/hooks/useFlyerJobs";
 import { useNavigate } from "react-router-dom";
@@ -134,8 +133,17 @@ export const FlyerJobsTable = () => {
 
       {/* Selection controls with direct batch creation */}
       <div className="flex justify-between items-center p-4 border-b">
-        <div className="text-sm text-muted-foreground">
-          {selectedJobs.length} of {selectableJobsCount} jobs selected
+        <div className="flex items-center space-x-4">
+          <div className="text-sm text-muted-foreground">
+            {selectedJobs.length} of {selectableJobsCount} jobs selected
+          </div>
+          <Button 
+            onClick={() => navigate("/batchflow/batches/flyers/jobs/new")}
+            variant="outline"
+            size="sm"
+          >
+            Create New Job
+          </Button>
         </div>
         <Button 
           onClick={handleCreateBatch} 

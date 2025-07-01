@@ -48,6 +48,29 @@ import Covers from "@/pages/Covers";
 import Posters from "@/pages/Posters";
 import Settings from "@/pages/Settings";
 
+// Job page imports for all product types
+import FlyerJobsPage from "@/pages/generic/FlyerJobsPage";
+import FlyerJobNewPage from "@/pages/generic/FlyerJobNewPage";
+import FlyerJobEditPage from "@/pages/generic/FlyerJobEditPage";
+import PostcardJobsPage from "@/pages/generic/PostcardJobsPage";
+import PostcardJobNewPage from "@/pages/generic/PostcardJobNewPage";
+import PostcardJobEditPage from "@/pages/generic/PostcardJobEditPage";
+import BoxJobsPage from "@/pages/generic/BoxJobsPage";
+import BoxJobNewPage from "@/pages/generic/BoxJobNewPage";
+import BoxJobEditPage from "@/pages/generic/BoxJobEditPage";
+import SleeveJobsPage from "@/pages/generic/SleeveJobsPage";
+import SleeveJobNewPage from "@/pages/generic/SleeveJobNewPage";
+import SleeveJobEditPage from "@/pages/generic/SleeveJobEditPage";
+import StickerJobsPage from "@/pages/generic/StickerJobsPage";
+import StickerJobNewPage from "@/pages/generic/StickerJobNewPage";
+import StickerJobEditPage from "@/pages/generic/StickerJobEditPage";
+import CoverJobsPage from "@/pages/generic/CoverJobsPage";
+import CoverJobNewPage from "@/pages/generic/CoverJobNewPage";
+import CoverJobEditPage from "@/pages/generic/CoverJobEditPage";
+import PosterJobsPage from "@/pages/generic/PosterJobsPage";
+import PosterJobNewPage from "@/pages/generic/PosterJobNewPage";
+import PosterJobEditPage from "@/pages/generic/PosterJobEditPage";
+
 import "./App.css";
 
 const queryClient = new QueryClient();
@@ -83,22 +106,61 @@ function App() {
                   <Route index element={<BatchFlowHome />} />
                   <Route path="all-jobs" element={<AllJobsPage />} />
                   <Route path="batches" element={<AllBatches />} />
+                  
+                  {/* Business Cards routes */}
                   <Route path="batches/business-cards" element={<BusinessCardBatches />} />
                   <Route path="batches/business-cards/batches/:batchId" element={<BusinessCardBatchDetails />} />
+                  <Route path="batches/business-cards/jobs" element={<BusinessCardJobs />} />
+                  
+                  {/* Flyers routes */}
                   <Route path="batches/flyers" element={<FlyerBatches />} />
                   <Route path="batches/flyers/batches/:batchId" element={<FlyerBatchDetails />} />
+                  <Route path="batches/flyers/jobs" element={<FlyerJobsPage />} />
+                  <Route path="batches/flyers/jobs/new" element={<FlyerJobNewPage />} />
+                  <Route path="batches/flyers/jobs/:id/edit" element={<FlyerJobEditPage />} />
+                  
+                  {/* Postcards routes */}
                   <Route path="batches/postcards" element={<Postcards />} />
                   <Route path="batches/postcards/batches/:batchId" element={<PostcardBatchDetails />} />
+                  <Route path="batches/postcards/jobs" element={<PostcardJobsPage />} />
+                  <Route path="batches/postcards/jobs/new" element={<PostcardJobNewPage />} />
+                  <Route path="batches/postcards/jobs/:id/edit" element={<PostcardJobEditPage />} />
+                  
+                  {/* Sleeves routes */}
                   <Route path="batches/sleeves" element={<Sleeves />} />
                   <Route path="batches/sleeves/batches/:batchId" element={<SleeveBatchDetails />} />
+                  <Route path="batches/sleeves/jobs" element={<SleeveJobsPage />} />
+                  <Route path="batches/sleeves/jobs/new" element={<SleeveJobNewPage />} />
+                  <Route path="batches/sleeves/jobs/:id/edit" element={<SleeveJobEditPage />} />
+                  
+                  {/* Boxes routes */}
                   <Route path="batches/boxes" element={<Boxes />} />
                   <Route path="batches/boxes/batches/:batchId" element={<BoxBatchDetails />} />
+                  <Route path="batches/boxes/jobs" element={<BoxJobsPage />} />
+                  <Route path="batches/boxes/jobs/new" element={<BoxJobNewPage />} />
+                  <Route path="batches/boxes/jobs/:id/edit" element={<BoxJobEditPage />} />
+                  
+                  {/* Stickers routes */}
                   <Route path="batches/stickers" element={<Stickers />} />
                   <Route path="batches/stickers/batches/:batchId" element={<StickerBatchDetails />} />
+                  <Route path="batches/stickers/jobs" element={<StickerJobsPage />} />
+                  <Route path="batches/stickers/jobs/new" element={<StickerJobNewPage />} />
+                  <Route path="batches/stickers/jobs/:id/edit" element={<StickerJobEditPage />} />
+                  
+                  {/* Covers routes */}
                   <Route path="batches/covers" element={<Covers />} />
                   <Route path="batches/covers/batches/:batchId" element={<CoverBatchDetails />} />
+                  <Route path="batches/covers/jobs" element={<CoverJobsPage />} />
+                  <Route path="batches/covers/jobs/new" element={<CoverJobNewPage />} />
+                  <Route path="batches/covers/jobs/:id/edit" element={<CoverJobEditPage />} />
+                  
+                  {/* Posters routes */}
                   <Route path="batches/posters" element={<Posters />} />
                   <Route path="batches/posters/batches/:batchId" element={<PosterBatchDetails />} />
+                  <Route path="batches/posters/jobs" element={<PosterJobsPage />} />
+                  <Route path="batches/posters/jobs/new" element={<PosterJobNewPage />} />
+                  <Route path="batches/posters/jobs/:id/edit" element={<PosterJobEditPage />} />
+                  
                   <Route path="users" element={<Users />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>
