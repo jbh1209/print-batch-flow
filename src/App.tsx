@@ -26,6 +26,7 @@ import FactoryFloor from "@/pages/tracker/FactoryFloor";
 import MobileFactory from "@/pages/tracker/MobileFactory";
 
 // BatchFlow imports
+import BatchFlowLayout from "@/components/BatchFlowLayout";
 import BatchFlowHome from "@/pages/BatchFlowHome";
 import AllBatches from "@/pages/AllBatches";
 import BusinessCardBatches from "@/pages/BusinessCardBatches";
@@ -65,67 +66,25 @@ function App() {
                   </ProtectedRoute>
                 } />
                 
-                {/* BatchFlow routes */}
+                {/* BatchFlow routes with nested layout */}
                 <Route path="/batchflow" element={
                   <ProtectedRoute>
-                    <BatchFlowHome />
+                    <BatchFlowLayout />
                   </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches" element={
-                  <ProtectedRoute>
-                    <AllBatches />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/business-cards" element={
-                  <ProtectedRoute>
-                    <BusinessCardBatches />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/business-cards/batches/:batchId" element={
-                  <ProtectedRoute>
-                    <BusinessCardBatchDetails />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/flyers" element={
-                  <ProtectedRoute>
-                    <FlyerBatches />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/flyers/batches/:batchId" element={
-                  <ProtectedRoute>
-                    <FlyerBatchDetails />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/postcards/batches/:batchId" element={
-                  <ProtectedRoute>
-                    <PostcardBatchDetails />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/boxes/batches/:batchId" element={
-                  <ProtectedRoute>
-                    <BoxBatchDetails />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/sleeves/batches/:batchId" element={
-                  <ProtectedRoute>
-                    <SleeveBatchDetails />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/covers/batches/:batchId" element={
-                  <ProtectedRoute>
-                    <CoverBatchDetails />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/posters/batches/:batchId" element={
-                  <ProtectedRoute>
-                    <PosterBatchDetails />
-                  </ProtectedRoute>
-                } />
-                <Route path="/batchflow/batches/stickers/batches/:batchId" element={
-                  <ProtectedRoute>
-                    <StickerBatchDetails />
-                  </ProtectedRoute>
-                } />
+                }>
+                  <Route index element={<BatchFlowHome />} />
+                  <Route path="batches" element={<AllBatches />} />
+                  <Route path="batches/business-cards" element={<BusinessCardBatches />} />
+                  <Route path="batches/business-cards/batches/:batchId" element={<BusinessCardBatchDetails />} />
+                  <Route path="batches/flyers" element={<FlyerBatches />} />
+                  <Route path="batches/flyers/batches/:batchId" element={<FlyerBatchDetails />} />
+                  <Route path="batches/postcards/batches/:batchId" element={<PostcardBatchDetails />} />
+                  <Route path="batches/boxes/batches/:batchId" element={<BoxBatchDetails />} />
+                  <Route path="batches/sleeves/batches/:batchId" element={<SleeveBatchDetails />} />
+                  <Route path="batches/covers/batches/:batchId" element={<CoverBatchDetails />} />
+                  <Route path="batches/posters/batches/:batchId" element={<PosterBatchDetails />} />
+                  <Route path="batches/stickers/batches/:batchId" element={<StickerBatchDetails />} />
+                </Route>
                 
                 {/* Tracker routes with proper role-based layout */}
                 <Route path="/tracker" element={
