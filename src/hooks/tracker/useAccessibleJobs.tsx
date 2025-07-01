@@ -1,3 +1,4 @@
+
 import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +33,8 @@ export interface AccessibleJob {
   proof_emailed_at: string;
   batch_category?: string;
   is_in_batch_processing: boolean;
+  has_custom_workflow: boolean;
+  manual_due_date?: string | null;
 }
 
 interface UseAccessibleJobsOptions {
@@ -128,7 +131,9 @@ export const useAccessibleJobs = ({
         proof_emailed_at: job.proof_emailed_at || '',
         // Add batch-related fields
         batch_category: job.batch_category,
-        is_in_batch_processing: job.status === 'In Batch Processing'
+        is_in_batch_processing: job.status === 'In Batch Processing',
+        has_custom_workflow: job.has_custom_workflow || false,
+        manual_due_date: job.manual_due_date || null
       };
     });
   }, [rawJobs]);
@@ -165,7 +170,7 @@ export const useAccessibleJobs = ({
       console.error('❌ Error starting job:', error);
       return false;
     }
-  }, [jobs, user?.id, refreshJobs]);
+  }, [jobs, user?.id]);
 
   const completeJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
@@ -195,7 +200,7 @@ export const useAccessibleJobs = ({
       console.error('❌ Error completing job:', error);
       return false;
     }
-  }, [jobs, user?.id, refreshJobs]);
+  }, [jobs, user?.id]);
 
   const refreshJobs = useCallback(() => {
     console.log('🔄 Refreshing accessible jobs...');

@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -76,7 +77,12 @@ export const MultiStageKanban = () => {
         order_index: 999, // Place at end
         description: 'Jobs currently being processed in BatchFlow',
         is_active: true,
-        is_virtual: true
+        is_virtual: true,
+        is_multi_part: false,
+        part_definitions: [],
+        master_queue_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       
       baseStages.push(virtualBatchStage);
@@ -106,9 +112,9 @@ export const MultiStageKanban = () => {
           wo_no: job.wo_no,
           customer: job.customer,
           due_date: job.due_date,
-          status: job.status,
           reference: job.reference,
-          qty: job.qty
+          qty: job.qty,
+          status: job.status
         },
         production_stage: {
           id: 'virtual-batch-processing',

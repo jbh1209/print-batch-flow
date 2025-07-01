@@ -1,6 +1,7 @@
 
 export interface AccessibleJob {
   job_id: string;
+  id: string;
   wo_no: string;
   customer: string;
   status: string;
@@ -25,6 +26,7 @@ export interface AccessibleJob {
   has_custom_workflow: boolean;
   manual_due_date?: string | null;
   batch_category?: string | null;
+  is_in_batch_processing: boolean;
   // Additional fields for enhanced compatibility
   started_by?: string | null;
   started_by_name?: string | null;

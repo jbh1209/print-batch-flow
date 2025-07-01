@@ -33,12 +33,15 @@ export const ProductionManagerView = () => {
   const [showBarcodeLabels, setShowBarcodeLabels] = useState(false);
   const [selectedJobsForBarcodes, setSelectedJobsForBarcodes] = useState<AccessibleJob[]>([]);
 
-  // Map job data structure to ensure consistent ID property for UI components
+  // Normalize jobs to ensure consistent structure
   const normalizedJobs = React.useMemo(() => {
     return jobs.map(job => ({
       ...job,
-      // Ensure job has 'id' property for UI components (map from job_id)
-      id: job.job_id
+      // Ensure all required fields are present
+      id: job.job_id,
+      has_custom_workflow: job.has_custom_workflow || false,
+      manual_due_date: job.manual_due_date || null,
+      is_in_batch_processing: job.is_in_batch_processing || false
     }));
   }, [jobs]);
 
