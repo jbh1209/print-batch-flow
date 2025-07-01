@@ -397,10 +397,12 @@ export type Database = {
           created_at: string
           estimated_duration_hours: number | null
           id: string
+          is_conditional: boolean | null
           is_required: boolean
           part_mapping: Json | null
           part_rule_type: string | null
           production_stage_id: string
+          skip_when_inactive: boolean | null
           stage_order: number
           updated_at: string
         }
@@ -410,10 +412,12 @@ export type Database = {
           created_at?: string
           estimated_duration_hours?: number | null
           id?: string
+          is_conditional?: boolean | null
           is_required?: boolean
           part_mapping?: Json | null
           part_rule_type?: string | null
           production_stage_id: string
+          skip_when_inactive?: boolean | null
           stage_order: number
           updated_at?: string
         }
@@ -423,10 +427,12 @@ export type Database = {
           created_at?: string
           estimated_duration_hours?: number | null
           id?: string
+          is_conditional?: boolean | null
           is_required?: boolean
           part_mapping?: Json | null
           part_rule_type?: string | null
           production_stage_id?: string
+          skip_when_inactive?: boolean | null
           stage_order?: number
           updated_at?: string
         }
@@ -1379,6 +1385,8 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_batch_stage: boolean | null
+          is_conditional: boolean | null
           is_multi_part: boolean
           master_queue_id: string | null
           name: string
@@ -1392,6 +1400,8 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_batch_stage?: boolean | null
+          is_conditional?: boolean | null
           is_multi_part?: boolean
           master_queue_id?: string | null
           name: string
@@ -1405,6 +1415,8 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_batch_stage?: boolean | null
+          is_conditional?: boolean | null
           is_multi_part?: boolean
           master_queue_id?: string | null
           name?: string
