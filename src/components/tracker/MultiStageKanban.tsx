@@ -97,13 +97,14 @@ export const MultiStageKanban = () => {
     // Add virtual job stage instances for batch processing jobs
     const batchJobs = activeJobs.filter(job => job.status === 'In Batch Processing');
     
-    batchJobs.forEach(job => {
+    batchJobs.forEach((job, index) => {
       baseJobStages.push({
         id: `virtual-batch-${job.job_id}`,
         job_id: job.job_id,
         job_table_name: 'production_jobs',
         production_stage_id: 'virtual-batch-processing',
         stage_order: 999,
+        job_order_in_stage: index + 1, // Add the missing required property
         status: 'active',
         started_at: new Date().toISOString(),
         production_job: {
