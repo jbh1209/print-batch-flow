@@ -29,6 +29,7 @@ import MobileFactory from "@/pages/tracker/MobileFactory";
 import BatchFlowLayout from "@/components/BatchFlowLayout";
 import BatchFlowHome from "@/pages/BatchFlowHome";
 import AllBatches from "@/pages/AllBatches";
+import AllJobsPage from "@/pages/AllJobsPage";
 import BusinessCardBatches from "@/pages/BusinessCardBatches";
 import BusinessCardBatchDetails from "@/pages/BusinessCardBatchDetails";
 import FlyerBatches from "@/pages/FlyerBatches";
@@ -39,6 +40,13 @@ import SleeveBatchDetails from "@/pages/SleeveBatchDetails";
 import CoverBatchDetails from "@/pages/CoverBatchDetails";
 import PosterBatchDetails from "@/pages/PosterBatchDetails";
 import StickerBatchDetails from "@/pages/StickerBatchDetails";
+import Postcards from "@/pages/Postcards";
+import Sleeves from "@/pages/Sleeves";
+import Boxes from "@/pages/Boxes";
+import Stickers from "@/pages/Stickers";
+import Covers from "@/pages/Covers";
+import Posters from "@/pages/Posters";
+import Settings from "@/pages/Settings";
 
 import "./App.css";
 
@@ -73,17 +81,26 @@ function App() {
                   </ProtectedRoute>
                 }>
                   <Route index element={<BatchFlowHome />} />
+                  <Route path="all-jobs" element={<AllJobsPage />} />
                   <Route path="batches" element={<AllBatches />} />
                   <Route path="batches/business-cards" element={<BusinessCardBatches />} />
                   <Route path="batches/business-cards/batches/:batchId" element={<BusinessCardBatchDetails />} />
                   <Route path="batches/flyers" element={<FlyerBatches />} />
                   <Route path="batches/flyers/batches/:batchId" element={<FlyerBatchDetails />} />
+                  <Route path="batches/postcards" element={<Postcards />} />
                   <Route path="batches/postcards/batches/:batchId" element={<PostcardBatchDetails />} />
-                  <Route path="batches/boxes/batches/:batchId" element={<BoxBatchDetails />} />
+                  <Route path="batches/sleeves" element={<Sleeves />} />
                   <Route path="batches/sleeves/batches/:batchId" element={<SleeveBatchDetails />} />
-                  <Route path="batches/covers/batches/:batchId" element={<CoverBatchDetails />} />
-                  <Route path="batches/posters/batches/:batchId" element={<PosterBatchDetails />} />
+                  <Route path="batches/boxes" element={<Boxes />} />
+                  <Route path="batches/boxes/batches/:batchId" element={<BoxBatchDetails />} />
+                  <Route path="batches/stickers" element={<Stickers />} />
                   <Route path="batches/stickers/batches/:batchId" element={<StickerBatchDetails />} />
+                  <Route path="batches/covers" element={<Covers />} />
+                  <Route path="batches/covers/batches/:batchId" element={<CoverBatchDetails />} />
+                  <Route path="batches/posters" element={<Posters />} />
+                  <Route path="batches/posters/batches/:batchId" element={<PosterBatchDetails />} />
+                  <Route path="users" element={<Users />} />
+                  <Route path="settings" element={<Settings />} />
                 </Route>
                 
                 {/* Tracker routes with proper role-based layout */}
