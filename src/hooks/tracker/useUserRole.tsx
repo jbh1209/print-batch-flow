@@ -41,7 +41,7 @@ export interface UserRoleResponse {
  * @returns UserRoleResponse object containing role information
  */
 export const useUserRole = (): UserRoleResponse => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [userRole, setUserRole] = useState<UserRole>('user');
   const [isLoading, setIsLoading] = useState(true);
   const [accessibleStages, setAccessibleStages] = useState<Array<{
@@ -56,16 +56,35 @@ export const useUserRole = (): UserRoleResponse => {
 
   useEffect(() => {
     const determineUserRole = async () => {
-      if (!user?.id) return;
+      // Wait for auth to complete first
+      if (authLoading) {
+        console.log('🔄 Auth still loading, waiting...');
+        return;
+      }
+
+      if (!user?.id) {
+        console.log('🔄 No user found, setting default role');
+        setUserRole('user');
+        setIsLoading(false);
+        return;
+      }
 
       try {
+        setIsLoading(true);
+        console.log('🔄 Determining role for user:', user.id);
+
         // Check for admin role first - this takes precedence over all other roles
-        const { data: userRoles, error } = await supabase
+        const { data: userRoles, error: roleError } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id);
 
-        if (error) throw error;
+        if (roleError) {
+          console.warn('⚠️ Error fetching user roles, defaulting to user role:', roleError);
+          setUserRole('user');
+          setIsLoading(false);
+          return;
+        }
 
         const hasAdminRole = userRoles?.some(r => r.role === 'admin');
         if (hasAdminRole) {
@@ -84,14 +103,22 @@ export const useUserRole = (): UserRoleResponse => {
           `)
           .eq('user_id', user.id);
 
-        if (groupError) throw groupError;
+        if (groupError) {
+          console.warn('⚠️ Error fetching group memberships, defaulting to user role:', groupError);
+          setUserRole('user');
+          setIsLoading(false);
+          return;
+        }
 
         // Get their ACTUAL group-based permissions (not admin overrides)
         const { data: actualStages, error: stagesError } = await supabase.rpc('get_user_accessible_stages', {
           p_user_id: user.id
         });
 
-        if (stagesError) throw stagesError;
+        if (stagesError) {
+          console.warn('⚠️ Error fetching accessible stages:', stagesError);
+          // Continue with group-based role detection even if stages fail
+        }
 
         const normalizedStages = (actualStages || []).map((stage: any) => ({
           stage_id: stage.stage_id,
@@ -105,7 +132,7 @@ export const useUserRole = (): UserRoleResponse => {
 
         setAccessibleStages(normalizedStages);
 
-        // Enhanced role detection logic
+        // Enhanced role detection logic with fallbacks
         const groupNames = groupMemberships?.map(m => m.user_groups?.name?.toLowerCase() || '') || [];
         const groupDescriptions = groupMemberships?.map(m => m.user_groups?.description?.toLowerCase() || '') || [];
         
@@ -170,7 +197,7 @@ export const useUserRole = (): UserRoleResponse => {
           stageNames: workableStages.map(s => s.stage_name)
         });
 
-        // Role determination with enhanced logic
+        // Role determination with enhanced logic and fallbacks
         if (dtpRelatedStages.length > 0 && (dtpRelatedStages.length >= printingRelatedStages.length || groupNames.includes('dtp'))) {
           console.log('🔑 User determined as dtp_operator');
           setUserRole('dtp_operator');
@@ -178,12 +205,13 @@ export const useUserRole = (): UserRoleResponse => {
           console.log('🔑 User determined as operator');
           setUserRole('operator');
         } else {
-          console.log('🔑 User determined as user');
+          console.log('🔑 User determined as user (default)');
           setUserRole('user');
         }
 
       } catch (error) {
-        console.error('Error determining user role:', error);
+        console.error('❌ Error determining user role:', error);
+        // Fallback to safe default
         setUserRole('user');
       } finally {
         setIsLoading(false);
@@ -191,7 +219,7 @@ export const useUserRole = (): UserRoleResponse => {
     };
 
     determineUserRole();
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
   // Derived properties for convenient access
   const isAdmin = userRole === 'admin';
@@ -202,7 +230,7 @@ export const useUserRole = (): UserRoleResponse => {
 
   return {
     userRole,
-    isLoading,
+    isLoading: authLoading || isLoading, // Include auth loading state
     isAdmin,
     isManager,
     isOperator,
