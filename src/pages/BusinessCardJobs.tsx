@@ -24,7 +24,6 @@ const BusinessCardJobs = () => {
     setLaminationFilter, 
     handleSelectJob, 
     handleSelectAllJobs,
-    handleJobDeleted,
     fetchJobs,
     getSelectedJobObjects,
     fixBatchedJobsWithoutBatch,
@@ -33,6 +32,28 @@ const BusinessCardJobs = () => {
 
   const handleBatchComplete = () => {
     fetchJobs();
+  };
+
+  const handleJobDeleted = async (jobId: string) => {
+    console.log("Handling job deletion:", jobId);
+    
+    try {
+      // Remove user_id filter to allow any user to delete any job
+      const { error } = await supabase
+        .from("business_card_jobs")
+        .delete()
+        .eq("id", jobId);
+
+      if (error) throw error;
+
+      sonnerToast.success("Job deleted successfully");
+      
+      // Refresh jobs list
+      await fetchJobs();
+    } catch (error) {
+      console.error("Error deleting job:", error);
+      sonnerToast.error("Failed to delete job. Please try again.");
+    }
   };
 
   const handleFixOrphanedJobs = async () => {
@@ -95,13 +116,13 @@ const BusinessCardJobs = () => {
       
       <div className="bg-white rounded-lg border shadow mb-8">
         <StatusFilterTabs 
-          filterView={filterView as "all" | "queued" | "batched" | "completed" | "cancelled"} 
+          filterView={filterView} 
           filterCounts={filterCounts} 
           setFilterView={setFilterView} 
         />
         
         <FilterBar 
-          laminationFilter={laminationFilter === 'all' ? null : laminationFilter}
+          laminationFilter={laminationFilter}
           setLaminationFilter={setLaminationFilter}
           selectedJobs={getSelectedJobObjects(jobs)}
           allAvailableJobs={jobs}
@@ -133,7 +154,7 @@ const BusinessCardJobs = () => {
           selectedJobs={selectedJobs}
           onSelectJob={handleSelectJob}
           onSelectAllJobs={(isSelected) => handleSelectAllJobs(isSelected, jobs)}
-          onJobDeleted={(jobId: string) => handleJobDeleted(jobId)}
+          onJobDeleted={handleJobDeleted}
         />
       </div>
     </div>

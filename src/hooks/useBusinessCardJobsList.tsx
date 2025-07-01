@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -112,7 +111,7 @@ export const useBusinessCardJobsList = () => {
         job_number: job.job_number,
         updated_at: job.updated_at,
         user_id: job.user_id,
-        lamination_type: 'none' as const // Default lamination type
+        lamination_type: job.lamination_type || 'none' as const // Ensure lamination_type is included
       }));
 
       setJobs(jobsWithDefaults);
@@ -173,26 +172,13 @@ export const useBusinessCardJobsList = () => {
 
       if (error) throw error;
 
-      // Update local state
-      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+      sonnerToast.success("Job deleted successfully");
       
-      // Clear selection if deleted job was selected
-      setSelectedJobs(prevSelected => prevSelected.filter(id => id !== jobId));
-
-      toast({
-        title: "Job deleted",
-        description: "The job has been successfully deleted.",
-      });
-
       // Refresh jobs list
-      await fetchJobs(false);
+      await fetchJobs();
     } catch (error) {
       console.error("Error deleting job:", error);
-      toast({
-        title: "Error deleting job",
-        description: "Failed to delete the job. Please try again.",
-        variant: "destructive",
-      });
+      sonnerToast.error("Failed to delete job. Please try again.");
     }
   };
 

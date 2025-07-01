@@ -57,15 +57,16 @@ export const processJobData = (rawJob: RawJobData, index: number = 0): Accessibl
 
   const processed: AccessibleJob = {
     job_id: rawJob.job_id || rawJob.id || '',
+    id: rawJob.job_id || rawJob.id || '', // Ensure id is present
     wo_no: rawJob.wo_no || `Job ${index + 1}`,
     customer: rawJob.customer || 'Unknown Customer',
     status: rawJob.status || 'Unknown',
     due_date: effectiveDueDate, // This is the key fix - always use effective due date
     reference: rawJob.reference || '',
-    category_id: rawJob.category_id || '',
+    category_id: rawJob.category_id || undefined,
     category_name: rawJob.category_name || '',
     category_color: rawJob.category_color || '#6B7280',
-    current_stage_id: rawJob.current_stage_id || '',
+    current_stage_id: rawJob.current_stage_id || undefined,
     current_stage_name: rawJob.current_stage_name || rawJob.current_stage || 'No Stage',
     current_stage_color: rawJob.current_stage_color || '#6B7280',
     current_stage_status: rawJob.current_stage_status || 'pending',
@@ -82,7 +83,9 @@ export const processJobData = (rawJob: RawJobData, index: number = 0): Accessibl
     manual_due_date: rawJob.manual_due_date || null,
     started_by: rawJob.started_by || null,
     started_by_name: rawJob.started_by_name || null,
-    proof_emailed_at: rawJob.proof_emailed_at || null
+    proof_emailed_at: rawJob.proof_emailed_at || null,
+    batch_category: null, // Will be set by batch processing logic
+    is_in_batch_processing: rawJob.status === 'In Batch Processing'
   };
 
   console.log(`✅ Processed job ${processed.wo_no}:`, {

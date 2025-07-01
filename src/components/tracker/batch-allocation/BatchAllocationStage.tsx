@@ -187,49 +187,15 @@ export const BatchAllocationStage: React.FC<BatchAllocationStageProps> = ({
             <CardTitle>Create {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Batch Job</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium">Work Order:</span> {job.wo_no}
-                </div>
-                <div>
-                  <span className="font-medium">Customer:</span> {job.customer}
-                </div>
-                <div>
-                  <span className="font-medium">Quantity:</span> {job.qty}
-                </div>
-                <div>
-                  <span className="font-medium">Due Date:</span> {job.due_date ? new Date(job.due_date).toLocaleDateString() : 'Not set'}
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button 
-                  onClick={handleJobCreated}
-                  disabled={isProcessing}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Creating Batch Job...
-                    </>
-                  ) : (
-                    <>
-                      <Package className="h-4 w-4 mr-2" />
-                      Create Batch Job
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  onClick={() => setShowJobForm(false)}
-                  variant="outline"
-                  disabled={isProcessing}
-                >
-                  Back to Categories
-                </Button>
-              </div>
-            </div>
+            <BatchJobForm
+              batchCategory={selectedCategory}
+              wo_no={job.wo_no}
+              customer={job.customer || 'Unknown'}
+              qty={job.qty || 1}
+              due_date={job.due_date ? new Date(job.due_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
+              onJobCreated={handleJobCreated}
+              onCancel={() => setShowJobForm(false)}
+            />
           </CardContent>
         </Card>
       )}

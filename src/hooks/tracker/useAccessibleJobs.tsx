@@ -1,5 +1,3 @@
-
-
 import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,11 +91,11 @@ export const useAccessibleJobs = ({
         started_by: job.started_by || null,
         started_by_name: job.started_by_name || null,
         proof_emailed_at: job.proof_emailed_at || null,
-        // Add batch-related fields
-        batch_category: job.batch_category || null,
+        // Add batch-related fields - use safe property access
+        batch_category: (job as any).batch_category || null,
         is_in_batch_processing: job.status === 'In Batch Processing',
-        has_custom_workflow: job.has_custom_workflow || false,
-        manual_due_date: job.manual_due_date || null
+        has_custom_workflow: (job as any).has_custom_workflow || false,
+        manual_due_date: (job as any).manual_due_date || null
       };
     });
   }, [rawJobs]);
@@ -191,4 +189,3 @@ export const useAccessibleJobs = ({
 
 // Re-export types for compatibility
 export type { AccessibleJob } from "./useAccessibleJobs/types";
-
