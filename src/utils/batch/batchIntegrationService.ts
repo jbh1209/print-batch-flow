@@ -20,14 +20,14 @@ export interface ProductionJobBatchData {
   qty: number;
   due_date: string;
   batchCategory: string;
-  pdfFile?: File; // Add optional PDF file support
+  pdfFile?: File;
 }
 
 /**
  * Upload file to Supabase storage
  */
-async function uploadBatchJobFile(file: File, jobNumber: string): Promise<string> {
-  const fileName = `${jobNumber}_${Date.now()}_${file.name}`;
+async function uploadBatchJobFile(file: File, woNo: string): Promise<string> {
+  const fileName = `${woNo}_${Date.now()}_${file.name}`;
   const filePath = `batch-jobs/${fileName}`;
   
   const { data, error } = await supabase.storage
@@ -41,12 +41,92 @@ async function uploadBatchJobFile(file: File, jobNumber: string): Promise<string
     throw new Error(`File upload failed: ${error.message}`);
   }
 
-  // Get the public URL
   const { data: { publicUrl } } = supabase.storage
     .from('pdf_files')
     .getPublicUrl(filePath);
 
   return publicUrl;
+}
+
+/**
+ * Create or get the Batch Allocation stage
+ */
+async function ensureBatchAllocationStage(): Promise<string> {
+  // First, check if the stage exists
+  const { data: existingStage, error: fetchError } = await supabase
+    .from('production_stages')
+    .select('id')
+    .eq('name', 'Batch Allocation')
+    .single();
+
+  if (existingStage && !fetchError) {
+    return existingStage.id;
+  }
+
+  // Create the stage if it doesn't exist
+  const { data: newStage, error: createError } = await supabase
+    .from('production_stages')
+    .insert({
+      name: 'Batch Allocation',
+      description: 'Jobs waiting to be allocated to batch processing',
+      color: '#F59E0B',
+      order_index: 100, // Place it towards the end of workflow
+      is_active: true
+    })
+    .select('id')
+    .single();
+
+  if (createError) {
+    throw new Error(`Failed to create Batch Allocation stage: ${createError.message}`);
+  }
+
+  return newStage.id;
+}
+
+/**
+ * Create batch allocation stage instance for the job
+ */
+async function createBatchAllocationStageInstance(jobId: string, stageId: string): Promise<void> {
+  // Check if stage instance already exists
+  const { data: existingInstance } = await supabase
+    .from('job_stage_instances')
+    .select('id')
+    .eq('job_id', jobId)
+    .eq('job_table_name', 'production_jobs')
+    .eq('production_stage_id', stageId)
+    .single();
+
+  if (existingInstance) {
+    return; // Already exists
+  }
+
+  // Get the highest stage order for this job to place batch allocation correctly
+  const { data: stageInstances } = await supabase
+    .from('job_stage_instances')
+    .select('stage_order')
+    .eq('job_id', jobId)
+    .eq('job_table_name', 'production_jobs')
+    .order('stage_order', { ascending: false })
+    .limit(1);
+
+  const nextOrder = (stageInstances?.[0]?.stage_order || 0) + 1;
+
+  // Create the batch allocation stage instance
+  const { error } = await supabase
+    .from('job_stage_instances')
+    .insert({
+      job_id: jobId,
+      job_table_name: 'production_jobs',
+      production_stage_id: stageId,
+      stage_order: nextOrder,
+      status: 'active',
+      started_at: new Date().toISOString(),
+      started_by: (await supabase.auth.getUser()).data.user?.id
+    });
+
+  if (error) {
+    console.warn('⚠️ Could not create batch allocation stage instance:', error);
+  }
 }
 
 /**
@@ -71,14 +151,15 @@ export async function createBatchJobFromProduction({
       throw new Error(`Unknown batch category: ${batchCategory}`);
     }
 
-    const jobNumber = `BATCH-${wo_no}-${Date.now()}`;
+    // Use original WO number instead of generating new one
+    const jobNumber = wo_no;
     let pdfUrl = '';
     let fileName = '';
 
     // Upload PDF file if provided
     if (pdfFile) {
       try {
-        pdfUrl = await uploadBatchJobFile(pdfFile, jobNumber);
+        pdfUrl = await uploadBatchJobFile(pdfFile, wo_no);
         fileName = pdfFile.name;
         console.log(`✅ Uploaded PDF file: ${fileName}`);
       } catch (uploadError) {
@@ -87,12 +168,12 @@ export async function createBatchJobFromProduction({
       }
     }
 
-    // Create the batch job using a type assertion for the dynamic table name
+    // Create the batch job using customer name and original WO number
     const { data: batchJob, error: createError } = await (supabase as any)
       .from(batchTableName)
       .insert({
-        name: `Batch Job - ${wo_no}`,
-        job_number: jobNumber,
+        name: customer, // Use customer name instead of generic "Batch Job"
+        job_number: jobNumber, // Use original WO number
         quantity: qty,
         due_date: due_date,
         user_id: (await supabase.auth.getUser()).data.user?.id,
@@ -109,7 +190,15 @@ export async function createBatchJobFromProduction({
 
     console.log(`✅ Created ${batchCategory} batch job:`, batchJob.id);
 
-    // Update production job status
+    // Ensure batch allocation stage exists and create stage instance
+    try {
+      const batchStageId = await ensureBatchAllocationStage();
+      await createBatchAllocationStageInstance(productionJobId, batchStageId);
+    } catch (stageError) {
+      console.warn('⚠️ Could not create batch allocation stage:', stageError);
+    }
+
+    // Update production job status to "In Batch Processing"
     const { error: updateError } = await supabase
       .from('production_jobs')
       .update({
@@ -177,6 +266,18 @@ export async function completeBatchJobProcessing(
   try {
     console.log(`🔄 Completing batch processing for production job ${productionJobId}`);
 
+    // Complete the batch allocation stage instance
+    await supabase
+      .from('job_stage_instances')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        completed_by: (await supabase.auth.getUser()).data.user?.id
+      })
+      .eq('job_id', productionJobId)
+      .eq('job_table_name', 'production_jobs')
+      .eq('status', 'active');
+
     // Update production job status
     const newStatus = nextStageId ? 'Ready to Print' : 'Batch Complete';
     const { error: jobError } = await supabase
@@ -197,6 +298,7 @@ export async function completeBatchJobProcessing(
         .update({
           status: 'active',
           started_at: new Date().toISOString(),
+          started_by: (await supabase.auth.getUser()).data.user?.id,
           notes: 'Advanced from batch processing to next stage'
         })
         .eq('job_id', productionJobId)
@@ -251,14 +353,10 @@ export async function findLostJobs() {
   }
 }
 
-/**
- * Recover a lost job by creating proper workflow stages
- */
 export async function recoverLostJob(productionJobId: string): Promise<boolean> {
   try {
     console.log(`🔧 Recovering lost job: ${productionJobId}`);
 
-    // Get job details
     const { data: job, error: fetchError } = await supabase
       .from('production_jobs')
       .select('*')
@@ -269,7 +367,6 @@ export async function recoverLostJob(productionJobId: string): Promise<boolean> 
       throw new Error('Job not found');
     }
 
-    // Reset job to a recoverable state
     const { error: resetError } = await supabase
       .from('production_jobs')
       .update({
@@ -281,7 +378,6 @@ export async function recoverLostJob(productionJobId: string): Promise<boolean> 
 
     if (resetError) throw resetError;
 
-    // Create batch allocation stage if needed
     if (job.category_id) {
       await supabase.rpc('initialize_job_stages_auto', {
         p_job_id: productionJobId,
@@ -299,9 +395,6 @@ export async function recoverLostJob(productionJobId: string): Promise<boolean> 
   }
 }
 
-/**
- * Map batch category to database table name
- */
 function getBatchTableFromCategory(batchCategory: string): string | null {
   const categoryMap: Record<string, string> = {
     'business_cards': 'business_card_jobs',
@@ -317,9 +410,6 @@ function getBatchTableFromCategory(batchCategory: string): string | null {
   return categoryMap[batchCategory.toLowerCase()] || null;
 }
 
-/**
- * Get batch job details with production job reference
- */
 export async function getBatchJobWithProductionDetails(batchJobId: string, batchTableName: string) {
   try {
     const { data, error } = await supabase

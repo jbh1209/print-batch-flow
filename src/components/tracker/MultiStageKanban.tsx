@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -29,19 +28,23 @@ export const MultiStageKanban = () => {
   });
   const { stages } = useProductionStages();
 
-  // CRITICAL: Filter out completed jobs for kanban view and ensure data consistency
+  // CRITICAL: Filter out completed jobs and include batch processing jobs
   const activeJobs = React.useMemo(() => {
     console.log('🔄 MultiStageKanban: Processing jobs for kanban', {
       totalJobs: jobs.length,
       firstJobStructure: jobs[0] ? Object.keys(jobs[0]) : 'no jobs'
     });
     
-    // AccessibleJobs already filters for active jobs, but we can add extra safety
-    const filtered = jobs.filter(job => job.status !== 'Completed');
+    // Include jobs that are in batch processing as they're still "active" in the workflow
+    const filtered = jobs.filter(job => 
+      job.status !== 'Completed' && 
+      job.status !== 'Cancelled'
+    );
     
     console.log('✅ MultiStageKanban: Filtered active jobs', {
       activeJobsCount: filtered.length,
-      completedJobsFiltered: jobs.length - filtered.length
+      completedJobsFiltered: jobs.length - filtered.length,
+      batchProcessingJobs: filtered.filter(j => j.status === 'In Batch Processing').length
     });
     
     return filtered;
@@ -58,7 +61,66 @@ export const MultiStageKanban = () => {
     getStageMetrics 
   } = useRealTimeJobStages(activeJobs);
 
-  // Add error logging for debugging
+  // Enhanced stages list to include virtual batch processing stage
+  const enhancedStages = React.useMemo(() => {
+    const baseStages = [...stages];
+    
+    // Add virtual "In Batch Processing" stage if we have jobs in that status
+    const batchProcessingJobs = activeJobs.filter(job => job.status === 'In Batch Processing');
+    
+    if (batchProcessingJobs.length > 0) {
+      const virtualBatchStage = {
+        id: 'virtual-batch-processing',
+        name: 'In Batch Processing',
+        color: '#F59E0B',
+        order_index: 999, // Place at end
+        description: 'Jobs currently being processed in BatchFlow',
+        is_active: true,
+        is_virtual: true
+      };
+      
+      baseStages.push(virtualBatchStage);
+    }
+    
+    return baseStages.sort((a, b) => a.order_index - b.order_index);
+  }, [stages, activeJobs]);
+
+  // Enhanced job stages to include virtual batch processing instances
+  const enhancedJobStages = React.useMemo(() => {
+    const baseJobStages = [...jobStages];
+    
+    // Add virtual job stage instances for batch processing jobs
+    const batchJobs = activeJobs.filter(job => job.status === 'In Batch Processing');
+    
+    batchJobs.forEach(job => {
+      baseJobStages.push({
+        id: `virtual-batch-${job.job_id}`,
+        job_id: job.job_id,
+        job_table_name: 'production_jobs',
+        production_stage_id: 'virtual-batch-processing',
+        stage_order: 999,
+        status: 'active',
+        started_at: new Date().toISOString(),
+        production_job: {
+          id: job.job_id,
+          wo_no: job.wo_no,
+          customer: job.customer,
+          due_date: job.due_date,
+          status: job.status,
+          reference: job.reference,
+          qty: job.qty
+        },
+        production_stage: {
+          id: 'virtual-batch-processing',
+          name: 'In Batch Processing',
+          color: '#F59E0B'
+        }
+      });
+    });
+    
+    return baseJobStages;
+  }, [jobStages, activeJobs]);
+
   React.useEffect(() => {
     if (error) {
       console.error('❌ MultiStageKanban: Real-time job stages error:', error);
@@ -68,27 +130,29 @@ export const MultiStageKanban = () => {
     }
   }, [error, jobsError]);
 
-  // ---- NEW: Layout selector ----
   const [layout, setLayout] = React.useState<"horizontal" | "vertical">("horizontal");
-
-  // --- GLOBAL VIEW MODE TOGGLE ---
   const [viewMode, setViewMode] = React.useState<"card" | "list">("list");
-
-  // Highlighted job selection (for cross-column highlighting)
   const [selectedJobId, setSelectedJobId] = React.useState<string | null>(null);
 
   const handleViewModeChange = (mode: "card" | "list") => setViewMode(mode);
 
-  // When a job stage card/row is clicked, select by job_id. Clicking again will unselect.
   const handleSelectJob = (jobId: string) => {
-    setSelectedJobId(prev =>
-      prev === jobId ? null : jobId
-    );
+    setSelectedJobId(prev => prev === jobId ? null : jobId);
   };
 
   const handleStageAction = async (stageId: string, action: 'start' | 'complete' | 'scan') => {
     try {
       console.log('🔄 MultiStageKanban: Stage action', { stageId, action });
+      
+      // Handle virtual batch processing stage differently
+      if (stageId.startsWith('virtual-batch-')) {
+        const jobId = stageId.replace('virtual-batch-', '');
+        if (action === 'complete') {
+          // Here we would integrate with batch completion logic
+          toast.info('Batch processing completion - integrate with BatchFlow');
+        }
+        return;
+      }
       
       if (action === 'start') await startStage(stageId);
       else if (action === 'complete') await completeStage(stageId);
@@ -101,13 +165,12 @@ export const MultiStageKanban = () => {
     }
   };
 
-  // Per-stage reorder handlers
   const handleReorder = async (stageId: string, newOrderIds: string[]) => {
     try {
       console.log('🔄 MultiStageKanban: Reordering stage', { stageId, itemCount: newOrderIds.length });
       
       const updates = newOrderIds.map((jobStageId, idx) => {
-        const jobStage = jobStages.find(js => js.id === jobStageId);
+        const jobStage = enhancedJobStages.find(js => js.id === jobStageId);
         if (!jobStage) throw new Error("JobStage not found for id: " + jobStageId);
         return {
           id: jobStage.id,
@@ -139,11 +202,7 @@ export const MultiStageKanban = () => {
     refreshJobs();
   };
 
-  // Use a ref to hold per-stage reorder handlers, for the drag-end logic below
   const reorderRefs = React.useRef<Record<string, (newOrder: string[]) => void>>({});
-
-  // ----- DND SETUP -----
-  // Only used for 'card' view mode
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   if (jobsLoading || isLoading) {
@@ -197,7 +256,6 @@ export const MultiStageKanban = () => {
           refreshJobs(); 
         }}
         onSettings={() => {}}
-        // New layout props:
         layout={layout}
         onLayoutChange={value => setLayout(value)}
       >
@@ -205,8 +263,8 @@ export const MultiStageKanban = () => {
       </MultiStageKanbanHeader>
 
       <MultiStageKanbanColumns
-        stages={stages}
-        jobStages={jobStages}
+        stages={enhancedStages}
+        jobStages={enhancedJobStages}
         reorderRefs={reorderRefs}
         handleStageAction={handleStageAction}
         viewMode={viewMode}

@@ -47,20 +47,25 @@ const TrackerProduction = () => {
   const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
   const [lastUpdate] = useState<Date>(new Date());
 
-  // Filter jobs based on selected stage
+  // Enhanced filtering to handle batch processing jobs
   const filteredJobs = useMemo(() => {
     if (!selectedStageName) {
-      return jobs; // Show all jobs when no stage is selected
+      return jobs;
     }
 
-    // Filter to show jobs currently IN the selected stage (active) OR waiting for that stage (pending)
     return jobs.filter(job => {
       const currentStage = job.current_stage_name || job.display_stage_name;
+      
+      // Special handling for batch processing
+      if (selectedStageName === 'In Batch Processing') {
+        return job.status === 'In Batch Processing';
+      }
+      
       return currentStage === selectedStageName;
     });
   }, [jobs, selectedStageName]);
 
-  // Apply sorting
+  // Enhanced sorting with batch processing awareness
   const sortedJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
       let aValue, bValue;
@@ -84,7 +89,7 @@ const TrackerProduction = () => {
     return jobs.filter(job => !job.category_id);
   }, [jobs]);
 
-  // Get unique stages from the actual job data
+  // Enhanced stages to include batch processing
   const consolidatedStages = useMemo(() => {
     const stageMap = new Map();
     
@@ -97,6 +102,16 @@ const TrackerProduction = () => {
         });
       }
     });
+    
+    // Add virtual batch processing stage if we have jobs in that status
+    const batchJobs = jobs.filter(job => job.status === 'In Batch Processing');
+    if (batchJobs.length > 0) {
+      stageMap.set('batch-processing', {
+        stage_id: 'batch-processing',
+        stage_name: 'In Batch Processing',
+        stage_color: '#F59E0B'
+      });
+    }
     
     return Array.from(stageMap.values());
   }, [jobs]);
@@ -128,7 +143,6 @@ const TrackerProduction = () => {
           toast.success('Stage completed successfully');
         }
       } else if (action === 'qr-scan') {
-        // Handle QR scan action
         toast.info('QR scan action triggered');
       }
       
@@ -169,7 +183,6 @@ const TrackerProduction = () => {
 
   const handleRefresh = async () => {
     console.log("🔄 TrackerProduction refresh triggered");
-    // Clear cache first to ensure fresh data
     invalidateCache();
     await refreshJobs();
   };
@@ -212,7 +225,6 @@ const TrackerProduction = () => {
   return (
     <>
       <div className="flex h-full">
-        {/* Sidebar */}
         <div className="w-64 border-r bg-white overflow-y-auto">
           <ProductionSidebar
             jobs={jobs}
@@ -223,7 +235,6 @@ const TrackerProduction = () => {
           />
         </div>
 
-        {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <TrackerErrorBoundary componentName="Production Header">
             <div className="border-b bg-white p-2 sm:p-2">
@@ -280,7 +291,6 @@ const TrackerProduction = () => {
                       />
                     }
                   >
-                    {/* Updated header with better spacing */}
                     <div className="flex gap-4 items-center text-xs font-bold px-2 py-1 border-b bg-gray-50">
                       <span className="w-8 text-center">Due</span>
                       <span className="flex-1">Job Name / Number</span>

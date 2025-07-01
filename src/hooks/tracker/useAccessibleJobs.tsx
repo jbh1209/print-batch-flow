@@ -1,299 +1,221 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { toast } from "sonner";
-import { AccessibleJob, UseAccessibleJobsOptions } from "./useAccessibleJobs/types";
-import { processJobsArray } from "./useAccessibleJobs/jobDataProcessor";
-import { jobsCache } from "./useAccessibleJobs/cacheManager";
-import { requestDeduplicator } from "./useAccessibleJobs/requestDeduplicator";
-import { useRealtimeSubscription } from "./useAccessibleJobs/useRealtimeSubscription";
-import { useJobActions } from "./useAccessibleJobs/useJobActions";
 
-export const useAccessibleJobs = (options: UseAccessibleJobsOptions = {}) => {
-  const { user, isLoading: authLoading } = useAuth();
-  const [jobs, setJobs] = useState<AccessibleJob[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const abortControllerRef = useRef<AbortController | null>(null);
+export interface AccessibleJob {
+  job_id: string;
+  id: string;
+  wo_no: string;
+  customer: string;
+  status: string;
+  due_date: string;
+  reference: string;
+  category_id?: string;
+  category_name: string;
+  category_color: string;
+  current_stage_id?: string;
+  current_stage_name: string;
+  current_stage_color: string;
+  current_stage_status: string;
+  display_stage_name: string;
+  user_can_view: boolean;
+  user_can_edit: boolean;
+  user_can_work: boolean;
+  user_can_manage: boolean;
+  workflow_progress: number;
+  total_stages: number;
+  completed_stages: number;
+  qty: number;
+  started_by?: string;
+  started_by_name: string;
+  proof_emailed_at: string;
+  batch_category?: string;
+  is_in_batch_processing: boolean;
+}
+
+interface UseAccessibleJobsOptions {
+  permissionType?: 'work' | 'manage' | 'view';
+  statusFilter?: string | null;
+}
+
+export const useAccessibleJobs = ({ 
+  permissionType = 'work', 
+  statusFilter = null 
+}: UseAccessibleJobsOptions = {}) => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const {
-    permissionType = 'work',
-    statusFilter = null,
-    stageFilter = null
-  } = options;
+    data: rawJobs = [],
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ['accessible-jobs', user?.id, permissionType, statusFilter],
+    queryFn: async () => {
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
 
-  // Create cache key from current parameters
-  const getCacheKey = useCallback(() => {
-    if (!user?.id) return null;
-    return {
-      userId: user.id,
-      permissionType,
-      statusFilter,
-      stageFilter
-    };
-  }, [user?.id, permissionType, statusFilter, stageFilter]);
-
-  const fetchJobsFromAPI = useCallback(async (): Promise<AccessibleJob[]> => {
-    if (!user?.id) {
-      throw new Error("No user ID available");
-    }
-
-    // Cancel any pending request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    try {
-      console.log("🔄 Fetching jobs with centralized processor...", {
-        userId: user.id.substring(0, 8),
+      console.log('🔄 Fetching accessible jobs with params:', {
+        userId: user.id,
         permissionType,
-        statusFilter,
-        stageFilter
+        statusFilter
       });
 
-      // Check if user is admin first
-      const { data: adminCheck } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .single();
+      const { data, error } = await supabase.rpc('get_user_accessible_jobs', {
+        p_user_id: user.id,
+        p_permission_type: permissionType,
+        p_status_filter: statusFilter,
+        p_stage_filter: null
+      });
 
-      const isAdmin = adminCheck?.role === 'admin';
-
-      let data;
-      let fetchError;
-
-      if (isAdmin) {
-        // Admin gets all jobs
-        const { data: adminData, error: adminError } = await supabase.rpc('get_user_accessible_jobs', {
-          p_user_id: user.id,
-          p_permission_type: 'manage',
-          p_status_filter: statusFilter,
-          p_stage_filter: stageFilter
-        });
-
-        data = adminData;
-        fetchError = adminError;
-      } else {
-        // Regular user
-        const { data: userData, error: userError } = await supabase.rpc('get_user_accessible_jobs', {
-          p_user_id: user.id,
-          p_permission_type: permissionType,
-          p_status_filter: statusFilter,
-          p_stage_filter: stageFilter
-        });
-
-        data = userData;
-        fetchError = userError;
+      if (error) {
+        console.error('❌ Error fetching accessible jobs:', error);
+        throw error;
       }
 
-      // Check if request was aborted
-      if (abortController.signal.aborted) {
-        throw new Error("Request was aborted");
+      return data || [];
+    },
+    enabled: !!user?.id,
+    staleTime: 30000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60000
+  });
+
+  // Enhanced job processing to handle batch processing status
+  const jobs: AccessibleJob[] = useMemo(() => {
+    if (!rawJobs || rawJobs.length === 0) return [];
+
+    return rawJobs.map(job => {
+      // Handle batch processing status display
+      let displayStage = job.current_stage_name || job.display_stage_name || 'No Stage';
+      let stageColor = job.current_stage_color || '#6B7280';
+      
+      // Special handling for "In Batch Processing" status
+      if (job.status === 'In Batch Processing') {
+        displayStage = 'In Batch Processing';
+        stageColor = '#F59E0B'; // Orange color for batch processing
       }
 
-      if (fetchError) {
-        throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
-      }
+      return {
+        job_id: job.job_id,
+        id: job.job_id, // Ensure backward compatibility
+        wo_no: job.wo_no || '',
+        customer: job.customer || 'Unknown',
+        status: job.status || 'Unknown',
+        due_date: job.due_date || '',
+        reference: job.reference || '',
+        category_id: job.category_id,
+        category_name: job.category_name || 'No Category',
+        category_color: job.category_color || '#6B7280',
+        current_stage_id: job.current_stage_id,
+        current_stage_name: job.current_stage_name || 'No Stage',
+        current_stage_color: stageColor,
+        current_stage_status: job.current_stage_status || 'pending',
+        display_stage_name: displayStage,
+        user_can_view: job.user_can_view || false,
+        user_can_edit: job.user_can_edit || false,
+        user_can_work: job.user_can_work || false,
+        user_can_manage: job.user_can_manage || false,
+        workflow_progress: job.workflow_progress || 0,
+        total_stages: job.total_stages || 0,
+        completed_stages: job.completed_stages || 0,
+        qty: job.qty || 0,
+        started_by: job.started_by,
+        started_by_name: job.started_by_name || 'Unknown',
+        proof_emailed_at: job.proof_emailed_at || '',
+        // Add batch-related fields
+        batch_category: job.batch_category,
+        is_in_batch_processing: job.status === 'In Batch Processing'
+      };
+    });
+  }, [rawJobs]);
 
-      if (data && Array.isArray(data)) {
-        console.log(`🔧 Processing ${data.length} jobs from get_user_accessible_jobs`);
-        
-        // Use centralized processor - this ensures custom workflow dates work everywhere
-        const processedJobs = processJobsArray(data);
-        
-        console.log(`✅ Processed ${processedJobs.length} jobs with centralized processor`);
-        return processedJobs;
-      } else {
-        return [];
-      }
-    } finally {
-      if (abortControllerRef.current === abortController) {
-        abortControllerRef.current = null;
-      }
-    }
-  }, [user?.id, permissionType, statusFilter, stageFilter]);
-
-  const fetchJobs = useCallback(async (forceRefresh = false) => {
-    const cacheKey = getCacheKey();
-    if (!cacheKey) {
-      setJobs([]);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
-
+  const startJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
-      setError(null);
+      console.log('🔄 Starting job stage:', { jobId, stageId });
 
-      // Check cache first (unless forcing refresh)
-      if (!forceRefresh) {
-        const cachedData = jobsCache.get(cacheKey);
-        if (cachedData) {
-          setJobs(cachedData);
-          setIsLoading(false);
-
-          // If cache is stale, fetch in background
-          if (jobsCache.isStale(cacheKey)) {
-            setIsRefreshing(true);
-          } else {
-            return;
-          }
-        } else {
-          setIsLoading(true);
-        }
-      } else {
-        setIsLoading(true);
+      if (!stageId) {
+        const job = jobs.find(j => j.job_id === jobId);
+        stageId = job?.current_stage_id;
       }
 
-      // Deduplicate the request
-      const freshJobs = await requestDeduplicator.deduplicate(
-        cacheKey,
-        fetchJobsFromAPI
-      );
-
-      // Update cache
-      jobsCache.set(cacheKey, freshJobs);
-      
-      // Update state
-      setJobs(freshJobs);
-      setLastFetchTime(Date.now());
-      
-    } catch (err) {
-      if (err instanceof Error && err.message === "Request was aborted") {
-        return;
+      if (!stageId) {
+        throw new Error('Stage ID is required to start job');
       }
 
-      const errorMessage = err instanceof Error ? err.message : "Failed to load accessible jobs";
-      
-      // Only show error if we don't have cached data
-      const cacheKey = getCacheKey();
-      const hasCachedData = cacheKey && jobsCache.get(cacheKey);
-      
-      if (!hasCachedData) {
-        setError(errorMessage);
-        setJobs([]);
-        toast.error(errorMessage);
-      } else {
-        toast.warning("Using cached data - connection issue");
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'active',
+          started_at: new Date().toISOString(),
+          started_by: user?.id
+        })
+        .eq('job_id', jobId)
+        .eq('production_stage_id', stageId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      await refreshJobs();
+      return true;
+    } catch (error) {
+      console.error('❌ Error starting job:', error);
+      return false;
+    }
+  }, [jobs, user?.id, refreshJobs]);
+
+  const completeJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
+    try {
+      console.log('🔄 Completing job stage:', { jobId, stageId });
+
+      if (!stageId) {
+        const job = jobs.find(j => j.job_id === jobId);
+        stageId = job?.current_stage_id;
       }
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+
+      if (!stageId) {
+        throw new Error('Stage ID is required to complete job');
+      }
+
+      const { error } = await supabase.rpc('advance_job_stage', {
+        p_job_id: jobId,
+        p_job_table_name: 'production_jobs',
+        p_current_stage_id: stageId,
+        p_completed_by: user?.id
+      });
+
+      if (error) throw error;
+
+      await refreshJobs();
+      return true;
+    } catch (error) {
+      console.error('❌ Error completing job:', error);
+      return false;
     }
-  }, [getCacheKey, fetchJobsFromAPI]);
+  }, [jobs, user?.id, refreshJobs]);
 
-  // Handle optimistic updates
-  const handleOptimisticUpdate = useCallback((jobId: string, updates: Partial<AccessibleJob>) => {
-    setJobs(prevJobs => 
-      prevJobs.map(job => 
-        job.job_id === jobId ? { ...job, ...updates } : job
-      )
-    );
-  }, []);
+  const refreshJobs = useCallback(() => {
+    console.log('🔄 Refreshing accessible jobs...');
+    return refetch();
+  }, [refetch]);
 
-  const handleOptimisticRevert = useCallback((jobId: string, field: keyof AccessibleJob, originalValue: any) => {
-    setJobs(prevJobs => 
-      prevJobs.map(job => 
-        job.job_id === jobId ? { ...job, [field]: originalValue } : job
-      )
-    );
-  }, []);
-
-  // Set up job actions with optimistic updates
-  const { startJob, completeJob, optimisticUpdates, hasOptimisticUpdates } = useJobActions(
-    () => fetchJobs(true),
-    {
-      onOptimisticUpdate: handleOptimisticUpdate,
-      onOptimisticRevert: handleOptimisticRevert
-    }
-  );
-
-  // Set up enhanced real-time subscription
-  const { forceUpdate, hasPendingUpdates } = useRealtimeSubscription(
-    () => fetchJobs(false),
-    {
-      onJobUpdate: (jobId, updateType) => {
-        // Silent update - no console logging
-      },
-      batchDelay: 300
-    }
-  );
-
-  const refreshJobs = useCallback(async () => {
-    console.log("🔄 Refreshing jobs with cache clear...");
-    
-    // Clear cache to ensure fresh data
-    const cacheKey = getCacheKey();
-    if (cacheKey) {
-      jobsCache.clear(cacheKey);
-    }
-    
-    // Force refresh from API
-    await fetchJobs(true);
-  }, [fetchJobs, getCacheKey]);
-
-  // Force cache invalidation - useful after external changes like category assignments
   const invalidateCache = useCallback(() => {
-    console.log("🗑️ Invalidating jobs cache...");
-    const cacheKey = getCacheKey();
-    if (cacheKey) {
-      jobsCache.clear(cacheKey);
-    }
-  }, [getCacheKey]);
-
-  useEffect(() => {
-    if (!authLoading) {
-      if (user?.id) {
-        fetchJobs().catch(error => {
-          setError("Failed to load jobs on initial load");
-          setIsLoading(false);
-        });
-      } else {
-        setIsLoading(false);
-        setJobs([]);
-        setError(null);
-      }
-    }
-  }, [authLoading, user?.id, fetchJobs]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
+    console.log('🗑️ Invalidating accessible jobs cache...');
+    queryClient.invalidateQueries({ 
+      queryKey: ['accessible-jobs', user?.id] 
+    });
+  }, [queryClient, user?.id]);
 
   return {
     jobs,
-    isLoading: isLoading || authLoading,
-    isRefreshing,
-    error,
+    isLoading,
+    error: error?.message || null,
     startJob,
     completeJob,
     refreshJobs,
-    forceUpdate,
-    lastFetchTime,
-    invalidateCache,
-    
-    // Enhanced capabilities
-    hasOptimisticUpdates,
-    hasPendingUpdates,
-    optimisticUpdates,
-    
-    // Debug utilities
-    getCacheStats: () => jobsCache.getStats(),
-    getRequestStats: () => requestDeduplicator.getStats()
+    invalidateCache
   };
 };
-
-// Re-export the types for convenience
-export type { AccessibleJob, UseAccessibleJobsOptions };
