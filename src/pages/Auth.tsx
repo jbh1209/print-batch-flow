@@ -61,8 +61,8 @@ const Auth = () => {
       console.log("Login successful, user:", data.user?.id);
       toast.success("Login successful!");
       
-      // Force page reload for clean state
-      window.location.href = '/';
+      // Redirect to root instead of forcing reload
+      navigate('/');
     } catch (error: any) {
       console.error("Auth error:", error);
       setErrorMessage(error.message || 'Error signing in');

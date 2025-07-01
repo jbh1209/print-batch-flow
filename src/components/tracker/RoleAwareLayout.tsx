@@ -35,8 +35,8 @@ const RoleAwareLayout: React.FC = () => {
       hasInitialized
     });
 
-    // Only handle default routing on first load
-    if (!hasInitialized && (location.pathname === '/tracker' || location.pathname === '/tracker/')) {
+    // Only handle default routing on first load to /tracker
+    if (!hasInitialized && location.pathname === '/tracker') {
       setHasInitialized(true);
       
       // Route to appropriate default based on role
@@ -91,25 +91,7 @@ const RoleAwareLayout: React.FC = () => {
     );
   }
 
-  // For DTP operators on DTP workflow, show standalone view
-  if (isDtpOperator && !isAdmin && !isManager && location.pathname.includes('/dtp-workflow')) {
-    return (
-      <div className="flex flex-col h-screen overflow-hidden">
-        <Outlet />
-      </div>
-    );
-  }
-
-  // For regular operators on factory floor, show standalone view
-  if (isOperator && !isDtpOperator && !isAdmin && !isManager && location.pathname.includes('/factory-floor')) {
-    return (
-      <div className="flex flex-col h-screen overflow-hidden">
-        <Outlet />
-      </div>
-    );
-  }
-
-  // For everyone else (admins, managers), show full tracker layout
+  // Use TrackerLayout for all users - let it handle role-based features internally
   return <TrackerLayout />;
 };
 

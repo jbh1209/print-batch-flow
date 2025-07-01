@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { TrackerErrorBoundary } from "@/components/tracker/TrackerErrorBoundary";
 import RoleAwareLayout from "@/components/tracker/RoleAwareLayout";
 import Auth from "@/pages/Auth";
+import Index from "@/pages/Index";
 import BusinessCardJobs from "@/pages/BusinessCardJobs";
 import Users from "@/pages/Users";
 import Dashboard from "@/pages/Dashboard";
@@ -37,8 +38,8 @@ function App() {
           <BrowserRouter>
             <TrackerErrorBoundary>
               <Routes>
+                <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/" element={<Navigate to="/auth" replace />} />
                 <Route path="/business-cards" element={
                   <ProtectedRoute>
                     <BusinessCardJobs />
