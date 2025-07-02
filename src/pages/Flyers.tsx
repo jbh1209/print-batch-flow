@@ -1,14 +1,19 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, Users, Layers, ArrowLeft } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
+import { FlyerOverview } from "@/components/flyers/FlyerOverview";
+import FlyerJobsPage from "@/pages/generic/FlyerJobsPage";
+import FlyerBatches from "@/components/flyers/FlyerBatches";
 
 const Flyers = () => {
+  const [activeTab, setActiveTab] = useState("overview");
+
   return (
     <div className="container mx-auto p-6">
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
           <Button variant="outline" size="sm" asChild>
             <Link to="/batchflow" className="flex items-center gap-2">
@@ -17,88 +22,34 @@ const Flyers = () => {
             </Link>
           </Button>
         </div>
-        <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <FileText className="h-12 w-12 text-primary" />
-          </div>
-          <h1 className="text-3xl font-bold mb-2">Flyers</h1>
-          <p className="text-gray-600 mb-6">Manage your flyer printing jobs and batches</p>
-          
-          <div className="flex justify-center gap-4">
-            <Button asChild size="lg">
-              <Link to="/batchflow/batches/flyers/jobs/new">Create New Job</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link to="/batchflow/batches/flyers/batches">View All Batches</Link>
-            </Button>
+        <div className="flex items-center gap-4">
+          <FileText className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold">Flyers</h1>
+            <p className="text-muted-foreground">Manage your flyer printing jobs and batches</p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-          <CardHeader className="text-center">
-            <div className="flex justify-center">
-              <Plus className="h-8 w-8 mb-2 text-primary" />
-            </div>
-            <CardTitle>Jobs Management</CardTitle>
-            <CardDescription>Create, edit, and manage individual flyer jobs</CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-sm text-gray-600 mb-4">
-              Upload artwork, set specifications, and track individual flyer orders
-            </p>
-          </CardContent>
-          <CardFooter className="bg-gray-50 p-4 flex justify-center">
-            <Button asChild>
-              <Link to="/batchflow/batches/flyers/jobs">Manage Jobs</Link>
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-          <CardHeader className="text-center">
-            <div className="flex justify-center">
-              <Layers className="h-8 w-8 mb-2 text-primary" />
-            </div>
-            <CardTitle>Batch Processing</CardTitle>
-            <CardDescription>Group jobs into efficient production batches</CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-sm text-gray-600 mb-4">
-              Organize multiple jobs by paper type, size, and production requirements
-            </p>
-          </CardContent>
-          <CardFooter className="bg-gray-50 p-4 flex justify-center">
-            <Button asChild>
-              <Link to="/batchflow/batches/flyers/batches">View Batches</Link>
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-
-      <div className="mt-12">
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common flyer management tasks</CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center gap-4 pb-6">
-            <Button variant="outline" asChild>
-              <Link to="/batchflow/batches/flyers/jobs" className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                View All Jobs
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/batchflow/batches/flyers/jobs/new" className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                Create New Job
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
+          <TabsTrigger value="batches">Batches</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="overview" className="mt-6">
+          <FlyerOverview />
+        </TabsContent>
+        
+        <TabsContent value="jobs" className="mt-6">
+          <FlyerJobsPage />
+        </TabsContent>
+        
+        <TabsContent value="batches" className="mt-6">
+          <FlyerBatches />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
