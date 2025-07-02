@@ -32,7 +32,7 @@ import AllBatches from "@/pages/AllBatches";
 import AllJobsPage from "@/pages/AllJobsPage";
 import BusinessCardBatches from "@/pages/BusinessCardBatches";
 import BusinessCardBatchDetails from "@/pages/BusinessCardBatchDetails";
-import FlyerBatches from "@/pages/FlyerBatches";
+import Flyers from "@/pages/Flyers";
 import FlyerBatchDetails from "@/pages/FlyerBatchDetails";
 import PostcardBatchDetails from "@/pages/PostcardBatchDetails";
 import BoxBatchDetails from "@/pages/BoxBatchDetails";
@@ -113,7 +113,7 @@ function App() {
                   <Route path="batches/business-cards/jobs" element={<BusinessCardJobs />} />
                   
                   {/* Flyers routes */}
-                  <Route path="batches/flyers" element={<FlyerBatches />} />
+                  <Route path="batches/flyers" element={<Flyers />} />
                   <Route path="batches/flyers/batches/:batchId" element={<FlyerBatchDetails />} />
                   <Route path="batches/flyers/jobs" element={<FlyerJobsPage />} />
                   <Route path="batches/flyers/jobs/new" element={<FlyerJobNewPage />} />
