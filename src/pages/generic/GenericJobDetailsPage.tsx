@@ -18,16 +18,16 @@ interface GenericJobDetailsPageProps {
 }
 
 const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config }) => {
-  const { jobId } = useParams<{ jobId: string }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  console.log(`Rendering GenericJobDetailsPage for ${config.productType} with jobId:`, jobId);
+  console.log(`Rendering GenericJobDetailsPage for ${config.productType} with id:`, id);
   
   const { data: job, isLoading, error } = useQuery({
-    queryKey: [`${config.productType.toLowerCase()}-job-${jobId}`],
+    queryKey: [`${config.productType.toLowerCase()}-job-${id}`],
     queryFn: async () => {
-      if (!jobId) {
-        console.error("No jobId provided");
+      if (!id) {
+        console.error("No id provided");
         toast.error("No job ID provided");
         return null;
       }
@@ -40,13 +40,13 @@ const GenericJobDetailsPage: React.FC<GenericJobDetailsPageProps> = ({ config })
       }
       
       try {
-        console.log(`Fetching job details for ${config.productType} jobId:`, jobId);
+        console.log(`Fetching job details for ${config.productType} id:`, id);
         
         // Using any as a workaround for the type error
         const { data, error } = await supabase
           .from(config.tableName as any)
           .select('*')
-          .eq('id', jobId)
+          .eq('id', id)
           .maybeSingle();
           
         if (error) {
