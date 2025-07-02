@@ -39,7 +39,7 @@ const Flyers = () => {
         </TabsList>
         
         <TabsContent value="overview" className="mt-6">
-          <FlyerOverview />
+          <FlyerOverview onTabChange={setActiveTab} />
         </TabsContent>
         
         <TabsContent value="jobs" className="mt-6">

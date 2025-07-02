@@ -7,7 +7,11 @@ import { Link } from "react-router-dom";
 import { useGenericFlyerJobs } from "@/hooks/generic/useGenericFlyerJobs";
 import { useFlyerBatches } from "@/hooks/useFlyerBatches";
 
-export const FlyerOverview = () => {
+interface FlyerOverviewProps {
+  onTabChange?: (tab: string) => void;
+}
+
+export const FlyerOverview = ({ onTabChange }: FlyerOverviewProps) => {
   const { jobs, isLoading: jobsLoading } = useGenericFlyerJobs();
   const { batches, isLoading: batchesLoading } = useFlyerBatches();
 
@@ -108,11 +112,9 @@ export const FlyerOverview = () => {
                   Create New Job
                 </Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link to="/batchflow/batches/flyers/jobs" className="flex items-center gap-2">
-                  <Eye className="h-4 w-4" />
-                  View All Jobs
-                </Link>
+              <Button variant="outline" onClick={() => onTabChange?.('jobs')}>
+                <Eye className="h-4 w-4" />
+                View All Jobs
               </Button>
             </div>
             {pendingJobs > 0 && (
@@ -135,11 +137,9 @@ export const FlyerOverview = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-2">
-              <Button asChild>
-                <Link to="/batchflow/batches/flyers/batches" className="flex items-center gap-2">
-                  <Eye className="h-4 w-4" />
-                  View All Batches
-                </Link>
+              <Button onClick={() => onTabChange?.('batches')}>
+                <Eye className="h-4 w-4" />
+                View All Batches
               </Button>
             </div>
             {activeBatches > 0 && (
