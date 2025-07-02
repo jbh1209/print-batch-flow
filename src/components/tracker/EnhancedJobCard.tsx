@@ -15,6 +15,9 @@ import {
   Play,
   Pause
 } from "lucide-react";
+import { BatchStageIndicator } from "./batch/BatchStageIndicator";
+import { ConditionalStageIndicator } from "./batch/ConditionalStageIndicator";
+import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface JobStage {
   id: string;
@@ -25,19 +28,9 @@ interface JobStage {
 }
 
 interface EnhancedJobCardProps {
-  job: {
-    id: string;
-    wo_no: string;
-    customer?: string;
-    category?: string;
-    qty?: number;
-    due_date?: string;
-    status: string;
-    location?: string;
-    current_stage?: string;
-  };
+  job: AccessibleJob;
   stages?: JobStage[];
-  onJobClick?: (job: any) => void;
+  onJobClick?: (job: AccessibleJob) => void;
   onStageClick?: (jobId: string, stageId: string) => void;
 }
 
@@ -94,11 +87,15 @@ export const EnhancedJobCard: React.FC<EnhancedJobCardProps> = ({
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex-1">
             <h3 className="font-semibold text-lg">{job.wo_no}</h3>
-            {job.category && (
-              <Badge variant="outline" className="mt-1">{job.category}</Badge>
-            )}
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {job.category_name && (
+                <Badge variant="outline">{job.category_name}</Badge>
+              )}
+              <BatchStageIndicator job={job} compact />
+              <ConditionalStageIndicator job={job} compact />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {getStatusIcon(job.status)}
@@ -141,12 +138,6 @@ export const EnhancedJobCard: React.FC<EnhancedJobCardProps> = ({
             </div>
           )}
 
-          {job.location && (
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-gray-400" />
-              <span>{job.location}</span>
-            </div>
-          )}
         </div>
 
         {stages.length > 0 && (
@@ -165,7 +156,7 @@ export const EnhancedJobCard: React.FC<EnhancedJobCardProps> = ({
                   className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onStageClick?.(job.id, stage.id);
+                    onStageClick?.(job.job_id, stage.id);
                   }}
                 >
                   <div className="flex items-center gap-3">
@@ -173,7 +164,7 @@ export const EnhancedJobCard: React.FC<EnhancedJobCardProps> = ({
                     <span className="text-sm font-medium">{stage.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {stage.status === 'in-progress' && job.current_stage === stage.name && (
+                    {stage.status === 'in-progress' && job.current_stage_name === stage.name && (
                       <Badge variant="default" className="text-xs bg-blue-500">Current</Badge>
                     )}
                     {getStatusIcon(stage.status)}

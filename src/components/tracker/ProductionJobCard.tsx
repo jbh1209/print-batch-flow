@@ -9,20 +9,15 @@ import { Calendar, Package, User, MapPin, Star, Edit, QrCode } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { QRCodeManager } from "./QRCodeManager";
+import { BatchStageIndicator } from "./batch/BatchStageIndicator";
+import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
-interface ProductionJob {
-  id: string;
-  wo_no: string;
-  status: string;
-  so_no?: string;
-  customer?: string;
-  category?: string;
-  qty?: number;
-  due_date?: string;
-  location?: string;
+interface ProductionJob extends AccessibleJob {
   highlighted?: boolean;
   qr_code_data?: string;
   qr_code_url?: string;
+  so_no?: string;
+  location?: string;
 }
 
 interface ProductionJobCardProps {
@@ -106,6 +101,9 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
               {job.so_no && (
                 <p className="text-xs text-gray-500">SO: {job.so_no}</p>
               )}
+              {job.reference && (
+                <p className="text-xs text-gray-500">Ref: {job.reference}</p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {highlighted && <Star className="h-4 w-4 text-yellow-500 fill-current" />}
@@ -124,13 +122,16 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
             </div>
           )}
 
-          {/* Category and Quantity */}
+          {/* Category, Quantity, and Batch Status */}
           <div className="flex items-center justify-between text-xs">
-            {job.category && (
-              <Badge variant="secondary" className="text-xs">
-                {job.category}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {job.category_name && (
+                <Badge variant="secondary" className="text-xs">
+                  {job.category_name}
+                </Badge>
+              )}
+              <BatchStageIndicator job={job} compact showLabel={false} />
+            </div>
             {job.qty && (
               <div className="flex items-center gap-1">
                 <Package className="h-3 w-3 text-gray-400" />

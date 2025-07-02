@@ -5,18 +5,14 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProductionJobCard } from "./ProductionJobCard";
+import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
-interface ProductionJob {
-  id: string;
-  wo_no: string;
-  status: string;
-  so_no?: string;
-  customer?: string;
-  category?: string;
-  qty?: number;
-  due_date?: string;
-  location?: string;
+interface ProductionJob extends AccessibleJob {
   highlighted?: boolean;
+  qr_code_data?: string;
+  qr_code_url?: string;
+  so_no?: string;
+  location?: string;
 }
 
 interface KanbanColumnProps {

@@ -46,20 +46,9 @@ export const ProductionKanban = () => {
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
 
-  // Convert AccessibleJob to format expected by KanbanColumn
+  // Filter jobs by status - now passing full AccessibleJob objects
   const getJobsByStatus = (status: string) => {
-    return jobs
-      .filter(job => job.status === status)
-      .map(job => ({
-        id: job.job_id,
-        wo_no: job.wo_no,
-        status: job.status,
-        customer: job.customer || '',
-        category: job.category_name || '',
-        qty: job.qty,
-        due_date: job.due_date,
-        reference: job.reference
-      }));
+    return jobs.filter(job => job.status === status);
   };
 
   const handleDragStart = useCallback((event: DragStartEvent) => {

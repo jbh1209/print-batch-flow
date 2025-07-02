@@ -34,14 +34,7 @@ const EnhancedJobStageCard = ({ job, onJobUpdate }: {
   return (
     <div className="mb-3">
       <EnhancedJobCard
-        job={{
-          id: job.id,
-          wo_no: job.wo_no,
-          customer: job.customer,
-          category: job.category,
-          due_date: job.due_date,
-          status: job.status
-        }}
+        job={job as any}
         stages={job.stages.map(stage => ({
           id: stage.id,
           name: stage.stage_name,
