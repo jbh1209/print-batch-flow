@@ -5,18 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, Settings } from "lucide-react";
 import { toast } from "sonner";
-import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
+import { useAccessibleJobs, AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { useProductionStages } from "@/hooks/tracker/useProductionStages";
 import { EnhancedJobCard } from "./EnhancedJobCard";
 
-interface JobWithStages {
-  id: string;
-  wo_no: string;
-  customer: string;
-  category: string;
-  due_date?: string;
-  status: string;
-  category_id?: string;
+interface JobWithStages extends AccessibleJob {
   stages: Array<{
     id: string;
     production_stage_id: string;
@@ -34,7 +27,7 @@ const EnhancedJobStageCard = ({ job, onJobUpdate }: {
   return (
     <div className="mb-3">
       <EnhancedJobCard
-        job={job as any}
+        job={job}
         stages={job.stages.map(stage => ({
           id: stage.id,
           name: stage.stage_name,
@@ -108,13 +101,7 @@ export const EnhancedProductionKanban = () => {
   // Transform AccessibleJobs to include stage information
   const jobsWithStages: JobWithStages[] = React.useMemo(() => {
     return jobs.map(job => ({
-      id: job.job_id,
-      wo_no: job.wo_no,
-      customer: job.customer || 'Unknown Customer',
-      category: job.category_name || 'General',
-      due_date: job.due_date || undefined,
-      status: job.status,
-      category_id: job.category_id,
+      ...job,
       // For now, simulate stage data - in real implementation, you'd fetch actual job_stage_instances
       stages: stages.slice(0, 3).map((stage, index) => ({
         id: `${job.job_id}-${stage.id}`,
