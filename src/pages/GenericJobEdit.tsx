@@ -32,7 +32,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
               .from('poster_jobs')
               .select('*')
               .eq('id', id)
-              .single();
+              .maybeSingle();
             data = posterResult.data;
             error = posterResult.error;
             break;
@@ -41,7 +41,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
               .from('box_jobs')
               .select('*')
               .eq('id', id)
-              .single();
+              .maybeSingle();
             data = boxResult.data;
             error = boxResult.error;
             break;
@@ -50,7 +50,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
               .from('cover_jobs')
               .select('*')
               .eq('id', id)
-              .single();
+              .maybeSingle();
             data = coverResult.data;
             error = coverResult.error;
             break;
@@ -59,9 +59,18 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
               .from('sticker_jobs')
               .select('*')
               .eq('id', id)
-              .single();
+              .maybeSingle();
             data = stickerResult.data;
             error = stickerResult.error;
+            break;
+          case 'postcard_jobs':
+            const postcardResult = await supabase
+              .from('postcard_jobs')
+              .select('*')
+              .eq('id', id)
+              .maybeSingle();
+            data = postcardResult.data;
+            error = postcardResult.error;
             break;
           default:
             throw new Error(`Unsupported table: ${config.tableName}`);

@@ -18,7 +18,7 @@ const SleeveJobEditPage = () => {
           .from("sleeve_jobs")
           .select("*")
           .eq("id", id)
-          .single();
+          .maybeSingle();
           
         if (error) throw error;
         
@@ -26,6 +26,7 @@ const SleeveJobEditPage = () => {
       } catch (error) {
         console.error("Error fetching sleeve job:", error);
         toast.error("Failed to load sleeve job details");
+        setJob(null);
       } finally {
         setIsLoading(false);
       }
@@ -51,6 +52,12 @@ const SleeveJobEditPage = () => {
         <div className="text-center p-6 bg-white rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-red-500 mb-2">Job Not Found</h2>
           <p className="text-gray-500">The requested sleeve job could not be found.</p>
+          <button 
+            onClick={() => window.location.href = '/batchflow/batches/sleeves/jobs'}
+            className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
+          >
+            Back to Jobs
+          </button>
         </div>
       </div>
     );
