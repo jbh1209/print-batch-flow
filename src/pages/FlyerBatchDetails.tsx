@@ -5,7 +5,6 @@ import EmptyBatchState from '@/components/flyers/batch-details/EmptyBatchState';
 import DeleteBatchDialog from '@/components/flyers/batch-details/DeleteBatchDialog';
 import BatchDetailsHeader from '@/components/flyers/batch-details/BatchDetailsHeader';
 import BatchDetailsContent from '@/components/batches/BatchDetailsContent';
-import { FlyerBatchOverview } from '@/components/flyers/FlyerBatchOverview';
 import { useFlyerBatchDetails } from '@/hooks/flyers/useFlyerBatchDetails';
 import { useBatchDeletion } from '@/hooks/useBatchDeletion';
 import { 
@@ -114,13 +113,6 @@ const FlyerBatchDetails = () => {
         onRefresh={refetch}
       />
 
-      {/* Flyer-specific batch overview */}
-      {relatedJobs && relatedJobs.length > 0 && (
-        <FlyerBatchOverview 
-          jobs={convertedBaseJobs} 
-          batchName={batch.name} 
-        />
-      )}
 
       {/* Delete Confirmation Dialog */}
       <DeleteBatchDialog 
