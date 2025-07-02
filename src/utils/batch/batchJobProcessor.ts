@@ -139,6 +139,9 @@ export async function completeBatchProcessing(batchId: string, nextStageId?: str
         
         if (success) {
           successCount++;
+          
+          // Complete the Batch Allocation stage for this job
+          await completeBatchAllocationStage(ref.production_job_id, nextStageId);
         }
       } catch (error) {
         console.error(`❌ Error completing job ${ref.production_job_id}:`, error);
@@ -159,6 +162,62 @@ export async function completeBatchProcessing(batchId: string, nextStageId?: str
     console.error('❌ Error completing batch processing:', error);
     toast.error("Failed to complete batch processing");
     return false;
+  }
+}
+
+/**
+ * Complete the Batch Allocation stage when jobs are successfully batched
+ */
+async function completeBatchAllocationStage(productionJobId: string, nextStageId?: string): Promise<void> {
+  try {
+    console.log(`🔄 Completing Batch Allocation stage for job ${productionJobId}`);
+
+    // First, get the Batch Allocation stage ID
+    const { data: batchStage, error: stageQueryError } = await supabase
+      .from('production_stages')
+      .select('id')
+      .eq('name', 'Batch Allocation')
+      .single();
+
+    if (stageQueryError || !batchStage) {
+      console.warn(`⚠️ Could not find Batch Allocation stage:`, stageQueryError);
+      return;
+    }
+
+    // Complete the batch allocation stage instance
+    const { error: stageError } = await supabase
+      .from('job_stage_instances')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        notes: 'Job successfully batched and processed'
+      })
+      .eq('job_id', productionJobId)
+      .eq('job_table_name', 'production_jobs')
+      .in('status', ['active', 'pending'])
+      .eq('production_stage_id', batchStage.id);
+
+    if (stageError) {
+      console.warn(`⚠️ Could not complete batch allocation stage for job ${productionJobId}:`, stageError);
+    }
+
+    // Activate next stage if specified
+    if (nextStageId) {
+      await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'active',
+          started_at: new Date().toISOString(),
+          notes: 'Advanced from batch allocation to next stage'
+        })
+        .eq('job_id', productionJobId)
+        .eq('job_table_name', 'production_jobs')
+        .eq('production_stage_id', nextStageId)
+        .eq('status', 'pending');
+    }
+
+  } catch (error) {
+    console.warn(`⚠️ Error completing batch allocation stage for job ${productionJobId}:`, error);
   }
 }
 
