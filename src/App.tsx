@@ -10,6 +10,9 @@ import RoleAwareLayout from "@/components/tracker/RoleAwareLayout";
 import Auth from "@/pages/Auth";
 import Index from "@/pages/Index";
 import BusinessCardJobs from "@/pages/BusinessCardJobs";
+import BusinessCardJobNew from "@/pages/BusinessCardJobNew";
+import BusinessCardJobEdit from "@/pages/BusinessCardJobEdit";
+import BusinessCardJobDetail from "@/pages/BusinessCardJobDetail";
 import Users from "@/pages/Users";
 import Dashboard from "@/pages/Dashboard";
 import TrackerJobs from "@/pages/tracker/TrackerJobs";
@@ -114,6 +117,9 @@ function App() {
                   <Route path="batches/business-cards" element={<BusinessCardBatches />} />
                   <Route path="batches/business-cards/batches/:batchId" element={<BusinessCardBatchDetails />} />
                   <Route path="batches/business-cards/jobs" element={<BusinessCardJobs />} />
+                  <Route path="batches/business-cards/jobs/new" element={<BusinessCardJobNew />} />
+                  <Route path="batches/business-cards/jobs/:id" element={<BusinessCardJobDetail />} />
+                  <Route path="batches/business-cards/jobs/:id/edit" element={<BusinessCardJobEdit />} />
                   
                   {/* Flyers routes */}
                   <Route path="batches/flyers" element={<Flyers />} />
