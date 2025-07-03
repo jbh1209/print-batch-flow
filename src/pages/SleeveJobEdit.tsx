@@ -17,29 +17,35 @@ const SleeveJobEdit = () => {
 
   useEffect(() => {
     const fetchJob = async () => {
-      if (!user || !id) return; // Changed from jobId to id
+      if (!id) return;
 
       try {
-        // Remove user_id filter to allow any authenticated user to edit any job
         const { data, error } = await supabase
           .from('sleeve_jobs')
           .select('*')
-          .eq('id', id) // Changed from jobId to id
-          .single();
+          .eq('id', id)
+          .maybeSingle();
 
         if (error) throw error;
+        
+        if (!data) {
+          toast.error('Job not found');
+          navigate('/batchflow/batches/sleeves?tab=jobs');
+          return;
+        }
+        
         setJob(data as BaseJob);
       } catch (err) {
         console.error('Error fetching job:', err);
         toast.error('Failed to load job');
-        navigate('/batches/sleeves/jobs');
+        navigate('/batchflow/batches/sleeves?tab=jobs');
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchJob();
-  }, [id, user, navigate]); // Changed from jobId to id
+  }, [id, navigate]);
 
   if (isLoading) {
     return (

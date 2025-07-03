@@ -53,7 +53,7 @@ const FlyerJobEditPage = () => {
           <h2 className="text-xl font-semibold text-red-500 mb-2">Job Not Found</h2>
           <p className="text-gray-500">The requested flyer job could not be found.</p>
           <button 
-            onClick={() => window.location.href = '/batchflow/batches/flyers/jobs'}
+            onClick={() => window.location.href = '/batchflow/batches/flyers?tab=jobs'}
             className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
           >
             Back to Jobs

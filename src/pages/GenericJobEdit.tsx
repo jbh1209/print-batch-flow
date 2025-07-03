@@ -20,7 +20,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
 
   useEffect(() => {
     const fetchJob = async () => {
-      if (!user || !id) return;
+      if (!id) return;
 
       try {
         let data: any = null;
@@ -78,6 +78,12 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
 
         if (error) throw error;
         
+        if (!data) {
+          toast.error('Job not found');
+          navigate(config.routes.jobsPath);
+          return;
+        }
+        
         console.log(`Fetched ${config.tableName} job data:`, data);
         setJob(data as BaseJob);
       } catch (err) {
@@ -90,7 +96,7 @@ const GenericJobEdit = ({ config }: GenericJobEditProps) => {
     };
 
     fetchJob();
-  }, [id, user, navigate, config]);
+  }, [id, navigate, config]);
 
   if (isLoading) {
     return (

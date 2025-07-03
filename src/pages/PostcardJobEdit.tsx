@@ -38,16 +38,22 @@ const PostcardJobEdit = () => {
 
   useEffect(() => {
     const fetchJob = async () => {
-      if (!user || !id) return;
+      if (!id) return;
 
       try {
         const { data, error } = await supabase
           .from('postcard_jobs')
           .select('*')
           .eq('id', id)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
+        
+        if (!data) {
+          toast.error('Job not found');
+          navigate('/batchflow/batches/postcards?tab=jobs');
+          return;
+        }
 
         // Get specifications for this job
         const specifications = await getJobSpecifications(id, 'postcard_jobs');
@@ -64,14 +70,14 @@ const PostcardJobEdit = () => {
       } catch (err) {
         console.error('Error fetching job:', err);
         toast.error('Failed to load job');
-        navigate('/postcards');
+        navigate('/batchflow/batches/postcards?tab=jobs');
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchJob();
-  }, [id, user, navigate, getJobSpecifications]);
+  }, [id, navigate, getJobSpecifications]);
 
   if (isLoading) {
     return (
