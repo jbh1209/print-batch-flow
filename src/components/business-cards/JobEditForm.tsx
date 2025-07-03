@@ -71,7 +71,7 @@ const JobEditForm = ({ jobData, isSaving, onSubmit }: JobEditFormProps) => {
   const handleFormSubmit = async (data: FormValues) => {
     const success = await onSubmit(data, selectedFile);
     if (success) {
-      navigate("/batches/business-cards/jobs");
+      navigate("/batchflow/batches/business-cards?tab=jobs");
     }
   };
 
@@ -92,8 +92,8 @@ const JobEditForm = ({ jobData, isSaving, onSubmit }: JobEditFormProps) => {
         <FormActions 
           isSubmitting={isSaving}
           submitLabel="Save Changes" 
-          cancelPath="/batches/business-cards/jobs"
-          onCancel={() => navigate("/batches/business-cards/jobs")}
+          cancelPath="/batchflow/batches/business-cards?tab=jobs"
+          onCancel={() => navigate("/batchflow/batches/business-cards?tab=jobs")}
         />
       </form>
     </Form>

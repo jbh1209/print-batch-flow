@@ -26,7 +26,7 @@ const JobFormHeader = ({ isEditing = false }: JobFormHeaderProps) => {
       </div>
       <Button 
         variant="outline" 
-        onClick={() => navigate("/batches/business-cards/jobs")}
+        onClick={() => navigate("/batchflow/batches/business-cards?tab=jobs")}
         className="flex items-center gap-1"
       >
         <ArrowLeft size={16} />
