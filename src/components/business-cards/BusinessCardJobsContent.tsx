@@ -37,7 +37,7 @@ const BusinessCardJobsContent = () => {
     console.log("Handling job deletion:", jobId);
     
     try {
-      // Remove user_id filter to allow any user to delete any job
+      // Allow deletion by all users - permissions are handled at component level
       const { error } = await supabase
         .from("business_card_jobs")
         .delete()

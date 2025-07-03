@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
 
 type JobData = {
   name: string;
@@ -17,10 +18,14 @@ type JobData = {
 
 export function useBusinessCardJob(jobId: string | undefined) {
   const { user } = useAuth();
+  const { isAdmin, isManager, isDtpOperator } = useUserRole();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobData, setJobData] = useState<JobData | null>(null);
+
+  // Check if user can edit all jobs (admin, manager, DTP operators)
+  const canEditAllJobs = isAdmin || isManager || isDtpOperator;
 
   // Fetch job data
   useEffect(() => {
@@ -28,17 +33,26 @@ export function useBusinessCardJob(jobId: string | undefined) {
       if (!jobId || !user) return;
       
       try {
-        const { data, error } = await supabase
+        // Build query conditionally based on user permissions
+        let query = supabase
           .from("business_card_jobs")
           .select("*")
-          .eq("id", jobId)
-          .eq("user_id", user.id)
-          .maybeSingle();
+          .eq("id", jobId);
+        
+        // Only filter by user_id if user doesn't have permission to edit all jobs
+        if (!canEditAllJobs) {
+          query = query.eq("user_id", user.id);
+        }
+        
+        const { data, error } = await query.maybeSingle();
           
         if (error) throw error;
         
         if (!data) {
-          setError("Job not found or you don't have permission to view it.");
+          setError(canEditAllJobs 
+            ? "Job not found." 
+            : "Job not found or you don't have permission to view it."
+          );
           return;
         }
         
@@ -62,7 +76,7 @@ export function useBusinessCardJob(jobId: string | undefined) {
     };
     
     fetchJobData();
-  }, [jobId, user]);
+  }, [jobId, user, canEditAllJobs]);
 
   const updateJob = async (formData: any, selectedFile: File | null) => {
     if (!user) {
@@ -124,11 +138,18 @@ export function useBusinessCardJob(jobId: string | undefined) {
         updateData.file_name = fileName;
       }
 
-      const { error: updateError } = await supabase
+      // Build update query conditionally based on user permissions
+      let updateQuery = supabase
         .from("business_card_jobs")
         .update(updateData)
-        .eq("id", jobId)
-        .eq("user_id", user.id);
+        .eq("id", jobId);
+      
+      // Only filter by user_id if user doesn't have permission to edit all jobs
+      if (!canEditAllJobs) {
+        updateQuery = updateQuery.eq("user_id", user.id);
+      }
+      
+      const { error: updateError } = await updateQuery;
 
       if (updateError) {
         throw new Error(updateError.message);
