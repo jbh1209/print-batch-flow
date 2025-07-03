@@ -1,8 +1,13 @@
 /**
  * Job Permission Utilities
  * 
- * Defines who can perform various operations on jobs in the batch flow system.
- * This prevents regression of permissions that restrict access unnecessarily.
+ * Standardized permissions for all batch flow job types.
+ * Ensures consistent access patterns across business cards, flyers, postcards, etc.
+ * 
+ * IMPORTANT: All batch flow job types should use the same permission model:
+ * - Authenticated users can view all jobs
+ * - All operations are handled by RLS policies in the database
+ * - No client-side user filtering should be applied in hooks
  */
 
 import { UserRole } from "@/hooks/tracker/useUserRole";
@@ -33,6 +38,19 @@ export const canDeleteJobs = (userRole: UserRole): boolean => {
 export const canCreateBatches = (userRole: UserRole): boolean => {
   return userRole === 'admin' || userRole === 'manager' || userRole === 'dtp_operator';
 };
+
+/**
+ * SIMPLIFIED APPROACH FOR BATCH FLOW:
+ * All job hooks should follow this pattern for consistency:
+ * 
+ * 1. Remove user_id filtering from SELECT queries (let users see all jobs)
+ * 2. Remove user_id filtering from UPDATE queries (rely on RLS policies)
+ * 3. Remove user_id filtering from DELETE queries (rely on RLS policies)
+ * 4. Use .maybeSingle() instead of .single() for better error handling
+ * 5. Trust the database RLS policies to handle access control
+ * 
+ * This ensures all job types work consistently and avoids client-side permission conflicts.
+ */
 
 /**
  * Batch Flow Permissions Matrix:
