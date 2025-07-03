@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Control } from "react-hook-form";
+import { Control, useFormContext } from "react-hook-form";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Upload } from "lucide-react";
@@ -36,6 +36,7 @@ export const GenericJobFormFields: React.FC<GenericJobFormFieldsProps> = ({
   isEdit = false,
   onSpecificationChange
 }) => {
+  const { control } = useFormContext();
   const [selectedSpecs, setSelectedSpecs] = useState<Record<string, any>>({});
 
   const handleSpecificationChange = (category: string, specificationId: string, specification: any) => {
@@ -56,6 +57,7 @@ export const GenericJobFormFields: React.FC<GenericJobFormFieldsProps> = ({
       {/* Basic Job Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField
+          control={control}
           name="name"
           render={({ field }) => (
             <FormItem>
@@ -69,6 +71,7 @@ export const GenericJobFormFields: React.FC<GenericJobFormFieldsProps> = ({
         />
 
         <FormField
+          control={control}
           name="job_number"
           render={({ field }) => (
             <FormItem>
@@ -82,6 +85,7 @@ export const GenericJobFormFields: React.FC<GenericJobFormFieldsProps> = ({
         />
 
         <FormField
+          control={control}
           name="quantity"
           render={({ field }) => (
             <FormItem>
@@ -101,6 +105,7 @@ export const GenericJobFormFields: React.FC<GenericJobFormFieldsProps> = ({
         />
 
         <FormField
+          control={control}
           name="due_date"
           render={({ field }) => (
             <FormItem className="flex flex-col">
@@ -152,6 +157,7 @@ export const GenericJobFormFields: React.FC<GenericJobFormFieldsProps> = ({
 
       {/* File Upload */}
       <FormField
+        control={control}
         name="file"
         render={({ field }) => (
           <FormItem>
