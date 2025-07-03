@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
 import { useBatchDeletion } from "@/hooks/useBatchDeletion";
-import BusinessCardJobs from "@/pages/BusinessCardJobs";
+import BusinessCardJobsContent from "@/components/business-cards/BusinessCardJobsContent";
 
 const BusinessCardBatches = () => {
   const [searchParams] = useSearchParams();
@@ -75,63 +75,79 @@ const BusinessCardBatches = () => {
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <JobsHeader 
         title="Business Card Management" 
         subtitle="View and manage business card jobs and batches" 
       />
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="jobs">Jobs</TabsTrigger>
-          <TabsTrigger value="batches">Batches</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="jobs" className="mt-0">
-          <BusinessCardJobs />
-        </TabsContent>
-        
-        <TabsContent value="batches" className="mt-0">
-          {/* Error message if there's an issue fetching data */}
-          {error && !isLoading && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error loading batches</AlertTitle>
-              <AlertDescription>
-                {error}
-                <div className="mt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={fetchBatches}
-                  >
-                    Try Again
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
+      <div className="bg-card rounded-lg border shadow-sm">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <div className="border-b bg-muted/5">
+            <TabsList className="grid w-full max-w-md grid-cols-2 mx-auto bg-transparent border-0 h-12">
+              <TabsTrigger 
+                value="jobs" 
+                className="text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                Jobs
+              </TabsTrigger>
+              <TabsTrigger 
+                value="batches"
+                className="text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                Batches
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          
+          <div className="p-6">
+            <TabsContent value="jobs" className="mt-0 space-y-0">
+              <BusinessCardJobsContent />
+            </TabsContent>
+            
+            <TabsContent value="batches" className="mt-0 space-y-6">
+              {/* Error message if there's an issue fetching data */}
+              {error && !isLoading && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error loading batches</AlertTitle>
+                  <AlertDescription>
+                    {error}
+                    <div className="mt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={fetchBatches}
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
 
-          <BatchesWrapper 
-            batches={batchSummaries}
-            isLoading={isLoading}
-            error={error}
-            onRefresh={fetchBatches}
-            onViewPDF={handleViewPDF}
-            onDeleteBatch={initiateDeletion}
-            onViewDetails={handleViewBatchDetails}
-          />
+              <BatchesWrapper 
+                batches={batchSummaries}
+                isLoading={isLoading}
+                error={error}
+                onRefresh={fetchBatches}
+                onViewPDF={handleViewPDF}
+                onDeleteBatch={initiateDeletion}
+                onViewDetails={handleViewBatchDetails}
+              />
 
-          {/* Standardized Delete Confirmation Dialog */}
-          <StandardDeleteBatchDialog
-            isOpen={!!batchToDelete}
-            isDeleting={isDeleting}
-            batchName={batchToDeleteName}
-            onCancel={cancelDeletion}
-            onConfirm={handleDeleteBatch}
-          />
-        </TabsContent>
-      </Tabs>
+              {/* Standardized Delete Confirmation Dialog */}
+              <StandardDeleteBatchDialog
+                isOpen={!!batchToDelete}
+                isDeleting={isDeleting}
+                batchName={batchToDeleteName}
+                onCancel={cancelDeletion}
+                onConfirm={handleDeleteBatch}
+              />
+            </TabsContent>
+          </div>
+        </Tabs>
+      </div>
     </div>
   );
 };
