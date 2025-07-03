@@ -1,5 +1,5 @@
 
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useBusinessCardBatches } from "@/hooks/useBusinessCardBatches";
 import JobsHeader from "@/components/business-cards/JobsHeader";
 import BatchDetails from "@/components/batches/BatchDetails";
@@ -8,12 +8,16 @@ import { StandardDeleteBatchDialog } from "@/components/batches/StandardDeleteBa
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
 import { useBatchDeletion } from "@/hooks/useBatchDeletion";
+import BusinessCardJobs from "@/pages/BusinessCardJobs";
 
 const BusinessCardBatches = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const batchId = searchParams.get('batchId');
+  const activeTab = searchParams.get('tab') || 'batches';
   
   const {
     batches,
@@ -66,51 +70,68 @@ const BusinessCardBatches = () => {
     );
   }
 
+  const handleTabChange = (tab: string) => {
+    navigate(`/batchflow/batches/business-cards?tab=${tab}`);
+  };
+
   return (
     <div>
       <JobsHeader 
-        title="Business Card Batches" 
-        subtitle="View and manage all your business card batches" 
+        title="Business Card Management" 
+        subtitle="View and manage business card jobs and batches" 
       />
 
-      {/* Error message if there's an issue fetching data */}
-      {error && !isLoading && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error loading batches</AlertTitle>
-          <AlertDescription>
-            {error}
-            <div className="mt-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={fetchBatches}
-              >
-                Try Again
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
+          <TabsTrigger value="batches">Batches</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="jobs" className="mt-0">
+          <BusinessCardJobs />
+        </TabsContent>
+        
+        <TabsContent value="batches" className="mt-0">
+          {/* Error message if there's an issue fetching data */}
+          {error && !isLoading && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error loading batches</AlertTitle>
+              <AlertDescription>
+                {error}
+                <div className="mt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={fetchBatches}
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
 
-      <BatchesWrapper 
-        batches={batchSummaries}
-        isLoading={isLoading}
-        error={error}
-        onRefresh={fetchBatches}
-        onViewPDF={handleViewPDF}
-        onDeleteBatch={initiateDeletion}
-        onViewDetails={handleViewBatchDetails}
-      />
+          <BatchesWrapper 
+            batches={batchSummaries}
+            isLoading={isLoading}
+            error={error}
+            onRefresh={fetchBatches}
+            onViewPDF={handleViewPDF}
+            onDeleteBatch={initiateDeletion}
+            onViewDetails={handleViewBatchDetails}
+          />
 
-      {/* Standardized Delete Confirmation Dialog */}
-      <StandardDeleteBatchDialog
-        isOpen={!!batchToDelete}
-        isDeleting={isDeleting}
-        batchName={batchToDeleteName}
-        onCancel={cancelDeletion}
-        onConfirm={handleDeleteBatch}
-      />
+          {/* Standardized Delete Confirmation Dialog */}
+          <StandardDeleteBatchDialog
+            isOpen={!!batchToDelete}
+            isDeleting={isDeleting}
+            batchName={batchToDeleteName}
+            onCancel={cancelDeletion}
+            onConfirm={handleDeleteBatch}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
