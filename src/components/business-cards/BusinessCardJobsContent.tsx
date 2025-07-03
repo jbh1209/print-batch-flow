@@ -87,7 +87,7 @@ const BusinessCardJobsContent = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {error && !isLoading && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />

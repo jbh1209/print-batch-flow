@@ -75,7 +75,7 @@ const BusinessCardBatches = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <JobsHeader 
         title="Business Card Management" 
         subtitle="View and manage business card jobs and batches" 
@@ -100,12 +100,12 @@ const BusinessCardBatches = () => {
             </TabsList>
           </div>
           
-          <div className="p-6">
+          <div className="p-4">
             <TabsContent value="jobs" className="mt-0 space-y-0">
               <BusinessCardJobsContent />
             </TabsContent>
             
-            <TabsContent value="batches" className="mt-0 space-y-6">
+            <TabsContent value="batches" className="mt-0 space-y-4">
               {/* Error message if there's an issue fetching data */}
               {error && !isLoading && (
                 <Alert variant="destructive">
