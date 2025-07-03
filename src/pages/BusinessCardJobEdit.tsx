@@ -20,12 +20,7 @@ const BusinessCardJobEdit = () => {
     );
   }
 
-  // Ensure jobData has required properties for the form
-  const formJobData = jobData ? {
-    ...jobData,
-    lamination_type: 'none' as const, // Default value for form compatibility
-    paper_type: 'Standard' // Default value for form compatibility
-  } : null;
+  // jobData is now properly aligned with the database schema
 
   return (
     <div className="container mx-auto max-w-4xl">
@@ -36,7 +31,7 @@ const BusinessCardJobEdit = () => {
           <FormLoadingSpinner />
         ) : (
           <JobEditForm
-            jobData={formJobData}
+            jobData={jobData}
             isSaving={isSaving}
             onSubmit={updateJob}
           />

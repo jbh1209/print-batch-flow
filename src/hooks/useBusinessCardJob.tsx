@@ -33,7 +33,7 @@ export function useBusinessCardJob(jobId: string | undefined) {
           .select("*")
           .eq("id", jobId)
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle();
           
         if (error) throw error;
         

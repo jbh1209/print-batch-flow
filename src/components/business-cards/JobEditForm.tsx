@@ -10,13 +10,11 @@ import JobFormFields from "@/components/business-cards/JobFormFields";
 import FileUpload from "@/components/business-cards/FileUpload";
 import FormActions from "@/components/business-cards/FormActions";
 
-// Form schema for validation
+// Form schema for validation - simplified for business cards
 const formSchema = z.object({
   name: z.string().min(1, "Job name is required"),
   quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
   doubleSided: z.boolean().default(false),
-  laminationType: z.enum(["none", "gloss", "matt", "soft_touch"]),
-  paperType: z.string().min(1, "Paper type is required"),
   dueDate: z.date({
     required_error: "Due date is required",
   }),
@@ -29,9 +27,9 @@ interface JobData {
   name: string;
   quantity: number;
   double_sided: boolean;
-  lamination_type: "none" | "gloss" | "matt" | "soft_touch"; // Fixed: properly typed to match enum
-  paper_type: string;
   due_date: string;
+  pdf_url?: string;
+  file_name?: string;
 }
 
 interface JobEditFormProps {
@@ -54,8 +52,6 @@ const JobEditForm = ({ jobData, isSaving, onSubmit }: JobEditFormProps) => {
       name: "",
       quantity: 100,
       doubleSided: false,
-      laminationType: "none",
-      paperType: "350gsm Matt",
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
@@ -67,8 +63,6 @@ const JobEditForm = ({ jobData, isSaving, onSubmit }: JobEditFormProps) => {
         name: jobData.name,
         quantity: jobData.quantity,
         doubleSided: jobData.double_sided,
-        laminationType: jobData.lamination_type,
-        paperType: jobData.paper_type,
         dueDate: new Date(jobData.due_date),
       });
     }
