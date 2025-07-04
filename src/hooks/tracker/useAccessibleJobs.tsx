@@ -31,7 +31,7 @@ export const useAccessibleJobs = ({
         statusFilter
       });
 
-      const { data, error } = await supabase.rpc('get_user_accessible_jobs', {
+      const { data, error } = await supabase.rpc('get_user_accessible_jobs_with_conditional_stages', {
         p_user_id: user.id,
         p_permission_type: permissionType,
         p_status_filter: statusFilter,
