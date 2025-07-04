@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { completeBatchProcessing } from "@/utils/batch/batchJobProcessor";
+import { BatchSplittingService } from "@/utils/batch/batchSplittingService";
 
 export const useBatchStageProgression = () => {
   const { user } = useAuth();
@@ -76,14 +77,21 @@ export const useBatchStageProgression = () => {
 
       // If this is a final stage (packaging/finishing), split the batch back to individual jobs
       if (isFinalStage) {
-        console.log('🔄 Final stage reached - completing batch processing...');
+        console.log('🔄 Final stage reached - splitting batch back to individual jobs...');
         
-        const completionSuccess = await completeBatchProcessing(batch.id, nextStageId);
+        const splitResult = await BatchSplittingService.splitBatchToIndividualJobs({
+          batchJobId,
+          targetStageId: nextStageId,
+          splitReason: `Completed at ${stageInfo.production_stages?.name} stage`,
+          userId: user?.id
+        });
         
-        if (completionSuccess) {
-          toast.success(`Batch ${batchName} completed and jobs returned to individual workflow`);
+        if (splitResult.success) {
+          toast.success(`Batch ${batchName} completed and ${splitResult.splitJobsCount} jobs returned to individual workflow`);
+          console.log('✅ Batch split successful:', splitResult);
         } else {
-          toast.warning(`Batch stage completed but there were issues splitting back to individual jobs`);
+          toast.error(`Batch stage completed but split failed: ${splitResult.message}`);
+          console.error('❌ Batch split failed:', splitResult);
         }
       } else {
         toast.success(`Batch stage completed successfully`);
