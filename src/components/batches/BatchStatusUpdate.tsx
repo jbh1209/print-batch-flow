@@ -42,67 +42,32 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
 
   const createBatchProductionJob = async (batchId: string) => {
     try {
-      // Get batch details
-      const { data: batch, error: batchError } = await supabase
-        .from('batches')
-        .select('*')
-        .eq('id', batchId)
-        .single();
-
-      if (batchError) throw batchError;
-
       // Get batch job references to understand constituent jobs
       const { data: batchRefs, error: refsError } = await supabase
         .from('batch_job_references')
-        .select(`
-          production_job_id,
-          production_jobs (
-            category_id,
-            categories (
-              id,
-              name,
-              color
-            )
-          )
-        `)
+        .select('production_job_id')
         .eq('batch_id', batchId);
 
       if (refsError) throw refsError;
 
-      // Determine batch category from constituent jobs
-      const categories = batchRefs?.map(ref => ref.production_jobs?.categories).filter(Boolean) || [];
-      const primaryCategory = categories[0];
+      if (!batchRefs || batchRefs.length === 0) {
+        throw new Error('No constituent jobs found for batch');
+      }
 
-      // Create batch production job
-      const { data: batchJob, error: createError } = await supabase
-        .from('production_jobs')
-        .insert({
-          wo_no: `BATCH-${batch.name}`,
-          customer: `Batch: ${batch.name}`,
-          reference: `Batch containing ${batchRefs?.length || 0} jobs`,
-          status: 'In Production',
-          category_id: primaryCategory?.id || null,
-          batch_category: batch.name,
-          user_id: batch.created_by,
-          qty: batchRefs?.length || 0
-        })
-        .select()
-        .single();
+      // Use the new database function to create proper batch master job
+      const constituentJobIds = batchRefs.map(ref => ref.production_job_id);
+      
+      const { data: masterJobId, error: createError } = await supabase
+        .rpc('create_batch_master_job', {
+          p_batch_id: batchId,
+          p_constituent_job_ids: constituentJobIds
+        });
 
       if (createError) throw createError;
 
-      // Initialize workflow stages for batch job if it has a category
-      if (primaryCategory?.id && batchJob) {
-        await supabase.rpc('initialize_job_stages_auto', {
-          p_job_id: batchJob.id,
-          p_job_table_name: 'production_jobs',
-          p_category_id: primaryCategory.id
-        });
-      }
-
-      console.log('✅ Batch production job created:', batchJob);
+      console.log('✅ Batch master job created with proper WO number preservation:', masterJobId);
     } catch (error) {
-      console.error('❌ Error creating batch production job:', error);
+      console.error('❌ Error creating batch master job:', error);
       throw error;
     }
   };

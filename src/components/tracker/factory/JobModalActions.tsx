@@ -79,6 +79,7 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
   const handleMarkProofApproved = async () => {
     setIsMarkingProofApproved(true);
     try {
+      // Mark proof as approved in stage instance
       const { error: updateError } = await supabase
         .from('job_stage_instances')
         .update({
@@ -93,8 +94,21 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         return;
       }
 
-      onCompleteJob();
-      toast.success('Proof marked as approved and job advanced');
+      // Use the new function to properly advance to batch allocation
+      const { error: advanceError } = await supabase
+        .rpc('advance_job_to_batch_allocation', {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs'
+        });
+
+      if (advanceError) {
+        console.error('Failed to advance job to batch allocation:', advanceError);
+        // Fall back to normal completion if batch allocation fails
+        onCompleteJob();
+      }
+
+      toast.success('Proof approved - job moved to batch allocation stage');
+      window.location.reload(); // Refresh to show updated stage
     } catch (error) {
       console.error('Error marking proof as approved:', error);
       toast.error('Failed to mark proof as approved');

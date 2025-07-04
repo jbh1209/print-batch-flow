@@ -1283,6 +1283,7 @@ export type Database = {
           has_custom_workflow: boolean | null
           highlighted: boolean | null
           id: string
+          is_batch_master: boolean | null
           is_expedited: boolean | null
           location: string | null
           manual_due_date: string | null
@@ -1317,6 +1318,7 @@ export type Database = {
           has_custom_workflow?: boolean | null
           highlighted?: boolean | null
           id?: string
+          is_batch_master?: boolean | null
           is_expedited?: boolean | null
           location?: string | null
           manual_due_date?: string | null
@@ -1351,6 +1353,7 @@ export type Database = {
           has_custom_workflow?: boolean | null
           highlighted?: boolean | null
           id?: string
+          is_batch_master?: boolean | null
           is_expedited?: boolean | null
           location?: string | null
           manual_due_date?: string | null
@@ -1873,6 +1876,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      advance_job_to_batch_allocation: {
+        Args: {
+          p_job_id: string
+          p_job_table_name?: string
+          p_completed_by?: string
+        }
+        Returns: boolean
+      }
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
@@ -1892,6 +1903,14 @@ export type Database = {
       check_user_is_admin: {
         Args: { check_user_id?: string }
         Returns: boolean
+      }
+      create_batch_master_job: {
+        Args: {
+          p_batch_id: string
+          p_constituent_job_ids: string[]
+          p_created_by?: string
+        }
+        Returns: string
       }
       expedite_job_factory_wide: {
         Args: {
@@ -2062,6 +2081,45 @@ export type Database = {
           proof_emailed_at: string
         }[]
       }
+      get_user_accessible_jobs_with_batch_allocation: {
+        Args: {
+          p_user_id?: string
+          p_permission_type?: string
+          p_status_filter?: string
+          p_stage_filter?: string
+        }
+        Returns: {
+          job_id: string
+          wo_no: string
+          customer: string
+          status: string
+          due_date: string
+          reference: string
+          category_id: string
+          category_name: string
+          category_color: string
+          current_stage_id: string
+          current_stage_name: string
+          current_stage_color: string
+          current_stage_status: string
+          user_can_view: boolean
+          user_can_edit: boolean
+          user_can_work: boolean
+          user_can_manage: boolean
+          workflow_progress: number
+          total_stages: number
+          completed_stages: number
+          display_stage_name: string
+          qty: number
+          started_by: string
+          started_by_name: string
+          proof_emailed_at: string
+          is_conditional_stage: boolean
+          stage_should_show: boolean
+          batch_ready: boolean
+          is_batch_master: boolean
+        }[]
+      }
       get_user_accessible_jobs_with_conditional_stages: {
         Args: {
           p_user_id?: string
@@ -2181,6 +2239,15 @@ export type Database = {
           p_category_id: string
         }
         Returns: boolean
+      }
+      inject_batch_allocation_stage_for_existing_jobs: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          fixed_job_id: string
+          wo_no: string
+          category_name: string
+          stages_added: number
+        }[]
       }
       is_admin: {
         Args: { _user_id: string }
