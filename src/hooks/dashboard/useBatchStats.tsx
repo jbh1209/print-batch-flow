@@ -3,12 +3,22 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface BatchStats {
+  // Legacy batch counts (BatchFlow)
   businessCardBatches: number;
   flyerBatches: number;
   totalBatches: number;
   pendingBatches: number;
   inProgressBatches: number;
   completedBatches: number;
+  
+  // Enhanced batch context for tracker integration
+  productionJobsInBatches: number;
+  batchMasterJobs: number;
+  individualJobsReadyForBatch: number;
+  
+  // Batch efficiency metrics
+  averageBatchSize: number;
+  batchCompletionRate: number;
 }
 
 export const useBatchStats = () => {
@@ -18,7 +28,12 @@ export const useBatchStats = () => {
     totalBatches: 0,
     pendingBatches: 0,
     inProgressBatches: 0,
-    completedBatches: 0
+    completedBatches: 0,
+    productionJobsInBatches: 0,
+    batchMasterJobs: 0,
+    individualJobsReadyForBatch: 0,
+    averageBatchSize: 0,
+    batchCompletionRate: 0
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,10 +58,10 @@ export const useBatchStats = () => {
         setIsLoading(true);
         setError(null);
 
-        // Get batch statistics
+        // Get batch statistics with enhanced metrics
         const { data: batchData, error: batchError } = await supabase
           .from('batches')
-          .select('status');
+          .select('id, status, name');
 
         if (batchError) throw batchError;
 
@@ -60,17 +75,62 @@ export const useBatchStats = () => {
         const businessCardBatches = await getJobCountForProductType('business_card_jobs');
         const flyerBatches = await getJobCountForProductType('flyer_jobs');
 
+        // Get enhanced batch context from production jobs and batch references
+        const { data: productionJobs } = await supabase
+          .from('production_jobs')
+          .select('id, wo_no, status, batch_ready');
+
+        const { data: batchRefs } = await supabase
+          .from('batch_job_references')
+          .select('production_job_id, batch_id, status');
+
+        // Calculate enhanced metrics
+        const batchMasterJobs = productionJobs?.filter(job => job.wo_no?.startsWith('BATCH-')).length || 0;
+        const individualJobsReadyForBatch = productionJobs?.filter(job => job.batch_ready === true).length || 0;
+        const productionJobsInBatches = batchRefs?.filter(ref => ref.status === 'processing').length || 0;
+
+        // Calculate batch efficiency metrics
+        const batchIds = batchData?.map(b => b.id) || [];
+        let averageBatchSize = 0;
+        let batchCompletionRate = 0;
+
+        if (batchIds.length > 0) {
+          // Get batch sizes
+          const batchSizes = await Promise.all(
+            batchIds.map(async (batchId) => {
+              const { count } = await supabase
+                .from('batch_job_references')
+                .select('*', { count: 'exact' })
+                .eq('batch_id', batchId);
+              return count || 0;
+            })
+          );
+
+          averageBatchSize = batchSizes.length > 0 ? 
+            Math.round(batchSizes.reduce((sum, size) => sum + size, 0) / batchSizes.length) : 0;
+
+          // Calculate completion rate
+          if (totalBatches > 0) {
+            batchCompletionRate = Math.round((completedBatches / totalBatches) * 100);
+          }
+        }
+
         setStats({
           businessCardBatches,
           flyerBatches,
           totalBatches,
           pendingBatches,
           inProgressBatches,
-          completedBatches
+          completedBatches,
+          productionJobsInBatches,
+          batchMasterJobs,
+          individualJobsReadyForBatch,
+          averageBatchSize,
+          batchCompletionRate
         });
 
       } catch (err) {
-        console.error('Error fetching batch stats:', err);
+        console.error('Error fetching enhanced batch stats:', err);
         setError(err instanceof Error ? err.message : 'Failed to load batch statistics');
       } finally {
         setIsLoading(false);
