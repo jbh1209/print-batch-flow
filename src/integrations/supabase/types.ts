@@ -1851,6 +1851,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_batch_allocation_for_job: {
+        Args: { p_job_id: string; p_job_table_name?: string }
+        Returns: boolean
+      }
       add_admin_role: {
         Args: { admin_user_id: string }
         Returns: boolean
