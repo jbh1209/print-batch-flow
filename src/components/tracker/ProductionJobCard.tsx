@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { QRCodeManager } from "./QRCodeManager";
 import { BatchStageIndicator } from "./batch/BatchStageIndicator";
 import { BatchJobCard } from "./BatchJobCard";
+import { BatchContextIndicator } from "./BatchAwareJobCard";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface ProductionJob extends AccessibleJob {
@@ -150,6 +151,7 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
                 </Badge>
               )}
               <BatchStageIndicator job={job} compact showLabel={false} />
+              <BatchContextIndicator job={job} size="sm" showDetails={false} />
             </div>
             {job.qty && (
               <div className="flex items-center gap-1">

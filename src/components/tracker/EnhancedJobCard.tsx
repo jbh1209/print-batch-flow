@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { BatchStageIndicator } from "./batch/BatchStageIndicator";
 import { ConditionalStageIndicator } from "./batch/ConditionalStageIndicator";
+import { BatchContextIndicator } from "./BatchAwareJobCard";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface JobStage {
@@ -93,6 +94,7 @@ export const EnhancedJobCard: React.FC<EnhancedJobCardProps> = ({
               {job.category_name && (
                 <Badge variant="outline">{job.category_name}</Badge>
               )}
+              <BatchContextIndicator job={job} size="sm" showDetails={false} />
               <BatchStageIndicator job={job} compact />
               <ConditionalStageIndicator job={job} compact />
             </div>
