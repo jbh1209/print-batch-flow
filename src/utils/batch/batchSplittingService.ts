@@ -200,6 +200,17 @@ export class BatchSplittingService {
             .eq('id', ref.production_job_id)
             .single();
 
+          // Ensure workflow continuity for the split job
+          try {
+            await BatchSplittingService.ensureSplitJobWorkflowContinuity(
+              ref.production_job_id,
+              `Split from batch: ${batchName}`,
+              userId
+            );
+          } catch (workflowError) {
+            console.warn(`Failed to ensure workflow continuity for job ${ref.production_job_id}:`, workflowError);
+          }
+
           splitJobs.push({
             job_id: ref.production_job_id,
             wo_no: jobDetails?.wo_no || 'Unknown',
@@ -413,6 +424,123 @@ export class BatchSplittingService {
     } catch (error) {
       console.error('Error fetching batch split audit trail:', error);
       return {};
+    }
+  }
+
+  /**
+   * Ensures workflow continuity for a job after it's been split from a batch
+   */
+  private static async ensureSplitJobWorkflowContinuity(
+    jobId: string,
+    batchContext: string,
+    userId?: string
+  ): Promise<void> {
+    try {
+      console.log('🔄 Ensuring workflow continuity for split job:', jobId);
+
+      // Get current job state
+      const { data: job, error: jobError } = await supabase
+        .from('production_jobs')
+        .select(`
+          id,
+          wo_no,
+          status,
+          category_id,
+          batch_ready
+        `)
+        .eq('id', jobId)
+        .single();
+
+      if (jobError || !job) {
+        throw new Error(`Could not find job: ${jobError?.message}`);
+      }
+
+      // Check current stage instances
+      const { data: stages, error: stagesError } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          id,
+          production_stage_id,
+          stage_order,
+          status,
+          production_stages (
+            name
+          )
+        `)
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .order('stage_order', { ascending: true });
+
+      if (stagesError) {
+        throw new Error(`Could not get job stages: ${stagesError.message}`);
+      }
+
+      const activeStages = stages?.filter(s => s.status === 'active') || [];
+      const pendingStages = stages?.filter(s => s.status === 'pending') || [];
+
+      console.log('📊 Job workflow state:', {
+        jobId,
+        totalStages: stages?.length || 0,
+        activeStages: activeStages.length,
+        pendingStages: pendingStages.length
+      });
+
+      // If no active stages and there are pending stages, activate the first pending stage
+      if (activeStages.length === 0 && pendingStages.length > 0) {
+        const nextStage = pendingStages[0];
+        
+        console.log('🎯 Activating next stage for split job:', nextStage.production_stages?.name);
+        
+        const { error: activateError } = await supabase
+          .from('job_stage_instances')
+          .update({
+            status: 'active',
+            started_at: new Date().toISOString(),
+            started_by: userId,
+            notes: `Activated after batch split: ${batchContext}`
+          })
+          .eq('id', nextStage.id);
+
+        if (activateError) {
+          throw new Error(`Failed to activate next stage: ${activateError.message}`);
+        }
+
+        // Update job status to reflect current stage
+        const { error: statusError } = await supabase
+          .from('production_jobs')
+          .update({
+            status: nextStage.production_stages?.name || 'In Progress',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', jobId);
+
+        if (statusError) {
+          console.warn('Failed to update job status:', statusError);
+        }
+
+        console.log('✅ Job workflow continuity ensured for:', job.wo_no);
+      }
+
+      // If no stages exist but job has category, initialize workflow
+      if ((!stages || stages.length === 0) && job.category_id) {
+        console.log('🔧 No stages found, initializing workflow for job:', job.wo_no);
+        
+        const { error: initError } = await supabase.rpc('initialize_job_stages_auto', {
+          p_job_id: jobId,
+          p_job_table_name: 'production_jobs',
+          p_category_id: job.category_id
+        });
+
+        if (initError) {
+          throw new Error(`Failed to initialize workflow: ${initError.message}`);
+        }
+
+        console.log('✅ Workflow initialized for split job:', job.wo_no);
+      }
+
+    } catch (error) {
+      console.error('❌ Error ensuring job workflow continuity:', error);
+      throw error; // Re-throw so caller can handle
     }
   }
 }
