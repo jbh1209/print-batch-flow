@@ -104,6 +104,33 @@ export async function completeBatchProcessing(batchId: string, nextStageId?: str
   try {
     console.log(`🔄 Completing batch processing for batch ${batchId}`);
 
+    // First, check if there's a batch production job to complete
+    const { data: batchJob, error: batchJobError } = await supabase
+      .from('production_jobs')
+      .select('id, wo_no')
+      .eq('wo_no', `BATCH-${batchId}`)
+      .maybeSingle();
+
+    if (batchJobError) {
+      console.error('❌ Error fetching batch production job:', batchJobError);
+    }
+
+    // Complete the batch production job's current stage if it exists
+    if (batchJob) {
+      await supabase
+        .from('job_stage_instances')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          notes: 'Batch processing completed'
+        })
+        .eq('job_id', batchJob.id)
+        .eq('job_table_name', 'production_jobs')
+        .eq('status', 'active');
+
+      console.log(`✅ Completed batch production job: ${batchJob.wo_no}`);
+    }
+
     // Get all batch job references for this batch
     const { data: batchRefs, error: fetchError } = await supabase
       .from('batch_job_references')
