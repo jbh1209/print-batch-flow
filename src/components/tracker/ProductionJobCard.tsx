@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { QRCodeManager } from "./QRCodeManager";
 import { BatchStageIndicator } from "./batch/BatchStageIndicator";
+import { BatchJobCard } from "./BatchJobCard";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
 interface ProductionJob extends AccessibleJob {
@@ -36,6 +37,24 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
     transition,
     isDragging,
   } = useSortable({ id: job.id });
+
+  // If this is a batch master job, render BatchJobCard instead
+  if (job.is_batch_master) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={{
+          transform: CSS.Transform.toString(transform),
+          transition,
+        }}
+        className={isDragging ? "opacity-50" : ""}
+        {...attributes}
+        {...listeners}
+      >
+        <BatchJobCard job={job} />
+      </div>
+    );
+  }
 
   const style = {
     transform: CSS.Transform.toString(transform),

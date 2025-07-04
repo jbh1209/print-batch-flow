@@ -36,6 +36,10 @@ export interface AccessibleJob {
   is_conditional_stage?: boolean;
   stage_should_show?: boolean;
   batch_ready?: boolean;
+  // Batch master job properties
+  is_batch_master?: boolean;
+  batch_name?: string | null;
+  constituent_job_count?: number;
 }
 
 export interface UseAccessibleJobsOptions {

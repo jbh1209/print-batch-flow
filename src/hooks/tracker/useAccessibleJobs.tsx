@@ -51,11 +51,15 @@ export const useAccessibleJobs = ({
     refetchInterval: 60000
   });
 
-  // Enhanced job processing to handle batch processing status
+  // Enhanced job processing with batch master job support
   const jobs: AccessibleJob[] = useMemo(() => {
     if (!rawJobs || rawJobs.length === 0) return [];
 
-    return rawJobs.map(job => {
+    const processedJobs: AccessibleJob[] = [];
+    const batchMasterJobs = new Map<string, AccessibleJob>();
+    const individualJobs: AccessibleJob[] = [];
+
+    rawJobs.forEach(job => {
       // Handle batch processing status display
       let displayStage = job.current_stage_name || job.display_stage_name || 'No Stage';
       let stageColor = job.current_stage_color || '#6B7280';
@@ -66,7 +70,7 @@ export const useAccessibleJobs = ({
         stageColor = '#F59E0B'; // Orange color for batch processing
       }
 
-      return {
+      const processedJob: AccessibleJob = {
         job_id: job.job_id,
         id: job.job_id, // Ensure backward compatibility
         wo_no: job.wo_no || '',
@@ -99,7 +103,33 @@ export const useAccessibleJobs = ({
         has_custom_workflow: (job as any).has_custom_workflow || false,
         manual_due_date: (job as any).manual_due_date || null
       };
+
+      // Check if this is a batch master job (wo_no starts with "BATCH-")
+      if (processedJob.wo_no.startsWith('BATCH-')) {
+        const batchName = processedJob.wo_no.replace('BATCH-', '');
+        processedJob.is_batch_master = true;
+        processedJob.batch_name = batchName;
+        processedJob.constituent_job_count = processedJob.qty; // qty represents number of constituent jobs
+        batchMasterJobs.set(batchName, processedJob);
+      } else {
+        individualJobs.push(processedJob);
+      }
     });
+
+    // Add batch master jobs first
+    batchMasterJobs.forEach(batchJob => {
+      processedJobs.push(batchJob);
+    });
+
+    // Add individual jobs that are not part of batches
+    // Filter out jobs that are "In Batch Processing" as they should only show via batch master
+    individualJobs.forEach(job => {
+      if (job.status !== 'In Batch Processing') {
+        processedJobs.push(job);
+      }
+    });
+
+    return processedJobs;
   }, [rawJobs]);
 
   const startJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
