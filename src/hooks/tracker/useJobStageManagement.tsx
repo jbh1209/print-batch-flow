@@ -6,17 +6,34 @@ import { useJobStageInstances } from "./useJobStageInstances";
 import { useStageRework } from "./useStageRework";
 import { useStageActions } from "./stage-management/useStageActions";
 import { useStageValidation } from "./stage-management/useStageValidation";
+import { useBatchAwareStageActions } from "./stage-management/useBatchAwareStageActions";
+import { useBatchAwareStageValidation } from "./stage-management/useBatchAwareStageValidation";
 
 interface JobStageManagementOptions {
   jobId: string;
   jobTableName: string;
   categoryId?: string;
+  // Batch context for enhanced functionality
+  isBatchMaster?: boolean;
+  batchName?: string;
+  constituentJobIds?: string[];
+  job?: {
+    id: string;
+    is_batch_master?: boolean;
+    batch_name?: string;
+    constituent_jobs_count?: number;
+    batch_ready?: boolean;
+  };
 }
 
 export const useJobStageManagement = ({ 
   jobId, 
   jobTableName, 
-  categoryId 
+  categoryId,
+  isBatchMaster = false,
+  batchName,
+  constituentJobIds = [],
+  job
 }: JobStageManagementOptions) => {
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -33,13 +50,13 @@ export const useJobStageManagement = ({
 
   const { reworkStage, fetchReworkHistory, reworkHistory, isReworking } = useStageRework();
   const { startStage, completeStage } = useStageActions();
-  const {
-    canStartStage,
-    canAdvanceStage,
-    canReworkStage,
-    getCurrentStage,
-    getNextStage
-  } = useStageValidation(jobStages);
+  const batchAwareActions = useBatchAwareStageActions();
+  
+  // Use batch-aware validation if batch context is provided
+  const standardValidation = useStageValidation(jobStages);
+  const batchValidation = useBatchAwareStageValidation(jobStages, job);
+  
+  const validation = (isBatchMaster || job?.batch_ready) ? batchValidation : standardValidation;
 
   // Initialize job with workflow stages based on category - ALL STAGES START AS PENDING
   const initializeJobWorkflow = useCallback(async () => {
@@ -69,27 +86,93 @@ export const useJobStageManagement = ({
     }
   }, [jobId, jobTableName, categoryId, initializeJobStages]);
 
-  // Send stage back for rework
+  // Enhanced stage start with batch awareness
+  const startStageEnhanced = useCallback(async (stageId: string, qrData?: any) => {
+    if (isBatchMaster || job?.batch_ready) {
+      return await batchAwareActions.startStage(stageId, {
+        jobId,
+        jobTableName,
+        isBatchMaster,
+        batchName,
+        constituentJobIds
+      }, qrData);
+    } else {
+      return await startStage(stageId, qrData);
+    }
+  }, [batchAwareActions, startStage, isBatchMaster, job, jobId, jobTableName, batchName, constituentJobIds]);
+
+  // Enhanced stage completion with batch awareness
+  const completeStageEnhanced = useCallback(async (stageId: string, notes?: string) => {
+    if (isBatchMaster || job?.batch_ready) {
+      const success = await batchAwareActions.completeStage(stageId, {
+        jobId,
+        jobTableName,
+        isBatchMaster,
+        batchName,
+        constituentJobIds
+      }, notes);
+      
+      if (success) {
+        await fetchJobStages();
+        await updateJobStatusToCurrentStage();
+      }
+      
+      return success;
+    } else {
+      const success = await completeStage(stageId, notes);
+      
+      if (success) {
+        await fetchJobStages();
+        await updateJobStatusToCurrentStage();
+      }
+      
+      return success;
+    }
+  }, [batchAwareActions, completeStage, isBatchMaster, job, jobId, jobTableName, batchName, constituentJobIds, fetchJobStages]);
+
+  // Send stage back for rework with batch awareness
   const sendBackForRework = useCallback(async (
     currentStageId: string, 
     targetStageId: string, 
     reworkReason?: string
   ) => {
-    const success = await reworkStage(
-      jobId, 
-      jobTableName, 
-      currentStageId, 
-      targetStageId, 
-      reworkReason
-    );
-    
-    if (success) {
-      await fetchJobStages();
-      await updateJobStatusToCurrentStage();
+    if (isBatchMaster || job?.batch_ready) {
+      const success = await batchAwareActions.reworkStage(
+        currentStageId,
+        targetStageId,
+        {
+          jobId,
+          jobTableName,
+          isBatchMaster,
+          batchName,
+          constituentJobIds
+        },
+        reworkReason
+      );
+      
+      if (success) {
+        await fetchJobStages();
+        await updateJobStatusToCurrentStage();
+      }
+      
+      return success;
+    } else {
+      const success = await reworkStage(
+        jobId, 
+        jobTableName, 
+        currentStageId, 
+        targetStageId, 
+        reworkReason
+      );
+      
+      if (success) {
+        await fetchJobStages();
+        await updateJobStatusToCurrentStage();
+      }
+      
+      return success;
     }
-    
-    return success;
-  }, [reworkStage, jobId, jobTableName, fetchJobStages]);
+  }, [batchAwareActions, reworkStage, isBatchMaster, job, jobId, jobTableName, batchName, constituentJobIds, fetchJobStages]);
 
   // Update job status to reflect current stage state
   const updateJobStatusToCurrentStage = useCallback(async () => {
@@ -134,16 +217,10 @@ export const useJobStageManagement = ({
     }
   }, [jobStages, jobId, jobTableName]);
 
-  // Get available stages for rework (previous stages that can be reactivated)
+  // Get available stages for rework (uses validation logic)
   const getAvailableReworkStages = useCallback((currentStageId: string) => {
-    const currentStage = jobStages.find(stage => stage.production_stage_id === currentStageId);
-    if (!currentStage) return [];
-    
-    return jobStages.filter(stage => 
-      stage.stage_order < currentStage.stage_order &&
-      ['completed', 'reworked'].includes(stage.status)
-    );
-  }, [jobStages]);
+    return validation.getAvailableReworkStages(currentStageId);
+  }, [validation]);
 
   // Get workflow progress
   const getWorkflowProgress = useCallback(() => {
@@ -177,21 +254,32 @@ export const useJobStageManagement = ({
     
     // Actions
     initializeJobWorkflow,
-    startStage,
-    completeStage,
+    startStage: startStageEnhanced,
+    completeStage: completeStageEnhanced,
     sendBackForRework,
     updateStageNotes,
     recordQRScan,
     
-    // Helpers
-    getCurrentStage,
-    getNextStage,
+    // Helpers (using batch-aware validation when applicable)
+    getCurrentStage: validation.getCurrentStage,
+    getNextStage: validation.getNextStage,
     getAvailableReworkStages,
-    canStartStage,
-    canAdvanceStage,
-    canReworkStage,
+    canStartStage: validation.canStartStage,
+    canAdvanceStage: validation.canAdvanceStage,
+    canReworkStage: validation.canReworkStage,
     getWorkflowProgress,
     loadReworkHistory,
-    refreshStages
+    refreshStages,
+    
+    // Batch-specific helpers (only available with batch-aware validation)
+    ...((isBatchMaster || job?.batch_ready) ? {
+      getBatchContext: batchValidation.getBatchContext,
+      getStageDisplayInfo: batchValidation.getStageDisplayInfo
+    } : {}),
+    
+    // Batch context
+    isBatchMaster,
+    batchName,
+    batchAwareActions
   };
 };
