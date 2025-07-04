@@ -7,6 +7,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobOverviewCard } from "./JobOverviewCard";
@@ -16,6 +18,8 @@ import { getJobStatusBadgeInfo } from "@/hooks/tracker/useAccessibleJobs/jobStat
 import { DtpJobActions } from "./dtp/DtpJobActions";
 import { useDtpJobModal } from "./dtp/useDtpJobModal";
 import { ConditionalStageRenderer } from "./ConditionalStageRenderer";
+import { BatchSplitDetector } from "../batch/BatchSplitDetector";
+import { BatchSplitDialog } from "../batch/BatchSplitDialog";
 
 interface DtpJobModalProps {
   job: AccessibleJob;
@@ -37,6 +41,7 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
   const [notes, setNotes] = useState("");
   const [localJobStatus, setLocalJobStatus] = useState(job.status);
   const [localStageStatus, setLocalStageStatus] = useState(job.current_stage_status);
+  const [showBatchSplitDialog, setShowBatchSplitDialog] = useState(false);
 
   const {
     stageInstance,
@@ -116,6 +121,29 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
           </div>
         )}
 
+        {/* Batch Split Section - shows for batch master jobs at split-eligible stages */}
+        <BatchSplitDetector job={job}>
+          {({ isBatchJob, isReadyForSplit }) => 
+            isBatchJob && isReadyForSplit && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Batch Operations
+                </h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  This batch is ready to be split back into individual jobs.
+                </p>
+                <Button
+                  onClick={() => setShowBatchSplitDialog(true)}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  Split Batch to Individual Jobs
+                </Button>
+              </div>
+            )
+          }
+        </BatchSplitDetector>
+
         <div className="border-t pt-4">
           <h4 className="font-medium mb-3">Job Actions</h4>
           
@@ -141,6 +169,18 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
             onModalDataRefresh={handleModalDataRefresh} // Pass the refresh function
           />
         </div>
+
+        {/* Batch Split Dialog */}
+        <BatchSplitDialog
+          isOpen={showBatchSplitDialog}
+          onClose={() => setShowBatchSplitDialog(false)}
+          batchJob={job}
+          onSplitComplete={() => {
+            setShowBatchSplitDialog(false);
+            handleModalDataRefresh();
+            onRefresh?.();
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

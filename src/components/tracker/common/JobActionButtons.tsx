@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Play, CheckCircle, Pause } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { ExpediteButton } from "./ExpediteButton";
+import { BatchSplitButton } from "../batch/BatchSplitButton";
 import { 
   canStartJob, 
   canCompleteJob,
@@ -21,6 +22,7 @@ interface JobActionButtonsProps {
   layout?: "horizontal" | "vertical";
   showHold?: boolean;
   showExpedite?: boolean;
+  showBatchSplit?: boolean;
   compact?: boolean;
 }
 
@@ -35,6 +37,7 @@ export const JobActionButtons: React.FC<JobActionButtonsProps> = ({
   layout = "horizontal",
   showHold = false,
   showExpedite = true,
+  showBatchSplit = true,
   compact = false
 }) => {
   const [isActionInProgress, setIsActionInProgress] = useState(false);
@@ -159,6 +162,16 @@ export const JobActionButtons: React.FC<JobActionButtonsProps> = ({
           size={size}
           variant="outline"
           showLabel={!compact}
+          compact={compact}
+        />
+      )}
+
+      {showBatchSplit && (
+        <BatchSplitButton
+          job={job}
+          onSplitComplete={onJobUpdated}
+          size={size}
+          variant="outline"
           compact={compact}
         />
       )}
