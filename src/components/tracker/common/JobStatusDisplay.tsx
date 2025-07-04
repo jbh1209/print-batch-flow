@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, AlertTriangle, Clock, Settings, Zap } from "lucide-react";
+import { Calendar, AlertTriangle, Clock, Settings, Zap, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { 
@@ -10,6 +10,7 @@ import {
   isJobDueSoon,
   getJobStatusBadgeInfo
 } from "@/hooks/tracker/useAccessibleJobs/jobStatusProcessor";
+import { BatchStatusIndicator } from "@/components/tracker/batch/BatchStatusIndicator";
 
 interface JobStatusDisplayProps {
   job: AccessibleJob & { 
@@ -17,6 +18,8 @@ interface JobStatusDisplayProps {
     is_expedited?: boolean;
     expedite_reason?: string;
     expedited_at?: string;
+    batch_name?: string | null;
+    batch_category?: string | null;
   };
   showDetails?: boolean;
   compact?: boolean;
@@ -197,6 +200,33 @@ export const JobStatusDisplay: React.FC<JobStatusDisplayProps> = ({
           <span className={cn("font-medium text-gray-700", textSize)}>
             {hasCustomWorkflow ? 'Custom Workflow' : job.category_name || 'Unknown'}
           </span>
+        </div>
+      )}
+
+      {/* Batch Information */}
+      {showDetails && (job.is_in_batch_processing || job.batch_name || job.batch_category) && (
+        <div className="space-y-1">
+          {job.is_in_batch_processing && (
+            <div className="flex items-center gap-2">
+              <Package className={cn("text-orange-500", iconSize)} />
+              <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-xs">
+                In Batch Processing
+              </Badge>
+              {job.batch_category && (
+                <span className={cn("text-orange-600 font-medium", textSize)}>
+                  {job.batch_category}
+                </span>
+              )}
+            </div>
+          )}
+          {job.batch_name && (
+            <div className="flex items-center gap-2">
+              <span className={cn("text-gray-500", textSize)}>Batch:</span>
+              <span className={cn("font-medium text-orange-700", textSize)}>
+                {job.batch_name}
+              </span>
+            </div>
+          )}
         </div>
       )}
 

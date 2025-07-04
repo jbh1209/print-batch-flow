@@ -29,6 +29,13 @@ export interface ProductionJob {
   has_custom_workflow?: boolean;
   manual_due_date?: string | null;
   manual_sla_days?: number | null;
+  // Batch-related fields
+  batch_category?: string | null;
+  batch_ready?: boolean;
+  is_batch_master?: boolean;
+  batch_name?: string | null;
+  constituent_job_count?: number;
+  is_in_batch_processing?: boolean;
   // Enriched join: categories (for SLA and color)
   categories?: {
     id: string;
@@ -134,12 +141,61 @@ export const useProductionJobs = () => {
       if (fetchError) {
         throw new Error(`Failed to fetch final job data: ${fetchError.message}`);
       }
+
+      // Get batch information for jobs
+      const jobIds = (data ?? []).map(job => job.id);
+      let batchLookup = new Map();
       
-      // Enrich helper
-      const jobsWithHelpers = (data ?? []).map((job: any) => ({
-        ...job,
-        category_name: job.categories?.name ?? job.category ?? null,
-      }));
+      try {
+        const { data: batchRefs, error: batchError } = await supabase
+          .from('batch_job_references')
+          .select('production_job_id, batch_id')
+          .in('production_job_id', jobIds);
+
+        if (batchRefs && !batchError) {
+          // Get unique batch IDs
+          const batchIds = [...new Set(batchRefs.map(ref => ref.batch_id))];
+          
+          if (batchIds.length > 0) {
+            const { data: batches, error: batchesError } = await supabase
+              .from('batches')
+              .select('id, name')
+              .in('id', batchIds);
+
+            if (batches && !batchesError) {
+              // Create batch name lookup
+              const batchNames = new Map();
+              batches.forEach(batch => {
+                batchNames.set(batch.id, batch.name);
+              });
+
+              // Map jobs to batch names
+              batchRefs.forEach(ref => {
+                const batchName = batchNames.get(ref.batch_id);
+                if (batchName) {
+                  batchLookup.set(ref.production_job_id, batchName);
+                }
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch batch information:', error);
+      }
+      
+      // Enrich jobs with helpers and batch context
+      const jobsWithHelpers = (data ?? []).map((job: any) => {
+        const batchName = batchLookup.get(job.id);
+        return {
+          ...job,
+          category_name: job.categories?.name ?? job.category ?? null,
+          // Batch context
+          batch_name: batchName || null,
+          is_in_batch_processing: job.status === 'In Batch Processing',
+          is_batch_master: job.wo_no?.startsWith('BATCH-') || false,
+          constituent_job_count: job.is_batch_master ? job.qty : undefined,
+        };
+      });
 
       setJobs(jobsWithHelpers);
     } catch (err) {
