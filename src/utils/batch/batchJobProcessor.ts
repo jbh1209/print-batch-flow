@@ -102,36 +102,21 @@ export async function processBatchJobs({
  */
 export async function completeBatchProcessing(batchId: string, nextStageId?: string): Promise<boolean> {
   try {
-    console.log(`🔄 Completing batch processing for batch ${batchId}`);
-
-    // First, check if there's a batch production job to complete
-    const { data: batchJob, error: batchJobError } = await supabase
-      .from('production_jobs')
-      .select('id, wo_no')
-      .eq('wo_no', `BATCH-${batchId}`)
-      .maybeSingle();
-
-    if (batchJobError) {
-      console.error('❌ Error fetching batch production job:', batchJobError);
-    }
-
-    // Complete the batch production job's current stage if it exists
-    if (batchJob) {
-      await supabase
-        .from('job_stage_instances')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          notes: 'Batch processing completed'
-        })
-        .eq('job_id', batchJob.id)
-        .eq('job_table_name', 'production_jobs')
-        .eq('status', 'active');
-
-      console.log(`✅ Completed batch production job: ${batchJob.wo_no}`);
-    }
-
-    // Get all batch job references for this batch
+    console.log(`🔄 Completing batch processing for batch ${batchId} - routing to enhanced service`);
+    
+    // Import and use the enhanced completion service
+    const { completeBatchProcessingEnhanced } = await import('./batchCompletionService');
+    const result = await completeBatchProcessingEnhanced(batchId, nextStageId);
+    
+    return result.success;
+    
+  } catch (error) {
+    console.error('❌ Error in completeBatchProcessing:', error);
+    
+    // Fallback to original logic if enhanced service fails
+    console.log('🔄 Falling back to original batch completion logic');
+    
+    // Original completion logic as fallback
     const { data: batchRefs, error: fetchError } = await supabase
       .from('batch_job_references')
       .select('production_job_id, batch_job_id, batch_job_table')
@@ -144,7 +129,6 @@ export async function completeBatchProcessing(batchId: string, nextStageId?: str
     }
 
     if (!batchRefs || batchRefs.length === 0) {
-      // Fall back to unified batch processor for legacy batches
       const success = await completeBatchForProductionJobs(batchId, nextStageId);
       
       if (success) {
@@ -154,7 +138,6 @@ export async function completeBatchProcessing(batchId: string, nextStageId?: str
       return success;
     }
 
-    // Process each job using the integration service
     let successCount = 0;
     for (const ref of batchRefs) {
       try {
@@ -166,8 +149,6 @@ export async function completeBatchProcessing(batchId: string, nextStageId?: str
         
         if (success) {
           successCount++;
-          
-          // Complete the Batch Allocation stage for this job
           await completeBatchAllocationStage(ref.production_job_id, nextStageId);
         }
       } catch (error) {
@@ -184,11 +165,6 @@ export async function completeBatchProcessing(batchId: string, nextStageId?: str
     }
     
     return allSuccessful;
-    
-  } catch (error) {
-    console.error('❌ Error completing batch processing:', error);
-    toast.error("Failed to complete batch processing");
-    return false;
   }
 }
 
