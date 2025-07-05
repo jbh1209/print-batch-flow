@@ -1,9 +1,9 @@
 
 import React from "react";
-import { FactoryFloorView } from "@/components/tracker/factory/FactoryFloorView";
+import { DynamicFactoryFloorView } from "@/components/tracker/factory/DynamicFactoryFloorView";
 
 const FactoryFloor = () => {
-  return <FactoryFloorView />;
+  return <DynamicFactoryFloorView />;
 };
 
 export default FactoryFloor;
