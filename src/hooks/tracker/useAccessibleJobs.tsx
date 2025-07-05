@@ -121,12 +121,21 @@ export const useAccessibleJobs = ({
       processedJobs.push(batchJob);
     });
 
-    // Add individual jobs that are not part of batches
-    // Filter out jobs that are "In Batch Processing" as they should only show via batch master
+    // Add individual jobs - keep "In Batch Processing" jobs visible in orders
+    // They should only be hidden from workflow stages, not from order management
     individualJobs.forEach(job => {
-      if (job.status !== 'In Batch Processing') {
-        processedJobs.push(job);
+      // Show all jobs in order lists, add batch context for "In Batch Processing" jobs
+      if (job.status === 'In Batch Processing') {
+        // Add batch context indicators for these jobs
+        job.is_in_batch_processing = true;
+        // Find the batch name from master jobs if available
+        const batchName = [...batchMasterJobs.values()]
+          .find(master => master.constituent_job_count && master.batch_name)?.batch_name;
+        if (batchName) {
+          job.batch_name = batchName;
+        }
       }
+      processedJobs.push(job);
     });
 
     return processedJobs;
