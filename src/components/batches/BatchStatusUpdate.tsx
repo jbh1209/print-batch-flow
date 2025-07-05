@@ -32,6 +32,21 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
         await createBatchProductionJob(batchId);
       }
 
+      // If status is "completed", trigger reverse sync to update production jobs
+      if (newStatus === 'completed') {
+        console.log('🔄 Batch marked as completed - triggering reverse sync to update production jobs');
+        
+        // The database trigger will handle the sync automatically, but we can also call it explicitly
+        const { error: syncError } = await supabase.rpc('sync_production_jobs_from_batch_completion');
+        
+        if (syncError) {
+          console.warn('⚠️ Reverse sync warning:', syncError);
+          // Don't fail the entire operation for sync issues
+        } else {
+          console.log('✅ Production jobs sync completed successfully');
+        }
+      }
+
       toast.success(`Batch marked as ${newStatus.replace('_', ' ')}`);
       onStatusUpdate();
     } catch (error) {
@@ -42,20 +57,30 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
 
   const createBatchProductionJob = async (batchId: string) => {
     try {
+      console.log('🔄 Creating batch production job for batch ID:', batchId);
+      
       // Get batch job references to understand constituent jobs
       const { data: batchRefs, error: refsError } = await supabase
         .from('batch_job_references')
         .select('production_job_id')
         .eq('batch_id', batchId);
 
-      if (refsError) throw refsError;
+      if (refsError) {
+        console.error('❌ Error fetching batch references:', refsError);
+        throw new Error(`Failed to fetch batch references: ${refsError.message}`);
+      }
 
       if (!batchRefs || batchRefs.length === 0) {
+        console.error('❌ No constituent jobs found for batch:', batchId);
         throw new Error('No constituent jobs found for batch');
       }
 
+      console.log('📋 Found constituent jobs:', batchRefs.length);
+
       // Use the new database function to create proper batch master job
       const constituentJobIds = batchRefs.map(ref => ref.production_job_id);
+      
+      console.log('🚀 Creating master job with constituent job IDs:', constituentJobIds);
       
       const { data: masterJobId, error: createError } = await supabase
         .rpc('create_batch_master_job', {
@@ -63,12 +88,21 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
           p_constituent_job_ids: constituentJobIds
         });
 
-      if (createError) throw createError;
+      if (createError) {
+        console.error('❌ Database function error:', createError);
+        throw new Error(`Failed to create batch master job: ${createError.message}`);
+      }
 
-      console.log('✅ Batch master job created with proper WO number preservation:', masterJobId);
+      console.log('✅ Batch master job created successfully:', masterJobId);
+      return masterJobId;
     } catch (error) {
       console.error('❌ Error creating batch master job:', error);
-      throw error;
+      // Re-throw with more context
+      if (error instanceof Error) {
+        throw new Error(`Send to Print failed: ${error.message}`);
+      } else {
+        throw new Error('Send to Print failed: Unknown error occurred');
+      }
     }
   };
 

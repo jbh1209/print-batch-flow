@@ -2350,6 +2350,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      sync_production_jobs_from_batch_completion: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       sync_profiles_with_auth: {
         Args: Record<PropertyKey, never>
         Returns: {
