@@ -74,6 +74,22 @@ export const DynamicFactoryFloorView = () => {
       return [];
     }
 
+    // Debug: Log sample jobs and stages to understand data structure
+    console.log('🔍 Sample job data:', jobs.slice(0, 2).map(job => ({
+      wo_no: job.wo_no,
+      current_stage_id: job.current_stage_id,
+      current_stage_name: job.current_stage_name,
+      display_stage_name: job.display_stage_name
+    })));
+    
+    console.log('🔍 Consolidated stages data:', consolidatedStages.map(stage => ({
+      stage_id: stage.stage_id,
+      stage_name: stage.stage_name,
+      is_master_queue: stage.is_master_queue,
+      can_work: stage.can_work,
+      subsidiary_count: stage.subsidiary_stages.length
+    })));
+
     let filtered = jobs;
     console.log('📋 Starting with jobs:', filtered.length, 'using permission:', highestPermission);
 
@@ -90,34 +106,72 @@ export const DynamicFactoryFloorView = () => {
       console.log('🔍 After search filter:', filtered.length);
     }
 
-    // Group jobs by stage based on user's accessible stages
+    // Create stage ID lookup map for proper matching
+    const stageIdToConsolidated = new Map<string, typeof consolidatedStages[0]>();
+    const subsidiaryIdToMaster = new Map<string, typeof consolidatedStages[0]>();
+    
+    consolidatedStages.forEach(stage => {
+      // Map main stage
+      stageIdToConsolidated.set(stage.stage_id, stage);
+      
+      // Map subsidiary stages to their master queue
+      if (stage.is_master_queue) {
+        stage.subsidiary_stages.forEach(sub => {
+          subsidiaryIdToMaster.set(sub.stage_id, stage);
+        });
+      }
+    });
+
+    // Group jobs by stage ID instead of name
     const stageJobGroups = new Map<string, AccessibleJob[]>();
     
-    // First, group jobs by their current stage
+    // Group jobs by their current stage ID
     filtered.forEach(job => {
       const stageId = job.current_stage_id;
-      const stageName = job.current_stage_name || job.display_stage_name || 'Other';
-      
-      if (!stageJobGroups.has(stageName)) {
-        stageJobGroups.set(stageName, []);
+      if (!stageId) {
+        console.warn('⚠️ Job missing current_stage_id:', job.wo_no);
+        return;
       }
-      stageJobGroups.get(stageName)!.push(job);
+
+      // Find the consolidated stage this job belongs to
+      let targetStage = stageIdToConsolidated.get(stageId);
+      
+      // If not found directly, check if it's a subsidiary stage
+      if (!targetStage) {
+        targetStage = subsidiaryIdToMaster.get(stageId);
+      }
+      
+      if (targetStage) {
+        const key = targetStage.stage_id;
+        if (!stageJobGroups.has(key)) {
+          stageJobGroups.set(key, []);
+        }
+        stageJobGroups.get(key)!.push(job);
+        
+        console.log('📌 Grouped job', job.wo_no, 'to stage:', targetStage.stage_name);
+      } else {
+        console.warn('⚠️ Could not find consolidated stage for job:', job.wo_no, 'stage_id:', stageId);
+      }
     });
+
+    console.log('📊 Stage job groups summary:', Array.from(stageJobGroups.entries()).map(([stageId, jobs]) => ({
+      stageId,
+      stageName: stageIdToConsolidated.get(stageId)?.stage_name || 'Unknown',
+      jobCount: jobs.length
+    })));
 
     // Create job groups for each accessible stage that has jobs
     const jobGroups = [];
     
     consolidatedStages.forEach(stage => {
-      if (!stage.can_work) return; // Skip stages user can't work on
+      if (!stage.can_work) {
+        console.log('⏭️ Skipping stage (no work permission):', stage.stage_name);
+        return;
+      }
       
-      const stageJobs = stageJobGroups.get(stage.stage_name) || [];
-      const masterQueueJobs = stage.is_master_queue 
-        ? stage.subsidiary_stages.flatMap(sub => stageJobGroups.get(sub.stage_name) || [])
-        : [];
+      const stageJobs = stageJobGroups.get(stage.stage_id) || [];
       
-      const allStageJobs = [...stageJobs, ...masterQueueJobs];
-      
-      if (allStageJobs.length > 0 && !hiddenQueues.includes(stage.stage_name)) {
+      if (stageJobs.length > 0 && !hiddenQueues.includes(stage.stage_name)) {
         const stageName = stage.stage_name.toLowerCase();
         let color = "bg-gray-600";
         
@@ -139,14 +193,21 @@ export const DynamicFactoryFloorView = () => {
         
         jobGroups.push({
           title: stage.stage_name,
-          jobs: sortJobsByWONumber(allStageJobs),
+          jobs: sortJobsByWONumber(stageJobs),
           color
         });
+        
+        console.log('✅ Created job group:', stage.stage_name, 'with', stageJobs.length, 'jobs');
+      } else if (stageJobs.length === 0) {
+        console.log('📭 No jobs found for stage:', stage.stage_name);
+      } else {
+        console.log('👁️‍🗨️ Stage hidden by user:', stage.stage_name);
       }
     });
 
-    console.log('✅ Dynamic job groups created:', {
+    console.log('✅ Final dynamic job groups created:', {
       permission: highestPermission,
+      totalGroups: jobGroups.length,
       groups: jobGroups.map(g => ({ title: g.title, count: g.jobs.length }))
     });
 
