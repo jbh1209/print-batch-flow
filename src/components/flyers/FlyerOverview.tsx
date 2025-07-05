@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Package, Clock, CheckCircle, Plus, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useGenericFlyerJobs } from "@/hooks/generic/useGenericFlyerJobs";
+import { useFlyerJobs } from "@/hooks/useFlyerJobs";
 import { useFlyerBatches } from "@/hooks/useFlyerBatches";
 
 interface FlyerOverviewProps {
@@ -12,7 +12,7 @@ interface FlyerOverviewProps {
 }
 
 export const FlyerOverview = ({ onTabChange }: FlyerOverviewProps) => {
-  const { jobs, isLoading: jobsLoading } = useGenericFlyerJobs();
+  const { jobs, isLoading: jobsLoading } = useFlyerJobs();
   const { batches, isLoading: batchesLoading } = useFlyerBatches();
 
   const pendingJobs = jobs.filter(job => job.status === 'queued').length;

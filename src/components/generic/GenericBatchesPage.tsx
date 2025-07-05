@@ -8,7 +8,7 @@ import BatchesWrapper from "@/components/batches/business-cards/BatchesWrapper";
 import { ProductConfig, BaseBatch } from "@/config/productTypes";
 import { BatchSummary } from "@/components/batches/types/BatchTypes";
 import { LaminationType } from "@/components/batches/types/FlyerTypes";
-import { useGenericBatches } from "@/hooks/generic/useGenericBatchesSimplified";
+import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 
 interface GenericBatchesPageProps {
   config: ProductConfig;

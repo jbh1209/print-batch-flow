@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Package, Plus, ArrowLeft } from "lucide-react";
 import { productConfigs } from "@/config/productTypes";
 import { useGenericJobs } from "@/hooks/generic/useGenericJobsSimplified";
-import { useGenericBatches } from "@/hooks/generic/useGenericBatchesSimplified";
+import { useGenericBatches } from "@/hooks/generic/useGenericBatches";
 import GenericJobsTable from "@/components/generic/GenericJobsTable";
 import { GenericBatchesList } from "@/components/generic/GenericBatchesList";
 import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';

@@ -1,5 +1,5 @@
 
-import { useGenericFlyerJobs } from "@/hooks/generic/useGenericFlyerJobs";
+import { useGenericJobs } from "@/hooks/generic/useGenericJobsSimplified";
 import { productConfigs } from "@/config/productTypes";
 import GenericJobsPage from "@/components/generic/GenericJobsPage";
 
@@ -8,7 +8,7 @@ const FlyerJobsPage = () => {
   
   // Create a wrapper function that returns the hook result with type conversion
   const jobsHookWrapper = () => {
-    const hookResult = useGenericFlyerJobs();
+    const hookResult = useGenericJobs(config);
     
     // Create a wrapper for fixBatchedJobsWithoutBatch that matches expected return type
     const fixBatchedJobsWrapper = async () => {

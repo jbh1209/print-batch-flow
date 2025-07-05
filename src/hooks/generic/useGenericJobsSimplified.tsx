@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { BaseJob, ProductConfig, LaminationType } from '@/config/productTypes';
-import { useGenericBatches } from './useGenericBatchesSimplified';
+import { useGenericBatches } from "./useGenericBatches";
 import { useJobOperations } from './useJobOperations';
 import { isExistingTable } from '@/utils/database/tableUtils';
 
