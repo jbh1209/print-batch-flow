@@ -2375,6 +2375,14 @@ export type Database = {
         Args: { _user_id: string; _full_name: string }
         Returns: boolean
       }
+      validate_and_repair_batch_references: {
+        Args: { p_batch_id?: string }
+        Returns: {
+          batch_id: string
+          batch_name: string
+          references_created: number
+        }[]
+      }
     }
     Enums: {
       batch_status:

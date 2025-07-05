@@ -24,148 +24,43 @@ interface BatchJobsProcessResult {
 }
 
 /**
- * Links selected jobs to a batch - updated to use unified workflow for production jobs
+ * Links selected jobs to a batch - now uses enhanced batch processor
  */
 export async function processBatchJobs({
   jobIds,
   batchId,
   tableName
 }: ProcessBatchJobsParams): Promise<BatchJobsProcessResult> {
-  if (jobIds.length === 0) {
-    return { 
-      success: false,
-      linkedCount: 0,
-      unlinkedCount: 0
-    };
-  }
+  console.log(`🔄 Processing ${jobIds.length} jobs for batch integration in table ${tableName}`);
   
-  console.log(`Processing ${jobIds.length} jobs for batch integration in table ${tableName}`);
+  // Import and use the enhanced batch processor
+  const { processBatchJobsEnhanced } = await import('./enhancedBatchProcessor');
   
-  // For production jobs, use the unified batch processor
-  if (tableName === 'production_jobs') {
-    try {
-      const result = await processProductionJobsForBatch({
-        productionJobIds: jobIds,
-        batchId,
-        batchType: 'mixed' // You might want to determine this based on batch category
-      });
-
-      return {
-        success: result.success,
-        linkedCount: result.processedCount,
-        unlinkedCount: result.failedCount
-      };
-    } catch (error) {
-      console.error('❌ Error processing production jobs for batch:', error);
-      return {
-        success: false,
-        linkedCount: 0,
-        unlinkedCount: jobIds.length
-      };
-    }
-  } else {
-    // For other job types, use the original logic (legacy batch system)
-    try {
-      const { error: updateError } = await supabase
-        .from(tableName as any)
-        .update({
-          status: "batched",
-          batch_id: batchId
-        })
-        .in("id", jobIds);
-      
-      if (updateError) {
-        console.error("Error updating jobs with batch ID:", updateError);
-        throw new Error(`Failed to link jobs to batch: ${updateError.message}`);
-      }
-
-      console.log(`All ${jobIds.length} jobs successfully linked to batch`);
-      
-      return {
-        success: true,
-        linkedCount: jobIds.length,
-        unlinkedCount: 0
-      };
-    } catch (error) {
-      console.error('❌ Error processing legacy batch jobs:', error);
-      return {
-        success: false,
-        linkedCount: 0,
-        unlinkedCount: jobIds.length
-      };
-    }
-  }
+  const result = await processBatchJobsEnhanced({
+    jobIds,
+    batchId,
+    tableName
+  });
+  
+  return {
+    success: result.success,
+    linkedCount: result.linkedCount,
+    unlinkedCount: result.unlinkedCount
+  };
 }
 
 /**
  * Complete batch processing and advance jobs back to main workflow
  */
 export async function completeBatchProcessing(batchId: string, nextStageId?: string): Promise<boolean> {
-  try {
-    console.log(`🔄 Completing batch processing for batch ${batchId} - routing to enhanced service`);
-    
-    // Import and use the enhanced completion service
-    const { completeBatchProcessingEnhanced } = await import('./batchCompletionService');
-    const result = await completeBatchProcessingEnhanced(batchId, nextStageId);
-    
-    return result.success;
-    
-  } catch (error) {
-    console.error('❌ Error in completeBatchProcessing:', error);
-    
-    // Fallback to original logic if enhanced service fails
-    console.log('🔄 Falling back to original batch completion logic');
-    
-    // Original completion logic as fallback
-    const { data: batchRefs, error: fetchError } = await supabase
-      .from('batch_job_references')
-      .select('production_job_id, batch_job_id, batch_job_table')
-      .eq('batch_id', batchId)
-      .eq('status', 'processing');
-
-    if (fetchError) {
-      console.error('❌ Error fetching batch references:', fetchError);
-      throw fetchError;
-    }
-
-    if (!batchRefs || batchRefs.length === 0) {
-      const success = await completeBatchForProductionJobs(batchId, nextStageId);
-      
-      if (success) {
-        toast.success("Batch processing completed successfully");
-      }
-      
-      return success;
-    }
-
-    let successCount = 0;
-    for (const ref of batchRefs) {
-      try {
-        const success = await completeBatchJobProcessing(
-          ref.production_job_id,
-          ref.batch_job_id,
-          nextStageId
-        );
-        
-        if (success) {
-          successCount++;
-          await completeBatchAllocationStage(ref.production_job_id, nextStageId);
-        }
-      } catch (error) {
-        console.error(`❌ Error completing job ${ref.production_job_id}:`, error);
-      }
-    }
-
-    const allSuccessful = successCount === batchRefs.length;
-    
-    if (allSuccessful) {
-      toast.success("Batch processing completed successfully");
-    } else {
-      toast.warning(`Completed ${successCount}/${batchRefs.length} jobs`);
-    }
-    
-    return allSuccessful;
-  }
+  console.log(`🔄 Completing batch processing for batch ${batchId} - using enhanced processor`);
+  
+  // Import and use the enhanced batch processor
+  const { completeBatchProcessingEnhanced } = await import('./enhancedBatchProcessor');
+  
+  const result = await completeBatchProcessingEnhanced(batchId, nextStageId);
+  
+  return result.success;
 }
 
 /**
