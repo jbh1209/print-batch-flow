@@ -162,6 +162,12 @@ export function useGenericJobs<T extends BaseJob>(config: ProductConfig) {
     updateJob: handleUpdateJob,
     getJobById,
     createBatch: handleCreateBatch,
-    isCreatingBatch
+    isCreatingBatch,
+    // Legacy compatibility - add empty functions for missing properties
+    fixBatchedJobsWithoutBatch: async () => {
+      console.log('fixBatchedJobsWithoutBatch called - no longer needed with new system');
+      return 0;
+    },
+    isFixingBatchedJobs: false
   };
 }

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Plus, FileUp } from "lucide-react";
 import GenericJobsTable from "@/components/generic/GenericJobsTable";
-import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
+import { useGenericJobs } from "@/hooks/generic/useGenericJobsSimplified";
 import { GenericBatchCreateDialog } from '@/components/generic/GenericBatchCreateDialog';
 import { productConfigs } from '@/config/productTypes';
 

@@ -1,6 +1,6 @@
 
 import { productConfigs } from "@/config/productTypes";
-import { useGenericJobs } from "@/hooks/generic/useGenericJobs";
+import { useGenericJobs } from "@/hooks/generic/useGenericJobsSimplified";
 import GenericJobsPage from "@/components/generic/GenericJobsPage";
 
 const BoxJobsPage = () => {

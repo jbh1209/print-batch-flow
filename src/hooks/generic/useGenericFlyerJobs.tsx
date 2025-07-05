@@ -1,5 +1,5 @@
 
-import { useGenericJobs } from "./useGenericJobs";
+import { useGenericJobs } from "./useGenericJobsSimplified";
 import { productConfigs, BaseJob } from "@/config/productTypes";
 import { FlyerJob } from "@/components/batches/types/FlyerTypes";
 
