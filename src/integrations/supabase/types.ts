@@ -2307,6 +2307,14 @@ export type Database = {
           stages_created: number
         }[]
       }
+      repair_missing_batch_references_fixed: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          batch_id: string
+          batch_name: string
+          references_created: number
+        }[]
+      }
       reset_custom_workflow_stages_to_pending: {
         Args: Record<PropertyKey, never>
         Returns: {
