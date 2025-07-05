@@ -1,12 +1,6 @@
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { BatchStatus } from "@/config/productTypes";
@@ -18,40 +12,45 @@ interface BatchStatusUpdateProps {
 }
 
 const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStatusUpdateProps) => {
-  const updateBatchStatus = async (newStatus: BatchStatus) => {
+  const sendToPrint = async () => {
     try {
-      const { error } = await supabase
+      console.log('🚀 Sending batch to print:', batchId);
+      
+      // Step 1: Create batch production job
+      const masterJobId = await createBatchProductionJob(batchId);
+      console.log('✅ Batch master job created:', masterJobId);
+      
+      // Step 2: Auto-complete the batch after successful print job creation
+      const { error: statusError } = await supabase
         .from('batches')
-        .update({ status: newStatus })
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', batchId);
 
-      if (error) throw error;
-
-      // If status is "sent_to_print", create batch production job
-      if (newStatus === 'sent_to_print') {
-        await createBatchProductionJob(batchId);
+      if (statusError) {
+        console.error('❌ Failed to complete batch after print job creation:', statusError);
+        throw new Error(`Failed to complete batch: ${statusError.message}`);
       }
 
-      // If status is "completed", trigger reverse sync to update production jobs
-      if (newStatus === 'completed') {
-        console.log('🔄 Batch marked as completed - triggering reverse sync to update production jobs');
-        
-        // The database trigger will handle the sync automatically, but we can also call it explicitly
-        const { error: syncError } = await supabase.rpc('sync_production_jobs_from_batch_completion');
-        
-        if (syncError) {
-          console.warn('⚠️ Reverse sync warning:', syncError);
-          // Don't fail the entire operation for sync issues
-        } else {
-          console.log('✅ Production jobs sync completed successfully');
-        }
+      // Step 3: Trigger reverse sync to update production jobs
+      console.log('🔄 Batch completed - triggering reverse sync to update production jobs');
+      const { error: syncError } = await supabase.rpc('sync_production_jobs_from_batch_completion');
+      
+      if (syncError) {
+        console.warn('⚠️ Reverse sync warning:', syncError);
+        // Don't fail the entire operation for sync issues
+      } else {
+        console.log('✅ Production jobs sync completed successfully');
       }
 
-      toast.success(`Batch marked as ${newStatus.replace('_', ' ')}`);
+      toast.success('Batch sent to print and completed successfully');
       onStatusUpdate();
     } catch (error) {
-      console.error('Error updating batch status:', error);
-      toast.error('Failed to update batch status');
+      console.error('❌ Error sending batch to print:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to send batch to print: ${errorMessage}`);
     }
   };
 
@@ -112,27 +111,14 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline">Update Status</Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem 
-          onClick={() => updateBatchStatus('completed')}
-          className="flex items-center gap-2"
-        >
-          <CheckCircle className="h-4 w-4" />
-          Mark as Completed
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={() => updateBatchStatus('sent_to_print')}
-          className="flex items-center gap-2"
-        >
-          <Printer className="h-4 w-4" />
-          Send to Print
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button 
+      variant="outline" 
+      onClick={sendToPrint}
+      className="flex items-center gap-2"
+    >
+      <Printer className="h-4 w-4" />
+      Send to Print
+    </Button>
   );
 };
 

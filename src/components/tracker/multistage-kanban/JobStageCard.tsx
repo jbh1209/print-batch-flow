@@ -33,6 +33,7 @@ const JobStageCard: React.FC<JobStageCardProps> = ({
 
   const wo_no = jobStage.production_job?.wo_no ?? "Unknown";
   const customer = jobStage.production_job?.customer ?? "Unknown Customer";
+  const batchName = jobStage.production_job?.batch_name;
 
   const handleStartClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -71,7 +72,7 @@ const JobStageCard: React.FC<JobStageCardProps> = ({
       <div className="px-4 pt-4 pb-2 flex flex-col flex-1 space-y-1">
         <div className="font-semibold text-sm truncate">{wo_no}</div>
         <div className="text-xs text-gray-500 truncate">{customer}</div>
-        <div className="flex items-center mt-1">
+        <div className="flex items-center mt-1 flex-wrap gap-1">
           <span
             className={`inline-flex rounded px-1.5 py-0.5 text-[11px] ${
               jobStage.status === "active"
@@ -84,8 +85,13 @@ const JobStageCard: React.FC<JobStageCardProps> = ({
             {jobStage.status}
           </span>
           {jobStage.production_job?.category_name && (
-            <span className="ml-1 bg-gray-100 text-gray-700 text-[11px] px-1.5 py-0.5 rounded">
+            <span className="bg-gray-100 text-gray-700 text-[11px] px-1.5 py-0.5 rounded">
               {jobStage.production_job.category_name}
+            </span>
+          )}
+          {batchName && (
+            <span className="bg-blue-100 text-blue-700 text-[11px] px-1.5 py-0.5 rounded border border-blue-200">
+              Batch: {batchName}
             </span>
           )}
         </div>
