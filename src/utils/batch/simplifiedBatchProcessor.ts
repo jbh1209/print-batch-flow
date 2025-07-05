@@ -41,13 +41,13 @@ export async function sendBatchToPrintSimplified(batchId: string): Promise<Simpl
       throw new Error('Batch not found');
     }
 
-    if (batch.status === 'completed') {
-      throw new Error('Batch is already completed');
+    if (batch.status === 'completed' || batch.status === 'sent_to_print') {
+      throw new Error(`Batch is already ${batch.status}`);
     }
 
     console.log(`✅ Batch "${batch.name}" validated`);
 
-    // Step 2: Simple validation using the new validation function
+    // Step 2: Enhanced validation using the new validation function
     const { data: validation, error: validationError } = await supabase
       .rpc('validate_batch_simple', { p_batch_id: batchId });
 
@@ -66,25 +66,32 @@ export async function sendBatchToPrintSimplified(batchId: string): Promise<Simpl
       }
     }
 
-    // Step 3: Create master job using the simple database function
-    console.log(`🔨 Creating master job for batch "${batch.name}"`);
+    // Step 3: Create enhanced master job with automatic stage detection and constituent job management
+    console.log(`🔨 Creating enhanced master job for batch "${batch.name}"`);
     
-    const { data: masterJobId, error: createError } = await supabase
-      .rpc('create_batch_master_job_simple', { p_batch_id: batchId });
+    const { data: masterJobResult, error: createError } = await supabase
+      .rpc('create_enhanced_batch_master_job', { p_batch_id: batchId });
 
     if (createError) {
       throw new Error(`Failed to create master job: ${createError.message}`);
     }
 
-    if (!masterJobId) {
-      throw new Error('Master job creation returned null');
+    if (!masterJobResult || masterJobResult.length === 0) {
+      throw new Error('Master job creation returned no results');
     }
 
-    console.log(`✅ Master job created successfully: ${masterJobId}`);
-    result.masterJobId = masterJobId;
+    const { master_job_id, printing_stage_id, constituent_jobs_count } = masterJobResult[0];
+
+    console.log(`✅ Enhanced master job created successfully:`, {
+      masterJobId: master_job_id,
+      printingStageId: printing_stage_id,
+      constituentJobsCount: constituent_jobs_count
+    });
+
+    result.masterJobId = master_job_id;
     result.success = true;
 
-    toast.success(`Batch "${batch.name}" sent to print successfully`);
+    toast.success(`Batch "${batch.name}" sent to print - ${constituent_jobs_count} jobs now in production workflow`);
     return result;
 
   } catch (error) {

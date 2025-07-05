@@ -1953,6 +1953,14 @@ export type Database = {
         Args: { p_batch_id: string }
         Returns: string
       }
+      create_enhanced_batch_master_job: {
+        Args: { p_batch_id: string; p_created_by?: string }
+        Returns: {
+          master_job_id: string
+          printing_stage_id: string
+          constituent_jobs_count: number
+        }[]
+      }
       expedite_job_factory_wide: {
         Args: {
           p_job_id: string
@@ -2395,6 +2403,13 @@ export type Database = {
       set_user_role_admin: {
         Args: { _target_user_id: string; _new_role: string }
         Returns: boolean
+      }
+      split_batch_at_packaging: {
+        Args: { p_master_job_id: string; p_split_by?: string }
+        Returns: {
+          split_jobs_count: number
+          batch_id: string
+        }[]
       }
       sync_completed_jobs_with_batch_flow: {
         Args: Record<PropertyKey, never>
