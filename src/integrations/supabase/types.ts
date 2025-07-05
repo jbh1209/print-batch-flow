@@ -1922,6 +1922,10 @@ export type Database = {
             }
         Returns: string
       }
+      create_batch_master_job_simple: {
+        Args: { p_batch_id: string }
+        Returns: string
+      }
       expedite_job_factory_wide: {
         Args: {
           p_job_id: string
@@ -2375,14 +2379,6 @@ export type Database = {
         Args: { _user_id: string; _full_name: string }
         Returns: boolean
       }
-      validate_and_repair_batch_references: {
-        Args: { p_batch_id?: string }
-        Returns: {
-          batch_id: string
-          batch_name: string
-          references_created: number
-        }[]
-      }
       validate_batch_integrity: {
         Args: { p_batch_id: string }
         Returns: {
@@ -2391,6 +2387,15 @@ export type Database = {
           missing_references: number
           orphaned_jobs: number
           issues: Json
+        }[]
+      }
+      validate_batch_simple: {
+        Args: { p_batch_id: string }
+        Returns: {
+          is_valid: boolean
+          reference_count: number
+          missing_jobs: number
+          message: string
         }[]
       }
     }

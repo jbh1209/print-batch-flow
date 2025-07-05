@@ -139,7 +139,7 @@ async function validateBatchReferences(batchId: string): Promise<BatchValidation
     console.log(`🔍 Validating batch references for batch ${batchId}`);
     
     const { data: validationResult, error } = await supabase
-      .rpc('validate_and_repair_batch_references', { p_batch_id: batchId });
+      .rpc('validate_batch_simple', { p_batch_id: batchId });
 
     if (error) {
       return {
@@ -150,12 +150,11 @@ async function validateBatchReferences(batchId: string): Promise<BatchValidation
     }
 
     const result = validationResult?.[0];
-    const referencesCreated = result?.references_created || 0;
     
     return {
-      isValid: referencesCreated === 0, // Valid if no references needed to be created
-      missingReferences: referencesCreated,
-      errors: referencesCreated > 0 ? [`${referencesCreated} references were missing`] : []
+      isValid: result?.is_valid || false,
+      missingReferences: result?.missing_jobs || 0,
+      errors: result?.is_valid ? [] : [result?.message || 'Unknown validation error']
     };
 
   } catch (error) {
@@ -175,22 +174,22 @@ async function repairBatchReferences(batchId: string): Promise<{ success: boolea
   try {
     console.log(`🔧 Repairing batch references for batch ${batchId}`);
     
-    const { data: repairResult, error } = await supabase
-      .rpc('validate_and_repair_batch_references', { p_batch_id: batchId });
+    const { data: validationResult, error } = await supabase
+      .rpc('validate_batch_simple', { p_batch_id: batchId });
 
     if (error) {
-      console.error('❌ Repair failed:', error);
+      console.error('❌ Validation failed:', error);
       return { success: false, referencesCreated: 0 };
     }
 
-    const result = repairResult?.[0];
-    const referencesCreated = result?.references_created || 0;
+    const result = validationResult?.[0];
+    const referenceCount = result?.reference_count || 0;
     
-    console.log(`✅ Repair completed: ${referencesCreated} references created`);
+    console.log(`✅ Validation completed: ${referenceCount} references found`);
     
     return {
-      success: true,
-      referencesCreated
+      success: result?.is_valid || false,
+      referencesCreated: 0 // This function now validates instead of repairing
     };
 
   } catch (error) {
@@ -394,19 +393,19 @@ export async function sendBatchToPrintEnhanced(batchId: string): Promise<{ succe
     if (!batchRefs || batchRefs.length === 0) {
       console.error('❌ No batch job references found after retries');
       
-      // Try to manually repair references before failing
-      console.log('🔧 Attempting to repair missing batch references...');
+      // Try to validate batch references
+      console.log('🔍 Attempting to validate existing batch references...');
       
-      const { data: repairResult, error: repairError } = await supabase
-        .rpc('validate_and_repair_batch_references', { p_batch_id: batchId });
+      const { data: validationResult, error: validationError } = await supabase
+        .rpc('validate_batch_simple', { p_batch_id: batchId });
         
-      if (repairError) {
-        console.error('❌ Repair attempt failed:', repairError);
-        throw new Error(`No constituent jobs found for batch and repair failed: ${repairError.message}`);
+      if (validationError) {
+        console.error('❌ Validation attempt failed:', validationError);
+        throw new Error(`No constituent jobs found for batch and validation failed: ${validationError.message}`);
       }
       
-      if (repairResult && repairResult.length > 0 && repairResult[0].references_created > 0) {
-        console.log(`✅ Repaired ${repairResult[0].references_created} missing references`);
+      if (validationResult && validationResult.length > 0 && validationResult[0].reference_count > 0) {
+        console.log(`✅ Found ${validationResult[0].reference_count} existing references`);
         
         // Try fetching again after repair
         const { data: repairedRefs, error: repairedError } = await supabase

@@ -66,32 +66,32 @@ export const BatchStatusMonitor: React.FC<BatchStatusMonitorProps> = ({
 
   const repairBatch = async () => {
     try {
-      console.log(`🔧 Attempting to repair batch ${batchId}`);
+      console.log(`🔧 Attempting to validate batch ${batchId}`);
       
       const { data, error } = await supabase
-        .rpc('validate_and_repair_batch_references', { p_batch_id: batchId });
+        .rpc('validate_batch_simple', { p_batch_id: batchId });
 
       if (error) {
-        console.error('❌ Repair failed:', error);
-        toast.error(`Repair failed: ${error.message}`);
+        console.error('❌ Validation failed:', error);
+        toast.error(`Validation failed: ${error.message}`);
         return;
       }
 
       if (data && data.length > 0) {
         const result = data[0];
-        const referencesCreated = result.references_created || 0;
         
-        if (referencesCreated > 0) {
-          toast.success(`Repaired ${referencesCreated} missing batch references`);
-          await runIntegrityCheck(); // Re-check after repair
-          onStatusUpdate?.();
+        if (result.is_valid) {
+          toast.success(`Batch is valid with ${result.reference_count} references`);
         } else {
-          toast.info('No repairs needed');
+          toast.warning(`Batch validation: ${result.message}`);
         }
+        
+        await runIntegrityCheck(); // Re-check after validation
+        onStatusUpdate?.();
       }
     } catch (error) {
-      console.error('❌ Repair error:', error);
-      toast.error('Failed to repair batch');
+      console.error('❌ Validation error:', error);
+      toast.error('Failed to validate batch');
     }
   };
 
@@ -213,7 +213,7 @@ export const BatchStatusMonitor: React.FC<BatchStatusMonitorProps> = ({
               onClick={repairBatch}
               className="flex-1"
             >
-              Auto-Repair Issues
+              Re-validate Batch
             </Button>
           </div>
         )}

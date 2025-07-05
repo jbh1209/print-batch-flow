@@ -20,22 +20,22 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
 
   const sendToPrint = async () => {
     try {
-      console.log('🚀 Sending batch to print using enhanced processor:', batchId);
+      console.log('🚀 Sending batch to print using simplified processor:', batchId);
       
-      // Import and use enhanced batch processor
-      const { sendBatchToPrintEnhanced } = await import('@/utils/batch/enhancedBatchProcessor');
+      // Import and use simplified batch processor
+      const { sendBatchToPrintSimplified } = await import('@/utils/batch/simplifiedBatchProcessor');
       
-      const result = await sendBatchToPrintEnhanced(batchId);
+      const result = await sendBatchToPrintSimplified(batchId);
       
       if (result.success) {
-        console.log('✅ Enhanced Send to Print completed successfully:', result.masterJobId);
+        console.log('✅ Simplified Send to Print completed successfully:', result.masterJobId);
         onStatusUpdate();
       } else {
-        console.error('❌ Enhanced Send to Print failed:', result.errors);
+        console.error('❌ Simplified Send to Print failed:', result.errors);
         throw new Error(result.errors.join(', '));
       }
     } catch (error) {
-      console.error('❌ Error in enhanced send to print:', error);
+      console.error('❌ Error in simplified send to print:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       toast.error(`Failed to send batch to print: ${errorMessage}`);
     }
