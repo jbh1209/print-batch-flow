@@ -58,13 +58,20 @@ export async function processProductionJobsForBatch({
         continue;
       }
 
-      // Update production job to batch processing status
+      // Update production job to batch processing status with batch name
+      const { data: batchData } = await supabase
+        .from('batches')
+        .select('name')
+        .eq('id', batchId)
+        .single();
+
       const { error: updateError } = await supabase
         .from('production_jobs')
         .update({
           status: 'In Batch Processing',
           batch_ready: true,
           batch_allocated_at: new Date().toISOString(),
+          batch_category: batchData?.name || 'Unknown Batch',
           updated_at: new Date().toISOString()
         })
         .eq('id', jobId);

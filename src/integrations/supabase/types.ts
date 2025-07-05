@@ -1913,11 +1913,13 @@ export type Database = {
         Returns: boolean
       }
       create_batch_master_job: {
-        Args: {
-          p_batch_id: string
-          p_constituent_job_ids: string[]
-          p_created_by?: string
-        }
+        Args:
+          | { p_batch_id: string; p_constituent_job_ids: string[] }
+          | {
+              p_batch_id: string
+              p_constituent_job_ids: string[]
+              p_created_by?: string
+            }
         Returns: string
       }
       expedite_job_factory_wide: {

@@ -33,7 +33,8 @@ const JobStageCard: React.FC<JobStageCardProps> = ({
 
   const wo_no = jobStage.production_job?.wo_no ?? "Unknown";
   const customer = jobStage.production_job?.customer ?? "Unknown Customer";
-  const batchName = jobStage.production_job?.batch_name;
+  const batchName = jobStage.production_job?.batch_category;
+  const isInBatchProcessing = jobStage.production_job?.status === 'In Batch Processing';
 
   const handleStartClick = (e: React.MouseEvent) => {
     e.stopPropagation();
