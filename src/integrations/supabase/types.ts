@@ -1908,6 +1908,10 @@ export type Database = {
         Args: { check_user_id?: string }
         Returns: boolean
       }
+      cleanup_corrupted_batch_jobs: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       create_batch_master_job: {
         Args: {
           p_batch_id: string
@@ -2340,6 +2344,10 @@ export type Database = {
       }
       set_user_role_admin: {
         Args: { _target_user_id: string; _new_role: string }
+        Returns: boolean
+      }
+      sync_completed_jobs_with_batch_flow: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
       sync_profiles_with_auth: {
