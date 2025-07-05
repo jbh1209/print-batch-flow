@@ -7,6 +7,7 @@ import { BatchStatus } from "@/config/productTypes";
 import { BatchStatusMonitor } from "./BatchStatusMonitor";
 import { BatchDiagnostics } from "./BatchDiagnostics";
 import { useState } from "react";
+import { sendBatchToPrintSimplified } from "@/utils/batch/simplifiedBatchProcessor";
 
 interface BatchStatusUpdateProps {
   batchId: string;
@@ -22,13 +23,11 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
     try {
       console.log('🚀 Sending batch to print using simplified processor:', batchId);
       
-      // Import and use simplified batch processor
-      const { sendBatchToPrintSimplified } = await import('@/utils/batch/simplifiedBatchProcessor');
-      
       const result = await sendBatchToPrintSimplified(batchId);
       
       if (result.success) {
         console.log('✅ Simplified Send to Print completed successfully:', result.masterJobId);
+        toast.success('Batch sent to print successfully!');
         onStatusUpdate();
       } else {
         console.error('❌ Simplified Send to Print failed:', result.errors);
