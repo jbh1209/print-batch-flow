@@ -160,12 +160,12 @@ export const BatchJobFormRHF: React.FC<BatchJobFormRHFProps> = ({
       // Upload the file first
       const fileUrl = await uploadFileToStorage(selectedFile, tempJobId);
       
-      // Create the batch job with file URL
+      // Create the batch job with file URL - use original WO number and customer name
       const { data: jobData, error: jobError } = await (supabase as any)
         .from(batchTableName)
         .insert({
-          name: `Batch Job - ${data.wo_no}`,
-          job_number: `BATCH-${data.wo_no}-${Date.now()}`,
+          name: data.customer, // Use actual customer name
+          job_number: data.wo_no, // Use original WO number without prefix/timestamp
           quantity: data.qty,
           due_date: data.due_date.toISOString().split('T')[0],
           user_id: user.id,
