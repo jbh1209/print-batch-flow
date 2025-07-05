@@ -1,286 +1,294 @@
 import React, { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  RefreshCw, 
-  Users, 
-  Settings,
-  Clock,
-  Sliders,
-  Eye,
-  EyeOff
-} from "lucide-react";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
-import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
+import { useSmartPermissionDetection } from "@/hooks/tracker/useSmartPermissionDetection";
 import { useUserStagePermissions } from "@/hooks/tracker/useUserStagePermissions";
-import { consolidateStagesByMasterQueue } from "@/utils/tracker/stageConsolidation";
-import { TrackerErrorBoundary } from "../error-boundaries/TrackerErrorBoundary";
-import { FactoryFloorStageSection } from "./FactoryFloorStageSection";
-import { FactoryFloorSettings } from "./FactoryFloorSettings";
-import { useFactoryFloorPreferences } from "./useFactoryFloorPreferences";
-import type { ConsolidatedStage } from "@/utils/tracker/stageConsolidation";
+import { useAuth } from "@/hooks/useAuth";
+import { OperatorHeader } from "./OperatorHeader";
+import { QueueFilters } from "./QueueFilters";
+import { JobGroupsDisplay } from "./JobGroupsDisplay";
+import { DtpJobModal } from "./DtpJobModal";
+import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
+import { categorizeJobs, sortJobsByWONumber } from "@/utils/tracker/jobProcessing";
+import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs/types";
 
 export const DynamicFactoryFloorView = () => {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
-  const [showSettings, setShowSettings] = useState(false);
+  const { user } = useAuth();
+  const { isDtpOperator, isOperator } = useUserRole();
+  const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetection();
   
-  const { 
-    jobs, 
-    isLoading, 
-    error, 
-    refreshJobs 
-  } = useAccessibleJobs({
-    permissionType: 'work'
-  });
-
+  // Get user's stage permissions to create dynamic job groups
   const {
     consolidatedStages,
-    isLoading: stagesLoading,
-    error: stagesError
+    isLoading: stagesLoading
   } = useUserStagePermissions(user?.id);
+  
+  // Use smart permission detection for optimal job access
+  const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
+    permissionType: highestPermission // Let the database function handle all the filtering
+  });
+  
+  const { startJob, completeJob } = useJobActions(refreshJobs);
 
-  const {
-    preferences,
-    toggleStageVisibility,
-    resetPreferences
-  } = useFactoryFloorPreferences();
-
-  // Group jobs by their current stage
-  const jobsByStage = useMemo(() => {
-    const stageJobMap = new Map<string, AccessibleJob[]>();
-    
-    jobs.forEach(job => {
-      const stageId = job.current_stage_id;
-      if (stageId) {
-        if (!stageJobMap.has(stageId)) {
-          stageJobMap.set(stageId, []);
-        }
-        stageJobMap.get(stageId)!.push(job);
-      }
-    });
-    
-    return stageJobMap;
-  }, [jobs]);
-
-  // Get visible stages based on user preferences
-  const visibleStages = useMemo(() => {
-    return consolidatedStages.filter(stage => {
-      // Show stages that have work permission and are not hidden by user
-      return stage.can_work && !preferences.hiddenStages.includes(stage.stage_id);
-    });
-  }, [consolidatedStages, preferences.hiddenStages]);
-
-  const handleLogout = async () => {
+  const [selectedJob, setSelectedJob] = useState<AccessibleJob | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeQueueFilters, setActiveQueueFilters] = useState<string[]>([]);
+  const [hiddenQueues, setHiddenQueues] = useState<string[]>(() => {
     try {
-      await signOut();
-    } catch (error) {
-      console.error('❌ Logout failed:', error);
+      return JSON.parse(localStorage.getItem('factory-floor-hidden-queues') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
+    try {
+      return (localStorage.getItem('factory-floor-view-mode') as 'card' | 'list') || 'card';
+    } catch {
+      return 'card';
+    }
+  });
+
+  const handleViewModeChange = (mode: 'card' | 'list') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('factory-floor-view-mode', mode);
+    } catch {
+      // Ignore localStorage errors
     }
   };
 
-  const handleNavigation = (path: string) => {
-    navigate(path);
+  // Create dynamic job groups based on user's accessible stages
+  const dynamicJobGroups = useMemo(() => {
+    console.log('🔄 Creating dynamic job groups based on user stages:', {
+      jobCount: jobs?.length || 0,
+      stageCount: consolidatedStages?.length || 0,
+      permissionUsed: highestPermission,
+      permissionLoading
+    });
+    
+    if (!jobs || jobs.length === 0 || !consolidatedStages) {
+      console.log('❌ No jobs or stages available for processing');
+      return [];
+    }
+
+    let filtered = jobs;
+    console.log('📋 Starting with jobs:', filtered.length, 'using permission:', highestPermission);
+
+    // Apply simple search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(job => 
+        job.wo_no?.toLowerCase().includes(query) ||
+        job.customer?.toLowerCase().includes(query) ||
+        job.reference?.toLowerCase().includes(query) ||
+        job.current_stage_name?.toLowerCase().includes(query) ||
+        job.display_stage_name?.toLowerCase().includes(query)
+      );
+      console.log('🔍 After search filter:', filtered.length);
+    }
+
+    // Group jobs by stage based on user's accessible stages
+    const stageJobGroups = new Map<string, AccessibleJob[]>();
+    
+    // First, group jobs by their current stage
+    filtered.forEach(job => {
+      const stageId = job.current_stage_id;
+      const stageName = job.current_stage_name || job.display_stage_name || 'Other';
+      
+      if (!stageJobGroups.has(stageName)) {
+        stageJobGroups.set(stageName, []);
+      }
+      stageJobGroups.get(stageName)!.push(job);
+    });
+
+    // Create job groups for each accessible stage that has jobs
+    const jobGroups = [];
+    
+    consolidatedStages.forEach(stage => {
+      if (!stage.can_work) return; // Skip stages user can't work on
+      
+      const stageJobs = stageJobGroups.get(stage.stage_name) || [];
+      const masterQueueJobs = stage.is_master_queue 
+        ? stage.subsidiary_stages.flatMap(sub => stageJobGroups.get(sub.stage_name) || [])
+        : [];
+      
+      const allStageJobs = [...stageJobs, ...masterQueueJobs];
+      
+      if (allStageJobs.length > 0 && !hiddenQueues.includes(stage.stage_name)) {
+        const stageName = stage.stage_name.toLowerCase();
+        let color = "bg-gray-600";
+        
+        if (stageName.includes('dtp')) {
+          color = "bg-blue-600";
+        } else if (stageName.includes('proof')) {
+          color = "bg-purple-600";
+        } else if (stageName.includes('12000')) {
+          color = "bg-green-600";
+        } else if (stageName.includes('7900')) {
+          color = "bg-emerald-600";
+        } else if (stageName.includes('t250')) {
+          color = "bg-teal-600";
+        } else if (stageName.includes('print')) {
+          color = "bg-green-600";
+        } else if (stageName.includes('finishing')) {
+          color = "bg-orange-600";
+        }
+        
+        jobGroups.push({
+          title: stage.stage_name,
+          jobs: sortJobsByWONumber(allStageJobs),
+          color
+        });
+      }
+    });
+
+    console.log('✅ Dynamic job groups created:', {
+      permission: highestPermission,
+      groups: jobGroups.map(g => ({ title: g.title, count: g.jobs.length }))
+    });
+
+    return jobGroups;
+  }, [jobs, consolidatedStages, searchQuery, hiddenQueues, highestPermission, permissionLoading]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshJobs();
+      toast.success("Jobs refreshed successfully");
+    } catch (error) {
+      console.error("❌ Refresh failed:", error);
+      toast.error("Failed to refresh jobs");
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
   };
 
-  if (isLoading || stagesLoading) {
+  const handleJobClick = (job: AccessibleJob) => {
+    setSelectedJob(job);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedJob(null);
+  };
+
+  const handleQueueToggle = (queueName: string) => {
+    const newHiddenQueues = hiddenQueues.includes(queueName)
+      ? hiddenQueues.filter(q => q !== queueName)
+      : [...hiddenQueues, queueName];
+    
+    setHiddenQueues(newHiddenQueues);
+    try {
+      localStorage.setItem('factory-floor-hidden-queues', JSON.stringify(newHiddenQueues));
+    } catch {
+      // Ignore localStorage errors
+    }
+  };
+
+  // Show loading state while detecting permissions or loading stages
+  if (permissionLoading || isLoading || stagesLoading) {
     return (
-      <div className="flex flex-col h-full bg-background">
-        <div className="flex-shrink-0 p-4 bg-card border-b">
-          <div className="flex items-center justify-center py-12">
-            <RefreshCw className="h-8 w-8 animate-spin mr-2" />
-            <span>Loading factory floor...</span>
-          </div>
-        </div>
-      </div>
+      <JobListLoading 
+        message="Loading your personalized factory floor..."
+        showProgress={true}
+      />
     );
   }
 
-  if (error || stagesError) {
+  if (error) {
     return (
-      <div className="flex flex-col h-full bg-background">
-        <div className="flex-shrink-0 p-4 bg-card border-b">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <p className="text-destructive font-medium mb-2">Error loading factory floor</p>
-              <p className="text-muted-foreground text-sm mb-4">{error || stagesError}</p>
-              <Button onClick={refreshJobs} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Try Again
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <JobErrorState
+        error={error}
+        onRetry={handleRefresh}
+        onRefresh={refreshJobs}
+        title="Factory Floor Error"
+      />
     );
   }
 
-  // Calculate total stats for all visible stages
-  const totalStats = visibleStages.reduce((acc, stage) => {
-    const stageJobs = jobsByStage.get(stage.stage_id) || [];
-    const masterQueueJobs = stage.is_master_queue 
-      ? stage.subsidiary_stages.flatMap(sub => jobsByStage.get(sub.stage_id) || [])
-      : [];
-    const allStageJobs = [...stageJobs, ...masterQueueJobs];
-    
-    acc.totalJobs += allStageJobs.length;
-    acc.activeJobs += allStageJobs.filter(job => job.current_stage_status === 'active').length;
-    acc.pendingJobs += allStageJobs.filter(job => job.current_stage_status === 'pending').length;
-    
-    return acc;
-  }, { totalJobs: 0, activeJobs: 0, pendingJobs: 0 });
+  const totalJobs = dynamicJobGroups.reduce((acc, group) => acc + group.jobs.length, 0);
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Header */}
-      <div className="flex-shrink-0 p-4 bg-card border-b">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold">Factory Floor Dashboard</h1>
-            <p className="text-muted-foreground">Production overview and job management</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-2"
-            >
-              <Sliders className="h-4 w-4" />
-              Customize View
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={refreshJobs}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleNavigation('/tracker/admin')}
-              className="flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="flex items-center gap-2"
-            >
-              <Users className="h-4 w-4" />
-              Logout
-            </Button>
+      <OperatorHeader 
+        title={`Factory Floor - Personalized View (${totalJobs} jobs)`}
+      />
+
+      {/* Controls */}
+      <QueueFilters
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        onQueueFiltersChange={setActiveQueueFilters}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+        showQueueControls={false} // We'll handle queue toggles differently
+        totalJobs={totalJobs}
+        jobGroupsCount={dynamicJobGroups.length}
+      />
+
+      {/* Queue Toggle Controls */}
+      {consolidatedStages && consolidatedStages.length > 0 && (
+        <div className="flex-shrink-0 p-2 bg-white border-b">
+          <div className="flex flex-wrap gap-2">
+            <span className="text-sm font-medium text-gray-600 mr-2">Toggle Queues:</span>
+            {consolidatedStages
+              .filter(stage => stage.can_work)
+              .map(stage => (
+                <button
+                  key={stage.stage_id}
+                  onClick={() => handleQueueToggle(stage.stage_name)}
+                  className={`px-2 py-1 text-xs rounded-md border transition-colors ${
+                    hiddenQueues.includes(stage.stage_name)
+                      ? 'bg-gray-100 text-gray-500 border-gray-300'
+                      : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                  }`}
+                >
+                  {hiddenQueues.includes(stage.stage_name) ? '👁️‍🗨️' : '👁️'} {stage.stage_name}
+                </button>
+              ))
+            }
           </div>
         </div>
+      )}
 
-        {/* Overall Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Jobs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalStats.totalJobs}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{totalStats.activeJobs}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Ready to Start</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{totalStats.pendingJobs}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Settings Panel */}
-        {showSettings && (
-          <TrackerErrorBoundary componentName="Factory Floor Settings">
-            <FactoryFloorSettings
-              stages={consolidatedStages.filter(stage => stage.can_work)}
-              preferences={preferences}
-              onToggleStage={toggleStageVisibility}
-              onReset={resetPreferences}
-            />
-          </TrackerErrorBoundary>
-        )}
-      </div>
-
-      {/* Stage Sections */}
-      <div className="flex-1 p-4 overflow-auto">
-        {visibleStages.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Workable Stages</h3>
-              <p className="text-muted-foreground text-center max-w-md">
-                You don't have permission to work on any production stages, or all stages are hidden.
-                Check your permissions or adjust your view settings.
-              </p>
-              <Button
-                onClick={() => setShowSettings(true)}
-                variant="outline"
-                className="mt-4"
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                Show Settings
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {visibleStages.map((stage) => (
-              <TrackerErrorBoundary key={stage.stage_id} componentName={`Stage ${stage.stage_name}`}>
-                <FactoryFloorStageSection
-                  stage={stage}
-                  jobs={jobsByStage.get(stage.stage_id) || []}
-                  masterQueueJobs={stage.is_master_queue 
-                    ? stage.subsidiary_stages.flatMap(sub => jobsByStage.get(sub.stage_id) || [])
-                    : []
-                  }
-                  onNavigate={handleNavigation}
-                />
-              </TrackerErrorBoundary>
-            ))}
-          </div>
-        )}
-
-        {/* Recent Activity */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p>Recent job activity will appear here</p>
-              <p className="text-sm mt-1">Start working on jobs to see real-time updates</p>
+      {/* Job Groups - Vertical Queues with Max 3 Columns */}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full overflow-x-auto">
+          <div className="flex gap-4 p-4 min-w-max" style={{ 
+            maxWidth: viewMode === 'card' ? 'none' : '100%',
+            gridTemplateColumns: viewMode === 'card' ? 'repeat(auto-fit, minmax(320px, 1fr))' : 'none',
+            display: viewMode === 'card' ? 'grid' : 'flex'
+          }}>
+            <div className={`${viewMode === 'card' ? 'contents' : 'flex gap-4'} ${dynamicJobGroups.length > 3 ? 'overflow-x-auto' : ''}`}>
+              <JobGroupsDisplay
+                jobGroups={dynamicJobGroups}
+                viewMode={viewMode}
+                searchQuery={searchQuery}
+                onJobClick={handleJobClick}
+                onStart={startJob}
+                onComplete={completeJob}
+              />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
+
+      {/* Job Modal */}
+      {selectedJob && (
+        <DtpJobModal
+          job={selectedJob}
+          isOpen={true}
+          onClose={handleCloseModal}
+          onStart={startJob}
+          onComplete={completeJob}
+          onRefresh={refreshJobs}
+        />
+      )}
     </div>
   );
 };
