@@ -21,6 +21,8 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
     try {
       setIsLoading(true);
       
+      console.log('🔍 Fetching batch allocation jobs...');
+      
       // Get jobs in Batch Allocation stage that are ready for batching
       const { data, error } = await supabase.rpc('get_user_accessible_jobs_with_conditional_stages', {
         p_permission_type: 'work'
@@ -31,12 +33,31 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
         return;
       }
 
-      // Filter for jobs in Batch Allocation stage that are active and ready
-      const batchJobs = (data || []).filter((job: any) => 
-        job.current_stage_name === 'Batch Allocation' && 
-        job.current_stage_status === 'active' &&
-        job.batch_ready === true
-      );
+      console.log(`📊 Total jobs from RPC: ${data?.length || 0}`);
+
+      // Enhanced filtering with detailed logging
+      const batchJobs = (data || []).filter((job: any) => {
+        const isBatchAllocation = job.current_stage_name === 'Batch Allocation';
+        const isActive = job.current_stage_status === 'active';
+        const isBatchReady = job.batch_ready === true;
+        const shouldShow = job.stage_should_show !== false;
+        
+        const shouldInclude = isBatchAllocation && isActive && isBatchReady && shouldShow;
+        
+        if (isBatchAllocation && !shouldInclude) {
+          console.log(`⚠️ Job ${job.wo_no} in Batch Allocation but filtered out:`, {
+            current_stage_name: job.current_stage_name,
+            current_stage_status: job.current_stage_status,
+            batch_ready: job.batch_ready,
+            stage_should_show: job.stage_should_show,
+            reason: !isActive ? 'Not active' : !isBatchReady ? 'Not batch ready' : !shouldShow ? 'Should not show' : 'Unknown'
+          });
+        }
+        
+        return shouldInclude;
+      });
+
+      console.log(`✅ Filtered batch allocation jobs: ${batchJobs.length}`);
 
       const mappedJobs: AccessibleJob[] = batchJobs.map((job: any) => ({
         job_id: job.job_id,
@@ -89,6 +110,7 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
       setJobsByCategory(groupedByCategory);
 
       console.log(`✅ Found ${mappedJobs.length} jobs in Batch Allocation stage`);
+      console.log('📋 Jobs by category:', Object.keys(groupedByCategory).map(cat => `${cat}: ${groupedByCategory[cat].length}`).join(', '));
       
     } catch (error) {
       console.error('❌ Error fetching batch allocation jobs:', error);

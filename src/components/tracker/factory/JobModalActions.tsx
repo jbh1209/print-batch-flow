@@ -79,6 +79,8 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
   const handleMarkProofApproved = async () => {
     setIsMarkingProofApproved(true);
     try {
+      console.log(`🎯 Starting proof approval for job ${jobId}`);
+      
       // Mark proof as approved in stage instance
       const { error: updateError } = await supabase
         .from('job_stage_instances')
@@ -89,28 +91,35 @@ const JobModalActions: React.FC<JobModalActionsProps> = ({
         .eq('id', currentStage.id);
 
       if (updateError) {
-        console.error('Failed to mark proof as approved:', updateError);
+        console.error('❌ Failed to mark proof as approved:', updateError);
         toast.error('Failed to mark proof as approved');
         return;
       }
 
+      console.log('✅ Proof marked as approved, now advancing to batch allocation...');
+
       // Use the new function to properly advance to batch allocation
-      const { error: advanceError } = await supabase
+      const { data: advanceResult, error: advanceError } = await supabase
         .rpc('advance_job_to_batch_allocation', {
           p_job_id: jobId,
           p_job_table_name: 'production_jobs'
         });
 
       if (advanceError) {
-        console.error('Failed to advance job to batch allocation:', advanceError);
+        console.error('❌ Failed to advance job to batch allocation:', advanceError);
+        toast.error(`Failed to advance to batch allocation: ${advanceError.message}`);
         // Fall back to normal completion if batch allocation fails
         onCompleteJob();
+        return;
       }
 
+      console.log('✅ Job successfully advanced to batch allocation:', advanceResult);
       toast.success('Proof approved - job moved to batch allocation stage');
-      window.location.reload(); // Refresh to show updated stage
+      
+      // Refresh to show updated stage
+      window.location.reload();
     } catch (error) {
-      console.error('Error marking proof as approved:', error);
+      console.error('❌ Error marking proof as approved:', error);
       toast.error('Failed to mark proof as approved');
     } finally {
       setIsMarkingProofApproved(false);

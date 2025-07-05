@@ -120,6 +120,33 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_allocation_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: string | null
+          id: string
+          job_id: string
+          wo_no: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          job_id: string
+          wo_no?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          job_id?: string
+          wo_no?: string | null
+        }
+        Relationships: []
+      }
       batch_job_references: {
         Row: {
           batch_id: string
