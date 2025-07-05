@@ -82,6 +82,15 @@ export function useUnifiedBatchCreation() {
     try {
       console.log(`🔄 Creating unified batch for ${config.productType} with ${selectedJobs.length} jobs`);
       
+      // Pre-validate that all jobs have matching production jobs
+      const validationResults = await validateJobsHaveProductionMatches(selectedJobs);
+      const invalidJobs = validationResults.filter(result => !result.hasMatch);
+      
+      if (invalidJobs.length > 0) {
+        const jobNumbers = invalidJobs.map(job => job.jobNumber).join(', ');
+        throw new Error(`Cannot create batch: Jobs ${jobNumbers} have no matching production jobs. Please ensure these jobs exist in the tracker system.`);
+      }
+      
       // Calculate batch properties
       const totalQuantity = selectedJobs.reduce((sum, job) => sum + job.quantity, 0);
       const sheetsRequired = calculateSheetsRequired(totalQuantity, config.productType);
@@ -152,7 +161,7 @@ export function useUnifiedBatchCreation() {
       console.log(`✅ Successfully linked ${jobIds.length} jobs to batch`);
       
       // Step 3: Verify batch references were created by triggers
-      await new Promise(resolve => setTimeout(resolve, 500)); // Give triggers time to execute
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Give triggers more time to execute
       
       const { data: references, error: refError } = await supabase
         .from("batch_job_references")
@@ -161,16 +170,19 @@ export function useUnifiedBatchCreation() {
         
       if (refError) {
         console.warn("⚠️ Could not verify batch references:", refError);
+        toast.warning("Batch created but reference verification failed. Check batch diagnostics.");
       } else {
         const refCount = references?.length || 0;
         console.log(`📋 Verification: ${refCount} batch references created`);
         
         if (refCount !== jobIds.length) {
           console.warn(`⚠️ Reference count mismatch: expected ${jobIds.length}, got ${refCount}`);
+          toast.warning(`Batch created but some job references may be missing (${refCount}/${jobIds.length}). Check batch diagnostics.`);
+        } else {
+          toast.success(`Batch "${batchName}" created successfully with ${selectedJobs.length} jobs`);
         }
       }
       
-      toast.success(`Batch "${batchName}" created with ${selectedJobs.length} jobs`);
       return batch;
       
     } catch (error) {
@@ -180,6 +192,29 @@ export function useUnifiedBatchCreation() {
       return null;
     } finally {
       setIsCreatingBatch(false);
+    }
+  };
+
+  // Validate that selected jobs have matching production jobs
+  const validateJobsHaveProductionMatches = async (jobs: UnifiedBatchJob[]): Promise<Array<{jobNumber: string, hasMatch: boolean}>> => {
+    try {
+      const { data, error } = await supabase.rpc('validate_batch_job_references');
+      
+      if (error) {
+        console.error('Error validating job matches:', error);
+        // Return all as valid if we can't check - let the trigger handle it
+        return jobs.map(job => ({ jobNumber: job.job_number || job.id, hasMatch: true }));
+      }
+      
+      return jobs.map(job => {
+        const jobNumber = job.job_number || job.wo_no || job.id;
+        const hasMatch = data?.some(row => row.job_number === jobNumber && row.has_production_job) || false;
+        return { jobNumber, hasMatch };
+      });
+    } catch (error) {
+      console.error('Error in job validation:', error);
+      // Return all as valid if validation fails - let the system handle it
+      return jobs.map(job => ({ jobNumber: job.job_number || job.id, hasMatch: true }));
     }
   };
 

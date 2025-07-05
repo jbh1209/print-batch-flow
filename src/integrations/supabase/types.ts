@@ -2304,6 +2304,15 @@ export type Database = {
         Args: { p_job_id: string; p_removed_by?: string }
         Returns: boolean
       }
+      repair_batch_job_references: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          repaired_table: string
+          repaired_job_id: string
+          job_number: string
+          created_reference: boolean
+        }[]
+      }
       repair_jobs_missing_stages: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -2387,6 +2396,17 @@ export type Database = {
           missing_references: number
           orphaned_jobs: number
           issues: Json
+        }[]
+      }
+      validate_batch_job_references: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          table_name: string
+          job_id: string
+          job_number: string
+          has_production_job: boolean
+          production_job_id: string
+          batch_id: string
         }[]
       }
       validate_batch_simple: {
