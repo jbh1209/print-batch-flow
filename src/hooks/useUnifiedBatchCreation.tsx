@@ -82,13 +82,12 @@ export function useUnifiedBatchCreation() {
     try {
       console.log(`🔄 Creating unified batch for ${config.productType} with ${selectedJobs.length} jobs`);
       
-      // Pre-validate that all jobs have matching production jobs
+      // Optional: Check for production job matches but don't block batch creation
       const validationResults = await validateJobsHaveProductionMatches(selectedJobs);
-      const invalidJobs = validationResults.filter(result => !result.hasMatch);
+      const jobsWithoutMatches = validationResults.filter(result => !result.hasMatch);
       
-      if (invalidJobs.length > 0) {
-        const jobNumbers = invalidJobs.map(job => job.jobNumber).join(', ');
-        throw new Error(`Cannot create batch: Jobs ${jobNumbers} have no matching production jobs. Please ensure these jobs exist in the tracker system.`);
+      if (jobsWithoutMatches.length > 0) {
+        console.log(`⚠️ ${jobsWithoutMatches.length} jobs have no production job matches - batch will still be created`);
       }
       
       // Calculate batch properties
