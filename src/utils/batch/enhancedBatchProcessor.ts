@@ -302,7 +302,7 @@ export async function completeBatchProcessingEnhanced(
 }
 
 /**
- * Enhanced Send to Print functionality with comprehensive validation
+ * Enhanced Send to Print functionality with comprehensive validation and debugging
  */
 export async function sendBatchToPrintEnhanced(batchId: string): Promise<{ success: boolean; masterJobId?: string; errors: string[] }> {
   console.log(`🚀 Enhanced Send to Print for batch ${batchId}`);
@@ -313,7 +313,25 @@ export async function sendBatchToPrintEnhanced(batchId: string): Promise<{ succe
   };
 
   try {
-    // Step 1: Comprehensive batch validation
+    // Step 1: Pre-validation integrity check
+    console.log(`🔍 Running batch integrity validation for ${batchId}...`);
+    
+    const { data: integrityResult, error: integrityError } = await supabase
+      .rpc('validate_batch_integrity', { p_batch_id: batchId });
+
+    if (integrityError) {
+      console.warn('⚠️ Integrity check failed:', integrityError);
+    } else if (integrityResult && integrityResult.length > 0) {
+      const integrity = integrityResult[0];
+      console.log('📊 Integrity check results:', integrity);
+      
+      if (!integrity.is_valid) {
+        console.warn('⚠️ Batch integrity issues detected:', integrity.issues);
+        // Continue but log the issues for debugging
+      }
+    }
+
+    // Step 2: Comprehensive batch validation
     console.log(`🔍 Validating batch ${batchId}...`);
     
     const { data: batch, error: batchError } = await supabase
@@ -323,6 +341,7 @@ export async function sendBatchToPrintEnhanced(batchId: string): Promise<{ succe
       .single();
 
     if (batchError) {
+      console.error('❌ Batch query error:', batchError);
       throw new Error(`Batch validation failed: ${batchError.message}`);
     }
 
@@ -336,42 +355,112 @@ export async function sendBatchToPrintEnhanced(batchId: string): Promise<{ succe
 
     console.log(`✅ Batch "${batch.name}" validated successfully`);
 
-    // Step 2: Validate batch job references
-    const { data: batchRefs, error: refsError } = await supabase
-      .from('batch_job_references')
-      .select('production_job_id')
-      .eq('batch_id', batchId);
+    // Step 3: Validate batch job references with retry logic
+    console.log(`📋 Fetching batch job references for batch ${batchId}...`);
+    
+    let batchRefs;
+    let refsError;
+    
+    // Retry logic for batch references (sometimes there's a timing issue)
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      console.log(`🔄 Attempt ${attempt} to fetch batch references...`);
+      
+      const { data, error } = await supabase
+        .from('batch_job_references')
+        .select('production_job_id, batch_job_id, batch_job_table, status')
+        .eq('batch_id', batchId);
+
+      batchRefs = data;
+      refsError = error;
+      
+      if (!error && data && data.length > 0) {
+        console.log(`✅ Found ${data.length} batch references on attempt ${attempt}`);
+        break;
+      }
+      
+      console.warn(`⚠️ Attempt ${attempt} failed:`, error?.message || 'No references found');
+      
+      if (attempt < 3) {
+        console.log('⏳ Waiting 1 second before retry...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
 
     if (refsError) {
+      console.error('❌ Batch references query error:', refsError);
       throw new Error(`Failed to fetch batch references: ${refsError.message}`);
     }
 
     if (!batchRefs || batchRefs.length === 0) {
-      throw new Error('No constituent jobs found for batch - cannot send to print');
+      console.error('❌ No batch job references found after retries');
+      
+      // Try to manually repair references before failing
+      console.log('🔧 Attempting to repair missing batch references...');
+      
+      const { data: repairResult, error: repairError } = await supabase
+        .rpc('validate_and_repair_batch_references', { p_batch_id: batchId });
+        
+      if (repairError) {
+        console.error('❌ Repair attempt failed:', repairError);
+        throw new Error(`No constituent jobs found for batch and repair failed: ${repairError.message}`);
+      }
+      
+      if (repairResult && repairResult.length > 0 && repairResult[0].references_created > 0) {
+        console.log(`✅ Repaired ${repairResult[0].references_created} missing references`);
+        
+        // Try fetching again after repair
+        const { data: repairedRefs, error: repairedError } = await supabase
+          .from('batch_job_references')
+          .select('production_job_id, batch_job_id, batch_job_table, status')
+          .eq('batch_id', batchId);
+          
+        if (!repairedError && repairedRefs && repairedRefs.length > 0) {
+          batchRefs = repairedRefs;
+          console.log(`✅ Successfully retrieved ${repairedRefs.length} references after repair`);
+        } else {
+          throw new Error('Failed to retrieve batch references even after repair');
+        }
+      } else {
+        throw new Error('No constituent jobs found for batch - cannot send to print');
+      }
     }
 
     console.log(`📋 Found ${batchRefs.length} constituent jobs for batch master creation`);
 
-    // Step 3: Validate that all production jobs exist
+    // Step 4: Validate that all production jobs exist
     const constituentJobIds = batchRefs.map(ref => ref.production_job_id);
+    
+    console.log(`🔍 Validating ${constituentJobIds.length} production jobs...`);
     
     const { data: productionJobs, error: jobsError } = await supabase
       .from('production_jobs')
-      .select('id, wo_no, customer')
+      .select('id, wo_no, customer, status')
       .in('id', constituentJobIds);
 
     if (jobsError) {
+      console.error('❌ Production jobs query error:', jobsError);
       throw new Error(`Failed to validate production jobs: ${jobsError.message}`);
     }
 
     if (!productionJobs || productionJobs.length !== constituentJobIds.length) {
+      console.error(`❌ Production job count mismatch. Expected: ${constituentJobIds.length}, Found: ${productionJobs?.length || 0}`);
+      
+      // Log which jobs are missing
+      if (productionJobs) {
+        const foundIds = productionJobs.map(job => job.id);
+        const missingIds = constituentJobIds.filter(id => !foundIds.includes(id));
+        console.error('❌ Missing production job IDs:', missingIds);
+      }
+      
       throw new Error(`Production job validation failed. Expected ${constituentJobIds.length}, found ${productionJobs?.length || 0}`);
     }
 
-    console.log(`✅ All ${productionJobs.length} production jobs validated`);
+    console.log(`✅ All ${productionJobs.length} production jobs validated successfully`);
+    console.log('📊 Production jobs summary:', productionJobs.map(job => ({ wo_no: job.wo_no, customer: job.customer, status: job.status })));
 
-    // Step 4: Create batch master job using database function
+    // Step 5: Create batch master job using database function
     console.log(`🔨 Creating batch master job for batch ${batch.name}...`);
+    console.log('📋 Constituent job IDs:', constituentJobIds);
     
     const { data: masterJobId, error: createError } = await supabase
       .rpc('create_batch_master_job', {
@@ -381,17 +470,19 @@ export async function sendBatchToPrintEnhanced(batchId: string): Promise<{ succe
 
     if (createError) {
       console.error('❌ Database function error:', createError);
+      console.error('❌ Function details:', { batchId, constituentJobIds });
       throw new Error(`Failed to create batch master job: ${createError.message}`);
     }
 
     if (!masterJobId) {
+      console.error('❌ Master job creation returned null');
       throw new Error('Batch master job creation returned null');
     }
 
     console.log(`✅ Batch master job created successfully: ${masterJobId}`);
     result.masterJobId = masterJobId;
 
-    // Step 5: Update batch status to completed
+    // Step 6: Update batch status to completed
     console.log(`📝 Updating batch status to completed...`);
     
     const { error: statusError } = await supabase
@@ -403,12 +494,13 @@ export async function sendBatchToPrintEnhanced(batchId: string): Promise<{ succe
       .eq('id', batchId);
 
     if (statusError) {
+      console.error('❌ Batch status update error:', statusError);
       throw new Error(`Failed to complete batch: ${statusError.message}`);
     }
 
     console.log(`✅ Batch status updated to completed`);
 
-    // Step 6: Trigger reverse sync to update production jobs
+    // Step 7: Trigger reverse sync to update production jobs
     console.log(`🔄 Syncing production jobs...`);
     
     const { error: syncError } = await supabase.rpc('sync_production_jobs_from_batch_completion');
@@ -421,8 +513,8 @@ export async function sendBatchToPrintEnhanced(batchId: string): Promise<{ succe
     }
 
     result.success = true;
-    console.log(`🎉 Batch "${batch.name}" sent to print successfully with master job ${masterJobId}`);
-    toast.success(`Batch "${batch.name}" sent to print and completed successfully`);
+    console.log(`🎉 Enhanced Send to Print completed successfully for batch "${batch.name}" with master job ${masterJobId}`);
+    toast.success(`Batch "${batch.name}" sent to print successfully`);
     
     return result;
 

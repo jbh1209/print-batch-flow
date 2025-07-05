@@ -1,9 +1,12 @@
 
 import { Button } from "@/components/ui/button";
-import { Printer } from "lucide-react";
+import { Printer, Activity, Bug } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { BatchStatus } from "@/config/productTypes";
+import { BatchStatusMonitor } from "./BatchStatusMonitor";
+import { BatchDiagnostics } from "./BatchDiagnostics";
+import { useState } from "react";
 
 interface BatchStatusUpdateProps {
   batchId: string;
@@ -12,6 +15,9 @@ interface BatchStatusUpdateProps {
 }
 
 const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStatusUpdateProps) => {
+  const [showMonitoring, setShowMonitoring] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
   const sendToPrint = async () => {
     try {
       console.log('🚀 Sending batch to print using enhanced processor:', batchId);
@@ -41,14 +47,50 @@ const BatchStatusUpdate = ({ batchId, currentStatus, onStatusUpdate }: BatchStat
   }
 
   return (
-    <Button 
-      variant="outline" 
-      onClick={sendToPrint}
-      className="flex items-center gap-2"
-    >
-      <Printer className="h-4 w-4" />
-      Send to Print
-    </Button>
+    <div className="space-y-4">
+      {/* Action Buttons */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button 
+          variant="outline" 
+          onClick={sendToPrint}
+          className="flex items-center gap-2"
+        >
+          <Printer className="h-4 w-4" />
+          Send to Print
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          onClick={() => setShowMonitoring(!showMonitoring)}
+          className="flex items-center gap-2"
+        >
+          <Activity className="h-4 w-4" />
+          {showMonitoring ? 'Hide' : 'Show'} Monitor
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          onClick={() => setShowDiagnostics(!showDiagnostics)}
+          className="flex items-center gap-2"
+        >
+          <Bug className="h-4 w-4" />
+          {showDiagnostics ? 'Hide' : 'Show'} Diagnostics
+        </Button>
+      </div>
+
+      {/* Monitoring Panel */}
+      {showMonitoring && (
+        <BatchStatusMonitor 
+          batchId={batchId} 
+          onStatusUpdate={onStatusUpdate}
+        />
+      )}
+
+      {/* Diagnostics Panel */}
+      {showDiagnostics && (
+        <BatchDiagnostics batchId={batchId} />
+      )}
+    </div>
   );
 };
 

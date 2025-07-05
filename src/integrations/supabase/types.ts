@@ -2383,6 +2383,16 @@ export type Database = {
           references_created: number
         }[]
       }
+      validate_batch_integrity: {
+        Args: { p_batch_id: string }
+        Returns: {
+          is_valid: boolean
+          error_count: number
+          missing_references: number
+          orphaned_jobs: number
+          issues: Json
+        }[]
+      }
     }
     Enums: {
       batch_status:
