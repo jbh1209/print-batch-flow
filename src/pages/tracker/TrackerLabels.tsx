@@ -84,8 +84,14 @@ const TrackerLabels = () => {
   const filteredJobs = jobs.filter(job => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
+    
+    // Enhanced barcode-aware search
+    const normalizedQuery = query.replace(/[^a-z0-9]/g, ''); // Remove special chars for barcode matching
+    const normalizedWoNo = job.wo_no.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
     return (
       job.wo_no.toLowerCase().includes(query) ||
+      normalizedWoNo.includes(normalizedQuery) || // Flexible barcode matching
       job.customer?.toLowerCase().includes(query) ||
       job.status?.toLowerCase().includes(query)
     );
