@@ -48,7 +48,7 @@ export async function fetchJobStagesFromSupabase(
         `
         *,
         production_stage:production_stages(
-          id, name, color, description, master_queue_id,
+          id, name, color, description, master_queue_id, allows_concurrent_start, requires_all_parts_complete,
           master_queue:master_queue_id(id, name)
         )
       `

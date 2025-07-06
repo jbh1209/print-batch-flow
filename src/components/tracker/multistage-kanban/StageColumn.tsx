@@ -7,6 +7,7 @@ import { getDueInfo } from "./getDueInfo";
 import { StageColumnProps } from "./StageColumn.types";
 import SortableJobStageCard from "./SortableJobStageCard";
 import { sortJobStagesByOrder } from "@/utils/tracker/jobOrderingUtils";
+import { ConcurrentStageCard } from "./ConcurrentStageCard";
 import type { DueInfo } from "./StageColumn.types";
 
 const StageColumn: React.FC<StageColumnProps> = ({
@@ -43,13 +44,34 @@ const StageColumn: React.FC<StageColumnProps> = ({
       jobStageIds: filtered.map(js => ({ 
         id: js.id, 
         production_stage_id: js.production_stage_id,
-        display_stage_id: (js as any).display_stage_id
+        display_stage_id: (js as any).display_stage_id,
+        concurrent_group_id: (js as any).concurrent_stage_group_id
       }))
     });
     
     // Use shared sorting utility for consistent ordering
     return sortJobStagesByOrder(filtered);
   }, [jobStages, stage.id, stage.name]);
+
+  // Group concurrent stages by their concurrent_stage_group_id
+  const { concurrentGroups, standaloneStages } = React.useMemo(() => {
+    const groups: Record<string, typeof stageJobStages> = {};
+    const standalone: typeof stageJobStages = [];
+
+    stageJobStages.forEach(jobStage => {
+      const concurrentGroupId = (jobStage as any).concurrent_stage_group_id;
+      if (concurrentGroupId) {
+        if (!groups[concurrentGroupId]) {
+          groups[concurrentGroupId] = [];
+        }
+        groups[concurrentGroupId].push(jobStage);
+      } else {
+        standalone.push(jobStage);
+      }
+    });
+
+    return { concurrentGroups: groups, standaloneStages: standalone };
+  }, [stageJobStages]);
 
   // Load due info for all job stages
   useEffect(() => {
@@ -99,7 +121,20 @@ const StageColumn: React.FC<StageColumnProps> = ({
           </div>
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col gap-1">
-              {stageJobStages.map(jobStage => {
+              {/* Render concurrent groups */}
+              {Object.entries(concurrentGroups).map(([groupId, groupStages]) => (
+                <ConcurrentStageCard
+                  key={groupId}
+                  jobStages={groupStages}
+                  concurrentGroupId={groupId}
+                  onStageAction={onStageAction}
+                  onSelectJob={onSelectJob}
+                  highlighted={groupStages.some(stage => isJobHighlighted(stage))}
+                />
+              ))}
+              
+              {/* Render standalone stages */}
+              {standaloneStages.map(jobStage => {
                 const dueMeta = dueInfoMap[jobStage.id] || { color: "#9CA3AF", label: "Loading...", code: "gray" as const, warning: false };
                 return (
                   <div
@@ -154,7 +189,8 @@ const StageColumn: React.FC<StageColumnProps> = ({
                   </div>
                 );
               })}
-              {stageJobStages.length === 0 && (
+              
+              {(Object.keys(concurrentGroups).length === 0 && standaloneStages.length === 0) && (
                 <div className="text-center py-4 text-gray-400 text-xs">No jobs</div>
               )}
             </div>
@@ -191,7 +227,96 @@ const StageColumn: React.FC<StageColumnProps> = ({
             </tr>
           </thead>
           <tbody>
-            {stageJobStages.map(jobStage => {
+            {/* Render concurrent groups in table format */}
+            {Object.entries(concurrentGroups).map(([groupId, groupStages]) => {
+              const primaryStage = groupStages[0];
+              const dueMeta = dueInfoMap[primaryStage.id] || { color: "#9CA3AF", label: "Loading...", code: "gray" as const, warning: false };
+              const woNo = primaryStage.production_job?.wo_no ?? "Orphaned";
+              const customer = primaryStage.production_job?.customer ?? "Unknown";
+              const allPending = groupStages.every(stage => stage.status === 'pending');
+              const someActive = groupStages.some(stage => stage.status === 'active');
+              
+              return (
+                <tr
+                  key={groupId}
+                  className={
+                    "hover:bg-purple-50 transition group border-l-4 border-l-purple-500 " +
+                    (groupStages.some(stage => isJobHighlighted(stage)) ? "ring-2 ring-green-500 rounded" : "")
+                  }
+                  style={{ cursor: "pointer", minHeight: 34 }}
+                  onClick={() => onSelectJob && primaryStage.production_job?.id && onSelectJob(primaryStage.production_job.id)}
+                  tabIndex={0}
+                >
+                  <td className="px-1 whitespace-nowrap flex items-center gap-1">
+                    <span
+                      className="inline-block rounded-full"
+                      style={{ width: 9, height: 9, background: dueMeta.color, border: dueMeta.warning ? "2px dashed #F59E42" : undefined }}
+                      title={dueMeta.label}
+                    />
+                    <span className="truncate max-w-[65px]">{woNo}</span>
+                    <span className="text-xs text-purple-600 ml-1">({groupStages.length} parts)</span>
+                  </td>
+                  <td className="px-0.5 whitespace-nowrap max-w-[120px] truncate" style={{ width: "100px" }}>
+                    <span className="truncate">{customer}</span>
+                  </td>
+                  <td className="px-0.5 whitespace-nowrap">
+                    {primaryStage.production_job?.due_date ? (
+                      <span
+                        className="px-1.5 py-0.5 rounded-full text-[11px] font-semibold text-white"
+                        style={{
+                          background: dueMeta.color,
+                          minWidth: 38,
+                          display: 'inline-block',
+                          textAlign: 'center',
+                          lineHeight: '16px'
+                        }}
+                        title={`Due: ${primaryStage.production_job.due_date}`}
+                      >
+                        {primaryStage.production_job.due_date}
+                      </span>
+                    ) : (
+                      <span
+                        className="px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500 text-white"
+                        style={{
+                          minWidth: 38,
+                          display: 'inline-block',
+                          textAlign: 'center',
+                          lineHeight: '16px'
+                        }}
+                        title="No due date: will be automatically set soon or needs repair"
+                      >No Due</span>
+                    )}
+                  </td>
+                  <td className="px-0.5 whitespace-nowrap">
+                    <span className="inline-flex rounded px-1 text-[11px] bg-purple-100 text-purple-700">
+                      {allPending ? 'Multi-Part Ready' : someActive ? 'In Progress' : 'Mixed'}
+                    </span>
+                  </td>
+                  <td className="px-0.5">
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                      {allPending && (
+                        <button 
+                          title="Start All Parts" 
+                          onClick={e => { 
+                            e.stopPropagation(); 
+                            // Start concurrent stages - this will be handled by the ConcurrentStageCard logic
+                            groupStages.forEach(stage => onStageAction(stage.id, "start"));
+                          }} 
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 3l14 9-14 9V3z" fill="currentColor" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            
+            {/* Render standalone stages */}
+            {standaloneStages.map(jobStage => {
               const dueMeta = dueInfoMap[jobStage.id] || { color: "#9CA3AF", label: "Loading...", code: "gray" as const, warning: false };
               const woNo = jobStage.production_job?.wo_no ?? "Orphaned";
               const customer = jobStage.production_job?.customer ?? "Unknown";
@@ -246,7 +371,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
                     )}
                   </td>
                   <td className="px-0.5 whitespace-nowrap">
-                    <span className={`inline-flex rounded px-1 text-[11px] ${jobStage.status === "active" ? "bg-blue-100 text-blue-700" : jobStage.status === "pending" ? "bg-yellow-50 text-yellow-800" : "bg-gray-100"}`}>
+                    <span className={`inline-flex rounded px-1 text-[11px] ${jobStage.status === "active" ? "bg-blue-100 text-blue-700" : jobStage.status === "pending" ? "bg-yellow-50 text-yellow-800" : jobStage.status === "blocked" ? "bg-red-100 text-red-700" : "bg-gray-100"}`}>
                       {jobStage.status}
                     </span>
                   </td>
@@ -267,7 +392,8 @@ const StageColumn: React.FC<StageColumnProps> = ({
                 </tr>
               );
             })}
-            {stageJobStages.length === 0 && (
+            
+            {(Object.keys(concurrentGroups).length === 0 && standaloneStages.length === 0) && (
               <tr>
                 <td colSpan={5} className="text-center py-5 text-xs text-gray-400">No jobs</td>
               </tr>

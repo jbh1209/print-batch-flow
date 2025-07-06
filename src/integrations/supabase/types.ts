@@ -725,11 +725,13 @@ export type Database = {
       }
       job_stage_instances: {
         Row: {
+          allows_concurrent_start: boolean | null
           category_id: string | null
           client_email: string | null
           client_name: string | null
           completed_at: string | null
           completed_by: string | null
+          concurrent_stage_group_id: string | null
           created_at: string
           id: string
           is_rework: boolean | null
@@ -737,6 +739,7 @@ export type Database = {
           job_order_in_stage: number
           job_table_name: string
           notes: string | null
+          part_flow_chain: string[] | null
           part_name: string | null
           part_order: number | null
           part_type: string | null
@@ -747,8 +750,10 @@ export type Database = {
           proof_emailed_at: string | null
           proof_pdf_url: string | null
           qr_scan_data: Json | null
+          requires_all_parts_complete: boolean | null
           rework_count: number | null
           rework_reason: string | null
+          stage_dependency_group: string | null
           stage_order: number
           started_at: string | null
           started_by: string | null
@@ -756,11 +761,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allows_concurrent_start?: boolean | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          concurrent_stage_group_id?: string | null
           created_at?: string
           id?: string
           is_rework?: boolean | null
@@ -768,6 +775,7 @@ export type Database = {
           job_order_in_stage?: number
           job_table_name: string
           notes?: string | null
+          part_flow_chain?: string[] | null
           part_name?: string | null
           part_order?: number | null
           part_type?: string | null
@@ -778,8 +786,10 @@ export type Database = {
           proof_emailed_at?: string | null
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
+          requires_all_parts_complete?: boolean | null
           rework_count?: number | null
           rework_reason?: string | null
+          stage_dependency_group?: string | null
           stage_order: number
           started_at?: string | null
           started_by?: string | null
@@ -787,11 +797,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allows_concurrent_start?: boolean | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
+          concurrent_stage_group_id?: string | null
           created_at?: string
           id?: string
           is_rework?: boolean | null
@@ -799,6 +811,7 @@ export type Database = {
           job_order_in_stage?: number
           job_table_name?: string
           notes?: string | null
+          part_flow_chain?: string[] | null
           part_name?: string | null
           part_order?: number | null
           part_type?: string | null
@@ -809,8 +822,10 @@ export type Database = {
           proof_emailed_at?: string | null
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
+          requires_all_parts_complete?: boolean | null
           rework_count?: number | null
           rework_reason?: string | null
+          stage_dependency_group?: string | null
           stage_order?: number
           started_at?: string | null
           started_by?: string | null
@@ -1410,6 +1425,7 @@ export type Database = {
       }
       production_stages: {
         Row: {
+          allows_concurrent_start: boolean | null
           color: string | null
           created_at: string
           description: string | null
@@ -1422,9 +1438,12 @@ export type Database = {
           name: string
           order_index: number
           part_definitions: Json | null
+          part_specific_stages: string[] | null
+          requires_all_parts_complete: boolean | null
           updated_at: string
         }
         Insert: {
+          allows_concurrent_start?: boolean | null
           color?: string | null
           created_at?: string
           description?: string | null
@@ -1437,9 +1456,12 @@ export type Database = {
           name: string
           order_index?: number
           part_definitions?: Json | null
+          part_specific_stages?: string[] | null
+          requires_all_parts_complete?: boolean | null
           updated_at?: string
         }
         Update: {
+          allows_concurrent_start?: boolean | null
           color?: string | null
           created_at?: string
           description?: string | null
@@ -1452,6 +1474,8 @@ export type Database = {
           name?: string
           order_index?: number
           part_definitions?: Json | null
+          part_specific_stages?: string[] | null
+          requires_all_parts_complete?: boolean | null
           updated_at?: string
         }
         Relationships: [
@@ -1897,14 +1921,22 @@ export type Database = {
         Returns: boolean
       }
       advance_job_stage_with_parts: {
-        Args: {
-          p_job_id: string
-          p_job_table_name: string
-          p_current_stage_id: string
-          p_part_assignments?: Json
-          p_completed_by?: string
-          p_notes?: string
-        }
+        Args:
+          | {
+              p_job_id: string
+              p_job_table_name: string
+              p_current_stage_id: string
+              p_completed_by?: string
+              p_notes?: string
+            }
+          | {
+              p_job_id: string
+              p_job_table_name: string
+              p_current_stage_id: string
+              p_part_assignments?: Json
+              p_completed_by?: string
+              p_notes?: string
+            }
         Returns: boolean
       }
       advance_job_to_batch_allocation: {
@@ -1925,6 +1957,14 @@ export type Database = {
       }
       check_admin_exists: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      check_dependency_completion: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_dependency_group: string
+        }
         Returns: boolean
       }
       check_user_admin_status: {
@@ -2275,6 +2315,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      initialize_job_stages_concurrent: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_category_id: string
+        }
+        Returns: boolean
+      }
       initialize_job_stages_with_part_assignments: {
         Args: {
           p_job_id: string
@@ -2421,6 +2469,14 @@ export type Database = {
           split_jobs_count: number
           batch_id: string
         }[]
+      }
+      start_concurrent_printing_stages: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_stage_ids: string[]
+        }
+        Returns: boolean
       }
       sync_completed_jobs_with_batch_flow: {
         Args: Record<PropertyKey, never>
