@@ -125,10 +125,11 @@ export const useUserStagePermissions = (userId?: string) => {
           }
         }
 
-        // Set raw stages for admin use or backwards compatibility
+        // Set raw stages for admin use or backwards compatibility  
         setAccessibleStages(rawStages);
         
-        // Create consolidated stages for operator UI
+        // Create consolidated stages - but filtering will be done by context-aware hooks
+        // This prevents admin permission leaks to operator UIs
         const consolidated = consolidateStagesByMasterQueue(rawStages);
         setConsolidatedStages(consolidated);
         

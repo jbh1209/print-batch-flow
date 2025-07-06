@@ -4,6 +4,7 @@ import { AlertTriangle, FileText, CheckCircle, RefreshCw, Package } from "lucide
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useAuth } from "@/hooks/useAuth";
+import { useDtpOperatorStages } from "@/hooks/tracker/useContextAwareStages";
 import { DtpKanbanColumnWithBoundary } from "./DtpKanbanColumnWithBoundary";
 import { DtpJobModal } from "./DtpJobModal";
 import { DtpDashboardHeader } from "./DtpDashboardHeader";
@@ -23,6 +24,9 @@ export const DtpKanbanDashboard = () => {
   const { isDtpOperator, accessibleStages } = useUserRole();
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  
+  // Get DTP-specific stages and context
+  const { contextStages, userContext } = useDtpOperatorStages();
   
   const { 
     jobs, 
@@ -55,6 +59,7 @@ export const DtpKanbanDashboard = () => {
     try {
       let filtered = jobs;
 
+      // Apply search filter
       if (searchQuery) {
         filtered = filtered.filter(job => {
           const woMatch = job.wo_no?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -65,10 +70,23 @@ export const DtpKanbanDashboard = () => {
         });
       }
 
-      const categories = categorizeJobs(filtered);
+      // Filter jobs based on DTP context - only show DTP and proofing related jobs
+      const contextFiltered = filtered.filter(job => {
+        const effectiveStageName = (job.display_stage_name || job.current_stage_name || '').toLowerCase();
+        
+        return effectiveStageName.includes('dtp') ||
+               effectiveStageName.includes('design') ||
+               effectiveStageName.includes('prepress') ||
+               effectiveStageName.includes('artwork') ||
+               effectiveStageName.includes('proof') ||
+               effectiveStageName.includes('approval') ||
+               effectiveStageName.includes('batch allocation'); // Keep batch allocation for DTP workflow
+      });
+
+      const categories = categorizeJobs(contextFiltered);
       
-      // Extract batch allocation jobs
-      const batchJobs = filtered.filter(job => {
+      // Extract batch allocation jobs for DTP workflow
+      const batchJobs = contextFiltered.filter(job => {
         const stageName = job.current_stage_name?.toLowerCase() || '';
         return stageName.includes('batch allocation') || stageName.includes('batch_allocation');
       });
@@ -79,11 +97,11 @@ export const DtpKanbanDashboard = () => {
         batchAllocationJobs: sortJobsByWONumber(batchJobs)
       };
     } catch (categorizationError) {
-      console.error("❌ Error categorizing jobs:", categorizationError);
+      console.error("❌ Error categorizing DTP jobs:", categorizationError);
       toast.error("Error processing jobs data");
       return { dtpJobs: [], proofJobs: [], batchAllocationJobs: [] };
     }
-  }, [jobs, searchQuery, dashboardMetrics]);
+  }, [jobs, searchQuery]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
