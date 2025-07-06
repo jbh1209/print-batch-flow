@@ -60,23 +60,17 @@ export const ConcurrentStageGroup: React.FC<ConcurrentStageGroupProps> = ({
       stageCount: jobStages.length
     });
     
-    // Start all stages in the concurrent group
-    for (const stage of jobStages) {
-      if (stage.status === 'pending') {
-        const success = await supabase
-          .from('job_stage_instances')
-          .update({
-            status: 'active',
-            started_at: new Date().toISOString(),
-            started_by: (await supabase.auth.getUser()).data.user?.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', stage.id);
-          
-        if (success.error) {
-          console.error('❌ Error starting stage:', success.error);
-        }
-      }
+    // Use the enhanced advance function for concurrent activation
+    const { data, error } = await supabase.rpc('advance_job_stage', {
+      p_job_id: primaryStage.job_id,
+      p_job_table_name: primaryStage.job_table_name,
+      p_current_stage_id: primaryStage.production_stage_id
+    });
+    
+    if (error) {
+      console.error('❌ Error starting concurrent stages:', error);
+    } else {
+      console.log('✅ Concurrent stages activated successfully');
     }
     
     // Refresh the parent view

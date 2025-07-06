@@ -13,25 +13,16 @@ export const useConcurrentStageOperations = () => {
     try {
       console.log('🔄 Starting concurrent printing stages...', { jobId, stageIds });
       
-      // First, update each stage instance to active status with concurrent group
-      for (const stageId of stageIds) {
-        const { error: updateError } = await supabase
-          .from('job_stage_instances')
-          .update({
-            status: 'active',
-            started_at: new Date().toISOString(),
-            started_by: (await supabase.auth.getUser()).data.user?.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq('job_id', jobId)
-          .eq('job_table_name', jobTableName)
-          .eq('production_stage_id', stageId)
-          .eq('status', 'pending');
+      // Use the enhanced advance function which will activate all concurrent stages
+      const { data, error } = await supabase.rpc('advance_job_stage', {
+        p_job_id: jobId,
+        p_job_table_name: jobTableName,
+        p_current_stage_id: stageIds[0] // The function will handle the entire concurrent group
+      });
 
-        if (updateError) {
-          console.error('❌ Error updating stage:', updateError);
-          throw updateError;
-        }
+      if (error) {
+        console.error('❌ Error starting concurrent stages:', error);
+        throw error;
       }
 
       console.log('✅ Concurrent printing stages started successfully');

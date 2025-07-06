@@ -128,7 +128,7 @@ export const MultiStageKanban = () => {
         job_table_name: 'production_jobs',
         production_stage_id: 'virtual-batch-processing',
         stage_order: 999,
-        job_order_in_stage: index + 1, // Add the missing required property
+        job_order_in_stage: index + 1,
         status: 'active',
         started_at: new Date().toISOString(),
         production_job: {
@@ -143,6 +143,12 @@ export const MultiStageKanban = () => {
           color: '#F59E0B'
         }
       });
+    });
+    
+    // Group concurrent stages correctly
+    console.log('🔄 Processing job stages for concurrent grouping', {
+      totalStages: baseJobStages.length,
+      concurrentStages: baseJobStages.filter(s => s.concurrent_stage_group_id).length
     });
     
     return baseJobStages;
@@ -186,23 +192,14 @@ export const MultiStageKanban = () => {
       
       if (action === 'start') {
         if (isConcurrentStage) {
-          // For concurrent stages, start the whole group
-          const concurrentGroupId = (stageInstance as any).concurrent_stage_group_id;
-          const groupStages = enhancedJobStages.filter(js => 
-            (js as any).concurrent_stage_group_id === concurrentGroupId
-          );
-          const stageIds = groupStages.map(gs => gs.production_stage_id);
-          
-          // Use concurrent stage operations
-          await startConcurrentPrintingStages(
-            stageInstance.job_id,
-            stageInstance.job_table_name,
-            stageIds
-          );
+          console.log('🚀 Starting concurrent stage group for job:', stageInstance.job_id);
+          // For concurrent stages, the enhanced advance_job_stage function will activate all in the group
+          await startStage(stageId);
         } else {
           await startStage(stageId);
         }
       } else if (action === 'complete') {
+        console.log('✅ Completing stage:', stageId, isConcurrentStage ? '(concurrent)' : '(single)');
         await completeStage(stageId);
       } else if (action === 'scan') {
         toast.info('QR Scanner would open here');
