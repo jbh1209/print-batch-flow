@@ -50,9 +50,9 @@ export const DynamicFactoryFloorView = () => {
     }
   };
 
-  // Simplified job grouping - group by stage name directly from jobs
+  // Master queue consolidation - group jobs by consolidated stage names
   const dynamicJobGroups = useMemo(() => {
-    console.log('🔄 Creating simplified job groups:', {
+    console.log('🔄 Creating master queue consolidated job groups:', {
       jobCount: jobs?.length || 0,
       permissionUsed: highestPermission
     });
@@ -62,10 +62,12 @@ export const DynamicFactoryFloorView = () => {
       return [];
     }
 
-    console.log('🔍 Sample job data:', jobs.slice(0, 3).map(job => ({
+    console.log('🔍 Sample job data with master queue info:', jobs.slice(0, 3).map(job => ({
       wo_no: job.wo_no,
       current_stage_name: job.current_stage_name,
-      display_stage_name: job.display_stage_name
+      display_stage_name: job.display_stage_name,
+      is_subsidiary_stage: job.is_subsidiary_stage,
+      master_queue_stage_id: job.master_queue_stage_id
     })));
 
     let filtered = jobs;
@@ -83,10 +85,11 @@ export const DynamicFactoryFloorView = () => {
       console.log('🔍 After search filter:', filtered.length);
     }
 
-    // Group jobs by their display stage name (use display_stage_name for master queues)
+    // Group jobs by their consolidated stage name (master queue if subsidiary, otherwise regular stage)
     const stageJobGroups = new Map<string, AccessibleJob[]>();
     
     filtered.forEach(job => {
+      // Use display_stage_name which now shows master queue name for subsidiary stages
       const stageName = job.display_stage_name || job.current_stage_name || 'Unknown Stage';
       
       if (!stageJobGroups.has(stageName)) {
@@ -95,12 +98,14 @@ export const DynamicFactoryFloorView = () => {
       stageJobGroups.get(stageName)!.push(job);
     });
 
-    console.log('📊 Stage job groups:', Array.from(stageJobGroups.entries()).map(([name, jobs]) => ({
+    console.log('📊 Master queue consolidated groups:', Array.from(stageJobGroups.entries()).map(([name, jobs]) => ({
       stageName: name,
-      jobCount: jobs.length
+      jobCount: jobs.length,
+      subsidiaryJobs: jobs.filter(j => j.is_subsidiary_stage).length,
+      regularJobs: jobs.filter(j => !j.is_subsidiary_stage).length
     })));
 
-    // Create job groups for each stage that has jobs and isn't hidden
+    // Create job groups for each consolidated stage that has jobs and isn't hidden
     const jobGroups = [];
     
     Array.from(stageJobGroups.entries())
@@ -109,35 +114,54 @@ export const DynamicFactoryFloorView = () => {
         const stageNameLower = stageName.toLowerCase();
         let color = "bg-gray-600";
         
-        // Assign colors based on stage name patterns
+        // Assign colors based on stage name patterns - prioritize master queue names
         if (stageNameLower.includes('dtp')) {
           color = "bg-blue-600";
         } else if (stageNameLower.includes('proof')) {
           color = "bg-purple-600";
-        } else if (stageNameLower.includes('12000')) {
+        } else if (stageNameLower.includes('hp 12000') || stageNameLower.includes('12000')) {
           color = "bg-green-600";
-        } else if (stageNameLower.includes('7900')) {
+        } else if (stageNameLower.includes('hp 7900') || stageNameLower.includes('7900')) {
           color = "bg-emerald-600";
-        } else if (stageNameLower.includes('t250')) {
+        } else if (stageNameLower.includes('hp t250') || stageNameLower.includes('t250')) {
           color = "bg-teal-600";
         } else if (stageNameLower.includes('print')) {
           color = "bg-green-600";
         } else if (stageNameLower.includes('finishing')) {
           color = "bg-orange-600";
+        } else if (stageNameLower.includes('master queue')) {
+          color = "bg-indigo-600";
         }
+        
+        // Sort jobs by WO number for consistent ordering within each master queue
+        const sortedJobs = sortJobsByWONumber(stageJobs);
         
         jobGroups.push({
           title: stageName,
-          jobs: sortJobsByWONumber(stageJobs),
-          color
+          jobs: sortedJobs,
+          color,
+          // Add metadata for master queue information
+          hasSubsidiaryJobs: stageJobs.some(job => job.is_subsidiary_stage),
+          subsidiaryCount: stageJobs.filter(job => job.is_subsidiary_stage).length,
+          totalJobs: stageJobs.length
         });
         
-        console.log('✅ Created job group:', stageName, 'with', stageJobs.length, 'jobs');
+        console.log('✅ Created consolidated job group:', {
+          stageName,
+          totalJobs: stageJobs.length,
+          subsidiaryJobs: stageJobs.filter(job => job.is_subsidiary_stage).length,
+          regularJobs: stageJobs.filter(job => !job.is_subsidiary_stage).length
+        });
       });
 
-    console.log('✅ Final job groups created:', {
+    console.log('✅ Final master queue consolidated groups:', {
       totalGroups: jobGroups.length,
-      groups: jobGroups.map(g => ({ title: g.title, count: g.jobs.length }))
+      groups: jobGroups.map(g => ({ 
+        title: g.title, 
+        totalJobs: g.totalJobs,
+        subsidiaryJobs: g.subsidiaryCount,
+        hasSubsidiaryJobs: g.hasSubsidiaryJobs
+      }))
     });
 
     return jobGroups;
