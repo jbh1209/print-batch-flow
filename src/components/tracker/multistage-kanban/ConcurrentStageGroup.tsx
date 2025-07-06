@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Play, CheckCircle, Clock, AlertTriangle, Layers } from "lucide-react";
 import { JobStageWithDetails } from "@/hooks/tracker/useRealTimeJobStages/types";
 import { useConcurrentStageOperations } from "@/hooks/tracker/useConcurrentStageOperations";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ConcurrentStageGroupProps {
   jobStages: JobStageWithDetails[];
@@ -59,17 +60,27 @@ export const ConcurrentStageGroup: React.FC<ConcurrentStageGroupProps> = ({
       stageCount: jobStages.length
     });
     
-    const stageIds = jobStages.map(stage => stage.production_stage_id);
-    const success = await startConcurrentPrintingStages(
-      primaryStage.job_id,
-      primaryStage.job_table_name,
-      stageIds
-    );
-    
-    if (success) {
-      // Refresh the parent view
-      jobStages.forEach(stage => onStageAction(stage.id, 'refresh'));
+    // Start all stages in the concurrent group
+    for (const stage of jobStages) {
+      if (stage.status === 'pending') {
+        const success = await supabase
+          .from('job_stage_instances')
+          .update({
+            status: 'active',
+            started_at: new Date().toISOString(),
+            started_by: (await supabase.auth.getUser()).data.user?.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', stage.id);
+          
+        if (success.error) {
+          console.error('❌ Error starting stage:', success.error);
+        }
+      }
     }
+    
+    // Refresh the parent view
+    jobStages.forEach(stage => onStageAction(stage.id, 'refresh'));
   };
 
   const handleCompleteStage = (stageId: string, partName?: string) => {

@@ -64,7 +64,25 @@ export const MultiStageKanban = () => {
 
   // Enhanced stages list with master queue consolidation
   const enhancedStages = React.useMemo(() => {
-    const baseStages = [...stages];
+    console.log('🔄 MultiStageKanban: Processing stages for display', {
+      totalStages: stages.length,
+      stageNames: stages.map(s => s.name)
+    });
+    
+    // Create consolidated stage list with master queue logic
+    const consolidatedStages = stages
+      .filter(stage => {
+        // Show master queues, but hide stages that have master queues
+        if (stage.master_queue_id) {
+          console.log(`🚫 Hiding stage "${stage.name}" - has master queue`);
+          return false;
+        }
+        return stage.is_active;
+      })
+      .map(stage => {
+        console.log(`✅ Including stage "${stage.name}"`);
+        return stage;
+      });
     
     // Add virtual "In Batch Processing" stage if we have jobs in that status
     const batchProcessingJobs = activeJobs.filter(job => job.status === 'In Batch Processing');
@@ -84,26 +102,13 @@ export const MultiStageKanban = () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      
-      baseStages.push(virtualBatchStage);
+      consolidatedStages.push(virtualBatchStage);
     }
     
-    // Filter out subsidiary stages - only show master queues for printing stages
-    const consolidatedStages = baseStages.filter(stage => {
-      // Keep non-printing stages as-is
-      if (!stage.name.toLowerCase().includes('print')) {
-        return true;
-      }
-      
-      // For printing stages, only keep master queues (stages without master_queue_id)
-      // Hide subsidiary stages (stages with master_queue_id)
-      return !stage.master_queue_id;
-    });
-    
-    console.log('🏭 Kanban: Consolidated stages', {
-      originalStages: baseStages.length,
-      consolidatedStages: consolidatedStages.length,
-      hiddenSubsidiaryStages: baseStages.length - consolidatedStages.length
+    console.log('✅ MultiStageKanban: Enhanced stages ready', {
+      consolidatedStageCount: consolidatedStages.length,
+      virtualStages: consolidatedStages.filter(s => 'is_virtual' in s && s.is_virtual).length,
+      hiddenStages: stages.filter(s => s.master_queue_id).length
     });
     
     return consolidatedStages.sort((a, b) => a.order_index - b.order_index);
