@@ -46,6 +46,7 @@ export const useAccessibleJobs = ({
   });
 
   // Enhanced job processing with batch master job support
+  // Enhanced job processing with concurrent multi-part support
   const jobs: AccessibleJob[] = useMemo(() => {
     if (!rawJobs || rawJobs.length === 0) return [];
 
@@ -62,6 +63,11 @@ export const useAccessibleJobs = ({
       if (job.status === 'In Batch Processing') {
         displayStage = 'In Batch Processing';
         stageColor = '#F59E0B'; // Orange color for batch processing
+      }
+
+      // Handle concurrent parts - add part name to display stage if present
+      if (job.part_name && job.is_concurrent_part) {
+        displayStage = `${displayStage} (${job.part_name})`;
       }
 
       const processedJob: AccessibleJob = {
@@ -99,8 +105,19 @@ export const useAccessibleJobs = ({
         // Master queue consolidation properties
         is_subsidiary_stage: (job as any).is_subsidiary_stage || false,
         master_queue_stage_id: (job as any).master_queue_stage_id || null,
-        display_stage_id: (job as any).display_stage_id || null
+        display_stage_id: (job as any).display_stage_id || null,
+        // Concurrent part fields
+        part_name: job.part_name || null,
+        concurrent_stage_group_id: job.concurrent_stage_group_id || null,
+        is_concurrent_part: job.is_concurrent_part || false
       };
+
+      // For concurrent parts, create a unique identifier combining job_id and part_name
+      const uniqueId = job.is_concurrent_part && job.part_name 
+        ? `${job.job_id}-${job.part_name}` 
+        : job.job_id;
+      
+      processedJob.id = uniqueId;
 
       // Check if this is a batch master job (wo_no starts with "BATCH-")
       if (processedJob.wo_no.startsWith('BATCH-')) {
