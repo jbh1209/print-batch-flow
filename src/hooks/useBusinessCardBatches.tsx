@@ -34,12 +34,9 @@ export const useBusinessCardBatches = (batchId: string | null) => {
     
     try {
       if (!user) {
-        console.log("No authenticated user found for business card batches");
         setIsLoading(false);
         return;
       }
-      
-      console.log("Fetching business card batches");
       
       let query = supabase
         .from("batches")
@@ -58,13 +55,10 @@ export const useBusinessCardBatches = (batchId: string | null) => {
         throw error;
       }
       
-      console.log("Business card batches received:", data?.length || 0, "records");
-      
       setBatches(data || []);
       
       // If we're looking for a specific batch and didn't find it
       if (batchId && (!data || data.length === 0)) {
-        console.log("Requested batch not found:", batchId);
         toast({
           title: "Batch not found",
           description: "The requested batch could not be found or you don't have permission to view it.",
@@ -95,8 +89,6 @@ export const useBusinessCardBatches = (batchId: string | null) => {
   // Set up real-time subscriptions for batch changes
   useEffect(() => {
     if (!user) return;
-
-    console.log("Setting up real-time subscription for business card batches");
     
     const channel = supabase
       .channel('business-card-batches-changes')
@@ -109,7 +101,6 @@ export const useBusinessCardBatches = (batchId: string | null) => {
           filter: 'name=ilike.DXB-BC-%'
         },
         (payload) => {
-          console.log('Real-time batch change detected:', payload);
           
           if (payload.eventType === 'DELETE') {
             // Remove deleted batch from state
@@ -132,7 +123,6 @@ export const useBusinessCardBatches = (batchId: string | null) => {
       .subscribe();
 
     return () => {
-      console.log("Cleaning up real-time subscription");
       supabase.removeChannel(channel);
     };
   }, [user]);

@@ -33,7 +33,7 @@ export const useAccessibleJobs = ({
       });
 
       if (error) {
-        console.error('❌ Error fetching accessible jobs:', error);
+        console.error('Error fetching accessible jobs:', error);
         throw error;
       }
 
@@ -166,7 +166,7 @@ export const useAccessibleJobs = ({
       await refreshJobs();
       return true;
     } catch (error) {
-      console.error('❌ Error starting job:', error);
+      console.error('Error starting job:', error);
       return false;
     }
   }, [jobs, user?.id]);
@@ -194,7 +194,7 @@ export const useAccessibleJobs = ({
       await refreshJobs();
       return true;
     } catch (error) {
-      console.error('❌ Error completing job:', error);
+      console.error('Error completing job:', error);
       return false;
     }
   }, [jobs, user?.id]);
