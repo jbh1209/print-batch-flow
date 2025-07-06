@@ -241,14 +241,14 @@ export const useCategoryStages = (categoryId?: string) => {
     try {
       console.log('🔄 Reordering category stages...');
       
-      // Use a single transaction to update all stages with proper ordering
-      // Create a mapping for the new orders
-      const stageOrderMap = new Map(reorderedStages.map(stage => [stage.id, stage.stage_order]));
-      
-      // Get all current stages for this category
+      // Get all current stages with their production stage info for validation
       const { data: allStages, error: fetchError } = await supabase
         .from('category_production_stages')
-        .select('id, stage_order')
+        .select(`
+          id, 
+          stage_order,
+          production_stage:production_stages(id, name)
+        `)
         .eq('category_id', categoryId)
         .order('stage_order');
 
@@ -257,14 +257,32 @@ export const useCategoryStages = (categoryId?: string) => {
         throw new Error('Failed to fetch current category stages');
       }
 
-      if (!allStages) {
+      if (!allStages || allStages.length === 0) {
         throw new Error('No stages found for category');
       }
 
-      // Prepare updates using a large offset to avoid conflicts
-      const TEMP_OFFSET = 10000;
+      // Create a mapping for the new orders
+      const stageOrderMap = new Map(reorderedStages.map(stage => [stage.id, stage.stage_order]));
       
-      // First pass: Set all stages to high temporary values
+      // Validate business rules: Batch Allocation must be first
+      const batchAllocationStage = allStages.find(stage => 
+        stage.production_stage?.name === 'Batch Allocation'
+      );
+      
+      if (batchAllocationStage) {
+        const newBatchOrder = stageOrderMap.get(batchAllocationStage.id);
+        if (newBatchOrder && newBatchOrder !== 1) {
+          throw new Error('Batch Allocation stage must be first in the workflow');
+        }
+      }
+
+      // Manual reordering with proper constraint handling and business rule validation
+      console.log('🔄 Performing manual reordering with validation...');
+      
+      // Use a randomized high temporary offset to avoid unique constraint violations
+      const TEMP_OFFSET = 50000 + Math.floor(Math.random() * 10000);
+      
+      // Phase 1: Move all stages to temporary high values
       const tempUpdates = allStages.map((stage, index) => 
         supabase
           .from('category_production_stages')
@@ -278,11 +296,11 @@ export const useCategoryStages = (categoryId?: string) => {
       const tempResults = await Promise.all(tempUpdates);
       const tempErrors = tempResults.filter(result => result.error);
       if (tempErrors.length > 0) {
-        console.error('❌ Category stage temp reorder errors:', tempErrors);
-        throw new Error('Failed to prepare category stages for reordering');
+        console.error('❌ Temp stage updates failed:', tempErrors);
+        throw new Error('Failed to prepare stages for reordering');
       }
 
-      // Second pass: Set final order values
+      // Phase 2: Set final order values with proper validation
       const finalUpdates = allStages.map(stage => {
         const newOrder = stageOrderMap.get(stage.id) ?? stage.stage_order;
         return supabase
@@ -297,8 +315,8 @@ export const useCategoryStages = (categoryId?: string) => {
       const finalResults = await Promise.all(finalUpdates);
       const finalErrors = finalResults.filter(result => result.error);
       if (finalErrors.length > 0) {
-        console.error('❌ Category stage final reorder errors:', finalErrors);
-        throw new Error('Failed to finalize category stages reordering');
+        console.error('❌ Final stage updates failed:', finalErrors);
+        throw new Error('Failed to complete stage reordering');
       }
 
       console.log('✅ Category stages reordered successfully');
@@ -307,7 +325,8 @@ export const useCategoryStages = (categoryId?: string) => {
       return true;
     } catch (err) {
       console.error('❌ Error reordering category stages:', err);
-      toast.error("Failed to reorder category stages");
+      const errorMessage = err instanceof Error ? err.message : "Failed to reorder category stages";
+      toast.error(errorMessage);
       return false;
     }
   };
