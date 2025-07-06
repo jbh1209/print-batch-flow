@@ -40,9 +40,11 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
       }
     }
 
-    // Enhanced search with batch context
+    // Enhanced search with batch context and barcode-aware matching
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
+      const normalizedQuery = query.replace(/[^a-z0-9]/g, ''); // Remove special chars for barcode matching
+      
       const searchFields = [
         job.wo_no,
         job.customer,
@@ -53,9 +55,16 @@ export const OrderSearchModal: React.FC<OrderSearchModalProps> = ({
         job.is_in_batch_processing ? 'in batch' : null
       ].filter(Boolean);
 
-      return searchFields.some(field => 
+      // Standard search
+      const standardMatch = searchFields.some(field => 
         field?.toLowerCase().includes(query)
       );
+      
+      // Barcode-aware search - normalize work order for flexible matching
+      const normalizedWoNo = job.wo_no?.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const barcodeMatch = normalizedWoNo?.includes(normalizedQuery);
+      
+      return standardMatch || barcodeMatch;
     }
 
     return true;
