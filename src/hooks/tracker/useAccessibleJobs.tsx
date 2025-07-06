@@ -25,12 +25,6 @@ export const useAccessibleJobs = ({
         throw new Error('User not authenticated');
       }
 
-      console.log('🔄 Fetching accessible jobs with params:', {
-        userId: user.id,
-        permissionType,
-        statusFilter
-      });
-
       const { data, error } = await supabase.rpc('get_user_accessible_jobs_with_conditional_stages', {
         p_user_id: user.id,
         p_permission_type: permissionType,
@@ -147,8 +141,6 @@ export const useAccessibleJobs = ({
 
   const startJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
-      console.log('🔄 Starting job stage:', { jobId, stageId });
-
       if (!stageId) {
         const job = jobs.find(j => j.job_id === jobId);
         stageId = job?.current_stage_id;
@@ -181,8 +173,6 @@ export const useAccessibleJobs = ({
 
   const completeJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
-      console.log('🔄 Completing job stage:', { jobId, stageId });
-
       if (!stageId) {
         const job = jobs.find(j => j.job_id === jobId);
         stageId = job?.current_stage_id;
@@ -210,12 +200,10 @@ export const useAccessibleJobs = ({
   }, [jobs, user?.id]);
 
   const refreshJobs = useCallback(() => {
-    console.log('🔄 Refreshing accessible jobs...');
     return refetch();
   }, [refetch]);
 
   const invalidateCache = useCallback(() => {
-    console.log('🗑️ Invalidating accessible jobs cache...');
     queryClient.invalidateQueries({ 
       queryKey: ['accessible-jobs', user?.id] 
     });

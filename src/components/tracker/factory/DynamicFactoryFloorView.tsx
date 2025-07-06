@@ -52,23 +52,9 @@ export const DynamicFactoryFloorView = () => {
 
   // Master queue consolidation - group jobs by consolidated stage names
   const dynamicJobGroups = useMemo(() => {
-    console.log('🔄 Creating master queue consolidated job groups:', {
-      jobCount: jobs?.length || 0,
-      permissionUsed: highestPermission
-    });
-    
     if (!jobs || jobs.length === 0) {
-      console.log('❌ No jobs available');
       return [];
     }
-
-    console.log('🔍 Sample job data with master queue info:', jobs.slice(0, 3).map(job => ({
-      wo_no: job.wo_no,
-      current_stage_name: job.current_stage_name,
-      display_stage_name: job.display_stage_name,
-      is_subsidiary_stage: job.is_subsidiary_stage,
-      master_queue_stage_id: job.master_queue_stage_id
-    })));
 
     let filtered = jobs;
 
@@ -82,7 +68,6 @@ export const DynamicFactoryFloorView = () => {
         job.current_stage_name?.toLowerCase().includes(query) ||
         job.display_stage_name?.toLowerCase().includes(query)
       );
-      console.log('🔍 After search filter:', filtered.length);
     }
 
     // Group jobs by their consolidated stage ID (master queue if subsidiary, otherwise regular stage)
@@ -100,13 +85,6 @@ export const DynamicFactoryFloorView = () => {
       }
       stageJobGroups.get(groupKey)!.push(job);
     });
-
-    console.log('📊 Master queue consolidated groups:', Array.from(stageJobGroups.entries()).map(([name, jobs]) => ({
-      stageName: name,
-      jobCount: jobs.length,
-      subsidiaryJobs: jobs.filter(j => j.is_subsidiary_stage).length,
-      regularJobs: jobs.filter(j => !j.is_subsidiary_stage).length
-    })));
 
     // Create job groups for each consolidated stage that has jobs and isn't hidden
     const jobGroups = [];
@@ -152,24 +130,7 @@ export const DynamicFactoryFloorView = () => {
           subsidiaryCount: stageJobs.filter(job => job.is_subsidiary_stage).length,
           totalJobs: stageJobs.length
         });
-        
-        console.log('✅ Created consolidated job group:', {
-          stageName,
-          totalJobs: stageJobs.length,
-          subsidiaryJobs: stageJobs.filter(job => job.is_subsidiary_stage).length,
-          regularJobs: stageJobs.filter(job => !job.is_subsidiary_stage).length
-        });
       });
-
-    console.log('✅ Final master queue consolidated groups:', {
-      totalGroups: jobGroups.length,
-      groups: jobGroups.map(g => ({ 
-        title: g.title, 
-        totalJobs: g.totalJobs,
-        subsidiaryJobs: g.subsidiaryCount,
-        hasSubsidiaryJobs: g.hasSubsidiaryJobs
-      }))
-    });
 
     return jobGroups;
   }, [jobs, searchQuery, hiddenQueues, highestPermission]);
@@ -177,7 +138,6 @@ export const DynamicFactoryFloorView = () => {
   // Listen for job updates from action components
   React.useEffect(() => {
     const handleJobUpdate = () => {
-      console.log('🔄 Job updated event received, refreshing jobs...');
       refreshJobs();
     };
 
