@@ -61,7 +61,7 @@ export const MultiStageKanban = () => {
     getStageMetrics 
   } = useRealTimeJobStages(activeJobs);
 
-  // Enhanced stages list to include virtual batch processing stage
+  // Enhanced stages list with master queue consolidation
   const enhancedStages = React.useMemo(() => {
     const baseStages = [...stages];
     
@@ -73,7 +73,7 @@ export const MultiStageKanban = () => {
         id: 'virtual-batch-processing',
         name: 'In Batch Processing',
         color: '#F59E0B',
-        order_index: 999, // Place at end
+        order_index: 999,
         description: 'Jobs currently being processed in BatchFlow',
         is_active: true,
         is_virtual: true,
@@ -87,7 +87,25 @@ export const MultiStageKanban = () => {
       baseStages.push(virtualBatchStage);
     }
     
-    return baseStages.sort((a, b) => a.order_index - b.order_index);
+    // Filter out subsidiary stages - only show master queues for printing stages
+    const consolidatedStages = baseStages.filter(stage => {
+      // Keep non-printing stages as-is
+      if (!stage.name.toLowerCase().includes('print')) {
+        return true;
+      }
+      
+      // For printing stages, only keep master queues (stages without master_queue_id)
+      // Hide subsidiary stages (stages with master_queue_id)
+      return !stage.master_queue_id;
+    });
+    
+    console.log('🏭 Kanban: Consolidated stages', {
+      originalStages: baseStages.length,
+      consolidatedStages: consolidatedStages.length,
+      hiddenSubsidiaryStages: baseStages.length - consolidatedStages.length
+    });
+    
+    return consolidatedStages.sort((a, b) => a.order_index - b.order_index);
   }, [stages, activeJobs]);
 
   // Enhanced job stages to include virtual batch processing instances

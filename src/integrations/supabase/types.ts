@@ -2341,6 +2341,14 @@ export type Database = {
         Args: { p_job_id: string; p_removed_by?: string }
         Returns: boolean
       }
+      reorder_jobs_in_master_queue: {
+        Args: {
+          p_job_reorders: Json
+          p_master_queue_stage_id: string
+          p_reordered_by?: string
+        }
+        Returns: boolean
+      }
       repair_batch_job_references: {
         Args: Record<PropertyKey, never>
         Returns: {
