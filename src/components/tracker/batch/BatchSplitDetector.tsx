@@ -86,13 +86,13 @@ export const BatchSplitDetector: React.FC<BatchSplitDetectorProps> = ({
         splitReadiness
       })}
       
-      {/* Optional debug info for batch jobs */}
-      {isBatchJob && (
+      {/* Only show batch status for jobs that are actually ready for splitting */}
+      {isBatchJob && isReadyForSplit && splitReadiness.ready && (
         <div className="mt-2">
-          <Alert className={splitReadiness.ready ? "border-green-500" : "border-orange-500"}>
+          <Alert className="border-green-500">
             <Package className="h-4 w-4" />
-            <AlertDescription className="text-sm">
-              <strong>Batch Status:</strong> {splitReadiness.reason}
+            <AlertDescription className="text-sm text-green-700">
+              <strong>Batch Ready:</strong> This batch can now be split into individual jobs
               {splitReadiness.currentStage && (
                 <span className="block mt-1">
                   Current Stage: {splitReadiness.currentStage}

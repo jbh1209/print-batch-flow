@@ -5,6 +5,7 @@ import { Play, CheckCircle, Pause } from "lucide-react";
 import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { ExpediteButton } from "./ExpediteButton";
 import { BatchSplitButton } from "../batch/BatchSplitButton";
+import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { 
   canStartJob, 
   canCompleteJob,
@@ -42,10 +43,14 @@ export const JobActionButtons: React.FC<JobActionButtonsProps> = ({
 }) => {
   const [isActionInProgress, setIsActionInProgress] = useState(false);
   const [showHoldReasons, setShowHoldReasons] = useState(false);
+  const { isManager, isAdmin } = useUserRole();
+  
+  // Only managers and admins can expedite jobs
+  const canExpedite = showExpedite && (isManager || isAdmin);
 
   // Return null if no stage or no work permission
   if (!job.current_stage_id || !job.user_can_work) {
-    return showExpedite ? (
+    return canExpedite ? (
       <ExpediteButton
         job={job as any}
         onJobUpdated={onJobUpdated}
@@ -155,7 +160,7 @@ export const JobActionButtons: React.FC<JobActionButtonsProps> = ({
         </Button>
       )}
 
-      {showExpedite && (
+      {canExpedite && (
         <ExpediteButton
           job={job as any}
           onJobUpdated={onJobUpdated}

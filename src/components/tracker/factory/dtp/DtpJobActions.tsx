@@ -108,7 +108,9 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onJobUpdated={onRefresh}
         size="default"
         layout="vertical"
-        showExpedite={true}
+        showHold={true}
+        showExpedite={false} // Only managers and admins should see expedite
+        showBatchSplit={false} // Don't show batch split in modal fallback
       />
     );
   }

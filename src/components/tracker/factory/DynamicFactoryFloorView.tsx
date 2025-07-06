@@ -280,15 +280,11 @@ export const DynamicFactoryFloorView = () => {
         </div>
       )}
 
-      {/* Job Groups - Vertical Queues with Max 3 Columns */}
+      {/* Job Groups - Responsive Layout */}
       <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-x-auto">
-          <div className="flex gap-4 p-4 min-w-max" style={{ 
-            maxWidth: viewMode === 'card' ? 'none' : '100%',
-            gridTemplateColumns: viewMode === 'card' ? 'repeat(auto-fit, minmax(320px, 1fr))' : 'none',
-            display: viewMode === 'card' ? 'grid' : 'flex'
-          }}>
-            <div className={`${viewMode === 'card' ? 'contents' : 'flex gap-4'} ${dynamicJobGroups.length > 3 ? 'overflow-x-auto' : ''}`}>
+        {viewMode === 'card' ? (
+          <div className="h-full overflow-x-auto">
+            <div className="flex gap-4 p-4 min-w-max lg:min-w-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               <JobGroupsDisplay
                 jobGroups={dynamicJobGroups}
                 viewMode={viewMode}
@@ -299,7 +295,20 @@ export const DynamicFactoryFloorView = () => {
               />
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="h-full overflow-y-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-4 max-w-none">
+              <JobGroupsDisplay
+                jobGroups={dynamicJobGroups}
+                viewMode={viewMode}
+                searchQuery={searchQuery}
+                onJobClick={handleJobClick}
+                onStart={startJob}
+                onComplete={completeJob}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Job Modal */}
