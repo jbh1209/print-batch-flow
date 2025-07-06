@@ -111,6 +111,7 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onRefresh={onRefresh}
         onClose={onClose}
         onJobStatusUpdate={onJobStatusUpdate}
+        onModalDataRefresh={onModalDataRefresh}
       />
     );
   }

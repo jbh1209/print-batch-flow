@@ -16,6 +16,7 @@ interface PrintingStageActionsProps {
   onRefresh?: () => void;
   onClose: () => void;
   onJobStatusUpdate: (status: string, stageStatus: string) => void;
+  onModalDataRefresh?: () => void;
 }
 
 export const PrintingStageActions: React.FC<PrintingStageActionsProps> = ({
@@ -27,7 +28,8 @@ export const PrintingStageActions: React.FC<PrintingStageActionsProps> = ({
   onComplete,
   onRefresh,
   onClose,
-  onJobStatusUpdate
+  onJobStatusUpdate,
+  onModalDataRefresh
 }) => {
   const { user } = useAuth();
 
@@ -36,6 +38,7 @@ export const PrintingStageActions: React.FC<PrintingStageActionsProps> = ({
       const success = await onStart(job.job_id, job.current_stage_id);
       if (success) {
         onJobStatusUpdate('Printing', 'active');
+        onModalDataRefresh?.(); // Refresh modal data immediately
         onRefresh?.();
       }
       return;
@@ -68,6 +71,7 @@ export const PrintingStageActions: React.FC<PrintingStageActionsProps> = ({
 
       onJobStatusUpdate('Printing', 'active');
       toast.success("Printing started");
+      onModalDataRefresh?.(); // Refresh modal data immediately
       onRefresh?.();
       // Force a refresh of the entire job list
       window.dispatchEvent(new CustomEvent('job-updated'));
