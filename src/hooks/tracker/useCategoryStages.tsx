@@ -241,34 +241,60 @@ export const useCategoryStages = (categoryId?: string) => {
     try {
       console.log('🔄 Reordering category stages...');
       
-      // First, set all stage orders to temporary negative values to avoid conflicts
-      const tempUpdates = reorderedStages.map((stage, index) => 
+      // Use a single transaction to update all stages with proper ordering
+      // Create a mapping for the new orders
+      const stageOrderMap = new Map(reorderedStages.map(stage => [stage.id, stage.stage_order]));
+      
+      // Get all current stages for this category
+      const { data: allStages, error: fetchError } = await supabase
+        .from('category_production_stages')
+        .select('id, stage_order')
+        .eq('category_id', categoryId)
+        .order('stage_order');
+
+      if (fetchError) {
+        console.error('❌ Failed to fetch current stages:', fetchError);
+        throw new Error('Failed to fetch current category stages');
+      }
+
+      if (!allStages) {
+        throw new Error('No stages found for category');
+      }
+
+      // Prepare updates using a large offset to avoid conflicts
+      const TEMP_OFFSET = 10000;
+      
+      // First pass: Set all stages to high temporary values
+      const tempUpdates = allStages.map((stage, index) => 
         supabase
           .from('category_production_stages')
-          .update({ stage_order: -(index + 1), updated_at: new Date().toISOString() })
+          .update({ 
+            stage_order: TEMP_OFFSET + index,
+            updated_at: new Date().toISOString() 
+          })
           .eq('id', stage.id)
       );
 
       const tempResults = await Promise.all(tempUpdates);
-      
-      // Check if any temp updates failed
       const tempErrors = tempResults.filter(result => result.error);
       if (tempErrors.length > 0) {
         console.error('❌ Category stage temp reorder errors:', tempErrors);
         throw new Error('Failed to prepare category stages for reordering');
       }
 
-      // Then update to final order values
-      const finalUpdates = reorderedStages.map(stage => 
-        supabase
+      // Second pass: Set final order values
+      const finalUpdates = allStages.map(stage => {
+        const newOrder = stageOrderMap.get(stage.id) ?? stage.stage_order;
+        return supabase
           .from('category_production_stages')
-          .update({ stage_order: stage.stage_order, updated_at: new Date().toISOString() })
-          .eq('id', stage.id)
-      );
+          .update({ 
+            stage_order: newOrder,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', stage.id);
+      });
 
       const finalResults = await Promise.all(finalUpdates);
-      
-      // Check if any final updates failed
       const finalErrors = finalResults.filter(result => result.error);
       if (finalErrors.length > 0) {
         console.error('❌ Category stage final reorder errors:', finalErrors);
