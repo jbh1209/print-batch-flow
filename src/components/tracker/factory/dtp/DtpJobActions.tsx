@@ -4,6 +4,7 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "../../common/JobActionButtons";
 import { DtpStageActions } from "./DtpStageActions";
 import { ProofStageActions } from "./ProofStageActions";
+import { PrintingStageActions } from "./PrintingStageActions";
 
 interface StageInstance {
   id: string;
@@ -18,7 +19,7 @@ type ProofApprovalFlow = 'pending' | 'choosing_allocation' | 'batch_allocation' 
 
 interface DtpJobActionsProps {
   job: AccessibleJob;
-  currentStage: 'dtp' | 'proof' | 'unknown';
+  currentStage: 'dtp' | 'proof' | 'printing' | 'unknown';
   stageStatus: string;
   stageInstance: StageInstance | null;
   proofApprovalFlow: ProofApprovalFlow;
@@ -94,6 +95,22 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onBatchCategoryChange={onBatchCategoryChange}
         onPrintingStageChange={onPrintingStageChange}
         onModalDataRefresh={onModalDataRefresh} // Pass it through
+      />
+    );
+  }
+
+  if (currentStage === 'printing') {
+    return (
+      <PrintingStageActions
+        job={job}
+        stageStatus={stageStatus}
+        notes={notes}
+        isLoading={isLoading}
+        onStart={onStart}
+        onComplete={onComplete}
+        onRefresh={onRefresh}
+        onClose={onClose}
+        onJobStatusUpdate={onJobStatusUpdate}
       />
     );
   }
