@@ -67,19 +67,40 @@ export const useRealTimeJobStages = (jobs: any[] = []) => {
         const stage = jobStages.find((s) => s.id === stageId);
         if (!stage) throw new Error('Stage not found');
 
-        const { data, error } = await supabase.rpc('advance_job_stage', {
-          p_job_id: stage.job_id,
-          p_job_table_name: stage.job_table_name,
-          p_current_stage_id: stageId,
-          p_notes: notes || null,
-        });
+        // Check if this is a concurrent stage that should use part-specific completion
+        const isConcurrentStage = !!(stage as any).concurrent_stage_group_id;
+        
+        if (isConcurrentStage) {
+          // Use enhanced completion for concurrent/part-specific stages
+          const { data, error } = await supabase.rpc('advance_job_stage_with_parts', {
+            p_job_id: stage.job_id,
+            p_job_table_name: stage.job_table_name,
+            p_current_stage_id: stage.production_stage_id,
+            p_notes: notes || null,
+          });
 
-        if (error) throw error;
-        if (!data) throw new Error('Failed to advance stage');
+          if (error) throw error;
+          if (!data) throw new Error('Failed to advance concurrent stage');
 
-        toast.success('Stage completed successfully');
+          toast.success('Concurrent stage completed - part flow activated');
+        } else {
+          // Use standard completion for regular stages
+          const { data, error } = await supabase.rpc('advance_job_stage', {
+            p_job_id: stage.job_id,
+            p_job_table_name: stage.job_table_name,
+            p_current_stage_id: stage.production_stage_id,
+            p_notes: notes || null,
+          });
+
+          if (error) throw error;
+          if (!data) throw new Error('Failed to advance stage');
+
+          toast.success('Stage completed successfully');
+        }
+        
         return true;
       } catch (err) {
+        console.error('❌ Error completing stage:', err);
         toast.error('Failed to complete stage');
         return false;
       }

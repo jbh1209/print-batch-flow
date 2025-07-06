@@ -20,13 +20,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { MultiStageKanbanHeader } from "./MultiStageKanbanHeader";
 import { MultiStageKanbanColumns } from "./MultiStageKanbanColumns";
-import { MultiStageKanbanColumnsProps } from "./MultiStageKanban.types";
+import { useConcurrentStageOperations } from "@/hooks/tracker/useConcurrentStageOperations";
 
 export const MultiStageKanban = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError, refreshJobs } = useAccessibleJobs({
     permissionType: 'manage'
   });
   const { stages } = useProductionStages();
+  const { startConcurrentPrintingStages } = useConcurrentStageOperations();
 
   // CRITICAL: Filter out completed jobs and include batch processing jobs
   const activeJobs = React.useMemo(() => {
@@ -169,15 +170,38 @@ export const MultiStageKanban = () => {
       if (stageId.startsWith('virtual-batch-')) {
         const jobId = stageId.replace('virtual-batch-', '');
         if (action === 'complete') {
-          // Here we would integrate with batch completion logic
           toast.info('Batch processing completion - integrate with BatchFlow');
         }
         return;
       }
       
-      if (action === 'start') await startStage(stageId);
-      else if (action === 'complete') await completeStage(stageId);
-      else if (action === 'scan') toast.info('QR Scanner would open here');
+      // Find the stage instance to check if it's part of a concurrent group
+      const stageInstance = enhancedJobStages.find(js => js.id === stageId);
+      const isConcurrentStage = !!(stageInstance as any)?.concurrent_stage_group_id;
+      
+      if (action === 'start') {
+        if (isConcurrentStage) {
+          // For concurrent stages, start the whole group
+          const concurrentGroupId = (stageInstance as any).concurrent_stage_group_id;
+          const groupStages = enhancedJobStages.filter(js => 
+            (js as any).concurrent_stage_group_id === concurrentGroupId
+          );
+          const stageIds = groupStages.map(gs => gs.production_stage_id);
+          
+          // Use concurrent stage operations
+          await startConcurrentPrintingStages(
+            stageInstance.job_id,
+            stageInstance.job_table_name,
+            stageIds
+          );
+        } else {
+          await startStage(stageId);
+        }
+      } else if (action === 'complete') {
+        await completeStage(stageId);
+      } else if (action === 'scan') {
+        toast.info('QR Scanner would open here');
+      }
       
       refreshJobs();
     } catch (err) {

@@ -13,19 +13,29 @@ export const useConcurrentStageOperations = () => {
     try {
       console.log('🔄 Starting concurrent printing stages...', { jobId, stageIds });
       
-      const { data, error } = await supabase.rpc('start_concurrent_printing_stages', {
-        p_job_id: jobId,
-        p_job_table_name: jobTableName,
-        p_stage_ids: stageIds
-      });
+      // First, update each stage instance to active status with concurrent group
+      for (const stageId of stageIds) {
+        const { error: updateError } = await supabase
+          .from('job_stage_instances')
+          .update({
+            status: 'active',
+            started_at: new Date().toISOString(),
+            started_by: (await supabase.auth.getUser()).data.user?.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('job_id', jobId)
+          .eq('job_table_name', jobTableName)
+          .eq('production_stage_id', stageId)
+          .eq('status', 'pending');
 
-      if (error) {
-        console.error('❌ Error starting concurrent stages:', error);
-        throw error;
+        if (updateError) {
+          console.error('❌ Error updating stage:', updateError);
+          throw updateError;
+        }
       }
 
       console.log('✅ Concurrent printing stages started successfully');
-      toast.success("Started printing on multiple machines");
+      toast.success("Started concurrent printing - covers and text can print simultaneously");
       return true;
     } catch (err) {
       console.error('❌ Error starting concurrent stages:', err);
@@ -44,6 +54,7 @@ export const useConcurrentStageOperations = () => {
     try {
       console.log('🔄 Completing stage with part chain handling...', { jobId, stageId });
       
+      // Use the enhanced advance function that handles part chains
       const { data, error } = await supabase.rpc('advance_job_stage_with_parts', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
@@ -57,7 +68,7 @@ export const useConcurrentStageOperations = () => {
       }
 
       console.log('✅ Stage completed with part chain handling');
-      toast.success("Stage completed - checking dependencies");
+      toast.success("Stage completed - part flow activated");
       return true;
     } catch (err) {
       console.error('❌ Error completing stage with part chain:', err);
