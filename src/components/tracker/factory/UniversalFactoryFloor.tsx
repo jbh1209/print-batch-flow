@@ -117,12 +117,12 @@ export const UniversalFactoryFloor = () => {
       console.log('🎯 After queue filter:', filtered.length);
     }
 
-    // Apply context-aware job filtering based on user role
-    const contextFiltered = applyContextJobFiltering(filtered, userContext, contextStages);
-    console.log('🎯 After context filtering:', contextFiltered.length, 'jobs for context:', userContext);
+    // Apply context-aware job filtering based on user role - already filtered by database
+    // Jobs coming from database are already permission-filtered
+    console.log('✅ Jobs already filtered by database permissions:', filtered.length);
     
-    // Categorize the context-filtered jobs
-    const categories = categorizeJobs(contextFiltered);
+    // Categorize the filtered jobs
+    const categories = categorizeJobs(filtered);
     
     const result = {
       dtpJobs: sortJobsByWONumber(categories.dtpJobs),
@@ -208,13 +208,13 @@ export const UniversalFactoryFloor = () => {
   
   if (userContext === 'printing' || userContext === 'admin') {
     if (hp12000Jobs.length > 0) {
-      jobGroups.push({ title: "HP 12000 Printing", jobs: hp12000Jobs, color: "bg-green-600" });
+      jobGroups.push({ title: "HP 12000", jobs: hp12000Jobs, color: "bg-green-600" });
     }
     if (hp7900Jobs.length > 0) {
-      jobGroups.push({ title: "HP 7900 Printing", jobs: hp7900Jobs, color: "bg-emerald-600" });
+      jobGroups.push({ title: "HP 7900", jobs: hp7900Jobs, color: "bg-emerald-600" });
     }
     if (hpT250Jobs.length > 0) {
-      jobGroups.push({ title: "HP T250 Printing", jobs: hpT250Jobs, color: "bg-teal-600" });
+      jobGroups.push({ title: "HP T250", jobs: hpT250Jobs, color: "bg-teal-600" });
     }
   }
   
