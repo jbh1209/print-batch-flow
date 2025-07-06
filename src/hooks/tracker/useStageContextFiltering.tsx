@@ -30,29 +30,40 @@ export const useStageContextFiltering = (
       };
     }
 
-    // Admin users can see all stages but we need to determine their context
-    if (isAdmin && !userContext) {
-      return {
-        filteredStages: consolidatedStages,
-        stageCount: consolidatedStages.length,
-        context: 'admin' as StageContext
-      };
-    }
-
-    // Determine user context based on accessible stages if not provided
-    const detectedContext = userContext || detectUserContext(consolidatedStages);
+    // Detect route-based context override
+    const routeBasedContext = detectRouteContext();
+    const finalContext = routeBasedContext || userContext || detectUserContext(consolidatedStages);
     
-    // Apply context-specific filtering
-    const contextFiltered = filterStagesByContext(consolidatedStages, detectedContext, isAdmin);
+    // Apply context-specific filtering (even for admins when they're in specific operator views)
+    const contextFiltered = filterStagesByContext(consolidatedStages, finalContext, isAdmin);
 
     return {
       filteredStages: contextFiltered,
       stageCount: contextFiltered.length,
-      context: detectedContext
+      context: finalContext
     };
   }, [consolidatedStages, isAdmin, userContext, user?.id]);
 
   return filtered;
+};
+
+/**
+ * Detect context based on current route/page
+ */
+const detectRouteContext = (): StageContext | null => {
+  if (typeof window === 'undefined') return null;
+  
+  const pathname = window.location.pathname;
+  
+  if (pathname.includes('/tracker/factory-floor') || pathname.includes('/tracker/dtp-workflow')) {
+    return 'printing';
+  }
+  
+  if (pathname.includes('/tracker/dtp')) {
+    return 'dtp';
+  }
+  
+  return null;
 };
 
 /**
@@ -109,7 +120,7 @@ const filterStagesByContext = (
   context: StageContext,
   isAdmin: boolean
 ): ConsolidatedStage[] => {
-  // Admin users see everything
+  // Only show all stages to admin when they're in explicit admin context
   if (isAdmin && context === 'admin') {
     return stages;
   }
@@ -119,15 +130,18 @@ const filterStagesByContext = (
     
     switch (context) {
       case 'printing':
-        // Printing operators only see consolidated printing queues
-        return stageName.includes('printing') ||
-               stageName.includes('hp') ||
+        // Printing operators only see printing master queues and printing stages
+        return stageName.includes('hp') ||
                stageName.includes('12000') ||
                stageName.includes('7900') ||
                stageName.includes('t250') ||
+               stageName.includes('large format') ||
                (stage.is_master_queue && stage.subsidiary_stages.some(sub => 
-                 sub.stage_name.toLowerCase().includes('printing') ||
-                 sub.stage_name.toLowerCase().includes('hp')
+                 sub.stage_name.toLowerCase().includes('hp') ||
+                 sub.stage_name.toLowerCase().includes('12000') ||
+                 sub.stage_name.toLowerCase().includes('7900') ||
+                 sub.stage_name.toLowerCase().includes('t250') ||
+                 sub.stage_name.toLowerCase().includes('printing')
                ));
       
       case 'dtp':
