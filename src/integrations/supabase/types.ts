@@ -2207,6 +2207,7 @@ export type Database = {
           batch_ready: boolean
           is_subsidiary_stage: boolean
           master_queue_stage_id: string
+          display_stage_id: string
         }[]
       }
       get_user_accessible_stages: {

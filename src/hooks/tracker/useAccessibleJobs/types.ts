@@ -43,6 +43,7 @@ export interface AccessibleJob {
   // Master queue consolidation properties
   is_subsidiary_stage?: boolean;
   master_queue_stage_id?: string | null;
+  display_stage_id?: string | null;
 }
 
 export interface UseAccessibleJobsOptions {

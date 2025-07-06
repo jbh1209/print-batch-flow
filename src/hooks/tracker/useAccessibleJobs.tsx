@@ -104,7 +104,8 @@ export const useAccessibleJobs = ({
         manual_due_date: (job as any).manual_due_date || null,
         // Master queue consolidation properties
         is_subsidiary_stage: (job as any).is_subsidiary_stage || false,
-        master_queue_stage_id: (job as any).master_queue_stage_id || null
+        master_queue_stage_id: (job as any).master_queue_stage_id || null,
+        display_stage_id: (job as any).display_stage_id || null
       };
 
       // Check if this is a batch master job (wo_no starts with "BATCH-")

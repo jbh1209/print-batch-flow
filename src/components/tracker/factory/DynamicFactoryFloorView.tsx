@@ -85,17 +85,20 @@ export const DynamicFactoryFloorView = () => {
       console.log('🔍 After search filter:', filtered.length);
     }
 
-    // Group jobs by their consolidated stage name (master queue if subsidiary, otherwise regular stage)
+    // Group jobs by their consolidated stage ID (master queue if subsidiary, otherwise regular stage)
     const stageJobGroups = new Map<string, AccessibleJob[]>();
     
     filtered.forEach(job => {
-      // Use display_stage_name which now shows master queue name for subsidiary stages
+      // Use display_stage_id for accurate grouping - this contains master queue ID for subsidiary stages
+      const stageId = job.display_stage_id || job.current_stage_id || 'unknown';
       const stageName = job.display_stage_name || job.current_stage_name || 'Unknown Stage';
       
-      if (!stageJobGroups.has(stageName)) {
-        stageJobGroups.set(stageName, []);
+      // Use stage ID as the key for accurate grouping, but display with stage name
+      const groupKey = `${stageId}:${stageName}`;
+      if (!stageJobGroups.has(groupKey)) {
+        stageJobGroups.set(groupKey, []);
       }
-      stageJobGroups.get(stageName)!.push(job);
+      stageJobGroups.get(groupKey)!.push(job);
     });
 
     console.log('📊 Master queue consolidated groups:', Array.from(stageJobGroups.entries()).map(([name, jobs]) => ({
@@ -109,8 +112,12 @@ export const DynamicFactoryFloorView = () => {
     const jobGroups = [];
     
     Array.from(stageJobGroups.entries())
-      .filter(([stageName]) => !hiddenQueues.includes(stageName))
-      .forEach(([stageName, stageJobs]) => {
+      .filter(([groupKey]) => {
+        const stageName = groupKey.split(':')[1];
+        return !hiddenQueues.includes(stageName);
+      })
+      .forEach(([groupKey, stageJobs]) => {
+        const stageName = groupKey.split(':')[1];
         const stageNameLower = stageName.toLowerCase();
         let color = "bg-gray-600";
         
