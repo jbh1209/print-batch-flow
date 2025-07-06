@@ -69,6 +69,8 @@ export const PrintingStageActions: React.FC<PrintingStageActionsProps> = ({
       onJobStatusUpdate('Printing', 'active');
       toast.success("Printing started");
       onRefresh?.();
+      // Force a refresh of the entire job list
+      window.dispatchEvent(new CustomEvent('job-updated'));
     } catch (error) {
       console.error('Error starting printing:', error);
       toast.error("Failed to start printing");
@@ -110,6 +112,8 @@ export const PrintingStageActions: React.FC<PrintingStageActionsProps> = ({
       toast.success("Printing completed");
       onJobStatusUpdate('Print Complete', 'completed');
       onRefresh?.();
+      // Force a refresh of the entire job list
+      window.dispatchEvent(new CustomEvent('job-updated'));
       onClose();
     } catch (error) {
       console.error('Error completing printing:', error);
@@ -144,6 +148,8 @@ export const PrintingStageActions: React.FC<PrintingStageActionsProps> = ({
       onJobStatusUpdate('On Hold', 'on_hold');
       toast.success("Job put on hold");
       onRefresh?.();
+      // Force a refresh of the entire job list
+      window.dispatchEvent(new CustomEvent('job-updated'));
     } catch (error) {
       console.error('Error putting job on hold:', error);
       toast.error("Failed to put job on hold");

@@ -167,6 +167,17 @@ export const DynamicFactoryFloorView = () => {
     return jobGroups;
   }, [jobs, searchQuery, hiddenQueues, highestPermission]);
 
+  // Listen for job updates from action components
+  React.useEffect(() => {
+    const handleJobUpdate = () => {
+      console.log('🔄 Job updated event received, refreshing jobs...');
+      refreshJobs();
+    };
+
+    window.addEventListener('job-updated', handleJobUpdate);
+    return () => window.removeEventListener('job-updated', handleJobUpdate);
+  }, [refreshJobs]);
+
   // Get list of unique stage names for toggle controls
   const availableStages = useMemo(() => {
     if (!jobs || jobs.length === 0) return [];
