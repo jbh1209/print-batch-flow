@@ -11,11 +11,20 @@ export interface JobStageWithDetails {
   started_at?: string;
   completed_at?: string;
   notes?: string;
+  // Master queue consolidation properties
+  display_stage_id?: string;
+  is_subsidiary_stage?: boolean;
+  master_queue_stage_id?: string | null;
   production_stage: {
     id: string;
     name: string;
     color: string;
     description?: string;
+    master_queue_id?: string | null;
+    master_queue?: {
+      id: string;
+      name: string;
+    } | null;
   };
   // Now matches enriched ProductionJob+categories
   production_job?: {

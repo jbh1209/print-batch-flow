@@ -25,15 +25,31 @@ const StageColumn: React.FC<StageColumnProps> = ({
 
   // Filter jobs for this stage and apply consistent sorting
   const stageJobStages = React.useMemo(() => {
-    const filtered = jobStages.filter(js =>
-      js.production_stage_id === stage.id &&
-      js.status !== "completed" &&
-      js.status !== "skipped"
-    );
+    const filtered = jobStages.filter(js => {
+      // For master queue consolidation, use display_stage_id when available
+      // This groups subsidiary stage jobs under their master queue
+      const jobDisplayStageId = (js as any).display_stage_id || js.production_stage_id;
+      const stageMatches = jobDisplayStageId === stage.id || js.production_stage_id === stage.id;
+      
+      return stageMatches &&
+        js.status !== "completed" &&
+        js.status !== "skipped";
+    });
+    
+    console.log(`🏭 StageColumn: Filtering jobs for stage ${stage.name}`, {
+      stageId: stage.id,
+      totalJobStages: jobStages.length,
+      matchingJobs: filtered.length,
+      jobStageIds: filtered.map(js => ({ 
+        id: js.id, 
+        production_stage_id: js.production_stage_id,
+        display_stage_id: (js as any).display_stage_id
+      }))
+    });
     
     // Use shared sorting utility for consistent ordering
     return sortJobStagesByOrder(filtered);
-  }, [jobStages, stage.id]);
+  }, [jobStages, stage.id, stage.name]);
 
   // Load due info for all job stages
   useEffect(() => {
