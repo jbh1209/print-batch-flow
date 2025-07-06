@@ -37,7 +37,15 @@ export const PartMultiStageSelector: React.FC<PartMultiStageSelectorProps> = ({
   };
 
   const getPartDisplayName = (partName: string) => {
-    return partName.charAt(0).toUpperCase() + partName.slice(1);
+    const nameMap: Record<string, string> = {
+      'print_covers': 'Print Covers',
+      'lam_covers': 'Laminating Covers', 
+      'text': 'Text',
+      'covers': 'Covers', // fallback for any remaining old names
+      'Covers': 'Covers'  // fallback for any remaining old names
+    };
+    
+    return nameMap[partName] || partName.charAt(0).toUpperCase() + partName.slice(1).replace(/_/g, ' ');
   };
 
   const getPartColor = (partName: string) => {

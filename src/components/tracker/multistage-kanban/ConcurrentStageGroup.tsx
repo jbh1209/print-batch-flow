@@ -6,6 +6,20 @@ import { JobStageWithDetails } from "@/hooks/tracker/useRealTimeJobStages/types"
 import { useConcurrentStageOperations } from "@/hooks/tracker/useConcurrentStageOperations";
 import { supabase } from "@/integrations/supabase/client";
 
+const getPartDisplayName = (partName?: string) => {
+  if (!partName) return '';
+  
+  const nameMap: Record<string, string> = {
+    'print_covers': 'Print Covers',
+    'lam_covers': 'Laminating Covers', 
+    'text': 'Text',
+    'covers': 'Covers', // fallback for any remaining old names
+    'Covers': 'Covers'  // fallback for any remaining old names
+  };
+  
+  return nameMap[partName] || partName.charAt(0).toUpperCase() + partName.slice(1).replace(/_/g, ' ');
+};
+
 interface ConcurrentStageGroupProps {
   jobStages: JobStageWithDetails[];
   concurrentGroupId: string;
@@ -156,9 +170,9 @@ export const ConcurrentStageGroup: React.FC<ConcurrentStageGroupProps> = ({
                 className="w-2 h-2 rounded-full"
                 style={{ backgroundColor: stage.production_stage.color }}
               />
-              <span className="capitalize">
-                {stage.part_name || stage.production_stage.name}
-              </span>
+               <span className="capitalize">
+                 {getPartDisplayName(stage.part_name) || stage.production_stage.name}
+               </span>
             </div>
             <div className="flex items-center gap-1">
               {stage.status === 'completed' && <CheckCircle className="h-3 w-3 text-green-600" />}
