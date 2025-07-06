@@ -40,6 +40,9 @@ export interface AccessibleJob {
   is_batch_master?: boolean;
   batch_name?: string | null;
   constituent_job_count?: number;
+  // Master queue consolidation properties
+  is_subsidiary_stage?: boolean;
+  master_queue_stage_id?: string | null;
 }
 
 export interface UseAccessibleJobsOptions {

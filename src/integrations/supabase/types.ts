@@ -2205,6 +2205,8 @@ export type Database = {
           is_conditional_stage: boolean
           stage_should_show: boolean
           batch_ready: boolean
+          is_subsidiary_stage: boolean
+          master_queue_stage_id: string
         }[]
       }
       get_user_accessible_stages: {

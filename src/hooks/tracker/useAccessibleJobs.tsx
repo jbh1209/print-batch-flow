@@ -101,7 +101,10 @@ export const useAccessibleJobs = ({
         batch_category: (job as any).batch_category || null,
         is_in_batch_processing: job.status === 'In Batch Processing',
         has_custom_workflow: (job as any).has_custom_workflow || false,
-        manual_due_date: (job as any).manual_due_date || null
+        manual_due_date: (job as any).manual_due_date || null,
+        // Master queue consolidation properties
+        is_subsidiary_stage: (job as any).is_subsidiary_stage || false,
+        master_queue_stage_id: (job as any).master_queue_stage_id || null
       };
 
       // Check if this is a batch master job (wo_no starts with "BATCH-")
