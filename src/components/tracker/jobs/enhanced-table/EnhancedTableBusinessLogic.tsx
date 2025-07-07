@@ -8,7 +8,7 @@ export const useEnhancedTableBusinessLogic = (
 ) => {
   const { 
     initializeWorkflow, 
-    initializeWorkflowWithPartAssignments,
+    initializeCustomWorkflowWithStages,
     repairJobWorkflow,
     isInitializing 
   } = useWorkflowInitialization();
@@ -109,12 +109,7 @@ export const useEnhancedTableBusinessLogic = (
       // Initialize workflow based on whether part assignments are provided
       let success: boolean;
       if (partAssignments && Object.keys(partAssignments).length > 0) {
-        success = await initializeWorkflowWithPartAssignments(
-          job.id,
-          'production_jobs',
-          categoryId,
-          partAssignments
-        );
+        success = await initializeWorkflow(job.id, 'production_jobs', selectedCategoryId);
       } else {
         success = await initializeWorkflow(job.id, 'production_jobs', categoryId);
       }

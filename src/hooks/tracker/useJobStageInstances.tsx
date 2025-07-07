@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,25 +28,43 @@ export interface JobStageInstance {
   client_email: string | null;
   client_name: string | null;
   proof_pdf_url: string | null;
+  job_order_in_stage: number;
   created_at: string;
   updated_at: string;
   production_stage: {
     id: string;
     name: string;
-    description: string | null;
-    color: string | null;
+    description: string;
+    color: string;
     is_multi_part: boolean;
     part_definitions: any;
   };
+  production_job?: {
+    id: string;
+    wo_no: string;
+    customer: string;
+    due_date: string;
+  };
 }
 
-export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
-  const [jobStages, setJobStages] = useState<JobStageInstance[]>([]);
+interface JobStageInstancesResult {
+  instances: JobStageInstance[];
+  isLoading: boolean;
+  error: string | null;
+  refreshInstances: () => Promise<void>;
+}
+
+export const useJobStageInstances = (
+  jobIds: string[],
+  jobTableName: string = 'production_jobs'
+): JobStageInstancesResult => {
+  const [instances, setInstances] = useState<JobStageInstance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchJobStages = useCallback(async () => {
-    if (!jobId || !jobTableName) {
+  const fetchInstances = useCallback(async () => {
+    if (jobIds.length === 0) {
+      setInstances([]);
       setIsLoading(false);
       return;
     }
@@ -55,28 +72,33 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('🔄 Fetching job stage instances...');
-
-      const { data, error: fetchError } = await supabase
+      
+      console.log('🔄 Fetching job stage instances...', { jobIds: jobIds.length, jobTableName });
+      
+      const { data, error } = await supabase
         .from('job_stage_instances')
         .select(`
           *,
-          production_stage:production_stages(
+          production_stage (
             id,
             name,
-            color,
             description,
-            is_multi_part,
-            part_definitions
+            color
+          ),
+          production_job:production_jobs (
+            id,
+            wo_no,
+            customer,
+            due_date
           )
         `)
-        .eq('job_id', jobId)
+        .in('job_id', jobIds)
         .eq('job_table_name', jobTableName)
         .order('stage_order');
 
-      if (fetchError) {
-        console.error('❌ Job stage instances fetch error:', fetchError);
-        throw new Error(`Failed to fetch job stage instances: ${fetchError.message}`);
+      if (error) {
+        console.error('❌ Job stage instances fetch error:', error);
+        throw new Error(`Failed to fetch job stage instances: ${error.message}`);
       }
 
       console.log('✅ Job stage instances fetched successfully:', data?.length || 0);
@@ -85,154 +107,134 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       const typedData: JobStageInstance[] = (data || []).map(item => ({
         ...item,
         status: item.status as 'pending' | 'active' | 'completed' | 'reworked',
-          id: stage.production_stage?.id || stage.id,
-          name: stage.production_stage?.name || 'Unknown',
-          description: stage.production_stage?.description || '',
-          color: stage.production_stage?.color || '#6B7280',
+        production_stage: {
+          id: item.production_stage?.id || '',
+          name: item.production_stage?.name || 'Unknown',
+          description: item.production_stage?.description || '',
+          color: item.production_stage?.color || '#6B7280',
           is_multi_part: false,
           part_definitions: []
+        }
       }));
-      
-      setJobStages(typedData);
+
+      setInstances(typedData);
     } catch (err) {
       console.error('❌ Error fetching job stage instances:', err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to load job stage instances";
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load job stage instances';
       setError(errorMessage);
-      toast.error("Failed to load job stage instances");
+      toast.error('Failed to load job stage instances');
     } finally {
       setIsLoading(false);
     }
-  }, [jobId, jobTableName]);
+  }, [jobIds, jobTableName]);
 
-  const initializeJobStages = useCallback(async (jobId: string, jobTableName: string, categoryId: string) => {
-    try {
-      console.log('🔄 Initializing job stages (all pending)...');
-      
-      // Use the corrected function that doesn't auto-activate stages
-      const { data, error } = await supabase.rpc('initialize_job_stages_auto', {
-        p_job_id: jobId,
-        p_job_table_name: jobTableName,
-        p_category_id: categoryId
-      });
-
-      if (error) {
-        console.error('❌ Job stage initialization error:', error);
-        throw new Error(`Failed to initialize job stages: ${error.message}`);
-      }
-
-      console.log('✅ Job stages initialized successfully (all pending)');
-      await fetchJobStages();
-      return true;
-    } catch (err) {
-      console.error('❌ Error initializing job stages:', err);
-      toast.error("Failed to initialize job stages");
-      return false;
-    }
-  }, [fetchJobStages]);
-
-  const advanceJobStage = useCallback(async (currentStageId: string, notes?: string) => {
-    if (!jobId || !jobTableName) return false;
-
-    try {
-      console.log('🔄 Advancing job stage...');
-      
-      const { data, error } = await supabase.rpc('advance_job_stage', {
-        p_job_id: jobId,
-        p_job_table_name: jobTableName,
-        p_current_stage_id: currentStageId,
-        p_notes: notes || null
-      });
-
-      if (error) {
-        console.error('❌ Job stage advancement error:', error);
-        throw new Error(`Failed to advance job stage: ${error.message}`);
-      }
-
-      if (!data) {
-        throw new Error('Stage advancement failed - stage may not be active');
-      }
-
-      console.log('✅ Job stage advanced successfully');
-      toast.success("Job stage advanced successfully");
-      await fetchJobStages();
-      return true;
-    } catch (err) {
-      console.error('❌ Error advancing job stage:', err);
-      toast.error("Failed to advance job stage");
-      return false;
-    }
-  }, [jobId, jobTableName, fetchJobStages]);
-
-  const updateStageNotes = useCallback(async (stageId: string, notes: string) => {
-    try {
-      console.log('🔄 Updating stage notes...');
-      
-      const { error } = await supabase
-        .from('job_stage_instances')
-        .update({ 
-          notes,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', stageId);
-
-      if (error) {
-        console.error('❌ Stage notes update error:', error);
-        throw new Error(`Failed to update stage notes: ${error.message}`);
-      }
-
-      console.log('✅ Stage notes updated successfully');
-      toast.success("Stage notes updated successfully");
-      await fetchJobStages();
-      return true;
-    } catch (err) {
-      console.error('❌ Error updating stage notes:', err);
-      toast.error("Failed to update stage notes");
-      return false;
-    }
-  }, [fetchJobStages]);
-
-  const recordQRScan = useCallback(async (stageId: string, qrData: any) => {
-    try {
-      console.log('🔄 Recording QR scan...');
-      
-      const { error } = await supabase
-        .from('job_stage_instances')
-        .update({ 
-          qr_scan_data: qrData,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', stageId);
-
-      if (error) {
-        console.error('❌ QR scan recording error:', error);
-        throw new Error(`Failed to record QR scan: ${error.message}`);
-      }
-
-      console.log('✅ QR scan recorded successfully');
-      await fetchJobStages();
-      return true;
-    } catch (err) {
-      console.error('❌ Error recording QR scan:', err);
-      toast.error("Failed to record QR scan");
-      return false;
-    }
-  }, [fetchJobStages]);
-
-  // Only fetch on mount if both jobId and jobTableName are provided
   useEffect(() => {
-    if (jobId && jobTableName) {
-      fetchJobStages();
-    }
-  }, [jobId, jobTableName, fetchJobStages]);
+    fetchInstances();
+  }, [fetchInstances]);
+
+  const refreshInstances = useCallback(async () => {
+    await fetchInstances();
+  }, [fetchInstances]);
 
   return {
-    jobStages,
+    instances,
     isLoading,
     error,
-    fetchJobStages,
-    initializeJobStages,
-    advanceJobStage,
-    updateStageNotes,
-    recordQRScan
+    refreshInstances
   };
+};
+
+// Utility hook for getting instances for a single job
+export const useJobStageInstancesForJob = (
+  jobId: string,
+  jobTableName: string = 'production_jobs'
+): JobStageInstancesResult => {
+  return useJobStageInstances([jobId], jobTableName);
+};
+
+// Utility hook for managing stage status updates
+export const useStageStatusUpdate = () => {
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const updateStageStatus = useCallback(async (
+    stageInstanceId: string,
+    newStatus: 'pending' | 'active' | 'completed' | 'reworked',
+    notes?: string
+  ): Promise<boolean> => {
+    try {
+      setIsUpdating(true);
+      
+      const updateData: any = {
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+
+      if (newStatus === 'active') {
+        updateData.started_at = new Date().toISOString();
+        updateData.started_by = (await supabase.auth.getUser()).data.user?.id;
+      } else if (newStatus === 'completed') {
+        updateData.completed_at = new Date().toISOString();
+        updateData.completed_by = (await supabase.auth.getUser()).data.user?.id;
+      }
+
+      if (notes) {
+        updateData.notes = notes;
+      }
+
+      const { error } = await supabase
+        .from('job_stage_instances')
+        .update(updateData)
+        .eq('id', stageInstanceId);
+
+      if (error) {
+        console.error('❌ Error updating stage status:', error);
+        throw new Error(`Failed to update stage status: ${error.message}`);
+      }
+
+      console.log('✅ Stage status updated successfully');
+      toast.success('Stage status updated successfully');
+      return true;
+    } catch (err) {
+      console.error('❌ Error updating stage status:', err);
+      toast.error('Failed to update stage status');
+      return false;
+    } finally {
+      setIsUpdating(false);
+    }
+  }, []);
+
+  return {
+    updateStageStatus,
+    isUpdating
+  };
+};
+
+// Utility function to group instances by stage
+export const groupInstancesByStage = (instances: JobStageInstance[]) => {
+  const groups: Record<string, JobStageInstance[]> = {};
+  
+  instances.forEach(instance => {
+    const stageId = instance.production_stage_id;
+    if (!groups[stageId]) {
+      groups[stageId] = [];
+    }
+    groups[stageId].push(instance);
+  });
+  
+  return groups;
+};
+
+// Utility function to get active instances
+export const getActiveInstances = (instances: JobStageInstance[]) => {
+  return instances.filter(instance => instance.status === 'active');
+};
+
+// Utility function to get pending instances
+export const getPendingInstances = (instances: JobStageInstance[]) => {
+  return instances.filter(instance => instance.status === 'pending');
+};
+
+// Utility function to get completed instances
+export const getCompletedInstances = (instances: JobStageInstance[]) => {
+  return instances.filter(instance => instance.status === 'completed');
 };

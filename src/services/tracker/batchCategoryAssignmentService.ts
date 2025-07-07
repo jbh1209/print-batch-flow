@@ -123,26 +123,25 @@ const processJobCategoryAssignment = async (
   
   if (hasPartAssignments) {
     console.log(`🔧 Initializing multi-part workflow for job ${jobData.wo_no}...`);
-    const { error: multiPartError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
-      p_job_id: jobId,
-      p_job_table_name: 'production_jobs',
-      p_category_id: categoryId,
-      p_part_assignments: partAssignments
-    });
-
-    if (multiPartError) {
-      throw new Error(`Multi-part workflow initialization failed: ${multiPartError.message}`);
-    }
-  } else {
-    console.log(`🔧 Initializing standard workflow for job ${jobData.wo_no}...`);
-    const { error: standardError } = await supabase.rpc('initialize_job_stages_auto', {
+    const { error } = await supabase.rpc('initialize_job_stages', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
       p_category_id: categoryId
     });
 
-    if (standardError) {
-      throw new Error(`Standard workflow initialization failed: ${standardError.message}`);
+    if (error) {
+      throw new Error(`Multi-part workflow initialization failed: ${error.message}`);
+    }
+  } else {
+    console.log(`🔧 Initializing standard workflow for job ${jobData.wo_no}...`);
+    const { error } = await supabase.rpc('initialize_job_stages', {
+      p_job_id: jobId,
+      p_job_table_name: 'production_jobs',
+      p_category_id: categoryId
+    });
+
+    if (error) {
+      throw new Error(`Standard workflow initialization failed: ${error.message}`);
     }
   }
 

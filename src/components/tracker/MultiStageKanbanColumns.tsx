@@ -53,7 +53,7 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsWithLayout
                   viewMode={viewMode}
                   enableDnd
                   onReorder={order => handleReorder(stage.id, order)}
-                  registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
+                  reorderRef={React.createRef()}
                   selectedJobId={selectedJobId}
                   onSelectJob={onSelectJob}
                 />
@@ -85,8 +85,8 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsWithLayout
                   onStageAction={handleStageAction}
                   viewMode={viewMode}
                   enableDnd
-                  onReorder={order => handleReorder(stage.id, order)}
-                  registerReorder={fn => { reorderRefs.current[stage.id] = fn; }}
+                onReorder={order => handleReorder(stage.id, order)}
+                reorderRef={React.createRef()}
                   selectedJobId={selectedJobId}
                   onSelectJob={onSelectJob}
                 />
@@ -111,7 +111,8 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsWithLayout
               onStageAction={handleStageAction}
               viewMode={viewMode}
               enableDnd={false}
-              onReorder={() => {}}
+                onReorder={() => {}}
+                reorderRef={React.createRef()}
               selectedJobId={selectedJobId}
               onSelectJob={onSelectJob}
             />
@@ -141,6 +142,7 @@ export const MultiStageKanbanColumns: React.FC<MultiStageKanbanColumnsWithLayout
               viewMode={viewMode}
               enableDnd={false}
               onReorder={() => {}}
+              reorderRef={React.createRef()}
               selectedJobId={selectedJobId}
               onSelectJob={onSelectJob}
             />

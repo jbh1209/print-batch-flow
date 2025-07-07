@@ -178,26 +178,14 @@ const StageColumn = ({
             )}
           >
             <div className="flex flex-col gap-1">
-              {/* Sequential workflow - no concurrent stages */}
+              {/* Sequential workflow - basic job stage display */}
               {regularJobStages.map((jobStage) => (
-                <JobStageCard 
-                  key={jobStage.id}
-                  jobStage={jobStage}
-                  onStageAction={onStageAction}
-                  viewMode={viewMode}
-                  selectedJobId={selectedJobId}
-                  onSelectJob={onSelectJob}
-                />
+                <div key={jobStage.id} className="p-2 border rounded">
+                  {jobStage.production_job?.wo_no || 'Unknown Job'}
+                </div>
               ))}
               
-              {enableDnd && (
-                <SortableContext 
-                  items={sortableIds} 
-                  strategy={rectSortingStrategy}
-                >
-                  {/* DnD items would go here if we had them for this view */}
-                </SortableContext>
-              )}
+              {/* Remove SortableContext for now - DnD disabled */}
               
               {jobStages.length === 0 && (
                 <div className="text-center py-8 text-gray-400 text-sm">

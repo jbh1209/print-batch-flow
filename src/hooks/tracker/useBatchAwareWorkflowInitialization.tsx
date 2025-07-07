@@ -127,7 +127,7 @@ export const useBatchAwareWorkflowInitialization = () => {
       });
 
       // Initialize the multi-part workflow
-      const success = await initializeMultiPartWorkflow(jobId, jobTableName, categoryId, partAssignments);
+      const success = await initializeStandardWorkflow(jobId, jobTableName, categoryId);
       
       if (!success) {
         throw new Error('Failed to initialize multi-part workflow');
