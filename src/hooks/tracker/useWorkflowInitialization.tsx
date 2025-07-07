@@ -8,7 +8,7 @@ import { verifyJobStagesArePending } from "@/utils/tracker/workflowVerificationS
 export const useWorkflowInitialization = () => {
   const { 
     initializeStandardWorkflow,
-    initializeMultiPartWorkflow,
+    initializeCustomWorkflow,
     isInitializing,
     setIsInitializing
   } = useWorkflowInitializationCore();
@@ -22,15 +22,15 @@ export const useWorkflowInitialization = () => {
     }
   };
 
-  const initializeWorkflowWithPartAssignments = async (
+  const initializeCustomWorkflowWithStages = async (
     jobId: string, 
     jobTableName: string, 
-    categoryId: string, 
-    partAssignments?: Record<string, string>
+    stageIds: string[], 
+    stageOrders: number[]
   ) => {
     setIsInitializing(true);
     try {
-      return await initializeMultiPartWorkflow(jobId, jobTableName, categoryId, partAssignments);
+      return await initializeCustomWorkflow(jobId, jobTableName, stageIds, stageOrders);
     } finally {
       setIsInitializing(false);
     }
@@ -66,7 +66,7 @@ export const useWorkflowInitialization = () => {
 
   return {
     initializeWorkflow,
-    initializeWorkflowWithPartAssignments,
+    initializeCustomWorkflowWithStages,
     repairJobWorkflow,
     isInitializing
   };

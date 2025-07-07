@@ -27,7 +27,6 @@ export const MultiStageKanban = () => {
     permissionType: 'manage'
   });
   const { stages } = useProductionStages();
-  const { startConcurrentPrintingStages } = useConcurrentStageOperations();
 
   // CRITICAL: Filter out completed jobs and include batch processing jobs
   const activeJobs = React.useMemo(() => {

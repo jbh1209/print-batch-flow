@@ -17,7 +17,7 @@ export interface JobStageInstance {
   completed_by: string | null;
   notes: string | null;
   part_name: string | null;
-  part_order: number | null;
+  part_order?: number | null;
   printer_id: string | null;
   qr_scan_data: any;
   rework_count: number | null;
@@ -85,14 +85,12 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
       const typedData: JobStageInstance[] = (data || []).map(item => ({
         ...item,
         status: item.status as 'pending' | 'active' | 'completed' | 'reworked',
-        production_stage: item.production_stage as {
-          id: string;
-          name: string;
-          description: string | null;
-          color: string | null;
-          is_multi_part: boolean;
-          part_definitions: any;
-        }
+          id: stage.production_stage?.id || stage.id,
+          name: stage.production_stage?.name || 'Unknown',
+          description: stage.production_stage?.description || '',
+          color: stage.production_stage?.color || '#6B7280',
+          is_multi_part: false,
+          part_definitions: []
       }));
       
       setJobStages(typedData);

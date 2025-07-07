@@ -41,21 +41,11 @@ export const ProofAdvancementSection: React.FC<ProofAdvancementSectionProps> = (
 }) => {
   if (showPartSelector) {
     return (
-      <div className="space-y-3">
-        <PartPrintingStageSelector
-          availableParts={jobParts}
-          onPartAssignmentsChange={onPartAssignmentsChange}
-          initialAssignments={partAssignments}
-        />
-        <Button 
-          onClick={onAdvanceToPartSpecificPrinting}
-          disabled={Object.keys(partAssignments).length !== jobParts.length || isAssigning}
-          className="w-full"
-        >
-          <ArrowRight className="h-4 w-4 mr-1" />
-          Advance to Part-Specific Printing
-        </Button>
-      </div>
+        <div className="space-y-3">
+          <div className="text-sm text-muted-foreground">
+            Sequential workflow - part selection not available
+          </div>
+        </div>
     );
   }
 

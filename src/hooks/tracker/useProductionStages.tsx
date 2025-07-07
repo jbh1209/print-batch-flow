@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -37,95 +36,111 @@ export const useProductionStages = () => {
 
       console.log('📊 Raw production stages from DB:', data);
 
-      // Transform the data to ensure part_definitions is properly typed as string[]
+      // Transform the data for sequential workflow (no parts)
       const transformedData = (data || []).map(stage => {
         console.log(`🔧 Processing stage "${stage.name}":`, {
-          is_multi_part: stage.is_multi_part,
-          part_definitions: stage.part_definitions,
-          part_definitions_type: typeof stage.part_definitions,
-          part_definitions_is_array: Array.isArray(stage.part_definitions),
           master_queue_id: stage.master_queue_id
         });
 
-        let processedPartDefinitions: string[] = [];
-        
-        if (stage.part_definitions) {
-          if (Array.isArray(stage.part_definitions)) {
-            processedPartDefinitions = stage.part_definitions.map(item => String(item));
-          } else if (typeof stage.part_definitions === 'string') {
-            try {
-              const parsed = JSON.parse(stage.part_definitions);
-              if (Array.isArray(parsed)) {
-                processedPartDefinitions = parsed.map(item => String(item));
-              }
-            } catch {
-              processedPartDefinitions = [];
-            }
-          }
-        }
-
-        const transformed = {
+        return {
           ...stage,
-          part_definitions: processedPartDefinitions,
-          master_queue_id: stage.master_queue_id || undefined
-        };
-
-        console.log(`✅ Transformed stage "${stage.name}":`, transformed);
-        return transformed;
+          is_multi_part: false,
+          part_definitions: []
+        } as ProductionStage;
       });
 
-      console.log('🎯 Final transformed stages:', transformedData);
+      console.log('✅ Production stages transformed:', transformedData.length);
+      
       setStages(transformedData);
     } catch (err) {
       console.error('❌ Error fetching production stages:', err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to load production stages";
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load production stages';
       setError(errorMessage);
-      toast.error("Failed to load production stages");
+      toast.error('Failed to load production stages');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const updateStage = async (stageId: string, updates: Partial<ProductionStage>) => {
+  const createStage = async (stageData: Omit<ProductionStage, 'id'>) => {
     try {
+      console.log('🔄 Creating production stage...');
+      
       const { error } = await supabase
         .from('production_stages')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', stageId);
+        .insert({
+          ...stageData,
+          is_multi_part: false,
+          part_definitions: []
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Production stage creation error:', error);
+        throw new Error(`Failed to create stage: ${error.message}`);
+      }
 
-      // Update local state
-      setStages(prevStages => 
-        prevStages.map(stage => 
-          stage.id === stageId ? { ...stage, ...updates } : stage
-        )
-      );
-
-      toast.success('Production stage updated successfully');
+      console.log('✅ Production stage created successfully');
+      toast.success('Production stage created successfully');
+      await fetchStages();
+      return true;
     } catch (err) {
-      console.error('Error updating production stage:', err);
-      toast.error("Failed to update production stage");
+      console.error('❌ Error creating production stage:', err);
+      toast.error('Failed to create production stage');
+      return false;
     }
   };
 
-  const deleteStage = async (stageId: string): Promise<boolean> => {
+  const updateStage = async (id: string, stageData: Partial<ProductionStage>) => {
     try {
+      console.log('🔄 Updating production stage...');
+      
       const { error } = await supabase
         .from('production_stages')
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq('id', stageId);
+        .update({
+          ...stageData,
+          is_multi_part: false,
+          part_definitions: [],
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Production stage update error:', error);
+        throw new Error(`Failed to update stage: ${error.message}`);
+      }
 
-      // Remove from local state
-      setStages(prevStages => prevStages.filter(stage => stage.id !== stageId));
-
-      toast.success('Production stage deleted successfully');
+      console.log('✅ Production stage updated successfully');
+      toast.success('Production stage updated successfully');
+      await fetchStages();
       return true;
     } catch (err) {
-      console.error('Error deleting production stage:', err);
-      toast.error("Failed to delete production stage");
+      console.error('❌ Error updating production stage:', err);
+      toast.error('Failed to update production stage');
+      return false;
+    }
+  };
+
+  const deleteStage = async (id: string) => {
+    try {
+      console.log('🔄 Deleting production stage...');
+      
+      const { error } = await supabase
+        .from('production_stages')
+        .update({ is_active: false })
+        .eq('id', id);
+
+      if (error) {
+        console.error('❌ Production stage deletion error:', error);
+        throw new Error(`Failed to delete stage: ${error.message}`);
+      }
+
+      console.log('✅ Production stage deleted successfully');
+      toast.success('Production stage deleted successfully');
+      await fetchStages();
+      return true;
+    } catch (err) {
+      console.error('❌ Error deleting production stage:', err);
+      toast.error('Failed to delete production stage');
       return false;
     }
   };
@@ -138,7 +153,8 @@ export const useProductionStages = () => {
     stages,
     isLoading,
     error,
-    refreshStages: fetchStages,
+    fetchStages,
+    createStage,
     updateStage,
     deleteStage
   };

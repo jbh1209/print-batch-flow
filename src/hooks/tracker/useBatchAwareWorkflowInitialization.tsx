@@ -16,7 +16,7 @@ interface BatchWorkflowOptions {
  */
 export const useBatchAwareWorkflowInitialization = () => {
   const [isInitializing, setIsInitializing] = useState(false);
-  const { initializeStandardWorkflow, initializeMultiPartWorkflow } = useWorkflowInitializationCore();
+  const { initializeStandardWorkflow, initializeCustomWorkflow } = useWorkflowInitializationCore();
 
   const initializeBatchAwareWorkflow = useCallback(async (
     jobId: string,
