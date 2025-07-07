@@ -219,38 +219,20 @@ export const useCategoryStages = (categoryId?: string) => {
     try {
       console.log('🔄 Reordering category stages...');
       
-      // First, set all stage orders to temporary negative values to avoid conflicts
-      const tempUpdates = reorderedStages.map((stage, index) => 
-        supabase
+      // Update each stage order directly in sequence to avoid conflicts
+      for (const stage of reorderedStages) {
+        const { error } = await supabase
           .from('category_production_stages')
-          .update({ stage_order: -(index + 1), updated_at: new Date().toISOString() })
-          .eq('id', stage.id)
-      );
+          .update({ 
+            stage_order: stage.stage_order,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', stage.id);
 
-      const tempResults = await Promise.all(tempUpdates);
-      
-      // Check if any temp updates failed
-      const tempErrors = tempResults.filter(result => result.error);
-      if (tempErrors.length > 0) {
-        console.error('❌ Category stage temp reorder errors:', tempErrors);
-        throw new Error('Failed to prepare category stages for reordering');
-      }
-
-      // Then update to final order values
-      const finalUpdates = reorderedStages.map(stage => 
-        supabase
-          .from('category_production_stages')
-          .update({ stage_order: stage.stage_order, updated_at: new Date().toISOString() })
-          .eq('id', stage.id)
-      );
-
-      const finalResults = await Promise.all(finalUpdates);
-      
-      // Check if any final updates failed
-      const finalErrors = finalResults.filter(result => result.error);
-      if (finalErrors.length > 0) {
-        console.error('❌ Category stage final reorder errors:', finalErrors);
-        throw new Error('Failed to finalize category stages reordering');
+        if (error) {
+          console.error('❌ Category stage reorder error:', error);
+          throw new Error(`Failed to reorder stage: ${error.message}`);
+        }
       }
 
       console.log('✅ Category stages reordered successfully');
