@@ -103,18 +103,25 @@ export const useJobStageInstances = (
 
       console.log('✅ Job stage instances fetched successfully:', data?.length || 0);
       
-      // Type-safe mapping to ensure status is correctly typed
+      // Type-safe mapping with proper error handling  
       const typedData: JobStageInstance[] = (data || []).map(item => ({
         ...item,
         status: item.status as 'pending' | 'active' | 'completed' | 'reworked',
+        part_order: null, // Always null for sequential workflow
         production_stage: {
-          id: item.production_stage?.id || '',
-          name: item.production_stage?.name || 'Unknown',
-          description: item.production_stage?.description || '',
-          color: item.production_stage?.color || '#6B7280',
+          id: (item.production_stage && typeof item.production_stage === 'object' && !('error' in item.production_stage) && item.production_stage !== null) ? (item.production_stage as any).id : item.production_stage_id || '',
+          name: (item.production_stage && typeof item.production_stage === 'object' && !('error' in item.production_stage) && item.production_stage !== null) ? (item.production_stage as any).name : 'Unknown',
+          description: (item.production_stage && typeof item.production_stage === 'object' && !('error' in item.production_stage) && item.production_stage !== null) ? (item.production_stage as any).description || '' : '',
+          color: (item.production_stage && typeof item.production_stage === 'object' && !('error' in item.production_stage) && item.production_stage !== null) ? (item.production_stage as any).color || '#6B7280' : '#6B7280',
           is_multi_part: false,
           part_definitions: []
-        }
+        },
+        production_job: (item.production_job && typeof item.production_job === 'object' && !('error' in item.production_job) && item.production_job !== null) ? {
+          id: (item.production_job as any).id,
+          wo_no: (item.production_job as any).wo_no,
+          customer: (item.production_job as any).customer,
+          due_date: (item.production_job as any).due_date
+        } : undefined
       }));
 
       setInstances(typedData);

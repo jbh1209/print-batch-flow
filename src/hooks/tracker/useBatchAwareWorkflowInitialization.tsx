@@ -165,7 +165,7 @@ export const useBatchAwareWorkflowInitialization = () => {
     } finally {
       setIsInitializing(false);
     }
-  }, [initializeMultiPartWorkflow]);
+  }, [initializeStandardWorkflow]);
 
   const repairBatchAwareWorkflow = useCallback(async (
     jobId: string,

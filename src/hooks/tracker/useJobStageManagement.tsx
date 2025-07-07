@@ -38,15 +38,11 @@ export const useJobStageManagement = ({
   const [isProcessing, setIsProcessing] = useState(false);
   
   const {
-    jobStages,
+    instances: jobStages,
     isLoading,
     error,
-    fetchJobStages,
-    initializeJobStages,
-    advanceJobStage,
-    updateStageNotes,
-    recordQRScan
-  } = useJobStageInstances(jobId, jobTableName);
+    refreshInstances: fetchJobStages
+  } = useJobStageInstances([jobId], jobTableName);
 
   const { reworkStage, fetchReworkHistory, reworkHistory, isReworking } = useStageRework();
   const { startStage, completeStage } = useStageActions();
@@ -69,9 +65,16 @@ export const useJobStageManagement = ({
     try {
       console.log('🔄 Initializing job workflow (all stages pending)...', { jobId, jobTableName, categoryId });
       
-      const success = await initializeJobStages(jobId, jobTableName, categoryId);
+      const { error } = await supabase.rpc('initialize_job_stages_auto', {
+        p_job_id: jobId,
+        p_job_table_name: jobTableName,
+        p_category_id: categoryId
+      });
+      
+      const success = !error;
       
       if (success) {
+        await fetchJobStages();
         await updateJobStatusToCurrentStage();
         toast.success("Job workflow initialized - stages ready to start manually");
       }
@@ -84,7 +87,7 @@ export const useJobStageManagement = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [jobId, jobTableName, categoryId, initializeJobStages]);
+  }, [jobId, jobTableName, categoryId, fetchJobStages]);
 
   // Enhanced stage start with batch awareness
   const startStageEnhanced = useCallback(async (stageId: string, qrData?: any) => {
@@ -257,8 +260,6 @@ export const useJobStageManagement = ({
     startStage: startStageEnhanced,
     completeStage: completeStageEnhanced,
     sendBackForRework,
-    updateStageNotes,
-    recordQRScan,
     
     // Helpers (using batch-aware validation when applicable)
     getCurrentStage: validation.getCurrentStage,

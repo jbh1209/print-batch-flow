@@ -74,14 +74,19 @@ export const useCategoryStages = (categoryId?: string) => {
         ...stage,
         applies_to_parts: [],
         part_rule_type: 'all_parts' as const,
-        production_stage: stage.production_stage && typeof stage.production_stage === 'object' ? {
-          ...stage.production_stage,
+        production_stage: stage.production_stage && 
+          typeof stage.production_stage === 'object' && 
+          !('error' in stage.production_stage) && 
+          stage.production_stage !== null ? {
+          ...(stage.production_stage as any),
+          is_multi_part: false,
           part_definitions: []
         } : {
           id: '',
-          name: '',
+          name: 'Unknown',
           description: '',
           color: '#6B7280',
+          is_multi_part: false,
           part_definitions: []
         }
       })) || [];
