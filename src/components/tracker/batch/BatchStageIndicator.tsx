@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Package, Clock, CheckCircle, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Package, Clock, CheckCircle, ArrowRight } from 'lucide-react';
 import { AccessibleJob } from '@/hooks/tracker/useAccessibleJobs';
 
 interface BatchStageIndicatorProps {
@@ -16,13 +16,10 @@ export const BatchStageIndicator: React.FC<BatchStageIndicatorProps> = ({
   compact = false
 }) => {
   const isBatchAllocationStage = job.current_stage_name === 'Batch Allocation';
-  const isConditionalStage = job.is_conditional_stage;
-  const shouldShowStage = job.stage_should_show;
-  const batchReady = job.batch_ready;
   const isInBatchProcessing = job.is_in_batch_processing || job.status === 'In Batch Processing';
 
   // Don't show indicator if not relevant to batching
-  if (!isBatchAllocationStage && !isInBatchProcessing && !batchReady) {
+  if (!isBatchAllocationStage && !isInBatchProcessing) {
     return null;
   }
 
@@ -37,45 +34,23 @@ export const BatchStageIndicator: React.FC<BatchStageIndicatorProps> = ({
       };
     }
 
-    if (isBatchAllocationStage) {
-      if (job.current_stage_status === 'active' && batchReady) {
-        return {
-          icon: <Package className="h-3 w-3" />,
-          label: 'Ready for Batching',
-          variant: 'default' as const,
-          className: 'bg-orange-600 text-white animate-pulse',
-          tooltip: 'Job is ready to be added to a batch'
-        };
-      }
-
-      if (job.current_stage_status === 'active' && !shouldShowStage) {
-        return {
-          icon: <ArrowRight className="h-3 w-3" />,
-          label: 'Skip Batch',
-          variant: 'outline' as const,
-          className: 'border-gray-400 text-gray-600',
-          tooltip: 'Batch allocation will be skipped for this job'
-        };
-      }
-
-      if (job.current_stage_status === 'pending') {
-        return {
-          icon: <Clock className="h-3 w-3" />,
-          label: 'Batch Pending',
-          variant: 'secondary' as const,
-          className: 'bg-gray-200 text-gray-700',
-          tooltip: 'Waiting for batch allocation decision'
-        };
-      }
+    if (isBatchAllocationStage && job.current_stage_status === 'active') {
+      return {
+        icon: <Package className="h-3 w-3" />,
+        label: 'Batch Allocation',
+        variant: 'default' as const,
+        className: 'bg-orange-600 text-white',
+        tooltip: 'Job is in batch allocation stage'
+      };
     }
 
-    if (batchReady && !isInBatchProcessing) {
+    if (isBatchAllocationStage && job.current_stage_status === 'pending') {
       return {
-        icon: <CheckCircle className="h-3 w-3" />,
-        label: 'Batch Ready',
-        variant: 'default' as const,
-        className: 'bg-green-600 text-white',
-        tooltip: 'Job has been marked as ready for batching'
+        icon: <Clock className="h-3 w-3" />,
+        label: 'Batch Pending',
+        variant: 'secondary' as const,
+        className: 'bg-gray-200 text-gray-700',
+        tooltip: 'Waiting for batch allocation'
       };
     }
 

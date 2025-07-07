@@ -1,13 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export interface ConditionalStage {
   id: string;
   name: string;
-  is_batch_stage: boolean;
-  is_conditional: boolean;
-  skip_when_inactive: boolean;
   category_id?: string;
 }
 
@@ -23,57 +20,24 @@ export const useConditionalStageLogic = () => {
         .from('production_stages')
         .select(`
           id,
-          name,
-          is_batch_stage,
-          is_conditional
+          name
         `)
-        .eq('is_conditional', true)
         .eq('is_active', true);
-
-      // If category provided, also check category stages
-      if (categoryId) {
-        const { data: categoryStages } = await supabase
-          .from('category_production_stages')
-          .select(`
-            production_stage_id,
-            skip_when_inactive,
-            production_stages!inner(
-              id,
-              name,
-              is_batch_stage,
-              is_conditional
-            )
-          `)
-          .eq('category_id', categoryId)
-          .eq('is_conditional', true);
-
-        if (categoryStages) {
-          const mappedStages = categoryStages.map(cs => ({
-            id: cs.production_stages.id,
-            name: cs.production_stages.name,
-            is_batch_stage: cs.production_stages.is_batch_stage || false,
-            is_conditional: cs.production_stages.is_conditional || false,
-            skip_when_inactive: cs.skip_when_inactive || false,
-            category_id: categoryId
-          }));
-          setConditionalStages(mappedStages);
-          return;
-        }
-      }
 
       const { data, error } = await query;
       
       if (error) throw error;
       
       const mappedStages = (data || []).map(stage => ({
-        ...stage,
-        skip_when_inactive: false // Default for non-category specific stages
+        id: stage.id,
+        name: stage.name,
+        category_id: categoryId
       }));
       
       setConditionalStages(mappedStages);
     } catch (error) {
-      console.error('❌ Error fetching conditional stages:', error);
-      toast.error("Failed to load conditional stages");
+      console.error('❌ Error fetching stages:', error);
+      toast.error("Failed to load stages");
     } finally {
       setIsLoading(false);
     }
@@ -86,13 +50,11 @@ export const useConditionalStageLogic = () => {
         .from('category_production_stages')
         .select(`
           production_stages!inner(
-            name,
-            is_batch_stage
+            name
           )
         `)
         .eq('category_id', categoryId)
         .eq('production_stages.name', 'Batch Allocation')
-        .eq('production_stages.is_batch_stage', true)
         .single();
 
       if (!categoryStage) {
@@ -154,16 +116,16 @@ export const useConditionalStageLogic = () => {
         p_job_id: jobId,
         p_job_table_name: 'production_jobs',
         p_current_stage_id: stageId,
-        p_notes: `Conditional stage skipped: ${reason}`
+        p_notes: `Stage skipped: ${reason}`
       });
 
       if (error) throw error;
 
-      console.log('✅ Conditional stage skipped:', { jobId, stageId, reason });
+      console.log('✅ Stage skipped:', { jobId, stageId, reason });
       toast.success("Stage skipped successfully");
       return true;
     } catch (error) {
-      console.error('❌ Error skipping conditional stage:', error);
+      console.error('❌ Error skipping stage:', error);
       toast.error("Failed to skip stage");
       return false;
     }
@@ -188,10 +150,10 @@ export const useConditionalStageLogic = () => {
 
       if (error) throw error;
 
-      console.log('✅ Conditional stage activated:', { jobId, stageId });
+      console.log('✅ Stage activated:', { jobId, stageId });
       return true;
     } catch (error) {
-      console.error('❌ Error activating conditional stage:', error);
+      console.error('❌ Error activating stage:', error);
       return false;
     }
   }, []);

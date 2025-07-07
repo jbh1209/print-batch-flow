@@ -32,10 +32,6 @@ export interface AccessibleJob {
   started_by?: string | null;
   started_by_name?: string | null;
   proof_emailed_at?: string | null;
-  // Conditional stage properties
-  is_conditional_stage?: boolean;
-  stage_should_show?: boolean;
-  batch_ready?: boolean;
   // Batch master job properties
   is_batch_master?: boolean;
   batch_name?: string | null;

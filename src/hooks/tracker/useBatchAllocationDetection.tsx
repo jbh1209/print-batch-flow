@@ -24,7 +24,7 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
       console.log('🔍 Fetching batch allocation jobs...');
       
       // Get jobs in Batch Allocation stage that are ready for batching
-      const { data, error } = await supabase.rpc('get_user_accessible_jobs_with_conditional_stages', {
+      const { data, error } = await supabase.rpc('get_user_accessible_jobs', {
         p_permission_type: 'work'
       });
 
@@ -39,18 +39,14 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
       const batchJobs = (data || []).filter((job: any) => {
         const isBatchAllocation = job.current_stage_name === 'Batch Allocation';
         const isActive = job.current_stage_status === 'active';
-        const isBatchReady = job.batch_ready === true;
-        const shouldShow = job.stage_should_show !== false;
         
-        const shouldInclude = isBatchAllocation && isActive && isBatchReady && shouldShow;
+        const shouldInclude = isBatchAllocation && isActive;
         
         if (isBatchAllocation && !shouldInclude) {
           console.log(`⚠️ Job ${job.wo_no} in Batch Allocation but filtered out:`, {
             current_stage_name: job.current_stage_name,
             current_stage_status: job.current_stage_status,
-            batch_ready: job.batch_ready,
-            stage_should_show: job.stage_should_show,
-            reason: !isActive ? 'Not active' : !isBatchReady ? 'Not batch ready' : !shouldShow ? 'Should not show' : 'Unknown'
+            reason: !isActive ? 'Not active' : 'Unknown'
           });
         }
         
@@ -89,10 +85,7 @@ export const useBatchAllocationDetection = (): BatchAllocationDetectionResult =>
         is_in_batch_processing: false,
         started_by: job.started_by,
         started_by_name: job.started_by_name,
-        proof_emailed_at: job.proof_emailed_at,
-        is_conditional_stage: job.is_conditional_stage,
-        stage_should_show: job.stage_should_show,
-        batch_ready: job.batch_ready
+        proof_emailed_at: job.proof_emailed_at
       }));
 
       setJobsInBatchAllocation(mappedJobs);
