@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Edit } from "lucide-react";
 import {
   Dialog,
@@ -19,6 +20,7 @@ interface Category {
   description?: string;
   sla_target_days: number;
   color: string;
+  requires_part_assignment: boolean;
 }
 
 interface CategoryFormProps {
@@ -34,7 +36,8 @@ export const CategoryForm = ({ category, onSubmit, trigger }: CategoryFormProps)
     name: category?.name || '',
     description: category?.description || '',
     sla_target_days: category?.sla_target_days || 3,
-    color: category?.color || '#3B82F6'
+    color: category?.color || '#3B82F6',
+    requires_part_assignment: category?.requires_part_assignment || false
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,7 +49,7 @@ export const CategoryForm = ({ category, onSubmit, trigger }: CategoryFormProps)
       if (success) {
         setOpen(false);
         if (!category) {
-          setFormData({ name: '', description: '', sla_target_days: 3, color: '#3B82F6' });
+          setFormData({ name: '', description: '', sla_target_days: 3, color: '#3B82F6', requires_part_assignment: false });
         }
       }
     } catch (error) {
@@ -122,6 +125,20 @@ export const CategoryForm = ({ category, onSubmit, trigger }: CategoryFormProps)
               />
             </div>
           </div>
+          
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="requires_part_assignment"
+              checked={formData.requires_part_assignment}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, requires_part_assignment: !!checked }))}
+            />
+            <Label htmlFor="requires_part_assignment" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              Supports Part Assignment
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Enable this for workflows that require splitting jobs into parts (e.g., covers and text for saddle stitching)
+          </p>
           
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

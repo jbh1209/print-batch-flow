@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Settings, Workflow } from "lucide-react";
+import { Trash2, Edit, Settings, Workflow, Split } from "lucide-react";
 import { useCategories } from "@/hooks/tracker/useCategories";
 import { CategoryForm } from "./CategoryForm";
 import { CategoryStageBuilder } from "./CategoryStageBuilder";
@@ -84,6 +84,12 @@ export const CategoriesManagement = () => {
                     <Badge variant="outline">
                       {category.sla_target_days} day{category.sla_target_days !== 1 ? 's' : ''} SLA
                     </Badge>
+                    {category.requires_part_assignment && (
+                      <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                        <Split className="h-3 w-3 mr-1" />
+                        Part Assignment
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Dialog>

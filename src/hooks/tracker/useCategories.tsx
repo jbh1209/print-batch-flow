@@ -9,6 +9,7 @@ interface Category {
   description?: string;
   sla_target_days: number;
   color: string;
+  requires_part_assignment: boolean;
   created_at: string;
   updated_at: string;
 }
