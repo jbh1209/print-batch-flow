@@ -28,7 +28,6 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { WorkflowStageCard } from "./WorkflowStageCard";
 import { WorkflowPreview } from "./WorkflowPreview";
-import { PartSpecificStageConfig } from "./PartSpecificStageConfig";
 import { validateWorkflow, getWorkflowMetrics } from "@/utils/tracker/workflowValidation";
 import { WorkflowSyncDialog } from "./WorkflowSyncDialog";
 
@@ -43,13 +42,6 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
   
   const [selectedStageId, setSelectedStageId] = useState<string>("");
   const [estimatedHours, setEstimatedHours] = useState<number>(24);
-  const [partConfig, setPartConfig] = useState<{
-    part_rule_type: 'all_parts' | 'specific_parts' | 'exclude_parts';
-    applies_to_parts: string[];
-  }>({
-    part_rule_type: 'all_parts',
-    applies_to_parts: []
-  });
   const [showSyncDialog, setShowSyncDialog] = useState(false);
 
   const sensors = useSensors(
@@ -67,12 +59,6 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
   const validation = validateWorkflow(categoryStages);
   const metrics = getWorkflowMetrics(categoryStages);
 
-  // Get all unique part definitions from simple stages
-  const getAllAvailableParts = () => {
-    return [];
-  };
-
-  const availableParts = getAllAvailableParts();
   const selectedStage = availableStages.find(stage => stage.id === selectedStageId);
 
   const handleStageOperationComplete = () => {
@@ -89,17 +75,12 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
       production_stage_id: selectedStageId,
       stage_order: nextOrder,
       estimated_duration_hours: estimatedHours,
-      is_required: true,
-      ...partConfig
+      is_required: true
     });
 
     if (success) {
       setSelectedStageId("");
       setEstimatedHours(24);
-      setPartConfig({
-        part_rule_type: 'all_parts',
-        applies_to_parts: []
-      });
       handleStageOperationComplete();
     }
   };
@@ -152,11 +133,6 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
 
   const handleStageSelection = (stageId: string) => {
     setSelectedStageId(stageId);
-    // Reset part config when changing stages
-    setPartConfig({
-      part_rule_type: 'all_parts',
-      applies_to_parts: []
-    });
   };
 
   const handleFixOrdering = async () => {
@@ -317,16 +293,6 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
               </Button>
             </div>
 
-            {/* Part-Specific Configuration */}
-            {selectedStageId && availableParts.length > 0 && (
-              <PartSpecificStageConfig
-                selectedStageId={selectedStageId}
-                availableParts={availableParts}
-                currentConfig={partConfig}
-                onConfigChange={setPartConfig}
-                stageName={selectedStage?.name}
-              />
-            )}
           </div>
 
           {/* Current Workflow */}
