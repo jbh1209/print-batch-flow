@@ -128,10 +128,9 @@ const processJobCategoryAssignment = async (
       p_job_table_name: 'production_jobs',
       p_category_id: categoryId
     });
-    });
 
-    if (multiPartError) {
-      throw new Error(`Multi-part workflow initialization failed: ${multiPartError.message}`);
+    if (initError) {
+      throw new Error(`Multi-part workflow initialization failed: ${initError.message}`);
     }
   } else {
     console.log(`🔧 Initializing standard workflow for job ${jobData.wo_no}...`);

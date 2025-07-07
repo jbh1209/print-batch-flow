@@ -76,8 +76,8 @@ export const WorkflowStageCard = ({
       return `Part: ${stage.part_name}`;
     }
     
-    // If not multi-part or job instance without specific part, don't show part info
-    if (!production_stage.is_multi_part || (isJobInstance && !stage.part_name)) {
+    // If not a job instance or no part name, don't show part info
+    if (!isJobInstance || !stage.part_name) {
       return null;
     }
 
@@ -108,20 +108,7 @@ export const WorkflowStageCard = ({
       return [stage.part_name];
     }
     
-    // For workflow templates, show the configured parts
-    if (!isJobInstance && production_stage.is_multi_part) {
-      switch (part_rule_type) {
-        case 'all_parts':
-          return production_stage.part_definitions;
-        case 'specific_parts':
-          return applies_to_parts;
-        case 'exclude_parts':
-          return production_stage.part_definitions.filter(part => !applies_to_parts.includes(part));
-        default:
-          return [];
-      }
-    }
-    
+    // Simplified - no multi-part support
     return [];
   };
 
@@ -160,9 +147,6 @@ export const WorkflowStageCard = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h4 className="font-medium text-sm truncate">{stage.production_stage.name}</h4>
-              {stage.production_stage.is_multi_part && (
-                <Badge variant="secondary" className="text-xs">Multi-part</Badge>
-              )}
               {!stage.is_required && (
                 <Badge variant="outline" className="text-xs">Optional</Badge>
               )}

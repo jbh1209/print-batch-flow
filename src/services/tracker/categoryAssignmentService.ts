@@ -85,8 +85,8 @@ export const assignJobCategory = async (
       p_category_id: selectedCategoryId
     });
 
-    if (multiPartError) {
-      throw new Error(`Multi-part workflow failed: ${multiPartError.message}`);
+    if (initError) {
+      throw new Error(`Multi-part workflow failed: ${initError.message}`);
     } else {
       initSuccess = true;
     }
