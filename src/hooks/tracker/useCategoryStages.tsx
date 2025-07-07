@@ -24,6 +24,13 @@ interface CategoryStageInput {
   is_required?: boolean;
 }
 
+interface DatabaseResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  fixed_count?: number;
+}
+
 export const useCategoryStages = (categoryId?: string) => {
   const [categoryStages, setCategoryStages] = useState<CategoryStage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,39 +91,23 @@ export const useCategoryStages = (categoryId?: string) => {
     try {
       console.log('🔄 Fixing stage ordering for category...');
       
-      // Get all stages for this category, sorted by current order
-      const { data: stages, error: fetchError } = await supabase
-        .from('category_production_stages')
-        .select('id, stage_order')
-        .eq('category_id', categoryId)
-        .order('stage_order');
+      const { data, error } = await supabase.rpc('fix_category_stage_ordering', {
+        p_category_id: categoryId
+      });
 
-      if (fetchError) throw fetchError;
-      if (!stages || stages.length === 0) return true;
-
-      // Update each stage to have sequential order (1, 2, 3, ...)
-      for (let i = 0; i < stages.length; i++) {
-        const stage = stages[i];
-        const correctOrder = i + 1;
-        
-        if (stage.stage_order !== correctOrder) {
-          const { error: updateError } = await supabase
-            .from('category_production_stages')
-            .update({ 
-              stage_order: correctOrder,
-              updated_at: new Date().toISOString() 
-            })
-            .eq('id', stage.id);
-
-          if (updateError) {
-            console.error('❌ Error fixing stage order:', updateError);
-            throw updateError;
-          }
-        }
+      if (error) {
+        console.error('❌ Error fixing stage ordering:', error);
+        throw error;
       }
 
-      console.log('✅ Stage ordering fixed successfully');
-      return true;
+      const result = data as unknown as DatabaseResponse;
+      if (result?.success) {
+        console.log('✅ Stage ordering fixed successfully:', result.message);
+        return true;
+      } else {
+        console.error('❌ Stage ordering fix failed:', result?.error);
+        return false;
+      }
     } catch (err) {
       console.error('❌ Error fixing stage ordering:', err);
       return false;
@@ -219,26 +210,28 @@ export const useCategoryStages = (categoryId?: string) => {
     try {
       console.log('🔄 Reordering category stages...');
       
-      // Update each stage order directly in sequence to avoid conflicts
-      for (const stage of reorderedStages) {
-        const { error } = await supabase
-          .from('category_production_stages')
-          .update({ 
-            stage_order: stage.stage_order,
-            updated_at: new Date().toISOString() 
-          })
-          .eq('id', stage.id);
+      // Use the safe database function for atomic reordering
+      const { data, error } = await supabase.rpc('reorder_category_stages_safe', {
+        p_category_id: categoryId,
+        p_stage_reorders: reorderedStages
+      });
 
-        if (error) {
-          console.error('❌ Category stage reorder error:', error);
-          throw new Error(`Failed to reorder stage: ${error.message}`);
-        }
+      if (error) {
+        console.error('❌ Category stage reorder error:', error);
+        throw new Error(`Failed to reorder stages: ${error.message}`);
       }
 
-      console.log('✅ Category stages reordered successfully');
-      toast.success("Category stages reordered successfully");
-      await fetchCategoryStages();
-      return true;
+      const result = data as unknown as DatabaseResponse;
+      if (result?.success) {
+        console.log('✅ Category stages reordered successfully');
+        toast.success("Category stages reordered successfully");
+        await fetchCategoryStages();
+        return true;
+      } else {
+        console.error('❌ Category stage reorder failed:', result?.error);
+        toast.error(result?.error || "Failed to reorder category stages");
+        return false;
+      }
     } catch (err) {
       console.error('❌ Error reordering category stages:', err);
       toast.error("Failed to reorder category stages");

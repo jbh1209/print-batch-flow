@@ -1955,6 +1955,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      fix_category_stage_ordering: {
+        Args: { p_category_id: string }
+        Returns: Json
+      }
       get_admin_status: {
         Args: { check_user_id?: string }
         Returns: {
@@ -2269,6 +2273,10 @@ export type Database = {
       remove_job_expedite_status: {
         Args: { p_job_id: string; p_removed_by?: string }
         Returns: boolean
+      }
+      reorder_category_stages_safe: {
+        Args: { p_category_id: string; p_stage_reorders: Json }
+        Returns: Json
       }
       reorder_jobs_in_master_queue: {
         Args: {
