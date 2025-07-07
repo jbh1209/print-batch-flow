@@ -2237,7 +2237,6 @@ export type Database = {
           current_stage_name: string
           current_stage_color: string
           current_stage_status: string
-          display_stage_name: string
           user_can_view: boolean
           user_can_edit: boolean
           user_can_work: boolean
@@ -2245,10 +2244,15 @@ export type Database = {
           workflow_progress: number
           total_stages: number
           completed_stages: number
+          display_stage_name: string
           qty: number
           started_by: string
           started_by_name: string
           proof_emailed_at: string
+          is_conditional_stage: boolean
+          stage_should_show: boolean
+          batch_ready: boolean
+          is_batch_master: boolean
           part_name: string
           concurrent_stage_group_id: string
           is_concurrent_part: boolean
