@@ -66,9 +66,7 @@ export const useAccessibleJobs = ({
       }
 
       // Handle concurrent parts - add part name to display stage if present
-      if (job.part_name && job.is_concurrent_part) {
-        displayStage = `${displayStage} (${job.part_name})`;
-      }
+      // Simple sequential workflow - no part names
 
       const processedJob: AccessibleJob = {
         job_id: job.job_id,
@@ -107,15 +105,13 @@ export const useAccessibleJobs = ({
         master_queue_stage_id: (job as any).master_queue_stage_id || null,
         display_stage_id: (job as any).display_stage_id || null,
         // Concurrent part fields
-        part_name: job.part_name || null,
-        concurrent_stage_group_id: job.concurrent_stage_group_id || null,
-        is_concurrent_part: job.is_concurrent_part || false
+        part_name: null,
+        concurrent_stage_group_id: null,
+        is_concurrent_part: false
       };
 
-      // For concurrent parts, create a unique identifier combining job_id and part_name
-      const uniqueId = job.is_concurrent_part && job.part_name 
-        ? `${job.job_id}-${job.part_name}` 
-        : job.job_id;
+      // Simple sequential workflow - use job_id directly
+      const uniqueId = job.job_id;
       
       processedJob.id = uniqueId;
 

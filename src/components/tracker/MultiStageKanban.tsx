@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { MultiStageKanbanHeader } from "./MultiStageKanbanHeader";
 import { MultiStageKanbanColumns } from "./MultiStageKanbanColumns";
-import { useConcurrentStageOperations } from "@/hooks/tracker/useConcurrentStageOperations";
+// Sequential workflow - remove concurrent stage import
 
 export const MultiStageKanban = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError, refreshJobs } = useAccessibleJobs({
@@ -148,7 +148,7 @@ export const MultiStageKanban = () => {
     // Group concurrent stages correctly
     console.log('🔄 Processing job stages for concurrent grouping', {
       totalStages: baseJobStages.length,
-      concurrentStages: baseJobStages.filter(s => s.concurrent_stage_group_id).length
+      concurrentStages: 0 // Sequential workflow only
     });
     
     return baseJobStages;
@@ -188,7 +188,7 @@ export const MultiStageKanban = () => {
       
       // Find the stage instance to check if it's part of a concurrent group
       const stageInstance = enhancedJobStages.find(js => js.id === stageId);
-      const isConcurrentStage = !!(stageInstance as any)?.concurrent_stage_group_id;
+      const isConcurrentStage = false; // Sequential workflow only
       
       if (action === 'start') {
         if (isConcurrentStage) {

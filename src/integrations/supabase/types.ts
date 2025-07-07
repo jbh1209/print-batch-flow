@@ -419,45 +419,36 @@ export type Database = {
       }
       category_production_stages: {
         Row: {
-          applies_to_parts: Json | null
           category_id: string
           created_at: string
           estimated_duration_hours: number | null
           id: string
           is_conditional: boolean | null
           is_required: boolean
-          part_mapping: Json | null
-          part_rule_type: string | null
           production_stage_id: string
           skip_when_inactive: boolean | null
           stage_order: number
           updated_at: string
         }
         Insert: {
-          applies_to_parts?: Json | null
           category_id: string
           created_at?: string
           estimated_duration_hours?: number | null
           id?: string
           is_conditional?: boolean | null
           is_required?: boolean
-          part_mapping?: Json | null
-          part_rule_type?: string | null
           production_stage_id: string
           skip_when_inactive?: boolean | null
           stage_order: number
           updated_at?: string
         }
         Update: {
-          applies_to_parts?: Json | null
           category_id?: string
           created_at?: string
           estimated_duration_hours?: number | null
           id?: string
           is_conditional?: boolean | null
           is_required?: boolean
-          part_mapping?: Json | null
-          part_rule_type?: string | null
           production_stage_id?: string
           skip_when_inactive?: boolean | null
           stage_order?: number
@@ -725,13 +716,11 @@ export type Database = {
       }
       job_stage_instances: {
         Row: {
-          allows_concurrent_start: boolean | null
           category_id: string | null
           client_email: string | null
           client_name: string | null
           completed_at: string | null
           completed_by: string | null
-          concurrent_stage_group_id: string | null
           created_at: string
           id: string
           is_rework: boolean | null
@@ -739,10 +728,7 @@ export type Database = {
           job_order_in_stage: number
           job_table_name: string
           notes: string | null
-          part_flow_chain: string[] | null
           part_name: string | null
-          part_order: number | null
-          part_type: string | null
           previous_stage_id: string | null
           printer_id: string | null
           production_stage_id: string
@@ -750,10 +736,8 @@ export type Database = {
           proof_emailed_at: string | null
           proof_pdf_url: string | null
           qr_scan_data: Json | null
-          requires_all_parts_complete: boolean | null
           rework_count: number | null
           rework_reason: string | null
-          stage_dependency_group: string | null
           stage_order: number
           started_at: string | null
           started_by: string | null
@@ -761,13 +745,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          allows_concurrent_start?: boolean | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
-          concurrent_stage_group_id?: string | null
           created_at?: string
           id?: string
           is_rework?: boolean | null
@@ -775,10 +757,7 @@ export type Database = {
           job_order_in_stage?: number
           job_table_name: string
           notes?: string | null
-          part_flow_chain?: string[] | null
           part_name?: string | null
-          part_order?: number | null
-          part_type?: string | null
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id: string
@@ -786,10 +765,8 @@ export type Database = {
           proof_emailed_at?: string | null
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
-          requires_all_parts_complete?: boolean | null
           rework_count?: number | null
           rework_reason?: string | null
-          stage_dependency_group?: string | null
           stage_order: number
           started_at?: string | null
           started_by?: string | null
@@ -797,13 +774,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          allows_concurrent_start?: boolean | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
           completed_at?: string | null
           completed_by?: string | null
-          concurrent_stage_group_id?: string | null
           created_at?: string
           id?: string
           is_rework?: boolean | null
@@ -811,10 +786,7 @@ export type Database = {
           job_order_in_stage?: number
           job_table_name?: string
           notes?: string | null
-          part_flow_chain?: string[] | null
           part_name?: string | null
-          part_order?: number | null
-          part_type?: string | null
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id?: string
@@ -822,10 +794,8 @@ export type Database = {
           proof_emailed_at?: string | null
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
-          requires_all_parts_complete?: boolean | null
           rework_count?: number | null
           rework_reason?: string | null
-          stage_dependency_group?: string | null
           stage_order?: number
           started_at?: string | null
           started_by?: string | null
@@ -1433,11 +1403,9 @@ export type Database = {
           is_active: boolean
           is_batch_stage: boolean | null
           is_conditional: boolean | null
-          is_multi_part: boolean
           master_queue_id: string | null
           name: string
           order_index: number
-          part_definitions: Json | null
           part_specific_stages: string[] | null
           requires_all_parts_complete: boolean | null
           updated_at: string
@@ -1451,11 +1419,9 @@ export type Database = {
           is_active?: boolean
           is_batch_stage?: boolean | null
           is_conditional?: boolean | null
-          is_multi_part?: boolean
           master_queue_id?: string | null
           name: string
           order_index?: number
-          part_definitions?: Json | null
           part_specific_stages?: string[] | null
           requires_all_parts_complete?: boolean | null
           updated_at?: string
@@ -1469,11 +1435,9 @@ export type Database = {
           is_active?: boolean
           is_batch_stage?: boolean | null
           is_conditional?: boolean | null
-          is_multi_part?: boolean
           master_queue_id?: string | null
           name?: string
           order_index?: number
-          part_definitions?: Json | null
           part_specific_stages?: string[] | null
           requires_all_parts_complete?: boolean | null
           updated_at?: string
@@ -1921,22 +1885,13 @@ export type Database = {
         Returns: boolean
       }
       advance_job_stage_with_parts: {
-        Args:
-          | {
-              p_job_id: string
-              p_job_table_name: string
-              p_current_stage_id: string
-              p_completed_by?: string
-              p_notes?: string
-            }
-          | {
-              p_job_id: string
-              p_job_table_name: string
-              p_current_stage_id: string
-              p_part_assignments?: Json
-              p_completed_by?: string
-              p_notes?: string
-            }
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_current_stage_id: string
+          p_completed_by?: string
+          p_notes?: string
+        }
         Returns: boolean
       }
       advance_job_to_batch_allocation: {
@@ -2125,15 +2080,6 @@ export type Database = {
       get_next_active_stage: {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: string
-      }
-      get_printing_stages_for_parts: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          stage_id: string
-          stage_name: string
-          stage_color: string
-          part_types: string[]
-        }[]
       }
       get_user_accessible_jobs: {
         Args: {
@@ -2324,23 +2270,6 @@ export type Database = {
         Returns: boolean
       }
       initialize_job_stages_concurrent: {
-        Args: {
-          p_job_id: string
-          p_job_table_name: string
-          p_category_id: string
-        }
-        Returns: boolean
-      }
-      initialize_job_stages_with_part_assignments: {
-        Args: {
-          p_job_id: string
-          p_job_table_name: string
-          p_category_id: string
-          p_part_assignments: Json
-        }
-        Returns: boolean
-      }
-      initialize_job_stages_with_parts: {
         Args: {
           p_job_id: string
           p_job_table_name: string

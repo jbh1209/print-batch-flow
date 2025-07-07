@@ -79,7 +79,7 @@ export const useRealTimeJobStages = (jobs: any[] = []) => {
         if (!data) throw new Error('Failed to advance stage');
 
         // Check if this was a concurrent stage completion
-        const isConcurrentStage = !!(stage as any).concurrent_stage_group_id;
+        const isConcurrentStage = false; // Sequential workflow only
         if (isConcurrentStage) {
           toast.success('Concurrent stage completed - activating next stages');
         } else {

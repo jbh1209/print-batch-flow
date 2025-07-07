@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,7 +13,7 @@ export const useWorkflowInitializationCore = () => {
     categoryId: string
   ): Promise<boolean> => {
     try {
-      console.log('🔄 Initializing standard workflow - ALL STAGES WILL BE PENDING...', { jobId, jobTableName, categoryId });
+      console.log('🔄 Initializing standard workflow - sequential stages only...', { jobId, jobTableName, categoryId });
 
       const hasExisting = await checkExistingStages(jobId, jobTableName);
       if (hasExisting) {
@@ -23,7 +22,7 @@ export const useWorkflowInitializationCore = () => {
         return true;
       }
 
-      const { error } = await supabase.rpc('initialize_job_stages_auto', {
+      const { error } = await supabase.rpc('initialize_job_stages', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
         p_category_id: categoryId
@@ -34,12 +33,12 @@ export const useWorkflowInitializationCore = () => {
         throw new Error(`Failed to initialize workflow: ${error.message}`);
       }
 
-      console.log('✅ Workflow initialized successfully - SETTING PROPER JOB ORDER...');
+      console.log('✅ Workflow initialized successfully');
       await setProperJobOrderInStage(jobId, jobTableName);
       
       const isValid = await verifyJobStagesArePending(jobId, jobTableName);
       if (isValid) {
-        toast.success('Production workflow initialized successfully - all stages are PENDING and await operator action');
+        toast.success('Sequential workflow initialized successfully');
       }
       
       return isValid;
@@ -51,15 +50,15 @@ export const useWorkflowInitializationCore = () => {
     }
   };
 
-  const initializeMultiPartWorkflow = async (
+  const initializeCustomWorkflow = async (
     jobId: string,
     jobTableName: string,
-    categoryId: string,
-    partAssignments?: Record<string, string>
+    stageIds: string[],
+    stageOrders: number[]
   ): Promise<boolean> => {
     try {
-      console.log('🔄 Initializing workflow with part assignments - ALL STAGES WILL BE PENDING...', { 
-        jobId, jobTableName, categoryId, partAssignments 
+      console.log('🔄 Initializing custom workflow...', { 
+        jobId, jobTableName, stageIds, stageOrders 
       });
 
       const hasExisting = await checkExistingStages(jobId, jobTableName);
@@ -69,29 +68,29 @@ export const useWorkflowInitializationCore = () => {
         return true;
       }
 
-      const { error } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
+      const { error } = await supabase.rpc('initialize_custom_job_stages', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
-        p_category_id: categoryId,
-        p_part_assignments: partAssignments || null
+        p_stage_ids: stageIds,
+        p_stage_orders: stageOrders
       });
 
       if (error) {
-        console.error('❌ Database error during part-aware workflow initialization:', error);
-        throw new Error(`Failed to initialize workflow with part assignments: ${error.message}`);
+        console.error('❌ Database error during custom workflow initialization:', error);
+        throw new Error(`Failed to initialize custom workflow: ${error.message}`);
       }
 
-      console.log('✅ Multi-part workflow initialized successfully - SETTING PROPER JOB ORDER...');
+      console.log('✅ Custom workflow initialized successfully');
       await setProperJobOrderInStage(jobId, jobTableName);
       
       const isValid = await verifyJobStagesArePending(jobId, jobTableName);
       if (isValid) {
-        toast.success('Multi-part workflow initialized successfully - all stages are PENDING and await operator action');
+        toast.success('Custom workflow initialized successfully');
       }
       
       return isValid;
     } catch (err) {
-      console.error('❌ Error initializing multi-part workflow:', err);
+      console.error('❌ Error initializing custom workflow:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to initialize workflow';
       toast.error(errorMessage);
       return false;
@@ -100,7 +99,7 @@ export const useWorkflowInitializationCore = () => {
 
   return {
     initializeStandardWorkflow,
-    initializeMultiPartWorkflow,
+    initializeCustomWorkflow,
     isInitializing,
     setIsInitializing
   };

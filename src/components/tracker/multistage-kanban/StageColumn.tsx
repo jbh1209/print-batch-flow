@@ -7,7 +7,7 @@ import { getDueInfo } from "./getDueInfo";
 import { StageColumnProps } from "./StageColumn.types";
 import SortableJobStageCard from "./SortableJobStageCard";
 import { sortJobStagesByOrder } from "@/utils/tracker/jobOrderingUtils";
-import { ConcurrentStageCard } from "./ConcurrentStageCard";
+// Sequential workflow - remove concurrent stage import
 import type { DueInfo } from "./StageColumn.types";
 
 const StageColumn: React.FC<StageColumnProps> = ({
@@ -45,7 +45,7 @@ const StageColumn: React.FC<StageColumnProps> = ({
         id: js.id, 
         production_stage_id: js.production_stage_id,
         display_stage_id: (js as any).display_stage_id,
-        concurrent_group_id: (js as any).concurrent_stage_group_id
+        concurrent_group_id: null // Sequential workflow only
       }))
     });
     
