@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instanciate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.3 (519615d)"
+  }
   public: {
     Tables: {
       active_job_assignments: {
@@ -419,45 +424,36 @@ export type Database = {
       }
       category_production_stages: {
         Row: {
-          applies_to_parts: Json | null
           category_id: string
           created_at: string
           estimated_duration_hours: number | null
           id: string
           is_conditional: boolean | null
           is_required: boolean
-          part_mapping: Json | null
-          part_rule_type: string | null
           production_stage_id: string
           skip_when_inactive: boolean | null
           stage_order: number
           updated_at: string
         }
         Insert: {
-          applies_to_parts?: Json | null
           category_id: string
           created_at?: string
           estimated_duration_hours?: number | null
           id?: string
           is_conditional?: boolean | null
           is_required?: boolean
-          part_mapping?: Json | null
-          part_rule_type?: string | null
           production_stage_id: string
           skip_when_inactive?: boolean | null
           stage_order: number
           updated_at?: string
         }
         Update: {
-          applies_to_parts?: Json | null
           category_id?: string
           created_at?: string
           estimated_duration_hours?: number | null
           id?: string
           is_conditional?: boolean | null
           is_required?: boolean
-          part_mapping?: Json | null
-          part_rule_type?: string | null
           production_stage_id?: string
           skip_when_inactive?: boolean | null
           stage_order?: number
@@ -738,8 +734,6 @@ export type Database = {
           job_table_name: string
           notes: string | null
           part_name: string | null
-          part_order: number | null
-          part_type: string | null
           previous_stage_id: string | null
           printer_id: string | null
           production_stage_id: string
@@ -769,8 +763,6 @@ export type Database = {
           job_table_name: string
           notes?: string | null
           part_name?: string | null
-          part_order?: number | null
-          part_type?: string | null
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id: string
@@ -800,8 +792,6 @@ export type Database = {
           job_table_name?: string
           notes?: string | null
           part_name?: string | null
-          part_order?: number | null
-          part_type?: string | null
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id?: string
@@ -1415,13 +1405,8 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
-          is_batch_stage: boolean | null
-          is_conditional: boolean | null
-          is_multi_part: boolean
-          master_queue_id: string | null
           name: string
           order_index: number
-          part_definitions: Json | null
           updated_at: string
         }
         Insert: {
@@ -1430,13 +1415,8 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
-          is_batch_stage?: boolean | null
-          is_conditional?: boolean | null
-          is_multi_part?: boolean
-          master_queue_id?: string | null
           name: string
           order_index?: number
-          part_definitions?: Json | null
           updated_at?: string
         }
         Update: {
@@ -1445,24 +1425,11 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
-          is_batch_stage?: boolean | null
-          is_conditional?: boolean | null
-          is_multi_part?: boolean
-          master_queue_id?: string | null
           name?: string
           order_index?: number
-          part_definitions?: Json | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "production_stages_master_queue_id_fkey"
-            columns: ["master_queue_id"]
-            isOneToOne: false
-            referencedRelation: "production_stages"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -1901,7 +1868,6 @@ export type Database = {
           p_job_id: string
           p_job_table_name: string
           p_current_stage_id: string
-          p_part_assignments?: Json
           p_completed_by?: string
           p_notes?: string
         }
@@ -1925,6 +1891,14 @@ export type Database = {
       }
       check_admin_exists: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      check_dependency_completion: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_dependency_group: string
+        }
         Returns: boolean
       }
       check_user_admin_status: {
@@ -2086,15 +2060,6 @@ export type Database = {
         Args: { p_job_id: string; p_job_table_name: string }
         Returns: string
       }
-      get_printing_stages_for_parts: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          stage_id: string
-          stage_name: string
-          stage_color: string
-          part_types: string[]
-        }[]
-      }
       get_user_accessible_jobs: {
         Args: {
           p_user_id?: string
@@ -2131,12 +2096,19 @@ export type Database = {
         }[]
       }
       get_user_accessible_jobs_with_batch_allocation: {
-        Args: {
-          p_user_id?: string
-          p_permission_type?: string
-          p_status_filter?: string
-          p_stage_filter?: string
-        }
+        Args:
+          | {
+              p_user_id?: string
+              p_permission_type?: string
+              p_status_filter?: string
+              p_stage_filter?: string
+            }
+          | {
+              p_user_id?: string
+              p_permission_type?: string
+              p_status_filter?: string
+              p_stage_filter?: string
+            }
         Returns: {
           job_id: string
           wo_no: string
@@ -2205,6 +2177,10 @@ export type Database = {
           is_conditional_stage: boolean
           stage_should_show: boolean
           batch_ready: boolean
+          is_batch_master: boolean
+          part_name: string
+          concurrent_stage_group_id: string
+          is_concurrent_part: boolean
         }[]
       }
       get_user_accessible_stages: {
@@ -2272,16 +2248,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      initialize_job_stages_with_part_assignments: {
-        Args: {
-          p_job_id: string
-          p_job_table_name: string
-          p_category_id: string
-          p_part_assignments: Json
-        }
-        Returns: boolean
-      }
-      initialize_job_stages_with_parts: {
+      initialize_job_stages_concurrent: {
         Args: {
           p_job_id: string
           p_job_table_name: string
@@ -2337,6 +2304,14 @@ export type Database = {
       }
       remove_job_expedite_status: {
         Args: { p_job_id: string; p_removed_by?: string }
+        Returns: boolean
+      }
+      reorder_jobs_in_master_queue: {
+        Args: {
+          p_job_reorders: Json
+          p_master_queue_stage_id: string
+          p_reordered_by?: string
+        }
         Returns: boolean
       }
       repair_batch_job_references: {
@@ -2410,6 +2385,14 @@ export type Database = {
           split_jobs_count: number
           batch_id: string
         }[]
+      }
+      start_concurrent_printing_stages: {
+        Args: {
+          p_job_id: string
+          p_job_table_name: string
+          p_stage_ids: string[]
+        }
+        Returns: boolean
       }
       sync_completed_jobs_with_batch_flow: {
         Args: Record<PropertyKey, never>
@@ -2493,21 +2476,25 @@ export type Database = {
   }
 }
 
-type DefaultSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -2525,14 +2512,16 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -2548,14 +2537,16 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -2571,14 +2562,16 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
@@ -2586,14 +2579,16 @@ export type Enums<
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
