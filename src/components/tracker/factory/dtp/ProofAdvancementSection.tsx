@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
-import { PartPrintingStageSelector } from "../PartPrintingStageSelector";
 
 interface PrintingStage {
   id: string;
@@ -42,18 +41,16 @@ export const ProofAdvancementSection: React.FC<ProofAdvancementSectionProps> = (
   if (showPartSelector) {
     return (
       <div className="space-y-3">
-        <PartPrintingStageSelector
-          availableParts={jobParts}
-          onPartAssignmentsChange={onPartAssignmentsChange}
-          initialAssignments={partAssignments}
-        />
+        <div className="text-sm text-gray-600">
+          Multi-part printing not available in simplified mode
+        </div>
         <Button 
           onClick={onAdvanceToPartSpecificPrinting}
-          disabled={Object.keys(partAssignments).length !== jobParts.length || isAssigning}
+          disabled={true}
           className="w-full"
         >
           <ArrowRight className="h-4 w-4 mr-1" />
-          Advance to Part-Specific Printing
+          Multi-part Not Available
         </Button>
       </div>
     );

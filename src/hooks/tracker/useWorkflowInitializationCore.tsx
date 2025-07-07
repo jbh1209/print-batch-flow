@@ -69,11 +69,10 @@ export const useWorkflowInitializationCore = () => {
         return true;
       }
 
-      const { error } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
+      const { error } = await supabase.rpc('initialize_job_stages', {
         p_job_id: jobId,
         p_job_table_name: jobTableName,
-        p_category_id: categoryId,
-        p_part_assignments: partAssignments || null
+        p_category_id: categoryId
       });
 
       if (error) {

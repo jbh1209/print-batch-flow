@@ -10,9 +10,6 @@ interface ProductionStage {
   color: string;
   order_index: number;
   is_active: boolean;
-  is_multi_part: boolean;
-  part_definitions: string[]; // Keep as required and properly typed
-  master_queue_id?: string;
 }
 
 export const useProductionStages = () => {
@@ -37,41 +34,12 @@ export const useProductionStages = () => {
 
       console.log('📊 Raw production stages from DB:', data);
 
-      // Transform the data to ensure part_definitions is properly typed as string[]
+      // Transform the data to ensure proper typing
       const transformedData = (data || []).map(stage => {
-        console.log(`🔧 Processing stage "${stage.name}":`, {
-          is_multi_part: stage.is_multi_part,
-          part_definitions: stage.part_definitions,
-          part_definitions_type: typeof stage.part_definitions,
-          part_definitions_is_array: Array.isArray(stage.part_definitions),
-          master_queue_id: stage.master_queue_id
-        });
-
-        let processedPartDefinitions: string[] = [];
-        
-        if (stage.part_definitions) {
-          if (Array.isArray(stage.part_definitions)) {
-            processedPartDefinitions = stage.part_definitions.map(item => String(item));
-          } else if (typeof stage.part_definitions === 'string') {
-            try {
-              const parsed = JSON.parse(stage.part_definitions);
-              if (Array.isArray(parsed)) {
-                processedPartDefinitions = parsed.map(item => String(item));
-              }
-            } catch {
-              processedPartDefinitions = [];
-            }
-          }
-        }
-
-        const transformed = {
-          ...stage,
-          part_definitions: processedPartDefinitions,
-          master_queue_id: stage.master_queue_id || undefined
+        console.log(`🔧 Processing stage "${stage.name}":`, stage);
+        return {
+          ...stage
         };
-
-        console.log(`✅ Transformed stage "${stage.name}":`, transformed);
-        return transformed;
       });
 
       console.log('🎯 Final transformed stages:', transformedData);

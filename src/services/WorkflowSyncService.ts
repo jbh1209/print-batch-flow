@@ -180,7 +180,7 @@ export class WorkflowSyncService {
 
   private static async addMissingStages(jobId: string, jobTableName: string, categoryId: string): Promise<void> {
     // Use the existing RPC function to initialize missing stages
-    const { error } = await supabase.rpc('initialize_job_stages_with_parts', {
+    const { error } = await supabase.rpc('initialize_job_stages', {
       p_job_id: jobId,
       p_job_table_name: jobTableName,
       p_category_id: categoryId

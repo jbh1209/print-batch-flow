@@ -52,12 +52,7 @@ export const useUserStagePermissions = (userId?: string) => {
             .select(`
               id, 
               name, 
-              color,
-              master_queue_id,
-              master_queue:master_queue_id(
-                id,
-                name
-              )
+              color
             `)
             .eq('is_active', true)
             .order('order_index');
@@ -71,16 +66,14 @@ export const useUserStagePermissions = (userId?: string) => {
             can_view: true,
             can_edit: true,
             can_work: true,
-            can_manage: true,
-            master_queue_id: stage.master_queue_id || undefined,
-            master_queue_name: stage.master_queue?.name || undefined
+            can_manage: true
           }));
 
           console.log("👑 Admin permissions - all stages accessible:", rawStages.length);
         } else {
           // Regular user - try new function first, fallback to old one
           try {
-            const { data, error } = await supabase.rpc('get_user_accessible_stages_with_master_queue', {
+            const { data, error } = await supabase.rpc('get_user_accessible_stages', {
               p_user_id: userId
             });
 

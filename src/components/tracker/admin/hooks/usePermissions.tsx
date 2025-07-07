@@ -13,8 +13,6 @@ interface ProductionStage {
   id: string;
   name: string;
   color: string;
-  master_queue_id?: string;
-  master_queue_name?: string;
 }
 
 interface StagePermission {
@@ -45,15 +43,13 @@ export const usePermissions = () => {
 
       if (groupsError) throw groupsError;
 
-      // Load production stages with master queue info
+      // Load production stages
       const { data: stages, error: stagesError } = await supabase
         .from('production_stages')
         .select(`
           id, 
           name, 
-          color,
-          master_queue_id,
-          master_queue:master_queue_id(name)
+          color
         `)
         .eq('is_active', true)
         .order('order_index');
@@ -71,9 +67,7 @@ export const usePermissions = () => {
       setProductionStages((stages || []).map(stage => ({
         id: stage.id,
         name: stage.name,
-        color: stage.color,
-        master_queue_id: stage.master_queue_id,
-        master_queue_name: stage.master_queue?.name
+        color: stage.color
       })));
       setPermissions(perms || []);
 

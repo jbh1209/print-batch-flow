@@ -17,14 +17,12 @@ interface WorkflowStageCardProps {
     applies_to_parts: string[];
     part_rule_type: 'all_parts' | 'specific_parts' | 'exclude_parts';
     part_name?: string; // For job instances
-    production_stage: {
-      id: string;
-      name: string;
-      color: string;
-      description?: string;
-      is_multi_part: boolean;
-      part_definitions: string[];
-    };
+      production_stage: {
+        id: string;
+        name: string;
+        color: string;
+        description?: string;
+      };
   };
   onUpdate: (id: string, duration: number) => void;
   onRemove: (id: string) => void;

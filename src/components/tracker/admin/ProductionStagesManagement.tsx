@@ -80,7 +80,7 @@ export const ProductionStagesManagement = () => {
         </CardHeader>
         <CardContent>
           <ProductionStagesList
-            stages={stages}
+            stages={stages as any}
             onMoveStage={moveStage}
             onStageUpdate={handleStageUpdate}
             onDeleteStage={deleteStage}

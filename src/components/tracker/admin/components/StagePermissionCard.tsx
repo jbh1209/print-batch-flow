@@ -19,9 +19,7 @@ export const StagePermissionCard: React.FC<StagePermissionCardProps> = ({
   onPermissionChange,
   isSaving
 }) => {
-  const stageName = stage.master_queue_name 
-    ? `${stage.master_queue_name} - ${stage.name}`
-    : stage.name;
+  const stageName = stage.name;
 
   const permissionTypes = [
     { key: 'can_view', label: 'View' },
@@ -38,11 +36,6 @@ export const StagePermissionCard: React.FC<StagePermissionCardProps> = ({
           style={{ backgroundColor: stage.color }}
         />
         <span className="font-medium">{stageName}</span>
-        {stage.master_queue_name && (
-          <Badge variant="secondary" className="text-xs">
-            Master Queue
-          </Badge>
-        )}
       </div>
       
       <div className="flex items-center gap-6">

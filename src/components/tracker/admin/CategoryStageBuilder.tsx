@@ -67,15 +67,9 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
   const validation = validateWorkflow(categoryStages);
   const metrics = getWorkflowMetrics(categoryStages);
 
-  // Get all unique part definitions from multi-part stages
+  // Get all unique part definitions from simple stages
   const getAllAvailableParts = () => {
-    const allParts = new Set<string>();
-    availableStages.forEach(stage => {
-      if (stage.is_multi_part && stage.part_definitions) {
-        stage.part_definitions.forEach(part => allParts.add(part));
-      }
-    });
-    return Array.from(allParts);
+    return [];
   };
 
   const availableParts = getAllAvailableParts();
@@ -293,9 +287,6 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
                             style={{ backgroundColor: stage.color }}
                           />
                           {stage.name}
-                          {stage.is_multi_part && (
-                            <Badge variant="outline" className="text-xs">Multi-part</Badge>
-                          )}
                         </div>
                       </SelectItem>
                     ))}
@@ -372,7 +363,14 @@ export const CategoryStageBuilder = ({ categoryId, categoryName }: CategoryStage
                     {sortedCategoryStages.map((stage, index) => (
                       <WorkflowStageCard
                         key={stage.id}
-                        stage={stage}
+                        stage={{
+                          ...stage,
+                          applies_to_parts: [],
+                          part_rule_type: 'all_parts' as const,
+                          production_stage: {
+                            ...stage.production_stage
+                          }
+                        }}
                         onUpdate={handleUpdateStage}
                         onRemove={handleRemoveStage}
                         isFirst={index === 0}

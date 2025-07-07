@@ -17,7 +17,7 @@ export interface JobStageInstance {
   completed_by: string | null;
   notes: string | null;
   part_name: string | null;
-  part_order: number | null;
+  
   printer_id: string | null;
   qr_scan_data: any;
   rework_count: number | null;
@@ -36,8 +36,6 @@ export interface JobStageInstance {
     name: string;
     description: string | null;
     color: string | null;
-    is_multi_part: boolean;
-    part_definitions: any;
   };
 }
 
@@ -65,9 +63,7 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
             id,
             name,
             color,
-            description,
-            is_multi_part,
-            part_definitions
+            description
           )
         `)
         .eq('job_id', jobId)
@@ -90,8 +86,6 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
           name: string;
           description: string | null;
           color: string | null;
-          is_multi_part: boolean;
-          part_definitions: any;
         }
       }));
       

@@ -122,12 +122,12 @@ const processJobCategoryAssignment = async (
   const hasPartAssignments = partAssignments && Object.keys(partAssignments).length > 0;
   
   if (hasPartAssignments) {
-    console.log(`🔧 Initializing multi-part workflow for job ${jobData.wo_no}...`);
-    const { error: multiPartError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
+    console.log(`🔧 Initializing simple workflow for job ${jobData.wo_no}...`);
+    const { error: initError } = await supabase.rpc('initialize_job_stages', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_category_id: categoryId,
-      p_part_assignments: partAssignments
+      p_category_id: categoryId
+    });
     });
 
     if (multiPartError) {

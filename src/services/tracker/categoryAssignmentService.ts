@@ -79,11 +79,10 @@ export const assignJobCategory = async (
   let initSuccess = false;
   
   if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
-    const { error: multiPartError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
+    const { error: initError } = await supabase.rpc('initialize_job_stages', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_category_id: selectedCategoryId,
-      p_part_assignments: partAssignments
+      p_category_id: selectedCategoryId
     });
 
     if (multiPartError) {
