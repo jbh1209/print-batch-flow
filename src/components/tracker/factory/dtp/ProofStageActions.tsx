@@ -61,8 +61,7 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
   onModalDataRefresh
 }) => {
   const { user } = useAuth();
-  
-  // Remove the hook usage since we're not using it correctly
+  const { advanceJobStage, isLoading: isStageInstancesLoading } = useJobStageInstances(job.job_id, 'production_jobs');
 
   const handleStartProof = async () => {
     try {
@@ -166,13 +165,12 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
       console.log('🔄 Advancing from proof stage to batch allocation');
       
       // Complete the current proof stage
-      const { error: stageError } = await supabase.rpc('advance_job_stage', {
-        p_job_id: job.job_id,
-        p_job_table_name: 'production_jobs',
-        p_current_stage_id: job.current_stage_id
-      });
+      const success = await advanceJobStage(
+        job.current_stage_id,
+        notes || 'Proof approved - sending to batch allocation'
+      );
 
-      if (stageError) {
+      if (!success) {
         throw new Error('Failed to advance job stage');
       }
 
@@ -206,13 +204,12 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
     try {
       console.log('🔄 Advancing from proof stage to next stage in workflow');
       
-      const { error: stageError } = await supabase.rpc('advance_job_stage', {
-        p_job_id: job.job_id,
-        p_job_table_name: 'production_jobs',
-        p_current_stage_id: job.current_stage_id
-      });
+      const success = await advanceJobStage(
+        job.current_stage_id,
+        notes || 'Proof approved - advancing to printing'
+      );
 
-      if (stageError) {
+      if (!success) {
         throw new Error('Failed to advance job stage');
       }
 
@@ -315,12 +312,12 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
               
               <Button 
                 onClick={() => onProofApprovalFlowChange('direct_printing')}
-                disabled={isLoading}
+                disabled={isLoading || isStageInstancesLoading}
                 className="w-full bg-blue-600 hover:bg-blue-700"
                 variant="outline"
               >
                 <Printer className="h-4 w-4 mr-2" />
-                {isLoading ? 'Processing...' : 'Send Directly to Printing'}
+                {isStageInstancesLoading ? 'Processing...' : 'Send Directly to Printing'}
               </Button>
             </div>
           </div>
@@ -389,11 +386,11 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
             <div className="flex gap-2">
               <Button 
                 onClick={handleAdvanceToPrintingStage}
-                disabled={isLoading || !selectedPrintingStage}
+                disabled={isLoading || isStageInstancesLoading || !selectedPrintingStage}
                 className="flex-1"
               >
                 <ArrowRight className="h-4 w-4 mr-2" />
-                {isLoading ? 'Processing...' : 'Advance to Printing'}
+                {isLoading || isStageInstancesLoading ? 'Processing...' : 'Advance to Printing'}
               </Button>
               <Button 
                 onClick={() => onProofApprovalFlowChange('choosing_allocation')}

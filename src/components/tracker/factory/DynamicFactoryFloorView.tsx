@@ -50,11 +50,23 @@ export const DynamicFactoryFloorView = () => {
     }
   };
 
-  // Master queue consolidation - group jobs by consolidated stage names
+  // Simplified job grouping - group by stage name directly from jobs
   const dynamicJobGroups = useMemo(() => {
+    console.log('🔄 Creating simplified job groups:', {
+      jobCount: jobs?.length || 0,
+      permissionUsed: highestPermission
+    });
+    
     if (!jobs || jobs.length === 0) {
+      console.log('❌ No jobs available');
       return [];
     }
+
+    console.log('🔍 Sample job data:', jobs.slice(0, 3).map(job => ({
+      wo_no: job.wo_no,
+      current_stage_name: job.current_stage_name,
+      display_stage_name: job.display_stage_name
+    })));
 
     let filtered = jobs;
 
@@ -68,82 +80,68 @@ export const DynamicFactoryFloorView = () => {
         job.current_stage_name?.toLowerCase().includes(query) ||
         job.display_stage_name?.toLowerCase().includes(query)
       );
+      console.log('🔍 After search filter:', filtered.length);
     }
 
-    // Group jobs by their consolidated stage ID (master queue if subsidiary, otherwise regular stage)
+    // Group jobs by their display stage name (use display_stage_name for master queues)
     const stageJobGroups = new Map<string, AccessibleJob[]>();
     
     filtered.forEach(job => {
-      // Use display_stage_id for accurate grouping - this contains master queue ID for subsidiary stages
-      const stageId = job.display_stage_id || job.current_stage_id || 'unknown';
       const stageName = job.display_stage_name || job.current_stage_name || 'Unknown Stage';
       
-      // Use stage ID as the key for accurate grouping, but display with stage name
-      const groupKey = `${stageId}:${stageName}`;
-      if (!stageJobGroups.has(groupKey)) {
-        stageJobGroups.set(groupKey, []);
+      if (!stageJobGroups.has(stageName)) {
+        stageJobGroups.set(stageName, []);
       }
-      stageJobGroups.get(groupKey)!.push(job);
+      stageJobGroups.get(stageName)!.push(job);
     });
 
-    // Create job groups for each consolidated stage that has jobs and isn't hidden
+    console.log('📊 Stage job groups:', Array.from(stageJobGroups.entries()).map(([name, jobs]) => ({
+      stageName: name,
+      jobCount: jobs.length
+    })));
+
+    // Create job groups for each stage that has jobs and isn't hidden
     const jobGroups = [];
     
     Array.from(stageJobGroups.entries())
-      .filter(([groupKey]) => {
-        const stageName = groupKey.split(':')[1];
-        return !hiddenQueues.includes(stageName);
-      })
-      .forEach(([groupKey, stageJobs]) => {
-        const stageName = groupKey.split(':')[1];
+      .filter(([stageName]) => !hiddenQueues.includes(stageName))
+      .forEach(([stageName, stageJobs]) => {
         const stageNameLower = stageName.toLowerCase();
         let color = "bg-gray-600";
         
-        // Assign colors based on stage name patterns - prioritize master queue names
+        // Assign colors based on stage name patterns
         if (stageNameLower.includes('dtp')) {
           color = "bg-blue-600";
         } else if (stageNameLower.includes('proof')) {
           color = "bg-purple-600";
-        } else if (stageNameLower.includes('hp 12000') || stageNameLower.includes('12000')) {
+        } else if (stageNameLower.includes('12000')) {
           color = "bg-green-600";
-        } else if (stageNameLower.includes('hp 7900') || stageNameLower.includes('7900')) {
+        } else if (stageNameLower.includes('7900')) {
           color = "bg-emerald-600";
-        } else if (stageNameLower.includes('hp t250') || stageNameLower.includes('t250')) {
+        } else if (stageNameLower.includes('t250')) {
           color = "bg-teal-600";
         } else if (stageNameLower.includes('print')) {
           color = "bg-green-600";
         } else if (stageNameLower.includes('finishing')) {
           color = "bg-orange-600";
-        } else if (stageNameLower.includes('master queue')) {
-          color = "bg-indigo-600";
         }
-        
-        // Sort jobs by WO number for consistent ordering within each master queue
-        const sortedJobs = sortJobsByWONumber(stageJobs);
         
         jobGroups.push({
           title: stageName,
-          jobs: sortedJobs,
-          color,
-          // Add metadata for master queue information
-          hasSubsidiaryJobs: stageJobs.some(job => job.is_subsidiary_stage),
-          subsidiaryCount: stageJobs.filter(job => job.is_subsidiary_stage).length,
-          totalJobs: stageJobs.length
+          jobs: sortJobsByWONumber(stageJobs),
+          color
         });
+        
+        console.log('✅ Created job group:', stageName, 'with', stageJobs.length, 'jobs');
       });
+
+    console.log('✅ Final job groups created:', {
+      totalGroups: jobGroups.length,
+      groups: jobGroups.map(g => ({ title: g.title, count: g.jobs.length }))
+    });
 
     return jobGroups;
   }, [jobs, searchQuery, hiddenQueues, highestPermission]);
-
-  // Listen for job updates from action components
-  React.useEffect(() => {
-    const handleJobUpdate = () => {
-      refreshJobs();
-    };
-
-    window.addEventListener('job-updated', handleJobUpdate);
-    return () => window.removeEventListener('job-updated', handleJobUpdate);
-  }, [refreshJobs]);
 
   // Get list of unique stage names for toggle controls
   const availableStages = useMemo(() => {
@@ -258,11 +256,15 @@ export const DynamicFactoryFloorView = () => {
         </div>
       )}
 
-      {/* Job Groups - Responsive Layout */}
+      {/* Job Groups - Vertical Queues with Max 3 Columns */}
       <div className="flex-1 overflow-hidden">
-        {viewMode === 'card' ? (
-          <div className="h-full overflow-x-auto">
-            <div className="flex gap-4 p-4 min-w-max lg:min-w-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="h-full overflow-x-auto">
+          <div className="flex gap-4 p-4 min-w-max" style={{ 
+            maxWidth: viewMode === 'card' ? 'none' : '100%',
+            gridTemplateColumns: viewMode === 'card' ? 'repeat(auto-fit, minmax(320px, 1fr))' : 'none',
+            display: viewMode === 'card' ? 'grid' : 'flex'
+          }}>
+            <div className={`${viewMode === 'card' ? 'contents' : 'flex gap-4'} ${dynamicJobGroups.length > 3 ? 'overflow-x-auto' : ''}`}>
               <JobGroupsDisplay
                 jobGroups={dynamicJobGroups}
                 viewMode={viewMode}
@@ -273,20 +275,7 @@ export const DynamicFactoryFloorView = () => {
               />
             </div>
           </div>
-        ) : (
-          <div className="h-full overflow-y-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-4 max-w-none">
-              <JobGroupsDisplay
-                jobGroups={dynamicJobGroups}
-                viewMode={viewMode}
-                searchQuery={searchQuery}
-                onJobClick={handleJobClick}
-                onStart={startJob}
-                onComplete={completeJob}
-              />
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Job Modal */}

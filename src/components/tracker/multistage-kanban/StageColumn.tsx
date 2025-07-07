@@ -1,202 +1,265 @@
-import React, { useState, useMemo } from "react";
-import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
-import { Badge } from "@/components/ui/badge";
-import { ProductionJobCard } from "../ProductionJobCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, RefreshCw, Eye, Clock, AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
+
+// --- STAGE COLUMN REFACTOR (organize by view mode and factor out subcomponents/utils) ---
+import React, { useEffect, useState } from "react";
 import JobStageCard from "./JobStageCard";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { getDueInfo } from "./getDueInfo";
+import { StageColumnProps } from "./StageColumn.types";
+import SortableJobStageCard from "./SortableJobStageCard";
+import { sortJobStagesByOrder } from "@/utils/tracker/jobOrderingUtils";
+import type { DueInfo } from "./StageColumn.types";
 
-interface StageColumnProps {
-  stage: {
-    id: string;
-    name: string;
-    color: string;
-    order_index: number;
-    description?: string;
-    is_active: boolean;
-    is_virtual?: boolean;
-    is_multi_part: boolean;
-    part_definitions: string[];
-    master_queue_id?: string;
-  };
-  jobStages: any[];
-  onStageAction: (stageId: string, action: 'start' | 'complete' | 'scan') => void;
-  viewMode: 'card' | 'list';
-  enableDnd: boolean;
-  reorderRef: React.MutableRefObject<(newOrder: string[]) => void>;
-  onReorder: (newOrder: string[]) => void;
-  selectedJobId: string | null;
-  onSelectJob: (jobId: string) => void;
-  layout?: "horizontal" | "vertical";
-}
-
-const StageColumn = ({ 
-  stage, 
-  jobStages, 
-  onStageAction, 
-  viewMode, 
+const StageColumn: React.FC<StageColumnProps> = ({
+  stage,
+  jobStages,
+  onStageAction,
+  viewMode,
   enableDnd,
-  reorderRef,
   onReorder,
+  registerReorder,
   selectedJobId,
   onSelectJob,
-  layout = "horizontal"
-}: StageColumnProps) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+}) => {
+  // Store due info for each job stage
+  const [dueInfoMap, setDueInfoMap] = useState<Record<string, DueInfo>>({});
 
-  // Set up droppable area
-  const { setNodeRef, isOver } = useDroppable({
-    id: stage.id,
-  });
+  // Filter jobs for this stage and apply consistent sorting
+  const stageJobStages = React.useMemo(() => {
+    const filtered = jobStages.filter(js =>
+      js.production_stage_id === stage.id &&
+      js.status !== "completed" &&
+      js.status !== "skipped"
+    );
+    
+    // Use shared sorting utility for consistent ordering
+    return sortJobStagesByOrder(filtered);
+  }, [jobStages, stage.id]);
 
-  // Set up reorder ref for parent component
-  React.useEffect(() => {
-    reorderRef.current = (newOrder: string[]) => {
-      onReorder(newOrder);
-    };
-  }, [onReorder, reorderRef]);
-
-  // Prepare sortable items
-  const sortableIds = jobStages.map(js => js.id);
-
-  // Create due info map for all job stages
-  const dueInfoMap = useMemo(() => {
-    const map: Record<string, any> = {};
-    jobStages.forEach(jobStage => {
-      if (jobStage.production_job?.due_date) {
-        map[jobStage.id] = getDueInfo(jobStage.production_job.due_date);
+  // Load due info for all job stages
+  useEffect(() => {
+    const loadDueInfos = async () => {
+      const newDueInfoMap: Record<string, DueInfo> = {};
+      for (const jobStage of stageJobStages) {
+        const dueInfo = await getDueInfo(jobStage);
+        newDueInfoMap[jobStage.id] = dueInfo;
       }
-    });
-    return map;
-  }, [jobStages]);
+      setDueInfoMap(newDueInfoMap);
+    };
+    
+    if (stageJobStages.length > 0) {
+      loadDueInfos();
+    }
+  }, [stageJobStages]);
 
-  // Calculate stage stats
-  const activeJobs = jobStages.filter(js => js.status === 'active').length;
-  const pendingJobs = jobStages.filter(js => js.status === 'pending').length;
-  const urgentJobs = Object.values(dueInfoMap).filter((info: any) => info.warning).length;
+  useEffect(() => {
+    if (enableDnd && registerReorder && onReorder) {
+      registerReorder(onReorder);
+    }
+  }, [enableDnd, onReorder, registerReorder]);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    // Simulate refresh - in real app this would trigger a data reload
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setRefreshing(false);
-  };
+  const isJobHighlighted = (jobStage: any) => (
+    selectedJobId && jobStage.production_job?.id === selectedJobId
+  );
 
-  const isJobHighlighted = (jobStage: any) => {
-    return jobStage.production_job?.highlighted || false;
-  };
-
-  // Sequential workflow - no concurrent groups, just regular job stages
-  const regularJobStages = jobStages;
-
-  return (
-    <Card className={cn(
-      "flex-shrink-0 transition-all duration-200",
-      layout === "horizontal" ? "w-80" : "w-full mb-4",
-      isOver && "ring-2 ring-blue-500 shadow-lg",
-      stage.is_virtual && "border-orange-200 bg-orange-50/50"
-    )}>
-      <CardHeader className="pb-3 space-y-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="h-6 w-6 p-0 shrink-0"
-            >
-              {isCollapsed ? (
-                <ChevronRight className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </Button>
-            
-            <div
-              className="w-4 h-4 rounded-full flex-shrink-0"
-              style={{ backgroundColor: stage.color }}
-            />
-            
-            <CardTitle className="text-sm font-medium truncate">
-              {stage.name}
-            </CardTitle>
+  // --- Card & DnD view ---
+  if (viewMode === "card" && enableDnd) {
+    return (
+      <SortableContext
+        items={stageJobStages.map(jobStage => jobStage.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div
+          className="bg-gray-50 rounded-lg p-1 min-w-[280px] max-w-full flex flex-col h-[calc(80vh-90px)]"
+          style={{ width: 'auto' }}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
+              <span className="font-medium text-[11px]">{stage.name}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="bg-gray-100 text-[11px] px-1 rounded">{stageJobStages.length}</span>
+            </div>
           </div>
-
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {urgentJobs > 0 && (
-              <Badge variant="destructive" className="h-5 px-1.5 text-xs">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                {urgentJobs}
-              </Badge>
-            )}
-            
-            <Badge 
-              variant={activeJobs > 0 ? "default" : "secondary"} 
-              className="h-5 px-1.5 text-xs"
-            >
-              <Eye className="h-3 w-3 mr-1" />
-              {activeJobs}
-            </Badge>
-            
-            <Badge variant="outline" className="h-5 px-1.5 text-xs">
-              <Clock className="h-3 w-3 mr-1" />
-              {pendingJobs}
-            </Badge>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="h-6 w-6 p-0"
-            >
-              <RefreshCw className={cn("h-3 w-3", refreshing && "animate-spin")} />
-            </Button>
-          </div>
-        </div>
-        
-        {stage.description && !isCollapsed && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {stage.description}
-          </p>
-        )}
-      </CardHeader>
-
-      {!isCollapsed && (
-        <CardContent className="pt-0">
-          <div
-            ref={setNodeRef}
-            className={cn(
-              "transition-all duration-200",
-              layout === "horizontal" ? "min-h-[400px]" : "min-h-[200px]",
-              isOver && "bg-blue-50 rounded-lg"
-            )}
-          >
+          <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col gap-1">
-              {/* Sequential workflow - basic job stage display */}
-              {regularJobStages.map((jobStage) => (
-                <div key={jobStage.id} className="p-2 border rounded">
-                  {jobStage.production_job?.wo_no || 'Unknown Job'}
-                </div>
-              ))}
-              
-              {/* Remove SortableContext for now - DnD disabled */}
-              
-              {jobStages.length === 0 && (
-                <div className="text-center py-8 text-gray-400 text-sm">
-                  {isOver ? "Drop jobs here" : "No jobs in this stage"}
-                </div>
+              {stageJobStages.map(jobStage => {
+                const dueMeta = dueInfoMap[jobStage.id] || { color: "#9CA3AF", label: "Loading...", code: "gray" as const, warning: false };
+                return (
+                  <div
+                    key={jobStage.id}
+                    className={`relative ${isJobHighlighted(jobStage) ? "ring-2 ring-green-500 rounded-lg transition" : ""}`}
+                    onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
+                    tabIndex={0}
+                    style={{ cursor: "pointer", minHeight: 48 }}
+                  >
+                    <div className="absolute left-2 top-2 flex items-center z-10">
+                      <span
+                        className="inline-block rounded-full mr-1"
+                        style={{ width: 10, height: 10, background: dueMeta.color, border: dueMeta.warning ? "2px dashed #F59E42" : undefined }}
+                        title={dueMeta.label}
+                      />
+                    </div>
+                    {/* Use DnD wrapper */}
+                    <SortableJobStageCard 
+                      jobStage={jobStage}
+                      onStageAction={onStageAction}
+                      highlighted={!!isJobHighlighted(jobStage)}
+                      onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
+                    />
+                    <div className="absolute right-2 top-2">
+                      {jobStage.production_job?.due_date ? (
+                        <span
+                          className="px-1.5 py-0.5 rounded-full text-[11px] font-semibold text-white"
+                          style={{
+                            background: dueMeta.color,
+                            minWidth: 38,
+                            display: 'inline-block',
+                            textAlign: 'center',
+                            lineHeight: '16px'
+                          }}
+                          title={`Due: ${jobStage.production_job.due_date}`}
+                        >
+                          {jobStage.production_job.due_date}
+                        </span>
+                      ) : (
+                        <span
+                          className="px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500 text-white"
+                          style={{
+                            minWidth: 38,
+                            display: 'inline-block',
+                            textAlign: 'center',
+                            lineHeight: '16px'
+                          }}
+                          title="No due date: will be automatically set soon or needs repair"
+                        >No Due</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {stageJobStages.length === 0 && (
+                <div className="text-center py-4 text-gray-400 text-xs">No jobs</div>
               )}
             </div>
           </div>
-        </CardContent>
-      )}
-    </Card>
+        </div>
+      </SortableContext>
+    );
+  }
+
+  // --- Table/List view ---
+  return (
+    <div
+      className="bg-gray-50 rounded-lg p-1 min-w-[280px] max-w-full flex flex-col h-[calc(80vh-90px)]"
+      style={{ width: 'auto' }}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
+          <span className="font-medium text-[11px]">{stage.name}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="bg-gray-100 text-[11px] px-1 rounded">{stageJobStages.length}</span>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <table className="w-auto text-[12px] min-w-max" style={{ tableLayout: 'auto' }}>
+          <thead>
+            <tr className="text-[11px] text-gray-500 border-b">
+              <th className="text-left px-1 py-1 font-normal whitespace-nowrap">WO</th>
+              <th className="text-left px-0.5 py-1 font-normal whitespace-nowrap w-[100px] max-w-[120px]">Customer</th>
+              <th className="text-left px-0.5 py-1 font-normal whitespace-nowrap">Due</th>
+              <th className="text-left px-0.5 py-1 font-normal whitespace-nowrap">Status</th>
+              <th className="text-left px-0.5 py-1 font-normal whitespace-nowrap"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {stageJobStages.map(jobStage => {
+              const dueMeta = dueInfoMap[jobStage.id] || { color: "#9CA3AF", label: "Loading...", code: "gray" as const, warning: false };
+              const woNo = jobStage.production_job?.wo_no ?? "Orphaned";
+              const customer = jobStage.production_job?.customer ?? "Unknown";
+              return (
+                <tr
+                  key={jobStage.id}
+                  className={
+                    "hover:bg-green-50 transition group " +
+                    (isJobHighlighted(jobStage) ? "ring-2 ring-green-500 rounded" : "")
+                  }
+                  style={{ cursor: "pointer", minHeight: 34 }}
+                  onClick={() => onSelectJob && jobStage.production_job?.id && onSelectJob(jobStage.production_job.id)}
+                  tabIndex={0}
+                >
+                  <td className="px-1 whitespace-nowrap flex items-center gap-1">
+                    <span
+                      className="inline-block rounded-full"
+                      style={{ width: 9, height: 9, background: dueMeta.color, border: dueMeta.warning ? "2px dashed #F59E42" : undefined }}
+                      title={dueMeta.label}
+                    />
+                    <span className="truncate max-w-[65px]">{woNo}</span>
+                  </td>
+                  <td className="px-0.5 whitespace-nowrap max-w-[120px] truncate" style={{ width: "100px" }}>
+                    <span className="truncate">{customer}</span>
+                  </td>
+                  <td className="px-0.5 whitespace-nowrap">
+                    {jobStage.production_job?.due_date ? (
+                      <span
+                        className="px-1.5 py-0.5 rounded-full text-[11px] font-semibold text-white"
+                        style={{
+                          background: dueMeta.color,
+                          minWidth: 38,
+                          display: 'inline-block',
+                          textAlign: 'center',
+                          lineHeight: '16px'
+                        }}
+                        title={`Due: ${jobStage.production_job.due_date}`}
+                      >
+                        {jobStage.production_job.due_date}
+                      </span>
+                    ) : (
+                      <span
+                        className="px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500 text-white"
+                        style={{
+                          minWidth: 38,
+                          display: 'inline-block',
+                          textAlign: 'center',
+                          lineHeight: '16px'
+                        }}
+                        title="No due date: will be automatically set soon or needs repair"
+                      >No Due</span>
+                    )}
+                  </td>
+                  <td className="px-0.5 whitespace-nowrap">
+                    <span className={`inline-flex rounded px-1 text-[11px] ${jobStage.status === "active" ? "bg-blue-100 text-blue-700" : jobStage.status === "pending" ? "bg-yellow-50 text-yellow-800" : "bg-gray-100"}`}>
+                      {jobStage.status}
+                    </span>
+                  </td>
+                  <td className="px-0.5">
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                      {jobStage.status === "pending" && (
+                        <button title="Start" onClick={e => { e.stopPropagation(); onStageAction(jobStage.id, "start"); }} className="text-green-600 hover:text-green-700">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 3l14 9-14 9V3z" fill="currentColor" /></svg>
+                        </button>
+                      )}
+                      {jobStage.status === "active" && (
+                        <button title="Complete" onClick={e => { e.stopPropagation(); onStageAction(jobStage.id, "complete"); }} className="text-blue-600 hover:text-green-700">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {stageJobStages.length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-center py-5 text-xs text-gray-400">No jobs</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 };
 

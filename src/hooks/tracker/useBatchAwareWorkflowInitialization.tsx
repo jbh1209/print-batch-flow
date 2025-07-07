@@ -16,7 +16,7 @@ interface BatchWorkflowOptions {
  */
 export const useBatchAwareWorkflowInitialization = () => {
   const [isInitializing, setIsInitializing] = useState(false);
-  const { initializeStandardWorkflow, initializeCustomWorkflow } = useWorkflowInitializationCore();
+  const { initializeStandardWorkflow, initializeMultiPartWorkflow } = useWorkflowInitializationCore();
 
   const initializeBatchAwareWorkflow = useCallback(async (
     jobId: string,
@@ -127,7 +127,7 @@ export const useBatchAwareWorkflowInitialization = () => {
       });
 
       // Initialize the multi-part workflow
-      const success = await initializeStandardWorkflow(jobId, jobTableName, categoryId);
+      const success = await initializeMultiPartWorkflow(jobId, jobTableName, categoryId, partAssignments);
       
       if (!success) {
         throw new Error('Failed to initialize multi-part workflow');
@@ -165,7 +165,7 @@ export const useBatchAwareWorkflowInitialization = () => {
     } finally {
       setIsInitializing(false);
     }
-  }, [initializeStandardWorkflow]);
+  }, [initializeMultiPartWorkflow]);
 
   const repairBatchAwareWorkflow = useCallback(async (
     jobId: string,

@@ -84,63 +84,12 @@ const TrackerLabels = () => {
   const filteredJobs = jobs.filter(job => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    
-    // Enhanced barcode-aware search
-    const normalizedQuery = query.replace(/[^a-z0-9]/g, ''); // Remove special chars for barcode matching
-    const normalizedWoNo = job.wo_no.toLowerCase().replace(/[^a-z0-9]/g, '');
-    
     return (
       job.wo_no.toLowerCase().includes(query) ||
-      normalizedWoNo.includes(normalizedQuery) || // Flexible barcode matching
       job.customer?.toLowerCase().includes(query) ||
       job.status?.toLowerCase().includes(query)
     );
   });
-
-  const regenerateAllBarcodes = async () => {
-    const selectedJobsData = filteredJobs.filter(job => selectedJobs.has(job.id));
-    
-    if (selectedJobsData.length === 0) {
-      toast.error('No jobs selected');
-      return;
-    }
-
-    setGenerating(true);
-    try {
-      for (const job of selectedJobsData) {
-        const barcodeData = generateBarcodeData({
-          wo_no: job.wo_no,
-          job_id: job.id,
-          customer: job.customer,
-          due_date: job.due_date
-        });
-
-        const barcodeUrl = await generateBarcodeImage(barcodeData);
-
-        await supabase
-          .from('production_jobs')
-          .update({
-            qr_code_data: barcodeData,
-            qr_code_url: barcodeUrl
-          })
-          .eq('id', job.id);
-
-        // Update local state
-        setJobs(prev => prev.map(j => 
-          j.id === job.id 
-            ? { ...j, qr_code_data: barcodeData, qr_code_url: barcodeUrl }
-            : j
-        ));
-      }
-
-      toast.success(`Regenerated barcodes for ${selectedJobsData.length} jobs`);
-    } catch (error) {
-      console.error('Error regenerating barcodes:', error);
-      toast.error('Failed to regenerate barcodes');
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const generateMissingBarcodes = async () => {
     const jobsNeedingBarcode = filteredJobs.filter(job => !job.qr_code_url && selectedJobs.has(job.id));
@@ -403,19 +352,7 @@ const TrackerLabels = () => {
                   </Button>
                 )}
 
-                {selectedJobsData.length > 0 && (
-                  <Button 
-                    onClick={regenerateAllBarcodes}
-                    disabled={generating}
-                    variant="outline"
-                    className="w-full flex items-center gap-2"
-                  >
-                    <Barcode className="h-4 w-4" />
-                    {generating ? 'Regenerating...' : `Regenerate All ${selectedJobsData.length} Barcodes`}
-                  </Button>
-                )}
-
-                <Button
+                <Button 
                   onClick={downloadPDFLabels}
                   disabled={selectedJobsData.length === 0 || downloadingPDF}
                   className="w-full flex items-center gap-2"

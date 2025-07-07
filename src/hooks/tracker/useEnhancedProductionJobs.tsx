@@ -20,7 +20,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
     try {
       setError(null);
       setIsLoading(true);
-      
+      console.log("🔍 Fetching enhanced production jobs with centralized processor...", { fetchAllJobs, userId: user?.id });
 
       // Build the query - conditionally add user filter
       let query = supabase
@@ -48,7 +48,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
         throw new Error(`Failed to fetch jobs: ${fetchError.message}`);
       }
 
-      
+      console.log("📊 Raw jobs data:", jobsData?.length || 0, "jobs", { fetchAllJobs });
 
       if (!Array.isArray(jobsData)) {
         console.error("Expected array but got:", jobsData);
@@ -82,7 +82,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
           console.error("❌ Error fetching stages:", stagesError);
         } else {
           stagesData = stagesResult || [];
-          
+          console.log("📊 Job stage instances:", stagesData.length);
         }
       }
 
@@ -157,6 +157,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
       });
 
       // Use centralized processor to handle custom workflow dates consistently
+      console.log("🔧 Processing enhanced jobs with centralized processor...");
       const processedJobs = processJobsArray(enhancedJobsData);
 
       // Convert back to enhanced format with additional fields
@@ -178,7 +179,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
         };
       });
 
-      
+      console.log("✅ Enhanced production jobs processed with centralized processor:", finalJobs.length, "jobs");
       setJobs(finalJobs);
     } catch (err) {
       console.error('❌ Error fetching enhanced production jobs:', err);
@@ -192,7 +193,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
 
   const startStage = useCallback(async (jobId: string, stageId: string) => {
     try {
-      
+      console.log('Starting stage:', { jobId, stageId });
       
       const { error } = await supabase
         .from('job_stage_instances')
@@ -219,7 +220,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
 
   const completeStage = useCallback(async (jobId: string, stageId: string) => {
     try {
-      
+      console.log('Completing stage:', { jobId, stageId });
       
       const { error } = await supabase.rpc('advance_job_stage', {
         p_job_id: jobId,
@@ -241,7 +242,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
 
   const recordQRScan = useCallback(async (jobId: string, stageId: string, qrData?: any) => {
     try {
-      
+      console.log('Recording QR scan:', { jobId, stageId, qrData });
       
       const { error } = await supabase
         .from('job_stage_instances')
@@ -272,6 +273,7 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
 
   // Real-time subscription for production jobs
   useEffect(() => {
+    console.log("Setting up real-time subscription for enhanced production jobs");
 
     const channel = supabase
       .channel(`enhanced_production_jobs_global`)
@@ -282,7 +284,8 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
           schema: 'public',
           table: 'production_jobs',
         },
-        () => {
+        (payload) => {
+          console.log('Production jobs changed:', payload.eventType);
           fetchJobs(); // Refetch to get updated data with relations
         }
       )
@@ -293,13 +296,15 @@ export const useEnhancedProductionJobs = (options: UseEnhancedProductionJobsOpti
           schema: 'public',
           table: 'job_stage_instances',
         },
-        () => {
+        (payload) => {
+          console.log('Job stage instances changed:', payload.eventType);
           fetchJobs(); // Refetch to get updated workflow data
         }
       )
       .subscribe();
 
     return () => {
+      console.log("Cleaning up enhanced production jobs real-time subscription");
       supabase.removeChannel(channel);
     };
   }, [fetchJobs]);

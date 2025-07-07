@@ -31,9 +31,7 @@ export const useDtpJobModal = (job: AccessibleJob, isOpen: boolean) => {
     const stageName = job.current_stage_name?.toLowerCase() || '';
     if (stageName.includes('dtp')) return 'dtp';
     if (stageName.includes('proof')) return 'proof';
-    if (stageName.includes('printing')) return 'printing';
-    // For all other stages (finishing, packaging, etc.), return 'printing' to use standard job actions
-    return 'printing';
+    return 'unknown';
   }, [job.current_stage_name]);
 
   const getStageStatus = useCallback(() => {

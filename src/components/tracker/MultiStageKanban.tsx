@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { MultiStageKanbanHeader } from "./MultiStageKanbanHeader";
 import { MultiStageKanbanColumns } from "./MultiStageKanbanColumns";
-// Sequential workflow - remove concurrent stage import
+import { MultiStageKanbanColumnsProps } from "./MultiStageKanban.types";
 
 export const MultiStageKanban = () => {
   const { jobs, isLoading: jobsLoading, error: jobsError, refreshJobs } = useAccessibleJobs({
@@ -61,27 +61,9 @@ export const MultiStageKanban = () => {
     getStageMetrics 
   } = useRealTimeJobStages(activeJobs);
 
-  // Enhanced stages list with master queue consolidation
+  // Enhanced stages list to include virtual batch processing stage
   const enhancedStages = React.useMemo(() => {
-    console.log('🔄 MultiStageKanban: Processing stages for display', {
-      totalStages: stages.length,
-      stageNames: stages.map(s => s.name)
-    });
-    
-    // Create consolidated stage list with master queue logic
-    const consolidatedStages = stages
-      .filter(stage => {
-        // Show master queues, but hide stages that have master queues
-        if (stage.master_queue_id) {
-          console.log(`🚫 Hiding stage "${stage.name}" - has master queue`);
-          return false;
-        }
-        return stage.is_active;
-      })
-      .map(stage => {
-        console.log(`✅ Including stage "${stage.name}"`);
-        return stage;
-      });
+    const baseStages = [...stages];
     
     // Add virtual "In Batch Processing" stage if we have jobs in that status
     const batchProcessingJobs = activeJobs.filter(job => job.status === 'In Batch Processing');
@@ -91,7 +73,7 @@ export const MultiStageKanban = () => {
         id: 'virtual-batch-processing',
         name: 'In Batch Processing',
         color: '#F59E0B',
-        order_index: 999,
+        order_index: 999, // Place at end
         description: 'Jobs currently being processed in BatchFlow',
         is_active: true,
         is_virtual: true,
@@ -101,16 +83,11 @@ export const MultiStageKanban = () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      consolidatedStages.push(virtualBatchStage);
+      
+      baseStages.push(virtualBatchStage);
     }
     
-    console.log('✅ MultiStageKanban: Enhanced stages ready', {
-      consolidatedStageCount: consolidatedStages.length,
-      virtualStages: consolidatedStages.filter(s => 'is_virtual' in s && s.is_virtual).length,
-      hiddenStages: stages.filter(s => s.master_queue_id).length
-    });
-    
-    return consolidatedStages.sort((a, b) => a.order_index - b.order_index);
+    return baseStages.sort((a, b) => a.order_index - b.order_index);
   }, [stages, activeJobs]);
 
   // Enhanced job stages to include virtual batch processing instances
@@ -127,7 +104,7 @@ export const MultiStageKanban = () => {
         job_table_name: 'production_jobs',
         production_stage_id: 'virtual-batch-processing',
         stage_order: 999,
-        job_order_in_stage: index + 1,
+        job_order_in_stage: index + 1, // Add the missing required property
         status: 'active',
         started_at: new Date().toISOString(),
         production_job: {
@@ -142,12 +119,6 @@ export const MultiStageKanban = () => {
           color: '#F59E0B'
         }
       });
-    });
-    
-    // Group concurrent stages correctly
-    console.log('🔄 Processing job stages for concurrent grouping', {
-      totalStages: baseJobStages.length,
-      concurrentStages: 0 // Sequential workflow only
     });
     
     return baseJobStages;
@@ -180,29 +151,15 @@ export const MultiStageKanban = () => {
       if (stageId.startsWith('virtual-batch-')) {
         const jobId = stageId.replace('virtual-batch-', '');
         if (action === 'complete') {
+          // Here we would integrate with batch completion logic
           toast.info('Batch processing completion - integrate with BatchFlow');
         }
         return;
       }
       
-      // Find the stage instance to check if it's part of a concurrent group
-      const stageInstance = enhancedJobStages.find(js => js.id === stageId);
-      const isConcurrentStage = false; // Sequential workflow only
-      
-      if (action === 'start') {
-        if (isConcurrentStage) {
-          console.log('🚀 Starting concurrent stage group for job:', stageInstance.job_id);
-          // For concurrent stages, the enhanced advance_job_stage function will activate all in the group
-          await startStage(stageId);
-        } else {
-          await startStage(stageId);
-        }
-      } else if (action === 'complete') {
-        console.log('✅ Completing stage:', stageId, isConcurrentStage ? '(concurrent)' : '(single)');
-        await completeStage(stageId);
-      } else if (action === 'scan') {
-        toast.info('QR Scanner would open here');
-      }
+      if (action === 'start') await startStage(stageId);
+      else if (action === 'complete') await completeStage(stageId);
+      else if (action === 'scan') toast.info('QR Scanner would open here');
       
       refreshJobs();
     } catch (err) {

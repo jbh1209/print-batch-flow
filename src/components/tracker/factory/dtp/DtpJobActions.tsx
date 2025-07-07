@@ -4,7 +4,6 @@ import { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 import { JobActionButtons } from "../../common/JobActionButtons";
 import { DtpStageActions } from "./DtpStageActions";
 import { ProofStageActions } from "./ProofStageActions";
-import { PrintingStageActions } from "./PrintingStageActions";
 
 interface StageInstance {
   id: string;
@@ -19,7 +18,7 @@ type ProofApprovalFlow = 'pending' | 'choosing_allocation' | 'batch_allocation' 
 
 interface DtpJobActionsProps {
   job: AccessibleJob;
-  currentStage: 'dtp' | 'proof' | 'printing' | 'unknown';
+  currentStage: 'dtp' | 'proof' | 'unknown';
   stageStatus: string;
   stageInstance: StageInstance | null;
   proofApprovalFlow: ProofApprovalFlow;
@@ -99,23 +98,6 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
     );
   }
 
-  if (currentStage === 'printing') {
-    return (
-      <PrintingStageActions
-        job={job}
-        stageStatus={stageStatus}
-        notes={notes}
-        isLoading={isLoading}
-        onStart={onStart}
-        onComplete={onComplete}
-        onRefresh={onRefresh}
-        onClose={onClose}
-        onJobStatusUpdate={onJobStatusUpdate}
-        onModalDataRefresh={onModalDataRefresh}
-      />
-    );
-  }
-
   // Fallback: Show universal job action buttons if no specific actions
   if (job.current_stage_id) {
     return (
@@ -126,9 +108,7 @@ export const DtpJobActions: React.FC<DtpJobActionsProps> = ({
         onJobUpdated={onRefresh}
         size="default"
         layout="vertical"
-        showHold={true}
-        showExpedite={false} // Only managers and admins should see expedite
-        showBatchSplit={false} // Don't show batch split in modal fallback
+        showExpedite={true}
       />
     );
   }

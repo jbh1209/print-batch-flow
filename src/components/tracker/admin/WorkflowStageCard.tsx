@@ -16,7 +16,7 @@ interface WorkflowStageCardProps {
     is_required: boolean;
     applies_to_parts: string[];
     part_rule_type: 'all_parts' | 'specific_parts' | 'exclude_parts';
-    // Sequential workflow - no parts
+    part_name?: string; // For job instances
     production_stage: {
       id: string;
       name: string;
@@ -71,12 +71,59 @@ export const WorkflowStageCard = ({
   };
 
   const getPartRuleDescription = () => {
-    // Sequential workflow - no part rules needed
+    const { part_rule_type, applies_to_parts, production_stage } = stage;
+    
+    // If this is a job instance with a specific part assigned, show that
+    if (isJobInstance && stage.part_name) {
+      return `Part: ${stage.part_name}`;
+    }
+    
+    // If not multi-part or job instance without specific part, don't show part info
+    if (!production_stage.is_multi_part || (isJobInstance && !stage.part_name)) {
+      return null;
+    }
+
+    // For workflow template configuration, show the rules
+    if (!isJobInstance) {
+      switch (part_rule_type) {
+        case 'specific_parts':
+          return applies_to_parts.length > 0 
+            ? `Only: ${applies_to_parts.join(', ')}`
+            : null; // Don't show "No parts selected" - just show nothing
+        case 'exclude_parts':
+          return applies_to_parts.length > 0 
+            ? `All except: ${applies_to_parts.join(', ')}`
+            : 'All parts';
+        default:
+          return null;
+      }
+    }
+
     return null;
   };
 
   const getEffectiveParts = () => {
-    // Sequential workflow - no parts to return
+    const { part_rule_type, applies_to_parts, production_stage } = stage;
+    
+    // If this is a job instance with a specific part, show that part
+    if (isJobInstance && stage.part_name) {
+      return [stage.part_name];
+    }
+    
+    // For workflow templates, show the configured parts
+    if (!isJobInstance && production_stage.is_multi_part) {
+      switch (part_rule_type) {
+        case 'all_parts':
+          return production_stage.part_definitions;
+        case 'specific_parts':
+          return applies_to_parts;
+        case 'exclude_parts':
+          return production_stage.part_definitions.filter(part => !applies_to_parts.includes(part));
+        default:
+          return [];
+      }
+    }
+    
     return [];
   };
 

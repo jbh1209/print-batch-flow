@@ -79,14 +79,15 @@ export const assignJobCategory = async (
   let initSuccess = false;
   
   if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
-    const { error } = await supabase.rpc('initialize_job_stages', {
+    const { error: multiPartError } = await supabase.rpc('initialize_job_stages_with_part_assignments', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
-      p_category_id: selectedCategoryId
+      p_category_id: selectedCategoryId,
+      p_part_assignments: partAssignments
     });
 
-    if (error) {
-      throw new Error(`Workflow initialization failed: ${error.message}`);
+    if (multiPartError) {
+      throw new Error(`Multi-part workflow failed: ${multiPartError.message}`);
     } else {
       initSuccess = true;
     }

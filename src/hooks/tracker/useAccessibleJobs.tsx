@@ -25,6 +25,12 @@ export const useAccessibleJobs = ({
         throw new Error('User not authenticated');
       }
 
+      console.log('🔄 Fetching accessible jobs with params:', {
+        userId: user.id,
+        permissionType,
+        statusFilter
+      });
+
       const { data, error } = await supabase.rpc('get_user_accessible_jobs_with_conditional_stages', {
         p_user_id: user.id,
         p_permission_type: permissionType,
@@ -33,7 +39,7 @@ export const useAccessibleJobs = ({
       });
 
       if (error) {
-        console.error('Error fetching accessible jobs:', error);
+        console.error('❌ Error fetching accessible jobs:', error);
         throw error;
       }
 
@@ -46,7 +52,6 @@ export const useAccessibleJobs = ({
   });
 
   // Enhanced job processing with batch master job support
-  // Enhanced job processing with concurrent multi-part support
   const jobs: AccessibleJob[] = useMemo(() => {
     if (!rawJobs || rawJobs.length === 0) return [];
 
@@ -64,9 +69,6 @@ export const useAccessibleJobs = ({
         displayStage = 'In Batch Processing';
         stageColor = '#F59E0B'; // Orange color for batch processing
       }
-
-      // Handle concurrent parts - add part name to display stage if present
-      // Simple sequential workflow - no part names
 
       const processedJob: AccessibleJob = {
         job_id: job.job_id,
@@ -99,21 +101,8 @@ export const useAccessibleJobs = ({
         batch_category: (job as any).batch_category || null,
         is_in_batch_processing: job.status === 'In Batch Processing',
         has_custom_workflow: (job as any).has_custom_workflow || false,
-        manual_due_date: (job as any).manual_due_date || null,
-        // Master queue consolidation properties
-        is_subsidiary_stage: (job as any).is_subsidiary_stage || false,
-        master_queue_stage_id: (job as any).master_queue_stage_id || null,
-        display_stage_id: (job as any).display_stage_id || null,
-        // Concurrent part fields
-        part_name: null,
-        concurrent_stage_group_id: null,
-        is_concurrent_part: false
+        manual_due_date: (job as any).manual_due_date || null
       };
-
-      // Simple sequential workflow - use job_id directly
-      const uniqueId = job.job_id;
-      
-      processedJob.id = uniqueId;
 
       // Check if this is a batch master job (wo_no starts with "BATCH-")
       if (processedJob.wo_no.startsWith('BATCH-')) {
@@ -154,6 +143,8 @@ export const useAccessibleJobs = ({
 
   const startJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
+      console.log('🔄 Starting job stage:', { jobId, stageId });
+
       if (!stageId) {
         const job = jobs.find(j => j.job_id === jobId);
         stageId = job?.current_stage_id;
@@ -179,13 +170,15 @@ export const useAccessibleJobs = ({
       await refreshJobs();
       return true;
     } catch (error) {
-      console.error('Error starting job:', error);
+      console.error('❌ Error starting job:', error);
       return false;
     }
   }, [jobs, user?.id]);
 
   const completeJob = useCallback(async (jobId: string, stageId?: string): Promise<boolean> => {
     try {
+      console.log('🔄 Completing job stage:', { jobId, stageId });
+
       if (!stageId) {
         const job = jobs.find(j => j.job_id === jobId);
         stageId = job?.current_stage_id;
@@ -207,16 +200,18 @@ export const useAccessibleJobs = ({
       await refreshJobs();
       return true;
     } catch (error) {
-      console.error('Error completing job:', error);
+      console.error('❌ Error completing job:', error);
       return false;
     }
   }, [jobs, user?.id]);
 
   const refreshJobs = useCallback(() => {
+    console.log('🔄 Refreshing accessible jobs...');
     return refetch();
   }, [refetch]);
 
   const invalidateCache = useCallback(() => {
+    console.log('🗑️ Invalidating accessible jobs cache...');
     queryClient.invalidateQueries({ 
       queryKey: ['accessible-jobs', user?.id] 
     });

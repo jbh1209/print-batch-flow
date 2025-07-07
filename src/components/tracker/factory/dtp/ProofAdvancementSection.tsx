@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
-// Sequential workflow - remove part printing import
+import { PartPrintingStageSelector } from "../PartPrintingStageSelector";
 
 interface PrintingStage {
   id: string;
@@ -41,11 +41,21 @@ export const ProofAdvancementSection: React.FC<ProofAdvancementSectionProps> = (
 }) => {
   if (showPartSelector) {
     return (
-        <div className="space-y-3">
-          <div className="text-sm text-muted-foreground">
-            Sequential workflow - part selection not available
-          </div>
-        </div>
+      <div className="space-y-3">
+        <PartPrintingStageSelector
+          availableParts={jobParts}
+          onPartAssignmentsChange={onPartAssignmentsChange}
+          initialAssignments={partAssignments}
+        />
+        <Button 
+          onClick={onAdvanceToPartSpecificPrinting}
+          disabled={Object.keys(partAssignments).length !== jobParts.length || isAssigning}
+          className="w-full"
+        >
+          <ArrowRight className="h-4 w-4 mr-1" />
+          Advance to Part-Specific Printing
+        </Button>
+      </div>
     );
   }
 

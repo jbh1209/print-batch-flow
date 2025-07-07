@@ -9,10 +9,11 @@ export interface BarcodeData {
 }
 
 export const generateBarcodeData = (jobData: BarcodeData): string => {
-  // Use only the work order number for shorter, cleaner barcodes
-  // This reduces barcode density and improves scanning reliability
+  // Create a unique barcode using work order number and job ID
+  // Format: WO{wo_no}J{first_8_chars_of_job_id}
+  const shortJobId = jobData.job_id.substring(0, 8).toUpperCase();
   const woNumber = jobData.wo_no.replace(/[^A-Z0-9]/gi, ''); // Remove special characters
-  return woNumber;
+  return `WO${woNumber}J${shortJobId}`;
 };
 
 export const generateBarcodeImage = async (data: string): Promise<string> => {
@@ -43,12 +44,12 @@ export const generateBarcodeImage = async (data: string): Promise<string> => {
 
 export const parseBarcodeData = (barcodeData: string): { wo_no: string; job_id_partial: string } | null => {
   try {
-    // Parse the new simplified barcode format - just the work order number
-    const cleanedWoNo = barcodeData.replace(/[^A-Z0-9]/gi, ''); // Remove any special characters
-    if (cleanedWoNo && cleanedWoNo.length > 0) {
+    // Parse the barcode format: WO{wo_no}J{job_id_partial}
+    const match = barcodeData.match(/^WO(.+)J([A-Z0-9]{8})$/);
+    if (match) {
       return {
-        wo_no: cleanedWoNo,
-        job_id_partial: '' // No job ID in the new format
+        wo_no: match[1],
+        job_id_partial: match[2]
       };
     }
     return null;

@@ -42,36 +42,40 @@ export const JobGroupsDisplay: React.FC<JobGroupsDisplayProps> = ({
 
   if (viewMode === 'card') {
     return (
-      <>
-        {jobGroups.map(group => (
-          <MasterQueueRenderer
-            key={group.title}
-            jobGroup={group}
-            viewMode={viewMode}
-            onJobClick={onJobClick}
-            onStart={onStart}
-            onComplete={onComplete}
-          />
-        ))}
-      </>
+      <div className="h-full overflow-x-auto">
+        <div className="flex gap-4 p-4 min-w-max lg:min-w-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {jobGroups.map(group => (
+            <MasterQueueRenderer
+              key={group.title}
+              jobGroup={group}
+              viewMode={viewMode}
+              onJobClick={onJobClick}
+              onStart={onStart}
+              onComplete={onComplete}
+            />
+          ))}
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
-      {jobGroups.map(group => {
-        console.log('🎨 Rendering list group:', group.title, 'Jobs:', group.jobs.length);
-        return (
-          <MasterQueueRenderer
-            key={group.title}
-            jobGroup={group}
-            viewMode={viewMode}
-            onJobClick={onJobClick}
-            onStart={onStart}
-            onComplete={onComplete}
-          />
-        );
-      })}
-    </>
+    <ScrollArea className="h-full">
+      <div className="p-4 space-y-6">
+        {jobGroups.map(group => {
+          console.log('🎨 Rendering list group:', group.title, 'Jobs:', group.jobs.length);
+          return (
+            <MasterQueueRenderer
+              key={group.title}
+              jobGroup={group}
+              viewMode={viewMode}
+              onJobClick={onJobClick}
+              onStart={onStart}
+              onComplete={onComplete}
+            />
+          );
+        })}
+      </div>
+    </ScrollArea>
   );
 };

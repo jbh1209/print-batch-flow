@@ -1,5 +1,4 @@
 
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useWorkflowInitialization } from "@/hooks/tracker/useWorkflowInitialization";
 
@@ -9,7 +8,7 @@ export const useEnhancedTableBusinessLogic = (
 ) => {
   const { 
     initializeWorkflow, 
-    initializeCustomWorkflowWithStages,
+    initializeWorkflowWithPartAssignments,
     repairJobWorkflow,
     isInitializing 
   } = useWorkflowInitialization();
@@ -81,26 +80,44 @@ export const useEnhancedTableBusinessLogic = (
     partAssignments?: Record<string, string>
   ): Promise<boolean> => {
     try {
-      console.log(`🔧 Processing job ${job.id}...`, { categoryId: categoryId.substring(0, 8) });
-      
-      // Check if job already has workflow stages
-      const { data: existingStages, error: stageCheckError } = await supabase
-        .from('job_stage_instances')
-        .select('id')
-        .eq('job_id', job.id)
-        .eq('job_table_name', 'production_jobs')
-        .limit(1);
+      console.log('🔄 Completing category assignment...', { 
+        jobId: job.id, 
+        categoryId, 
+        partAssignments 
+      });
 
-      if (stageCheckError) {
-        throw new Error(`Stage check failed: ${stageCheckError.message}`);
+      // Check if the job already has a category and stages
+      const hasExistingCategory = job.category_id === categoryId;
+      const hasStages = job.current_stage_id && job.current_stage_id !== '00000000-0000-0000-0000-000000000000';
+
+      if (hasExistingCategory && hasStages) {
+        console.log('ℹ️ Job already has this category and workflow stages');
+        toast.info('Job already has this category assigned with active workflow');
+        return true;
       }
 
-      if (existingStages && existingStages.length > 0) {
-        console.log(`ℹ️ Job ${job.id} already has workflow stages`);
-        return false; // Already assigned
+      // If job has the category but no stages, repair the workflow
+      if (hasExistingCategory && !hasStages) {
+        console.log('🔧 Job has category but no stages - repairing workflow');
+        const success = await repairJobWorkflow(job.id, 'production_jobs', categoryId);
+        if (success) {
+          refreshJobs();
+        }
+        return success;
       }
 
-      const success = await repairJobWorkflow(job.id, 'production_jobs', categoryId);
+      // Initialize workflow based on whether part assignments are provided
+      let success: boolean;
+      if (partAssignments && Object.keys(partAssignments).length > 0) {
+        success = await initializeWorkflowWithPartAssignments(
+          job.id,
+          'production_jobs',
+          categoryId,
+          partAssignments
+        );
+      } else {
+        success = await initializeWorkflow(job.id, 'production_jobs', categoryId);
+      }
 
       if (success) {
         console.log('✅ Category assignment and workflow initialization completed');

@@ -58,10 +58,12 @@ export const useUserRole = (): UserRoleResponse => {
     const determineUserRole = async () => {
       // Wait for auth to complete first
       if (authLoading) {
+        console.log('🔄 Auth still loading, waiting...');
         return;
       }
 
       if (!user?.id) {
+        console.log('🔄 No user found, setting default role');
         setUserRole('user');
         setIsLoading(false);
         return;
@@ -69,6 +71,7 @@ export const useUserRole = (): UserRoleResponse => {
 
       try {
         setIsLoading(true);
+        console.log('🔄 Determining role for user:', user.id);
 
         // Check for admin role first - this takes precedence over all other roles
         const { data: userRoles, error: roleError } = await supabase
@@ -85,6 +88,7 @@ export const useUserRole = (): UserRoleResponse => {
 
         const hasAdminRole = userRoles?.some(r => r.role === 'admin');
         if (hasAdminRole) {
+          console.log('🔑 User determined as admin');
           setUserRole('admin');
           setAccessibleStages([]);
           setIsLoading(false);
@@ -131,6 +135,14 @@ export const useUserRole = (): UserRoleResponse => {
         // Enhanced role detection logic with fallbacks
         const groupNames = groupMemberships?.map(m => m.user_groups?.name?.toLowerCase() || '') || [];
         const groupDescriptions = groupMemberships?.map(m => m.user_groups?.description?.toLowerCase() || '') || [];
+        
+        console.log('🔍 User group analysis:', {
+          userId: user.id,
+          groupNames,
+          groupDescriptions,
+          totalStages: normalizedStages.length,
+          workableStages: normalizedStages.filter(s => s.can_work).length
+        });
 
         // Check for manager role in group names or descriptions
         const isManager = groupNames.some(name => 
@@ -143,6 +155,7 @@ export const useUserRole = (): UserRoleResponse => {
         );
 
         if (isManager) {
+          console.log('🔑 User determined as manager');
           setUserRole('manager');
           setIsLoading(false);
           return;
@@ -176,12 +189,23 @@ export const useUserRole = (): UserRoleResponse => {
           name.includes('production')
         );
 
+        console.log('🧑‍💻 Enhanced operator analysis:', {
+          workableStages: workableStages.length,
+          dtpStages: dtpRelatedStages.length,
+          printingStages: printingRelatedStages.length,
+          isInOperatorGroup,
+          stageNames: workableStages.map(s => s.stage_name)
+        });
+
         // Role determination with enhanced logic and fallbacks
         if (dtpRelatedStages.length > 0 && (dtpRelatedStages.length >= printingRelatedStages.length || groupNames.includes('dtp'))) {
+          console.log('🔑 User determined as dtp_operator');
           setUserRole('dtp_operator');
         } else if (workableStages.length > 0 || isInOperatorGroup) {
+          console.log('🔑 User determined as operator');
           setUserRole('operator');
         } else {
+          console.log('🔑 User determined as user (default)');
           setUserRole('user');
         }
 

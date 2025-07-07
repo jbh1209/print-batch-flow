@@ -47,18 +47,28 @@ export const generateBarcodeLabelPDF = async (jobs: BarcodeLabelData[]): Promise
       const barcodeImageBytes = await fetch(barcodeDataURL).then(res => res.arrayBuffer());
       const barcodeImage = await pdfDoc.embedPng(barcodeImageBytes);
       
-      // Order number at the top (ensure D prefix) - moved down by 8mm
+      // Draw label border for visual clarity
+      currentPage.drawRectangle({
+        x: 0,
+        y: 0,
+        width: labelWidth,
+        height: labelHeight,
+        borderColor: rgb(0, 0, 0),
+        borderWidth: 1,
+      });
+
+      // Order number at the top (ensure D prefix)
       const orderNumber = job.wo_no.startsWith('D') ? job.wo_no : `D${job.wo_no}`;
       currentPage.drawText(orderNumber, {
         x: labelWidth / 2 - boldFont.widthOfTextAtSize(orderNumber, 14) / 2,
-        y: labelHeight - 15 - mmToPoints(8), // moved down by 8mm
+        y: labelHeight - 15,
         size: 14,
         font: boldFont,
         color: rgb(0, 0, 0),
       });
 
-      // Barcode - centered, 20% wider for better scanning
-      const barcodeWidth = mmToPoints(84); // 84mm barcode width (70 * 1.2)
+      // Barcode - centered
+      const barcodeWidth = mmToPoints(70); // 70mm barcode width
       const barcodeHeight = mmToPoints(20); // 20mm barcode height
       const barcodeX = (labelWidth - barcodeWidth) / 2;
       const barcodeY = (labelHeight - barcodeHeight) / 2 - 2;
@@ -70,8 +80,8 @@ export const generateBarcodeLabelPDF = async (jobs: BarcodeLabelData[]): Promise
         height: barcodeHeight,
       });
 
-      // Additional info at bottom if available - moved up by 8mm
-      let bottomY = 8 + mmToPoints(8); // moved up by 8mm
+      // Additional info at bottom if available
+      let bottomY = 8;
       
       if (job.customer) {
         const customerText = job.customer.length > 30 ? 
@@ -103,11 +113,20 @@ export const generateBarcodeLabelPDF = async (jobs: BarcodeLabelData[]): Promise
     } catch (error) {
       console.error(`Error generating barcode for job ${job.wo_no}:`, error);
       
-      // Draw error placeholder with order number - no border
+      // Draw error placeholder with order number
+      currentPage.drawRectangle({
+        x: 0,
+        y: 0,
+        width: labelWidth,
+        height: labelHeight,
+        borderColor: rgb(1, 0, 0),
+        borderWidth: 1,
+      });
+      
       const errorOrderNumber = job.wo_no.startsWith('D') ? job.wo_no : `D${job.wo_no}`;
       currentPage.drawText(errorOrderNumber, {
         x: labelWidth / 2 - boldFont.widthOfTextAtSize(errorOrderNumber, 14) / 2,
-        y: labelHeight - 15 - mmToPoints(8), // moved down by 8mm to match success case
+        y: labelHeight - 15,
         size: 14,
         font: boldFont,
         color: rgb(0, 0, 0),

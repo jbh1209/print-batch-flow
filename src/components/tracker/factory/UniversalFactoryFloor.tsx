@@ -4,14 +4,12 @@ import { useAccessibleJobs } from "@/hooks/tracker/useAccessibleJobs";
 import { useJobActions } from "@/hooks/tracker/useAccessibleJobs/useJobActions";
 import { useUserRole } from "@/hooks/tracker/useUserRole";
 import { useSmartPermissionDetection } from "@/hooks/tracker/useSmartPermissionDetection";
-import { usePrintingOperatorStages, useContextAwareStages } from "@/hooks/tracker/useContextAwareStages";
 import { OperatorHeader } from "./OperatorHeader";
 import { QueueFilters } from "./QueueFilters";
 import { JobGroupsDisplay } from "./JobGroupsDisplay";
 import { DtpJobModal } from "./DtpJobModal";
 import { JobListLoading, JobErrorState } from "../common/JobLoadingStates";
 import { categorizeJobs, sortJobsByWONumber } from "@/utils/tracker/jobProcessing";
-import { applyContextJobFiltering } from "@/utils/tracker/contextJobFiltering";
 import { toast } from "sonner";
 import type { AccessibleJob } from "@/hooks/tracker/useAccessibleJobs";
 
@@ -19,12 +17,9 @@ export const UniversalFactoryFloor = () => {
   const { isDtpOperator, isOperator } = useUserRole();
   const { highestPermission, isLoading: permissionLoading } = useSmartPermissionDetection();
   
-  // Get context-aware stages to determine what the user should see
-  const { contextStages, userContext, isAdmin } = useContextAwareStages();
-  
   // Use smart permission detection for optimal job access
   const { jobs, isLoading, error, refreshJobs } = useAccessibleJobs({
-    permissionType: highestPermission
+    permissionType: highestPermission // Let the database function handle all the filtering
   });
   
   const { startJob, completeJob } = useJobActions(refreshJobs);
@@ -50,14 +45,12 @@ export const UniversalFactoryFloor = () => {
     }
   };
 
-  // Context-aware filtering and categorization based on user role
+  // Simple filtering and categorization - let the jobs come pre-filtered from the database
   const { dtpJobs, proofJobs, hp12000Jobs, hp7900Jobs, hpT250Jobs, finishingJobs, otherJobs } = useMemo(() => {
-    console.log('🔄 Processing jobs with context-aware filtering:', {
+    console.log('🔄 Processing jobs with simplified logic:', {
       jobCount: jobs?.length || 0,
-      userContext,
-      stageCount: contextStages.length,
       permissionUsed: highestPermission,
-      isAdmin
+      permissionLoading
     });
     
     if (!jobs || jobs.length === 0) {
@@ -74,7 +67,7 @@ export const UniversalFactoryFloor = () => {
     }
 
     let filtered = jobs;
-    console.log('📋 Starting with jobs:', filtered.length, 'Context:', userContext, 'Stages:', contextStages.length);
+    console.log('📋 Starting with jobs:', filtered.length, 'using permission:', highestPermission);
 
     // Apply simple search filter
     if (searchQuery.trim()) {
@@ -117,10 +110,6 @@ export const UniversalFactoryFloor = () => {
       console.log('🎯 After queue filter:', filtered.length);
     }
 
-    // Apply context-aware job filtering based on user role - already filtered by database
-    // Jobs coming from database are already permission-filtered
-    console.log('✅ Jobs already filtered by database permissions:', filtered.length);
-    
     // Categorize the filtered jobs
     const categories = categorizeJobs(filtered);
     
@@ -134,9 +123,7 @@ export const UniversalFactoryFloor = () => {
       otherJobs: sortJobsByWONumber(categories.otherJobs)
     };
 
-    console.log('✅ Context-aware job categorization complete:', {
-      userContext,
-      stagesAvailable: contextStages.length,
+    console.log('✅ Simplified job categorization complete:', {
       permission: highestPermission,
       dtp: result.dtpJobs.length,
       proof: result.proofJobs.length,
@@ -149,7 +136,7 @@ export const UniversalFactoryFloor = () => {
     });
 
     return result;
-  }, [jobs, searchQuery, activeQueueFilters, userContext, contextStages, highestPermission, isAdmin]);
+  }, [jobs, searchQuery, activeQueueFilters, highestPermission, permissionLoading]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -193,44 +180,38 @@ export const UniversalFactoryFloor = () => {
     );
   }
 
-  // Context-aware job groups configuration based on filtered stages
+  // Simple job groups configuration
   const jobGroups = [];
   
-  // Only show job groups that match the user's context and have jobs
-  if (userContext === 'dtp' || userContext === 'admin') {
-    if (dtpJobs.length > 0) {
-      jobGroups.push({ title: "DTP Jobs", jobs: dtpJobs, color: "bg-blue-600" });
-    }
-    if (proofJobs.length > 0) {
-      jobGroups.push({ title: "Proofing Jobs", jobs: proofJobs, color: "bg-purple-600" });
-    }
+  if (isDtpOperator || dtpJobs.length > 0) {
+    jobGroups.push({ title: "DTP Jobs", jobs: dtpJobs, color: "bg-blue-600" });
   }
   
-  if (userContext === 'printing' || userContext === 'admin') {
-    if (hp12000Jobs.length > 0) {
-      jobGroups.push({ title: "HP 12000", jobs: hp12000Jobs, color: "bg-green-600" });
-    }
-    if (hp7900Jobs.length > 0) {
-      jobGroups.push({ title: "HP 7900", jobs: hp7900Jobs, color: "bg-emerald-600" });
-    }
-    if (hpT250Jobs.length > 0) {
-      jobGroups.push({ title: "HP T250", jobs: hpT250Jobs, color: "bg-teal-600" });
-    }
+  if (isDtpOperator || proofJobs.length > 0) {
+    jobGroups.push({ title: "Proofing Jobs", jobs: proofJobs, color: "bg-purple-600" });
   }
   
-  if (userContext === 'finishing' || userContext === 'admin') {
-    if (finishingJobs.length > 0) {
-      jobGroups.push({ title: "Finishing Jobs", jobs: finishingJobs, color: "bg-orange-600" });
-    }
+  if (hp12000Jobs.length > 0) {
+    jobGroups.push({ title: "HP 12000 Master Queue", jobs: hp12000Jobs, color: "bg-green-600" });
   }
   
-  // Other jobs shown only to admins or when context allows
-  if (userContext === 'admin' && otherJobs.length > 0) {
+  if (hp7900Jobs.length > 0) {
+    jobGroups.push({ title: "HP 7900 Master Queue", jobs: hp7900Jobs, color: "bg-emerald-600" });
+  }
+  
+  if (hpT250Jobs.length > 0) {
+    jobGroups.push({ title: "HP T250 Master Queue", jobs: hpT250Jobs, color: "bg-teal-600" });
+  }
+  
+  if (finishingJobs.length > 0) {
+    jobGroups.push({ title: "Finishing Jobs", jobs: finishingJobs, color: "bg-orange-600" });
+  }
+  
+  if (otherJobs.length > 0) {
     jobGroups.push({ title: "Other Jobs", jobs: otherJobs, color: "bg-gray-600" });
   }
 
-  console.log('🎨 Rendering context-aware job groups:', {
-    userContext,
+  console.log('🎨 Rendering simplified job groups:', {
     permission: highestPermission,
     groups: jobGroups.map(g => ({ title: g.title, count: g.jobs.length }))
   });
@@ -241,13 +222,7 @@ export const UniversalFactoryFloor = () => {
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
       {/* Header */}
       <OperatorHeader 
-        title={
-          userContext === 'dtp' ? "DTP & Proofing Dashboard" :
-          userContext === 'printing' ? "Printing Operations Dashboard" :
-          userContext === 'batch_allocation' ? "Batch Allocation Dashboard" :
-          userContext === 'finishing' ? "Finishing Operations Dashboard" :
-          `Factory Floor - ${userContext} (${highestPermission})`
-        }
+        title={isDtpOperator ? "DTP & Proofing Jobs" : `Factory Floor - Smart Permissions (${highestPermission})`}
       />
 
       {/* Controls */}

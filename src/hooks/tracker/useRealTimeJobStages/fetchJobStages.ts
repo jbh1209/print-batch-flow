@@ -48,8 +48,7 @@ export async function fetchJobStagesFromSupabase(
         `
         *,
         production_stage:production_stages(
-          id, name, color, description, master_queue_id, allows_concurrent_start, requires_all_parts_complete,
-          master_queue:master_queue_id(id, name)
+          id, name, color, description
         )
       `
       )
@@ -79,27 +78,10 @@ export async function fetchJobStagesFromSupabase(
         
         const dueDate: string | undefined = computeDueDate(job);
 
-        // Master queue consolidation logic
-        const masterQueueId = stage.production_stage?.master_queue_id;
-        const displayStageId = masterQueueId || stage.production_stage_id;
-        const isSubsidiaryStage = !!masterQueueId;
-        
-        console.log(`🔄 JobStage consolidation for ${job.wo_no}:`, {
-          originalStageId: stage.production_stage_id,
-          stageName: stage.production_stage?.name,
-          masterQueueId,
-          displayStageId,
-          isSubsidiaryStage
-        });
-
         return {
           ...stage,
           status: stage.status as "pending" | "active" | "completed" | "skipped",
           production_stage: stage.production_stage,
-          // Master queue consolidation properties
-          display_stage_id: displayStageId,
-          is_subsidiary_stage: isSubsidiaryStage,
-          master_queue_stage_id: masterQueueId,
           production_job: {
             id: job.job_id || job.id,
             wo_no: job.wo_no,
