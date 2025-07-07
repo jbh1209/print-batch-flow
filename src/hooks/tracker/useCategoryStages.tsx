@@ -50,13 +50,11 @@ export const useCategoryStages = (categoryId?: string) => {
         .from('category_production_stages')
         .select(`
           *,
-          production_stage:production_stages(
+          production_stages (
             id,
             name,
             color,
-            description,
-            is_multi_part,
-            part_definitions
+            description
           )
         `)
         .eq('category_id', categoryId)
@@ -69,22 +67,20 @@ export const useCategoryStages = (categoryId?: string) => {
 
       console.log('✅ Category stages fetched successfully:', data?.length || 0);
       
-      // Transform the data for sequential workflow (no parts)
-      const transformedData: CategoryStage[] = data?.map(stage => {
-        return {
-          ...stage,
-          applies_to_parts: [],
-          part_rule_type: 'all_parts' as const,
-          production_stage: {
-            id: (stage.production_stage as any)?.id || '',
-            name: (stage.production_stage as any)?.name || 'Unknown',
-            color: (stage.production_stage as any)?.color || '#6B7280',
-            description: (stage.production_stage as any)?.description || '',
-            is_multi_part: false,
-            part_definitions: []
-          }
-        };
-      }) || [];
+      // Clean mapping with proper Supabase relationship inference
+      const transformedData: CategoryStage[] = data?.map(stage => ({
+        ...stage,
+        applies_to_parts: [],
+        part_rule_type: 'all_parts' as const,
+        production_stage: {
+          id: stage.production_stages?.id || '',
+          name: stage.production_stages?.name || 'Unknown',
+          color: stage.production_stages?.color || '#6B7280',
+          description: stage.production_stages?.description || '',
+          is_multi_part: false, // Sequential workflow only
+          part_definitions: [] // Sequential workflow only
+        }
+      })) || [];
       
       setCategoryStages(transformedData);
     } catch (err) {
@@ -246,11 +242,11 @@ export const useCategoryStages = (categoryId?: string) => {
       // Get all current stages with their production stage info for validation
       const { data: allStages, error: fetchError } = await supabase
         .from('category_production_stages')
-        .select(`
-          id, 
-          stage_order,
-          production_stage:production_stages(id, name)
-        `)
+         .select(`
+           id, 
+           stage_order,
+           production_stages(id, name)
+         `)
         .eq('category_id', categoryId)
         .order('stage_order');
 
@@ -266,10 +262,10 @@ export const useCategoryStages = (categoryId?: string) => {
       // Create a mapping for the new orders
       const stageOrderMap = new Map(reorderedStages.map(stage => [stage.id, stage.stage_order]));
       
-      // Validate business rules: Batch Allocation must be first
-      const batchAllocationStage = allStages.find(stage => 
-        stage.production_stage?.name === 'Batch Allocation'
-      );
+       // Validate business rules: Batch Allocation must be first
+       const batchAllocationStage = allStages.find(stage => 
+         stage.production_stages?.name === 'Batch Allocation'
+       );
       
       if (batchAllocationStage) {
         const newBatchOrder = stageOrderMap.get(batchAllocationStage.id);

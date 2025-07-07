@@ -79,17 +79,11 @@ export const useJobStageInstances = (
         .from('job_stage_instances')
         .select(`
           *,
-          production_stage (
+          production_stages (
             id,
             name,
             description,
             color
-          ),
-          production_job:production_jobs (
-            id,
-            wo_no,
-            customer,
-            due_date
           )
         `)
         .in('job_id', jobIds)
@@ -103,28 +97,21 @@ export const useJobStageInstances = (
 
       console.log('✅ Job stage instances fetched successfully:', data?.length || 0);
       
-      // Type-safe mapping with proper error handling  
-      const typedData: JobStageInstance[] = (data || []).map(item => {
-        return {
-          ...item,
-          status: item.status as 'pending' | 'active' | 'completed' | 'reworked',
-          part_order: null, // Always null for sequential workflow
-          production_stage: {
-            id: ((item.production_stage as any)?.id) ?? item.production_stage_id ?? '',
-            name: ((item.production_stage as any)?.name) ?? 'Unknown',
-            description: ((item.production_stage as any)?.description) ?? '',
-            color: ((item.production_stage as any)?.color) ?? '#6B7280',
-            is_multi_part: false,
-            part_definitions: []
-          },
-          production_job: ((item.production_job as any)?.id) ? {
-            id: (item.production_job as any).id,
-            wo_no: (item.production_job as any).wo_no,
-            customer: (item.production_job as any).customer,
-            due_date: (item.production_job as any).due_date
-          } : undefined
-        };
-      });
+      // Clean mapping with proper Supabase relationship inference
+      const typedData: JobStageInstance[] = (data || []).map(item => ({
+        ...item,
+        status: item.status as 'pending' | 'active' | 'completed' | 'reworked',
+        part_order: null, // Always null for sequential workflow
+        production_stage: {
+          id: item.production_stages?.id ?? '',
+          name: item.production_stages?.name ?? 'Unknown',
+          description: item.production_stages?.description ?? '',
+          color: item.production_stages?.color ?? '#6B7280',
+          is_multi_part: false, // Sequential workflow only
+          part_definitions: [] // Sequential workflow only
+        },
+        production_job: undefined // Will be populated separately if needed
+      }));
 
       setInstances(typedData);
     } catch (err) {
