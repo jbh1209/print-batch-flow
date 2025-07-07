@@ -2,6 +2,7 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { ProductionStageActions } from "./ProductionStageActions";
+import { Split } from "lucide-react";
 
 interface ProductionStage {
   id: string;
@@ -13,6 +14,7 @@ interface ProductionStage {
   is_multi_part: boolean;
   part_definitions: string[];
   master_queue_id?: string;
+  supports_parts: boolean;
 }
 
 interface ProductionStageCardProps {
@@ -49,6 +51,12 @@ export const ProductionStageCard: React.FC<ProductionStageCardProps> = ({
             <Badge variant="outline">Order: {stage.order_index}</Badge>
             {!stage.is_active && <Badge variant="secondary">Inactive</Badge>}
             {stage.is_multi_part && <Badge variant="default">Multi-Part</Badge>}
+            {stage.supports_parts && (
+              <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
+                <Split className="h-3 w-3 mr-1" />
+                Parts Support
+              </Badge>
+            )}
             {masterQueue && (
               <Badge variant="outline" className="text-blue-600 border-blue-200">
                 → {masterQueue.name}

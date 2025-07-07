@@ -25,6 +25,7 @@ interface ProductionStage {
   is_active: boolean;
   is_multi_part: boolean;
   part_definitions: string[];
+  supports_parts: boolean;
 }
 
 interface ProductionStageActionsProps {

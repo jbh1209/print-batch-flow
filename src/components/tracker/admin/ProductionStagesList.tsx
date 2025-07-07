@@ -12,6 +12,7 @@ interface ProductionStage {
   is_multi_part: boolean;
   part_definitions: string[];
   master_queue_id?: string;
+  supports_parts: boolean;
 }
 
 interface ProductionStagesListProps {

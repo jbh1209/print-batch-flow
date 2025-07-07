@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +22,7 @@ interface ProductionStage {
   is_multi_part: boolean;
   part_definitions: string[];
   master_queue_id?: string;
+  supports_parts: boolean;
 }
 
 interface MasterQueueOption {
@@ -49,7 +51,8 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
     is_active: stage?.is_active ?? true,
     is_multi_part: stage?.is_multi_part || false,
     part_definitions: stage?.part_definitions || [],
-    master_queue_id: stage?.master_queue_id || undefined
+    master_queue_id: stage?.master_queue_id || undefined,
+    supports_parts: stage?.supports_parts || false
   });
 
   const [availableMasterQueues, setAvailableMasterQueues] = useState<MasterQueueOption[]>([]);
@@ -111,7 +114,8 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
         is_active: stage.is_active,
         is_multi_part: stage.is_multi_part || false,
         part_definitions: partDefinitions,
-        master_queue_id: stage.master_queue_id || undefined
+        master_queue_id: stage.master_queue_id || undefined,
+        supports_parts: stage.supports_parts || false
       };
 
       console.log('✅ ProductionStageForm updated formData:', updatedFormData);
@@ -243,6 +247,20 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
               />
             </div>
           </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="supports_parts"
+              checked={formData.supports_parts}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, supports_parts: !!checked }))}
+            />
+            <Label htmlFor="supports_parts" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              Supports Part-Specific Work
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Enable this for stages that can handle part-specific work (cover, text, insert parts)
+          </p>
         </CardContent>
       </Card>
 

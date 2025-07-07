@@ -10,6 +10,7 @@ interface ProductionStage {
   color: string;
   order_index: number;
   is_active: boolean;
+  supports_parts: boolean;
 }
 
 export const useProductionStages = () => {

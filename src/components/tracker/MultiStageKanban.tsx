@@ -80,6 +80,7 @@ export const MultiStageKanban = () => {
         is_multi_part: false,
         part_definitions: [],
         master_queue_id: null,
+        supports_parts: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
