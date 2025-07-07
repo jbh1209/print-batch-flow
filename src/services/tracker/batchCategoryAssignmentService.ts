@@ -118,11 +118,23 @@ const processJobCategoryAssignment = async (
     throw new Error(`Failed to update job: ${updateError.message}`);
   }
 
-  // Step 5: Initialize new workflow stages
+  // Step 5: Initialize new workflow stages based on category requirements
+  
+  // Get category data to check if it requires part assignment
+  const { data: categoryInfo, error: categoryInfoError } = await supabase
+    .from('categories')
+    .select('requires_part_assignment')
+    .eq('id', categoryId)
+    .single();
+
+  if (categoryInfoError) {
+    throw new Error(`Failed to fetch category info: ${categoryInfoError.message}`);
+  }
+  
   const hasPartAssignments = partAssignments && Object.keys(partAssignments).length > 0;
   
-  if (hasPartAssignments) {
-    console.log(`🔧 Initializing simple workflow for job ${jobData.wo_no}...`);
+  if (categoryInfo.requires_part_assignment && hasPartAssignments) {
+    console.log(`🔧 Initializing part-assignment workflow for job ${jobData.wo_no}...`);
     const { error: initError } = await supabase.rpc('initialize_job_stages', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
@@ -130,7 +142,7 @@ const processJobCategoryAssignment = async (
     });
 
     if (initError) {
-      throw new Error(`Multi-part workflow initialization failed: ${initError.message}`);
+      throw new Error(`Part-assignment workflow initialization failed: ${initError.message}`);
     }
   } else {
     console.log(`🔧 Initializing standard workflow for job ${jobData.wo_no}...`);

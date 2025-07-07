@@ -22,6 +22,7 @@ interface CategoryWithStages {
   color: string;
   sla_target_days: number;
   description?: string;
+  requires_part_assignment: boolean;
   hasStages: boolean;
   stageCount: number;
 }
@@ -113,7 +114,8 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
   const handleNextStep = () => {
     if (!selectedCategoryId || !selectedCategoryDetails) return;
 
-    if (selectedCategoryDetails.hasStages && hasMultiPartStages && availableParts.length > 0) {
+    // Check if this category requires part assignment
+    if (selectedCategoryDetails.hasStages && selectedCategoryDetails.requires_part_assignment && availableParts.length > 0) {
       setCurrentStep('parts');
     } else {
       handleAssignment();
@@ -132,7 +134,8 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
 
     let finalPartAssignments: Record<string, string> | undefined = undefined;
 
-    if (hasMultiPartStages) {
+    // Only require part assignments if the category specifically requires them
+    if (selectedCategoryDetails.requires_part_assignment && hasMultiPartStages) {
       const unassignedParts = availableParts.filter(part => !partAssignments[part]);
       if (unassignedParts.length > 0) {
         toast.error(`Please assign all parts to a stage: ${unassignedParts.join(', ')}`);
@@ -177,7 +180,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
     actionButtonText = "Change Category";
   }
   
-  if (currentStep === 'category' && hasMultiPartStages && availableParts.length > 0 && selectedCategoryDetails?.hasStages) {
+  if (currentStep === 'category' && selectedCategoryDetails?.requires_part_assignment && availableParts.length > 0 && selectedCategoryDetails?.hasStages) {
      actionButtonText = "Next: Assign Parts";
   } else if (currentStep === 'parts') {
     actionButtonText = "Complete Assignment";
@@ -308,10 +311,10 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
                           Please contact an administrator to set up the workflow stages for this category.
                         </p>
                       )}
-                      {selectedCategoryDetails.hasStages && hasMultiPartStages && availableParts.length > 0 && (
+                      {selectedCategoryDetails.hasStages && selectedCategoryDetails.requires_part_assignment && availableParts.length > 0 && (
                          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700 flex items-start">
                             <InfoIcon className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-                            <span>This category has multi-part stages. You will be prompted to assign parts to specific stages in the next step.</span>
+                            <span>This category requires part assignment. You will be prompted to assign parts to specific stages in the next step.</span>
                         </div>
                       )}
                       {jobInitialCategoryId && selectedCategoryId === jobInitialCategoryId && job.stagesMissing && ( // Example condition
@@ -336,7 +339,7 @@ export const SimpleCategoryAssignModal: React.FC<SimpleCategoryAssignModalProps>
               <div className="p-4 bg-blue-50 rounded-lg">
                 <h4 className="font-medium text-blue-800 mb-2">Part Assignment Required</h4>
                 <p className="text-sm text-blue-700">
-                  The selected category "{selectedCategoryDetails.name}" has multi-part stages. 
+                  The selected category "{selectedCategoryDetails.name}" requires part assignment. 
                   Please assign each part to the appropriate production stage.
                 </p>
               </div>

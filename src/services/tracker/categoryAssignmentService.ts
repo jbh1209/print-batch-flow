@@ -12,7 +12,7 @@ export interface CategoryAssignmentResult {
 export const assignJobCategory = async (
   jobId: string,
   selectedCategoryId: string,
-  hasMultiPartStages: boolean,
+  requiresPartAssignment: boolean,
   partAssignments: Record<string, string>
 ): Promise<boolean> => {
   
@@ -32,10 +32,10 @@ export const assignJobCategory = async (
     return false; // Already assigned
   }
 
-  // Get category data for due date calculation
+  // Get category data for due date calculation and part assignment requirements
   const { data: categoryData, error: categoryError } = await supabase
     .from('categories')
-    .select('sla_target_days')
+    .select('sla_target_days, requires_part_assignment')
     .eq('id', selectedCategoryId)
     .single();
 
@@ -75,10 +75,10 @@ export const assignJobCategory = async (
     throw new Error(`Job update failed: ${updateError.message}`);
   }
 
-  // Initialize workflow
+  // Initialize workflow based on category requirements
   let initSuccess = false;
   
-  if (hasMultiPartStages && Object.keys(partAssignments).length > 0) {
+  if (categoryData.requires_part_assignment && Object.keys(partAssignments).length > 0) {
     const { error: initError } = await supabase.rpc('initialize_job_stages', {
       p_job_id: jobId,
       p_job_table_name: 'production_jobs',
@@ -86,7 +86,7 @@ export const assignJobCategory = async (
     });
 
     if (initError) {
-      throw new Error(`Multi-part workflow failed: ${initError.message}`);
+      throw new Error(`Part-assignment workflow failed: ${initError.message}`);
     } else {
       initSuccess = true;
     }
