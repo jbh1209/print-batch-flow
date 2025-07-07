@@ -75,17 +75,11 @@ export const useCategoryStages = (categoryId?: string) => {
           ...stage,
           applies_to_parts: [],
           part_rule_type: 'all_parts' as const,
-          production_stage: (stage.production_stage && 
-            typeof stage.production_stage === 'object' && 
-            !('error' in stage.production_stage)) ? {
-            ...((stage.production_stage as any) ?? {}),
-            is_multi_part: false,
-            part_definitions: []
-          } : {
-            id: '',
-            name: 'Unknown',
-            description: '',
-            color: '#6B7280',
+          production_stage: {
+            id: (stage.production_stage as any)?.id || '',
+            name: (stage.production_stage as any)?.name || 'Unknown',
+            color: (stage.production_stage as any)?.color || '#6B7280',
+            description: (stage.production_stage as any)?.description || '',
             is_multi_part: false,
             part_definitions: []
           }
