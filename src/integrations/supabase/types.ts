@@ -399,6 +399,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          requires_part_assignment: boolean
           sla_target_days: number
           updated_at: string
         }
@@ -408,6 +409,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          requires_part_assignment?: boolean
           sla_target_days?: number
           updated_at?: string
         }
@@ -417,6 +419,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          requires_part_assignment?: boolean
           sla_target_days?: number
           updated_at?: string
         }
@@ -727,6 +730,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string
+          dependency_group: string | null
           id: string
           is_rework: boolean | null
           job_id: string
@@ -734,6 +738,7 @@ export type Database = {
           job_table_name: string
           notes: string | null
           part_name: string | null
+          part_type: string | null
           previous_stage_id: string | null
           printer_id: string | null
           production_stage_id: string
@@ -756,6 +761,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          dependency_group?: string | null
           id?: string
           is_rework?: boolean | null
           job_id: string
@@ -763,6 +769,7 @@ export type Database = {
           job_table_name: string
           notes?: string | null
           part_name?: string | null
+          part_type?: string | null
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id: string
@@ -785,6 +792,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          dependency_group?: string | null
           id?: string
           is_rework?: boolean | null
           job_id?: string
@@ -792,6 +800,7 @@ export type Database = {
           job_table_name?: string
           notes?: string | null
           part_name?: string | null
+          part_type?: string | null
           previous_stage_id?: string | null
           printer_id?: string | null
           production_stage_id?: string
@@ -1407,6 +1416,7 @@ export type Database = {
           is_active: boolean
           name: string
           order_index: number
+          supports_parts: boolean
           updated_at: string
         }
         Insert: {
@@ -1417,6 +1427,7 @@ export type Database = {
           is_active?: boolean
           name: string
           order_index?: number
+          supports_parts?: boolean
           updated_at?: string
         }
         Update: {
@@ -1427,6 +1438,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           order_index?: number
+          supports_parts?: boolean
           updated_at?: string
         }
         Relationships: []
