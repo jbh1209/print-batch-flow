@@ -16,6 +16,7 @@ import { useUserRole } from "@/hooks/tracker/useUserRole";
 
 export const ProductionManagerView = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const { jobs, isLoading, error, startJob, completeJob, refreshJobs, invalidateCache } = useAccessibleJobs({
     permissionType: 'manage',
     statusFilter
@@ -45,6 +46,20 @@ export const ProductionManagerView = () => {
     }));
   }, [jobs]);
 
+  // Filter jobs based on search query
+  const filteredJobs = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return normalizedJobs;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    return normalizedJobs.filter(job => 
+      job.reference?.toLowerCase().includes(query) ||
+      job.customer?.toLowerCase().includes(query) ||
+      job.wo_no?.toLowerCase().includes(query)
+    );
+  }, [normalizedJobs, searchQuery]);
+
   // Count jobs in batch processing
   const batchProcessingJobs = React.useMemo(() => {
     return jobs.filter(job => job.status === 'In Batch Processing').length;
@@ -57,10 +72,12 @@ export const ProductionManagerView = () => {
       error,
       jobsCount: jobs.length,
       normalizedJobsCount: normalizedJobs.length,
+      filteredJobsCount: filteredJobs.length,
       batchProcessingJobs,
-      statusFilter
+      statusFilter,
+      searchQuery
     });
-  }, [isLoading, error, jobs, normalizedJobs, statusFilter, batchProcessingJobs]);
+  }, [isLoading, error, jobs, normalizedJobs, filteredJobs, statusFilter, searchQuery, batchProcessingJobs]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -161,6 +178,9 @@ export const ProductionManagerView = () => {
         uniqueStatuses={uniqueStatuses}
         onRefresh={handleRefresh}
         refreshing={refreshing}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        filteredJobCount={filteredJobs.length}
       />
 
       {/* Production Statistics */}
@@ -201,7 +221,7 @@ export const ProductionManagerView = () => {
       {/* Enhanced Jobs List */}
       {jobs.length > 0 ? (
         <EnhancedProductionJobsList
-          jobs={normalizedJobs}
+          jobs={filteredJobs}
           onStartJob={startJob}
           onCompleteJob={completeJob}
           onEditJob={setEditingJob}
@@ -278,6 +298,7 @@ export const ProductionManagerView = () => {
             setShowBarcodeLabels(true);
           }}
           isAdmin={isAdmin}
+          searchQuery={searchQuery}
         />
       ) : (
         <Card>

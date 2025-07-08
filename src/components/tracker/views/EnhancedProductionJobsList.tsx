@@ -22,6 +22,7 @@ interface EnhancedProductionJobsListProps {
   onGenerateBarcodes: (selectedJobs: AccessibleJob[]) => void;
   onBulkMarkCompleted?: (selectedJobs: AccessibleJob[]) => void;
   isAdmin?: boolean;
+  searchQuery?: string;
 }
 
 export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProps> = ({
@@ -37,7 +38,8 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
   onBulkDelete,
   onGenerateBarcodes,
   onBulkMarkCompleted,
-  isAdmin = false
+  isAdmin = false,
+  searchQuery = ''
 }) => {
   const [selectedJobs, setSelectedJobs] = useState<AccessibleJob[]>([]);
 
@@ -74,6 +76,10 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
     setSelectedJobs([]);
   };
 
+  const handleSelectAllVisible = (visibleJobs: AccessibleJob[]) => {
+    setSelectedJobs(visibleJobs);
+  };
+
   const isSelected = (job: AccessibleJob) => {
     return selectedJobs.some(j => j.job_id === job.job_id);
   };
@@ -101,6 +107,9 @@ export const EnhancedProductionJobsList: React.FC<EnhancedProductionJobsListProp
         onBulkDelete={onBulkDelete}
         onClearSelection={clearSelection}
         isAdmin={isAdmin}
+        allVisibleJobs={jobs}
+        searchQuery={searchQuery}
+        onSelectAllVisible={handleSelectAllVisible}
       />
 
       {/* Jobs List */}
