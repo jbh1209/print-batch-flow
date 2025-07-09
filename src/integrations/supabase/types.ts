@@ -574,6 +574,57 @@ export type Database = {
         }
         Relationships: []
       }
+      excel_import_mappings: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          created_by: string | null
+          excel_text: string
+          id: string
+          is_verified: boolean
+          production_stage_id: string
+          stage_specification_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          excel_text: string
+          id?: string
+          is_verified?: boolean
+          production_stage_id: string
+          stage_specification_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          excel_text?: string
+          id?: string
+          is_verified?: boolean
+          production_stage_id?: string
+          stage_specification_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "excel_import_mappings_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excel_import_mappings_stage_specification_id_fkey"
+            columns: ["stage_specification_id"]
+            isOneToOne: false
+            referencedRelation: "stage_specifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       flyer_jobs: {
         Row: {
           batch_allocated_at: string | null
@@ -724,6 +775,7 @@ export type Database = {
       }
       job_stage_instances: {
         Row: {
+          actual_duration_minutes: number | null
           category_id: string | null
           client_email: string | null
           client_name: string | null
@@ -731,6 +783,7 @@ export type Database = {
           completed_by: string | null
           created_at: string
           dependency_group: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_rework: boolean | null
           job_id: string
@@ -746,15 +799,19 @@ export type Database = {
           proof_emailed_at: string | null
           proof_pdf_url: string | null
           qr_scan_data: Json | null
+          quantity: number | null
           rework_count: number | null
           rework_reason: string | null
+          setup_time_minutes: number | null
           stage_order: number
+          stage_specification_id: string | null
           started_at: string | null
           started_by: string | null
           status: string
           updated_at: string
         }
         Insert: {
+          actual_duration_minutes?: number | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -762,6 +819,7 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           dependency_group?: string | null
+          estimated_duration_minutes?: number | null
           id?: string
           is_rework?: boolean | null
           job_id: string
@@ -777,15 +835,19 @@ export type Database = {
           proof_emailed_at?: string | null
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
+          quantity?: number | null
           rework_count?: number | null
           rework_reason?: string | null
+          setup_time_minutes?: number | null
           stage_order: number
+          stage_specification_id?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
+          actual_duration_minutes?: number | null
           category_id?: string | null
           client_email?: string | null
           client_name?: string | null
@@ -793,6 +855,7 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           dependency_group?: string | null
+          estimated_duration_minutes?: number | null
           id?: string
           is_rework?: boolean | null
           job_id?: string
@@ -808,9 +871,12 @@ export type Database = {
           proof_emailed_at?: string | null
           proof_pdf_url?: string | null
           qr_scan_data?: Json | null
+          quantity?: number | null
           rework_count?: number | null
           rework_reason?: string | null
+          setup_time_minutes?: number | null
           stage_order?: number
+          stage_specification_id?: string | null
           started_at?: string | null
           started_by?: string | null
           status?: string
@@ -836,6 +902,13 @@ export type Database = {
             columns: ["production_stage_id"]
             isOneToOne: false
             referencedRelation: "production_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_stage_instances_stage_specification_id_fkey"
+            columns: ["stage_specification_id"]
+            isOneToOne: false
+            referencedRelation: "stage_specifications"
             referencedColumns: ["id"]
           },
         ]
@@ -1414,8 +1487,11 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          make_ready_time_minutes: number | null
           name: string
           order_index: number
+          running_speed_per_hour: number | null
+          speed_unit: string | null
           supports_parts: boolean
           updated_at: string
         }
@@ -1425,8 +1501,11 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          make_ready_time_minutes?: number | null
           name: string
           order_index?: number
+          running_speed_per_hour?: number | null
+          speed_unit?: string | null
           supports_parts?: boolean
           updated_at?: string
         }
@@ -1436,8 +1515,11 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          make_ready_time_minutes?: number | null
           name?: string
           order_index?: number
+          running_speed_per_hour?: number | null
+          speed_unit?: string | null
           supports_parts?: boolean
           updated_at?: string
         }
@@ -1617,6 +1699,56 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stage_specifications: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          make_ready_time_minutes: number | null
+          name: string
+          production_stage_id: string
+          properties: Json | null
+          running_speed_per_hour: number | null
+          speed_unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          make_ready_time_minutes?: number | null
+          name: string
+          production_stage_id: string
+          properties?: Json | null
+          running_speed_per_hour?: number | null
+          speed_unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          make_ready_time_minutes?: number | null
+          name?: string
+          production_stage_id?: string
+          properties?: Json | null
+          running_speed_per_hour?: number | null
+          speed_unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_specifications_production_stage_id_fkey"
+            columns: ["production_stage_id"]
+            isOneToOne: false
+            referencedRelation: "production_stages"
             referencedColumns: ["id"]
           },
         ]
@@ -1896,6 +2028,15 @@ export type Database = {
       any_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      calculate_stage_duration: {
+        Args: {
+          p_quantity: number
+          p_running_speed_per_hour: number
+          p_make_ready_time_minutes?: number
+          p_speed_unit?: string
+        }
+        Returns: number
       }
       can_user_start_new_job: {
         Args: { p_user_id: string; p_department_id: string }
