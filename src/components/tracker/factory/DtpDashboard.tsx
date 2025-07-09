@@ -410,6 +410,7 @@ export const DtpDashboard: React.FC = () => {
           onClose={handleCloseModal}
           onStart={startJob}
           onComplete={completeJob}
+          onRefresh={refreshJobs}
         />
       )}
     </div>

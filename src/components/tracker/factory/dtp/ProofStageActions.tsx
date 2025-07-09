@@ -88,10 +88,14 @@ export const ProofStageActions: React.FC<ProofStageActionsProps> = ({
 
       if (jobError) throw jobError;
 
-      onJobStatusUpdate('Proof In Progress', 'active');
       toast.success("Proof stage started");
-      onRefresh?.();
+      
+      // Update local state immediately for responsive UI
+      onJobStatusUpdate('Proof In Progress', 'active');
+      
+      // Refresh both modal data and parent component
       onModalDataRefresh?.();
+      onRefresh?.();
     } catch (error) {
       console.error('Error starting proof:', error);
       toast.error("Failed to start proof stage");

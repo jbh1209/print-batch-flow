@@ -267,6 +267,7 @@ export const ResponsiveOperatorDashboard = () => {
             onClose={() => setSelectedModal(null)}
             onStart={startJob}
             onComplete={completeJob}
+            onRefresh={refreshJobs}
           />
         )}
       </div>
@@ -414,6 +415,7 @@ export const ResponsiveOperatorDashboard = () => {
           onClose={() => setSelectedModal(null)}
           onStart={startJob}
           onComplete={completeJob}
+          onRefresh={refreshJobs}
         />
       )}
     </div>

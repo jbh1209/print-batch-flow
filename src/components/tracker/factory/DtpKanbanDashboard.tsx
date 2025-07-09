@@ -303,6 +303,7 @@ export const DtpKanbanDashboard = () => {
             onClose={handleCloseModal}
             onStart={startJob}
             onComplete={completeJob}
+            onRefresh={refreshJobs}
           />
         </TrackerErrorBoundary>
       )}
