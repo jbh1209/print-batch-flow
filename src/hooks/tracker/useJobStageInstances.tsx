@@ -31,12 +31,35 @@ export interface JobStageInstance {
   proof_pdf_url: string | null;
   created_at: string;
   updated_at: string;
+  
+  // Enhanced timing fields (optional for backward compatibility)
+  stage_specification_id?: string | null;
+  quantity?: number | null;
+  estimated_duration_minutes?: number | null;
+  actual_duration_minutes?: number | null;
+  setup_time_minutes?: number | null;
+  
   production_stage: {
     id: string;
     name: string;
     description: string | null;
     color: string | null;
+    // Enhanced timing fields from production stage
+    running_speed_per_hour?: number | null;
+    make_ready_time_minutes?: number | null;
+    speed_unit?: string | null;
   };
+  
+  // Optional stage specification details
+  stage_specification?: {
+    id: string;
+    name: string;
+    description?: string | null;
+    running_speed_per_hour?: number | null;
+    make_ready_time_minutes?: number | null;
+    speed_unit?: string | null;
+    properties?: any;
+  } | null;
 }
 
 export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
@@ -63,7 +86,19 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
             id,
             name,
             color,
-            description
+            description,
+            running_speed_per_hour,
+            make_ready_time_minutes,
+            speed_unit
+          ),
+          stage_specification:stage_specifications(
+            id,
+            name,
+            description,
+            running_speed_per_hour,
+            make_ready_time_minutes,
+            speed_unit,
+            properties
           )
         `)
         .eq('job_id', jobId)
@@ -77,16 +112,23 @@ export const useJobStageInstances = (jobId?: string, jobTableName?: string) => {
 
       console.log('✅ Job stage instances fetched successfully:', data?.length || 0);
       
-      // Type-safe mapping to ensure status is correctly typed
+      // Type-safe mapping to ensure status is correctly typed and handle new fields
       const typedData: JobStageInstance[] = (data || []).map(item => ({
         ...item,
         status: item.status as 'pending' | 'active' | 'completed' | 'reworked',
-        production_stage: item.production_stage as {
-          id: string;
-          name: string;
-          description: string | null;
-          color: string | null;
-        }
+        // Ensure optional timing fields are properly typed
+        stage_specification_id: item.stage_specification_id || null,
+        quantity: item.quantity || null,
+        estimated_duration_minutes: item.estimated_duration_minutes || null,
+        actual_duration_minutes: item.actual_duration_minutes || null,
+        setup_time_minutes: item.setup_time_minutes || null,
+        production_stage: {
+          ...item.production_stage,
+          running_speed_per_hour: item.production_stage?.running_speed_per_hour || null,
+          make_ready_time_minutes: item.production_stage?.make_ready_time_minutes || null,
+          speed_unit: item.production_stage?.speed_unit || null,
+        },
+        stage_specification: item.stage_specification || null,
       }));
       
       setJobStages(typedData);

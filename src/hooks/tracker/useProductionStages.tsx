@@ -11,6 +11,10 @@ interface ProductionStage {
   order_index: number;
   is_active: boolean;
   supports_parts: boolean;
+  // Enhanced timing fields (optional for backward compatibility)
+  running_speed_per_hour?: number;
+  make_ready_time_minutes?: number;
+  speed_unit?: 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item';
 }
 
 export const useProductionStages = () => {
@@ -35,11 +39,15 @@ export const useProductionStages = () => {
 
       console.log('📊 Raw production stages from DB:', data);
 
-      // Transform the data to ensure proper typing
+      // Transform the data to ensure proper typing and handle new fields
       const transformedData = (data || []).map(stage => {
         console.log(`🔧 Processing stage "${stage.name}":`, stage);
         return {
-          ...stage
+          ...stage,
+          description: stage.description || undefined,
+          running_speed_per_hour: stage.running_speed_per_hour || undefined,
+          make_ready_time_minutes: stage.make_ready_time_minutes || undefined,
+          speed_unit: (stage.speed_unit as 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item') || undefined,
         };
       });
 
