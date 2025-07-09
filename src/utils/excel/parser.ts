@@ -61,7 +61,9 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
     processedRows: 0,
     skippedRows: 0,
     invalidWONumbers: 0,
-    invalidDates: 0
+    invalidDates: 0,
+    invalidTimingData: 0,
+    invalidSpecifications: 0
   };
 
   const mapped: ParsedJob[] = [];
@@ -104,6 +106,51 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
     const referenceValue = safeGetCellValue(row, columnMap.reference);
     const qtyValue = safeGetCellValue(row, columnMap.qty);
     const locationValue = safeGetCellValue(row, columnMap.location);
+    
+    // Extract timing and specification fields
+    const estimatedHoursValue = safeGetCellValue(row, columnMap.estimatedHours);
+    const setupTimeValue = safeGetCellValue(row, columnMap.setupTime);
+    const runningSpeedValue = safeGetCellValue(row, columnMap.runningSpeed);
+    const speedUnitValue = safeGetCellValue(row, columnMap.speedUnit);
+    const specificationsValue = safeGetCellValue(row, columnMap.specifications);
+    const paperWeightValue = safeGetCellValue(row, columnMap.paperWeight);
+    const paperTypeValue = safeGetCellValue(row, columnMap.paperType);
+    const laminationValue = safeGetCellValue(row, columnMap.lamination);
+
+    // Parse timing values with validation
+    let estimatedHours: number | null = null;
+    let setupTimeMinutes: number | null = null;
+    let runningSpeed: number | null = null;
+    
+    if (estimatedHoursValue && String(estimatedHoursValue).trim() !== '') {
+      const parsed = parseFloat(String(estimatedHoursValue));
+      if (!isNaN(parsed)) {
+        estimatedHours = parsed;
+      } else {
+        logger.addDebugInfo(`Warning: Invalid estimated hours in row ${index + 2}: "${estimatedHoursValue}"`);
+        stats.invalidTimingData++;
+      }
+    }
+    
+    if (setupTimeValue && String(setupTimeValue).trim() !== '') {
+      const parsed = parseInt(String(setupTimeValue).replace(/[^0-9]/g, ''));
+      if (!isNaN(parsed)) {
+        setupTimeMinutes = parsed;
+      } else {
+        logger.addDebugInfo(`Warning: Invalid setup time in row ${index + 2}: "${setupTimeValue}"`);
+        stats.invalidTimingData++;
+      }
+    }
+    
+    if (runningSpeedValue && String(runningSpeedValue).trim() !== '') {
+      const parsed = parseFloat(String(runningSpeedValue).replace(/[^0-9.]/g, ''));
+      if (!isNaN(parsed)) {
+        runningSpeed = parsed;
+      } else {
+        logger.addDebugInfo(`Warning: Invalid running speed in row ${index + 2}: "${runningSpeedValue}"`);
+        stats.invalidTimingData++;
+      }
+    }
 
     // Use the new status normalization function
     const normalizedStatus = normalizeStatus(statusValue, logger);
@@ -118,7 +165,16 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
       reference: String(referenceValue || "").trim(),
       qty: parseInt(String(qtyValue || "0").replace(/[^0-9]/g, '')) || 0,
       due_date: formattedDueDate,
-      location: String(locationValue || "").trim()
+      location: String(locationValue || "").trim(),
+      // New timing and specification fields
+      estimated_hours: estimatedHours,
+      setup_time_minutes: setupTimeMinutes,
+      running_speed: runningSpeed,
+      speed_unit: String(speedUnitValue || "").trim() || null,
+      specifications: String(specificationsValue || "").trim() || null,
+      paper_weight: String(paperWeightValue || "").trim() || null,
+      paper_type: String(paperTypeValue || "").trim() || null,
+      lamination: String(laminationValue || "").trim() || null
     };
 
     logger.addDebugInfo(`Mapped job: ${JSON.stringify(job)}`);
@@ -126,7 +182,7 @@ export const parseExcelFile = async (file: File, logger: ExcelImportDebugger): P
     stats.processedRows++;
   });
 
-  logger.addDebugInfo(`Import completed: ${stats.processedRows} processed, ${stats.skippedRows} skipped, ${stats.invalidDates} invalid dates`);
+  logger.addDebugInfo(`Import completed: ${stats.processedRows} processed, ${stats.skippedRows} skipped, ${stats.invalidDates} invalid dates, ${stats.invalidTimingData} invalid timing data`);
 
   return { jobs: mapped, stats };
 };

@@ -27,6 +27,15 @@ export const createColumnMap = (headers: string[], logger: ExcelImportDebugger) 
     reference: findColumnIndex(headers, ['reference', 'ref'], logger),
     qty: findColumnIndex(headers, ['qty', 'quantity'], logger),
     dueDate: findColumnIndex(headers, ['due date', 'due'], logger),
-    location: findColumnIndex(headers, ['location', 'dept', 'department'], logger)
+    location: findColumnIndex(headers, ['location', 'dept', 'department'], logger),
+    // New timing and specification columns
+    estimatedHours: findColumnIndex(headers, ['estimated hours', 'est hours', 'duration hours'], logger),
+    setupTime: findColumnIndex(headers, ['setup time', 'make ready', 'setup minutes'], logger),
+    runningSpeed: findColumnIndex(headers, ['running speed', 'speed', 'rate'], logger),
+    speedUnit: findColumnIndex(headers, ['speed unit', 'unit', 'rate unit'], logger),
+    specifications: findColumnIndex(headers, ['specifications', 'specs', 'notes'], logger),
+    paperWeight: findColumnIndex(headers, ['paper weight', 'weight', 'gsm'], logger),
+    paperType: findColumnIndex(headers, ['paper type', 'paper', 'stock'], logger),
+    lamination: findColumnIndex(headers, ['lamination', 'finish', 'coating'], logger)
   };
 };

@@ -56,6 +56,9 @@ export const ExcelUpload = () => {
       if (stats.invalidDates > 0) {
         message += ` ${stats.invalidDates} invalid dates found (rows with blank dates are allowed).`;
       }
+      if (stats.invalidTimingData > 0) {
+        message += ` ${stats.invalidTimingData} invalid timing values found (will use defaults).`;
+      }
       
       toast.success(message);
     } catch (error) {
@@ -225,6 +228,8 @@ export const ExcelUpload = () => {
             Upload an Excel file (.xlsx, .xls) containing production jobs. 
             Expected columns: WO No., Status, Date, Rep, Category, Customer, Reference, Qty, Due Date, Location.
             <br />
+            Optional timing columns: Estimated Hours, Setup Time, Running Speed, Speed Unit, Specifications, Paper Weight, Paper Type, Lamination.
+            <br />
             <span className="text-blue-600 font-medium">Note: Blank cells are allowed for all fields except WO Number and Customer. Duplicate work orders will be ignored.</span>
           </CardDescription>
         </CardHeader>
@@ -281,9 +286,10 @@ export const ExcelUpload = () => {
                   <div>Skipped rows: {importStats.skippedRows}</div>
                   <div>Invalid WO Numbers: {importStats.invalidWONumbers}</div>
                   <div>Invalid dates: {importStats.invalidDates}</div>
-                  {importStats.invalidDates > 0 && (
+                  <div>Invalid timing data: {importStats.invalidTimingData}</div>
+                  {(importStats.invalidDates > 0 || importStats.invalidTimingData > 0) && (
                     <div className="text-blue-600 text-xs mt-2">
-                      * Invalid dates were converted to blank fields and jobs were still imported
+                      * Invalid dates and timing data were converted to blank/default values and jobs were still imported
                     </div>
                   )}
                 </div>
@@ -356,6 +362,10 @@ export const ExcelUpload = () => {
                     <TableHead>Qty</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Location</TableHead>
+                    <TableHead>Est. Hours</TableHead>
+                    <TableHead>Setup Min.</TableHead>
+                    <TableHead>Speed</TableHead>
+                    <TableHead>Specs</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -379,6 +389,14 @@ export const ExcelUpload = () => {
                       <TableCell>{job.qty}</TableCell>
                       <TableCell>{job.due_date || '-'}</TableCell>
                       <TableCell>{job.location || '-'}</TableCell>
+                      <TableCell>{job.estimated_hours ? `${job.estimated_hours}h` : '-'}</TableCell>
+                      <TableCell>{job.setup_time_minutes ? `${job.setup_time_minutes}m` : '-'}</TableCell>
+                      <TableCell>
+                        {job.running_speed ? `${job.running_speed} ${job.speed_unit || 'units'}/hr` : '-'}
+                      </TableCell>
+                      <TableCell className="max-w-32 truncate" title={job.specifications || ''}>
+                        {job.specifications || '-'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
