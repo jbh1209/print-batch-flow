@@ -4,10 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Clock, Gauge, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ProductionStage {
   id?: string;
@@ -17,6 +20,10 @@ interface ProductionStage {
   order_index: number;
   is_active: boolean;
   supports_parts: boolean;
+  // Enhanced timing fields
+  running_speed_per_hour?: number;
+  make_ready_time_minutes?: number;
+  speed_unit?: 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item';
 }
 
 interface ProductionStageFormProps {
@@ -38,7 +45,11 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
     color: stage?.color || '#6B7280',
     order_index: stage?.order_index || 0,
     is_active: stage?.is_active ?? true,
-    supports_parts: stage?.supports_parts || false
+    supports_parts: stage?.supports_parts || false,
+    // Enhanced timing fields
+    running_speed_per_hour: stage?.running_speed_per_hour || undefined,
+    make_ready_time_minutes: stage?.make_ready_time_minutes || 10,
+    speed_unit: stage?.speed_unit || 'sheets_per_hour'
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +65,11 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
         color: stage.color,
         order_index: stage.order_index,
         is_active: stage.is_active,
-        supports_parts: stage.supports_parts || false
+        supports_parts: stage.supports_parts || false,
+        // Enhanced timing fields
+        running_speed_per_hour: stage.running_speed_per_hour || undefined,
+        make_ready_time_minutes: stage.make_ready_time_minutes || 10,
+        speed_unit: stage.speed_unit || 'sheets_per_hour'
       };
 
       console.log('✅ ProductionStageForm updated formData:', updatedFormData);
@@ -172,6 +187,91 @@ export const ProductionStageForm: React.FC<ProductionStageFormProps> = ({
           <p className="text-xs text-muted-foreground">
             Enable this for stages that can handle part-specific work (cover, text, insert parts)
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Enhanced Timing Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Timing Configuration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Configure timing parameters for accurate production estimates. These can be overridden by stage specifications.
+            </AlertDescription>
+          </Alert>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="running_speed_per_hour">Running Speed</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="running_speed_per_hour"
+                  type="number"
+                  value={formData.running_speed_per_hour || ''}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    running_speed_per_hour: e.target.value ? parseInt(e.target.value) : undefined 
+                  }))}
+                  placeholder="e.g. 1000"
+                />
+                <Select
+                  value={formData.speed_unit}
+                  onValueChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    speed_unit: value as 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item' 
+                  }))}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sheets_per_hour">Sheets/Hour</SelectItem>
+                    <SelectItem value="items_per_hour">Items/Hour</SelectItem>
+                    <SelectItem value="minutes_per_item">Minutes/Item</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Base production speed for this stage
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="make_ready_time_minutes">Setup Time (Minutes)</Label>
+              <Input
+                id="make_ready_time_minutes"
+                type="number"
+                value={formData.make_ready_time_minutes || ''}
+                onChange={(e) => setFormData(prev => ({ 
+                  ...prev, 
+                  make_ready_time_minutes: e.target.value ? parseInt(e.target.value) : 10 
+                }))}
+                placeholder="10"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Time needed for job changeover/setup
+              </p>
+            </div>
+          </div>
+
+          {formData.running_speed_per_hour && (
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Gauge className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium">Timing Example</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                For 100 items: ~{Math.ceil((100 / formData.running_speed_per_hour) * 60 + (formData.make_ready_time_minutes || 10))} minutes
+                ({Math.ceil((100 / formData.running_speed_per_hour) * 60)} production + {formData.make_ready_time_minutes || 10} setup)
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

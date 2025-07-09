@@ -1,9 +1,10 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Trash2, Edit, MoveUp, MoveDown } from "lucide-react";
+import { Trash2, Edit, MoveUp, MoveDown, Settings } from "lucide-react";
 import { ProductionStageForm } from "./ProductionStageForm";
 import { StagePermissionsManager } from "./StagePermissionsManager";
+import { StageSpecificationsManager } from "./StageSpecificationsManager";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,10 @@ interface ProductionStage {
   color: string;
   is_active: boolean;
   supports_parts: boolean;
+  // Enhanced timing fields
+  running_speed_per_hour?: number;
+  make_ready_time_minutes?: number;
+  speed_unit?: 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item';
 }
 
 interface ProductionStageActionsProps {
@@ -41,6 +46,8 @@ export const ProductionStageActions: React.FC<ProductionStageActionsProps> = ({
   onStageUpdate,
   onDeleteStage
 }) => {
+  const [isSpecsDialogOpen, setIsSpecsDialogOpen] = useState(false);
+
   const handleDelete = async () => {
     await onDeleteStage(stage.id);
   };
@@ -65,6 +72,27 @@ export const ProductionStageActions: React.FC<ProductionStageActionsProps> = ({
           <MoveDown className="h-3 w-3" />
         </Button>
       </div>
+      
+      {/* Stage Specifications Manager */}
+      <Dialog open={isSpecsDialogOpen} onOpenChange={setIsSpecsDialogOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" title="Manage Specifications">
+            <Settings className="h-4 w-4" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Specifications - {stage.name}</DialogTitle>
+          </DialogHeader>
+          <StageSpecificationsManager 
+            stage={stage} 
+            onUpdate={() => {
+              // Optionally refresh stage data
+              onStageUpdate();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
       
       <StagePermissionsManager stage={stage} />
       

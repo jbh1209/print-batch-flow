@@ -1,17 +1,10 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { ProductionStageActions } from "./ProductionStageActions";
-import { Split } from "lucide-react";
+import { Split, Clock, Gauge, Settings } from "lucide-react";
+import { stagingHelpers } from "@/hooks/tracker/stagingSystemUtils";
+import type { ProductionStage } from "@/hooks/tracker/useProductionStages";
 
-interface ProductionStage {
-  id: string;
-  name: string;
-  description?: string;
-  order_index: number;
-  color: string;
-  is_active: boolean;
-  supports_parts: boolean;
-}
 
 interface ProductionStageCardProps {
   stage: ProductionStage;
@@ -30,15 +23,17 @@ export const ProductionStageCard: React.FC<ProductionStageCardProps> = ({
   onDeleteStage,
   allStages = []
 }) => {
+  const hasTimingData = stagingHelpers.hasTimingData(stage);
+  
   return (
-    <div className="flex items-center justify-between p-4 border rounded-lg">
-      <div className="flex items-center gap-4">
+    <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors">
+      <div className="flex items-center gap-4 flex-1">
         <div
           className="w-4 h-4 rounded-full"
           style={{ backgroundColor: stage.color }}
         />
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
             <h3 className="font-medium">{stage.name}</h3>
             <Badge variant="outline">Order: {stage.order_index}</Badge>
             {!stage.is_active && <Badge variant="secondary">Inactive</Badge>}
@@ -48,12 +43,40 @@ export const ProductionStageCard: React.FC<ProductionStageCardProps> = ({
                 Parts Support
               </Badge>
             )}
+            {hasTimingData && (
+              <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                <Clock className="h-3 w-3 mr-1" />
+                Timing Enabled
+              </Badge>
+            )}
           </div>
+          
           {stage.description && (
-            <p className="text-sm text-gray-600">{stage.description}</p>
+            <p className="text-sm text-gray-600 mb-2">{stage.description}</p>
+          )}
+          
+          {/* Enhanced Timing Display */}
+          {hasTimingData && (
+            <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-2 text-sm">
+                <Gauge className="h-4 w-4 text-blue-600" />
+                <span className="font-medium">Speed:</span>
+                <span className="text-blue-700">
+                  {stagingHelpers.formatSpeed(stage.running_speed_per_hour || 0, stage.speed_unit || 'sheets_per_hour')}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Settings className="h-4 w-4 text-blue-600" />
+                <span className="font-medium">Setup:</span>
+                <span className="text-blue-700">
+                  {stagingHelpers.formatDuration(stage.make_ready_time_minutes || 10)}
+                </span>
+              </div>
+            </div>
           )}
         </div>
       </div>
+      
       <ProductionStageActions
         stage={stage}
         maxOrderIndex={maxOrderIndex}
