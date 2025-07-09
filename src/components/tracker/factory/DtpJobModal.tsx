@@ -82,8 +82,9 @@ export const DtpJobModal: React.FC<DtpJobModalProps> = ({
     setLocalStageStatus(newStageStatus);
   };
 
-  const handleModalDataRefresh = () => {
-    loadModalData(); // This will refresh stageInstance and other modal data
+  const handleModalDataRefresh = async () => {
+    await loadModalData(); // This will refresh stageInstance and other modal data
+    onRefresh?.(); // Also refresh the parent component to get updated job data
   };
 
   return (
