@@ -43,6 +43,8 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   const [selectedJobs, setSelectedJobs] = useState<Set<number>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [filterField, setFilterField] = useState("all");
+  const [selectedGroup, setSelectedGroup] = useState("all");
+  const [selectedItemType, setSelectedItemType] = useState("all");
   const [productionStages, setProductionStages] = useState<ProductionStage[]>([]);
   const [stageSpecifications, setStageSpecifications] = useState<StageSpecification[]>([]);
   const [selectedStage, setSelectedStage] = useState("");
@@ -72,7 +74,12 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
   useEffect(() => {
     filterJobs();
-  }, [searchTerm, filterField, data.jobs]);
+  }, [searchTerm, filterField, selectedGroup, selectedItemType, data.jobs]);
+
+  useEffect(() => {
+    // Reset item type when group changes
+    setSelectedItemType("all");
+  }, [selectedGroup]);
 
   const loadProductionStages = async () => {
     try {
@@ -121,6 +128,23 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       filtered = filtered.filter(job => {
         const fieldValue = job[filterField];
         return fieldValue && fieldValue.toString().trim() !== "";
+      });
+    }
+
+    // Group filter (for matrix mode)
+    if (data.isMatrixMode && selectedGroup !== "all") {
+      filtered = filtered.filter(job => {
+        const groupKey = `${selectedGroup.toLowerCase()}_specifications`;
+        return job[groupKey] && Object.keys(job[groupKey]).length > 0;
+      });
+    }
+
+    // Item type filter (for matrix mode)
+    if (data.isMatrixMode && selectedGroup !== "all" && selectedItemType !== "all") {
+      filtered = filtered.filter(job => {
+        const groupKey = `${selectedGroup.toLowerCase()}_specifications`;
+        const specifications = job[groupKey];
+        return specifications && specifications[selectedItemType];
       });
     }
 
@@ -258,6 +282,38 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     );
   };
 
+  const getAvailableGroups = () => {
+    if (!data.isMatrixMode || data.jobs.length === 0) return [];
+    
+    const groups = new Set<string>();
+    data.jobs.forEach(job => {
+      if (job.paper_specifications) groups.add('Paper');
+      if (job.printing_specifications) groups.add('Printing');
+      if (job.finishing_specifications) groups.add('Finishing');
+      if (job.prepress_specifications) groups.add('Prepress');
+      if (job.delivery_specifications) groups.add('Delivery');
+    });
+    
+    return Array.from(groups);
+  };
+
+  const getAvailableItemTypes = (group: string) => {
+    if (!data.isMatrixMode || data.jobs.length === 0 || group === "all") return [];
+    
+    const itemTypes = new Set<string>();
+    data.jobs.forEach(job => {
+      const groupKey = `${group.toLowerCase()}_specifications`;
+      const specifications = job[groupKey];
+      if (specifications && typeof specifications === 'object') {
+        Object.keys(specifications).forEach(key => {
+          itemTypes.add(key);
+        });
+      }
+    });
+    
+    return Array.from(itemTypes);
+  };
+
   return (
     <div className="space-y-6">
       {/* Data Overview */}
@@ -353,6 +409,42 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                   </Select>
                 </div>
 
+                {/* Matrix-specific filters */}
+                {data.isMatrixMode && (
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Filter by group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Groups</SelectItem>
+                        {getAvailableGroups().map(group => (
+                          <SelectItem key={group} value={group}>
+                            {group}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select 
+                      value={selectedItemType} 
+                      onValueChange={setSelectedItemType}
+                      disabled={selectedGroup === "all"}
+                    >
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Filter by item type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Items</SelectItem>
+                        {getAvailableItemTypes(selectedGroup).map(itemType => (
+                          <SelectItem key={itemType} value={itemType}>
+                            {itemType}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 {/* Selection Actions */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -397,31 +489,102 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                         </TableHead>
                         <TableHead>WO No</TableHead>
                         <TableHead>Customer</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Specification</TableHead>
-                        <TableHead>Reference</TableHead>
-                        <TableHead>Location</TableHead>
+                        {data.isMatrixMode ? (
+                          <>
+                            <TableHead>Group</TableHead>
+                            <TableHead>Item Type</TableHead>
+                            <TableHead>Specifications</TableHead>
+                          </>
+                        ) : (
+                          <>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Specification</TableHead>
+                            <TableHead>Reference</TableHead>
+                            <TableHead>Location</TableHead>
+                          </>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {currentJobs.map((job, i) => {
                         const globalIndex = startIndex + i;
-                        return (
-                          <TableRow key={globalIndex}>
-                            <TableCell>
-                              <Checkbox
-                                checked={selectedJobs.has(globalIndex)}
-                                onCheckedChange={() => toggleJobSelection(globalIndex)}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{job.wo_no}</TableCell>
-                            <TableCell>{job.customer}</TableCell>
-                            <TableCell>{job.category}</TableCell>
-                            <TableCell>{job.specification}</TableCell>
-                            <TableCell>{job.reference}</TableCell>
-                            <TableCell>{job.location}</TableCell>
-                          </TableRow>
-                        );
+                        
+                        if (data.isMatrixMode) {
+                          // For matrix mode, show group-specific information
+                          const groupSpecifications = [];
+                          if (selectedGroup === "all") {
+                            // Show all groups for this job
+                            if (job.paper_specifications) groupSpecifications.push({ group: 'Paper', specs: job.paper_specifications });
+                            if (job.printing_specifications) groupSpecifications.push({ group: 'Printing', specs: job.printing_specifications });
+                            if (job.finishing_specifications) groupSpecifications.push({ group: 'Finishing', specs: job.finishing_specifications });
+                            if (job.prepress_specifications) groupSpecifications.push({ group: 'Prepress', specs: job.prepress_specifications });
+                            if (job.delivery_specifications) groupSpecifications.push({ group: 'Delivery', specs: job.delivery_specifications });
+                          } else {
+                            // Show only selected group
+                            const groupKey = `${selectedGroup.toLowerCase()}_specifications`;
+                            if (job[groupKey]) {
+                              groupSpecifications.push({ group: selectedGroup, specs: job[groupKey] });
+                            }
+                          }
+
+                          return groupSpecifications.map((groupSpec, specIndex) => {
+                            const itemTypes = Object.keys(groupSpec.specs);
+                            const filteredItemTypes = selectedItemType === "all" ? itemTypes : itemTypes.filter(type => type === selectedItemType);
+                            
+                            return filteredItemTypes.map((itemType, itemIndex) => {
+                              const spec = groupSpec.specs[itemType];
+                              const rowKey = `${globalIndex}-${specIndex}-${itemIndex}`;
+                              
+                              return (
+                                <TableRow key={rowKey}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={selectedJobs.has(globalIndex)}
+                                      onCheckedChange={() => toggleJobSelection(globalIndex)}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="font-medium">{job.wo_no}</TableCell>
+                                  <TableCell>{job.customer}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="secondary">{groupSpec.group}</Badge>
+                                  </TableCell>
+                                  <TableCell>{itemType}</TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1 text-sm">
+                                      {spec.description && (
+                                        <div><strong>Desc:</strong> {spec.description}</div>
+                                      )}
+                                      {spec.specifications && (
+                                        <div><strong>Specs:</strong> {spec.specifications}</div>
+                                      )}
+                                      {spec.qty > 0 && (
+                                        <div><strong>Qty:</strong> {spec.qty}</div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            });
+                          }).flat();
+                        } else {
+                          // Standard mode
+                          return (
+                            <TableRow key={globalIndex}>
+                              <TableCell>
+                                <Checkbox
+                                  checked={selectedJobs.has(globalIndex)}
+                                  onCheckedChange={() => toggleJobSelection(globalIndex)}
+                                />
+                              </TableCell>
+                              <TableCell className="font-medium">{job.wo_no}</TableCell>
+                              <TableCell>{job.customer}</TableCell>
+                              <TableCell>{job.category}</TableCell>
+                              <TableCell>{job.specification}</TableCell>
+                              <TableCell>{job.reference}</TableCell>
+                              <TableCell>{job.location}</TableCell>
+                            </TableRow>
+                          );
+                        }
                       })}
                     </TableBody>
                   </Table>
