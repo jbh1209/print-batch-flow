@@ -20,6 +20,8 @@ interface ExcelDataAnalyzerProps {
     stats: any;
     mapping: any;
     debugLog: string[];
+    isMatrixMode?: boolean;
+    matrixData?: any;
   };
   onMappingCreated: () => void;
 }
@@ -167,7 +169,39 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
         const job = filteredJobs[index];
         if (job) {
           // Extract meaningful text from various fields
-          [job.category, job.specification, job.reference, job.location].forEach(text => {
+          const fieldsToExtract = [job.category, job.specification, job.reference, job.location];
+          
+          // If this is matrix mode, also extract from group specifications
+          if (data.isMatrixMode) {
+            // Extract from matrix-specific specification fields
+            if (job.paper_specifications) {
+              Object.values(job.paper_specifications).forEach((spec: any) => {
+                if (spec?.specifications) fieldsToExtract.push(spec.specifications);
+              });
+            }
+            if (job.finishing_specifications) {
+              Object.values(job.finishing_specifications).forEach((spec: any) => {
+                if (spec?.specifications) fieldsToExtract.push(spec.specifications);
+              });
+            }
+            if (job.printing_specifications) {
+              Object.values(job.printing_specifications).forEach((spec: any) => {
+                if (spec?.specifications) fieldsToExtract.push(spec.specifications);
+              });
+            }
+            if (job.prepress_specifications) {
+              Object.values(job.prepress_specifications).forEach((spec: any) => {
+                if (spec?.specifications) fieldsToExtract.push(spec.specifications);
+              });
+            }
+            if (job.delivery_specifications) {
+              Object.values(job.delivery_specifications).forEach((spec: any) => {
+                if (spec?.specifications) fieldsToExtract.push(spec.specifications);
+              });
+            }
+          }
+          
+          fieldsToExtract.forEach(text => {
             if (text && text.toString().trim()) {
               uniqueTexts.add(text.toString().trim());
             }
@@ -227,31 +261,48 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   return (
     <div className="space-y-6">
       {/* Data Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold">{data.totalRows.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">Total Rows</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold">{data.jobs.length.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">Processed Jobs</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold">{filteredJobs.length.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">Filtered Results</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold">{selectedJobs.size}</div>
-            <div className="text-sm text-muted-foreground">Selected Jobs</div>
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        {/* File Type Indicator */}
+        {data.isMatrixMode && (
+          <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="font-medium text-blue-900 dark:text-blue-100">Matrix Excel Format Detected</p>
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  This file contains {data.matrixData?.detectedGroups?.length || 0} group categories with detailed specifications
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold">{data.totalRows.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Total Rows</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold">{data.jobs.length.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Processed Jobs</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold">{filteredJobs.length.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Filtered Results</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold">{selectedJobs.size}</div>
+              <div className="text-sm text-muted-foreground">Selected Jobs</div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <Tabs defaultValue="analyze" className="space-y-4">

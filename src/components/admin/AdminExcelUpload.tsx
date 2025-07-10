@@ -5,7 +5,14 @@ import { Progress } from "@/components/ui/progress";
 import { Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ExcelImportDebugger } from "@/utils/excel/debugger";
-import { parseExcelFileForPreview, parseExcelFileWithMapping, getAutoDetectedMapping } from "@/utils/excel/enhancedParser";
+import { 
+  parseExcelFileForPreview, 
+  parseExcelFileWithMapping, 
+  getAutoDetectedMapping,
+  parseMatrixExcelFileForPreview,
+  parseMatrixExcelFileWithMapping 
+} from "@/utils/excel/enhancedParser";
+import type { MatrixExcelData } from "@/utils/excel/types";
 
 interface AdminExcelUploadProps {
   onDataUploaded: (data: any) => void;
@@ -36,37 +43,97 @@ export const AdminExcelUpload: React.FC<AdminExcelUploadProps> = ({ onDataUpload
     const logger = new ExcelImportDebugger();
     
     try {
-      // Step 1: Parse for preview
-      setUploadProgress(25);
-      const previewData = await parseExcelFileForPreview(file);
+      // Step 1: Try to detect if this is a matrix-structured Excel file
+      setUploadProgress(20);
+      logger.addDebugInfo("Attempting to detect Excel structure type...");
       
-      // Step 2: Auto-detect mapping
-      setUploadProgress(50);
-      const mapping = getAutoDetectedMapping(previewData.headers, logger);
+      let analysisData;
+      let isMatrixMode = false;
       
-      // Step 3: Parse with mapping
-      setUploadProgress(75);
-      const parsedData = await parseExcelFileWithMapping(file, mapping, logger);
+      try {
+        const matrixPreview = await parseMatrixExcelFileForPreview(file, logger);
+        
+        // Check if matrix structure was detected
+        if (matrixPreview.detectedGroups.length > 0 && matrixPreview.groupColumn !== -1) {
+          logger.addDebugInfo(`Matrix structure detected with ${matrixPreview.detectedGroups.length} groups`);
+          isMatrixMode = true;
+          
+          setUploadProgress(50);
+          
+          // For admin analysis, use a basic mapping for matrix files
+          const basicMatrixMapping = {
+            woNo: matrixPreview.workOrderColumn,
+            groupColumn: matrixPreview.groupColumn,
+            descriptionColumn: matrixPreview.descriptionColumn,
+            qtyColumn: matrixPreview.qtyColumn,
+            woQtyColumn: matrixPreview.woQtyColumn,
+            customer: -1,
+            reference: -1,
+            date: -1,
+            dueDate: -1,
+            rep: -1,
+            category: -1,
+            location: -1,
+            size: -1,
+            specification: -1,
+            contact: -1
+          };
+          
+          setUploadProgress(75);
+          const parsedData = await parseMatrixExcelFileWithMapping(file, matrixPreview, basicMatrixMapping, logger);
+          
+          analysisData = {
+            fileName: file.name,
+            headers: matrixPreview.headers,
+            totalRows: matrixPreview.rows.length,
+            jobs: parsedData.jobs,
+            stats: parsedData.stats,
+            mapping: basicMatrixMapping,
+            debugLog: logger.getDebugInfo(),
+            isMatrixMode: true,
+            matrixData: matrixPreview
+          };
+          
+          toast({
+            title: "Matrix Excel Detected",
+            description: `Found ${matrixPreview.detectedGroups.length} groups in ${parsedData.jobs.length} processed jobs`,
+          });
+        }
+      } catch (matrixError) {
+        logger.addDebugInfo(`Matrix parsing failed, falling back to standard parsing: ${matrixError}`);
+      }
+      
+      // Fall back to standard Excel parsing if matrix detection failed
+      if (!isMatrixMode) {
+        logger.addDebugInfo("Using standard Excel parsing mode");
+        setUploadProgress(40);
+        const previewData = await parseExcelFileForPreview(file);
+        
+        setUploadProgress(60);
+        const mapping = getAutoDetectedMapping(previewData.headers, logger);
+        
+        setUploadProgress(80);
+        const parsedData = await parseExcelFileWithMapping(file, mapping, logger);
+        
+        analysisData = {
+          fileName: file.name,
+          headers: previewData.headers,
+          totalRows: previewData.totalRows,
+          jobs: parsedData.jobs,
+          stats: parsedData.stats,
+          mapping: mapping,
+          debugLog: logger.getDebugInfo(),
+          isMatrixMode: false
+        };
+        
+        toast({
+          title: "Standard Excel Processed",
+          description: `Processed ${parsedData.jobs.length} records from ${file.name}`,
+        });
+      }
       
       setUploadProgress(100);
-      
-      // Prepare data for analysis
-      const analysisData = {
-        fileName: file.name,
-        headers: previewData.headers,
-        totalRows: previewData.totalRows,
-        jobs: parsedData.jobs,
-        stats: parsedData.stats,
-        mapping: mapping,
-        debugLog: logger.getDebugInfo()
-      };
-      
       onDataUploaded(analysisData);
-      
-      toast({
-        title: "Upload Successful",
-        description: `Processed ${parsedData.jobs.length} records from ${file.name}`,
-      });
       
     } catch (error: any) {
       console.error("Upload error:", error);
