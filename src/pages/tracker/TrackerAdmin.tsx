@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar, Package, Layers } from "lucide-react";
+import { Settings, Users, Building2, Printer, BarChart3, Wrench, Calendar, Package, Layers, FileSpreadsheet } from "lucide-react";
 import { ProductionStagesManagement } from "@/components/tracker/admin/ProductionStagesManagement";
 import { CategoriesManagement } from "@/components/tracker/admin/CategoriesManagement";
 import { UserGroupsManagement } from "@/components/tracker/admin/UserGroupsManagement";
@@ -12,6 +12,7 @@ import { AdminStagePermissionsManager } from "@/components/tracker/admin/AdminSt
 import PublicHolidaysManagement from "@/components/tracker/admin/PublicHolidaysManagement";
 import { PrintSpecificationsManagement } from "@/components/admin/PrintSpecificationsManagement";
 import { BatchAllocationManagement } from "@/components/admin/BatchAllocationManagement";
+import ExcelMapping from "@/pages/admin/ExcelMapping";
 
 export default function TrackerAdmin() {
   const [activeTab, setActiveTab] = useState("workflow-diagnostics");
@@ -26,7 +27,11 @@ export default function TrackerAdmin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-10">
+          <TabsTrigger value="excel-mapping" className="flex items-center gap-2">
+            <FileSpreadsheet className="h-4 w-4" />
+            Excel Mapping
+          </TabsTrigger>
           <TabsTrigger value="workflow-diagnostics" className="flex items-center gap-2">
             <Wrench className="h-4 w-4" />
             Diagnostics
@@ -64,6 +69,10 @@ export default function TrackerAdmin() {
             Printers
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="excel-mapping">
+          <ExcelMapping />
+        </TabsContent>
 
         <TabsContent value="workflow-diagnostics">
           <WorkflowDiagnosticsPanel />
