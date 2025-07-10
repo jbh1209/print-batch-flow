@@ -115,11 +115,42 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   const filterJobs = () => {
     let filtered = data.jobs;
 
-    // Text search
+    // Enhanced text search
     if (searchTerm) {
+      const searchTerms = searchTerm.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+      
       filtered = filtered.filter(job => {
-        const searchableText = Object.values(job).join(' ').toLowerCase();
-        return searchableText.includes(searchTerm.toLowerCase());
+        // Build comprehensive searchable text
+        const searchableFields = [];
+        
+        // Basic job fields
+        if (job.wo_no) searchableFields.push(job.wo_no.toString());
+        if (job.customer) searchableFields.push(job.customer.toString());
+        if (job.category) searchableFields.push(job.category.toString());
+        if (job.specification) searchableFields.push(job.specification.toString());
+        if (job.reference) searchableFields.push(job.reference.toString());
+        if (job.location) searchableFields.push(job.location.toString());
+        
+        // Matrix mode - search within specifications
+        if (data.isMatrixMode) {
+          const specGroups = ['paper_specifications', 'printing_specifications', 'finishing_specifications', 'prepress_specifications', 'delivery_specifications'];
+          
+          specGroups.forEach(groupKey => {
+            if (job[groupKey] && typeof job[groupKey] === 'object') {
+              Object.values(job[groupKey]).forEach((spec: any) => {
+                if (spec?.description) searchableFields.push(spec.description.toString());
+                if (spec?.specifications) searchableFields.push(spec.specifications.toString());
+                if (spec?.qty) searchableFields.push(spec.qty.toString());
+              });
+            }
+          });
+        }
+        
+        // Join all searchable text
+        const searchableText = searchableFields.join(' ').toLowerCase();
+        
+        // All search terms must be found (AND logic)
+        return searchTerms.every(term => searchableText.includes(term));
       });
     }
 
