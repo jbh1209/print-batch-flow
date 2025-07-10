@@ -264,29 +264,48 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
         }
       });
 
-      // Create mappings for each unique text
+      // Create mappings for each unique text using upsert
       const mappingPromises = Array.from(uniqueTexts).map(text => 
-        supabase.from('excel_import_mappings').insert({
-          excel_text: text,
-          production_stage_id: selectedStage,
-          stage_specification_id: selectedSpecification || null,
-          confidence_score: 95, // High confidence for manual mappings
-          is_verified: true, // Auto-verify manual mappings
-          created_by: null // Will be set by RLS policy
-        })
+        supabase.rpc('upsert_excel_mapping', {
+          p_excel_text: text,
+          p_production_stage_id: selectedStage,
+          p_stage_specification_id: selectedSpecification || null,
+          p_confidence_score: 95
+        }).single()
       );
 
       const results = await Promise.all(mappingPromises);
       
-      // Check for errors
+      // Check for errors and collect results
       const errors = results.filter(result => result.error);
       if (errors.length > 0) {
-        throw new Error(`Failed to create ${errors.length} mappings`);
+        throw new Error(`Failed to create ${errors.length} mappings: ${errors[0].error.message}`);
+      }
+
+      // Count created vs updated mappings
+      const createdCount = results.filter(r => r.data?.action_taken === 'created').length;
+      const updatedCount = results.filter(r => r.data?.action_taken === 'updated').length;
+      const conflictCount = results.filter(r => r.data?.conflict_detected).length;
+
+      let toastMessage = "Mappings Processed";
+      let toastDescription = `Processed ${uniqueTexts.size} unique text patterns for ${selectedJobs.size} selected jobs.`;
+      
+      if (createdCount > 0 && updatedCount > 0) {
+        toastDescription += ` Created ${createdCount} new, updated ${updatedCount} existing.`;
+      } else if (createdCount > 0) {
+        toastDescription += ` Created ${createdCount} new mappings.`;
+      } else if (updatedCount > 0) {
+        toastDescription += ` Updated ${updatedCount} existing mappings.`;
+      }
+      
+      if (conflictCount > 0) {
+        toastDescription += ` ⚠️ ${conflictCount} text patterns map to multiple stages.`;
       }
 
       toast({
-        title: "Mappings Created",
-        description: `Successfully created ${uniqueTexts.size} mappings for ${selectedJobs.size} selected jobs`,
+        title: toastMessage,
+        description: toastDescription,
+        variant: conflictCount > 0 ? "default" : "default",
       });
 
       clearSelection();

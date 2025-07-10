@@ -2100,6 +2100,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      consolidate_excel_mappings: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          merged_count: number
+          conflict_count: number
+          consolidation_log: Json
+        }[]
+      }
       create_batch_master_job: {
         Args:
           | { p_batch_id: string; p_constituent_job_ids: string[] }
@@ -2559,6 +2567,22 @@ export type Database = {
       update_user_profile_admin: {
         Args: { _user_id: string; _full_name: string }
         Returns: boolean
+      }
+      upsert_excel_mapping: {
+        Args: {
+          p_excel_text: string
+          p_production_stage_id: string
+          p_stage_specification_id?: string
+          p_confidence_score?: number
+          p_created_by?: string
+        }
+        Returns: {
+          mapping_id: string
+          action_taken: string
+          previous_confidence: number
+          new_confidence: number
+          conflict_detected: boolean
+        }[]
       }
       validate_batch_integrity: {
         Args: { p_batch_id: string }
