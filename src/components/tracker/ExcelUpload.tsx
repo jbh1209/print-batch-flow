@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Upload, FileSpreadsheet, Check, X, QrCode, Download, AlertTriangle, Info } from "lucide-react";
+import { Upload, FileSpreadsheet, Check, X, QrCode, Download, AlertTriangle, Info, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,6 +18,12 @@ import {
   ImportStats,
   validateAllJobs 
 } from "@/utils/excel";
+import { 
+  parseExcelFileForPreview, 
+  getAutoDetectedMapping, 
+  parseExcelFileWithMapping 
+} from "@/utils/excel/enhancedParser";
+import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
 
 interface JobDataWithQR extends ParsedJob {
   user_id: string;
@@ -34,6 +40,12 @@ export const ExcelUpload = () => {
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [debugLogger] = useState(() => new ExcelImportDebugger());
+  
+  // Enhanced mapping state
+  const [previewData, setPreviewData] = useState<ExcelPreviewData | null>(null);
+  const [autoDetectedMapping, setAutoDetectedMapping] = useState<ColumnMapping>({});
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -41,15 +53,38 @@ export const ExcelUpload = () => {
 
     setFileName(file.name);
     setUploadError(null);
+    setCurrentFile(file);
     debugLogger.clear();
     
     try {
-      const { jobs, stats } = await parseExcelFile(file, debugLogger);
+      // Get preview data and auto-detected mapping
+      const preview = await parseExcelFileForPreview(file);
+      const autoMapping = getAutoDetectedMapping(preview.headers, debugLogger);
+      
+      setPreviewData(preview);
+      setAutoDetectedMapping(autoMapping);
+      setShowMappingDialog(true);
+      
+      toast.success(`File loaded successfully. ${preview.totalRows} rows detected.`);
+    } catch (error) {
+      console.error("Error parsing Excel file:", error);
+      debugLogger.addDebugInfo(`Error: ${error}`);
+      setUploadError(`Failed to parse Excel file: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error("Failed to parse Excel file. Please check the format.");
+    }
+  };
+
+  const handleMappingConfirmed = async (mapping: ColumnMapping) => {
+    if (!currentFile) return;
+    
+    try {
+      setIsUploading(true);
+      const { jobs, stats } = await parseExcelFileWithMapping(currentFile, mapping, debugLogger);
       
       setParsedJobs(jobs);
       setImportStats(stats);
       
-      let message = `Parsed ${jobs.length} jobs from ${file.name}.`;
+      let message = `Parsed ${jobs.length} jobs from ${currentFile.name}.`;
       if (stats.skippedRows > 0) {
         message += ` ${stats.skippedRows} rows skipped (missing WO numbers).`;
       }
@@ -62,10 +97,12 @@ export const ExcelUpload = () => {
       
       toast.success(message);
     } catch (error) {
-      console.error("Error parsing Excel file:", error);
+      console.error("Error parsing Excel file with mapping:", error);
       debugLogger.addDebugInfo(`Error: ${error}`);
       setUploadError(`Failed to parse Excel file: ${error instanceof Error ? error.message : "Unknown error"}`);
-      toast.error("Failed to parse Excel file. Please check the format.");
+      toast.error("Failed to parse Excel file with custom mapping.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -211,6 +248,9 @@ export const ExcelUpload = () => {
     setFileName("");
     setImportStats(null);
     setUploadError(null);
+    setPreviewData(null);
+    setAutoDetectedMapping({});
+    setCurrentFile(null);
     debugLogger.clear();
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
@@ -225,12 +265,12 @@ export const ExcelUpload = () => {
             Upload Excel File
           </CardTitle>
           <CardDescription>
-            Upload an Excel file (.xlsx, .xls) containing production jobs. 
-            Expected columns: WO No., Status, Date, Rep, Category, Customer, Reference, Qty, Due Date, Location.
+            Upload an Excel file (.xlsx, .xls) containing production jobs. You'll be able to map your Excel columns to the correct fields.
             <br />
-            Optional timing columns: Estimated Hours, Setup Time, Running Speed, Speed Unit, Specifications, Paper Weight, Paper Type, Lamination.
-            <br />
-            <span className="text-blue-600 font-medium">Note: Blank cells are allowed for all fields except WO Number and Customer. Duplicate work orders will be ignored.</span>
+            <span className="text-blue-600 font-medium flex items-center gap-1 mt-2">
+              <Sparkles className="h-4 w-4" />
+              Enhanced column mapping - Map any Excel format to your database fields
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -335,6 +375,15 @@ export const ExcelUpload = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Column Mapping Dialog */}
+      <ColumnMappingDialog
+        open={showMappingDialog}
+        onOpenChange={setShowMappingDialog}
+        previewData={previewData}
+        autoDetectedMapping={autoDetectedMapping}
+        onMappingConfirmed={handleMappingConfirmed}
+      />
 
       {parsedJobs.length > 0 && (
         <Card>
