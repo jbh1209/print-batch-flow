@@ -77,6 +77,10 @@ import FlyerJobDetail from "@/pages/FlyerJobDetail";
 import GenericJobDetailsPage from "@/pages/generic/GenericJobDetailsPage";
 import { productConfigs } from "@/config/productTypes";
 
+// Admin imports
+import AdminDashboard from "@/pages/admin";
+import ExcelMapping from "@/pages/admin/ExcelMapping";
+
 import "./App.css";
 
 const queryClient = new QueryClient();
@@ -202,6 +206,18 @@ function App() {
                   <Route path="upload" element={<TrackerUpload />} />
                   <Route path="mobile" element={<MobileFactory />} />
                 </Route>
+                
+                {/* Admin routes */}
+                <Route path="/admin" element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/excel-mapping" element={
+                  <ProtectedRoute>
+                    <ExcelMapping />
+                  </ProtectedRoute>
+                } />
               </Routes>
             </TrackerErrorBoundary>
           </BrowserRouter>
