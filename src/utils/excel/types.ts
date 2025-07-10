@@ -10,7 +10,7 @@ export interface ParsedJob {
   qty: number;
   due_date: string | null;
   location: string;
-  // New timing and specification fields
+  // Basic specification fields
   estimated_hours?: number | null;
   setup_time_minutes?: number | null;
   running_speed?: number | null;
@@ -19,6 +19,45 @@ export interface ParsedJob {
   paper_weight?: string | null;
   paper_type?: string | null;
   lamination?: string | null;
+  // New matrix-based fields
+  size?: string | null;
+  specification?: string | null;
+  contact?: string | null;
+  // Group-based specifications
+  paper_specifications?: GroupSpecifications | null;
+  delivery_specifications?: GroupSpecifications | null;
+  finishing_specifications?: GroupSpecifications | null;
+  prepress_specifications?: GroupSpecifications | null;
+  printing_specifications?: GroupSpecifications | null;
+  operation_quantities?: OperationQuantities | null;
+}
+
+export interface GroupSpecifications {
+  [key: string]: {
+    description?: string;
+    qty?: number;
+    wo_qty?: number;
+    specifications?: string;
+    [key: string]: any;
+  };
+}
+
+export interface OperationQuantities {
+  [operation: string]: {
+    operation_qty: number;
+    total_wo_qty: number;
+  };
+}
+
+export interface MatrixExcelData {
+  headers: string[];
+  rows: any[][];
+  groupColumn?: number;
+  workOrderColumn?: number;
+  descriptionColumn?: number;
+  qtyColumn?: number;
+  woQtyColumn?: number;
+  detectedGroups: string[];
 }
 
 export interface ImportStats {

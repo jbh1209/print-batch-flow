@@ -21,9 +21,13 @@ import {
 import { 
   parseExcelFileForPreview, 
   getAutoDetectedMapping, 
-  parseExcelFileWithMapping 
+  parseExcelFileWithMapping,
+  parseMatrixExcelFileForPreview,
+  parseMatrixExcelFileWithMapping
 } from "@/utils/excel/enhancedParser";
+import type { MatrixExcelData } from "@/utils/excel/types";
 import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
+import { MatrixMappingDialog, type MatrixColumnMapping } from "./MatrixMappingDialog";
 
 interface JobDataWithQR extends ParsedJob {
   user_id: string;
@@ -46,6 +50,11 @@ export const ExcelUpload = () => {
   const [autoDetectedMapping, setAutoDetectedMapping] = useState<ColumnMapping>({});
   const [showMappingDialog, setShowMappingDialog] = useState(false);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
+  
+  // Matrix parsing state
+  const [matrixData, setMatrixData] = useState<MatrixExcelData | null>(null);
+  const [showMatrixDialog, setShowMatrixDialog] = useState(false);
+  const [isMatrixMode, setIsMatrixMode] = useState(false);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -57,12 +66,34 @@ export const ExcelUpload = () => {
     debugLogger.clear();
     
     try {
-      // Get preview data and auto-detected mapping
+      // First try to detect if this is a matrix-structured Excel file
+      debugLogger.addDebugInfo("Attempting to detect Excel structure type...");
+      
+      try {
+        const matrixPreview = await parseMatrixExcelFileForPreview(file, debugLogger);
+        
+        // Check if matrix structure was detected
+        if (matrixPreview.detectedGroups.length > 0 && matrixPreview.groupColumn !== -1) {
+          debugLogger.addDebugInfo(`Matrix structure detected with ${matrixPreview.detectedGroups.length} groups`);
+          setMatrixData(matrixPreview);
+          setIsMatrixMode(true);
+          setShowMatrixDialog(true);
+          
+          toast.success(`Matrix Excel detected! Found ${matrixPreview.detectedGroups.length} groups in ${matrixPreview.rows.length} rows.`);
+          return;
+        }
+      } catch (matrixError) {
+        debugLogger.addDebugInfo(`Matrix parsing failed, falling back to standard parsing: ${matrixError}`);
+      }
+      
+      // Fall back to standard Excel parsing
+      debugLogger.addDebugInfo("Using standard Excel parsing mode");
       const preview = await parseExcelFileForPreview(file);
       const autoMapping = getAutoDetectedMapping(preview.headers, debugLogger);
       
       setPreviewData(preview);
       setAutoDetectedMapping(autoMapping);
+      setIsMatrixMode(false);
       setShowMappingDialog(true);
       
       toast.success(`File loaded successfully. ${preview.totalRows} rows detected.`);
@@ -101,6 +132,35 @@ export const ExcelUpload = () => {
       debugLogger.addDebugInfo(`Error: ${error}`);
       setUploadError(`Failed to parse Excel file: ${error instanceof Error ? error.message : "Unknown error"}`);
       toast.error("Failed to parse Excel file with custom mapping.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleMatrixMappingConfirmed = async (mapping: MatrixColumnMapping) => {
+    if (!currentFile || !matrixData) return;
+    
+    try {
+      setIsUploading(true);
+      const { jobs, stats } = await parseMatrixExcelFileWithMapping(currentFile, matrixData, mapping, debugLogger);
+      
+      setParsedJobs(jobs);
+      setImportStats(stats);
+      
+      let message = `Parsed ${jobs.length} matrix-structured jobs from ${currentFile.name}.`;
+      if (stats.skippedRows > 0) {
+        message += ` ${stats.skippedRows} rows skipped.`;
+      }
+      if (jobs.length > 0 && jobs[0].paper_specifications) {
+        message += ` Group specifications extracted.`;
+      }
+      
+      toast.success(message);
+    } catch (error) {
+      console.error("Error parsing matrix Excel file:", error);
+      debugLogger.addDebugInfo(`Matrix parsing error: ${error}`);
+      setUploadError(`Failed to parse matrix Excel file: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error("Failed to parse matrix Excel file.");
     } finally {
       setIsUploading(false);
     }
@@ -251,6 +311,11 @@ export const ExcelUpload = () => {
     setPreviewData(null);
     setAutoDetectedMapping({});
     setCurrentFile(null);
+    // Clear matrix state
+    setMatrixData(null);
+    setIsMatrixMode(false);
+    setShowMatrixDialog(false);
+    setShowMappingDialog(false);
     debugLogger.clear();
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
@@ -385,6 +450,14 @@ export const ExcelUpload = () => {
         onMappingConfirmed={handleMappingConfirmed}
       />
 
+      {/* Matrix Mapping Dialog */}
+      <MatrixMappingDialog
+        open={showMatrixDialog}
+        onOpenChange={setShowMatrixDialog}
+        matrixData={matrixData}
+        onMappingConfirmed={handleMatrixMappingConfirmed}
+      />
+
       {parsedJobs.length > 0 && (
         <Card>
           <CardHeader>
@@ -411,6 +484,9 @@ export const ExcelUpload = () => {
                     <TableHead>Qty</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Location</TableHead>
+                    {isMatrixMode && <TableHead>Size</TableHead>}
+                    {isMatrixMode && <TableHead>Contact</TableHead>}
+                    {isMatrixMode && <TableHead>Groups</TableHead>}
                     <TableHead>Est. Hours</TableHead>
                     <TableHead>Setup Min.</TableHead>
                     <TableHead>Speed</TableHead>
@@ -438,6 +514,13 @@ export const ExcelUpload = () => {
                       <TableCell>{job.qty}</TableCell>
                       <TableCell>{job.due_date || '-'}</TableCell>
                       <TableCell>{job.location || '-'}</TableCell>
+                      {isMatrixMode && <TableCell>{job.size || '-'}</TableCell>}
+                      {isMatrixMode && <TableCell>{job.contact || '-'}</TableCell>}
+                      {isMatrixMode && (
+                        <TableCell className="max-w-32 truncate">
+                          {job.paper_specifications ? Object.keys(job.paper_specifications).join(', ') : '-'}
+                        </TableCell>
+                      )}
                       <TableCell>{job.estimated_hours ? `${job.estimated_hours}h` : '-'}</TableCell>
                       <TableCell>{job.setup_time_minutes ? `${job.setup_time_minutes}m` : '-'}</TableCell>
                       <TableCell>

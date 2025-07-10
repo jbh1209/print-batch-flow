@@ -1,10 +1,12 @@
 import * as XLSX from "xlsx";
-import type { ParsedJob, ImportStats, ParsedData } from './types';
+import type { ParsedJob, ImportStats, ParsedData, MatrixExcelData } from './types';
 import type { ExcelImportDebugger } from './debugger';
 import { formatExcelDate } from './dateFormatter';
 import { formatWONumber } from './woNumberFormatter';
 import { createColumnMap } from './columnMapper';
+import { parseMatrixExcelFile, parseMatrixDataToJobs } from './matrixParser';
 import type { ExcelPreviewData, ColumnMapping } from '@/components/tracker/ColumnMappingDialog';
+import type { MatrixColumnMapping } from '@/components/tracker/MatrixMappingDialog';
 
 export const parseExcelFileForPreview = async (file: File): Promise<ExcelPreviewData> => {
   const data = await file.arrayBuffer();
@@ -27,6 +29,63 @@ export const parseExcelFileForPreview = async (file: File): Promise<ExcelPreview
     sampleRows,
     totalRows
   };
+};
+
+// New function for matrix Excel preview
+export const parseMatrixExcelFileForPreview = async (file: File, logger: ExcelImportDebugger): Promise<MatrixExcelData> => {
+  return await parseMatrixExcelFile(file, logger);
+};
+
+// New function for matrix parsing with mapping
+export const parseMatrixExcelFileWithMapping = async (
+  file: File,
+  matrixData: MatrixExcelData,
+  mapping: MatrixColumnMapping,
+  logger: ExcelImportDebugger
+): Promise<ParsedData> => {
+  logger.addDebugInfo(`Starting matrix parsing with mapping for file: ${file.name}`);
+  
+  // Convert MatrixColumnMapping to a format the matrix parser can use
+  const columnMapping = {
+    woNo: mapping.woNo,
+    customer: mapping.customer,
+    reference: mapping.reference,
+    date: mapping.date,
+    dueDate: mapping.dueDate,
+    rep: mapping.rep,
+    category: mapping.category,
+    location: mapping.location,
+    size: mapping.size,
+    specification: mapping.specification,
+    contact: mapping.contact
+  };
+  
+  // Update matrix data with confirmed mappings
+  const updatedMatrixData: MatrixExcelData = {
+    ...matrixData,
+    groupColumn: mapping.groupColumn,
+    workOrderColumn: mapping.woNo,
+    descriptionColumn: mapping.descriptionColumn,
+    qtyColumn: mapping.qtyColumn,
+    woQtyColumn: mapping.woQtyColumn
+  };
+  
+  // Parse using matrix parser
+  const jobs = parseMatrixDataToJobs(updatedMatrixData, columnMapping, logger);
+  
+  const stats: ImportStats = {
+    totalRows: matrixData.rows.length,
+    processedRows: jobs.length,
+    skippedRows: matrixData.rows.length - jobs.length,
+    invalidWONumbers: 0,
+    invalidDates: 0,
+    invalidTimingData: 0,
+    invalidSpecifications: 0
+  };
+  
+  logger.addDebugInfo(`Matrix parsing completed: ${jobs.length} jobs processed`);
+  
+  return { jobs, stats };
 };
 
 export const getAutoDetectedMapping = (headers: string[], logger: ExcelImportDebugger): ColumnMapping => {
