@@ -12,6 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PaperSpecificationMappingDialog } from "@/components/admin/mapping/PaperSpecificationMappingDialog";
 import { DeliverySpecificationMappingDialog } from "@/components/admin/mapping/DeliverySpecificationMappingDialog";
+import { AutoMappingResultsDialog } from "@/components/admin/mapping/AutoMappingResultsDialog";
+import { AutomaticMappingCreator, type AutoMappingResult } from "@/utils/excel/automaticMappingCreator";
+import { EnhancedMappingProcessor } from "@/utils/excel/enhancedMappingProcessor";
 
 interface ExcelDataAnalyzerProps {
   data: {
@@ -60,6 +63,8 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   const [isCreatingMapping, setIsCreatingMapping] = useState(false);
   const [showPaperMappingDialog, setShowPaperMappingDialog] = useState(false);
   const [showDeliveryMappingDialog, setShowDeliveryMappingDialog] = useState(false);
+  const [showAutoMappingDialog, setShowAutoMappingDialog] = useState(false);
+  const [autoMappingResults, setAutoMappingResults] = useState<AutoMappingResult | null>(null);
   const { toast } = useToast();
   
   // Extract enhanced mapping data
@@ -385,6 +390,56 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     return Array.from(itemTypes);
   };
 
+  const handleAutoMapping = async () => {
+    if (!data.jobs || data.jobs.length === 0) {
+      toast({
+        title: "No Data Available",
+        description: "Upload Excel data first to create automatic mappings",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingMapping(true);
+
+    try {
+      const enhancedResult = {
+        jobs: data.jobs,
+        paperMappings: paperMappings,
+        deliveryMappings: deliveryMappings,
+        enhancedDeliveryMappings: enhancedDeliveryMappings,
+        unmappedPaperSpecs: unmappedPaperSpecs,
+        unmappedDeliverySpecs: unmappedDeliverySpecs,
+        stats: {
+          totalJobs: data.jobs.length,
+          paperSpecsMapped: paperMappings.length,
+          deliverySpecsMapped: deliveryMappings.length,
+          enhancedDeliveryMapped: enhancedDeliveryMappings.length,
+          averageConfidence: 0
+        }
+      };
+
+      const mappingCreator = new AutomaticMappingCreator(
+        new (await import('@/utils/excel/debugger')).ExcelImportDebugger()
+      );
+
+      const results = await mappingCreator.createMappingsFromResults(enhancedResult, 80);
+      
+      setAutoMappingResults(results);
+      setShowAutoMappingDialog(true);
+
+    } catch (error: any) {
+      console.error('Auto mapping error:', error);
+      toast({
+        title: "Auto Mapping Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingMapping(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Data Overview */}
@@ -471,12 +526,24 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                     <Truck className="h-3 w-3 mr-1" />
                     Delivery Details
                   </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+                 )}
+                 
+                 {/* Auto-mapping button */}
+                 <Button 
+                   variant="default"
+                   size="sm"
+                   onClick={handleAutoMapping}
+                   className="h-auto p-2 text-xs"
+                   disabled={isCreatingMapping}
+                 >
+                   <Sparkles className="h-3 w-3 mr-1" />
+                   Auto-Map
+                 </Button>
+               </div>
+             </div>
+           </div>
+         )}
+       </div>
 
       <Tabs defaultValue="analyze" className="space-y-4">
         <TabsList>
@@ -831,6 +898,13 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           enhancedDeliveryMapped: enhancedDeliveryMappings.length,
           totalJobs: data.jobs.length
         }}
+      />
+
+      {/* Auto Mapping Results Dialog */}
+      <AutoMappingResultsDialog
+        open={showAutoMappingDialog}
+        onOpenChange={setShowAutoMappingDialog}
+        results={autoMappingResults}
       />
     </div>
   );

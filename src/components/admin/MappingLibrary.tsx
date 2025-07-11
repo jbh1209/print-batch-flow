@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BatchMappingOperations } from "./mapping/BatchMappingOperations";
 import { Search, Download, Upload, Trash2, Edit, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -211,27 +212,34 @@ export const MappingLibrary: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>Mapping Library</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Manage your Excel text to production stage mappings
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={exportMappings} variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-              <Button onClick={loadMappings} variant="outline" size="sm">
-                Refresh
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+      <Tabs defaultValue="mappings" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="mappings">Mapping Library</TabsTrigger>
+          <TabsTrigger value="operations">Batch Operations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="mappings">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle>Mapping Library</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Manage your Excel text to production stage mappings
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={exportMappings} variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                  <Button onClick={loadMappings} variant="outline" size="sm">
+                    Refresh
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
           <div className="space-y-4">
             {/* Search */}
             <div className="relative">
@@ -323,8 +331,14 @@ export const MappingLibrary: React.FC = () => {
               </Table>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        </TabsContent>
+
+        <TabsContent value="operations">
+          <BatchMappingOperations onOperationComplete={loadMappings} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
