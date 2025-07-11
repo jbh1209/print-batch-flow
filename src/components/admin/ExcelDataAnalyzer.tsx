@@ -51,6 +51,8 @@ interface StageSpecification {
 export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMappingCreated }) => {
   const [filteredJobs, setFilteredJobs] = useState(data.jobs);
   const [selectedJobs, setSelectedJobs] = useState<Set<number>>(new Set());
+  const [mappedRows, setMappedRows] = useState<Set<number>>(new Set());
+  const [hideMappedRows, setHideMappedRows] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterField, setFilterField] = useState("all");
   const [selectedGroup, setSelectedGroup] = useState("all");
@@ -100,7 +102,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
   useEffect(() => {
     filterJobs();
-  }, [searchTerm, filterField, selectedGroup, selectedItemType, data.jobs]);
+  }, [searchTerm, filterField, selectedGroup, selectedItemType, hideMappedRows, mappedRows, data.jobs]);
 
   useEffect(() => {
     // Reset item type when group changes
@@ -140,6 +142,11 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
   const filterJobs = () => {
     let filtered = data.jobs;
+
+    // Hide mapped rows filter
+    if (hideMappedRows) {
+      filtered = filtered.filter((job, index) => !mappedRows.has(index));
+    }
 
     // Enhanced text search
     if (searchTerm) {
@@ -334,6 +341,10 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
         variant: conflictCount > 0 ? "default" : "default",
       });
 
+      // Mark selected rows as mapped
+      const newMappedRows = new Set([...mappedRows, ...selectedJobs]);
+      setMappedRows(newMappedRows);
+      
       clearSelection();
       onMappingCreated();
 
@@ -629,6 +640,49 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                   </div>
                 )}
 
+                {/* Mapping Progress and Controls */}
+                {mappedRows.size > 0 && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                          {mappedRows.size} rows mapped ({((mappedRows.size / data.jobs.length) * 100).toFixed(1)}%)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
+                           <Checkbox
+                             id="hide-mapped"
+                             checked={hideMappedRows}
+                             onCheckedChange={(checked) => setHideMappedRows(checked === true)}
+                           />
+                          <label 
+                            htmlFor="hide-mapped" 
+                            className="text-sm text-green-700 dark:text-green-300 cursor-pointer"
+                          >
+                            Hide mapped rows
+                          </label>
+                        </div>
+                        <Button 
+                          onClick={() => setMappedRows(new Set())} 
+                          variant="outline" 
+                          size="sm"
+                          className="text-xs"
+                        >
+                          Reset
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="mt-2 w-full bg-green-200 dark:bg-green-800 rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${(mappedRows.size / data.jobs.length) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Selection Actions */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -646,6 +700,11 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Page {currentPage} of {totalPages} ({filteredJobs.length} total)
+                    {hideMappedRows && mappedRows.size > 0 && (
+                      <span className="ml-2 text-green-600 dark:text-green-400">
+                        • {mappedRows.size} mapped rows hidden
+                      </span>
+                    )}
                   </div>
                 </div>
 
