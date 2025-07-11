@@ -11,6 +11,7 @@ import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Sparkles
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PaperSpecificationMappingDialog } from "@/components/admin/mapping/PaperSpecificationMappingDialog";
+import { DeliverySpecificationMappingDialog } from "@/components/admin/mapping/DeliverySpecificationMappingDialog";
 
 interface ExcelDataAnalyzerProps {
   data: {
@@ -25,6 +26,7 @@ interface ExcelDataAnalyzerProps {
     matrixData?: any;
     paperMappings?: any[];
     deliveryMappings?: any[];
+    enhancedDeliveryMappings?: any[];
     unmappedPaperSpecs?: string[];
     unmappedDeliverySpecs?: string[];
   };
@@ -57,11 +59,13 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreatingMapping, setIsCreatingMapping] = useState(false);
   const [showPaperMappingDialog, setShowPaperMappingDialog] = useState(false);
+  const [showDeliveryMappingDialog, setShowDeliveryMappingDialog] = useState(false);
   const { toast } = useToast();
   
   // Extract enhanced mapping data
   const paperMappings = data.paperMappings || [];
   const deliveryMappings = data.deliveryMappings || [];
+  const enhancedDeliveryMappings = data.enhancedDeliveryMappings || [];
   const unmappedPaperSpecs = data.unmappedPaperSpecs || [];
   const unmappedDeliverySpecs = data.unmappedDeliverySpecs || [];
   
@@ -447,7 +451,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                 <div className="text-sm font-medium text-blue-700 dark:text-blue-300">Delivery Methods</div>
                 <div className="text-xl font-bold text-blue-800 dark:text-blue-200">{deliveryMethods.length}</div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 flex gap-2">
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -455,8 +459,19 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                   className="h-auto p-2 text-xs"
                 >
                   <Package className="h-3 w-3 mr-1" />
-                  View Details
+                  Paper Details
                 </Button>
+                {enhancedDeliveryMappings.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowDeliveryMappingDialog(true)}
+                    className="h-auto p-2 text-xs"
+                  >
+                    <Truck className="h-3 w-3 mr-1" />
+                    Delivery Details
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -804,6 +819,17 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
             title: "Enhanced Mappings Confirmed",
             description: `Applied ${paperMappings.length} paper and ${deliveryMappings.length} delivery mappings`,
           });
+        }}
+      />
+      
+      {/* Enhanced Delivery Specification Mapping Dialog */}
+      <DeliverySpecificationMappingDialog
+        open={showDeliveryMappingDialog}
+        onOpenChange={setShowDeliveryMappingDialog}
+        deliveryMappings={enhancedDeliveryMappings}
+        stats={{
+          enhancedDeliveryMapped: enhancedDeliveryMappings.length,
+          totalJobs: data.jobs.length
         }}
       />
     </div>

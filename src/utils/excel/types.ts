@@ -74,3 +74,11 @@ export interface ParsedData {
   jobs: ParsedJob[];
   stats: ImportStats;
 }
+
+export interface DeliverySpecification {
+  method: 'delivery' | 'collection';
+  address?: string;
+  contact?: string;
+  notes?: string;
+  confidence: number;
+}

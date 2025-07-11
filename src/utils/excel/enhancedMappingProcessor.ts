@@ -1,5 +1,6 @@
 import type { ExcelImportDebugger } from './debugger';
 import { PaperSpecificationParser, PaperMappingMatcher } from './paperSpecificationParser';
+import { DeliverySpecificationMatcher } from './deliverySpecificationMatcher';
 import type { ParsedJob } from './types';
 
 export interface EnhancedMappingResult {
@@ -8,10 +9,12 @@ export interface EnhancedMappingResult {
   deliveryMappings: any[];
   unmappedPaperSpecs: string[];
   unmappedDeliverySpecs: string[];
+  enhancedDeliveryMappings: any[];
   stats: {
     totalJobs: number;
     paperSpecsMapped: number;
     deliverySpecsMapped: number;
+    enhancedDeliveryMapped: number;
     averageConfidence: number;
   };
 }
@@ -19,6 +22,7 @@ export interface EnhancedMappingResult {
 export class EnhancedMappingProcessor {
   private paperParser: PaperSpecificationParser;
   private paperMatcher: PaperMappingMatcher;
+  private deliveryMatcher: DeliverySpecificationMatcher;
 
   constructor(
     private logger: ExcelImportDebugger,
@@ -26,6 +30,7 @@ export class EnhancedMappingProcessor {
   ) {
     this.paperParser = new PaperSpecificationParser(logger);
     this.paperMatcher = new PaperMappingMatcher(logger);
+    this.deliveryMatcher = new DeliverySpecificationMatcher(logger, availableSpecs);
   }
 
   /**
@@ -43,12 +48,14 @@ export class EnhancedMappingProcessor {
       jobs: [...jobs],
       paperMappings: [],
       deliveryMappings: [],
+      enhancedDeliveryMappings: [],
       unmappedPaperSpecs: [],
       unmappedDeliverySpecs: [],
       stats: {
         totalJobs: jobs.length,
         paperSpecsMapped: 0,
         deliverySpecsMapped: 0,
+        enhancedDeliveryMapped: 0,
         averageConfidence: 0
       }
     };
@@ -155,6 +162,9 @@ export class EnhancedMappingProcessor {
       return;
     }
 
+    // Enhanced delivery method detection
+    const enhancedMapping = this.deliveryMatcher.enhanceDeliveryDetection(deliverySpec, deliveryText);
+    
     // Update job with delivery specifications
     if (!job.delivery_specifications) {
       job.delivery_specifications = {};
@@ -168,6 +178,27 @@ export class EnhancedMappingProcessor {
       confidence: deliverySpec.confidence,
       original_text: deliveryText
     };
+
+    // Add enhanced delivery mapping if available
+    if (enhancedMapping) {
+      job.delivery_specifications.enhanced_delivery = {
+        specification_id: enhancedMapping.specificationId,
+        specification_name: enhancedMapping.specificationName,
+        method: enhancedMapping.method,
+        confidence: enhancedMapping.confidence,
+        detected_features: enhancedMapping.detectedFeatures,
+        original_text: deliveryText
+      };
+
+      result.enhancedDeliveryMappings.push({
+        woNo: job.wo_no,
+        originalText: deliveryText,
+        mapping: enhancedMapping,
+        confidence: enhancedMapping.confidence
+      });
+
+      result.stats.enhancedDeliveryMapped++;
+    }
 
     result.deliveryMappings.push({
       woNo: job.wo_no,
