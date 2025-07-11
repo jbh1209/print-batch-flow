@@ -5,27 +5,33 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BatchMappingOperations } from "./mapping/BatchMappingOperations";
-import { Search, Download, Upload, Trash2, Edit, CheckCircle, AlertCircle } from "lucide-react";
+import { Search, Download, Upload, Trash2, Edit, CheckCircle, AlertCircle, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Mapping {
   id: string;
   excel_text: string;
-  production_stage_id: string;
+  production_stage_id?: string;
   stage_specification_id?: string;
+  print_specification_id?: string;
+  mapping_type: 'production_stage' | 'print_specification';
   confidence_score?: number;
   is_verified: boolean;
   created_at: string;
   stage_name?: string;
   specification_name?: string;
+  print_specification_name?: string;
+  print_specification_category?: string;
 }
 
 export const MappingLibrary: React.FC = () => {
   const [mappings, setMappings] = useState<Mapping[]>([]);
   const [filteredMappings, setFilteredMappings] = useState<Mapping[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [mappingTypeFilter, setMappingTypeFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     total: 0,
@@ -40,13 +46,25 @@ export const MappingLibrary: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const filtered = mappings.filter(mapping =>
-      mapping.excel_text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mapping.stage_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mapping.specification_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    let filtered = mappings;
+    
+    // Filter by mapping type
+    if (mappingTypeFilter !== "all") {
+      filtered = filtered.filter(mapping => mapping.mapping_type === mappingTypeFilter);
+    }
+    
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(mapping =>
+        mapping.excel_text.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mapping.stage_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mapping.specification_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mapping.print_specification_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
     setFilteredMappings(filtered);
-  }, [searchTerm, mappings]);
+  }, [searchTerm, mappingTypeFilter, mappings]);
 
   const loadMappings = async () => {
     try {
@@ -61,6 +79,11 @@ export const MappingLibrary: React.FC = () => {
           ),
           stage_specifications!excel_import_mappings_stage_specification_id_fkey (
             name
+          ),
+          print_specifications!excel_import_mappings_print_specification_id_fkey (
+            name,
+            display_name,
+            category
           )
         `)
         .order('created_at', { ascending: false });
@@ -70,7 +93,9 @@ export const MappingLibrary: React.FC = () => {
       const processedMappings = data?.map(mapping => ({
         ...mapping,
         stage_name: mapping.production_stages?.name,
-        specification_name: mapping.stage_specifications?.name
+        specification_name: mapping.stage_specifications?.name,
+        print_specification_name: mapping.print_specifications?.display_name || mapping.print_specifications?.name,
+        print_specification_category: mapping.print_specifications?.category
       })) || [];
 
       setMappings(processedMappings);
@@ -240,16 +265,28 @@ export const MappingLibrary: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent>
-          <div className="space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search mappings by Excel text, stage, or specification..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div className="space-y-4">
+            {/* Search and Filter */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search mappings by Excel text, stage, or specification..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={mappingTypeFilter} onValueChange={setMappingTypeFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="production_stage">Production Stages</SelectItem>
+                  <SelectItem value="print_specification">Paper & Delivery</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Mappings Table */}
@@ -258,7 +295,8 @@ export const MappingLibrary: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Excel Text</TableHead>
-                    <TableHead>Production Stage</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Target</TableHead>
                     <TableHead>Specification</TableHead>
                     <TableHead>Confidence</TableHead>
                     <TableHead>Status</TableHead>
@@ -268,8 +306,8 @@ export const MappingLibrary: React.FC = () => {
                 <TableBody>
                   {filteredMappings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        {searchTerm ? "No mappings match your search" : "No mappings found"}
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        {searchTerm || mappingTypeFilter !== "all" ? "No mappings match your filters" : "No mappings found"}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -278,8 +316,21 @@ export const MappingLibrary: React.FC = () => {
                         <TableCell className="font-medium max-w-xs truncate">
                           {mapping.excel_text}
                         </TableCell>
-                        <TableCell>{mapping.stage_name}</TableCell>
-                        <TableCell>{mapping.specification_name || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={mapping.mapping_type === 'production_stage' ? 'default' : 'secondary'}>
+                            {mapping.mapping_type === 'production_stage' ? 'Production' : 'Print Spec'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {mapping.mapping_type === 'production_stage' 
+                            ? mapping.stage_name 
+                            : mapping.print_specification_name}
+                        </TableCell>
+                        <TableCell>
+                          {mapping.mapping_type === 'production_stage' 
+                            ? (mapping.specification_name || "—")
+                            : (mapping.print_specification_category || "—")}
+                        </TableCell>
                         <TableCell>
                           <Badge 
                             variant={

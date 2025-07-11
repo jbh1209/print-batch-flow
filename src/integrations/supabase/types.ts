@@ -582,6 +582,8 @@ export type Database = {
           excel_text: string
           id: string
           is_verified: boolean
+          mapping_type: Database["public"]["Enums"]["mapping_type"] | null
+          print_specification_id: string | null
           production_stage_id: string
           stage_specification_id: string | null
           updated_at: string
@@ -593,6 +595,8 @@ export type Database = {
           excel_text: string
           id?: string
           is_verified?: boolean
+          mapping_type?: Database["public"]["Enums"]["mapping_type"] | null
+          print_specification_id?: string | null
           production_stage_id: string
           stage_specification_id?: string | null
           updated_at?: string
@@ -604,11 +608,20 @@ export type Database = {
           excel_text?: string
           id?: string
           is_verified?: boolean
+          mapping_type?: Database["public"]["Enums"]["mapping_type"] | null
+          print_specification_id?: string | null
           production_stage_id?: string
           stage_specification_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "excel_import_mappings_print_specification_id_fkey"
+            columns: ["print_specification_id"]
+            isOneToOne: false
+            referencedRelation: "print_specifications"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "excel_import_mappings_production_stage_id_fkey"
             columns: ["production_stage_id"]
@@ -2584,6 +2597,21 @@ export type Database = {
           conflict_detected: boolean
         }[]
       }
+      upsert_print_specification_mapping: {
+        Args: {
+          p_excel_text: string
+          p_print_specification_id: string
+          p_confidence_score?: number
+          p_created_by?: string
+        }
+        Returns: {
+          mapping_id: string
+          action_taken: string
+          previous_confidence: number
+          new_confidence: number
+          conflict_detected: boolean
+        }[]
+      }
       validate_batch_integrity: {
         Args: { p_batch_id: string }
         Returns: {
@@ -2623,6 +2651,7 @@ export type Database = {
         | "cancelled"
         | "sent_to_print"
       lamination_type: "gloss" | "matt" | "soft_touch" | "none"
+      mapping_type: "production_stage" | "print_specification"
       page_status:
         | "queued"
         | "batched"
@@ -2775,6 +2804,7 @@ export const Constants = {
         "sent_to_print",
       ],
       lamination_type: ["gloss", "matt", "soft_touch", "none"],
+      mapping_type: ["production_stage", "print_specification"],
       page_status: [
         "queued",
         "batched",

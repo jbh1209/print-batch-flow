@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Sparkles } from "lucide-react";
+import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Sparkles, Settings, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PaperSpecificationMappingDialog } from "@/components/admin/mapping/PaperSpecificationMappingDialog";
@@ -48,6 +48,14 @@ interface StageSpecification {
   production_stage_id: string;
 }
 
+interface PrintSpecification {
+  id: string;
+  name: string;
+  display_name: string;
+  category: string;
+  description?: string;
+}
+
 export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMappingCreated }) => {
   const [filteredJobs, setFilteredJobs] = useState(data.jobs);
   const [selectedJobs, setSelectedJobs] = useState<Set<number>>(new Set());
@@ -61,6 +69,9 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   const [stageSpecifications, setStageSpecifications] = useState<StageSpecification[]>([]);
   const [selectedStage, setSelectedStage] = useState("");
   const [selectedSpecification, setSelectedSpecification] = useState("");
+  const [printSpecifications, setPrintSpecifications] = useState<PrintSpecification[]>([]);
+  const [selectedPrintSpec, setSelectedPrintSpec] = useState("");
+  const [activeMappingTab, setActiveMappingTab] = useState("production-stages");
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreatingMapping, setIsCreatingMapping] = useState(false);
   const [showPaperMappingDialog, setShowPaperMappingDialog] = useState(false);
@@ -89,6 +100,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
   useEffect(() => {
     loadProductionStages();
+    loadPrintSpecifications();
   }, []);
 
   useEffect(() => {
@@ -137,6 +149,22 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       setStageSpecifications(specs || []);
     } catch (error: any) {
       console.error('Error loading stage specifications:', error);
+    }
+  };
+
+  const loadPrintSpecifications = async () => {
+    try {
+      const { data: specs, error } = await supabase
+        .from('print_specifications')
+        .select('id, name, display_name, category, description')
+        .eq('is_active', true)
+        .in('category', ['paper', 'delivery'])
+        .order('category, sort_order, name');
+
+      if (error) throw error;
+      setPrintSpecifications(specs || []);
+    } catch (error: any) {
+      console.error('Error loading print specifications:', error);
     }
   };
 
@@ -237,6 +265,14 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   };
 
   const createMapping = async () => {
+    if (activeMappingTab === "production-stages") {
+      return createProductionStageMapping();
+    } else if (activeMappingTab === "print-specifications") {
+      return createPrintSpecificationMapping();
+    }
+  };
+
+  const createProductionStageMapping = async () => {
     if (!selectedStage || selectedJobs.size === 0) {
       toast({
         title: "Invalid Selection",
@@ -350,6 +386,118 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
     } catch (error: any) {
       console.error('Error creating mappings:', error);
+      toast({
+        title: "Error Creating Mappings",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingMapping(false);
+    }
+  };
+
+  const createPrintSpecificationMapping = async () => {
+    if (!selectedPrintSpec || selectedJobs.size === 0) {
+      toast({
+        title: "Invalid Selection",
+        description: "Please select a print specification and at least one job",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingMapping(true);
+
+    try {
+      // Get unique text values from selected jobs
+      const selectedIndices = Array.from(selectedJobs);
+      const uniqueTexts = new Set<string>();
+
+      selectedIndices.forEach(index => {
+        const job = filteredJobs[index];
+        if (job) {
+          // Extract paper and delivery related text
+          const fieldsToExtract = [];
+          
+          // Paper specifications
+          if (job.paper_specifications) {
+            Object.values(job.paper_specifications).forEach((spec: any) => {
+              if (spec?.specifications) fieldsToExtract.push(spec.specifications);
+              if (spec?.description) fieldsToExtract.push(spec.description);
+            });
+          }
+          
+          // Delivery specifications
+          if (job.delivery_specifications) {
+            Object.values(job.delivery_specifications).forEach((spec: any) => {
+              if (spec?.specifications) fieldsToExtract.push(spec.specifications);
+              if (spec?.description) fieldsToExtract.push(spec.description);
+            });
+          }
+
+          // Also check general specification field
+          if (job.specification) fieldsToExtract.push(job.specification);
+          
+          fieldsToExtract.forEach(text => {
+            if (text && text.toString().trim()) {
+              uniqueTexts.add(text.toString().trim());
+            }
+          });
+        }
+      });
+
+      // Create mappings for each unique text using new function
+      const mappingPromises = Array.from(uniqueTexts).map(text => 
+        supabase.rpc('upsert_print_specification_mapping', {
+          p_excel_text: text,
+          p_print_specification_id: selectedPrintSpec,
+          p_confidence_score: 95
+        }).single()
+      );
+
+      const results = await Promise.all(mappingPromises);
+      
+      // Check for errors and collect results
+      const errors = results.filter(result => result.error);
+      if (errors.length > 0) {
+        throw new Error(`Failed to create ${errors.length} mappings: ${errors[0].error.message}`);
+      }
+
+      // Count created vs updated mappings
+      const createdCount = results.filter(r => r.data?.action_taken === 'created').length;
+      const updatedCount = results.filter(r => r.data?.action_taken === 'updated').length;
+      const conflictCount = results.filter(r => r.data?.conflict_detected).length;
+
+      let toastMessage = "Print Specification Mappings Processed";
+      let toastDescription = `Processed ${uniqueTexts.size} unique text patterns for ${selectedJobs.size} selected jobs.`;
+      
+      if (createdCount > 0 && updatedCount > 0) {
+        toastDescription += ` Created ${createdCount} new, updated ${updatedCount} existing.`;
+      } else if (createdCount > 0) {
+        toastDescription += ` Created ${createdCount} new mappings.`;
+      } else if (updatedCount > 0) {
+        toastDescription += ` Updated ${updatedCount} existing mappings.`;
+      }
+      
+      if (conflictCount > 0) {
+        toastDescription += ` ⚠️ ${conflictCount} text patterns map to multiple specifications.`;
+      }
+
+      toast({
+        title: toastMessage,
+        description: toastDescription,
+        variant: conflictCount > 0 ? "default" : "default",
+      });
+
+      // Mark selected rows as mapped
+      const newMappedRows = new Set([...mappedRows, ...selectedJobs]);
+      setMappedRows(newMappedRows);
+      
+      clearSelection();
+      onMappingCreated();
+
+    } catch (error: any) {
+      console.error('Error creating print specification mappings:', error);
       toast({
         title: "Error Creating Mappings",
         description: error.message,
@@ -863,68 +1011,157 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
         <TabsContent value="mapping" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Create Production Stage Mappings</CardTitle>
+              <CardTitle>Create Excel Mappings</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Map selected Excel data to production stages and specifications
+                Map selected Excel data to production stages, paper specifications, or delivery methods
               </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">Production Stage *</label>
-                    <Select value={selectedStage} onValueChange={setSelectedStage}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select production stage" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {productionStages.map(stage => (
-                          <SelectItem key={stage.id} value={stage.id}>
-                            {stage.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Stage Specification (Optional)</label>
-                    <Select 
-                      value={selectedSpecification} 
-                      onValueChange={setSelectedSpecification}
-                      disabled={!selectedStage}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select specification" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {stageSpecifications.map(spec => (
-                          <SelectItem key={spec.id} value={spec.id}>
-                            {spec.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                {/* Mapping Type Tabs */}
+                <Tabs value={activeMappingTab} onValueChange={setActiveMappingTab} className="space-y-4">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="production-stages" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Production Stages
+                    </TabsTrigger>
+                    <TabsTrigger value="print-specifications" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Paper & Delivery
+                    </TabsTrigger>
+                  </TabsList>
 
-                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                  <div>
-                    <p className="font-medium">
-                      Ready to create mapping for {selectedJobs.size} selected jobs
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      This will extract unique text patterns and map them to the selected stage
-                    </p>
-                  </div>
-                  <Button
-                    onClick={createMapping}
-                    disabled={!selectedStage || selectedJobs.size === 0 || isCreatingMapping}
-                    className="flex items-center gap-2"
-                  >
-                    <MapPin className="h-4 w-4" />
-                    {isCreatingMapping ? "Creating..." : "Create Mapping"}
-                  </Button>
-                </div>
+                  {/* Production Stages Mapping */}
+                  <TabsContent value="production-stages" className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Production Stage *</label>
+                        <Select value={selectedStage} onValueChange={setSelectedStage}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select production stage" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {productionStages.map(stage => (
+                              <SelectItem key={stage.id} value={stage.id}>
+                                {stage.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Stage Specification (Optional)</label>
+                        <Select 
+                          value={selectedSpecification} 
+                          onValueChange={setSelectedSpecification}
+                          disabled={!selectedStage}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select specification" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stageSpecifications.map(spec => (
+                              <SelectItem key={spec.id} value={spec.id}>
+                                {spec.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div>
+                        <p className="font-medium">
+                          Ready to create production stage mapping for {selectedJobs.size} selected jobs
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          This will extract unique text patterns and map them to the selected production stage
+                        </p>
+                      </div>
+                      <Button
+                        onClick={createMapping}
+                        disabled={!selectedStage || selectedJobs.size === 0 || isCreatingMapping}
+                        className="flex items-center gap-2"
+                      >
+                        <Settings className="h-4 w-4" />
+                        {isCreatingMapping ? "Creating..." : "Create Mapping"}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Print Specifications Mapping */}
+                  <TabsContent value="print-specifications" className="space-y-4">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">Print Specification *</label>
+                        <Select value={selectedPrintSpec} onValueChange={setSelectedPrintSpec}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select print specification" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <optgroup label="Paper Specifications">
+                              {printSpecifications
+                                .filter(spec => spec.category === 'paper')
+                                .map(spec => (
+                                  <SelectItem key={spec.id} value={spec.id}>
+                                    {spec.display_name}
+                                  </SelectItem>
+                                ))}
+                            </optgroup>
+                            <optgroup label="Delivery Specifications">
+                              {printSpecifications
+                                .filter(spec => spec.category === 'delivery')
+                                .map(spec => (
+                                  <SelectItem key={spec.id} value={spec.id}>
+                                    {spec.display_name}
+                                  </SelectItem>
+                                ))}
+                            </optgroup>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {selectedPrintSpec && (
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <div className="text-sm">
+                            {(() => {
+                              const selectedSpec = printSpecifications.find(s => s.id === selectedPrintSpec);
+                              return (
+                                <div>
+                                  <p><strong>Category:</strong> {selectedSpec?.category}</p>
+                                  <p><strong>Name:</strong> {selectedSpec?.display_name}</p>
+                                  {selectedSpec?.description && (
+                                    <p><strong>Description:</strong> {selectedSpec.description}</p>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div>
+                        <p className="font-medium">
+                          Ready to create print specification mapping for {selectedJobs.size} selected jobs
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          This will extract paper and delivery text patterns and map them to the selected specification
+                        </p>
+                      </div>
+                      <Button
+                        onClick={createMapping}
+                        disabled={!selectedPrintSpec || selectedJobs.size === 0 || isCreatingMapping}
+                        className="flex items-center gap-2"
+                      >
+                        <FileText className="h-4 w-4" />
+                        {isCreatingMapping ? "Creating..." : "Create Mapping"}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
             </CardContent>
           </Card>
