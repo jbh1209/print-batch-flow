@@ -8,6 +8,7 @@ import {
   parseMatrixExcelFileForPreview,
   parseMatrixExcelFileWithMapping 
 } from "@/utils/excel/enhancedParser";
+import { usePrintSpecifications } from "@/hooks/usePrintSpecifications";
 import type { MatrixExcelData } from "@/utils/excel/types";
 import type { MatrixColumnMapping } from "@/components/tracker/MatrixMappingDialog";
 
@@ -22,6 +23,7 @@ export const useExcelUpload = ({ onDataUploaded }: UseExcelUploadProps) => {
   const [matrixData, setMatrixData] = useState<MatrixExcelData | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const { toast } = useToast();
+  const { specifications } = usePrintSpecifications();
 
   const validateFile = (file: File): boolean => {
     if (!file.name.match(/\.(xlsx|xls)$/)) {
@@ -66,7 +68,7 @@ export const useExcelUpload = ({ onDataUploaded }: UseExcelUploadProps) => {
     const mapping = getAutoDetectedMapping(previewData.headers, logger);
     
     setUploadProgress(80);
-    const parsedData = await parseExcelFileWithMapping(file, mapping, logger);
+    const parsedData = await parseExcelFileWithMapping(file, mapping, logger, specifications);
     
     const analysisData = {
       fileName: file.name,
@@ -131,7 +133,7 @@ export const useExcelUpload = ({ onDataUploaded }: UseExcelUploadProps) => {
     
     try {
       setUploadProgress(50);
-      const parsedData = await parseMatrixExcelFileWithMapping(currentFile, matrixData, mapping, logger);
+      const parsedData = await parseMatrixExcelFileWithMapping(currentFile, matrixData, mapping, logger, specifications);
       
       const analysisData = {
         fileName: currentFile.name,

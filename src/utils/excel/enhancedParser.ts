@@ -5,6 +5,7 @@ import { formatExcelDate } from './dateFormatter';
 import { formatWONumber } from './woNumberFormatter';
 import { createColumnMap } from './columnMapper';
 import { parseMatrixExcelFile, parseMatrixDataToJobs } from './matrixParser';
+import { EnhancedMappingProcessor } from './enhancedMappingProcessor';
 import type { ExcelPreviewData, ColumnMapping } from '@/components/tracker/ColumnMappingDialog';
 import type { MatrixColumnMapping } from '@/components/tracker/MatrixMappingDialog';
 
@@ -41,9 +42,10 @@ export const parseMatrixExcelFileWithMapping = async (
   file: File,
   matrixData: MatrixExcelData,
   mapping: MatrixColumnMapping,
-  logger: ExcelImportDebugger
+  logger: ExcelImportDebugger,
+  availableSpecs: any[] = []
 ): Promise<ParsedData> => {
-  logger.addDebugInfo(`Starting matrix parsing with mapping for file: ${file.name}`);
+  logger.addDebugInfo(`Starting enhanced matrix parsing with mapping for file: ${file.name}`);
   
   // Convert MatrixColumnMapping to a format the matrix parser can use
   const columnMapping = {
@@ -73,19 +75,34 @@ export const parseMatrixExcelFileWithMapping = async (
   // Parse using matrix parser
   const jobs = parseMatrixDataToJobs(updatedMatrixData, columnMapping, logger);
   
+  // Apply enhanced mapping for paper and delivery specifications
+  const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
+  
+  // Find paper and delivery columns from specification column
+  const paperColumnIndex = mapping.specification !== -1 ? mapping.specification : -1;
+  const deliveryColumnIndex = -1; // Could be extracted from other columns in future
+  
+  const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
+    jobs,
+    paperColumnIndex,
+    deliveryColumnIndex,
+    matrixData.rows
+  );
+  
   const stats: ImportStats = {
     totalRows: matrixData.rows.length,
-    processedRows: jobs.length,
-    skippedRows: matrixData.rows.length - jobs.length,
+    processedRows: enhancedResult.jobs.length,
+    skippedRows: matrixData.rows.length - enhancedResult.jobs.length,
     invalidWONumbers: 0,
     invalidDates: 0,
     invalidTimingData: 0,
-    invalidSpecifications: 0
+    invalidSpecifications: enhancedResult.unmappedPaperSpecs.length + enhancedResult.unmappedDeliverySpecs.length
   };
   
-  logger.addDebugInfo(`Matrix parsing completed: ${jobs.length} jobs processed`);
+  logger.addDebugInfo(`Enhanced matrix parsing completed: ${enhancedResult.jobs.length} jobs processed`);
+  logger.addDebugInfo(`Paper specs mapped: ${enhancedResult.stats.paperSpecsMapped}, Delivery specs mapped: ${enhancedResult.stats.deliverySpecsMapped}`);
   
-  return { jobs, stats };
+  return { jobs: enhancedResult.jobs, stats };
 };
 
 export const getAutoDetectedMapping = (headers: string[], logger: ExcelImportDebugger): ColumnMapping => {
@@ -115,7 +132,8 @@ const normalizeStatus = (statusValue: any, logger: ExcelImportDebugger): string 
 export const parseExcelFileWithMapping = async (
   file: File, 
   mapping: ColumnMapping, 
-  logger: ExcelImportDebugger
+  logger: ExcelImportDebugger,
+  availableSpecs: any[] = []
 ): Promise<ParsedData> => {
   logger.addDebugInfo(`Starting to process file: ${file.name} with custom mapping`);
   
@@ -269,7 +287,22 @@ export const parseExcelFileWithMapping = async (
     stats.processedRows++;
   });
 
-  logger.addDebugInfo(`Import completed: ${stats.processedRows} processed, ${stats.skippedRows} skipped, ${stats.invalidDates} invalid dates, ${stats.invalidTimingData} invalid timing data`);
+  // Apply enhanced mapping for paper and delivery specifications
+  const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
+  
+  // Process with enhanced mapping
+  const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(
+    mapped,
+    mapping.paperType || -1,
+    mapping.delivery || -1,
+    dataRows
+  );
 
-  return { jobs: mapped, stats };
+  // Update stats with enhanced mapping results
+  stats.invalidSpecifications = enhancedResult.unmappedPaperSpecs.length + enhancedResult.unmappedDeliverySpecs.length;
+
+  logger.addDebugInfo(`Enhanced import completed: ${stats.processedRows} processed, ${stats.skippedRows} skipped, ${stats.invalidDates} invalid dates, ${stats.invalidTimingData} invalid timing data`);
+  logger.addDebugInfo(`Paper specs mapped: ${enhancedResult.stats.paperSpecsMapped}, Delivery specs mapped: ${enhancedResult.stats.deliverySpecsMapped}`);
+
+  return { jobs: enhancedResult.jobs, stats };
 };

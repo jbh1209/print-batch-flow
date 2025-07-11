@@ -7,9 +7,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, MapPin, Database, Eye, Target } from "lucide-react";
+import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { PaperSpecificationMappingDialog } from "@/components/admin/mapping/PaperSpecificationMappingDialog";
 
 interface ExcelDataAnalyzerProps {
   data: {
@@ -22,6 +23,10 @@ interface ExcelDataAnalyzerProps {
     debugLog: string[];
     isMatrixMode?: boolean;
     matrixData?: any;
+    paperMappings?: any[];
+    deliveryMappings?: any[];
+    unmappedPaperSpecs?: string[];
+    unmappedDeliverySpecs?: string[];
   };
   onMappingCreated: () => void;
 }
@@ -51,7 +56,19 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   const [selectedSpecification, setSelectedSpecification] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreatingMapping, setIsCreatingMapping] = useState(false);
+  const [showPaperMappingDialog, setShowPaperMappingDialog] = useState(false);
   const { toast } = useToast();
+  
+  // Extract enhanced mapping data
+  const paperMappings = data.paperMappings || [];
+  const deliveryMappings = data.deliveryMappings || [];
+  const unmappedPaperSpecs = data.unmappedPaperSpecs || [];
+  const unmappedDeliverySpecs = data.unmappedDeliverySpecs || [];
+  
+  // Analyze paper specifications
+  const paperTypes = [...new Set(data.jobs.map((job: any) => job.paper_specifications?.parsed_paper?.type).filter(Boolean))];
+  const paperWeights = [...new Set(data.jobs.map((job: any) => job.paper_specifications?.parsed_paper?.weight).filter(Boolean))];
+  const deliveryMethods = [...new Set(data.jobs.map((job: any) => job.delivery_specifications?.parsed_delivery?.method).filter(Boolean))];
 
   const itemsPerPage = 50;
   const totalPages = Math.ceil(filteredJobs.length / itemsPerPage);
@@ -409,6 +426,41 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
             </CardContent>
           </Card>
         </div>
+        
+        {/* Enhanced Mapping Stats */}
+        {(paperMappings.length > 0 || deliveryMappings.length > 0) && (
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h4 className="font-medium mb-3 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              Enhanced Specification Mapping Results
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">Paper Types</div>
+                <div className="text-xl font-bold text-blue-800 dark:text-blue-200">{paperTypes.length}</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">Paper Weights</div>
+                <div className="text-xl font-bold text-blue-800 dark:text-blue-200">{paperWeights.length}</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">Delivery Methods</div>
+                <div className="text-xl font-bold text-blue-800 dark:text-blue-200">{deliveryMethods.length}</div>
+              </div>
+              <div className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowPaperMappingDialog(true)}
+                  className="h-auto p-2 text-xs"
+                >
+                  <Package className="h-3 w-3 mr-1" />
+                  View Details
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <Tabs defaultValue="analyze" className="space-y-4">
@@ -737,6 +789,23 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Enhanced Paper Specification Mapping Dialog */}
+      <PaperSpecificationMappingDialog
+        open={showPaperMappingDialog}
+        onOpenChange={setShowPaperMappingDialog}
+        paperMappings={paperMappings}
+        deliveryMappings={deliveryMappings}
+        unmappedPaperSpecs={unmappedPaperSpecs}
+        unmappedDeliverySpecs={unmappedDeliverySpecs}
+        onConfirm={() => {
+          setShowPaperMappingDialog(false);
+          toast({
+            title: "Enhanced Mappings Confirmed",
+            description: `Applied ${paperMappings.length} paper and ${deliveryMappings.length} delivery mappings`,
+          });
+        }}
+      />
     </div>
   );
 };
