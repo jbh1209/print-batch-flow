@@ -85,6 +85,16 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreatingMapping, setIsCreatingMapping] = useState(false);
   const [currentExcelText, setCurrentExcelText] = useState("");
+  
+  // Enhanced pattern management state
+  const [patternSearchTerm, setPatternSearchTerm] = useState("");
+  const [patternSortBy, setPatternSortBy] = useState<'frequency' | 'alphabetical' | 'length'>('frequency');
+  const [selectedPatterns, setSelectedPatterns] = useState<Set<string>>(new Set());
+  const [patternFilter, setPatternFilter] = useState<'all' | 'gsm' | 'delivery' | 'paper' | 'print'>('all');
+  const [patternsPerPage, setPatternsPerPage] = useState(100);
+  const [currentPatternPage, setCurrentPatternPage] = useState(1);
+  const [showPatternPreview, setShowPatternPreview] = useState("");
+  
   const { toast } = useToast();
   
   // Extract enhanced mapping data
@@ -259,13 +269,15 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   };
 
   const getUniqueTextPatterns = () => {
-    const allTexts = new Set<string>();
+    const patternFrequency = new Map<string, number>();
     
     data.jobs.forEach(job => {
-      if (job.category) allTexts.add(job.category);
-      if (job.specification) allTexts.add(job.specification);
-      if (job.reference) allTexts.add(job.reference);
-      if (job.location) allTexts.add(job.location);
+      const patterns = [];
+      
+      if (job.category) patterns.push(job.category);
+      if (job.specification) patterns.push(job.specification);
+      if (job.reference) patterns.push(job.reference);
+      if (job.location) patterns.push(job.location);
       
       if (data.isMatrixMode) {
         const specGroups = ['paper_specifications', 'printing_specifications', 'finishing_specifications', 'prepress_specifications', 'delivery_specifications'];
@@ -273,15 +285,25 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
         specGroups.forEach(groupKey => {
           if (job[groupKey] && typeof job[groupKey] === 'object') {
             Object.values(job[groupKey]).forEach((spec: any) => {
-              if (spec?.specifications) allTexts.add(spec.specifications);
-              if (spec?.description) allTexts.add(spec.description);
+              if (spec?.specifications) patterns.push(spec.specifications);
+              if (spec?.description) patterns.push(spec.description);
             });
           }
         });
       }
+      
+      patterns.forEach(pattern => {
+        if (pattern && pattern.trim().length > 0) {
+          const text = pattern.trim();
+          patternFrequency.set(text, (patternFrequency.get(text) || 0) + 1);
+        }
+      });
     });
     
-    return Array.from(allTexts).filter(text => text && text.trim().length > 0);
+    return Array.from(patternFrequency.entries()).map(([text, frequency]) => ({
+      text,
+      frequency
+    }));
   };
 
   const createMapping = async (excelText: string, type: 'production_stage' | 'paper_specification' | 'delivery_specification') => {
@@ -393,6 +415,98 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     if (onMappingCreated) onMappingCreated();
   };
 
+  // Enhanced pattern filtering and sorting
+  const getFilteredAndSortedPatterns = () => {
+    let patterns = getUniqueTextPatterns();
+    
+    // Apply search filter
+    if (patternSearchTerm.trim()) {
+      const searchTerm = patternSearchTerm.toLowerCase();
+      patterns = patterns.filter(pattern => 
+        pattern.text.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    // Apply category filter
+    if (patternFilter !== 'all') {
+      patterns = patterns.filter(pattern => {
+        const text = pattern.text.toLowerCase();
+        switch (patternFilter) {
+          case 'gsm':
+            return text.includes('gsm') || text.includes('g/m') || /\d+\s*g[^a-z]/i.test(text);
+          case 'delivery':
+            return text.includes('delivery') || text.includes('collection') || text.includes('post') || text.includes('courier');
+          case 'paper':
+            return text.includes('paper') || text.includes('card') || text.includes('board') || text.includes('stock');
+          case 'print':
+            return text.includes('print') || text.includes('litho') || text.includes('digital') || text.includes('offset');
+          default:
+            return true;
+        }
+      });
+    }
+    
+    // Apply sorting
+    patterns.sort((a, b) => {
+      switch (patternSortBy) {
+        case 'frequency':
+          return b.frequency - a.frequency;
+        case 'alphabetical':
+          return a.text.localeCompare(b.text);
+        case 'length':
+          return b.text.length - a.text.length;
+        default:
+          return 0;
+      }
+    });
+    
+    return patterns;
+  };
+
+  const getPatternPreviewJobs = (pattern: string) => {
+    return data.jobs.filter(job => {
+      const searchText = [
+        job.category,
+        job.specification,
+        job.reference,
+        job.location
+      ].join(' ').toLowerCase();
+      
+      if (data.isMatrixMode) {
+        const specGroups = ['paper_specifications', 'printing_specifications', 'finishing_specifications', 'prepress_specifications', 'delivery_specifications'];
+        
+        specGroups.forEach(groupKey => {
+          if (job[groupKey] && typeof job[groupKey] === 'object') {
+            Object.values(job[groupKey]).forEach((spec: any) => {
+              if (spec?.specifications) searchText.concat(' ', spec.specifications.toLowerCase());
+              if (spec?.description) searchText.concat(' ', spec.description.toLowerCase());
+            });
+          }
+        });
+      }
+      
+      return searchText.includes(pattern.toLowerCase());
+    }).slice(0, 5); // Show first 5 examples
+  };
+
+  const handleBulkPatternMapping = (mappingType: 'production_stage' | 'paper_specification' | 'delivery_specification') => {
+    if (selectedPatterns.size === 0) {
+      toast({
+        title: "No Patterns Selected",
+        description: "Please select patterns to map",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Process each selected pattern
+    Array.from(selectedPatterns).forEach(pattern => {
+      createMapping(pattern, mappingType);
+    });
+    
+    setSelectedPatterns(new Set());
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -465,22 +579,163 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Unmapped Text Patterns</h4>
-                    <div className="grid gap-2 max-h-64 overflow-y-auto">
-                      {getUniqueTextPatterns().slice(0, 20).map((text, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 border rounded">
-                          <span className="text-sm">{text}</span>
-                          <Button
-                            size="sm"
-                            onClick={() => createMapping(text, 'production_stage')}
-                            disabled={isCreatingMapping && currentExcelText === text}
-                          >
-                            {isCreatingMapping && currentExcelText === text ? "Creating..." : "Map"}
-                          </Button>
-                        </div>
-                      ))}
+                  <div className="space-y-4">
+                    {/* Pattern Controls */}
+                    <div className="flex flex-col lg:flex-row gap-4">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Search patterns..."
+                          value={patternSearchTerm}
+                          onChange={(e) => setPatternSearchTerm(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Select value={patternFilter} onValueChange={(value: any) => setPatternFilter(value)}>
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="gsm">GSM/Weight</SelectItem>
+                            <SelectItem value="delivery">Delivery</SelectItem>
+                            <SelectItem value="paper">Paper</SelectItem>
+                            <SelectItem value="print">Print</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={patternSortBy} onValueChange={(value: any) => setPatternSortBy(value)}>
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="frequency">Frequency</SelectItem>
+                            <SelectItem value="alphabetical">A-Z</SelectItem>
+                            <SelectItem value="length">Length</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
+
+                    {/* Bulk Actions */}
+                    {selectedPatterns.size > 0 && (
+                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                        <span className="text-sm">{selectedPatterns.size} patterns selected</span>
+                        <Button
+                          size="sm"
+                          onClick={() => handleBulkPatternMapping('production_stage')}
+                          disabled={!selectedStage}
+                        >
+                          Bulk Map to Stage
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedPatterns(new Set())}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Pattern Stats */}
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Available Text Patterns</h4>
+                      <Badge variant="secondary">{getFilteredAndSortedPatterns().length} patterns</Badge>
+                    </div>
+                    
+                    {/* Pattern List */}
+                    <div className="border rounded-lg max-h-96 overflow-y-auto">
+                      {(() => {
+                        const filteredPatterns = getFilteredAndSortedPatterns();
+                        const startIdx = (currentPatternPage - 1) * patternsPerPage;
+                        const endIdx = startIdx + patternsPerPage;
+                        const paginatedPatterns = filteredPatterns.slice(startIdx, endIdx);
+                        
+                        return paginatedPatterns.map((pattern, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50">
+                            <div className="flex items-center gap-3 flex-1">
+                              <Checkbox
+                                checked={selectedPatterns.has(pattern.text)}
+                                onCheckedChange={(checked) => {
+                                  const newSelected = new Set(selectedPatterns);
+                                  if (checked) {
+                                    newSelected.add(pattern.text);
+                                  } else {
+                                    newSelected.delete(pattern.text);
+                                  }
+                                  setSelectedPatterns(newSelected);
+                                }}
+                              />
+                              <span className="text-sm font-mono flex-1">{pattern.text}</span>
+                              <Badge variant="outline" className="ml-2">
+                                {pattern.frequency}x
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowPatternPreview(pattern.text)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => createMapping(pattern.text, 'production_stage')}
+                                disabled={isCreatingMapping && currentExcelText === pattern.text}
+                              >
+                                {isCreatingMapping && currentExcelText === pattern.text ? (
+                                  "Creating..."
+                                ) : (
+                                  <>
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    Map
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+
+                    {/* Pattern Pagination */}
+                    {(() => {
+                      const totalPatterns = getFilteredAndSortedPatterns().length;
+                      const totalPages = Math.ceil(totalPatterns / patternsPerPage);
+                      
+                      if (totalPages > 1) {
+                        return (
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-muted-foreground">
+                              Showing {((currentPatternPage - 1) * patternsPerPage) + 1} to {Math.min(currentPatternPage * patternsPerPage, totalPatterns)} of {totalPatterns}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setCurrentPatternPage(Math.max(1, currentPatternPage - 1))}
+                                disabled={currentPatternPage === 1}
+                              >
+                                Previous
+                              </Button>
+                              <span className="text-sm">
+                                Page {currentPatternPage} of {totalPages}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setCurrentPatternPage(Math.min(totalPages, currentPatternPage + 1))}
+                                disabled={currentPatternPage === totalPages}
+                              >
+                                Next
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -528,24 +783,76 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Paper-Related Text Patterns</h4>
-                    <div className="grid gap-2 max-h-64 overflow-y-auto">
-                      {getUniqueTextPatterns().filter(text => 
-                        text.toLowerCase().includes('gsm') || 
-                        text.toLowerCase().includes('matt') || 
-                        text.toLowerCase().includes('gloss') ||
-                        text.toLowerCase().includes('paper')
-                      ).slice(0, 20).map((text, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 border rounded">
-                          <span className="text-sm">{text}</span>
-                          <Button
-                            size="sm"
-                            onClick={() => createMapping(text, 'paper_specification')}
-                            disabled={isCreatingMapping && currentExcelText === text}
-                          >
-                            {isCreatingMapping && currentExcelText === text ? "Creating..." : "Map"}
-                          </Button>
+                  <div className="space-y-4">
+                    {/* Bulk Actions for Paper */}
+                    {selectedPatterns.size > 0 && (
+                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                        <span className="text-sm">{selectedPatterns.size} patterns selected</span>
+                        <Button
+                          size="sm"
+                          onClick={() => handleBulkPatternMapping('paper_specification')}
+                          disabled={!selectedPaperType || !selectedPaperWeight}
+                        >
+                          Bulk Map Paper
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Paper-Related Text Patterns</h4>
+                      <Badge variant="secondary">{getFilteredAndSortedPatterns().filter(pattern => {
+                        const text = pattern.text.toLowerCase();
+                        return text.includes('gsm') || text.includes('matt') || text.includes('gloss') || text.includes('paper');
+                      }).length} patterns found</Badge>
+                    </div>
+                    
+                    <div className="border rounded-lg max-h-96 overflow-y-auto">
+                      {getFilteredAndSortedPatterns().filter(pattern => {
+                        const text = pattern.text.toLowerCase();
+                        return text.includes('gsm') || text.includes('matt') || text.includes('gloss') || text.includes('paper');
+                      }).slice(0, 50).map((pattern, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50">
+                          <div className="flex items-center gap-3 flex-1">
+                            <Checkbox
+                              checked={selectedPatterns.has(pattern.text)}
+                              onCheckedChange={(checked) => {
+                                const newSelected = new Set(selectedPatterns);
+                                if (checked) {
+                                  newSelected.add(pattern.text);
+                                } else {
+                                  newSelected.delete(pattern.text);
+                                }
+                                setSelectedPatterns(newSelected);
+                              }}
+                            />
+                            <span className="text-sm font-mono flex-1">{pattern.text}</span>
+                            <Badge variant="outline" className="ml-2">
+                              {pattern.frequency}x
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setShowPatternPreview(pattern.text)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => createMapping(pattern.text, 'paper_specification')}
+                              disabled={isCreatingMapping && currentExcelText === pattern.text}
+                            >
+                              {isCreatingMapping && currentExcelText === pattern.text ? (
+                                "Creating..."
+                              ) : (
+                                <>
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Map
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -604,24 +911,76 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                     </>
                   )}
 
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Delivery-Related Text Patterns</h4>
-                    <div className="grid gap-2 max-h-64 overflow-y-auto">
-                      {getUniqueTextPatterns().filter(text => 
-                        text.toLowerCase().includes('delivery') || 
-                        text.toLowerCase().includes('collection') || 
-                        text.toLowerCase().includes('courier') ||
-                        text.toLowerCase().includes('post')
-                      ).slice(0, 20).map((text, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 border rounded">
-                          <span className="text-sm">{text}</span>
-                          <Button
-                            size="sm"
-                            onClick={() => createMapping(text, 'delivery_specification')}
-                            disabled={isCreatingMapping && currentExcelText === text}
-                          >
-                            {isCreatingMapping && currentExcelText === text ? "Creating..." : "Map"}
-                          </Button>
+                  <div className="space-y-4">
+                    {/* Bulk Actions for Delivery */}
+                    {selectedPatterns.size > 0 && (
+                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                        <span className="text-sm">{selectedPatterns.size} patterns selected</span>
+                        <Button
+                          size="sm"
+                          onClick={() => handleBulkPatternMapping('delivery_specification')}
+                          disabled={!isCollection && !selectedDeliveryMethod}
+                        >
+                          Bulk Map Delivery
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Delivery-Related Text Patterns</h4>
+                      <Badge variant="secondary">{getFilteredAndSortedPatterns().filter(pattern => {
+                        const text = pattern.text.toLowerCase();
+                        return text.includes('delivery') || text.includes('collection') || text.includes('courier') || text.includes('post');
+                      }).length} patterns found</Badge>
+                    </div>
+                    
+                    <div className="border rounded-lg max-h-96 overflow-y-auto">
+                      {getFilteredAndSortedPatterns().filter(pattern => {
+                        const text = pattern.text.toLowerCase();
+                        return text.includes('delivery') || text.includes('collection') || text.includes('courier') || text.includes('post');
+                      }).slice(0, 50).map((pattern, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50">
+                          <div className="flex items-center gap-3 flex-1">
+                            <Checkbox
+                              checked={selectedPatterns.has(pattern.text)}
+                              onCheckedChange={(checked) => {
+                                const newSelected = new Set(selectedPatterns);
+                                if (checked) {
+                                  newSelected.add(pattern.text);
+                                } else {
+                                  newSelected.delete(pattern.text);
+                                }
+                                setSelectedPatterns(newSelected);
+                              }}
+                            />
+                            <span className="text-sm font-mono flex-1">{pattern.text}</span>
+                            <Badge variant="outline" className="ml-2">
+                              {pattern.frequency}x
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setShowPatternPreview(pattern.text)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => createMapping(pattern.text, 'delivery_specification')}
+                              disabled={isCreatingMapping && currentExcelText === pattern.text}
+                            >
+                              {isCreatingMapping && currentExcelText === pattern.text ? (
+                                "Creating..."
+                              ) : (
+                                <>
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Map
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -655,6 +1014,37 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Pattern Preview Dialog */}
+      {showPatternPreview && (
+        <Card className="fixed inset-0 z-50 bg-background/95 backdrop-blur">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Pattern Preview: "{showPatternPreview}"</CardTitle>
+              <Button variant="outline" onClick={() => setShowPatternPreview("")}>
+                Close
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <h4 className="font-medium">Sample Jobs Containing This Pattern:</h4>
+              <div className="border rounded-lg max-h-96 overflow-y-auto">
+                {getPatternPreviewJobs(showPatternPreview).map((job, index) => (
+                  <div key={index} className="p-3 border-b last:border-b-0">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div><strong>WO:</strong> {job.wo_no}</div>
+                      <div><strong>Customer:</strong> {job.customer}</div>
+                      <div><strong>Category:</strong> {job.category}</div>
+                      <div><strong>Spec:</strong> {job.specification}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
