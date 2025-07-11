@@ -576,45 +576,81 @@ export type Database = {
       }
       excel_import_mappings: {
         Row: {
+          address_extraction_pattern: string | null
           confidence_score: number | null
           created_at: string
           created_by: string | null
+          delivery_method_specification_id: string | null
           excel_text: string
           id: string
+          is_collection_mapping: boolean | null
           is_verified: boolean
           mapping_type: Database["public"]["Enums"]["mapping_type"] | null
+          paper_type_specification_id: string | null
+          paper_weight_specification_id: string | null
           print_specification_id: string | null
           production_stage_id: string
           stage_specification_id: string | null
           updated_at: string
         }
         Insert: {
+          address_extraction_pattern?: string | null
           confidence_score?: number | null
           created_at?: string
           created_by?: string | null
+          delivery_method_specification_id?: string | null
           excel_text: string
           id?: string
+          is_collection_mapping?: boolean | null
           is_verified?: boolean
           mapping_type?: Database["public"]["Enums"]["mapping_type"] | null
+          paper_type_specification_id?: string | null
+          paper_weight_specification_id?: string | null
           print_specification_id?: string | null
           production_stage_id: string
           stage_specification_id?: string | null
           updated_at?: string
         }
         Update: {
+          address_extraction_pattern?: string | null
           confidence_score?: number | null
           created_at?: string
           created_by?: string | null
+          delivery_method_specification_id?: string | null
           excel_text?: string
           id?: string
+          is_collection_mapping?: boolean | null
           is_verified?: boolean
           mapping_type?: Database["public"]["Enums"]["mapping_type"] | null
+          paper_type_specification_id?: string | null
+          paper_weight_specification_id?: string | null
           print_specification_id?: string | null
           production_stage_id?: string
           stage_specification_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "excel_import_mappings_delivery_method_specification_id_fkey"
+            columns: ["delivery_method_specification_id"]
+            isOneToOne: false
+            referencedRelation: "print_specifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excel_import_mappings_paper_type_specification_id_fkey"
+            columns: ["paper_type_specification_id"]
+            isOneToOne: false
+            referencedRelation: "print_specifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excel_import_mappings_paper_weight_specification_id_fkey"
+            columns: ["paper_weight_specification_id"]
+            isOneToOne: false
+            referencedRelation: "print_specifications"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "excel_import_mappings_print_specification_id_fkey"
             columns: ["print_specification_id"]
@@ -2581,11 +2617,44 @@ export type Database = {
         Args: { _user_id: string; _full_name: string }
         Returns: boolean
       }
+      upsert_delivery_specification_mapping: {
+        Args: {
+          p_excel_text: string
+          p_delivery_method_id?: string
+          p_address_pattern?: string
+          p_is_collection?: boolean
+          p_confidence_score?: number
+          p_created_by?: string
+        }
+        Returns: {
+          mapping_id: string
+          action_taken: string
+          previous_confidence: number
+          new_confidence: number
+          conflict_detected: boolean
+        }[]
+      }
       upsert_excel_mapping: {
         Args: {
           p_excel_text: string
           p_production_stage_id: string
           p_stage_specification_id?: string
+          p_confidence_score?: number
+          p_created_by?: string
+        }
+        Returns: {
+          mapping_id: string
+          action_taken: string
+          previous_confidence: number
+          new_confidence: number
+          conflict_detected: boolean
+        }[]
+      }
+      upsert_paper_specification_mapping: {
+        Args: {
+          p_excel_text: string
+          p_paper_type_id: string
+          p_paper_weight_id: string
           p_confidence_score?: number
           p_created_by?: string
         }
@@ -2651,7 +2720,11 @@ export type Database = {
         | "cancelled"
         | "sent_to_print"
       lamination_type: "gloss" | "matt" | "soft_touch" | "none"
-      mapping_type: "production_stage" | "print_specification"
+      mapping_type:
+        | "production_stage"
+        | "print_specification"
+        | "paper_specification"
+        | "delivery_specification"
       page_status:
         | "queued"
         | "batched"
@@ -2804,7 +2877,12 @@ export const Constants = {
         "sent_to_print",
       ],
       lamination_type: ["gloss", "matt", "soft_touch", "none"],
-      mapping_type: ["production_stage", "print_specification"],
+      mapping_type: [
+        "production_stage",
+        "print_specification",
+        "paper_specification",
+        "delivery_specification",
+      ],
       page_status: [
         "queued",
         "batched",

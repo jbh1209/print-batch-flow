@@ -17,14 +17,21 @@ interface Mapping {
   production_stage_id?: string;
   stage_specification_id?: string;
   print_specification_id?: string;
-  mapping_type: 'production_stage' | 'print_specification';
+  paper_type_specification_id?: string;
+  paper_weight_specification_id?: string;
+  delivery_method_specification_id?: string;
+  address_extraction_pattern?: string;
+  is_collection_mapping?: boolean;
+  mapping_type: 'production_stage' | 'print_specification' | 'paper_specification' | 'delivery_specification';
   confidence_score?: number;
   is_verified: boolean;
   created_at: string;
-  stage_name?: string;
-  specification_name?: string;
-  print_specification_name?: string;
-  print_specification_category?: string;
+  production_stages?: { name: string; color?: string };
+  stage_specifications?: { name: string };
+  print_specifications?: { name: string; display_name: string; category: string };
+  paper_type_spec?: { name: string; display_name: string; category: string };
+  paper_weight_spec?: { name: string; display_name: string; category: string };
+  delivery_method_spec?: { name: string; display_name: string; category: string };
 }
 
 export const MappingLibrary: React.FC = () => {
@@ -32,12 +39,16 @@ export const MappingLibrary: React.FC = () => {
   const [filteredMappings, setFilteredMappings] = useState<Mapping[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [mappingTypeFilter, setMappingTypeFilter] = useState("all");
+  const [verificationFilter, setVerificationFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     total: 0,
     verified: 0,
     unverified: 0,
-    avgConfidence: 0
+    avgConfidence: 0,
+    productionStages: 0,
+    paperSpecs: 0,
+    deliverySpecs: 0
   });
   const { toast } = useToast();
 
@@ -53,18 +64,30 @@ export const MappingLibrary: React.FC = () => {
       filtered = filtered.filter(mapping => mapping.mapping_type === mappingTypeFilter);
     }
     
+    // Filter by verification status
+    if (verificationFilter !== "all") {
+      filtered = filtered.filter(mapping => {
+        if (verificationFilter === "verified") return mapping.is_verified;
+        if (verificationFilter === "unverified") return !mapping.is_verified;
+        return true;
+      });
+    }
+    
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(mapping =>
         mapping.excel_text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        mapping.stage_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        mapping.specification_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        mapping.print_specification_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        mapping.production_stages?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mapping.stage_specifications?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mapping.print_specifications?.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mapping.paper_type_spec?.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mapping.paper_weight_spec?.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mapping.delivery_method_spec?.display_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
     setFilteredMappings(filtered);
-  }, [searchTerm, mappingTypeFilter, mappings]);
+  }, [searchTerm, mappingTypeFilter, verificationFilter, mappings]);
 
   const loadMappings = async () => {
     try {
@@ -75,12 +98,28 @@ export const MappingLibrary: React.FC = () => {
         .select(`
           *,
           production_stages!excel_import_mappings_production_stage_id_fkey (
-            name
+            name,
+            color
           ),
           stage_specifications!excel_import_mappings_stage_specification_id_fkey (
             name
           ),
           print_specifications!excel_import_mappings_print_specification_id_fkey (
+            name,
+            display_name,
+            category
+          ),
+          paper_type_spec:print_specifications!excel_import_mappings_paper_type_specification_id_fkey (
+            name,
+            display_name,
+            category
+          ),
+          paper_weight_spec:print_specifications!excel_import_mappings_paper_weight_specification_id_fkey (
+            name,
+            display_name,
+            category
+          ),
+          delivery_method_spec:print_specifications!excel_import_mappings_delivery_method_specification_id_fkey (
             name,
             display_name,
             category
@@ -90,28 +129,27 @@ export const MappingLibrary: React.FC = () => {
 
       if (error) throw error;
 
-      const processedMappings = data?.map(mapping => ({
-        ...mapping,
-        stage_name: mapping.production_stages?.name,
-        specification_name: mapping.stage_specifications?.name,
-        print_specification_name: mapping.print_specifications?.display_name || mapping.print_specifications?.name,
-        print_specification_category: mapping.print_specifications?.category
-      })) || [];
-
-      setMappings(processedMappings);
+      setMappings(data || []);
       
       // Calculate stats
-      const totalMappings = processedMappings.length;
-      const verifiedMappings = processedMappings.filter(m => m.is_verified).length;
+      const totalMappings = data?.length || 0;
+      const verifiedMappings = data?.filter(m => m.is_verified).length || 0;
       const avgConfidence = totalMappings > 0 
-        ? processedMappings.reduce((sum, m) => sum + (m.confidence_score || 0), 0) / totalMappings 
+        ? Math.round(data!.reduce((sum, m) => sum + (m.confidence_score || 0), 0) / totalMappings)
         : 0;
+      
+      const productionStageCount = data?.filter(m => m.mapping_type === 'production_stage').length || 0;
+      const paperSpecCount = data?.filter(m => m.mapping_type === 'paper_specification').length || 0;
+      const deliverySpecCount = data?.filter(m => m.mapping_type === 'delivery_specification').length || 0;
 
       setStats({
         total: totalMappings,
         verified: verifiedMappings,
         unverified: totalMappings - verifiedMappings,
-        avgConfidence: Math.round(avgConfidence)
+        avgConfidence,
+        productionStages: productionStageCount,
+        paperSpecs: paperSpecCount,
+        deliverySpecs: deliverySpecCount
       });
 
     } catch (error: any) {
@@ -181,8 +219,13 @@ export const MappingLibrary: React.FC = () => {
   const exportMappings = () => {
     const exportData = mappings.map(m => ({
       excel_text: m.excel_text,
-      stage_name: m.stage_name,
-      specification_name: m.specification_name,
+      mapping_type: m.mapping_type,
+      production_stage: m.production_stages?.name,
+      stage_specification: m.stage_specifications?.name,
+      paper_type: m.paper_type_spec?.display_name,
+      paper_weight: m.paper_weight_spec?.display_name,
+      delivery_method: m.delivery_method_spec?.display_name,
+      is_collection: m.is_collection_mapping,
       confidence_score: m.confidence_score,
       is_verified: m.is_verified
     }));
@@ -208,8 +251,8 @@ export const MappingLibrary: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Enhanced Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -224,14 +267,20 @@ export const MappingLibrary: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-orange-600">{stats.unverified}</div>
-            <div className="text-sm text-muted-foreground">Unverified</div>
+            <div className="text-2xl font-bold text-blue-600">{stats.productionStages}</div>
+            <div className="text-sm text-muted-foreground">Production Stages</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold">{stats.avgConfidence}%</div>
-            <div className="text-sm text-muted-foreground">Avg Confidence</div>
+            <div className="text-2xl font-bold text-purple-600">{stats.paperSpecs}</div>
+            <div className="text-sm text-muted-foreground">Paper Specifications</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold text-orange-600">{stats.deliverySpecs}</div>
+            <div className="text-sm text-muted-foreground">Delivery & Collection</div>
           </CardContent>
         </Card>
       </div>
@@ -250,7 +299,7 @@ export const MappingLibrary: React.FC = () => {
                 <div>
                   <CardTitle>Mapping Library</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Manage your Excel text to production stage mappings
+                    Manage your Excel text mappings for production stages, paper, and delivery specifications
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -265,125 +314,175 @@ export const MappingLibrary: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent>
-            <div className="space-y-4">
-            {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search mappings by Excel text, stage, or specification..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={mappingTypeFilter} onValueChange={setMappingTypeFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="production_stage">Production Stages</SelectItem>
-                  <SelectItem value="print_specification">Paper & Delivery</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-4">
+                {/* Search and Filter */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search mappings by Excel text, stage, or specification..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={verificationFilter} onValueChange={setVerificationFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Mappings</SelectItem>
+                      <SelectItem value="verified">Verified Only</SelectItem>
+                      <SelectItem value="unverified">Unverified Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={mappingTypeFilter} onValueChange={setMappingTypeFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="production_stage">Production Stages</SelectItem>
+                      <SelectItem value="paper_specification">Paper Specifications</SelectItem>
+                      <SelectItem value="delivery_specification">Delivery & Collection</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* Mappings Table */}
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Excel Text</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Target</TableHead>
-                    <TableHead>Specification</TableHead>
-                    <TableHead>Confidence</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredMappings.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        {searchTerm || mappingTypeFilter !== "all" ? "No mappings match your filters" : "No mappings found"}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredMappings.map((mapping) => (
-                      <TableRow key={mapping.id}>
-                        <TableCell className="font-medium max-w-xs truncate">
-                          {mapping.excel_text}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={mapping.mapping_type === 'production_stage' ? 'default' : 'secondary'}>
-                            {mapping.mapping_type === 'production_stage' ? 'Production' : 'Print Spec'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {mapping.mapping_type === 'production_stage' 
-                            ? mapping.stage_name 
-                            : mapping.print_specification_name}
-                        </TableCell>
-                        <TableCell>
-                          {mapping.mapping_type === 'production_stage' 
-                            ? (mapping.specification_name || "—")
-                            : (mapping.print_specification_category || "—")}
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              (mapping.confidence_score || 0) >= 80 
-                                ? "default" 
-                                : (mapping.confidence_score || 0) >= 60 
-                                ? "secondary" 
-                                : "destructive"
-                            }
-                          >
-                            {mapping.confidence_score || 0}%
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {mapping.is_verified ? (
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <AlertCircle className="h-4 w-4 text-orange-600" />
-                            )}
-                            <span className="text-sm">
-                              {mapping.is_verified ? "Verified" : "Unverified"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleVerification(mapping.id, mapping.is_verified)}
-                            >
-                              {mapping.is_verified ? "Unverify" : "Verify"}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteMapping(mapping.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+                {/* Mappings Table */}
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Excel Text</TableHead>
+                        <TableHead>Mapping Type</TableHead>
+                        <TableHead>Production Stage</TableHead>
+                        <TableHead>Specifications</TableHead>
+                        <TableHead>Confidence</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-          </CardContent>
-        </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredMappings.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                            {searchTerm || mappingTypeFilter !== "all" || verificationFilter !== "all" 
+                              ? "No mappings match your filters" 
+                              : "No mappings found"}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredMappings.map((mapping) => (
+                          <TableRow key={mapping.id}>
+                            <TableCell className="font-medium max-w-xs truncate">
+                              {mapping.excel_text}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {mapping.mapping_type?.replace('_', ' ') || 'Production Stage'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {mapping.production_stages ? (
+                                <Badge 
+                                  style={{ 
+                                    backgroundColor: mapping.production_stages.color + '20',
+                                    color: mapping.production_stages.color 
+                                  }}
+                                >
+                                  {mapping.production_stages.name}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                {mapping.paper_type_spec && mapping.paper_weight_spec && (
+                                  <div className="text-sm">
+                                    <span className="font-medium">Paper:</span> {mapping.paper_type_spec.display_name} + {mapping.paper_weight_spec.display_name}
+                                  </div>
+                                )}
+                                {mapping.delivery_method_spec && (
+                                  <div className="text-sm">
+                                    <span className="font-medium">Delivery:</span> {mapping.delivery_method_spec.display_name}
+                                  </div>
+                                )}
+                                {mapping.is_collection_mapping && (
+                                  <Badge variant="secondary">Collection</Badge>
+                                )}
+                                {mapping.print_specifications && (
+                                  <div className="text-sm">
+                                    {mapping.print_specifications.display_name}
+                                    <span className="text-muted-foreground ml-1">
+                                      ({mapping.print_specifications.category})
+                                    </span>
+                                  </div>
+                                )}
+                                {mapping.stage_specifications && (
+                                  <div className="text-sm">
+                                    <span className="font-medium">Stage Spec:</span> {mapping.stage_specifications.name}
+                                  </div>
+                                )}
+                                {!mapping.paper_type_spec && !mapping.delivery_method_spec && !mapping.print_specifications && !mapping.stage_specifications && !mapping.is_collection_mapping && (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  (mapping.confidence_score || 0) >= 80 
+                                    ? "default" 
+                                    : (mapping.confidence_score || 0) >= 60 
+                                    ? "secondary" 
+                                    : "destructive"
+                                }
+                              >
+                                {mapping.confidence_score || 0}%
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {mapping.is_verified ? (
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 text-orange-600" />
+                                )}
+                                <span className="text-sm">
+                                  {mapping.is_verified ? "Verified" : "Unverified"}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleVerification(mapping.id, mapping.is_verified)}
+                                >
+                                  {mapping.is_verified ? "Unverify" : "Verify"}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteMapping(mapping.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="operations">
