@@ -23,11 +23,15 @@ import {
   getAutoDetectedMapping, 
   parseExcelFileWithMapping,
   parseMatrixExcelFileForPreview,
-  parseMatrixExcelFileWithMapping
+  parseMatrixExcelFileWithMapping,
+  parseAndCreateProductionReadyJobs,
+  parseMatrixAndCreateProductionReadyJobs
 } from "@/utils/excel/enhancedParser";
 import type { MatrixExcelData } from "@/utils/excel/types";
+import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
 import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
 import { MatrixMappingDialog, type MatrixColumnMapping } from "./MatrixMappingDialog";
+import { EnhancedJobCreationDialog } from "@/components/admin/upload/EnhancedJobCreationDialog";
 
 interface JobDataWithQR extends ParsedJob {
   user_id: string;
@@ -55,6 +59,11 @@ export const ExcelUpload = () => {
   const [matrixData, setMatrixData] = useState<MatrixExcelData | null>(null);
   const [showMatrixDialog, setShowMatrixDialog] = useState(false);
   const [isMatrixMode, setIsMatrixMode] = useState(false);
+  
+  // Phase 4: Enhanced job creation state
+  const [enhancedResult, setEnhancedResult] = useState<EnhancedJobCreationResult | null>(null);
+  const [showEnhancedDialog, setShowEnhancedDialog] = useState(false);
+  const [isCreatingJobs, setIsCreatingJobs] = useState(false);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -106,63 +115,63 @@ export const ExcelUpload = () => {
   };
 
   const handleMappingConfirmed = async (mapping: ColumnMapping) => {
-    if (!currentFile) return;
+    if (!currentFile || !user?.id) return;
     
     try {
-      setIsUploading(true);
-      const { jobs, stats } = await parseExcelFileWithMapping(currentFile, mapping, debugLogger);
+      setIsCreatingJobs(true);
+      setShowMappingDialog(false);
       
-      setParsedJobs(jobs);
-      setImportStats(stats);
+      // Use Phase 4 enhanced job creation
+      const result = await parseAndCreateProductionReadyJobs(
+        currentFile, 
+        mapping, 
+        debugLogger,
+        user.id,
+        generateQRCodes
+      );
       
-      let message = `Parsed ${jobs.length} jobs from ${currentFile.name}.`;
-      if (stats.skippedRows > 0) {
-        message += ` ${stats.skippedRows} rows skipped (missing WO numbers).`;
-      }
-      if (stats.invalidDates > 0) {
-        message += ` ${stats.invalidDates} invalid dates found (rows with blank dates are allowed).`;
-      }
-      if (stats.invalidTimingData > 0) {
-        message += ` ${stats.invalidTimingData} invalid timing values found (will use defaults).`;
-      }
+      setEnhancedResult(result);
+      setShowEnhancedDialog(true);
       
-      toast.success(message);
+      toast.success(`Enhanced processing completed! ${result.stats.successful}/${result.stats.total} jobs created with workflows.`);
     } catch (error) {
-      console.error("Error parsing Excel file with mapping:", error);
-      debugLogger.addDebugInfo(`Error: ${error}`);
-      setUploadError(`Failed to parse Excel file: ${error instanceof Error ? error.message : "Unknown error"}`);
-      toast.error("Failed to parse Excel file with custom mapping.");
+      console.error("Error in enhanced job creation:", error);
+      debugLogger.addDebugInfo(`Enhanced creation error: ${error}`);
+      setUploadError(`Failed to create production-ready jobs: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error("Failed to create production-ready jobs.");
     } finally {
-      setIsUploading(false);
+      setIsCreatingJobs(false);
     }
   };
 
   const handleMatrixMappingConfirmed = async (mapping: MatrixColumnMapping) => {
-    if (!currentFile || !matrixData) return;
+    if (!currentFile || !matrixData || !user?.id) return;
     
     try {
-      setIsUploading(true);
-      const { jobs, stats } = await parseMatrixExcelFileWithMapping(currentFile, matrixData, mapping, debugLogger);
+      setIsCreatingJobs(true);
+      setShowMatrixDialog(false);
       
-      setParsedJobs(jobs);
-      setImportStats(stats);
+      // Use Phase 4 enhanced matrix job creation
+      const result = await parseMatrixAndCreateProductionReadyJobs(
+        currentFile,
+        matrixData,
+        mapping, 
+        debugLogger,
+        user.id,
+        generateQRCodes
+      );
       
-      let message = `Parsed ${jobs.length} matrix-structured jobs from ${currentFile.name}.`;
-      if (stats.skippedRows > 0) {
-        message += ` ${stats.skippedRows} rows skipped.`;
-      }
-      if (jobs.length > 0 && jobs[0].paper_specifications) {
-        message += ` Group specifications extracted.`;
-      }
+      setEnhancedResult(result);
+      setShowEnhancedDialog(true);
       
-      toast.success(message);
+      toast.success(`Enhanced matrix processing completed! ${result.stats.successful}/${result.stats.total} jobs created with workflows.`);
     } catch (error) {
-      console.error("Error parsing matrix Excel file:", error);
-      debugLogger.addDebugInfo(`Matrix parsing error: ${error}`);
-      setUploadError(`Failed to parse matrix Excel file: ${error instanceof Error ? error.message : "Unknown error"}`);
-      toast.error("Failed to parse matrix Excel file.");
+      console.error("Error in enhanced matrix job creation:", error);
+      debugLogger.addDebugInfo(`Enhanced matrix creation error: ${error}`);
+      setUploadError(`Failed to create production-ready matrix jobs: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error("Failed to create production-ready matrix jobs.");
     } finally {
-      setIsUploading(false);
+      setIsCreatingJobs(false);
     }
   };
 
@@ -303,6 +312,14 @@ export const ExcelUpload = () => {
     }
   };
 
+  const handleEnhancedJobsConfirmed = () => {
+    // Jobs are already created, just clean up
+    setEnhancedResult(null);
+    setShowEnhancedDialog(false);
+    handleClearPreview();
+    toast.success("Production jobs are now ready for the factory floor!");
+  };
+
   const handleClearPreview = () => {
     setParsedJobs([]);
     setFileName("");
@@ -316,6 +333,9 @@ export const ExcelUpload = () => {
     setIsMatrixMode(false);
     setShowMatrixDialog(false);
     setShowMappingDialog(false);
+    // Clear enhanced state
+    setEnhancedResult(null);
+    setShowEnhancedDialog(false);
     debugLogger.clear();
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     if (fileInput) fileInput.value = "";
@@ -330,11 +350,11 @@ export const ExcelUpload = () => {
             Upload Excel File
           </CardTitle>
           <CardDescription>
-            Upload an Excel file (.xlsx, .xls) containing production jobs. You'll be able to map your Excel columns to the correct fields.
+            Upload an Excel file (.xlsx, .xls) to create production-ready work orders with automatic workflow initialization.
             <br />
             <span className="text-blue-600 font-medium flex items-center gap-1 mt-2">
               <Sparkles className="h-4 w-4" />
-              Enhanced column mapping - Map any Excel format to your database fields
+              Phase 4: Complete Production Integration - Auto-maps stages, assigns categories & initializes workflows
             </span>
           </CardDescription>
         </CardHeader>
@@ -456,6 +476,15 @@ export const ExcelUpload = () => {
         onOpenChange={setShowMatrixDialog}
         matrixData={matrixData}
         onMappingConfirmed={handleMatrixMappingConfirmed}
+      />
+
+      {/* Phase 4: Enhanced Job Creation Dialog */}
+      <EnhancedJobCreationDialog
+        open={showEnhancedDialog}
+        onOpenChange={setShowEnhancedDialog}
+        result={enhancedResult}
+        isProcessing={isCreatingJobs}
+        onConfirm={handleEnhancedJobsConfirmed}
       />
 
       {parsedJobs.length > 0 && (

@@ -6,6 +6,7 @@ import { formatWONumber } from './woNumberFormatter';
 import { createColumnMap } from './columnMapper';
 import { parseMatrixExcelFile, parseMatrixDataToJobs } from './matrixParser';
 import { EnhancedMappingProcessor } from './enhancedMappingProcessor';
+import { EnhancedJobCreator } from './enhancedJobCreator';
 import type { ExcelPreviewData, ColumnMapping } from '@/components/tracker/ColumnMappingDialog';
 import type { MatrixColumnMapping } from '@/components/tracker/MatrixMappingDialog';
 
@@ -305,4 +306,61 @@ export const parseExcelFileWithMapping = async (
   logger.addDebugInfo(`Paper specs mapped: ${enhancedResult.stats.paperSpecsMapped}, Delivery specs mapped: ${enhancedResult.stats.deliverySpecsMapped}`);
 
   return { jobs: enhancedResult.jobs, stats };
+};
+
+/**
+ * Phase 4: Enhanced workflow-aware parsing and job creation
+ */
+export const parseAndCreateProductionReadyJobs = async (
+  file: File,
+  mapping: ColumnMapping,
+  logger: ExcelImportDebugger,
+  userId: string,
+  generateQRCodes: boolean = true,
+  availableSpecs: any[] = []
+): Promise<any> => {
+  logger.addDebugInfo(`Starting Phase 4 enhanced job creation for file: ${file.name}`);
+  
+  // Step 1: Parse Excel with enhanced mapping
+  const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
+  
+  // Step 2: Create enhanced job creator
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  await jobCreator.initialize();
+  
+  // Step 3: Create production-ready jobs with workflows
+  const result = await jobCreator.createEnhancedJobs(jobs);
+  
+  logger.addDebugInfo(`Phase 4 enhanced job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
+  
+  return result;
+};
+
+/**
+ * Phase 4: Enhanced matrix parsing and job creation
+ */
+export const parseMatrixAndCreateProductionReadyJobs = async (
+  file: File,
+  matrixData: MatrixExcelData,
+  mapping: MatrixColumnMapping,
+  logger: ExcelImportDebugger,
+  userId: string,
+  generateQRCodes: boolean = true,
+  availableSpecs: any[] = []
+): Promise<any> => {
+  logger.addDebugInfo(`Starting Phase 4 enhanced matrix job creation for file: ${file.name}`);
+  
+  // Step 1: Parse matrix Excel with enhanced mapping
+  const { jobs } = await parseMatrixExcelFileWithMapping(file, matrixData, mapping, logger, availableSpecs);
+  
+  // Step 2: Create enhanced job creator
+  const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
+  await jobCreator.initialize();
+  
+  // Step 3: Create production-ready jobs with workflows
+  const result = await jobCreator.createEnhancedJobs(jobs);
+  
+  logger.addDebugInfo(`Phase 4 enhanced matrix job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
+  
+  return result;
 };
