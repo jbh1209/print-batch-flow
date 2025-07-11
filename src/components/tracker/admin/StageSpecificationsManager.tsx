@@ -47,12 +47,12 @@ export const StageSpecificationsManager: React.FC<StageSpecificationsManagerProp
     }
     setIsDialogOpen(false);
     setSelectedSpec(null);
-    onUpdate?.();
+    // Don't call onUpdate to avoid navigating away from the modal
   };
 
   const handleDeleteSpec = async (specId: string) => {
     await deleteSpecification(specId);
-    onUpdate?.();
+    // Don't call onUpdate to avoid navigating away from the modal
   };
 
   if (isLoading) {
