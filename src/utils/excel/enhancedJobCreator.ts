@@ -109,6 +109,11 @@ export class EnhancedJobCreator {
     excelRow: any[]
   ): Promise<void> {
     this.logger.addDebugInfo(`Processing job: ${job.wo_no} with Excel data`);
+    this.logger.addDebugInfo(`Job specifications - printing: ${JSON.stringify(job.printing_specifications)}`);
+    this.logger.addDebugInfo(`Job specifications - finishing: ${JSON.stringify(job.finishing_specifications)}`);
+    this.logger.addDebugInfo(`Job specifications - prepress: ${JSON.stringify(job.prepress_specifications)}`);
+    this.logger.addDebugInfo(`Excel row data length: ${excelRow?.length || 0}`);
+    this.logger.addDebugInfo(`Headers length: ${headers?.length || 0}`);
 
     // 1. Map specifications to production stages using enhanced mapper
     const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
@@ -119,14 +124,30 @@ export class EnhancedJobCreator {
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
 
-    // 2. Create detailed row mappings for UI display using enhanced mapper with actual Excel data
-    const rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
-      job.printing_specifications,
-      job.finishing_specifications,
-      job.prepress_specifications,
-      excelRow.length > 0 ? [excelRow] : [], // Actual Excel row data, only if not empty
-      headers // Actual headers
-    );
+    // 2. Create detailed row mappings for UI display 
+    // Only create row mappings if we have valid specifications
+    let rowMappings: any[] = [];
+    
+    if (job.printing_specifications || job.finishing_specifications || job.prepress_specifications) {
+      // Build Excel rows structure for each specification group
+      const excelRowsForMapping = this.buildExcelRowsFromSpecifications(
+        job, 
+        headers, 
+        excelRow
+      );
+      
+      this.logger.addDebugInfo(`Built ${excelRowsForMapping.length} Excel rows for row mapping`);
+      
+      rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
+        job.printing_specifications,
+        job.finishing_specifications,
+        job.prepress_specifications,
+        excelRowsForMapping,
+        headers || []
+      );
+    } else {
+      this.logger.addDebugInfo(`No specifications found for job ${job.wo_no}, skipping row mappings`);
+    }
 
     this.logger.addDebugInfo(`Created ${rowMappings.length} row mappings for job ${job.wo_no}`);
     
@@ -385,14 +406,12 @@ export class EnhancedJobCreator {
 
   private async initializeCustomWorkflow(insertedJob: any, originalJob: ParsedJob, result: EnhancedJobCreationResult): Promise<void> {
     try {
-      // Create intelligent row mappings that support multi-instance stages and sub-specifications
-      const rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
-        originalJob.printing_specifications,
-        originalJob.finishing_specifications,
-        originalJob.prepress_specifications,
-        [], // Excel rows not needed for stage creation
-        []  // Headers not needed
-      );
+      this.logger.addDebugInfo(`Initializing custom workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
+      
+      // Use the row mappings already created in processJobWithExcelData
+      const rowMappings = result.rowMappings[originalJob.wo_no] || [];
+      
+      this.logger.addDebugInfo(`Using ${rowMappings.length} existing row mappings for workflow initialization`);
 
       if (rowMappings.length === 0) {
         this.logger.addDebugInfo(`No stage mappings found for job ${originalJob.wo_no}, skipping workflow initialization`);
@@ -439,7 +458,82 @@ export class EnhancedJobCreator {
       
     } catch (error) {
       this.logger.addDebugInfo(`Custom workflow initialization error for ${originalJob.wo_no}: ${error}`);
+      throw error; // Re-throw to ensure errors are visible in the UI
     }
+  }
+
+  /**
+   * Build Excel rows structure from job specifications for row mapping
+   */
+  private buildExcelRowsFromSpecifications(
+    job: ParsedJob,
+    headers: string[],
+    originalExcelRow: any[]
+  ): any[][] {
+    const excelRows: any[][] = [];
+    let currentRowIndex = 0;
+
+    // Process printing specifications
+    if (job.printing_specifications) {
+      for (const [groupName, spec] of Object.entries(job.printing_specifications)) {
+        const row = this.createExcelRowFromSpec(groupName, spec, headers, originalExcelRow, currentRowIndex);
+        excelRows.push(row);
+        currentRowIndex++;
+      }
+    }
+
+    // Process finishing specifications
+    if (job.finishing_specifications) {
+      for (const [groupName, spec] of Object.entries(job.finishing_specifications)) {
+        const row = this.createExcelRowFromSpec(groupName, spec, headers, originalExcelRow, currentRowIndex);
+        excelRows.push(row);
+        currentRowIndex++;
+      }
+    }
+
+    // Process prepress specifications
+    if (job.prepress_specifications) {
+      for (const [groupName, spec] of Object.entries(job.prepress_specifications)) {
+        const row = this.createExcelRowFromSpec(groupName, spec, headers, originalExcelRow, currentRowIndex);
+        excelRows.push(row);
+        currentRowIndex++;
+      }
+    }
+
+    this.logger.addDebugInfo(`Built ${excelRows.length} Excel rows from specifications for job ${job.wo_no}`);
+    return excelRows;
+  }
+
+  /**
+   * Create an Excel row from a specification group
+   */
+  private createExcelRowFromSpec(
+    groupName: string,
+    spec: any,
+    headers: string[],
+    originalExcelRow: any[],
+    rowIndex: number
+  ): any[] {
+    // Create a row array with the same length as headers
+    const row = new Array(headers.length).fill('');
+    
+    // Try to populate with original Excel data if available
+    if (originalExcelRow && originalExcelRow.length > 0) {
+      for (let i = 0; i < Math.min(row.length, originalExcelRow.length); i++) {
+        row[i] = originalExcelRow[i] || '';
+      }
+    }
+    
+    // Always include the group name and description for mapping
+    row[0] = groupName; // First column is usually the operation/group name
+    if (spec.description && headers.length > 1) {
+      row[1] = spec.description; // Second column for description
+    }
+    if (spec.qty && headers.length > 2) {
+      row[2] = spec.qty; // Third column for quantity
+    }
+    
+    return row;
   }
 
   private async updateStageQuantities(jobId: string): Promise<void> {
