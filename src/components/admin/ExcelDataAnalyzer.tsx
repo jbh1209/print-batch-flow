@@ -34,7 +34,7 @@ interface ExcelDataAnalyzerProps {
 interface TextPattern {
   text: string;
   frequency: number;
-  type: 'production_stage' | 'paper_specification' | 'delivery_specification' | 'finishing_specification';
+  type: 'production_stage' | 'paper_specification' | 'delivery_specification';
 }
 
 interface MappingOption {
@@ -50,7 +50,7 @@ interface MappingState {
   mappedPatterns: Set<string>;
   isLoading: boolean;
   searchTerm: string;
-  selectedType: 'all' | 'production_stage' | 'paper_specification' | 'delivery_specification' | 'finishing_specification';
+  selectedType: 'all' | 'production_stage' | 'paper_specification' | 'delivery_specification';
   currentPage: number;
   patternsPerPage: number;
   selectedPatterns: Set<string>;
@@ -63,7 +63,6 @@ interface MappingOptions {
   paperTypes: MappingOption[];
   paperWeights: MappingOption[];
   deliveryMethods: MappingOption[];
-  finishingSpecs: MappingOption[];
 }
 
 export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMappingCreated }) => {
@@ -86,7 +85,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     paperTypes: [],
     paperWeights: [],
     deliveryMethods: [],
-    finishingSpecs: [],
   });
 
   const [selectedMappings, setSelectedMappings] = useState({
@@ -97,7 +95,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     deliveryMethod: "",
     addressPattern: "",
     isCollection: false,
-    finishingSpec: "",
   });
 
   const [activeMappingPattern, setActiveMappingPattern] = useState<string>("");
@@ -143,11 +140,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       const paperTypes = specs.filter(s => s.category === 'paper_type' && !s.name.startsWith('_category'));
       const paperWeights = specs.filter(s => s.category === 'paper_weight' && !s.name.startsWith('_category'));
       const deliveryMethods = specs.filter(s => s.category === 'delivery_method' && !s.name.startsWith('_category'));
-      // Combine lamination_type and uv_varnish as finishing specifications
-      const finishingSpecs = specs.filter(s => 
-        (s.category === 'lamination_type' || s.category === 'uv_varnish') && 
-        !s.name.startsWith('_category')
-      );
 
       setMappingOptions({
         productionStages: productionStagesResult.data || [],
@@ -155,7 +147,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
         paperTypes,
         paperWeights,
         deliveryMethods,
-        finishingSpecs,
       });
 
       // Get existing mappings
@@ -201,7 +192,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
         const specGroups = {
           'paper_specifications': 'paper_specification' as const,
           'printing_specifications': 'production_stage' as const,
-          'finishing_specifications': 'finishing_specification' as const,
+          'finishing_specifications': 'production_stage' as const,
           'prepress_specifications': 'production_stage' as const,
           'delivery_specifications': 'delivery_specification' as const,
         };
@@ -367,22 +358,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           });
           break;
 
-        case 'finishing_specification':
-          if (!selectedMappings.finishingSpec) {
-            throw new Error("Please select a finishing specification");
-          }
-          
-          // Validate UUID format
-          if (!selectedMappings.finishingSpec.match(/^[0-9a-f-]{36}$/i)) {
-            throw new Error("Invalid finishing specification selection");
-          }
-          
-          result = await supabase.rpc('upsert_print_specification_mapping', {
-            p_excel_text: pattern.text,
-            p_print_specification_id: selectedMappings.finishingSpec,
-            p_confidence_score: 100
-          });
-          break;
 
         default:
           throw new Error("Invalid mapping type");
@@ -559,16 +534,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
               });
               break;
               
-            case 'finishing_specification':
-              if (!mappingConfig.finishingSpec) {
-                throw new Error("Finishing specification not selected");
-              }
-              result = await supabase.rpc('upsert_print_specification_mapping', {
-                p_excel_text: pattern.text,
-                p_print_specification_id: mappingConfig.finishingSpec,
-                p_confidence_score: 100
-              });
-              break;
               
             default:
               throw new Error(`Unsupported pattern type: ${pattern.type}`);
@@ -724,14 +689,14 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                 <SelectItem value="production_stage">Production Stage</SelectItem>
                 <SelectItem value="paper_specification">Paper Specification</SelectItem>
                 <SelectItem value="delivery_specification">Delivery Specification</SelectItem>
-                <SelectItem value="finishing_specification">Finishing Specification</SelectItem>
+                
               </SelectContent>
             </Select>
           </div>
 
           {/* Mapping Configuration Tabs */}
           <Tabs defaultValue="production_stage" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="production_stage" className="flex items-center gap-2">
                 <Database className="h-4 w-4" />
                 Production Stage
@@ -743,10 +708,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
               <TabsTrigger value="delivery_specification" className="flex items-center gap-2">
                 <Truck className="h-4 w-4" />
                 Delivery Specification
-              </TabsTrigger>
-              <TabsTrigger value="finishing_specification" className="flex items-center gap-2">
-                <Scissors className="h-4 w-4" />
-                Finishing Specification
               </TabsTrigger>
             </TabsList>
 
@@ -917,29 +878,6 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
               </div>
             </TabsContent>
 
-            <TabsContent value="finishing_specification" className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Finishing Specification</label>
-                <Select
-                  value={selectedMappings.finishingSpec}
-                  onValueChange={(value) => setSelectedMappings(prev => ({ 
-                    ...prev, 
-                    finishingSpec: value 
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select finishing specification" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mappingOptions.finishingSpecs.map((spec) => (
-                      <SelectItem key={spec.id} value={spec.id}>
-                        {spec.display_name || spec.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </TabsContent>
           </Tabs>
 
           {/* Multi-select Controls */}
