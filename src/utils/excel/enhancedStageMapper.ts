@@ -133,6 +133,12 @@ export class EnhancedStageMapper {
     const mappings: RowMappingResult[] = [];
     let currentRowIndex = startRowIndex;
 
+    // For printing category, we need to handle paper type splitting
+    if (category === 'printing') {
+      return this.createPrintingRowMappings(specs, excelRows, headers, startRowIndex);
+    }
+
+    // For non-printing categories, use standard processing
     for (const [groupName, spec] of Object.entries(specs)) {
       const stageMapping = this.findIntelligentStageMatchWithSpec(groupName, spec.description || '', category);
       
@@ -158,6 +164,127 @@ export class EnhancedStageMapper {
       });
 
       currentRowIndex++;
+    }
+
+    return mappings;
+  }
+
+  /**
+   * Create printing row mappings with paper type splitting
+   */
+  private createPrintingRowMappings(
+    specs: GroupSpecifications,
+    excelRows: any[][],
+    headers: string[],
+    startRowIndex: number
+  ): RowMappingResult[] {
+    const mappings: RowMappingResult[] = [];
+    let currentRowIndex = startRowIndex;
+
+    // Get all printing and paper specifications from the specs
+    const printingSpecs: Array<{groupName: string, spec: any, rowIndex: number}> = [];
+    const paperSpecs: Array<{groupName: string, spec: any, rowIndex: number}> = [];
+
+    // Categorize specs into printing and paper
+    for (const [groupName, spec] of Object.entries(specs)) {
+      const description = (spec.description || '').toLowerCase();
+      
+      // Check if this is a paper specification
+      if (description.includes('gsm') || description.includes('paper') || description.includes('stock') || 
+          description.includes('quality') || description.includes('performance') || 
+          description.includes('coated') || description.includes('uncoated') ||
+          description.includes('gloss') || description.includes('matt')) {
+        paperSpecs.push({groupName, spec, rowIndex: currentRowIndex});
+      } else {
+        // This is a printing operation
+        printingSpecs.push({groupName, spec, rowIndex: currentRowIndex});
+      }
+      currentRowIndex++;
+    }
+
+    this.logger.addDebugInfo(`Found ${printingSpecs.length} printing operations and ${paperSpecs.length} paper specifications`);
+
+    // If we have multiple papers, we need to create separate printing mappings for each
+    if (printingSpecs.length > 0 && paperSpecs.length > 1) {
+      // Sort both by quantity for optimal pairing
+      const sortedPrinting = printingSpecs.sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
+      const sortedPapers = paperSpecs.sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
+
+      // For each printing operation, create separate instances for each paper type
+      for (let printIdx = 0; printIdx < sortedPrinting.length; printIdx++) {
+        const printingSpec = sortedPrinting[printIdx];
+        const stageMapping = this.findIntelligentStageMatchWithSpec(
+          printingSpec.groupName, 
+          printingSpec.spec.description || '', 
+          'printing'
+        );
+
+        // Create separate row mappings for each paper type
+        for (let paperIdx = 0; paperIdx < sortedPapers.length; paperIdx++) {
+          const paperSpec = sortedPapers[paperIdx];
+          const instanceId = this.generateInstanceId(
+            `${printingSpec.groupName}_paper_${paperIdx}`, 
+            printingSpec.rowIndex
+          );
+
+          // Calculate quantity allocation (distribute total quantity across paper types)
+          const totalQty = printingSpec.spec.qty || 0;
+          const qtyPerPaper = Math.floor(totalQty / sortedPapers.length);
+          const extraQty = totalQty % sortedPapers.length;
+          const adjustedQty = qtyPerPaper + (paperIdx < extraQty ? 1 : 0);
+
+          mappings.push({
+            excelRowIndex: printingSpec.rowIndex,
+            excelData: excelRows[printingSpec.rowIndex] || [],
+            groupName: `${printingSpec.groupName} - ${paperSpec.spec.description || paperSpec.groupName}`,
+            description: `${printingSpec.spec.description || ''} (${paperSpec.spec.description || paperSpec.groupName})`,
+            qty: adjustedQty,
+            woQty: adjustedQty,
+            mappedStageId: stageMapping?.stageId || null,
+            mappedStageName: stageMapping?.stageName || null,
+            mappedStageSpecId: stageMapping?.stageSpecId || null,
+            mappedStageSpecName: stageMapping?.stageSpecName || null,
+            confidence: stageMapping?.confidence || 0,
+            category: 'printing',
+            isUnmapped: !stageMapping || stageMapping.confidence < 30,
+            manualOverride: false,
+            instanceId,
+            paperSpecification: paperSpec.spec.description || paperSpec.groupName
+          });
+
+          this.logger.addDebugInfo(`Created printing mapping: "${printingSpec.groupName}" with paper "${paperSpec.spec.description}" (qty: ${adjustedQty})`);
+        }
+      }
+    } else {
+      // Standard processing for single paper or no paper scenarios
+      for (const printingSpec of printingSpecs) {
+        const stageMapping = this.findIntelligentStageMatchWithSpec(
+          printingSpec.groupName, 
+          printingSpec.spec.description || '', 
+          'printing'
+        );
+        
+        const instanceId = this.generateInstanceId(printingSpec.groupName, printingSpec.rowIndex);
+        
+        mappings.push({
+          excelRowIndex: printingSpec.rowIndex,
+          excelData: excelRows[printingSpec.rowIndex] || [],
+          groupName: printingSpec.groupName,
+          description: printingSpec.spec.description || '',
+          qty: printingSpec.spec.qty || 0,
+          woQty: printingSpec.spec.wo_qty || 0,
+          mappedStageId: stageMapping?.stageId || null,
+          mappedStageName: stageMapping?.stageName || null,
+          mappedStageSpecId: stageMapping?.stageSpecId || null,
+          mappedStageSpecName: stageMapping?.stageSpecName || null,
+          confidence: stageMapping?.confidence || 0,
+          category: 'printing',
+          isUnmapped: !stageMapping || stageMapping.confidence < 30,
+          manualOverride: false,
+          instanceId,
+          paperSpecification: this.findAssociatedPaperSpec(printingSpec.groupName, printingSpec.spec.description || '', printingSpec.rowIndex)
+        });
+      }
     }
 
     return mappings;

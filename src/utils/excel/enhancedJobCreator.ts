@@ -744,52 +744,38 @@ export class EnhancedJobCreator {
 
         this.logger.addDebugInfo(`Processing stage: ${productionStage.name} with ${stageMappings.length} instance(s)`);
 
-        // For printing stages with multiple instances, always create separate instances
-        // For other stages, use supports_parts flag
-        if (stageMappings.length > 1 && (productionStage.supports_parts || productionStage.name === 'HP 12000')) {
-          // Multiple instances - create separate stage instances
-          stageMappings.forEach((stageMapping, instanceIndex) => {
-            const { mapping, paperType } = stageMapping;
-            
-            // Create meaningful part names based on paper type or instance number
-            let partName = '';
-            if (paperType) {
-              partName = `${productionStage.name} - ${paperType}`;
-            } else {
-              partName = `${productionStage.name} - Run ${instanceIndex + 1}`;
-            }
-
-            // Get quantity from mapping or job operation quantities
-            const quantity = this.getQuantityForStageInstance(mapping, originalJob, instanceIndex);
-
-            stageInstances.push({
-              stageId: productionStage.id,
-              stageName: productionStage.name,
-              systemOrder: productionStage.order_index,
-              partName,
-              quantity,
-              mapping,
-              paperType
-            });
-
-            this.logger.addDebugInfo(`Created multi-instance stage: ${partName} with quantity ${quantity}`);
-          });
-        } else {
-          // Single instance
-          const { mapping } = stageMappings[0];
-          const quantity = this.getQuantityForStageInstance(mapping, originalJob, 0);
+        // Since row mappings are now pre-split in enhancedStageMapper, 
+        // each mapping already represents a separate instance
+        stageMappings.forEach((stageMapping, instanceIndex) => {
+          const { mapping, paperType } = stageMapping;
           
+          // Create meaningful part names from pre-split mapping data
+          let partName = '';
+          if (mapping.paperSpecification) {
+            partName = `${productionStage.name} - ${mapping.paperSpecification}`;
+          } else if (paperType) {
+            partName = `${productionStage.name} - ${paperType}`;
+          } else if (stageMappings.length > 1) {
+            partName = `${productionStage.name} - Run ${instanceIndex + 1}`;
+          } else {
+            partName = productionStage.name;
+          }
+
+          // Get quantity from mapping or job operation quantities
+          const quantity = this.getQuantityForStageInstance(mapping, originalJob, instanceIndex);
+
           stageInstances.push({
             stageId: productionStage.id,
             stageName: productionStage.name,
             systemOrder: productionStage.order_index,
-            partName: stageMappings[0].paperType || '',
+            partName,
             quantity,
-            mapping
+            mapping,
+            paperType: mapping.paperSpecification || paperType
           });
 
-          this.logger.addDebugInfo(`Created single stage: ${productionStage.name} with quantity ${quantity}`);
-        }
+          this.logger.addDebugInfo(`Created stage instance: ${partName} with quantity ${quantity}`);
+        });
       }
 
       // Sort stage instances by system-defined order to ensure proper workflow sequence
