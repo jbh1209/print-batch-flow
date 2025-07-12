@@ -252,11 +252,13 @@ const extractGroupSpecifications = (
       const specKey = description && description.trim() ? description.trim() : group;
       specs[category][specKey] = specData;
       
-      // Also add to operations
+      // Also add to operations with quantity type information
       if (qty > 0) {
         specs.operations[specKey] = {
           operation_qty: qty,
-          total_wo_qty: woQty
+          total_wo_qty: woQty,
+          // Determine quantity type based on the specification category
+          quantity_type: category === 'printing' ? (matrixData.woQtyType || 'sheets') : (matrixData.qtyType || 'pieces')
         };
       }
     }

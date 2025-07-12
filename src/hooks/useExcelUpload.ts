@@ -144,7 +144,11 @@ export const useExcelUpload = ({ onDataUploaded }: UseExcelUploadProps) => {
         mapping: mapping,
         debugLog: logger.getDebugInfo(),
         isMatrixMode: true,
-        matrixData: matrixData
+        matrixData: matrixData,
+        quantityTypes: {
+          qtyType: mapping.qtyType,
+          woQtyType: mapping.woQtyType
+        }
       };
       
       setUploadProgress(100);
@@ -152,7 +156,7 @@ export const useExcelUpload = ({ onDataUploaded }: UseExcelUploadProps) => {
       
       toast({
         title: "Matrix Excel Processed",
-        description: `Processed ${parsedData.jobs.length} jobs with ${matrixData.detectedGroups.length} groups`,
+        description: `Processed ${parsedData.jobs.length} jobs with ${matrixData.detectedGroups.length} groups using ${mapping.qtyType}/${mapping.woQtyType} quantity types`,
       });
       
     } catch (error: any) {

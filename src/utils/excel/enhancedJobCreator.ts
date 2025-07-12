@@ -284,6 +284,69 @@ export class EnhancedJobCreator {
     if (error) {
       throw new Error(`Failed to initialize workflow: ${error.message}`);
     }
+
+    // Update stage instances with appropriate quantities based on operation_quantities
+    await this.updateStageQuantities(jobId);
+  }
+
+  private async updateStageQuantities(jobId: string): Promise<void> {
+    try {
+      this.logger.addDebugInfo(`Updating stage quantities for job ${jobId}`);
+      
+      // Get the job's operation quantities
+      const { data: job, error: jobError } = await supabase
+        .from('production_jobs')
+        .select('operation_quantities')
+        .eq('id', jobId)
+        .single();
+
+      if (jobError || !job?.operation_quantities) {
+        this.logger.addDebugInfo('No operation quantities found, skipping stage quantity updates');
+        return;
+      }
+
+      // Get the job's stage instances
+      const { data: stages, error: stagesError } = await supabase
+        .from('job_stage_instances')
+        .select('id, production_stage_id')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs');
+
+      if (stagesError || !stages) {
+        this.logger.addDebugInfo('No stage instances found for quantity updates');
+        return;
+      }
+
+      // Update each stage with appropriate quantity based on its type
+      for (const stage of stages) {
+        const appropriateQuantity = this.getApropriateQuantityForStage(stage.production_stage_id, job.operation_quantities);
+        
+        if (appropriateQuantity > 0) {
+          await supabase
+            .from('job_stage_instances')
+            .update({ quantity: appropriateQuantity })
+            .eq('id', stage.id);
+        }
+      }
+    } catch (error) {
+      this.logger.addDebugInfo(`Failed to update stage quantities: ${error}`);
+    }
+  }
+
+  private getApropriateQuantityForStage(stageId: string, operationQuantities: any): number {
+    // Logic to determine which quantity to use for different stage types
+    // For now, return the first available quantity
+    // This could be enhanced with stage-specific logic
+    for (const operation of Object.values(operationQuantities)) {
+      const opData = operation as any;
+      if (opData.operation_qty > 0) {
+        return opData.operation_qty;
+      }
+      if (opData.total_wo_qty > 0) {
+        return opData.total_wo_qty;
+      }
+    }
+    return 0;
   }
 
   private async updateJobQRCode(job: any): Promise<void> {
