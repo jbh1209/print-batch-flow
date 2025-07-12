@@ -116,10 +116,14 @@ export interface RowMappingResult {
   woQty: number;
   mappedStageId: string | null;
   mappedStageName: string | null;
+  mappedStageSpecId: string | null;
+  mappedStageSpecName: string | null;
   confidence: number;
   category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'unknown';
   manualOverride?: boolean;
   isUnmapped: boolean;
+  instanceId?: string; // Unique identifier for multi-instance stages
+  paperSpecification?: string; // Associated paper spec for printing stages
 }
 
 export interface DetailedCategoryAssignmentResult {
@@ -135,7 +139,12 @@ export interface DetailedCategoryAssignmentResult {
 export interface StageMapping {
   stageId: string;
   stageName: string;
+  stageSpecId?: string;
+  stageSpecName?: string;
   confidence: number;
   specifications: string[];
   category: 'printing' | 'finishing' | 'prepress' | 'delivery';
+  instanceId?: string;
+  quantity?: number;
+  paperSpecification?: string;
 }

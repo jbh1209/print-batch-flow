@@ -5,6 +5,8 @@ import type { GroupSpecifications, RowMappingResult, StageMapping } from './type
 export interface MappingConfidence {
   stageId: string;
   stageName: string;
+  stageSpecId?: string;
+  stageSpecName?: string;
   confidence: number;
   source: 'database' | 'fuzzy' | 'pattern';
   category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'unknown';
@@ -12,6 +14,7 @@ export interface MappingConfidence {
 
 export class EnhancedStageMapper {
   private stages: any[] = [];
+  private stageSpecs: any[] = [];
   private existingMappings: Map<string, any> = new Map();
   
   constructor(private logger: ExcelImportDebugger) {}
@@ -30,6 +33,19 @@ export class EnhancedStageMapper {
     }
     
     this.stages = stagesData || [];
+    
+    // Load stage specifications for sub-specification matching
+    const { data: specsData, error: specsError } = await supabase
+      .from('stage_specifications')
+      .select('*')
+      .eq('is_active', true);
+    
+    if (specsError) {
+      this.logger.addDebugInfo(`Warning: Could not load stage specifications: ${specsError.message}`);
+    } else {
+      this.stageSpecs = specsData || [];
+      this.logger.addDebugInfo(`Loaded ${this.stageSpecs.length} stage specifications`);
+    }
     
     // Load existing excel mappings
     const { data: mappingsData, error: mappingsError } = await supabase
@@ -109,7 +125,9 @@ export class EnhancedStageMapper {
     let currentRowIndex = startRowIndex;
 
     for (const [groupName, spec] of Object.entries(specs)) {
-      const stageMapping = this.findIntelligentStageMatch(groupName, spec.description || '', category);
+      const stageMapping = this.findIntelligentStageMatchWithSpec(groupName, spec.description || '', category);
+      
+      const instanceId = this.generateInstanceId(groupName, currentRowIndex);
       
       mappings.push({
         excelRowIndex: currentRowIndex,
@@ -120,10 +138,14 @@ export class EnhancedStageMapper {
         woQty: spec.wo_qty || 0,
         mappedStageId: stageMapping?.stageId || null,
         mappedStageName: stageMapping?.stageName || null,
+        mappedStageSpecId: stageMapping?.stageSpecId || null,
+        mappedStageSpecName: stageMapping?.stageSpecName || null,
         confidence: stageMapping?.confidence || 0,
         category: stageMapping?.category || category,
         isUnmapped: !stageMapping || stageMapping.confidence < 30,
-        manualOverride: false
+        manualOverride: false,
+        instanceId,
+        paperSpecification: this.findAssociatedPaperSpec(groupName, spec.description || '', currentRowIndex)
       });
 
       currentRowIndex++;
@@ -463,5 +485,88 @@ export class EnhancedStageMapper {
     }
     
     return deduplicated;
+  }
+
+  /**
+   * Generate unique instance ID for multi-instance stages
+   */
+  private generateInstanceId(groupName: string, rowIndex: number): string {
+    return `${groupName.toLowerCase().replace(/\s+/g, '_')}_${rowIndex}`;
+  }
+
+  /**
+   * Find associated paper specification for printing stages
+   */
+  private findAssociatedPaperSpec(groupName: string, description: string, rowIndex: number): string | undefined {
+    const searchText = `${groupName} ${description}`.toLowerCase();
+    
+    // Look for paper type mentions in the description
+    const paperTypes = ['quality', 'performance', 'offset', 'digital', 'coated', 'uncoated', 'gloss', 'matt'];
+    for (const paperType of paperTypes) {
+      if (searchText.includes(paperType)) {
+        return paperType.charAt(0).toUpperCase() + paperType.slice(1);
+      }
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * Enhanced stage matching with sub-specification support
+   */
+  private findIntelligentStageMatchWithSpec(
+    groupName: string,
+    description: string,
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery'
+  ): MappingConfidence | null {
+    const searchText = `${groupName} ${description}`.toLowerCase().trim();
+    
+    // Strategy 1: Direct stage + specification matching
+    const stageSpecMatch = this.findStageSpecificationMatch(searchText, category);
+    if (stageSpecMatch) {
+      return stageSpecMatch;
+    }
+    
+    // Fallback to original matching logic
+    return this.findIntelligentStageMatch(groupName, description, category);
+  }
+
+  /**
+   * Find matching stage and specification combination
+   */
+  private findStageSpecificationMatch(searchText: string, category: string): MappingConfidence | null {
+    let bestMatch: MappingConfidence | null = null;
+    let bestScore = 0;
+
+    // Look for stage + specification combinations
+    for (const spec of this.stageSpecs) {
+      const stage = this.stages.find(s => s.id === spec.production_stage_id);
+      if (!stage || this.inferStageCategory(stage.name) !== category) continue;
+
+      const specName = spec.name.toLowerCase();
+      const stageName = stage.name.toLowerCase();
+      
+      // Check if the search text matches both stage and specification
+      const stageScore = this.calculateSimilarity(searchText, stageName);
+      const specScore = this.calculateSimilarity(searchText, specName);
+      const combinedScore = this.calculateSimilarity(searchText, `${stageName} ${specName}`);
+      
+      const maxScore = Math.max(stageScore, specScore, combinedScore);
+      
+      if (maxScore > bestScore && maxScore > 0.6) { // Higher threshold for stage+spec matching
+        bestScore = maxScore;
+        bestMatch = {
+          stageId: stage.id,
+          stageName: stage.name,
+          stageSpecId: spec.id,
+          stageSpecName: spec.name,
+          confidence: Math.round(maxScore * 90), // Higher confidence for precise matches
+          source: 'fuzzy',
+          category: this.inferStageCategory(stage.name)
+        };
+      }
+    }
+
+    return bestMatch;
   }
 }

@@ -62,7 +62,8 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
               <TableHead className="min-w-[200px]">Description</TableHead>
               <TableHead className="min-w-[60px] w-20">Qty</TableHead>
               <TableHead className="min-w-[100px]">Category</TableHead>
-              <TableHead className="min-w-[200px]">Mapped Stage</TableHead>
+              <TableHead className="min-w-[250px]">Mapped Stage + Sub-Spec</TableHead>
+              <TableHead className="min-w-[120px]">Paper/Spec</TableHead>
               <TableHead className="min-w-[100px] w-24">Confidence</TableHead>
               <TableHead className="min-w-[80px] w-32">Actions</TableHead>
             </TableRow>
@@ -105,7 +106,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                       }
                     }}
                   >
-                    <SelectTrigger className="h-8 min-w-[150px]">
+                    <SelectTrigger className="h-8 min-w-[200px]">
                       <SelectValue placeholder="Select stage..." />
                     </SelectTrigger>
                     <SelectContent className="z-50 bg-background">
@@ -117,16 +118,39 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="text-sm min-w-[150px]">
+                  <div className="text-sm min-w-[200px]">
                     {mapping.mappedStageName ? (
-                      <span className="font-medium truncate block" title={mapping.mappedStageName}>
-                        {mapping.mappedStageName}
-                      </span>
+                      <div>
+                        <span className="font-medium block" title={mapping.mappedStageName}>
+                          {mapping.mappedStageName}
+                        </span>
+                        {mapping.mappedStageSpecName && (
+                          <span className="text-xs text-gray-600 block" title={mapping.mappedStageSpecName}>
+                            + {mapping.mappedStageSpecName}
+                          </span>
+                        )}
+                        {mapping.instanceId && (
+                          <span className="text-xs text-blue-600 block">
+                            Instance: {mapping.instanceId}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-gray-500 italic">No mapping found</span>
                     )}
                   </div>
                 )}
+              </TableCell>
+              <TableCell>
+                <div className="text-sm">
+                  {mapping.paperSpecification ? (
+                    <Badge variant="outline" className="text-xs">
+                      {mapping.paperSpecification}
+                    </Badge>
+                  ) : (
+                    <span className="text-gray-400 text-xs">No paper spec</span>
+                  )}
+                </div>
               </TableCell>
               <TableCell>
                 {mapping.isUnmapped ? (

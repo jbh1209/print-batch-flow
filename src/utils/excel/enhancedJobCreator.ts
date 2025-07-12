@@ -357,26 +357,36 @@ export class EnhancedJobCreator {
 
   private async initializeCustomWorkflow(insertedJob: any, originalJob: ParsedJob, result: EnhancedJobCreationResult): Promise<void> {
     try {
-      // Get stage mappings from the enhanced stage mapper
-      const stageMapperResult = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
+      // Create intelligent row mappings that support multi-instance stages and sub-specifications
+      const rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
         originalJob.printing_specifications,
-        originalJob.finishing_specifications, 
-        originalJob.prepress_specifications
+        originalJob.finishing_specifications,
+        originalJob.prepress_specifications,
+        [], // Excel rows not needed for stage creation
+        []  // Headers not needed
       );
 
-      if (stageMapperResult.length === 0) {
-        this.logger.addDebugInfo(`No stages mapped for job ${originalJob.wo_no}, skipping workflow initialization`);
+      if (rowMappings.length === 0) {
+        this.logger.addDebugInfo(`No stage mappings found for job ${originalJob.wo_no}, skipping workflow initialization`);
         return;
       }
 
-      // Extract stage IDs and create proper ordering
+      // Extract stage information from row mappings (supporting multi-instance)
       const stageIds: string[] = [];
       const stageOrders: number[] = [];
       
-      stageMapperResult.forEach((mapping, index) => {
-        stageIds.push(mapping.stageId);
-        stageOrders.push(index + 1);
-      });
+      rowMappings
+        .filter(mapping => !mapping.isUnmapped && mapping.mappedStageId)
+        .forEach((mapping, index) => {
+          stageIds.push(mapping.mappedStageId!);
+          stageOrders.push(index + 1);
+          this.logger.addDebugInfo(`Adding stage: ${mapping.mappedStageName} (${mapping.mappedStageSpecName || 'no sub-spec'}) - Instance: ${mapping.instanceId}`);
+        });
+
+      if (stageIds.length === 0) {
+        this.logger.addDebugInfo(`No valid stage mappings for job ${originalJob.wo_no}, skipping workflow initialization`);
+        return;
+      }
 
       // Initialize custom workflow using the RPC function
       const { error: workflowError } = await supabase.rpc('initialize_custom_job_stages', {
@@ -391,13 +401,13 @@ export class EnhancedJobCreator {
         return;
       }
 
-      // Update stage quantities based on operation quantities
-      await this.updateStageQuantities(insertedJob.id);
+      // Update stage instances with sub-specifications and quantities
+      await this.updateStageInstancesWithSpecs(insertedJob.id, rowMappings);
 
       // Calculate and set due date based on stage durations
       await this.calculateAndSetDueDate(insertedJob.id, originalJob);
 
-      this.logger.addDebugInfo(`Custom workflow initialized for ${originalJob.wo_no} with ${stageIds.length} stages`);
+      this.logger.addDebugInfo(`Custom workflow initialized for ${originalJob.wo_no} with ${stageIds.length} stages (including multi-instance stages)`);
       
     } catch (error) {
       this.logger.addDebugInfo(`Custom workflow initialization error for ${originalJob.wo_no}: ${error}`);
@@ -569,6 +579,69 @@ export class EnhancedJobCreator {
         .eq('id', job.id);
     } catch (error) {
       this.logger.addDebugInfo(`Failed to update QR code for job ${job.id}: ${error}`);
+    }
+  }
+
+  /**
+   * Update stage instances with sub-specifications and quantities from row mappings
+   */
+  private async updateStageInstancesWithSpecs(jobId: string, rowMappings: any[]): Promise<void> {
+    try {
+      // Get all created stage instances for this job
+      const { data: stageInstances, error: stagesError } = await supabase
+        .from('job_stage_instances')
+        .select('id, production_stage_id, stage_order')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs')
+        .order('stage_order');
+
+      if (stagesError || !stageInstances) {
+        this.logger.addDebugInfo('No stage instances found for specification updates');
+        return;
+      }
+
+      // Match row mappings to stage instances and update with specifications
+      for (let i = 0; i < stageInstances.length && i < rowMappings.length; i++) {
+        const stageInstance = stageInstances[i];
+        const mapping = rowMappings.filter(m => !m.isUnmapped && m.mappedStageId)[i];
+        
+        if (!mapping) continue;
+
+        const updateData: any = {
+          quantity: mapping.qty || mapping.woQty || 0,
+          updated_at: new Date().toISOString()
+        };
+
+        // Add stage specification if available
+        if (mapping.mappedStageSpecId) {
+          updateData.stage_specification_id = mapping.mappedStageSpecId;
+        }
+
+        // Add notes about the mapping
+        const notes = [];
+        if (mapping.mappedStageSpecName) {
+          notes.push(`Sub-specification: ${mapping.mappedStageSpecName}`);
+        }
+        if (mapping.paperSpecification) {
+          notes.push(`Paper: ${mapping.paperSpecification}`);
+        }
+        if (mapping.instanceId) {
+          notes.push(`Instance: ${mapping.instanceId}`);
+        }
+        
+        if (notes.length > 0) {
+          updateData.notes = notes.join(' | ');
+        }
+
+        await supabase
+          .from('job_stage_instances')
+          .update(updateData)
+          .eq('id', stageInstance.id);
+
+        this.logger.addDebugInfo(`Updated stage instance ${stageInstance.id} with specification: ${mapping.mappedStageSpecName || 'none'}`);
+      }
+    } catch (error) {
+      this.logger.addDebugInfo(`Failed to update stage instances with specifications: ${error}`);
     }
   }
 }

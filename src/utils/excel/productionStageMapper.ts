@@ -132,6 +132,8 @@ export class ProductionStageMapper {
         woQty: spec.wo_qty || 0,
         mappedStageId: stageMapping?.stageId || null,
         mappedStageName: stageMapping?.stageName || null,
+        mappedStageSpecId: null, // Basic mapper doesn't handle sub-specs
+        mappedStageSpecName: null,
         confidence: stageMapping?.confidence || 0,
         category: stageMapping?.category || 'unknown',
         isUnmapped: !stageMapping,
