@@ -122,18 +122,8 @@ export interface RowMappingResult {
   category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'unknown';
   manualOverride?: boolean;
   isUnmapped: boolean;
-  instanceId?: string; // Unique identifier for multi-instance stages
-  paperSpecification?: string; // Associated paper spec for printing stages
-}
-
-export interface DetailedCategoryAssignmentResult {
-  categoryId: string | null;
-  categoryName: string | null;
-  confidence: number;
-  mappedStages: StageMapping[];
-  requiresCustomWorkflow: boolean;
-  rowMappings: RowMappingResult[];
-  unmappedRowsCount: number;
+  instanceId?: string;
+  paperSpecification?: string;
 }
 
 export interface StageMapping {

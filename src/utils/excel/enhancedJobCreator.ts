@@ -1,4 +1,4 @@
-import type { ParsedJob } from './types';
+import type { ParsedJob, RowMappingResult } from './types';
 import type { ExcelImportDebugger } from './debugger';
 import { ProductionStageMapper, type CategoryAssignmentResult } from './productionStageMapper';
 import { EnhancedStageMapper } from './enhancedStageMapper';
@@ -11,7 +11,7 @@ export interface EnhancedJobCreationResult {
   createdJobs: any[];
   failedJobs: { job: ParsedJob; error: string }[];
   categoryAssignments: { [woNo: string]: CategoryAssignmentResult };
-  rowMappings: { [woNo: string]: any[] };
+  rowMappings: { [woNo: string]: RowMappingResult[] };
   stats: {
     total: number;
     successful: number;

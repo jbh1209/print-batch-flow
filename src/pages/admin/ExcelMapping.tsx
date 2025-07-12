@@ -1,19 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Upload, Database, Filter, Map } from "lucide-react";
+import { ArrowLeft, Upload, Database, Map } from "lucide-react";
 import { Link } from "react-router-dom";
-import { AdminExcelUpload } from "@/components/admin/AdminExcelUpload";
+import { ExcelUpload } from "@/components/tracker/ExcelUpload";
 import { MappingLibrary } from "@/components/admin/MappingLibrary";
-import { ExcelDataAnalyzer } from "@/components/admin/ExcelDataAnalyzer";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 const ExcelMapping = () => {
-  const { toast } = useToast();
   const { isAdmin, isLoading } = useAdminAuth();
-  const [uploadedData, setUploadedData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("upload");
 
   if (isLoading) {
@@ -41,15 +37,6 @@ const ExcelMapping = () => {
     );
   }
 
-  const handleDataUploaded = (data: any) => {
-    setUploadedData(data);
-    setActiveTab("analyze");
-    toast({
-      title: "Data Uploaded Successfully",
-      description: `Uploaded ${data.jobs?.length || 0} records for analysis`,
-    });
-  };
-
   return (
     <div className="w-full max-w-7xl mx-auto p-6">
       <div className="mb-6">
@@ -68,18 +55,10 @@ const ExcelMapping = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
-            Upload Data
-          </TabsTrigger>
-          <TabsTrigger 
-            value="analyze" 
-            className="flex items-center gap-2"
-            disabled={!uploadedData}
-          >
-            <Filter className="h-4 w-4" />
-            Analyze & Filter
+            Upload Jobs
           </TabsTrigger>
           <TabsTrigger value="mapping" className="flex items-center gap-2">
             <Map className="h-4 w-4" />
@@ -94,31 +73,16 @@ const ExcelMapping = () => {
         <TabsContent value="upload" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Upload Historical Excel Data</CardTitle>
+              <CardTitle>Upload & Process Excel Jobs</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Upload Excel files containing historical work order data to build your mapping library.
-                Supports both standard and matrix/pivot table formats.
+                Upload Excel files containing work order data. The system will automatically detect stages,
+                create workflows, and import jobs with intelligent mapping.
               </p>
             </CardHeader>
             <CardContent>
-              <AdminExcelUpload onDataUploaded={handleDataUploaded} />
+              <ExcelUpload />
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="analyze" className="space-y-6">
-          {uploadedData ? (
-            <ExcelDataAnalyzer 
-              data={uploadedData} 
-              onMappingCreated={() => setActiveTab("library")}
-            />
-          ) : (
-            <Card>
-              <CardContent className="flex items-center justify-center h-32">
-                <p className="text-muted-foreground">Upload data first to start analyzing</p>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
         <TabsContent value="mapping" className="space-y-6">

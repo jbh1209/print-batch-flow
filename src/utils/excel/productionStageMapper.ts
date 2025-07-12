@@ -1,5 +1,5 @@
 import type { ExcelImportDebugger } from './debugger';
-import type { GroupSpecifications, RowMappingResult, DetailedCategoryAssignmentResult, StageMapping } from './types';
+import type { GroupSpecifications, RowMappingResult, StageMapping } from './types';
 import { supabase } from '@/integrations/supabase/client';
 import { EnhancedStageMapper } from './enhancedStageMapper';
 
@@ -241,7 +241,7 @@ export class ProductionStageMapper {
   assignCategoryWithDetails(
     mappedStages: StageMapping[],
     rowMappings: RowMappingResult[]
-  ): DetailedCategoryAssignmentResult {
+  ): CategoryAssignmentResult {
     this.logger.addDebugInfo(`Analyzing ${mappedStages.length} mapped stages for category assignment`);
     
     const categoryScores = new Map<string, number>();
@@ -288,8 +288,7 @@ export class ProductionStageMapper {
         confidence: bestScore,
         mappedStages,
         requiresCustomWorkflow: bestScore < 80 || unmappedRowsCount > 0,
-        rowMappings,
-        unmappedRowsCount
+        rowMappings
       };
     }
     
@@ -301,8 +300,7 @@ export class ProductionStageMapper {
       confidence: 0,
       mappedStages,
       requiresCustomWorkflow: true,
-      rowMappings,
-      unmappedRowsCount
+      rowMappings
     };
   }
 
