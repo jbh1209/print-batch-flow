@@ -653,83 +653,136 @@ export class EnhancedJobCreator {
         return;
       }
 
-      // Extract stage information from row mappings - SUPPORT MULTI-INSTANCE STAGES
-      // Create stage instances for each row mapping (no deduplication for legitimate multi-instance stages)
-      const stageInstances: Array<{
-        stageId: string;
-        stageName: string;
-        order: number;
-        partName: string;
-        specName?: string;
-        mapping: any;
-      }> = [];
-      
-      // Group by stage to determine if we have multi-instance scenarios
-      const stageGroups = new Map<string, any[]>();
+      // Get all production stages ordered by system-defined order_index 
+      const { data: allProductionStages, error: stagesError } = await supabase
+        .from('production_stages')
+        .select('id, name, order_index, supports_parts')
+        .eq('is_active', true)
+        .order('order_index');
+
+      if (stagesError || !allProductionStages) {
+        throw new Error(`Failed to load production stages: ${stagesError?.message}`);
+      }
+
+      // Group mappings by stage to detect multi-instance scenarios (like multiple HP 12000 prints)
+      const stageGroups = new Map<string, Array<{mapping: any, paperType?: string}>>();
       
       rowMappings
         .filter(mapping => !mapping.isUnmapped && mapping.mappedStageId)
-        .forEach((mapping, index) => {
+        .forEach((mapping) => {
           const stageId = mapping.mappedStageId!;
           if (!stageGroups.has(stageId)) {
             stageGroups.set(stageId, []);
           }
-          stageGroups.get(stageId)!.push({ ...mapping, originalIndex: index });
-        });
-      
-      // Create stage instances with appropriate part names
-      for (const [stageId, mappings] of stageGroups.entries()) {
-        mappings.forEach((mapping, instanceIndex) => {
-          const isMultiInstance = mappings.length > 1;
-          let partName = '';
           
-          if (isMultiInstance) {
-            // Create meaningful part names for multi-instance stages
-            if (mapping.mappedStageSpecName) {
-              partName = `${mapping.mappedStageSpecName} (Instance ${instanceIndex + 1})`;
-            } else {
-              partName = `Instance ${instanceIndex + 1}`;
-            }
-            this.logger.addDebugInfo(`Creating multi-instance stage: ${mapping.mappedStageName} - Part: ${partName}`);
-          } else {
-            // Single instance - use spec name as part name if available
-            partName = mapping.mappedStageSpecName || '';
-            this.logger.addDebugInfo(`Creating single stage: ${mapping.mappedStageName} - Spec: ${mapping.mappedStageSpecName || 'none'}`);
+          // Extract paper type for printing stages from job's paper specifications
+          let paperType = '';
+          if (mapping.category === 'printing' && originalJob.paper_specifications) {
+            // Find matching paper type for this printing operation
+            paperType = this.extractPaperTypeForPrinting(mapping, originalJob.paper_specifications);
           }
           
-          stageInstances.push({
-            stageId: mapping.mappedStageId,
-            stageName: mapping.mappedStageName,
-            order: mapping.originalIndex + 1,
-            partName,
-            specName: mapping.mappedStageSpecName,
-            mapping
+          stageGroups.get(stageId)!.push({ 
+            mapping, 
+            paperType: paperType || mapping.paperSpecification || ''
           });
         });
+
+      this.logger.addDebugInfo(`Grouped mappings into ${stageGroups.size} unique stages`);
+
+      // Create stage instances with proper system ordering and multi-instance support
+      const stageInstances: Array<{
+        stageId: string;
+        stageName: string;
+        systemOrder: number;
+        partName: string;
+        quantity: number;
+        mapping: any;
+        paperType?: string;
+      }> = [];
+
+      // Process each stage group to create instances
+      for (const [stageId, stageMappings] of stageGroups.entries()) {
+        const productionStage = allProductionStages.find(ps => ps.id === stageId);
+        if (!productionStage) {
+          this.logger.addDebugInfo(`Warning: Production stage ${stageId} not found in system stages`);
+          continue;
+        }
+
+        this.logger.addDebugInfo(`Processing stage: ${productionStage.name} with ${stageMappings.length} instance(s)`);
+
+        // For printing stages with multiple instances, detect if they should be separate instances
+        if (stageMappings.length > 1 && productionStage.supports_parts) {
+          // Multiple instances - create separate stage instances
+          stageMappings.forEach((stageMapping, instanceIndex) => {
+            const { mapping, paperType } = stageMapping;
+            
+            // Create meaningful part names based on paper type or instance number
+            let partName = '';
+            if (paperType) {
+              partName = `${productionStage.name} - ${paperType}`;
+            } else {
+              partName = `${productionStage.name} - Run ${instanceIndex + 1}`;
+            }
+
+            // Get quantity from mapping or job operation quantities
+            const quantity = this.getQuantityForStageInstance(mapping, originalJob, instanceIndex);
+
+            stageInstances.push({
+              stageId: productionStage.id,
+              stageName: productionStage.name,
+              systemOrder: productionStage.order_index,
+              partName,
+              quantity,
+              mapping,
+              paperType
+            });
+
+            this.logger.addDebugInfo(`Created multi-instance stage: ${partName} with quantity ${quantity}`);
+          });
+        } else {
+          // Single instance
+          const { mapping } = stageMappings[0];
+          const quantity = this.getQuantityForStageInstance(mapping, originalJob, 0);
+          
+          stageInstances.push({
+            stageId: productionStage.id,
+            stageName: productionStage.name,
+            systemOrder: productionStage.order_index,
+            partName: stageMappings[0].paperType || '',
+            quantity,
+            mapping
+          });
+
+          this.logger.addDebugInfo(`Created single stage: ${productionStage.name} with quantity ${quantity}`);
+        }
       }
+
+      // Sort stage instances by system-defined order to ensure proper workflow sequence
+      stageInstances.sort((a, b) => a.systemOrder - b.systemOrder);
 
       if (stageInstances.length === 0) {
         this.logger.addDebugInfo(`No valid stage mappings for job ${originalJob.wo_no}, skipping workflow initialization`);
         return;
       }
 
-      this.logger.addDebugInfo(`Creating ${stageInstances.length} stage instances for job ${originalJob.wo_no}`);
+      this.logger.addDebugInfo(`Creating ${stageInstances.length} stage instances in system order for job ${originalJob.wo_no}`);
       
-      // Create stage instances directly in database (bypassing RPC to handle multi-instance properly)
-      const stageInsertPromises = stageInstances.map(async (instance) => {
+      // Create stage instances in database with correct ordering
+      const stageInsertPromises = stageInstances.map(async (instance, index) => {
         const { data, error } = await supabase
           .from('job_stage_instances')
           .insert({
             job_id: insertedJob.id,
             job_table_name: 'production_jobs',
             production_stage_id: instance.stageId,
-            stage_order: instance.order,
+            stage_order: index + 1, // Use sequential order based on system ordering
             status: 'pending',
             part_name: instance.partName || null,
             stage_specification_id: instance.mapping.mappedStageSpecId || null,
-            quantity: instance.mapping.quantity || null
+            quantity: instance.quantity || 0 // Ensure quantity is always set
           })
-          .select('id, production_stage_id, part_name')
+          .select('id, production_stage_id, part_name, quantity')
           .single();
           
         if (error) {
@@ -737,7 +790,7 @@ export class EnhancedJobCreator {
           throw new Error(`Failed to create stage instance for ${instance.stageName}: ${error.message}`);
         }
         
-        this.logger.addDebugInfo(`Created stage instance: ${instance.stageName} (Part: ${instance.partName || 'none'}) - ID: ${data.id}`);
+        this.logger.addDebugInfo(`Created stage instance: ${instance.stageName} (Part: ${instance.partName || 'none'}) - Qty: ${instance.quantity} - ID: ${data.id}`);
         return data;
       });
 
@@ -752,10 +805,7 @@ export class EnhancedJobCreator {
         .update({ has_custom_workflow: true })
         .eq('id', insertedJob.id);
 
-      // Update stage instances with sub-specifications and quantities
-      await this.updateStageInstancesWithSpecs(insertedJob.id, rowMappings);
-
-      // Calculate and set due date based on stage durations
+      // Calculate and set due date based on stage durations (now with proper quantities)
       await this.calculateAndSetDueDate(insertedJob.id, originalJob);
 
       this.logger.addDebugInfo(`Custom workflow initialized for ${originalJob.wo_no} with ${stageInstances.length} stage instances`);
@@ -1209,5 +1259,82 @@ export class EnhancedJobCreator {
       return 'delivery';
     }
     return 'unknown';
+  }
+
+  /**
+   * Extract paper type for a specific printing operation from job's paper specifications
+   */
+  private extractPaperTypeForPrinting(mapping: any, paperSpecs: any): string {
+    try {
+      // Look for paper specifications that match this printing operation
+      if (paperSpecs.group_specifications) {
+        for (const [paperGroup, paperSpec] of Object.entries(paperSpecs.group_specifications)) {
+          const paperData = paperSpec as any;
+          if (paperData.description) {
+            // Match paper type by description or group name patterns
+            const paperDesc = paperData.description.toLowerCase();
+            const mappingDesc = mapping.description.toLowerCase();
+            
+            // Look for common patterns that link paper to printing operations
+            if (paperDesc.includes('gsm') || paperDesc.includes('paper') || paperDesc.includes('stock')) {
+              return paperData.description;
+            }
+          }
+        }
+      }
+      
+      return '';
+    } catch (error) {
+      this.logger.addDebugInfo(`Error extracting paper type: ${error}`);
+      return '';
+    }
+  }
+
+  /**
+   * Get appropriate quantity for a stage instance from mapping or operation quantities
+   */
+  private getQuantityForStageInstance(mapping: any, job: ParsedJob, instanceIndex: number): number {
+    // Try to get quantity from the mapping first
+    if (mapping.qty && mapping.qty > 0) {
+      return mapping.qty;
+    }
+    
+    if (mapping.woQty && mapping.woQty > 0) {
+      return mapping.woQty;
+    }
+
+    // Fallback to job quantities
+    if (job.qty && job.qty > 0) {
+      return job.qty;
+    }
+
+    // Try operation quantities
+    if (job.operation_quantities) {
+      const operations = Object.values(job.operation_quantities);
+      if (operations.length > instanceIndex) {
+        const operation = operations[instanceIndex] as any;
+        if (operation.operation_qty > 0) {
+          return operation.operation_qty;
+        }
+        if (operation.total_wo_qty > 0) {
+          return operation.total_wo_qty;
+        }
+      }
+      
+      // Use first available operation quantity as fallback
+      for (const operation of operations) {
+        const opData = operation as any;
+        if (opData.operation_qty > 0) {
+          return opData.operation_qty;
+        }
+        if (opData.total_wo_qty > 0) {
+          return opData.total_wo_qty;
+        }
+      }
+    }
+
+    // Final fallback
+    this.logger.addDebugInfo(`Warning: No quantity found for stage instance, defaulting to 1`);
+    return 1;
   }
 }
