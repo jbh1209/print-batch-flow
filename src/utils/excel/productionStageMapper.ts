@@ -1,6 +1,7 @@
 import type { ExcelImportDebugger } from './debugger';
 import type { GroupSpecifications, RowMappingResult, DetailedCategoryAssignmentResult, StageMapping } from './types';
 import { supabase } from '@/integrations/supabase/client';
+import { EnhancedStageMapper } from './enhancedStageMapper';
 
 export interface CategoryAssignmentResult {
   categoryId: string | null;
@@ -15,13 +16,19 @@ export class ProductionStageMapper {
   private stages: any[] = [];
   private categories: any[] = [];
   private categoryStages: any[] = [];
+  private enhancedMapper: EnhancedStageMapper;
   
   constructor(
     private logger: ExcelImportDebugger
-  ) {}
+  ) {
+    this.enhancedMapper = new EnhancedStageMapper(logger);
+  }
 
   async initialize(): Promise<void> {
     this.logger.addDebugInfo("Initializing production stage mapper...");
+    
+    // Initialize enhanced mapper first
+    await this.enhancedMapper.initialize();
     
     // Load production stages
     const { data: stagesData, error: stagesError } = await supabase
@@ -64,7 +71,7 @@ export class ProductionStageMapper {
   }
 
   /**
-   * Map Excel group specifications to production stages with detailed row mapping
+   * Map Excel group specifications to production stages with intelligent mapping
    */
   mapGroupsToStages(
     printingSpecs: GroupSpecifications | null,
@@ -72,32 +79,16 @@ export class ProductionStageMapper {
     prepressSpecs: GroupSpecifications | null,
     excelRows?: any[][]
   ): StageMapping[] {
-    const mappedStages: StageMapping[] = [];
-    
-    // Map printing specifications
-    if (printingSpecs) {
-      const printingMappings = this.mapSpecificationsToStages(printingSpecs, 'printing');
-      mappedStages.push(...printingMappings);
-    }
-    
-    // Map finishing specifications
-    if (finishingSpecs) {
-      const finishingMappings = this.mapSpecificationsToStages(finishingSpecs, 'finishing');
-      mappedStages.push(...finishingMappings);
-    }
-    
-    // Map prepress specifications
-    if (prepressSpecs) {
-      const prepressMappings = this.mapSpecificationsToStages(prepressSpecs, 'prepress');
-      mappedStages.push(...prepressMappings);
-    }
-    
-    this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages from group specifications`);
-    return mappedStages;
+    // Use enhanced mapper for intelligent stage mapping
+    return this.enhancedMapper.mapGroupsToStagesIntelligent(
+      printingSpecs,
+      finishingSpecs,
+      prepressSpecs
+    );
   }
 
   /**
-   * Create detailed row mappings for enhanced UI display
+   * Create detailed row mappings for enhanced UI display using intelligent mapping
    */
   createDetailedRowMappings(
     printingSpecs: GroupSpecifications | null,
@@ -106,33 +97,14 @@ export class ProductionStageMapper {
     excelRows: any[][],
     headers: string[]
   ): RowMappingResult[] {
-    const rowMappings: RowMappingResult[] = [];
-    let rowIndex = 0;
-
-    // Process printing specifications
-    if (printingSpecs) {
-      rowMappings.push(...this.createRowMappingsForCategory(
-        printingSpecs, 'printing', excelRows, headers, rowIndex
-      ));
-      rowIndex += Object.keys(printingSpecs).length;
-    }
-
-    // Process finishing specifications
-    if (finishingSpecs) {
-      rowMappings.push(...this.createRowMappingsForCategory(
-        finishingSpecs, 'finishing', excelRows, headers, rowIndex
-      ));
-      rowIndex += Object.keys(finishingSpecs).length;
-    }
-
-    // Process prepress specifications
-    if (prepressSpecs) {
-      rowMappings.push(...this.createRowMappingsForCategory(
-        prepressSpecs, 'prepress', excelRows, headers, rowIndex
-      ));
-    }
-
-    return rowMappings;
+    // Use enhanced mapper for intelligent mapping
+    return this.enhancedMapper.createIntelligentRowMappings(
+      printingSpecs,
+      finishingSpecs,
+      prepressSpecs,
+      excelRows,
+      headers
+    );
   }
 
   /**

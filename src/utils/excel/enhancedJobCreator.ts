@@ -113,29 +113,67 @@ export class EnhancedJobCreator {
     // 4. Create enhanced job data
     const enhancedJobData = await this.buildEnhancedJobData(job, finalCategoryId);
 
-    // 5. Insert job into database
-    const { data: insertedJob, error: insertError } = await supabase
-      .from('production_jobs')
-      .upsert(enhancedJobData, { 
-        onConflict: 'wo_no,user_id',
-        ignoreDuplicates: false 
-      })
-      .select()
-      .single();
+    // 5. Insert job into database with conflict resolution
+    let insertedJob;
+    try {
+      // First, try to insert as new job
+      const { data: newJob, error: insertError } = await supabase
+        .from('production_jobs')
+        .insert(enhancedJobData)
+        .select()
+        .single();
 
-    if (insertError) {
-      throw new Error(`Database insertion failed: ${insertError.message}`);
+      if (insertError) {
+        // If conflict (job already exists), update instead
+        if (insertError.code === '23505') { // Unique constraint violation
+          this.logger.addDebugInfo(`Job ${job.wo_no} already exists, updating...`);
+          
+          const { data: updatedJob, error: updateError } = await supabase
+            .from('production_jobs')
+            .update({
+              ...enhancedJobData,
+              updated_at: new Date().toISOString()
+            })
+            .eq('wo_no', job.wo_no)
+            .eq('user_id', this.userId)
+            .select()
+            .single();
+
+          if (updateError) {
+            throw new Error(`Failed to update existing job: ${updateError.message}`);
+          }
+          
+          insertedJob = updatedJob;
+        } else {
+          throw new Error(`Database insertion failed: ${insertError.message}`);
+        }
+      } else {
+        insertedJob = newJob;
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown database error';
+      throw new Error(`Job creation failed for ${job.wo_no}: ${errorMsg}`);
     }
 
     // 6. Initialize workflow if category was assigned
-    if (finalCategoryId) {
-      await this.initializeJobWorkflow(insertedJob, finalCategoryId, job);
-      result.stats.workflowsInitialized++;
+    if (finalCategoryId && insertedJob) {
+      try {
+        await this.initializeJobWorkflow(insertedJob, finalCategoryId, job);
+        result.stats.workflowsInitialized++;
+      } catch (workflowError) {
+        this.logger.addDebugInfo(`Warning: Workflow initialization failed for ${job.wo_no}: ${workflowError}`);
+        // Don't fail the entire job creation for workflow issues
+      }
     }
 
     // 7. Update QR codes with actual job ID
-    if (this.generateQRCodes && insertedJob.qr_code_data) {
-      await this.updateJobQRCode(insertedJob);
+    if (this.generateQRCodes && insertedJob && insertedJob.qr_code_data) {
+      try {
+        await this.updateJobQRCode(insertedJob);
+      } catch (qrError) {
+        this.logger.addDebugInfo(`Warning: QR code update failed for ${job.wo_no}: ${qrError}`);
+        // Don't fail the entire job creation for QR code issues
+      }
     }
 
     result.createdJobs.push(insertedJob);

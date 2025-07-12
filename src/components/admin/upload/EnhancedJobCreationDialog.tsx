@@ -149,7 +149,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="w-[95vw] max-w-7xl h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Factory className="h-5 w-5" />
@@ -171,9 +171,9 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
             </div>
           </div>
         ) : result ? (
-          <div className="space-y-6">
+          <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6">
             {/* Statistics Overview */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
@@ -243,23 +243,30 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
             </Card>
 
             {/* Detailed Results */}
-            <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="mapping" className="flex items-center gap-1">
+            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex-1 flex flex-col">
+              <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+                <TabsTrigger value="mapping" className="flex items-center gap-1 text-xs sm:text-sm">
                   <Settings className="h-3 w-3" />
-                  Row Mapping
+                  <span className="hidden sm:inline">Row Mapping</span>
+                  <span className="sm:hidden">Mapping</span>
                   {getTotalUnmappedRows() > 0 && (
                     <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-xs">
                       {getTotalUnmappedRows()}
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="overview">Category Assignments</TabsTrigger>
-                <TabsTrigger value="jobs">Created Jobs</TabsTrigger>
-                <TabsTrigger value="errors">Issues</TabsTrigger>
+                <TabsTrigger value="overview" className="text-xs sm:text-sm">
+                  <span className="hidden sm:inline">Category Assignments</span>
+                  <span className="sm:hidden">Categories</span>
+                </TabsTrigger>
+                <TabsTrigger value="jobs" className="text-xs sm:text-sm">
+                  <span className="hidden sm:inline">Created Jobs</span>
+                  <span className="sm:hidden">Jobs</span>
+                </TabsTrigger>
+                <TabsTrigger value="errors" className="text-xs sm:text-sm">Issues</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="mapping" className="space-y-4">
+              <TabsContent value="mapping" className="flex-1 overflow-y-auto space-y-4">
                 {Object.entries(result.categoryAssignments).map(([woNo, assignment]) => {
                   const currentMappings = updatedRowMappings[woNo] || assignment.rowMappings || [];
                   
@@ -300,7 +307,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                 })}
               </TabsContent>
 
-              <TabsContent value="overview" className="space-y-4">
+              <TabsContent value="overview" className="flex-1 overflow-y-auto space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">Category Assignment Results</CardTitle>
@@ -308,17 +315,18 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                       How work orders were categorized and which production stages were mapped
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Work Order</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Confidence</TableHead>
-                          <TableHead>Mapped Stages</TableHead>
-                          <TableHead>Workflow Type</TableHead>
-                        </TableRow>
-                      </TableHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="min-w-[120px]">Work Order</TableHead>
+                            <TableHead className="min-w-[100px]">Category</TableHead>
+                            <TableHead className="min-w-[80px]">Confidence</TableHead>
+                            <TableHead className="min-w-[200px]">Mapped Stages</TableHead>
+                            <TableHead className="min-w-[100px]">Workflow Type</TableHead>
+                          </TableRow>
+                        </TableHeader>
                       <TableBody>
                         {Object.entries(result.categoryAssignments).map(([woNo, assignment]) => (
                           <TableRow key={woNo}>
@@ -357,11 +365,12 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="jobs" className="space-y-4">
+              <TabsContent value="jobs" className="flex-1 overflow-y-auto space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">Successfully Created Jobs</CardTitle>
@@ -369,17 +378,18 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                       Production jobs ready for the manufacturing floor
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Work Order</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="min-w-[120px]">Work Order</TableHead>
+                            <TableHead className="min-w-[150px]">Customer</TableHead>
+                            <TableHead className="min-w-[80px]">Quantity</TableHead>
+                            <TableHead className="min-w-[100px]">Category</TableHead>
+                            <TableHead className="min-w-[120px]">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
                       <TableBody>
                         {result.createdJobs.map((job) => (
                           <TableRow key={job.id}>
@@ -400,11 +410,12 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="errors" className="space-y-4">
+              <TabsContent value="errors" className="flex-1 overflow-y-auto space-y-4">
                 {result.failedJobs.length > 0 ? (
                   <Card>
                     <CardHeader>

@@ -45,43 +45,44 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Row-by-Row Mapping Review</h3>
-        <Badge variant="outline" className="flex items-center gap-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <h3 className="text-base sm:text-lg font-semibold">Row-by-Row Mapping Review</h3>
+        <Badge variant="outline" className="flex items-center gap-1 self-start sm:self-auto">
           <AlertTriangle className="h-3 w-3" />
           {rowMappings.filter(rm => rm.isUnmapped).length} unmapped rows
         </Badge>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-16">Row</TableHead>
-            <TableHead>Excel Data</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead className="w-20">Qty</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Mapped Stage</TableHead>
-            <TableHead className="w-24">Confidence</TableHead>
-            <TableHead className="w-32">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
+      <div className="overflow-x-auto border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="min-w-[60px] w-16">Row</TableHead>
+              <TableHead className="min-w-[150px]">Excel Data</TableHead>
+              <TableHead className="min-w-[200px]">Description</TableHead>
+              <TableHead className="min-w-[60px] w-20">Qty</TableHead>
+              <TableHead className="min-w-[100px]">Category</TableHead>
+              <TableHead className="min-w-[200px]">Mapped Stage</TableHead>
+              <TableHead className="min-w-[100px] w-24">Confidence</TableHead>
+              <TableHead className="min-w-[80px] w-32">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
         <TableBody>
           {rowMappings.map((mapping, index) => (
             <TableRow key={index} className={mapping.isUnmapped ? "bg-red-50" : ""}>
               <TableCell className="font-mono text-sm">
                 {mapping.excelRowIndex + 1}
               </TableCell>
-              <TableCell className="max-w-48">
-                <div className="text-sm font-medium truncate">
+              <TableCell>
+                <div className="text-sm font-medium truncate max-w-[150px]" title={mapping.groupName}>
                   {mapping.groupName}
                 </div>
                 <div className="text-xs text-gray-600 truncate">
                   WO Qty: {mapping.woQty}
                 </div>
               </TableCell>
-              <TableCell className="max-w-64">
-                <div className="text-sm truncate" title={mapping.description}>
+              <TableCell>
+                <div className="text-sm truncate max-w-[200px]" title={mapping.description}>
                   {mapping.description || 'No description'}
                 </div>
               </TableCell>
@@ -93,7 +94,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                   {mapping.category}
                 </Badge>
               </TableCell>
-              <TableCell className="max-w-48">
+              <TableCell>
                 {mapping.manualOverride ? (
                   <Select
                     value={mapping.mappedStageId || ""}
@@ -104,10 +105,10 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                       }
                     }}
                   >
-                    <SelectTrigger className="h-8">
+                    <SelectTrigger className="h-8 min-w-[150px]">
                       <SelectValue placeholder="Select stage..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-50 bg-background">
                       {getFilteredStages(mapping.category).map((stage) => (
                         <SelectItem key={stage.id} value={stage.id}>
                           {stage.name}
@@ -116,9 +117,11 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="text-sm">
+                  <div className="text-sm min-w-[150px]">
                     {mapping.mappedStageName ? (
-                      <span className="font-medium">{mapping.mappedStageName}</span>
+                      <span className="font-medium truncate block" title={mapping.mappedStageName}>
+                        {mapping.mappedStageName}
+                      </span>
                     ) : (
                       <span className="text-gray-500 italic">No mapping found</span>
                     )}
@@ -154,6 +157,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 };
