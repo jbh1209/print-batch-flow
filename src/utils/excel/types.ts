@@ -32,6 +32,9 @@ export interface ParsedJob {
   operation_quantities?: OperationQuantities | null;
   // Cover/text workflow detection
   cover_text_detection?: CoverTextDetection | null;
+  // Excel row tracking for accurate row mapping
+  _originalExcelRow?: any[];
+  _originalRowIndex?: number;
 }
 
 export interface GroupSpecifications {

@@ -112,7 +112,13 @@ export class EnhancedJobCreator {
     this.logger.addDebugInfo(`Job specifications - printing: ${JSON.stringify(job.printing_specifications)}`);
     this.logger.addDebugInfo(`Job specifications - finishing: ${JSON.stringify(job.finishing_specifications)}`);
     this.logger.addDebugInfo(`Job specifications - prepress: ${JSON.stringify(job.prepress_specifications)}`);
-    this.logger.addDebugInfo(`Excel row data length: ${excelRow?.length || 0}`);
+    
+    // Use the preserved Excel row data from parsing if available, otherwise fallback to provided excelRow
+    const actualExcelRow = job._originalExcelRow || excelRow || [];
+    const actualRowIndex = job._originalRowIndex || 0;
+    
+    this.logger.addDebugInfo(`Using preserved Excel row data: ${actualExcelRow.length} columns`);
+    this.logger.addDebugInfo(`Original row index: ${actualRowIndex}`);
     this.logger.addDebugInfo(`Headers length: ${headers?.length || 0}`);
 
     // 1. Map specifications to production stages using enhanced mapper
@@ -125,28 +131,24 @@ export class EnhancedJobCreator {
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
 
     // 2. Create detailed row mappings for UI display 
-    // Only create row mappings if we have valid specifications
     let rowMappings: any[] = [];
     
     if (job.printing_specifications || job.finishing_specifications || job.prepress_specifications) {
-      // Build Excel rows structure for each specification group
-      const excelRowsForMapping = this.buildExcelRowsFromSpecifications(
-        job, 
-        headers, 
-        excelRow
-      );
-      
-      this.logger.addDebugInfo(`Built ${excelRowsForMapping.length} Excel rows for row mapping`);
+      // Use the actual Excel row data for mapping instead of synthetic data
+      this.logger.addDebugInfo(`Creating row mappings from group specifications for job ${job.wo_no}`);
       
       rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
         job.printing_specifications,
         job.finishing_specifications,
         job.prepress_specifications,
-        excelRowsForMapping,
+        [actualExcelRow], // Pass the actual Excel row as a single-row array
         headers || []
       );
     } else {
-      this.logger.addDebugInfo(`No specifications found for job ${job.wo_no}, skipping row mappings`);
+      // No group specifications found - create a simple row mapping from the job data itself
+      this.logger.addDebugInfo(`No group specifications found for job ${job.wo_no}, creating single row mapping from job data`);
+      
+      rowMappings = await this.createSimpleRowMappingFromJob(job, actualExcelRow, actualRowIndex, headers);
     }
 
     this.logger.addDebugInfo(`Created ${rowMappings.length} row mappings for job ${job.wo_no}`);
@@ -764,6 +766,91 @@ export class EnhancedJobCreator {
       }
     } catch (error) {
       this.logger.addDebugInfo(`Failed to update stage instances with specifications: ${error}`);
+    }
+  }
+
+  /**
+   * Create a simple row mapping from a job without group specifications
+   */
+  private async createSimpleRowMappingFromJob(
+    job: ParsedJob,
+    excelRow: any[],
+    rowIndex: number,
+    headers: string[]
+  ): Promise<RowMappingResult[]> {
+    this.logger.addDebugInfo(`Creating simple row mapping for job ${job.wo_no} without group specifications`);
+    
+    // Try to determine a basic stage mapping for standard Excel imports
+    // For now, we'll map to a default "Printing" stage since most jobs need printing
+    const defaultStageMapping = await this.getDefaultStageMapping(job);
+    
+    // Create a single row mapping representing the entire job
+    const rowMapping: RowMappingResult = {
+      excelRowIndex: rowIndex,
+      excelData: excelRow,
+      groupName: job.wo_no, // Use work order number as group name
+      description: `${job.customer || ''} - ${job.reference || ''}`.trim().replace(/^-\s*|-\s*$/, '') || 'Production Job',
+      qty: job.qty || 0,
+      woQty: job.qty || 0,
+      mappedStageId: defaultStageMapping?.stageId || null,
+      mappedStageName: defaultStageMapping?.stageName || null,
+      mappedStageSpecId: null,
+      mappedStageSpecName: null,
+      category: 'printing', // Default to printing for standard Excel imports
+      confidence: defaultStageMapping ? 70 : 50, // Higher confidence if we found a default stage
+      isUnmapped: !defaultStageMapping, // Only unmapped if we couldn't find a default stage
+      manualOverride: false,
+      paperSpecification: job.paper_type || job.paper_weight || null,
+      instanceId: `single-${job.wo_no}`
+    };
+
+    this.logger.addDebugInfo(`Created simple row mapping for ${job.wo_no}: ${rowMapping.description} (mapped to: ${rowMapping.mappedStageName})`);
+    
+    return [rowMapping];
+  }
+
+  /**
+   * Get a default stage mapping for standard Excel imports
+   */
+  private async getDefaultStageMapping(job: ParsedJob): Promise<{ stageId: string; stageName: string } | null> {
+    try {
+      // For standard Excel imports, try to map to common stages
+      // Load production stages directly since mapper doesn't expose them
+      const { data: stages, error } = await supabase
+        .from('production_stages')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('order_index');
+      
+      if (error || !stages?.length) {
+        this.logger.addDebugInfo(`No production stages available: ${error?.message || 'No stages found'}`);
+        return null;
+      }
+      
+      // Try to find a "Printing" or "Digital Print" stage
+      const printingStage = stages.find(stage => 
+        stage.name.toLowerCase().includes('print') || 
+        stage.name.toLowerCase().includes('digital')
+      );
+      
+      if (printingStage) {
+        this.logger.addDebugInfo(`Found default printing stage: ${printingStage.name} for job ${job.wo_no}`);
+        return {
+          stageId: printingStage.id,
+          stageName: printingStage.name
+        };
+      }
+      
+      // Fallback to the first available stage
+      this.logger.addDebugInfo(`Using fallback stage: ${stages[0].name} for job ${job.wo_no}`);
+      return {
+        stageId: stages[0].id,
+        stageName: stages[0].name
+      };
+      
+    } catch (error) {
+      this.logger.addDebugInfo(`Error getting default stage mapping: ${error}`);
+      return null;
     }
   }
 }

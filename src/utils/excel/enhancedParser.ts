@@ -280,7 +280,10 @@ export const parseExcelFileWithMapping = async (
       specifications: String(specificationsValue || "").trim() || null,
       paper_weight: String(paperWeightValue || "").trim() || null,
       paper_type: String(paperTypeValue || "").trim() || null,
-      lamination: String(laminationValue || "").trim() || null
+      lamination: String(laminationValue || "").trim() || null,
+      // Preserve original Excel row data and index for row mapping
+      _originalExcelRow: row,
+      _originalRowIndex: index + 1 // +1 because we sliced headers
     };
 
     logger.addDebugInfo(`Mapped job: ${JSON.stringify(job)}`);
