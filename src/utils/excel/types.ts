@@ -48,13 +48,7 @@ export interface OperationQuantities {
   [operation: string]: {
     operation_qty: number;
     total_wo_qty: number;
-    quantity_type?: 'pieces' | 'sheets' | 'operations';
   };
-}
-
-export interface QuantityTypeMapping {
-  qtyColumn: 'pieces' | 'sheets' | 'operations';
-  woQtyColumn: 'pieces' | 'sheets' | 'operations';
 }
 
 export interface MatrixExcelData {
@@ -66,8 +60,6 @@ export interface MatrixExcelData {
   qtyColumn?: number;
   woQtyColumn?: number;
   detectedGroups: string[];
-  qtyType?: 'pieces' | 'sheets' | 'operations';
-  woQtyType?: 'pieces' | 'sheets' | 'operations';
 }
 
 export interface ImportStats {

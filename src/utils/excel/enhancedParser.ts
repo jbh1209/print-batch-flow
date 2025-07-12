@@ -60,10 +60,7 @@ export const parseMatrixExcelFileWithMapping = async (
     location: mapping.location,
     size: mapping.size,
     specification: mapping.specification,
-    contact: mapping.contact,
-    // Pass quantity type information
-    qtyType: mapping.qtyType,
-    woQtyType: mapping.woQtyType
+    contact: mapping.contact
   };
   
   // Update matrix data with confirmed mappings
@@ -73,9 +70,7 @@ export const parseMatrixExcelFileWithMapping = async (
     workOrderColumn: mapping.woNo,
     descriptionColumn: mapping.descriptionColumn,
     qtyColumn: mapping.qtyColumn,
-    woQtyColumn: mapping.woQtyColumn,
-    qtyType: mapping.qtyType,
-    woQtyType: mapping.woQtyType
+    woQtyColumn: mapping.woQtyColumn
   };
   
   // Parse using matrix parser

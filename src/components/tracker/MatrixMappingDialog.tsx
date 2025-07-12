@@ -27,9 +27,6 @@ export interface MatrixColumnMapping {
   descriptionColumn: number;
   qtyColumn: number;
   woQtyColumn: number;
-  // Quantity type mappings
-  qtyType: 'pieces' | 'sheets' | 'operations';
-  woQtyType: 'pieces' | 'sheets' | 'operations';
 }
 
 interface MatrixMappingDialogProps {
@@ -60,9 +57,7 @@ export const MatrixMappingDialog: React.FC<MatrixMappingDialogProps> = ({
     groupColumn: -1,
     descriptionColumn: -1,
     qtyColumn: -1,
-    woQtyColumn: -1,
-    qtyType: 'pieces',
-    woQtyType: 'sheets'
+    woQtyColumn: -1
   });
 
   // Auto-detect mapping when matrixData changes
@@ -83,9 +78,7 @@ export const MatrixMappingDialog: React.FC<MatrixMappingDialogProps> = ({
         groupColumn: matrixData.groupColumn || -1,
         descriptionColumn: matrixData.descriptionColumn || -1,
         qtyColumn: matrixData.qtyColumn || -1,
-        woQtyColumn: matrixData.woQtyColumn || -1,
-        qtyType: 'pieces',
-        woQtyType: 'sheets'
+        woQtyColumn: matrixData.woQtyColumn || -1
       });
     }
   }, [matrixData]);
@@ -217,26 +210,7 @@ export const MatrixMappingDialog: React.FC<MatrixMappingDialogProps> = ({
                    </div>
                  </div>
 
-                 {/* Quantity Type Configuration */}
-                 <div className="col-span-full">
-                   <h4 className="font-medium mb-3">Quantity Types Configuration</h4>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-green-50 rounded-lg">
-                     <QuantityTypeSelect
-                       label="Qty Column Type"
-                       value={mapping.qtyType}
-                       onChange={(value) => updateMapping('qtyType', value)}
-                       description="What does the Qty column represent?"
-                     />
-                     <QuantityTypeSelect
-                       label="WO Qty Column Type"
-                       value={mapping.woQtyType}
-                       onChange={(value) => updateMapping('woQtyType', value)}
-                       description="What does the WO Qty column represent?"
-                     />
-                   </div>
-                 </div>
-
-                 <Separator className="col-span-full" />
+                  <Separator className="col-span-full" />
 
                 {/* Basic job fields */}
                 <h4 className="col-span-full font-medium">Basic Job Fields</h4>
@@ -404,32 +378,6 @@ const MappingSelect: React.FC<MappingSelectProps> = ({ label, value, onChange, h
               Column {index + 1}: {header}
             </SelectItem>
           ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
-interface QuantityTypeSelectProps {
-  label: string;
-  value: 'pieces' | 'sheets' | 'operations';
-  onChange: (value: 'pieces' | 'sheets' | 'operations') => void;
-  description?: string;
-}
-
-const QuantityTypeSelect: React.FC<QuantityTypeSelectProps> = ({ label, value, onChange, description }) => {
-  return (
-    <div>
-      <label className="text-sm font-medium mb-1 block">{label}</label>
-      {description && <p className="text-xs text-muted-foreground mb-2">{description}</p>}
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="pieces">Pieces (individual items)</SelectItem>
-          <SelectItem value="sheets">Sheets (for printing)</SelectItem>
-          <SelectItem value="operations">Operations (job count)</SelectItem>
         </SelectContent>
       </Select>
     </div>
