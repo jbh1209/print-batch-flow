@@ -186,7 +186,7 @@ const createBaseJob = (
     category: safeGet(columnMapping.category || -1),
     customer: safeGet(columnMapping.customer || -1),
     reference: safeGet(columnMapping.reference || -1),
-    qty: parseInt(safeGet(columnMapping.qty || matrixData.woQtyColumn || -1)) || 0,
+    qty: parseInt(String(safeGet(columnMapping.qty || matrixData.woQtyColumn || -1)).replace(/[^0-9]/g, '')) || 0,
     due_date: formatExcelDate(safeGet(columnMapping.dueDate || -1), logger),
     location: safeGet(columnMapping.location || -1),
     size: safeGet(columnMapping.size || -1) || null,
@@ -255,8 +255,8 @@ const extractGroupSpecifications = (
     
     const group = String(groupValue).trim();
     const description = matrixData.descriptionColumn !== -1 ? row[matrixData.descriptionColumn] : '';
-    const qty = matrixData.qtyColumn !== -1 ? parseInt(row[matrixData.qtyColumn]) || 0 : 0;
-    const woQty = matrixData.woQtyColumn !== -1 ? parseInt(row[matrixData.woQtyColumn]) || 0 : 0;
+    const qty = matrixData.qtyColumn !== -1 ? parseInt(String(row[matrixData.qtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
+    const woQty = matrixData.woQtyColumn !== -1 ? parseInt(String(row[matrixData.woQtyColumn] || '0').replace(/[^0-9]/g, '')) || 0 : 0;
     
     // Categorize group
     const category = categorizeGroup(group);

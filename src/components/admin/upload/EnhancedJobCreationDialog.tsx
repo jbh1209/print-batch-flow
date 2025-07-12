@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle, XCircle, AlertTriangle, Zap, Factory, Workflow, Database, Settings } from "lucide-react";
 import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
 import type { CategoryAssignmentResult } from "@/utils/excel/productionStageMapper";
@@ -27,6 +28,12 @@ interface AvailableStage {
   category: string;
 }
 
+interface AvailableCategory {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps> = ({
   open,
   onOpenChange,
@@ -36,10 +43,12 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
 }) => {
   const [selectedTab, setSelectedTab] = useState("mapping");
   const [availableStages, setAvailableStages] = useState<AvailableStage[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<AvailableCategory[]>([]);
   const [updatedRowMappings, setUpdatedRowMappings] = useState<{ [woNo: string]: RowMappingResult[] }>({});
 
   useEffect(() => {
     loadAvailableStages();
+    loadAvailableCategories();
   }, []);
 
   useEffect(() => {
@@ -78,6 +87,21 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     }
   };
 
+  const loadAvailableCategories = async () => {
+    try {
+      const { data: categories, error } = await supabase
+        .from('categories')
+        .select('id, name, color')
+        .order('name');
+
+      if (error) throw error;
+
+      setAvailableCategories(categories || []);
+    } catch (error) {
+      console.error('Failed to load available categories:', error);
+    }
+  };
+
   const inferStageCategory = (name: string, description?: string): string => {
     const text = `${name} ${description || ''}`.toLowerCase();
     
@@ -99,19 +123,35 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
 
   const handleUpdateMapping = (woNo: string, rowIndex: number, stageId: string, stageName: string) => {
     setUpdatedRowMappings(prev => {
-      const woMappings = [...(prev[woNo] || [])];
-      if (woMappings[rowIndex]) {
-        woMappings[rowIndex] = {
-          ...woMappings[rowIndex],
+      const updated = { ...prev };
+      if (!updated[woNo]) updated[woNo] = [];
+      
+      const mappingsCopy = [...updated[woNo]];
+      const mappingIndex = mappingsCopy.findIndex(m => m.excelRowIndex === rowIndex);
+      
+      if (mappingIndex >= 0) {
+        mappingsCopy[mappingIndex] = {
+          ...mappingsCopy[mappingIndex],
           mappedStageId: stageId,
           mappedStageName: stageName,
-          isUnmapped: false,
+          manualOverride: true,
           confidence: 100,
-          manualOverride: true
+          isUnmapped: false
         };
+        updated[woNo] = mappingsCopy;
       }
-      return { ...prev, [woNo]: woMappings };
+      
+      return updated;
     });
+  };
+
+  const handleUpdateCategory = (woNo: string, categoryId: string | null, categoryName: string | null) => {
+    // Update category assignment in result
+    if (result && result.categoryAssignments[woNo]) {
+      result.categoryAssignments[woNo].categoryId = categoryId;
+      result.categoryAssignments[woNo].categoryName = categoryName;
+      result.categoryAssignments[woNo].requiresCustomWorkflow = !categoryId;
+    }
   };
 
   const handleToggleManualOverride = (woNo: string, rowIndex: number) => {
@@ -331,11 +371,35 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                         {Object.entries(result.categoryAssignments).map(([woNo, assignment]) => (
                           <TableRow key={woNo}>
                             <TableCell className="font-medium">{woNo}</TableCell>
-                            <TableCell>
-                              {assignment.categoryName || (
-                                <span className="text-gray-500 italic">Custom workflow</span>
-                              )}
-                            </TableCell>
+                             <TableCell>
+                               <Select
+                                 value={assignment.categoryId || "none"}
+                                 onValueChange={(value) => handleUpdateCategory(woNo, 
+                                   value === "none" ? null : value,
+                                   value === "none" ? null : availableCategories.find(c => c.id === value)?.name || null
+                                 )}
+                               >
+                                 <SelectTrigger className="w-full max-w-[200px]">
+                                   <SelectValue placeholder="Select category" />
+                                 </SelectTrigger>
+                                 <SelectContent>
+                                   <SelectItem value="none">
+                                     <span className="text-gray-500 italic">No category (Custom workflow)</span>
+                                   </SelectItem>
+                                   {availableCategories.map((category) => (
+                                     <SelectItem key={category.id} value={category.id}>
+                                       <div className="flex items-center gap-2">
+                                         <div 
+                                           className="w-3 h-3 rounded-full" 
+                                           style={{ backgroundColor: category.color }}
+                                         />
+                                         {category.name}
+                                       </div>
+                                     </SelectItem>
+                                   ))}
+                                 </SelectContent>
+                               </Select>
+                             </TableCell>
                             <TableCell>
                               <Badge className={getConfidenceColor(assignment.confidence)}>
                                 {getConfidenceLabel(assignment.confidence)} ({assignment.confidence.toFixed(0)}%)

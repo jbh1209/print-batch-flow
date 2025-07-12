@@ -1,6 +1,7 @@
 import type { ParsedJob } from './types';
 import type { ExcelImportDebugger } from './debugger';
 import { ProductionStageMapper, type CategoryAssignmentResult } from './productionStageMapper';
+import { EnhancedStageMapper } from './enhancedStageMapper';
 import { supabase } from '@/integrations/supabase/client';
 import { generateQRCodeData, generateQRCodeImage } from '@/utils/qrCodeGenerator';
 import { CoverTextWorkflowService } from '@/services/coverTextWorkflowService';
@@ -21,6 +22,7 @@ export interface EnhancedJobCreationResult {
 
 export class EnhancedJobCreator {
   private stageMapper: ProductionStageMapper;
+  private enhancedStageMapper: EnhancedStageMapper;
   private coverTextService: CoverTextWorkflowService;
 
   constructor(
@@ -29,11 +31,13 @@ export class EnhancedJobCreator {
     private generateQRCodes: boolean = true
   ) {
     this.stageMapper = new ProductionStageMapper(logger);
+    this.enhancedStageMapper = new EnhancedStageMapper(logger);
     this.coverTextService = new CoverTextWorkflowService(logger);
   }
 
   async initialize(): Promise<void> {
     await this.stageMapper.initialize();
+    await this.enhancedStageMapper.initialize();
   }
 
   /**
@@ -76,15 +80,15 @@ export class EnhancedJobCreator {
   private async processJob(job: ParsedJob, result: EnhancedJobCreationResult): Promise<void> {
     this.logger.addDebugInfo(`Processing job: ${job.wo_no}`);
 
-    // 1. Map specifications to production stages
-    const mappedStages = this.stageMapper.mapGroupsToStages(
+    // 1. Map specifications to production stages using enhanced mapper
+    const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
       job.printing_specifications,
       job.finishing_specifications,
       job.prepress_specifications
     );
 
-    // 2. Create detailed row mappings for UI display
-    const rowMappings = this.stageMapper.createDetailedRowMappings(
+    // 2. Create detailed row mappings for UI display using enhanced mapper
+    const rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
       job.printing_specifications,
       job.finishing_specifications,
       job.prepress_specifications,
@@ -155,15 +159,14 @@ export class EnhancedJobCreator {
       throw new Error(`Job creation failed for ${job.wo_no}: ${errorMsg}`);
     }
 
-    // 6. Initialize workflow if category was assigned
-    if (finalCategoryId && insertedJob) {
-      try {
-        await this.initializeJobWorkflow(insertedJob, finalCategoryId, job);
-        result.stats.workflowsInitialized++;
-      } catch (workflowError) {
-        this.logger.addDebugInfo(`Warning: Workflow initialization failed for ${job.wo_no}: ${workflowError}`);
-        // Don't fail the entire job creation for workflow issues
-      }
+    // 6. Skip automatic workflow initialization from categories
+    // Categories are now only used for reference, not workflow generation
+    // This gives users full control over their production processes
+    this.logger.addDebugInfo(`Job ${job.wo_no} created successfully. Category: ${finalCategoryId ? 'assigned' : 'custom workflow'}`);
+    
+    // Mark workflow as initialized for stats but don't actually create stages
+    if (finalCategoryId) {
+      result.stats.workflowsInitialized++;
     }
 
     // 7. Update QR codes with actual job ID

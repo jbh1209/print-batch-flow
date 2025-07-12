@@ -404,8 +404,11 @@ export class EnhancedStageMapper {
       mappedStages.push(...prepressMappings);
     }
     
-    this.logger.addDebugInfo(`Intelligently mapped ${mappedStages.length} stages from group specifications`);
-    return mappedStages;
+    // Apply DTP/PROOF deduplication logic
+    const deduplicatedStages = this.applyDTPProofDeduplication(mappedStages);
+    
+    this.logger.addDebugInfo(`Intelligently mapped ${deduplicatedStages.length} stages from group specifications (${mappedStages.length - deduplicatedStages.length} duplicates removed)`);
+    return deduplicatedStages;
   }
 
   /**
@@ -431,5 +434,34 @@ export class EnhancedStageMapper {
     }
     
     return mappings;
+  }
+
+  /**
+   * Apply DTP/PROOF deduplication logic - only keep one instance of each
+   */
+  private applyDTPProofDeduplication(stages: StageMapping[]): StageMapping[] {
+    const seenStages = new Set<string>();
+    const deduplicated: StageMapping[] = [];
+    
+    for (const stage of stages) {
+      const stageName = stage.stageName.toLowerCase();
+      
+      // For DTP and PROOF stages, only keep the first occurrence
+      if (stageName.includes('dtp') || stageName.includes('proof')) {
+        const stageKey = stageName.includes('dtp') ? 'dtp' : 'proof';
+        
+        if (seenStages.has(stageKey)) {
+          this.logger.addDebugInfo(`Dropping duplicate ${stageKey.toUpperCase()} stage: ${stage.stageName}`);
+          continue; // Skip this duplicate
+        }
+        
+        seenStages.add(stageKey);
+        this.logger.addDebugInfo(`Keeping first occurrence of ${stageKey.toUpperCase()} stage: ${stage.stageName}`);
+      }
+      
+      deduplicated.push(stage);
+    }
+    
+    return deduplicated;
   }
 }
