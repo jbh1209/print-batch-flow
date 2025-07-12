@@ -94,6 +94,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   const [patternsPerPage, setPatternsPerPage] = useState(100);
   const [currentPatternPage, setCurrentPatternPage] = useState(1);
   const [showPatternPreview, setShowPatternPreview] = useState("");
+  const [existingMappings, setExistingMappings] = useState<Set<string>>(new Set());
   
   const { toast } = useToast();
   
@@ -118,6 +119,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
   useEffect(() => {
     loadProductionStages();
     loadPrintSpecifications();
+    loadExistingMappings();
   }, []);
 
   useEffect(() => {
@@ -188,6 +190,22 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       setDeliveryMethods(deliveryMethodSpecs);
     } catch (error: any) {
       console.error('Error loading print specifications:', error);
+    }
+  };
+
+  const loadExistingMappings = async () => {
+    try {
+      const { data: mappings, error } = await supabase
+        .from('excel_import_mappings')
+        .select('excel_text')
+        .eq('is_verified', true);
+
+      if (error) throw error;
+      
+      const mappedTexts = new Set(mappings?.map(m => m.excel_text) || []);
+      setExistingMappings(mappedTexts);
+    } catch (error: any) {
+      console.error('Error loading existing mappings:', error);
     }
   };
 
@@ -357,6 +375,9 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       description: `Mapped "${excelText}" to production stage`,
     });
 
+    // Add to existing mappings to hide from list
+    setExistingMappings(prev => new Set([...prev, excelText]));
+    
     if (onMappingCreated) onMappingCreated();
   };
 
@@ -383,6 +404,9 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       title: "Paper Mapping Created",
       description: `Mapped "${excelText}" to paper specifications`,
     });
+
+    // Add to existing mappings to hide from list
+    setExistingMappings(prev => new Set([...prev, excelText]));
 
     if (onMappingCreated) onMappingCreated();
   };
@@ -412,12 +436,18 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
       description: `Mapped "${excelText}" to delivery specifications`,
     });
 
+    // Add to existing mappings to hide from list
+    setExistingMappings(prev => new Set([...prev, excelText]));
+
     if (onMappingCreated) onMappingCreated();
   };
 
   // Enhanced pattern filtering and sorting
   const getFilteredAndSortedPatterns = () => {
     let patterns = getUniqueTextPatterns();
+    
+    // Filter out already mapped patterns
+    patterns = patterns.filter(pattern => !existingMappings.has(pattern.text));
     
     // Apply search filter
     if (patternSearchTerm.trim()) {
