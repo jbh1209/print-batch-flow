@@ -456,12 +456,13 @@ export const parseMatrixAndCreateProductionReadyJobs = async (
  */
 export const finalizeProductionReadyJobs = async (
   preparedResult: any,
-  logger: ExcelImportDebugger
+  logger: ExcelImportDebugger,
+  currentUserId: string
 ): Promise<any> => {
-  logger.addDebugInfo(`Finalizing ${preparedResult.stats.total} prepared jobs`);
+  logger.addDebugInfo(`Finalizing ${preparedResult.stats.total} prepared jobs for user ${currentUserId}`);
   
-  // Use the EnhancedJobCreator's finalize method
-  const jobCreator = new EnhancedJobCreator(logger, preparedResult.userId, preparedResult.generateQRCodes);
+  // Use the EnhancedJobCreator's finalize method with current authenticated user ID
+  const jobCreator = new EnhancedJobCreator(logger, currentUserId, preparedResult.generateQRCodes);
   await jobCreator.initialize();
   
   const finalResult = await jobCreator.finalizeJobs(preparedResult);

@@ -314,13 +314,13 @@ export const ExcelUpload = () => {
   };
 
   const handleEnhancedJobsConfirmed = async () => {
-    if (!enhancedResult) return;
+    if (!enhancedResult || !user) return;
     
     try {
       setIsCreatingJobs(true);
       
-      // STEP 2: Now actually create the jobs in the database
-      const finalResult = await finalizeProductionReadyJobs(enhancedResult, debugLogger);
+      // STEP 2: Now actually create the jobs in the database - pass current authenticated user ID
+      const finalResult = await finalizeProductionReadyJobs(enhancedResult, debugLogger, user.id);
       
       toast.success(`Success! ${finalResult.stats.successful}/${finalResult.stats.total} production jobs created and ready for the factory floor!`);
       
