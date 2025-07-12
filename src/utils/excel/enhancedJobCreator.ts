@@ -664,7 +664,41 @@ export class EnhancedJobCreator {
         throw new Error(`Failed to load production stages: ${stagesError?.message}`);
       }
 
-      // Group mappings by stage to detect multi-instance scenarios (like multiple HP 12000 prints)
+      // Separate printing and paper mappings for quantity-based pairing
+      const printingMappings = rowMappings.filter(mapping => 
+        !mapping.isUnmapped && mapping.mappedStageId && mapping.category === 'printing'
+      );
+      const paperMappings = rowMappings.filter(mapping => 
+        !mapping.isUnmapped && mapping.category === 'paper'
+      );
+      
+      this.logger.addDebugInfo(`Found ${printingMappings.length} printing mappings and ${paperMappings.length} paper mappings`);
+
+      // Sort both printing and paper mappings by quantity (ascending)
+      const sortedPrintingMappings = printingMappings.sort((a, b) => (a.qty || 0) - (b.qty || 0));
+      const sortedPaperMappings = paperMappings.sort((a, b) => (a.qty || 0) - (b.qty || 0));
+      
+      this.logger.addDebugInfo(`Sorted printing quantities: ${sortedPrintingMappings.map(m => m.qty).join(', ')}`);
+      this.logger.addDebugInfo(`Sorted paper quantities: ${sortedPaperMappings.map(m => m.qty).join(', ')}`);
+
+      // Create paper-to-printing allocation map
+      const paperToStageMap = new Map<string, string>();
+      if (sortedPrintingMappings.length > 0 && sortedPaperMappings.length > 0) {
+        // Pair smallest with smallest, largest with largest
+        for (let i = 0; i < Math.min(sortedPrintingMappings.length, sortedPaperMappings.length); i++) {
+          const printingMapping = sortedPrintingMappings[i];
+          const paperMapping = sortedPaperMappings[i];
+          
+          // Look up paper specification from excel import mappings
+          const paperSpec = await this.lookupPaperSpecification(paperMapping.description);
+          
+          paperToStageMap.set(printingMapping.mappedStageId!, paperSpec || paperMapping.description);
+          
+          this.logger.addDebugInfo(`Paired printing (qty: ${printingMapping.qty}) with paper "${paperMapping.description}" -> spec: "${paperSpec}"`);
+        }
+      }
+
+      // Group mappings by stage to detect multi-instance scenarios
       const stageGroups = new Map<string, Array<{mapping: any, paperType?: string}>>();
       
       rowMappings
@@ -675,11 +709,10 @@ export class EnhancedJobCreator {
             stageGroups.set(stageId, []);
           }
           
-          // Extract paper type for printing stages from job's paper specifications
+          // Get paper type from allocation map for printing stages
           let paperType = '';
-          if (mapping.category === 'printing' && originalJob.paper_specifications) {
-            // Find matching paper type for this printing operation
-            paperType = this.extractPaperTypeForPrinting(mapping, originalJob.paper_specifications);
+          if (mapping.category === 'printing') {
+            paperType = paperToStageMap.get(stageId) || '';
           }
           
           stageGroups.get(stageId)!.push({ 
@@ -1244,7 +1277,7 @@ export class EnhancedJobCreator {
     return stages || [];
   }
 
-  private getCategoryFromStage(stageName: string): 'printing' | 'finishing' | 'prepress' | 'delivery' | 'unknown' {
+  private getCategoryFromStage(stageName: string): 'printing' | 'finishing' | 'prepress' | 'delivery' | 'paper' | 'unknown' {
     const name = stageName.toLowerCase();
     if (name.includes('print') || name.includes('digital') || name.includes('litho')) {
       return 'printing';
@@ -1258,7 +1291,70 @@ export class EnhancedJobCreator {
     if (name.includes('delivery') || name.includes('dispatch')) {
       return 'delivery';
     }
+    if (name.includes('paper') || name.includes('gsm') || name.includes('stock')) {
+      return 'paper';
+    }
     return 'unknown';
+  }
+
+  /**
+   * Look up paper specification from excel import mappings
+   */
+  private async lookupPaperSpecification(paperDescription: string): Promise<string | null> {
+    try {
+      // Query excel import mappings for paper specifications
+      const { data: mappings, error } = await supabase
+        .from('excel_import_mappings')
+        .select(`
+          paper_type_specification_id,
+          paper_weight_specification_id
+        `)
+        .ilike('excel_text', `%${paperDescription}%`)
+        .not('paper_type_specification_id', 'is', null)
+        .limit(5);
+
+      if (error || !mappings || mappings.length === 0) {
+        this.logger.addDebugInfo(`No paper mapping found for: ${paperDescription}`);
+        return null;
+      }
+
+      // Get the specification details
+      const parts: string[] = [];
+      const mapping = mappings[0];
+      
+      // Look up paper type specification
+      if (mapping.paper_type_specification_id) {
+        const { data: typeSpec } = await supabase
+          .from('print_specifications')
+          .select('display_name')
+          .eq('id', mapping.paper_type_specification_id)
+          .single();
+        
+        if (typeSpec) parts.push(typeSpec.display_name);
+      }
+      
+      // Look up paper weight specification
+      if (mapping.paper_weight_specification_id) {
+        const { data: weightSpec } = await supabase
+          .from('print_specifications')
+          .select('display_name')
+          .eq('id', mapping.paper_weight_specification_id)
+          .single();
+        
+        if (weightSpec) parts.push(weightSpec.display_name);
+      }
+      
+      if (parts.length > 0) {
+        const paperSpec = parts.join(' + ');
+        this.logger.addDebugInfo(`Mapped "${paperDescription}" -> "${paperSpec}"`);
+        return paperSpec;
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.addDebugInfo(`Error looking up paper specification: ${error}`);
+      return null;
+    }
   }
 
   /**

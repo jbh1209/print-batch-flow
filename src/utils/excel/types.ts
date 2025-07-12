@@ -122,7 +122,7 @@ export interface RowMappingResult {
   mappedStageSpecId: string | null;
   mappedStageSpecName: string | null;
   confidence: number;
-  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'unknown';
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'paper' | 'unknown';
   manualOverride?: boolean;
   isUnmapped: boolean;
   instanceId?: string;
