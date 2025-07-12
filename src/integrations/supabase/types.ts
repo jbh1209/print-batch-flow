@@ -589,7 +589,7 @@ export type Database = {
           paper_type_specification_id: string | null
           paper_weight_specification_id: string | null
           print_specification_id: string | null
-          production_stage_id: string
+          production_stage_id: string | null
           stage_specification_id: string | null
           updated_at: string
         }
@@ -607,7 +607,7 @@ export type Database = {
           paper_type_specification_id?: string | null
           paper_weight_specification_id?: string | null
           print_specification_id?: string | null
-          production_stage_id: string
+          production_stage_id?: string | null
           stage_specification_id?: string | null
           updated_at?: string
         }
@@ -625,7 +625,7 @@ export type Database = {
           paper_type_specification_id?: string | null
           paper_weight_specification_id?: string | null
           print_specification_id?: string | null
-          production_stage_id?: string
+          production_stage_id?: string | null
           stage_specification_id?: string | null
           updated_at?: string
         }
