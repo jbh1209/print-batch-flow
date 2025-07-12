@@ -283,6 +283,9 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     setIsCreatingMapping(true);
 
     try {
+      console.log(`Creating ${pattern.type} mapping for pattern:`, pattern.text);
+      console.log('Selected mappings:', selectedMappings);
+      
       let result;
 
       switch (pattern.type) {
@@ -336,7 +339,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
             p_excel_text: pattern.text,
             p_delivery_method_id: selectedMappings.isCollection ? null : selectedMappings.deliveryMethod,
             p_address_pattern: selectedMappings.addressPattern || null,
-            p_is_collection: selectedMappings.isCollection,
+            p_is_collection: selectedMappings.isCollection || false,
             p_confidence_score: 100
           });
           break;
@@ -345,38 +348,72 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           throw new Error("Invalid mapping type");
       }
 
+      console.log('RPC result:', result);
+
+      // Handle RPC errors
       if (result.error) {
         console.error('Supabase RPC Error:', result.error);
         throw new Error(result.error.message || "Database operation failed");
       }
 
-      // Check if we got data back from the RPC function
-      if (!result.data || result.data.length === 0) {
-        throw new Error("No response from mapping function");
+      // Validate response structure
+      if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
+        console.error('Invalid RPC response:', result);
+        throw new Error("Invalid response from mapping function");
       }
 
       const mappingResult = result.data[0];
-      console.log('Mapping result:', mappingResult);
+      console.log('Mapping operation result:', mappingResult);
 
-      // Only update UI state if database operation was successful
-      setMappingState(prev => ({
-        ...prev,
-        patterns: prev.patterns.filter(p => p.text !== pattern.text),
-        mappedPatterns: new Set([...prev.mappedPatterns, pattern.text]),
-      }));
+      // Validate mapping result structure
+      if (!mappingResult || !mappingResult.mapping_id || !mappingResult.action_taken) {
+        console.error('Invalid mapping result structure:', mappingResult);
+        throw new Error("Invalid mapping result structure");
+      }
+
+      // Only update UI state after successful database operation
+      setMappingState(prev => {
+        const newPatterns = prev.patterns.filter(p => p.text !== pattern.text);
+        const newMappedPatterns = new Set([...prev.mappedPatterns, pattern.text]);
+        
+        console.log('Updating UI state:', {
+          removedPattern: pattern.text,
+          remainingPatterns: newPatterns.length,
+          totalMapped: newMappedPatterns.size
+        });
+        
+        return {
+          ...prev,
+          patterns: newPatterns,
+          mappedPatterns: newMappedPatterns
+        };
+      });
 
       toast({
-        title: "Mapping Created",
+        title: "Mapping Success",
         description: `Successfully ${mappingResult.action_taken} mapping for "${pattern.text}"`,
       });
 
-      if (onMappingCreated) onMappingCreated();
+      if (onMappingCreated) {
+        onMappingCreated();
+      }
 
     } catch (error: any) {
       console.error('Error creating mapping:', error);
+      
+      // Provide specific error messages
+      let errorMessage = "Failed to create mapping. Please try again.";
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.details) {
+        errorMessage = error.details;
+      } else if (error.hint) {
+        errorMessage = error.hint;
+      }
+      
       toast({
         title: "Mapping Failed",
-        description: error.message || "Failed to create mapping. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
