@@ -11,6 +11,7 @@ export interface TimingCalculationParams {
     running_speed_per_hour?: number;
     make_ready_time_minutes?: number;
     speed_unit?: string;
+    ignore_excel_quantity?: boolean;
   };
   specificationData?: StageSpecification;
 }
@@ -21,7 +22,7 @@ export interface TimingEstimate {
   makeReadyMinutes: number;
   speedUsed: number;
   speedUnit: string;
-  calculationSource: 'specification' | 'stage' | 'default';
+  calculationSource: 'specification' | 'stage' | 'default' | 'manual_override';
 }
 
 export const useStageTimingCalculations = () => {
@@ -87,6 +88,9 @@ export const useStageTimingCalculations = () => {
   ): Promise<TimingEstimate> => {
     const { quantity, stageData, specificationData } = params;
     
+    // Check if manual override is enabled (specification takes precedence over stage)
+    const isManualOverride = specificationData?.ignore_excel_quantity || stageData?.ignore_excel_quantity;
+    
     // Determine which data to use (specification overrides stage)
     const runningSpeed = specificationData?.running_speed_per_hour || stageData?.running_speed_per_hour;
     const makeReadyTime = specificationData?.make_ready_time_minutes || stageData?.make_ready_time_minutes || 10;
@@ -94,8 +98,22 @@ export const useStageTimingCalculations = () => {
     
     // Determine calculation source
     const calculationSource: TimingEstimate['calculationSource'] = 
+      isManualOverride ? 'manual_override' :
       specificationData?.running_speed_per_hour ? 'specification' :
       stageData?.running_speed_per_hour ? 'stage' : 'default';
+
+    // If manual override is enabled, return the fixed time (make-ready time becomes total duration)
+    if (isManualOverride) {
+      const fixedDuration = makeReadyTime;
+      return {
+        estimatedDurationMinutes: fixedDuration,
+        productionMinutes: 0, // No production time in manual override
+        makeReadyMinutes: fixedDuration,
+        speedUsed: 0, // Not applicable for manual override
+        speedUnit: 'manual_override',
+        calculationSource
+      };
+    }
 
     // Use default values if no speed is provided
     const effectiveSpeed = runningSpeed || 1000; // Default: 1000 sheets per hour
@@ -139,12 +157,14 @@ export const useStageTimingCalculations = () => {
           production_stage:production_stages(
             running_speed_per_hour,
             make_ready_time_minutes,
-            speed_unit
+            speed_unit,
+            ignore_excel_quantity
           ),
           stage_specification:stage_specifications(
             running_speed_per_hour,
             make_ready_time_minutes,
-            speed_unit
+            speed_unit,
+            ignore_excel_quantity
           )
         `)
         .eq('id', stageInstanceId)

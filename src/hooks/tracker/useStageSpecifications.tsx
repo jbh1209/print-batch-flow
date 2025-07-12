@@ -10,6 +10,7 @@ export interface StageSpecification {
   running_speed_per_hour?: number | null;
   make_ready_time_minutes?: number | null;
   speed_unit?: 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item' | null;
+  ignore_excel_quantity?: boolean;
   properties?: any;
   is_active: boolean;
   created_at: string;

@@ -1562,6 +1562,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          ignore_excel_quantity: boolean | null
           is_active: boolean
           make_ready_time_minutes: number | null
           name: string
@@ -1576,6 +1577,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          ignore_excel_quantity?: boolean | null
           is_active?: boolean
           make_ready_time_minutes?: number | null
           name: string
@@ -1590,6 +1592,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          ignore_excel_quantity?: boolean | null
           is_active?: boolean
           make_ready_time_minutes?: number | null
           name?: string
@@ -1784,6 +1787,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          ignore_excel_quantity: boolean | null
           is_active: boolean
           make_ready_time_minutes: number | null
           name: string
@@ -1797,6 +1801,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          ignore_excel_quantity?: boolean | null
           is_active?: boolean
           make_ready_time_minutes?: number | null
           name: string
@@ -1810,6 +1815,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          ignore_excel_quantity?: boolean | null
           is_active?: boolean
           make_ready_time_minutes?: number | null
           name?: string

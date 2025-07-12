@@ -15,6 +15,7 @@ export interface ProductionStage {
   running_speed_per_hour?: number;
   make_ready_time_minutes?: number;
   speed_unit?: 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item';
+  ignore_excel_quantity?: boolean;
 }
 
 export const useProductionStages = () => {
@@ -48,6 +49,7 @@ export const useProductionStages = () => {
           running_speed_per_hour: stage.running_speed_per_hour || undefined,
           make_ready_time_minutes: stage.make_ready_time_minutes || undefined,
           speed_unit: (stage.speed_unit as 'sheets_per_hour' | 'items_per_hour' | 'minutes_per_item') || undefined,
+          ignore_excel_quantity: stage.ignore_excel_quantity || false,
         };
       });
 
