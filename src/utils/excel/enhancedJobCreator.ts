@@ -654,16 +654,37 @@ export class EnhancedJobCreator {
       }
 
       // Extract stage information from row mappings (supporting multi-instance)
-      const stageIds: string[] = [];
-      const stageOrders: number[] = [];
+      // Use a Map to deduplicate stages while preserving order and tracking specifications
+      const stageMap = new Map<string, { order: number; specs: any[] }>();
       
       rowMappings
         .filter(mapping => !mapping.isUnmapped && mapping.mappedStageId)
         .forEach((mapping, index) => {
-          stageIds.push(mapping.mappedStageId!);
-          stageOrders.push(index + 1);
-          this.logger.addDebugInfo(`Adding stage: ${mapping.mappedStageName} (${mapping.mappedStageSpecName || 'no sub-spec'}) - Instance: ${mapping.instanceId}`);
+          const stageId = mapping.mappedStageId!;
+          
+          if (!stageMap.has(stageId)) {
+            stageMap.set(stageId, { order: index + 1, specs: [] });
+            this.logger.addDebugInfo(`Adding unique stage: ${mapping.mappedStageName} (Order: ${index + 1})`);
+          } else {
+            this.logger.addDebugInfo(`Stage ${mapping.mappedStageName} already exists, adding specification: ${mapping.mappedStageSpecName || 'no sub-spec'}`);
+          }
+          
+          // Track specifications for this stage
+          stageMap.get(stageId)!.specs.push({
+            specName: mapping.mappedStageSpecName,
+            instanceId: mapping.instanceId,
+            rowMapping: mapping
+          });
         });
+      
+      // Convert map to arrays for RPC call
+      const stageIds: string[] = [];
+      const stageOrders: number[] = [];
+      
+      for (const [stageId, stageInfo] of stageMap.entries()) {
+        stageIds.push(stageId);
+        stageOrders.push(stageInfo.order);
+      }
 
       if (stageIds.length === 0) {
         this.logger.addDebugInfo(`No valid stage mappings for job ${originalJob.wo_no}, skipping workflow initialization`);
@@ -679,8 +700,12 @@ export class EnhancedJobCreator {
       });
 
       if (workflowError) {
-        this.logger.addDebugInfo(`Workflow initialization failed for ${originalJob.wo_no}: ${workflowError.message}`);
-        throw new Error(`Workflow initialization failed: ${workflowError.message}`);
+        this.logger.addDebugInfo(`CRITICAL: Workflow initialization failed for ${originalJob.wo_no}: ${workflowError.message}`);
+        this.logger.addDebugInfo(`Stage IDs attempted: ${stageIds.join(', ')}`);
+        this.logger.addDebugInfo(`Stage orders attempted: ${stageOrders.join(', ')}`);
+        
+        // Surface this error to the UI - don't let it fail silently
+        throw new Error(`Failed to create workflow stages for job ${originalJob.wo_no}: ${workflowError.message}. This job was created but has no workflow stages.`);
       }
 
       // Update stage instances with sub-specifications and quantities
@@ -689,7 +714,7 @@ export class EnhancedJobCreator {
       // Calculate and set due date based on stage durations
       await this.calculateAndSetDueDate(insertedJob.id, originalJob);
 
-      this.logger.addDebugInfo(`Custom workflow initialized for ${originalJob.wo_no} with ${stageIds.length} stages (including multi-instance stages)`);
+      this.logger.addDebugInfo(`Custom workflow initialized for ${originalJob.wo_no} with ${stageIds.length} unique stages`);
       
       // Verify stages were actually created by querying the database
       const { data: createdStages, error: verifyError } = await supabase
@@ -699,9 +724,18 @@ export class EnhancedJobCreator {
         .eq('job_table_name', 'production_jobs');
 
       if (verifyError) {
-        this.logger.addDebugInfo(`Error verifying created stages: ${verifyError.message}`);
+        this.logger.addDebugInfo(`ERROR: Failed to verify created stages: ${verifyError.message}`);
+        throw new Error(`Could not verify workflow stages were created for job ${originalJob.wo_no}`);
+      } else if (!createdStages || createdStages.length === 0) {
+        this.logger.addDebugInfo(`CRITICAL: No stages found in database after initialization!`);
+        throw new Error(`Workflow stages were not created for job ${originalJob.wo_no}. Database verification failed.`);
       } else {
-        this.logger.addDebugInfo(`Verification: ${createdStages?.length || 0} stages actually created in database`);
+        this.logger.addDebugInfo(`SUCCESS: ${createdStages.length} stages verified in database`);
+        
+        // Log each created stage for debugging
+        createdStages.forEach(stage => {
+          this.logger.addDebugInfo(`  - Stage ${stage.production_stage_id}: ${stage.status}`);
+        });
       }
       
     } catch (error) {
