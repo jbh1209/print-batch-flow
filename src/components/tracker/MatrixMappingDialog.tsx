@@ -64,13 +64,15 @@ export const MatrixMappingDialog: React.FC<MatrixMappingDialogProps> = ({
   useEffect(() => {
     if (matrixData) {
       setMapping({
-        woNo: findColumn(matrixData.headers, ['WO', 'Work Order', 'WorkOrder', 'wo_no']),
-        customer: findColumn(matrixData.headers, ['Customer', 'CUSTOMER', 'customer', 'Client']),
+        // Set specific defaults as requested
+        woNo: 1, // Column 2 - WO No (0-indexed, so column 2 = index 1)
+        customer: 2, // Column 3 - Company (0-indexed, so column 3 = index 2)
+        category: -1, // Not mapped
+        // Auto-detect other fields
         reference: findColumn(matrixData.headers, ['Reference', 'REFERENCE', 'reference', 'Ref']),
         date: findColumn(matrixData.headers, ['Date', 'DATE', 'date', 'Order Date']),
         dueDate: findColumn(matrixData.headers, ['Due Date', 'DUE_DATE', 'due_date', 'Due']),
         rep: findColumn(matrixData.headers, ['Rep', 'REP', 'rep', 'Sales Rep']),
-        category: findColumn(matrixData.headers, ['Category', 'CATEGORY', 'category', 'Type']),
         location: findColumn(matrixData.headers, ['Location', 'LOCATION', 'location']),
         size: findColumn(matrixData.headers, ['Size', 'SIZE', 'size', 'Dimensions']),
         specification: findColumn(matrixData.headers, ['Specification', 'SPECIFICATION', 'specification', 'Spec']),
