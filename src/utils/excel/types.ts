@@ -106,3 +106,36 @@ export interface CoverTextDetection {
   components: CoverTextComponent[];
   dependencyGroupId?: string;
 }
+
+export interface RowMappingResult {
+  excelRowIndex: number;
+  excelData: any[];
+  groupName: string;
+  description: string;
+  qty: number;
+  woQty: number;
+  mappedStageId: string | null;
+  mappedStageName: string | null;
+  confidence: number;
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery' | 'unknown';
+  manualOverride?: boolean;
+  isUnmapped: boolean;
+}
+
+export interface DetailedCategoryAssignmentResult {
+  categoryId: string | null;
+  categoryName: string | null;
+  confidence: number;
+  mappedStages: StageMapping[];
+  requiresCustomWorkflow: boolean;
+  rowMappings: RowMappingResult[];
+  unmappedRowsCount: number;
+}
+
+export interface StageMapping {
+  stageId: string;
+  stageName: string;
+  confidence: number;
+  specifications: string[];
+  category: 'printing' | 'finishing' | 'prepress' | 'delivery';
+}

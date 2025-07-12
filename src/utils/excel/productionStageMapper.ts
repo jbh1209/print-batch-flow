@@ -1,14 +1,6 @@
 import type { ExcelImportDebugger } from './debugger';
-import type { GroupSpecifications } from './types';
+import type { GroupSpecifications, RowMappingResult, DetailedCategoryAssignmentResult, StageMapping } from './types';
 import { supabase } from '@/integrations/supabase/client';
-
-export interface StageMapping {
-  stageId: string;
-  stageName: string;
-  confidence: number;
-  specifications: string[];
-  category: 'printing' | 'finishing' | 'prepress' | 'delivery';
-}
 
 export interface CategoryAssignmentResult {
   categoryId: string | null;
@@ -16,6 +8,7 @@ export interface CategoryAssignmentResult {
   confidence: number;
   mappedStages: StageMapping[];
   requiresCustomWorkflow: boolean;
+  rowMappings?: RowMappingResult[];
 }
 
 export class ProductionStageMapper {
@@ -71,12 +64,13 @@ export class ProductionStageMapper {
   }
 
   /**
-   * Map Excel group specifications to production stages
+   * Map Excel group specifications to production stages with detailed row mapping
    */
   mapGroupsToStages(
     printingSpecs: GroupSpecifications | null,
     finishingSpecs: GroupSpecifications | null,
-    prepressSpecs: GroupSpecifications | null
+    prepressSpecs: GroupSpecifications | null,
+    excelRows?: any[][]
   ): StageMapping[] {
     const mappedStages: StageMapping[] = [];
     
@@ -100,6 +94,82 @@ export class ProductionStageMapper {
     
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages from group specifications`);
     return mappedStages;
+  }
+
+  /**
+   * Create detailed row mappings for enhanced UI display
+   */
+  createDetailedRowMappings(
+    printingSpecs: GroupSpecifications | null,
+    finishingSpecs: GroupSpecifications | null,
+    prepressSpecs: GroupSpecifications | null,
+    excelRows: any[][],
+    headers: string[]
+  ): RowMappingResult[] {
+    const rowMappings: RowMappingResult[] = [];
+    let rowIndex = 0;
+
+    // Process printing specifications
+    if (printingSpecs) {
+      rowMappings.push(...this.createRowMappingsForCategory(
+        printingSpecs, 'printing', excelRows, headers, rowIndex
+      ));
+      rowIndex += Object.keys(printingSpecs).length;
+    }
+
+    // Process finishing specifications
+    if (finishingSpecs) {
+      rowMappings.push(...this.createRowMappingsForCategory(
+        finishingSpecs, 'finishing', excelRows, headers, rowIndex
+      ));
+      rowIndex += Object.keys(finishingSpecs).length;
+    }
+
+    // Process prepress specifications
+    if (prepressSpecs) {
+      rowMappings.push(...this.createRowMappingsForCategory(
+        prepressSpecs, 'prepress', excelRows, headers, rowIndex
+      ));
+    }
+
+    return rowMappings;
+  }
+
+  /**
+   * Create row mappings for a specific category
+   */
+  private createRowMappingsForCategory(
+    specs: GroupSpecifications,
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery',
+    excelRows: any[][],
+    headers: string[],
+    startRowIndex: number
+  ): RowMappingResult[] {
+    const mappings: RowMappingResult[] = [];
+    let currentRowIndex = startRowIndex;
+
+    for (const [groupName, spec] of Object.entries(specs)) {
+      const stageMapping = this.findBestStageMatch(groupName, spec.description || '', category);
+      
+      mappings.push({
+        excelRowIndex: currentRowIndex,
+        excelData: excelRows[currentRowIndex] || [],
+        groupName,
+        description: spec.description || '',
+        qty: spec.qty || 0,
+        woQty: spec.wo_qty || 0,
+        mappedStageId: stageMapping?.stageId || null,
+        mappedStageName: stageMapping?.stageName || null,
+        confidence: stageMapping?.confidence || 0,
+        category: stageMapping?.category || 'unknown',
+        isUnmapped: !stageMapping,
+        manualOverride: false
+      });
+
+      currentRowIndex++;
+    }
+
+    return mappings;
   }
 
   /**
@@ -192,7 +262,78 @@ export class ProductionStageMapper {
   }
 
   /**
-   * Assign the best category based on mapped stages
+   * Assign the best category based on mapped stages with detailed row mappings
+   */
+  assignCategoryWithDetails(
+    mappedStages: StageMapping[],
+    rowMappings: RowMappingResult[]
+  ): DetailedCategoryAssignmentResult {
+    this.logger.addDebugInfo(`Analyzing ${mappedStages.length} mapped stages for category assignment`);
+    
+    const categoryScores = new Map<string, number>();
+    const categoryStageMatches = new Map<string, string[]>();
+    
+    // Score categories based on how many required stages match
+    for (const category of this.categories) {
+      const requiredStages = this.categoryStages
+        .filter(cs => cs.category_id === category.id)
+        .map(cs => cs.production_stage_id);
+      
+      const mappedStageIds = mappedStages.map(ms => ms.stageId);
+      const matchingStages = requiredStages.filter(stageId => 
+        mappedStageIds.includes(stageId)
+      );
+      
+      if (matchingStages.length > 0) {
+        const score = (matchingStages.length / requiredStages.length) * 100;
+        categoryScores.set(category.id, score);
+        categoryStageMatches.set(category.id, matchingStages);
+        
+        this.logger.addDebugInfo(`Category "${category.name}": ${matchingStages.length}/${requiredStages.length} stages matched (${score.toFixed(1)}%)`);
+      }
+    }
+    
+    // Find best category match
+    let bestCategoryId: string | null = null;
+    let bestScore = 0;
+    
+    for (const [categoryId, score] of categoryScores.entries()) {
+      if (score > bestScore) {
+        bestScore = score;
+        bestCategoryId = categoryId;
+      }
+    }
+    
+    const unmappedRowsCount = rowMappings.filter(rm => rm.isUnmapped).length;
+    
+    if (bestCategoryId && bestScore >= 50) {
+      const category = this.categories.find(c => c.id === bestCategoryId);
+      return {
+        categoryId: bestCategoryId,
+        categoryName: category?.name || 'Unknown',
+        confidence: bestScore,
+        mappedStages,
+        requiresCustomWorkflow: bestScore < 80 || unmappedRowsCount > 0,
+        rowMappings,
+        unmappedRowsCount
+      };
+    }
+    
+    // No good category match - will need custom workflow
+    this.logger.addDebugInfo("No suitable category found, will create custom workflow");
+    return {
+      categoryId: null,
+      categoryName: null,
+      confidence: 0,
+      mappedStages,
+      requiresCustomWorkflow: true,
+      rowMappings,
+      unmappedRowsCount
+    };
+  }
+
+  /**
+   * Legacy method for backward compatibility
    */
   assignCategory(mappedStages: StageMapping[]): CategoryAssignmentResult {
     this.logger.addDebugInfo(`Analyzing ${mappedStages.length} mapped stages for category assignment`);

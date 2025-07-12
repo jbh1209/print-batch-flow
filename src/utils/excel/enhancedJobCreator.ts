@@ -83,8 +83,17 @@ export class EnhancedJobCreator {
       job.prepress_specifications
     );
 
-    // 2. Assign category or create custom workflow
-    const categoryAssignment = this.stageMapper.assignCategory(mappedStages);
+    // 2. Create detailed row mappings for UI display
+    const rowMappings = this.stageMapper.createDetailedRowMappings(
+      job.printing_specifications,
+      job.finishing_specifications,
+      job.prepress_specifications,
+      [], // Excel rows would be passed here in a real implementation
+      [] // Headers would be passed here in a real implementation
+    );
+
+    // 3. Assign category with detailed information
+    const categoryAssignment = this.stageMapper.assignCategoryWithDetails(mappedStages, rowMappings);
     result.categoryAssignments[job.wo_no] = categoryAssignment;
 
     // 3. Handle category assignment

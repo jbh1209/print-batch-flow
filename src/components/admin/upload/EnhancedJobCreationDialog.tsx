@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,9 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle, XCircle, AlertTriangle, Zap, Factory, Workflow, Database } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, Zap, Factory, Workflow, Database, Settings } from "lucide-react";
 import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
 import type { CategoryAssignmentResult } from "@/utils/excel/productionStageMapper";
+import type { RowMappingResult } from "@/utils/excel/types";
+import { RowMappingTable } from "./RowMappingTable";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EnhancedJobCreationDialogProps {
   open: boolean;
@@ -18,6 +21,12 @@ interface EnhancedJobCreationDialogProps {
   onConfirm: () => void;
 }
 
+interface AvailableStage {
+  id: string;
+  name: string;
+  category: string;
+}
+
 export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps> = ({
   open,
   onOpenChange,
@@ -25,7 +34,104 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   isProcessing,
   onConfirm
 }) => {
-  const [selectedTab, setSelectedTab] = useState("overview");
+  const [selectedTab, setSelectedTab] = useState("mapping");
+  const [availableStages, setAvailableStages] = useState<AvailableStage[]>([]);
+  const [updatedRowMappings, setUpdatedRowMappings] = useState<{ [woNo: string]: RowMappingResult[] }>({});
+
+  useEffect(() => {
+    loadAvailableStages();
+  }, []);
+
+  useEffect(() => {
+    if (result?.categoryAssignments) {
+      // Initialize updatedRowMappings with current result data
+      const initialMappings: { [woNo: string]: RowMappingResult[] } = {};
+      Object.entries(result.categoryAssignments).forEach(([woNo, assignment]) => {
+        if (assignment.rowMappings) {
+          initialMappings[woNo] = [...assignment.rowMappings];
+        }
+      });
+      setUpdatedRowMappings(initialMappings);
+    }
+  }, [result]);
+
+  const loadAvailableStages = async () => {
+    try {
+      const { data: stages, error } = await supabase
+        .from('production_stages')
+        .select('id, name, description')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+
+      // Map stages to categories based on common naming patterns
+      const mappedStages = (stages || []).map(stage => ({
+        id: stage.id,
+        name: stage.name,
+        category: inferStageCategory(stage.name, stage.description)
+      }));
+
+      setAvailableStages(mappedStages);
+    } catch (error) {
+      console.error('Failed to load available stages:', error);
+    }
+  };
+
+  const inferStageCategory = (name: string, description?: string): string => {
+    const text = `${name} ${description || ''}`.toLowerCase();
+    
+    if (text.includes('print') || text.includes('hp') || text.includes('xerox') || text.includes('digital')) {
+      return 'printing';
+    }
+    if (text.includes('finish') || text.includes('laminat') || text.includes('cut') || text.includes('fold') || text.includes('bind')) {
+      return 'finishing';
+    }
+    if (text.includes('prepress') || text.includes('dtp') || text.includes('proof') || text.includes('plate')) {
+      return 'prepress';
+    }
+    if (text.includes('deliver') || text.includes('dispatch') || text.includes('ship')) {
+      return 'delivery';
+    }
+    
+    return 'unknown';
+  };
+
+  const handleUpdateMapping = (woNo: string, rowIndex: number, stageId: string, stageName: string) => {
+    setUpdatedRowMappings(prev => {
+      const woMappings = [...(prev[woNo] || [])];
+      if (woMappings[rowIndex]) {
+        woMappings[rowIndex] = {
+          ...woMappings[rowIndex],
+          mappedStageId: stageId,
+          mappedStageName: stageName,
+          isUnmapped: false,
+          confidence: 100,
+          manualOverride: true
+        };
+      }
+      return { ...prev, [woNo]: woMappings };
+    });
+  };
+
+  const handleToggleManualOverride = (woNo: string, rowIndex: number) => {
+    setUpdatedRowMappings(prev => {
+      const woMappings = [...(prev[woNo] || [])];
+      if (woMappings[rowIndex]) {
+        woMappings[rowIndex] = {
+          ...woMappings[rowIndex],
+          manualOverride: !woMappings[rowIndex].manualOverride
+        };
+      }
+      return { ...prev, [woNo]: woMappings };
+    });
+  };
+
+  const getTotalUnmappedRows = () => {
+    return Object.values(updatedRowMappings).reduce((total, mappings) => {
+      return total + mappings.filter(m => m.isUnmapped).length;
+    }, 0);
+  };
 
   if (!result && !isProcessing) return null;
 
@@ -138,11 +244,61 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
 
             {/* Detailed Results */}
             <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="mapping" className="flex items-center gap-1">
+                  <Settings className="h-3 w-3" />
+                  Row Mapping
+                  {getTotalUnmappedRows() > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-xs">
+                      {getTotalUnmappedRows()}
+                    </Badge>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="overview">Category Assignments</TabsTrigger>
                 <TabsTrigger value="jobs">Created Jobs</TabsTrigger>
                 <TabsTrigger value="errors">Issues</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="mapping" className="space-y-4">
+                {Object.entries(result.categoryAssignments).map(([woNo, assignment]) => {
+                  const currentMappings = updatedRowMappings[woNo] || assignment.rowMappings || [];
+                  
+                  return (
+                    <Card key={woNo}>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center justify-between">
+                          <span>Work Order: {woNo}</span>
+                          <div className="flex items-center gap-2">
+                            {currentMappings.filter(m => m.isUnmapped).length > 0 && (
+                              <Badge variant="destructive" className="text-xs">
+                                {currentMappings.filter(m => m.isUnmapped).length} unmapped
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {currentMappings.length} rows
+                            </Badge>
+                          </div>
+                        </CardTitle>
+                        <CardDescription>
+                          Review and adjust the automatic stage mappings for each Excel row
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <RowMappingTable
+                          rowMappings={currentMappings}
+                          availableStages={availableStages}
+                          onUpdateMapping={(rowIndex, stageId, stageName) => 
+                            handleUpdateMapping(woNo, rowIndex, stageId, stageName)
+                          }
+                          onToggleManualOverride={(rowIndex) => 
+                            handleToggleManualOverride(woNo, rowIndex)
+                          }
+                        />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </TabsContent>
 
               <TabsContent value="overview" className="space-y-4">
                 <Card>
@@ -300,10 +456,22 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Review Later
               </Button>
-              <Button onClick={onConfirm} className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4" />
-                Confirm & Continue to Production
-              </Button>
+              <div className="flex items-center gap-2">
+                {getTotalUnmappedRows() > 0 && (
+                  <Badge variant="destructive" className="flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {getTotalUnmappedRows()} unmapped rows require attention
+                  </Badge>
+                )}
+                <Button 
+                  onClick={onConfirm} 
+                  className="flex items-center gap-2"
+                  disabled={getTotalUnmappedRows() > 0}
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Confirm & Continue to Production
+                </Button>
+              </div>
             </div>
           </div>
         ) : null}
