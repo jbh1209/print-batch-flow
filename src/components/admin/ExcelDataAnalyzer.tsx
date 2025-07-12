@@ -140,10 +140,14 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
       // Process specifications by category
       const specs = printSpecsResult.data || [];
-      const paperTypes = specs.filter(s => s.category === 'paper_type');
-      const paperWeights = specs.filter(s => s.category === 'paper_weight');
-      const deliveryMethods = specs.filter(s => s.category === 'delivery_method');
-      const finishingSpecs = specs.filter(s => s.category === 'finishing');
+      const paperTypes = specs.filter(s => s.category === 'paper_type' && !s.name.startsWith('_category'));
+      const paperWeights = specs.filter(s => s.category === 'paper_weight' && !s.name.startsWith('_category'));
+      const deliveryMethods = specs.filter(s => s.category === 'delivery_method' && !s.name.startsWith('_category'));
+      // Combine lamination_type and uv_varnish as finishing specifications
+      const finishingSpecs = specs.filter(s => 
+        (s.category === 'lamination_type' || s.category === 'uv_varnish') && 
+        !s.name.startsWith('_category')
+      );
 
       setMappingOptions({
         productionStages: productionStagesResult.data || [],
