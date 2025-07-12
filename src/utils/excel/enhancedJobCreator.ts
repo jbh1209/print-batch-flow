@@ -653,60 +653,104 @@ export class EnhancedJobCreator {
         return;
       }
 
-      // Extract stage information from row mappings (supporting multi-instance)
-      // Use a Map to deduplicate stages while preserving order and tracking specifications
-      const stageMap = new Map<string, { order: number; specs: any[] }>();
+      // Extract stage information from row mappings - SUPPORT MULTI-INSTANCE STAGES
+      // Create stage instances for each row mapping (no deduplication for legitimate multi-instance stages)
+      const stageInstances: Array<{
+        stageId: string;
+        stageName: string;
+        order: number;
+        partName: string;
+        specName?: string;
+        mapping: any;
+      }> = [];
+      
+      // Group by stage to determine if we have multi-instance scenarios
+      const stageGroups = new Map<string, any[]>();
       
       rowMappings
         .filter(mapping => !mapping.isUnmapped && mapping.mappedStageId)
         .forEach((mapping, index) => {
           const stageId = mapping.mappedStageId!;
-          
-          if (!stageMap.has(stageId)) {
-            stageMap.set(stageId, { order: index + 1, specs: [] });
-            this.logger.addDebugInfo(`Adding unique stage: ${mapping.mappedStageName} (Order: ${index + 1})`);
-          } else {
-            this.logger.addDebugInfo(`Stage ${mapping.mappedStageName} already exists, adding specification: ${mapping.mappedStageSpecName || 'no sub-spec'}`);
+          if (!stageGroups.has(stageId)) {
+            stageGroups.set(stageId, []);
           }
-          
-          // Track specifications for this stage
-          stageMap.get(stageId)!.specs.push({
-            specName: mapping.mappedStageSpecName,
-            instanceId: mapping.instanceId,
-            rowMapping: mapping
-          });
+          stageGroups.get(stageId)!.push({ ...mapping, originalIndex: index });
         });
       
-      // Convert map to arrays for RPC call
-      const stageIds: string[] = [];
-      const stageOrders: number[] = [];
-      
-      for (const [stageId, stageInfo] of stageMap.entries()) {
-        stageIds.push(stageId);
-        stageOrders.push(stageInfo.order);
+      // Create stage instances with appropriate part names
+      for (const [stageId, mappings] of stageGroups.entries()) {
+        mappings.forEach((mapping, instanceIndex) => {
+          const isMultiInstance = mappings.length > 1;
+          let partName = '';
+          
+          if (isMultiInstance) {
+            // Create meaningful part names for multi-instance stages
+            if (mapping.mappedStageSpecName) {
+              partName = `${mapping.mappedStageSpecName} (Instance ${instanceIndex + 1})`;
+            } else {
+              partName = `Instance ${instanceIndex + 1}`;
+            }
+            this.logger.addDebugInfo(`Creating multi-instance stage: ${mapping.mappedStageName} - Part: ${partName}`);
+          } else {
+            // Single instance - use spec name as part name if available
+            partName = mapping.mappedStageSpecName || '';
+            this.logger.addDebugInfo(`Creating single stage: ${mapping.mappedStageName} - Spec: ${mapping.mappedStageSpecName || 'none'}`);
+          }
+          
+          stageInstances.push({
+            stageId: mapping.mappedStageId,
+            stageName: mapping.mappedStageName,
+            order: mapping.originalIndex + 1,
+            partName,
+            specName: mapping.mappedStageSpecName,
+            mapping
+          });
+        });
       }
 
-      if (stageIds.length === 0) {
+      if (stageInstances.length === 0) {
         this.logger.addDebugInfo(`No valid stage mappings for job ${originalJob.wo_no}, skipping workflow initialization`);
         return;
       }
 
-      // Initialize custom workflow using the RPC function
-      const { error: workflowError } = await supabase.rpc('initialize_custom_job_stages', {
-        p_job_id: insertedJob.id,
-        p_job_table_name: 'production_jobs',
-        p_stage_ids: stageIds,
-        p_stage_orders: stageOrders
+      this.logger.addDebugInfo(`Creating ${stageInstances.length} stage instances for job ${originalJob.wo_no}`);
+      
+      // Create stage instances directly in database (bypassing RPC to handle multi-instance properly)
+      const stageInsertPromises = stageInstances.map(async (instance) => {
+        const { data, error } = await supabase
+          .from('job_stage_instances')
+          .insert({
+            job_id: insertedJob.id,
+            job_table_name: 'production_jobs',
+            production_stage_id: instance.stageId,
+            stage_order: instance.order,
+            status: 'pending',
+            part_name: instance.partName || null,
+            stage_specification_id: instance.mapping.mappedStageSpecId || null,
+            quantity: instance.mapping.quantity || null
+          })
+          .select('id, production_stage_id, part_name')
+          .single();
+          
+        if (error) {
+          this.logger.addDebugInfo(`Failed to create stage instance for ${instance.stageName}: ${error.message}`);
+          throw new Error(`Failed to create stage instance for ${instance.stageName}: ${error.message}`);
+        }
+        
+        this.logger.addDebugInfo(`Created stage instance: ${instance.stageName} (Part: ${instance.partName || 'none'}) - ID: ${data.id}`);
+        return data;
       });
 
-      if (workflowError) {
-        this.logger.addDebugInfo(`CRITICAL: Workflow initialization failed for ${originalJob.wo_no}: ${workflowError.message}`);
-        this.logger.addDebugInfo(`Stage IDs attempted: ${stageIds.join(', ')}`);
-        this.logger.addDebugInfo(`Stage orders attempted: ${stageOrders.join(', ')}`);
-        
-        // Surface this error to the UI - don't let it fail silently
-        throw new Error(`Failed to create workflow stages for job ${originalJob.wo_no}: ${workflowError.message}. This job was created but has no workflow stages.`);
-      }
+      // Execute all stage creations
+      const createdStageInstances = await Promise.all(stageInsertPromises);
+      
+      this.logger.addDebugInfo(`Successfully created ${createdStageInstances.length} stage instances for job ${originalJob.wo_no}`);
+      
+      // Mark job as having custom workflow
+      await supabase
+        .from('production_jobs')
+        .update({ has_custom_workflow: true })
+        .eq('id', insertedJob.id);
 
       // Update stage instances with sub-specifications and quantities
       await this.updateStageInstancesWithSpecs(insertedJob.id, rowMappings);
@@ -714,7 +758,7 @@ export class EnhancedJobCreator {
       // Calculate and set due date based on stage durations
       await this.calculateAndSetDueDate(insertedJob.id, originalJob);
 
-      this.logger.addDebugInfo(`Custom workflow initialized for ${originalJob.wo_no} with ${stageIds.length} unique stages`);
+      this.logger.addDebugInfo(`Custom workflow initialized for ${originalJob.wo_no} with ${stageInstances.length} stage instances`);
       
       // Verify stages were actually created by querying the database
       const { data: createdStages, error: verifyError } = await supabase
