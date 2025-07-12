@@ -296,8 +296,8 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                   )}
                 </TabsTrigger>
                 <TabsTrigger value="overview" className="text-xs sm:text-sm">
-                  <span className="hidden sm:inline">Category Assignments</span>
-                  <span className="sm:hidden">Categories</span>
+                  <span className="hidden sm:inline">Job Overview</span>
+                  <span className="sm:hidden">Overview</span>
                 </TabsTrigger>
                 <TabsTrigger value="jobs" className="text-xs sm:text-sm">
                   <span className="hidden sm:inline">Created Jobs</span>
@@ -372,33 +372,9 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                           <TableRow key={woNo}>
                             <TableCell className="font-medium">{woNo}</TableCell>
                              <TableCell>
-                               <Select
-                                 value={assignment.categoryId || "none"}
-                                 onValueChange={(value) => handleUpdateCategory(woNo, 
-                                   value === "none" ? null : value,
-                                   value === "none" ? null : availableCategories.find(c => c.id === value)?.name || null
-                                 )}
-                               >
-                                 <SelectTrigger className="w-full max-w-[200px]">
-                                   <SelectValue placeholder="Select category" />
-                                 </SelectTrigger>
-                                 <SelectContent>
-                                   <SelectItem value="none">
-                                     <span className="text-gray-500 italic">No category (Custom workflow)</span>
-                                   </SelectItem>
-                                   {availableCategories.map((category) => (
-                                     <SelectItem key={category.id} value={category.id}>
-                                       <div className="flex items-center gap-2">
-                                         <div 
-                                           className="w-3 h-3 rounded-full" 
-                                           style={{ backgroundColor: category.color }}
-                                         />
-                                         {category.name}
-                                       </div>
-                                     </SelectItem>
-                                   ))}
-                                 </SelectContent>
-                               </Select>
+                               <Badge variant="outline" className="text-blue-600 border-blue-600">
+                                 Custom Workflow
+                               </Badge>
                              </TableCell>
                             <TableCell>
                               <Badge className={getConfidenceColor(assignment.confidence)}>

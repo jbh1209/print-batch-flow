@@ -159,15 +159,10 @@ export class EnhancedJobCreator {
       throw new Error(`Job creation failed for ${job.wo_no}: ${errorMsg}`);
     }
 
-    // 6. Skip automatic workflow initialization from categories
-    // Categories are now only used for reference, not workflow generation
-    // This gives users full control over their production processes
-    this.logger.addDebugInfo(`Job ${job.wo_no} created successfully. Category: ${finalCategoryId ? 'assigned' : 'custom workflow'}`);
-    
-    // Mark workflow as initialized for stats but don't actually create stages
-    if (finalCategoryId) {
-      result.stats.workflowsInitialized++;
-    }
+    // 6. Auto-create custom workflow from mapped stages
+    await this.initializeCustomWorkflow(insertedJob, job, result);
+    this.logger.addDebugInfo(`Job ${job.wo_no} created with custom workflow`);
+    result.stats.workflowsInitialized++;
 
     // 7. Update QR codes with actual job ID
     if (this.generateQRCodes && insertedJob && insertedJob.qr_code_data) {
@@ -209,8 +204,8 @@ export class EnhancedJobCreator {
       prepress_specifications: this.buildPrepressSpecifications(job),
       operation_quantities: job.operation_quantities || {},
       
-      // Workflow flags
-      has_custom_workflow: !categoryId || false
+      // Workflow flags - all imported jobs use custom workflows
+      has_custom_workflow: true
     };
 
     // Generate QR code if enabled
@@ -360,6 +355,55 @@ export class EnhancedJobCreator {
     await this.updateStageQuantities(insertedJob.id);
   }
 
+  private async initializeCustomWorkflow(insertedJob: any, originalJob: ParsedJob, result: EnhancedJobCreationResult): Promise<void> {
+    try {
+      // Get stage mappings from the enhanced stage mapper
+      const stageMapperResult = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
+        originalJob.printing_specifications,
+        originalJob.finishing_specifications, 
+        originalJob.prepress_specifications
+      );
+
+      if (stageMapperResult.length === 0) {
+        this.logger.addDebugInfo(`No stages mapped for job ${originalJob.wo_no}, skipping workflow initialization`);
+        return;
+      }
+
+      // Extract stage IDs and create proper ordering
+      const stageIds: string[] = [];
+      const stageOrders: number[] = [];
+      
+      stageMapperResult.forEach((mapping, index) => {
+        stageIds.push(mapping.stageId);
+        stageOrders.push(index + 1);
+      });
+
+      // Initialize custom workflow using the RPC function
+      const { error: workflowError } = await supabase.rpc('initialize_custom_job_stages', {
+        p_job_id: insertedJob.id,
+        p_job_table_name: 'production_jobs',
+        p_stage_ids: stageIds,
+        p_stage_orders: stageOrders
+      });
+
+      if (workflowError) {
+        this.logger.addDebugInfo(`Workflow initialization failed for ${originalJob.wo_no}: ${workflowError.message}`);
+        return;
+      }
+
+      // Update stage quantities based on operation quantities
+      await this.updateStageQuantities(insertedJob.id);
+
+      // Calculate and set due date based on stage durations
+      await this.calculateAndSetDueDate(insertedJob.id, originalJob);
+
+      this.logger.addDebugInfo(`Custom workflow initialized for ${originalJob.wo_no} with ${stageIds.length} stages`);
+      
+    } catch (error) {
+      this.logger.addDebugInfo(`Custom workflow initialization error for ${originalJob.wo_no}: ${error}`);
+    }
+  }
+
   private async updateStageQuantities(jobId: string): Promise<void> {
     try {
       this.logger.addDebugInfo(`Updating stage quantities for job ${jobId}`);
@@ -401,6 +445,63 @@ export class EnhancedJobCreator {
       }
     } catch (error) {
       this.logger.addDebugInfo(`Failed to update stage quantities: ${error}`);
+    }
+  }
+
+  private async calculateAndSetDueDate(jobId: string, originalJob: ParsedJob): Promise<void> {
+    try {
+      // Get all stages with their durations
+      const { data: stages, error } = await supabase
+        .from('job_stage_instances')
+        .select(`
+          id,
+          quantity,
+          production_stages(
+            running_speed_per_hour,
+            make_ready_time_minutes,
+            speed_unit
+          )
+        `)
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs');
+
+      if (error || !stages) return;
+
+      let totalMinutes = 0;
+      
+      // Calculate total estimated duration
+      for (const stage of stages) {
+        const productionStage = stage.production_stages as any;
+        if (productionStage && stage.quantity) {
+          const duration = await this.calculateStageEstimateWithQuantityType(
+            stage.quantity,
+            productionStage.running_speed_per_hour || 100,
+            productionStage.make_ready_time_minutes || 10,
+            productionStage.speed_unit || 'sheets_per_hour',
+            'pieces'
+          );
+          totalMinutes += duration;
+        }
+      }
+
+      // Convert to days and add buffer
+      const estimatedDays = Math.ceil(totalMinutes / (8 * 60)) + 1; // 8 hour work days + 1 day buffer
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + estimatedDays);
+
+      // Update job with calculated due date
+      await supabase
+        .from('production_jobs')
+        .update({ 
+          due_date: dueDate.toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+
+      this.logger.addDebugInfo(`Due date calculated for ${originalJob.wo_no}: ${estimatedDays} days from now`);
+      
+    } catch (error) {
+      this.logger.addDebugInfo(`Due date calculation failed: ${error}`);
     }
   }
 
