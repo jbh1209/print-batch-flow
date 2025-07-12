@@ -52,15 +52,16 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   }, []);
 
   useEffect(() => {
-    if (result?.categoryAssignments) {
-      // Initialize updatedRowMappings with current result data
+    if (result?.rowMappings) {
+      // Initialize updatedRowMappings with current result data from the correct location
       const initialMappings: { [woNo: string]: RowMappingResult[] } = {};
-      Object.entries(result.categoryAssignments).forEach(([woNo, assignment]) => {
-        if (assignment.rowMappings) {
-          initialMappings[woNo] = [...assignment.rowMappings];
+      Object.entries(result.rowMappings).forEach(([woNo, mappings]) => {
+        if (mappings && mappings.length > 0) {
+          initialMappings[woNo] = [...mappings];
         }
       });
       setUpdatedRowMappings(initialMappings);
+      console.log('Initialized row mappings:', initialMappings);
     }
   }, [result]);
 
@@ -307,8 +308,8 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
               </TabsList>
 
               <TabsContent value="mapping" className="flex-1 overflow-y-auto space-y-4">
-                {Object.entries(result.categoryAssignments).map(([woNo, assignment]) => {
-                  const currentMappings = updatedRowMappings[woNo] || assignment.rowMappings || [];
+                {result.rowMappings && Object.entries(result.rowMappings).map(([woNo, mappings]) => {
+                  const currentMappings = updatedRowMappings[woNo] || mappings || [];
                   
                   return (
                     <Card key={woNo}>
