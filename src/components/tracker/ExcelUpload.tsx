@@ -24,8 +24,9 @@ import {
   parseExcelFileWithMapping,
   parseMatrixExcelFileForPreview,
   parseMatrixExcelFileWithMapping,
-  parseAndCreateProductionReadyJobs,
-  parseMatrixAndCreateProductionReadyJobs
+  parseAndPrepareProductionReadyJobs,
+  parseMatrixAndPrepareProductionReadyJobs,
+  finalizeProductionReadyJobs
 } from "@/utils/excel/enhancedParser";
 import type { MatrixExcelData } from "@/utils/excel/types";
 import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator";
@@ -121,8 +122,8 @@ export const ExcelUpload = () => {
       setIsCreatingJobs(true);
       setShowMappingDialog(false);
       
-      // Use Phase 4 enhanced job creation
-      const result = await parseAndCreateProductionReadyJobs(
+      // STEP 1: Parse and create mappings WITHOUT saving to database
+      const result = await parseAndPrepareProductionReadyJobs(
         currentFile, 
         mapping, 
         debugLogger,
@@ -133,12 +134,12 @@ export const ExcelUpload = () => {
       setEnhancedResult(result);
       setShowEnhancedDialog(true);
       
-      toast.success(`Enhanced processing completed! ${result.stats.successful}/${result.stats.total} jobs created with workflows.`);
+      toast.success(`Processing completed! ${result.stats.total} jobs mapped and ready for review.`);
     } catch (error) {
       console.error("Error in enhanced job creation:", error);
       debugLogger.addDebugInfo(`Enhanced creation error: ${error}`);
-      setUploadError(`Failed to create production-ready jobs: ${error instanceof Error ? error.message : "Unknown error"}`);
-      toast.error("Failed to create production-ready jobs.");
+      setUploadError(`Failed to prepare production-ready jobs: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error("Failed to prepare production-ready jobs.");
     } finally {
       setIsCreatingJobs(false);
     }
@@ -151,8 +152,8 @@ export const ExcelUpload = () => {
       setIsCreatingJobs(true);
       setShowMatrixDialog(false);
       
-      // Use Phase 4 enhanced matrix job creation
-      const result = await parseMatrixAndCreateProductionReadyJobs(
+      // STEP 1: Parse and create mappings WITHOUT saving to database
+      const result = await parseMatrixAndPrepareProductionReadyJobs(
         currentFile,
         matrixData,
         mapping, 
@@ -164,12 +165,12 @@ export const ExcelUpload = () => {
       setEnhancedResult(result);
       setShowEnhancedDialog(true);
       
-      toast.success(`Enhanced matrix processing completed! ${result.stats.successful}/${result.stats.total} jobs created with workflows.`);
+      toast.success(`Matrix processing completed! ${result.stats.total} jobs mapped and ready for review.`);
     } catch (error) {
       console.error("Error in enhanced matrix job creation:", error);
       debugLogger.addDebugInfo(`Enhanced matrix creation error: ${error}`);
-      setUploadError(`Failed to create production-ready matrix jobs: ${error instanceof Error ? error.message : "Unknown error"}`);
-      toast.error("Failed to create production-ready matrix jobs.");
+      setUploadError(`Failed to prepare production-ready matrix jobs: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error("Failed to prepare production-ready matrix jobs.");
     } finally {
       setIsCreatingJobs(false);
     }
@@ -312,12 +313,27 @@ export const ExcelUpload = () => {
     }
   };
 
-  const handleEnhancedJobsConfirmed = () => {
-    // Jobs are already created, just clean up
-    setEnhancedResult(null);
-    setShowEnhancedDialog(false);
-    handleClearPreview();
-    toast.success("Production jobs are now ready for the factory floor!");
+  const handleEnhancedJobsConfirmed = async () => {
+    if (!enhancedResult) return;
+    
+    try {
+      setIsCreatingJobs(true);
+      
+      // STEP 2: Now actually create the jobs in the database
+      const finalResult = await finalizeProductionReadyJobs(enhancedResult, debugLogger);
+      
+      toast.success(`Success! ${finalResult.stats.successful}/${finalResult.stats.total} production jobs created and ready for the factory floor!`);
+      
+      // Clean up
+      setEnhancedResult(null);
+      setShowEnhancedDialog(false);
+      handleClearPreview();
+    } catch (error) {
+      console.error("Error finalizing jobs:", error);
+      toast.error("Failed to create jobs in database. Please try again.");
+    } finally {
+      setIsCreatingJobs(false);
+    }
   };
 
   const handleClearPreview = () => {

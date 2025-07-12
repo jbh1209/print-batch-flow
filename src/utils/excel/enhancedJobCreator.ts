@@ -50,6 +50,95 @@ export class EnhancedJobCreator {
   }
 
   /**
+   * Prepare enhanced jobs with mappings but don't save to database
+   */
+  async prepareEnhancedJobsWithExcelData(
+    jobs: ParsedJob[], 
+    headers: string[], 
+    dataRows: any[][]
+  ): Promise<EnhancedJobCreationResult> {
+    this.logger.addDebugInfo(`Preparing enhanced jobs for ${jobs.length} parsed jobs with Excel data`);
+    this.logger.addDebugInfo(`Excel headers: ${JSON.stringify(headers)}`);
+    this.logger.addDebugInfo(`Excel data rows: ${dataRows.length}`);
+
+    const result: EnhancedJobCreationResult = {
+      success: true,
+      createdJobs: [],
+      failedJobs: [],
+      categoryAssignments: {},
+      rowMappings: {},
+      stats: {
+        total: jobs.length,
+        successful: 0,
+        failed: 0,
+        newCategories: 0,
+        workflowsInitialized: 0
+      }
+    };
+
+    // Process each job for mapping but DON'T save to database
+    for (let i = 0; i < jobs.length; i++) {
+      try {
+        await this.prepareJobWithExcelData(jobs[i], result, headers, dataRows[i] || []);
+        result.stats.successful++;
+      } catch (error) {
+        this.logger.addDebugInfo(`Failed to prepare job ${jobs[i].wo_no}: ${error}`);
+        result.failedJobs.push({
+          job: jobs[i],
+          error: error instanceof Error ? error.message : String(error)
+        });
+        result.stats.failed++;
+      }
+    }
+
+    result.success = result.stats.failed === 0;
+    this.logger.addDebugInfo(`Enhanced job preparation completed: ${result.stats.successful}/${result.stats.total} successful`);
+
+    return result;
+  }
+
+  /**
+   * Finalize prepared jobs by saving them to the database
+   */
+  async finalizeJobs(preparedResult: EnhancedJobCreationResult): Promise<EnhancedJobCreationResult> {
+    this.logger.addDebugInfo(`Finalizing ${preparedResult.stats.total} prepared jobs`);
+
+    const finalResult: EnhancedJobCreationResult = {
+      ...preparedResult,
+      createdJobs: [],
+      stats: {
+        ...preparedResult.stats,
+        successful: 0,
+        failed: 0,
+        workflowsInitialized: 0
+      }
+    };
+
+    // Now actually save each job to database
+    for (const [woNo, assignment] of Object.entries(preparedResult.categoryAssignments)) {
+      try {
+        const job = preparedResult.failedJobs.length === 0 ? 
+          { wo_no: woNo } : // We'll need to reconstruct the full job data
+          null;
+        
+        if (job) {
+          // Create the job in database using the prepared data
+          await this.finalizeIndividualJob(woNo, assignment, preparedResult, finalResult);
+          finalResult.stats.successful++;
+          finalResult.stats.workflowsInitialized++;
+        }
+      } catch (error) {
+        this.logger.addDebugInfo(`Failed to finalize job ${woNo}: ${error}`);
+        finalResult.stats.failed++;
+      }
+    }
+
+    this.logger.addDebugInfo(`Job finalization completed: ${finalResult.stats.successful}/${finalResult.stats.total} jobs saved`);
+
+    return finalResult;
+  }
+
+  /**
    * Enhanced method that includes Excel data for better row mapping
    */
   async createEnhancedJobsWithExcelData(
@@ -100,6 +189,146 @@ export class EnhancedJobCreator {
   private async processJob(job: ParsedJob, result: EnhancedJobCreationResult): Promise<void> {
     // Call the new method with empty arrays for backwards compatibility
     return this.processJobWithExcelData(job, result, [], []);
+  }
+
+  private async prepareJobWithExcelData(
+    job: ParsedJob, 
+    result: EnhancedJobCreationResult, 
+    headers: string[], 
+    excelRow: any[]
+  ): Promise<void> {
+    this.logger.addDebugInfo(`Preparing job: ${job.wo_no} with Excel data`);
+    this.logger.addDebugInfo(`Job specifications - printing: ${JSON.stringify(job.printing_specifications)}`);
+    this.logger.addDebugInfo(`Job specifications - finishing: ${JSON.stringify(job.finishing_specifications)}`);
+    this.logger.addDebugInfo(`Job specifications - prepress: ${JSON.stringify(job.prepress_specifications)}`);
+    
+    // Use the preserved Excel row data from parsing if available, otherwise fallback to provided excelRow
+    const actualExcelRow = job._originalExcelRow || excelRow || [];
+    const actualRowIndex = job._originalRowIndex || 0;
+    
+    this.logger.addDebugInfo(`Using preserved Excel row data: ${actualExcelRow.length} columns`);
+    this.logger.addDebugInfo(`Original row index: ${actualRowIndex}`);
+    this.logger.addDebugInfo(`Headers length: ${headers?.length || 0}`);
+
+    // 1. Map specifications to production stages using enhanced mapper
+    const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
+      job.printing_specifications,
+      job.finishing_specifications,
+      job.prepress_specifications
+    );
+
+    this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
+
+    // 2. Create detailed row mappings for UI display 
+    let rowMappings: any[] = [];
+    
+    if (job.printing_specifications || job.finishing_specifications || job.prepress_specifications) {
+      // Use the actual Excel row data for mapping instead of synthetic data
+      this.logger.addDebugInfo(`Creating row mappings from group specifications for job ${job.wo_no}`);
+      
+      rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
+        job.printing_specifications,
+        job.finishing_specifications,
+        job.prepress_specifications,
+        [actualExcelRow], // Pass the actual Excel row as a single-row array
+        headers || []
+      );
+    } else {
+      // No group specifications found - create a simple row mapping from the job data itself
+      this.logger.addDebugInfo(`No group specifications found for job ${job.wo_no}, creating single row mapping from job data`);
+      
+      rowMappings = await this.createSimpleRowMappingFromJob(job, actualExcelRow, actualRowIndex, headers);
+    }
+
+    this.logger.addDebugInfo(`Created ${rowMappings.length} row mappings for job ${job.wo_no}`);
+    
+    // Store row mappings for UI display (ensure it's always an array)
+    result.rowMappings[job.wo_no] = rowMappings || [];
+
+    // 3. All imported jobs use custom workflows - no category assignment
+    result.categoryAssignments[job.wo_no] = {
+      categoryId: null,
+      categoryName: 'Custom Workflow',
+      confidence: 100,
+      mappedStages: mappedStages,
+      requiresCustomWorkflow: true,
+      originalJob: job // Store the original job for later use
+    };
+
+    this.logger.addDebugInfo(`Job ${job.wo_no} prepared with custom workflow mappings`);
+  }
+
+  private async finalizeIndividualJob(
+    woNo: string, 
+    assignment: any, 
+    preparedResult: EnhancedJobCreationResult, 
+    finalResult: EnhancedJobCreationResult
+  ): Promise<void> {
+    const originalJob = assignment.originalJob;
+    if (!originalJob) {
+      throw new Error(`No original job data found for ${woNo}`);
+    }
+
+    // 4. Create enhanced job data (no category)
+    const enhancedJobData = await this.buildEnhancedJobData(originalJob, null);
+
+    // 5. Insert job into database with conflict resolution
+    let insertedJob;
+    try {
+      // First, try to insert as new job
+      const { data: newJob, error: insertError } = await supabase
+        .from('production_jobs')
+        .insert(enhancedJobData)
+        .select()
+        .single();
+
+      if (insertError) {
+        // If conflict (job already exists), update instead
+        if (insertError.code === '23505') { // Unique constraint violation
+          this.logger.addDebugInfo(`Job ${woNo} already exists, updating...`);
+          
+          const { data: updatedJob, error: updateError } = await supabase
+            .from('production_jobs')
+            .update({
+              ...enhancedJobData,
+              updated_at: new Date().toISOString()
+            })
+            .eq('wo_no', woNo)
+            .eq('user_id', this.userId)
+            .select()
+            .single();
+
+          if (updateError) {
+            throw new Error(`Failed to update existing job: ${updateError.message}`);
+          }
+          
+          insertedJob = updatedJob;
+        } else {
+          throw new Error(`Database insertion failed: ${insertError.message}`);
+        }
+      } else {
+        insertedJob = newJob;
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown database error';
+      throw new Error(`Job creation failed for ${woNo}: ${errorMsg}`);
+    }
+
+    // 6. Auto-create custom workflow from mapped stages
+    await this.initializeCustomWorkflow(insertedJob, originalJob, finalResult);
+    this.logger.addDebugInfo(`Job ${woNo} finalized with custom workflow`);
+
+    // 7. Update QR codes with actual job ID
+    if (this.generateQRCodes && insertedJob && insertedJob.qr_code_data) {
+      try {
+        await this.updateJobQRCode(insertedJob);
+      } catch (qrError) {
+        this.logger.addDebugInfo(`Warning: QR code update failed for ${woNo}: ${qrError}`);
+        // Don't fail the entire job creation for QR code issues
+      }
+    }
+
+    finalResult.createdJobs.push(insertedJob);
   }
 
   private async processJobWithExcelData(

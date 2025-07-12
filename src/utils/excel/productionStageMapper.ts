@@ -10,6 +10,7 @@ export interface CategoryAssignmentResult {
   mappedStages: StageMapping[];
   requiresCustomWorkflow: boolean;
   rowMappings?: RowMappingResult[];
+  originalJob?: any; // Store original job data for preparation phase
 }
 
 export class ProductionStageMapper {
