@@ -3,10 +3,11 @@ import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Loader2 } from "lucide-react";
+import { Search, Filter, MapPin, Database, Eye, Target, Package, Truck, Loader2, CheckSquare, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -52,6 +53,8 @@ interface MappingState {
   selectedType: 'all' | 'production_stage' | 'paper_specification' | 'delivery_specification';
   currentPage: number;
   patternsPerPage: number;
+  selectedPatterns: Set<string>;
+  isMultiSelectMode: boolean;
 }
 
 interface MappingOptions {
@@ -72,6 +75,8 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     selectedType: 'all',
     currentPage: 1,
     patternsPerPage: 50,
+    selectedPatterns: new Set(),
+    isMultiSelectMode: false,
   });
 
   const [mappingOptions, setMappingOptions] = useState<MappingOptions>({
@@ -422,6 +427,49 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     }
   };
 
+  // Multi-select helper functions
+  const togglePatternSelection = (patternText: string) => {
+    setMappingState(prev => {
+      const newSelection = new Set(prev.selectedPatterns);
+      if (newSelection.has(patternText)) {
+        newSelection.delete(patternText);
+      } else {
+        newSelection.add(patternText);
+      }
+      return { ...prev, selectedPatterns: newSelection };
+    });
+  };
+
+  const selectAllVisiblePatterns = () => {
+    setMappingState(prev => {
+      const newSelection = new Set(prev.selectedPatterns);
+      paginatedPatterns.forEach(pattern => newSelection.add(pattern.text));
+      return { ...prev, selectedPatterns: newSelection };
+    });
+  };
+
+  const clearSelection = () => {
+    setMappingState(prev => ({ 
+      ...prev, 
+      selectedPatterns: new Set() 
+    }));
+  };
+
+  const toggleMultiSelectMode = () => {
+    setMappingState(prev => ({ 
+      ...prev, 
+      isMultiSelectMode: !prev.isMultiSelectMode,
+      selectedPatterns: new Set() // Clear selection when toggling
+    }));
+  };
+
+  // Get selected patterns for bulk operations
+  const getSelectedPatterns = (): TextPattern[] => {
+    return mappingState.patterns.filter(pattern => 
+      mappingState.selectedPatterns.has(pattern.text)
+    );
+  };
+
   // Bulk mapping function
   const createBulkMappings = async (patterns: TextPattern[], mappingConfig: any) => {
     if (isCreatingMapping) return;
@@ -429,14 +477,20 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
     let successCount = 0;
     let errorCount = 0;
+    const errors: string[] = [];
 
     try {
       for (const pattern of patterns) {
+        setActiveMappingPattern(pattern.text);
+        
         try {
           let result;
           
           switch (pattern.type) {
             case 'production_stage':
+              if (!mappingConfig.productionStage) {
+                throw new Error("Production stage not selected");
+              }
               result = await supabase.rpc('upsert_excel_mapping', {
                 p_excel_text: pattern.text,
                 p_production_stage_id: mappingConfig.productionStage,
@@ -444,34 +498,79 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
                 p_confidence_score: 100
               });
               break;
-            // Add other cases as needed
+              
+            case 'paper_specification':
+              if (!mappingConfig.paperType || !mappingConfig.paperWeight) {
+                throw new Error("Paper type and weight not selected");
+              }
+              result = await supabase.rpc('upsert_paper_specification_mapping', {
+                p_excel_text: pattern.text,
+                p_paper_type_id: mappingConfig.paperType,
+                p_paper_weight_id: mappingConfig.paperWeight,
+                p_confidence_score: 100
+              });
+              break;
+              
+            case 'delivery_specification':
+              if (!mappingConfig.isCollection && !mappingConfig.deliveryMethod) {
+                throw new Error("Delivery method not selected");
+              }
+              result = await supabase.rpc('upsert_delivery_specification_mapping', {
+                p_excel_text: pattern.text,
+                p_delivery_method_id: mappingConfig.isCollection ? null : mappingConfig.deliveryMethod,
+                p_address_pattern: mappingConfig.addressPattern || null,
+                p_is_collection: mappingConfig.isCollection || false,
+                p_confidence_score: 100
+              });
+              break;
+              
+            default:
+              throw new Error(`Unsupported pattern type: ${pattern.type}`);
           }
 
           if (result?.error) throw result.error;
+          if (!result?.data?.[0]?.mapping_id) throw new Error("Invalid response");
+          
           successCount++;
           
-          // Remove from patterns immediately
+          // Remove from patterns and selection immediately
           setMappingState(prev => ({
             ...prev,
             patterns: prev.patterns.filter(p => p.text !== pattern.text),
             mappedPatterns: new Set([...prev.mappedPatterns, pattern.text]),
+            selectedPatterns: new Set([...prev.selectedPatterns].filter(p => p !== pattern.text)),
           }));
 
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Error mapping "${pattern.text}":`, error);
           errorCount++;
+          errors.push(`${pattern.text}: ${error.message}`);
         }
       }
 
-      toast({
-        title: "Bulk Mapping Complete",
-        description: `Created ${successCount} mappings${errorCount > 0 ? ` (${errorCount} errors)` : ''}`,
-      });
+      // Show summary
+      if (successCount > 0) {
+        toast({
+          title: "Bulk Mapping Complete",
+          description: `Successfully mapped ${successCount} pattern${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+        });
+      }
 
-      if (onMappingCreated) onMappingCreated();
+      if (errorCount > 0 && successCount === 0) {
+        toast({
+          title: "Bulk Mapping Failed", 
+          description: `All ${errorCount} patterns failed to map`,
+          variant: "destructive",
+        });
+      }
+
+      if (onMappingCreated && successCount > 0) {
+        onMappingCreated();
+      }
 
     } finally {
       setIsCreatingMapping(false);
+      setActiveMappingPattern("");
     }
   };
 
@@ -768,11 +867,94 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
             </TabsContent>
           </Tabs>
 
+          {/* Multi-select Controls */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant={mappingState.isMultiSelectMode ? "default" : "outline"}
+                size="sm"
+                onClick={toggleMultiSelectMode}
+                className="flex items-center gap-2"
+              >
+                {mappingState.isMultiSelectMode ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                Multi-Select Mode
+              </Button>
+              
+              {mappingState.isMultiSelectMode && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllVisiblePatterns}
+                    disabled={paginatedPatterns.length === 0}
+                  >
+                    Select All Visible
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearSelection}
+                    disabled={mappingState.selectedPatterns.size === 0}
+                  >
+                    Clear Selection
+                  </Button>
+                </>
+              )}
+            </div>
+            
+            {mappingState.isMultiSelectMode && mappingState.selectedPatterns.size > 0 && (
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  {mappingState.selectedPatterns.size} selected
+                </span>
+                
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const selectedPatterns = getSelectedPatterns();
+                    if (selectedPatterns.length > 0) {
+                      createBulkMappings(selectedPatterns, selectedMappings);
+                    }
+                  }}
+                  disabled={isCreatingMapping || mappingState.selectedPatterns.size === 0}
+                  className="flex items-center gap-2"
+                >
+                  {isCreatingMapping ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MapPin className="h-4 w-4" />
+                  )}
+                  Map Selected
+                </Button>
+              </div>
+            )}
+          </div>
+
           {/* Pattern Table */}
           <div className="border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
+                  {mappingState.isMultiSelectMode && (
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={paginatedPatterns.length > 0 && paginatedPatterns.every(p => mappingState.selectedPatterns.has(p.text))}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            selectAllVisiblePatterns();
+                          } else {
+                            setMappingState(prev => ({
+                              ...prev,
+                              selectedPatterns: new Set([...prev.selectedPatterns].filter(p => 
+                                !paginatedPatterns.some(pattern => pattern.text === p)
+                              ))
+                            }));
+                          }
+                        }}
+                      />
+                    </TableHead>
+                  )}
                   <TableHead>Pattern Text</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Frequency</TableHead>
@@ -782,13 +964,24 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
               <TableBody>
                 {paginatedPatterns.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={mappingState.isMultiSelectMode ? 5 : 4} className="text-center py-8 text-muted-foreground">
                       {filteredPatterns.length === 0 ? "No patterns found" : "No patterns match your filter"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedPatterns.map((pattern) => (
-                    <TableRow key={pattern.text}>
+                    <TableRow 
+                      key={pattern.text}
+                      className={`${mappingState.selectedPatterns.has(pattern.text) ? "bg-primary/5" : ""} ${activeMappingPattern === pattern.text ? "bg-yellow-100 dark:bg-yellow-900/20" : ""}`}
+                    >
+                      {mappingState.isMultiSelectMode && (
+                        <TableCell>
+                          <Checkbox
+                            checked={mappingState.selectedPatterns.has(pattern.text)}
+                            onCheckedChange={() => togglePatternSelection(pattern.text)}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="font-mono text-sm max-w-md">
                         <div className="truncate" title={pattern.text}>
                           {pattern.text}
