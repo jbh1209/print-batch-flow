@@ -248,18 +248,21 @@ const extractGroupSpecifications = (
     };
     
     if (category) {
-      specs[category][group] = specData;
+      // Use description as key if available and not empty, otherwise use group
+      const specKey = description && description.trim() ? description.trim() : group;
+      specs[category][specKey] = specData;
       
       // Also add to operations
       if (qty > 0) {
-        specs.operations[group] = {
+        specs.operations[specKey] = {
           operation_qty: qty,
           total_wo_qty: woQty
         };
       }
     }
     
-    logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
+    const specKey = description && description.trim() ? description.trim() : group;
+    logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
   });
   
   return {
