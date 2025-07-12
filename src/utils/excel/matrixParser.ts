@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { MatrixExcelData, GroupSpecifications, OperationQuantities, ParsedJob } from './types';
+import type { MatrixExcelData, GroupSpecifications, OperationQuantities, ParsedJob, CoverTextDetection, CoverTextComponent } from './types';
 import type { ExcelImportDebugger } from './debugger';
 import { formatExcelDate } from './dateFormatter';
 import { formatWONumber } from './woNumberFormatter';
@@ -124,7 +124,8 @@ export const parseMatrixDataToJobs = (
       finishing_specifications: groupSpecs.finishing,
       prepress_specifications: groupSpecs.prepress,
       printing_specifications: groupSpecs.printing,
-      operation_quantities: groupSpecs.operations
+      operation_quantities: groupSpecs.operations,
+      cover_text_detection: groupSpecs.coverTextDetection
     };
     
     jobs.push(job);
@@ -205,6 +206,7 @@ const extractGroupSpecifications = (
   prepress: GroupSpecifications | null;
   printing: GroupSpecifications | null;
   operations: OperationQuantities | null;
+  coverTextDetection?: CoverTextDetection | null;
 } => {
   
   const specs = {
@@ -224,11 +226,30 @@ const extractGroupSpecifications = (
       finishing: null,
       prepress: null,
       printing: null,
-      operations: null
+      operations: null,
+      coverTextDetection: null
     };
   }
   
-  rows.forEach(row => {
+  // Collect printing rows for cover/text detection
+  const printingRows: Array<{
+    description: string;
+    qty: number;
+    wo_qty: number;
+    rawRow: any[];
+    rowIndex: number;
+  }> = [];
+  
+  // Collect paper rows for cover/text detection  
+  const paperRows: Array<{
+    description: string;
+    qty: number;
+    wo_qty: number;
+    rawRow: any[];
+    rowIndex: number;
+  }> = [];
+  
+  rows.forEach((row, index) => {
     const groupValue = row[matrixData.groupColumn!];
     if (!groupValue) return;
     
@@ -239,6 +260,27 @@ const extractGroupSpecifications = (
     
     // Categorize group
     const category = categorizeGroup(group);
+    
+    // Collect printing and paper data for cover/text detection
+    if (category === 'printing') {
+      printingRows.push({
+        description: String(description || '').trim(),
+        qty,
+        wo_qty: woQty,
+        rawRow: row,
+        rowIndex: index
+      });
+    }
+    
+    if (category === 'paper') {
+      paperRows.push({
+        description: String(description || '').trim(),
+        qty,
+        wo_qty: woQty,
+        rawRow: row,
+        rowIndex: index
+      });
+    }
     
     const specData = {
       description: String(description || '').trim(),
@@ -267,13 +309,17 @@ const extractGroupSpecifications = (
     logger.addDebugInfo(`Extracted spec - Group: ${group}, Category: ${category}, Key: ${specKey}, Desc: ${description}, Qty: ${qty}, WO_Qty: ${woQty}`);
   });
   
+  // Detect cover/text scenario if multiple printing rows exist
+  const coverTextDetection = detectCoverTextScenario(printingRows, paperRows, logger);
+  
   return {
     paper: Object.keys(specs.paper).length > 0 ? specs.paper : null,
     delivery: Object.keys(specs.delivery).length > 0 ? specs.delivery : null,
     finishing: Object.keys(specs.finishing).length > 0 ? specs.finishing : null,
     prepress: Object.keys(specs.prepress).length > 0 ? specs.prepress : null,
     printing: Object.keys(specs.printing).length > 0 ? specs.printing : null,
-    operations: Object.keys(specs.operations).length > 0 ? specs.operations : null
+    operations: Object.keys(specs.operations).length > 0 ? specs.operations : null,
+    coverTextDetection
   };
 };
 
@@ -288,4 +334,93 @@ const categorizeGroup = (group: string): string | null => {
   }
   
   return null;
+};
+
+const detectCoverTextScenario = (
+  printingRows: Array<{
+    description: string;
+    qty: number;
+    wo_qty: number;
+    rawRow: any[];
+    rowIndex: number;
+  }>,
+  paperRows: Array<{
+    description: string;
+    qty: number;
+    wo_qty: number;
+    rawRow: any[];
+    rowIndex: number;
+  }>,
+  logger: ExcelImportDebugger
+): CoverTextDetection | null => {
+  
+  // Need at least 2 printing rows to be a book job
+  if (printingRows.length < 2) {
+    logger.addDebugInfo("Single printing row detected - not a book job");
+    return null;
+  }
+  
+  logger.addDebugInfo(`Multiple printing rows detected (${printingRows.length}) - analyzing for cover/text scenario`);
+  
+  // Sort printing rows by quantity (ascending) - cover will have lower quantity
+  const sortedPrintingRows = [...printingRows].sort((a, b) => a.wo_qty - b.wo_qty);
+  
+  // Identify cover (smallest quantity) and text (larger quantity)
+  const coverPrinting = sortedPrintingRows[0];
+  const textPrinting = sortedPrintingRows[sortedPrintingRows.length - 1];
+  
+  if (coverPrinting.wo_qty >= textPrinting.wo_qty) {
+    logger.addDebugInfo("Quantities are not different enough to determine cover/text split");
+    return null;
+  }
+  
+  logger.addDebugInfo(`Cover detected: ${coverPrinting.description} (qty: ${coverPrinting.wo_qty})`);
+  logger.addDebugInfo(`Text detected: ${textPrinting.description} (qty: ${textPrinting.wo_qty})`);
+  
+  // Match paper to printing by quantity logic
+  const sortedPaperRows = [...paperRows].sort((a, b) => a.wo_qty - b.wo_qty);
+  
+  const components: CoverTextComponent[] = [
+    {
+      type: 'cover',
+      printing: {
+        description: coverPrinting.description,
+        qty: coverPrinting.qty,
+        wo_qty: coverPrinting.wo_qty,
+        row: coverPrinting.rawRow
+      },
+      paper: sortedPaperRows.length > 0 ? {
+        description: sortedPaperRows[0].description,
+        qty: sortedPaperRows[0].qty,
+        wo_qty: sortedPaperRows[0].wo_qty,
+        row: sortedPaperRows[0].rawRow
+      } : undefined
+    },
+    {
+      type: 'text',
+      printing: {
+        description: textPrinting.description,
+        qty: textPrinting.qty,
+        wo_qty: textPrinting.wo_qty,
+        row: textPrinting.rawRow
+      },
+      paper: sortedPaperRows.length > 1 ? {
+        description: sortedPaperRows[sortedPaperRows.length - 1].description,
+        qty: sortedPaperRows[sortedPaperRows.length - 1].qty,
+        wo_qty: sortedPaperRows[sortedPaperRows.length - 1].wo_qty,
+        row: sortedPaperRows[sortedPaperRows.length - 1].rawRow
+      } : undefined
+    }
+  ];
+  
+  // Generate dependency group ID for synchronization points
+  const dependencyGroupId = `book-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  logger.addDebugInfo(`Book job detected with dependency group: ${dependencyGroupId}`);
+  
+  return {
+    isBookJob: true,
+    components,
+    dependencyGroupId
+  };
 };

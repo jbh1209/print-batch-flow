@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Calendar, Package, User, MapPin, Star, Edit, QrCode } from "lucide-react";
+import { Calendar, Package, User, MapPin, Star, Edit, QrCode, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { QRCodeManager } from "./QRCodeManager";
@@ -20,6 +20,13 @@ interface ProductionJob extends AccessibleJob {
   qr_code_url?: string;
   so_no?: string;
   location?: string;
+  cover_text_detection?: {
+    isBookJob: boolean;
+    components: Array<{
+      type: 'cover' | 'text';
+      printing: { wo_qty: number };
+    }>;
+  } | null;
 }
 
 interface ProductionJobCardProps {
@@ -148,6 +155,12 @@ export const ProductionJobCard = ({ job }: ProductionJobCardProps) => {
               {job.category_name && (
                 <Badge variant="secondary" className="text-xs">
                   {job.category_name}
+                </Badge>
+              )}
+              {job.cover_text_detection?.isBookJob && (
+                <Badge variant="outline" className="text-xs flex items-center gap-1">
+                  <BookOpen className="h-3 w-3" />
+                  Book
                 </Badge>
               )}
               <BatchStageIndicator job={job} compact showLabel={false} />

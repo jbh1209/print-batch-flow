@@ -3,6 +3,7 @@ import type { ExcelImportDebugger } from './debugger';
 import { ProductionStageMapper, type CategoryAssignmentResult } from './productionStageMapper';
 import { supabase } from '@/integrations/supabase/client';
 import { generateQRCodeData, generateQRCodeImage } from '@/utils/qrCodeGenerator';
+import { CoverTextWorkflowService } from '@/services/coverTextWorkflowService';
 
 export interface EnhancedJobCreationResult {
   success: boolean;
@@ -20,6 +21,7 @@ export interface EnhancedJobCreationResult {
 
 export class EnhancedJobCreator {
   private stageMapper: ProductionStageMapper;
+  private coverTextService: CoverTextWorkflowService;
 
   constructor(
     private logger: ExcelImportDebugger,
@@ -27,6 +29,7 @@ export class EnhancedJobCreator {
     private generateQRCodes: boolean = true
   ) {
     this.stageMapper = new ProductionStageMapper(logger);
+    this.coverTextService = new CoverTextWorkflowService(logger);
   }
 
   async initialize(): Promise<void> {
@@ -117,7 +120,7 @@ export class EnhancedJobCreator {
 
     // 6. Initialize workflow if category was assigned
     if (finalCategoryId) {
-      await this.initializeJobWorkflow(insertedJob.id, finalCategoryId);
+      await this.initializeJobWorkflow(insertedJob, finalCategoryId, job);
       result.stats.workflowsInitialized++;
     }
 
@@ -271,12 +274,30 @@ export class EnhancedJobCreator {
     return stages;
   }
 
-  private async initializeJobWorkflow(jobId: string, categoryId: string): Promise<void> {
-    this.logger.addDebugInfo(`Initializing workflow for job ${jobId} with category ${categoryId}`);
+  private async initializeJobWorkflow(insertedJob: any, categoryId: string, originalJob: ParsedJob): Promise<void> {
+    this.logger.addDebugInfo(`Initializing workflow for job ${insertedJob.id} with category ${categoryId}`);
 
-    // Use existing Supabase function to initialize workflow
+    // Check if this is a cover/text book job
+    if (originalJob.cover_text_detection?.isBookJob) {
+      this.logger.addDebugInfo(`Detected book job - creating cover/text workflow`);
+      
+      const workflowResult = await this.coverTextService.createCoverTextWorkflow(
+        insertedJob.id,
+        originalJob,
+        categoryId
+      );
+
+      if (!workflowResult.success) {
+        throw new Error(`Failed to create cover/text workflow: ${workflowResult.error}`);
+      }
+
+      this.logger.addDebugInfo(`Cover/text workflow created successfully with dependency group: ${workflowResult.dependencyGroupId}`);
+      return;
+    }
+
+    // Standard single-component workflow
     const { error } = await supabase.rpc('initialize_job_stages_auto', {
-      p_job_id: jobId,
+      p_job_id: insertedJob.id,
       p_job_table_name: 'production_jobs',
       p_category_id: categoryId
     });
@@ -286,7 +307,7 @@ export class EnhancedJobCreator {
     }
 
     // Update stage instances with appropriate quantities based on operation_quantities
-    await this.updateStageQuantities(jobId);
+    await this.updateStageQuantities(insertedJob.id);
   }
 
   private async updateStageQuantities(jobId: string): Promise<void> {

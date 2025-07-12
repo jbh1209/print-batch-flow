@@ -30,6 +30,8 @@ export interface ParsedJob {
   prepress_specifications?: GroupSpecifications | null;
   printing_specifications?: GroupSpecifications | null;
   operation_quantities?: OperationQuantities | null;
+  // Cover/text workflow detection
+  cover_text_detection?: CoverTextDetection | null;
 }
 
 export interface GroupSpecifications {
@@ -89,4 +91,26 @@ export interface DeliverySpecification {
   contact?: string;
   notes?: string;
   confidence: number;
+}
+
+export interface CoverTextComponent {
+  type: 'cover' | 'text';
+  printing: {
+    description: string;
+    qty: number;
+    wo_qty: number;
+    row: any[];
+  };
+  paper?: {
+    description: string;
+    qty: number;
+    wo_qty: number;
+    row: any[];
+  };
+}
+
+export interface CoverTextDetection {
+  isBookJob: boolean;
+  components: CoverTextComponent[];
+  dependencyGroupId?: string;
 }
