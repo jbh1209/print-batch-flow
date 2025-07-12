@@ -744,8 +744,9 @@ export class EnhancedJobCreator {
 
         this.logger.addDebugInfo(`Processing stage: ${productionStage.name} with ${stageMappings.length} instance(s)`);
 
-        // For printing stages with multiple instances, detect if they should be separate instances
-        if (stageMappings.length > 1 && productionStage.supports_parts) {
+        // For printing stages with multiple instances, always create separate instances
+        // For other stages, use supports_parts flag
+        if (stageMappings.length > 1 && (productionStage.supports_parts || productionStage.name === 'HP 12000')) {
           // Multiple instances - create separate stage instances
           stageMappings.forEach((stageMapping, instanceIndex) => {
             const { mapping, paperType } = stageMapping;
