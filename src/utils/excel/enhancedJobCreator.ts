@@ -96,26 +96,17 @@ export class EnhancedJobCreator {
       [] // Headers would be passed here in a real implementation
     );
 
-    // 3. Assign category with detailed information
-    const categoryAssignment = this.stageMapper.assignCategoryWithDetails(mappedStages, rowMappings);
-    result.categoryAssignments[job.wo_no] = categoryAssignment;
+    // 3. All imported jobs use custom workflows - no category assignment
+    result.categoryAssignments[job.wo_no] = {
+      categoryId: null,
+      categoryName: 'Custom Workflow',
+      confidence: 100,
+      mappedStages: mappedStages,
+      requiresCustomWorkflow: true
+    };
 
-    // 3. Handle category assignment
-    let finalCategoryId = categoryAssignment.categoryId;
-
-    if (!finalCategoryId && categoryAssignment.requiresCustomWorkflow && mappedStages.length > 0) {
-      // Create dynamic category for custom workflow
-      finalCategoryId = await this.stageMapper.createDynamicCategory(
-        mappedStages,
-        job.reference || job.wo_no
-      );
-      result.stats.newCategories++;
-      categoryAssignment.categoryId = finalCategoryId;
-      categoryAssignment.categoryName = `Auto-Generated: ${job.reference || job.wo_no}`;
-    }
-
-    // 4. Create enhanced job data
-    const enhancedJobData = await this.buildEnhancedJobData(job, finalCategoryId);
+    // 4. Create enhanced job data (no category)
+    const enhancedJobData = await this.buildEnhancedJobData(job, null);
 
     // 5. Insert job into database with conflict resolution
     let insertedJob;
