@@ -447,7 +447,7 @@ export class EnhancedJobCreator {
 
       if (workflowError) {
         this.logger.addDebugInfo(`Workflow initialization failed for ${originalJob.wo_no}: ${workflowError.message}`);
-        return;
+        throw new Error(`Workflow initialization failed: ${workflowError.message}`);
       }
 
       // Update stage instances with sub-specifications and quantities
@@ -457,6 +457,19 @@ export class EnhancedJobCreator {
       await this.calculateAndSetDueDate(insertedJob.id, originalJob);
 
       this.logger.addDebugInfo(`Custom workflow initialized for ${originalJob.wo_no} with ${stageIds.length} stages (including multi-instance stages)`);
+      
+      // Verify stages were actually created by querying the database
+      const { data: createdStages, error: verifyError } = await supabase
+        .from('job_stage_instances')
+        .select('id, production_stage_id, status')
+        .eq('job_id', insertedJob.id)
+        .eq('job_table_name', 'production_jobs');
+
+      if (verifyError) {
+        this.logger.addDebugInfo(`Error verifying created stages: ${verifyError.message}`);
+      } else {
+        this.logger.addDebugInfo(`Verification: ${createdStages?.length || 0} stages actually created in database`);
+      }
       
     } catch (error) {
       this.logger.addDebugInfo(`Custom workflow initialization error for ${originalJob.wo_no}: ${error}`);
@@ -769,45 +782,6 @@ export class EnhancedJobCreator {
     }
   }
 
-  /**
-   * Create a simple row mapping from a job without group specifications
-   */
-  private async createSimpleRowMappingFromJob(
-    job: ParsedJob,
-    excelRow: any[],
-    rowIndex: number,
-    headers: string[]
-  ): Promise<RowMappingResult[]> {
-    this.logger.addDebugInfo(`Creating simple row mapping for job ${job.wo_no} without group specifications`);
-    
-    // Try to determine a basic stage mapping for standard Excel imports
-    // For now, we'll map to a default "Printing" stage since most jobs need printing
-    const defaultStageMapping = await this.getDefaultStageMapping(job);
-    
-    // Create a single row mapping representing the entire job
-    const rowMapping: RowMappingResult = {
-      excelRowIndex: rowIndex,
-      excelData: excelRow,
-      groupName: job.wo_no, // Use work order number as group name
-      description: `${job.customer || ''} - ${job.reference || ''}`.trim().replace(/^-\s*|-\s*$/, '') || 'Production Job',
-      qty: job.qty || 0,
-      woQty: job.qty || 0,
-      mappedStageId: defaultStageMapping?.stageId || null,
-      mappedStageName: defaultStageMapping?.stageName || null,
-      mappedStageSpecId: null,
-      mappedStageSpecName: null,
-      category: 'printing', // Default to printing for standard Excel imports
-      confidence: defaultStageMapping ? 70 : 50, // Higher confidence if we found a default stage
-      isUnmapped: !defaultStageMapping, // Only unmapped if we couldn't find a default stage
-      manualOverride: false,
-      paperSpecification: job.paper_type || job.paper_weight || null,
-      instanceId: `single-${job.wo_no}`
-    };
-
-    this.logger.addDebugInfo(`Created simple row mapping for ${job.wo_no}: ${rowMapping.description} (mapped to: ${rowMapping.mappedStageName})`);
-    
-    return [rowMapping];
-  }
 
   /**
    * Get a default stage mapping for standard Excel imports
@@ -852,5 +826,77 @@ export class EnhancedJobCreator {
       this.logger.addDebugInfo(`Error getting default stage mapping: ${error}`);
       return null;
     }
+  }
+
+  private async createSimpleRowMappingFromJob(job: ParsedJob, excelRow: any[], rowIndex: number, headers: string[]): Promise<RowMappingResult[]> {
+    // Create a single row mapping representing this job when no group specifications exist
+    this.logger.addDebugInfo(`Creating simple row mapping for job ${job.wo_no} from Excel row data`);
+    this.logger.addDebugInfo(`Excel row: ${JSON.stringify(excelRow)}`);
+    this.logger.addDebugInfo(`Headers: ${JSON.stringify(headers)}`);
+    
+    // Get default stages for common workflow
+    const availableStages = await this.getDefaultStages();
+    this.logger.addDebugInfo(`Found ${availableStages.length} default stages`);
+    
+    const mappings: RowMappingResult[] = [];
+    
+    // Create a mapping for each default stage
+    availableStages.forEach((stage, index) => {
+      const mapping: RowMappingResult = {
+        excelRowIndex: rowIndex,
+        excelData: excelRow || [],
+        groupName: `Stage ${index + 1}`,
+        description: `${stage.name} - ${job.customer || 'Unknown Customer'}`,
+        qty: job.qty || 0,
+        woQty: job.qty || 0,
+        mappedStageId: stage.id,
+        mappedStageName: stage.name,
+        mappedStageSpecId: null,
+        mappedStageSpecName: null,
+        confidence: 80,
+        category: this.getCategoryFromStage(stage.name),
+        isUnmapped: false,
+        instanceId: `job-${job.wo_no}-stage-${index}`
+      };
+      mappings.push(mapping);
+    });
+
+    this.logger.addDebugInfo(`Created ${mappings.length} simple row mappings for job ${job.wo_no}`);
+    return mappings;
+  }
+
+  private async getDefaultStages(): Promise<any[]> {
+    // Get a basic set of production stages for custom workflows
+    const { data: stages, error } = await supabase
+      .from('production_stages')
+      .select('id, name, order_index')
+      .eq('is_active', true)
+      .order('order_index')
+      .limit(4); // Get first 4 stages as default
+
+    if (error) {
+      this.logger.addDebugInfo(`Error fetching default stages: ${error.message}`);
+      return [];
+    }
+
+    this.logger.addDebugInfo(`Retrieved ${stages?.length || 0} default stages`);
+    return stages || [];
+  }
+
+  private getCategoryFromStage(stageName: string): 'printing' | 'finishing' | 'prepress' | 'delivery' | 'unknown' {
+    const name = stageName.toLowerCase();
+    if (name.includes('print') || name.includes('digital') || name.includes('litho')) {
+      return 'printing';
+    }
+    if (name.includes('finish') || name.includes('cut') || name.includes('fold') || name.includes('bind')) {
+      return 'finishing';
+    }
+    if (name.includes('prepress') || name.includes('artwork') || name.includes('proof')) {
+      return 'prepress';
+    }
+    if (name.includes('delivery') || name.includes('dispatch')) {
+      return 'delivery';
+    }
+    return 'unknown';
   }
 }
