@@ -117,15 +117,15 @@ export class EnhancedJobCreator {
     // Now actually save each job to database
     for (const [woNo, assignment] of Object.entries(preparedResult.categoryAssignments)) {
       try {
-        const job = preparedResult.failedJobs.length === 0 ? 
-          { wo_no: woNo } : // We'll need to reconstruct the full job data
-          null;
-        
-        if (job) {
+        // Use the original job stored in the assignment
+        if (assignment.originalJob) {
           // Create the job in database using the prepared data
           await this.finalizeIndividualJob(woNo, assignment, preparedResult, finalResult);
           finalResult.stats.successful++;
           finalResult.stats.workflowsInitialized++;
+        } else {
+          this.logger.addDebugInfo(`No original job data found for ${woNo}, skipping`);
+          finalResult.stats.failed++;
         }
       } catch (error) {
         this.logger.addDebugInfo(`Failed to finalize job ${woNo}: ${error}`);
