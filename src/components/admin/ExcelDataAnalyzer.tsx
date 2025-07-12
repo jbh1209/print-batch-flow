@@ -290,6 +290,12 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           if (!selectedMappings.productionStage) {
             throw new Error("Please select a production stage");
           }
+          
+          // Validate UUID format
+          if (!selectedMappings.productionStage.match(/^[0-9a-f-]{36}$/i)) {
+            throw new Error("Invalid production stage selection");
+          }
+          
           result = await supabase.rpc('upsert_excel_mapping', {
             p_excel_text: pattern.text,
             p_production_stage_id: selectedMappings.productionStage,
@@ -302,6 +308,12 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           if (!selectedMappings.paperType || !selectedMappings.paperWeight) {
             throw new Error("Please select both paper type and weight");
           }
+          
+          // Validate UUID formats
+          if (!selectedMappings.paperType.match(/^[0-9a-f-]{36}$/i) || !selectedMappings.paperWeight.match(/^[0-9a-f-]{36}$/i)) {
+            throw new Error("Invalid paper specification selection");
+          }
+          
           result = await supabase.rpc('upsert_paper_specification_mapping', {
             p_excel_text: pattern.text,
             p_paper_type_id: selectedMappings.paperType,
@@ -314,6 +326,12 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           if (!selectedMappings.isCollection && !selectedMappings.deliveryMethod) {
             throw new Error("Please select a delivery method or mark as collection");
           }
+          
+          // Validate UUID format if delivery method is selected
+          if (selectedMappings.deliveryMethod && !selectedMappings.deliveryMethod.match(/^[0-9a-f-]{36}$/i)) {
+            throw new Error("Invalid delivery method selection");
+          }
+          
           result = await supabase.rpc('upsert_delivery_specification_mapping', {
             p_excel_text: pattern.text,
             p_delivery_method_id: selectedMappings.isCollection ? null : selectedMappings.deliveryMethod,
@@ -327,9 +345,20 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
           throw new Error("Invalid mapping type");
       }
 
-      if (result.error) throw result.error;
+      if (result.error) {
+        console.error('Supabase RPC Error:', result.error);
+        throw new Error(result.error.message || "Database operation failed");
+      }
 
-      // Remove pattern from list immediately
+      // Check if we got data back from the RPC function
+      if (!result.data || result.data.length === 0) {
+        throw new Error("No response from mapping function");
+      }
+
+      const mappingResult = result.data[0];
+      console.log('Mapping result:', mappingResult);
+
+      // Only update UI state if database operation was successful
       setMappingState(prev => ({
         ...prev,
         patterns: prev.patterns.filter(p => p.text !== pattern.text),
@@ -338,7 +367,7 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
 
       toast({
         title: "Mapping Created",
-        description: `Successfully mapped "${pattern.text}"`,
+        description: `Successfully ${mappingResult.action_taken} mapping for "${pattern.text}"`,
       });
 
       if (onMappingCreated) onMappingCreated();
@@ -346,8 +375,8 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
     } catch (error: any) {
       console.error('Error creating mapping:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to create mapping",
+        title: "Mapping Failed",
+        description: error.message || "Failed to create mapping. Please try again.",
         variant: "destructive",
       });
     } finally {
