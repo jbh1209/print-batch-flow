@@ -12,6 +12,8 @@ export interface EnhancedJobCreationResult {
   failedJobs: { job: ParsedJob; error: string }[];
   categoryAssignments: { [woNo: string]: CategoryAssignmentResult };
   rowMappings: { [woNo: string]: RowMappingResult[] };
+  userId?: string;
+  generateQRCodes?: boolean;
   stats: {
     total: number;
     successful: number;
@@ -67,6 +69,8 @@ export class EnhancedJobCreator {
       failedJobs: [],
       categoryAssignments: {},
       rowMappings: {},
+      userId: this.userId,
+      generateQRCodes: this.generateQRCodes,
       stats: {
         total: jobs.length,
         successful: 0,
