@@ -11,6 +11,7 @@ export interface EnhancedJobCreationResult {
   createdJobs: any[];
   failedJobs: { job: ParsedJob; error: string }[];
   categoryAssignments: { [woNo: string]: CategoryAssignmentResult };
+  rowMappings: { [woNo: string]: any[] };
   stats: {
     total: number;
     successful: number;
@@ -44,13 +45,28 @@ export class EnhancedJobCreator {
    * Create fully qualified production jobs with workflow initialization
    */
   async createEnhancedJobs(jobs: ParsedJob[]): Promise<EnhancedJobCreationResult> {
-    this.logger.addDebugInfo(`Starting enhanced job creation for ${jobs.length} jobs`);
+    // Call the new method with empty arrays for backwards compatibility
+    return this.createEnhancedJobsWithExcelData(jobs, [], []);
+  }
+
+  /**
+   * Enhanced method that includes Excel data for better row mapping
+   */
+  async createEnhancedJobsWithExcelData(
+    jobs: ParsedJob[], 
+    headers: string[], 
+    dataRows: any[][]
+  ): Promise<EnhancedJobCreationResult> {
+    this.logger.addDebugInfo(`Creating enhanced jobs for ${jobs.length} parsed jobs with Excel data`);
+    this.logger.addDebugInfo(`Excel headers: ${JSON.stringify(headers)}`);
+    this.logger.addDebugInfo(`Excel data rows: ${dataRows.length}`);
 
     const result: EnhancedJobCreationResult = {
       success: true,
       createdJobs: [],
       failedJobs: [],
       categoryAssignments: {},
+      rowMappings: {},
       stats: {
         total: jobs.length,
         successful: 0,
@@ -60,13 +76,17 @@ export class EnhancedJobCreator {
       }
     };
 
-    for (const job of jobs) {
+    // Process each job individually for better error handling
+    for (let i = 0; i < jobs.length; i++) {
       try {
-        await this.processJob(job, result);
+        await this.processJobWithExcelData(jobs[i], result, headers, dataRows[i] || []);
+        result.stats.successful++;
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger.addDebugInfo(`Failed to process job ${job.wo_no}: ${errorMessage}`);
-        result.failedJobs.push({ job, error: errorMessage });
+        this.logger.addDebugInfo(`Failed to process job ${jobs[i].wo_no}: ${error}`);
+        result.failedJobs.push({
+          job: jobs[i],
+          error: error instanceof Error ? error.message : String(error)
+        });
         result.stats.failed++;
       }
     }
@@ -78,7 +98,17 @@ export class EnhancedJobCreator {
   }
 
   private async processJob(job: ParsedJob, result: EnhancedJobCreationResult): Promise<void> {
-    this.logger.addDebugInfo(`Processing job: ${job.wo_no}`);
+    // Call the new method with empty arrays for backwards compatibility
+    return this.processJobWithExcelData(job, result, [], []);
+  }
+
+  private async processJobWithExcelData(
+    job: ParsedJob, 
+    result: EnhancedJobCreationResult, 
+    headers: string[], 
+    excelRow: any[]
+  ): Promise<void> {
+    this.logger.addDebugInfo(`Processing job: ${job.wo_no} with Excel data`);
 
     // 1. Map specifications to production stages using enhanced mapper
     const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
@@ -87,14 +117,21 @@ export class EnhancedJobCreator {
       job.prepress_specifications
     );
 
-    // 2. Create detailed row mappings for UI display using enhanced mapper
+    this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
+
+    // 2. Create detailed row mappings for UI display using enhanced mapper with actual Excel data
     const rowMappings = this.enhancedStageMapper.createIntelligentRowMappings(
       job.printing_specifications,
       job.finishing_specifications,
       job.prepress_specifications,
-      [], // Excel rows would be passed here in a real implementation
-      [] // Headers would be passed here in a real implementation
+      excelRow.length > 0 ? [excelRow] : [], // Actual Excel row data, only if not empty
+      headers // Actual headers
     );
+
+    this.logger.addDebugInfo(`Created ${rowMappings.length} row mappings for job ${job.wo_no}`);
+    
+    // Store row mappings for UI display (ensure it's always an array)
+    result.rowMappings[job.wo_no] = rowMappings || [];
 
     // 3. All imported jobs use custom workflows - no category assignment
     result.categoryAssignments[job.wo_no] = {

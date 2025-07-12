@@ -321,15 +321,24 @@ export const parseAndCreateProductionReadyJobs = async (
 ): Promise<any> => {
   logger.addDebugInfo(`Starting Phase 4 enhanced job creation for file: ${file.name}`);
   
-  // Step 1: Parse Excel with enhanced mapping
+  // Step 1: Parse Excel with enhanced mapping and extract raw data
+  const data = await file.arrayBuffer();
+  const workbook = XLSX.read(data);
+  const sheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[sheetName];
+  const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+  
+  const headers = jsonData[0] as string[];
+  const dataRows = jsonData.slice(1) as any[][];
+  
   const { jobs } = await parseExcelFileWithMapping(file, mapping, logger, availableSpecs);
   
-  // Step 2: Create enhanced job creator
+  // Step 2: Create enhanced job creator with Excel data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
   await jobCreator.initialize();
   
-  // Step 3: Create production-ready jobs with workflows
-  const result = await jobCreator.createEnhancedJobs(jobs);
+  // Step 3: Create production-ready jobs with workflows, passing Excel data
+  const result = await jobCreator.createEnhancedJobsWithExcelData(jobs, headers, dataRows);
   
   logger.addDebugInfo(`Phase 4 enhanced job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
   
@@ -353,12 +362,16 @@ export const parseMatrixAndCreateProductionReadyJobs = async (
   // Step 1: Parse matrix Excel with enhanced mapping
   const { jobs } = await parseMatrixExcelFileWithMapping(file, matrixData, mapping, logger, availableSpecs);
   
-  // Step 2: Create enhanced job creator
+  // Step 2: Create enhanced job creator with matrix data
   const jobCreator = new EnhancedJobCreator(logger, userId, generateQRCodes);
   await jobCreator.initialize();
   
-  // Step 3: Create production-ready jobs with workflows
-  const result = await jobCreator.createEnhancedJobs(jobs);
+  // Step 3: Create production-ready jobs with workflows, passing matrix data
+  const result = await jobCreator.createEnhancedJobsWithExcelData(
+    jobs, 
+    matrixData.headers, 
+    matrixData.rows
+  );
   
   logger.addDebugInfo(`Phase 4 enhanced matrix job creation completed: ${result.stats.successful}/${result.stats.total} jobs created`);
   

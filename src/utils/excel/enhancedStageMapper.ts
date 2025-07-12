@@ -79,35 +79,44 @@ export class EnhancedStageMapper {
     excelRows: any[][],
     headers: string[]
   ): RowMappingResult[] {
+    this.logger.addDebugInfo(`Creating intelligent row mappings with ${excelRows.length} Excel rows and ${headers.length} headers`);
+    
     const rowMappings: RowMappingResult[] = [];
     let rowIndex = 0;
 
     // Process printing specifications
     if (printingSpecs) {
-      rowMappings.push(...this.createCategoryRowMappings(
+      const printingMappings = this.createCategoryRowMappings(
         printingSpecs, 'printing', excelRows, headers, rowIndex
-      ));
+      );
+      rowMappings.push(...printingMappings);
       rowIndex += Object.keys(printingSpecs).length;
+      this.logger.addDebugInfo(`Created ${printingMappings.length} printing specification mappings`);
     }
 
     // Process finishing specifications
     if (finishingSpecs) {
-      rowMappings.push(...this.createCategoryRowMappings(
+      const finishingMappings = this.createCategoryRowMappings(
         finishingSpecs, 'finishing', excelRows, headers, rowIndex
-      ));
+      );
+      rowMappings.push(...finishingMappings);
       rowIndex += Object.keys(finishingSpecs).length;
+      this.logger.addDebugInfo(`Created ${finishingMappings.length} finishing specification mappings`);
     }
 
     // Process prepress specifications
     if (prepressSpecs) {
-      rowMappings.push(...this.createCategoryRowMappings(
+      const prepressMappings = this.createCategoryRowMappings(
         prepressSpecs, 'prepress', excelRows, headers, rowIndex
-      ));
+      );
+      rowMappings.push(...prepressMappings);
+      this.logger.addDebugInfo(`Created ${prepressMappings.length} prepress specification mappings`);
     }
 
     // Learn from new mappings
     this.learnFromMappings(rowMappings);
 
+    this.logger.addDebugInfo(`Total row mappings created: ${rowMappings.length}`);
     return rowMappings;
   }
 
