@@ -272,12 +272,13 @@ const extractGroupSpecifications = (
   };
 };
 
-const categorizeGroup = (group: string): keyof typeof GROUP_CATEGORIES | null => {
+const categorizeGroup = (group: string): string | null => {
   const groupLower = group.toLowerCase();
   
   for (const [category, variations] of Object.entries(GROUP_CATEGORIES)) {
     if (variations.some(variation => groupLower.includes(variation.toLowerCase()))) {
-      return category.toLowerCase() as keyof typeof GROUP_CATEGORIES;
+      // Return lowercase to match the specs object keys (paper, delivery, finishing, etc.)
+      return category.toLowerCase();
     }
   }
   

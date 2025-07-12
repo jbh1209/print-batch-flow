@@ -208,10 +208,19 @@ export const ExcelDataAnalyzer: React.FC<ExcelDataAnalyzerProps> = ({ data, onMa
         
         Object.entries(specGroups).forEach(([groupKey, type]) => {
           if (job[groupKey] && typeof job[groupKey] === 'object') {
+            console.log(`Processing ${groupKey} for job ${job.wo_no}:`, job[groupKey]);
             Object.values(job[groupKey]).forEach((spec: any) => {
-              if (spec?.specifications) patterns.push({ text: spec.specifications, type });
-              if (spec?.description) patterns.push({ text: spec.description, type });
+              if (spec?.specifications) {
+                console.log(`Adding pattern from ${groupKey}: ${spec.specifications} (type: ${type})`);
+                patterns.push({ text: spec.specifications, type });
+              }
+              if (spec?.description && spec.description.trim()) {
+                console.log(`Adding pattern from ${groupKey} description: ${spec.description} (type: ${type})`);
+                patterns.push({ text: spec.description, type });
+              }
             });
+          } else {
+            console.log(`No ${groupKey} data found for job ${job.wo_no}`);
           }
         });
       }
