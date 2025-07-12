@@ -2121,6 +2121,16 @@ export type Database = {
         }
         Returns: number
       }
+      calculate_stage_duration_with_type: {
+        Args: {
+          p_quantity: number
+          p_running_speed_per_hour: number
+          p_make_ready_time_minutes?: number
+          p_speed_unit?: string
+          p_quantity_type?: string
+        }
+        Returns: number
+      }
       can_user_start_new_job: {
         Args: { p_user_id: string; p_department_id: string }
         Returns: boolean

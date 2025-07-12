@@ -349,6 +349,34 @@ export class EnhancedJobCreator {
     return 0;
   }
 
+  private async calculateStageEstimateWithQuantityType(
+    quantity: number, 
+    runningSpeed: number, 
+    makeReadyTime: number = 10,
+    speedUnit: string = 'sheets_per_hour',
+    quantityType: string = 'pieces'
+  ): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('calculate_stage_duration_with_type', {
+        p_quantity: quantity,
+        p_running_speed_per_hour: runningSpeed,
+        p_make_ready_time_minutes: makeReadyTime,
+        p_speed_unit: speedUnit,
+        p_quantity_type: quantityType
+      });
+
+      if (error) {
+        this.logger.addDebugInfo(`Error calculating stage duration: ${error.message}`);
+        return makeReadyTime; // Fallback to just make-ready time
+      }
+
+      return data || makeReadyTime;
+    } catch (error) {
+      this.logger.addDebugInfo(`Failed to calculate stage duration: ${error}`);
+      return makeReadyTime;
+    }
+  }
+
   private async updateJobQRCode(job: any): Promise<void> {
     try {
       const updatedQrData = generateQRCodeData({
