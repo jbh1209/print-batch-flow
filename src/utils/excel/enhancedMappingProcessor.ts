@@ -35,6 +35,7 @@ export class EnhancedMappingProcessor {
 
   /**
    * Process jobs with enhanced mapping for paper and delivery specifications
+   * AND populate printing, finishing, prepress specifications
    */
   async processJobsWithEnhancedMapping(
     jobs: ParsedJob[],
@@ -85,6 +86,10 @@ export class EnhancedMappingProcessor {
           await this.processPaperSpecification(job, combinedText, result);
         }
       }
+
+      // CRITICAL FIX: Populate printing, finishing, and prepress specifications
+      // This is what was missing! These need to be populated for the stage mapping to work
+      await this.populateWorkflowSpecifications(job, rawExcelData ? rawExcelData[i] : null);
     }
 
     // Calculate average confidence
@@ -95,6 +100,109 @@ export class EnhancedMappingProcessor {
     this.logger.addDebugInfo(`Enhanced mapping completed: ${result.stats.paperSpecsMapped} paper specs, ${result.stats.deliverySpecsMapped} delivery specs`);
 
     return result;
+  }
+
+  /**
+   * Populate workflow specifications from Excel row data or job fields
+   * This is critical for stage mapping to work!
+   */
+  private async populateWorkflowSpecifications(job: ParsedJob, excelRow: any[] | null): Promise<void> {
+    this.logger.addDebugInfo(`Populating workflow specifications for job ${job.wo_no}`);
+
+    // Initialize specification objects if they don't exist
+    if (!job.printing_specifications) {
+      job.printing_specifications = {};
+    }
+    if (!job.finishing_specifications) {
+      job.finishing_specifications = {};
+    }
+    if (!job.prepress_specifications) {
+      job.prepress_specifications = {};
+    }
+
+    // Extract printing specifications from job data
+    if (job.specifications) {
+      const specs = job.specifications.toLowerCase();
+      
+      // Common printing operations
+      if (specs.includes('4/0') || specs.includes('1/0') || specs.includes('4/4')) {
+        job.printing_specifications.color_process = {
+          description: specs.includes('4/4') ? '4/4 Color Process' : 
+                      specs.includes('4/0') ? '4/0 Color Process' : '1/0 Color Process',
+          specifications: specs.includes('4/4') ? '4/4' : 
+                         specs.includes('4/0') ? '4/0' : '1/0',
+          qty: job.qty || 1
+        };
+      }
+      
+      if (specs.includes('digital') || specs.includes('litho') || specs.includes('offset')) {
+        job.printing_specifications.print_method = {
+          description: specs.includes('digital') ? 'Digital Printing' :
+                      specs.includes('litho') ? 'Lithographic Printing' : 'Offset Printing',
+          specifications: specs.includes('digital') ? 'Digital' :
+                         specs.includes('litho') ? 'Litho' : 'Offset',
+          qty: job.qty || 1
+        };
+      }
+    }
+
+    // Extract finishing specifications
+    if (job.specifications) {
+      const specs = job.specifications.toLowerCase();
+      
+      // Common finishing operations
+      if (specs.includes('laminate') || specs.includes('gloss') || specs.includes('matt')) {
+        job.finishing_specifications.lamination = {
+          description: specs.includes('gloss') ? 'Gloss Lamination' :
+                      specs.includes('matt') ? 'Matt Lamination' : 'Standard Lamination',
+          specifications: specs.includes('gloss') ? 'Gloss' :
+                         specs.includes('matt') ? 'Matt' : 'Standard',
+          qty: job.qty || 1
+        };
+      }
+      
+      if (specs.includes('cut') || specs.includes('trim') || specs.includes('guillotine')) {
+        job.finishing_specifications.cutting = {
+          description: 'Cutting/Trimming Required',
+          specifications: 'Cut to Size',
+          qty: job.qty || 1
+        };
+      }
+      
+      if (specs.includes('fold') || specs.includes('crease')) {
+        job.finishing_specifications.folding = {
+          description: 'Folding/Creasing Required',
+          specifications: 'Fold',
+          qty: job.qty || 1
+        };
+      }
+    }
+
+    // Extract prepress specifications
+    if (job.specifications) {
+      const specs = job.specifications.toLowerCase();
+      
+      if (specs.includes('proof') || specs.includes('approve')) {
+        job.prepress_specifications.proofing = {
+          description: 'Proofing Required',
+          specifications: 'Proof for Approval',
+          qty: 1
+        };
+      }
+      
+      if (specs.includes('artwork') || specs.includes('design')) {
+        job.prepress_specifications.artwork = {
+          description: 'Artwork/Design Required',
+          specifications: 'Artwork Setup',
+          qty: 1
+        };
+      }
+    }
+
+    this.logger.addDebugInfo(`Job ${job.wo_no} specifications populated:
+      - Printing: ${JSON.stringify(job.printing_specifications)}
+      - Finishing: ${JSON.stringify(job.finishing_specifications)}
+      - Prepress: ${JSON.stringify(job.prepress_specifications)}`);
   }
 
   private async processPaperSpecification(
