@@ -95,6 +95,7 @@ export class EnhancedStageMapper {
     paperSpecs?: GroupSpecifications | null
   ): RowMappingResult[] {
     this.logger.addDebugInfo(`Creating intelligent row mappings with ${excelRows.length} Excel rows and ${headers.length} headers`);
+    this.logger.addDebugInfo(`Input specifications - Printing: ${printingSpecs ? Object.keys(printingSpecs).length : 0}, Finishing: ${finishingSpecs ? Object.keys(finishingSpecs).length : 0}, Prepress: ${prepressSpecs ? Object.keys(prepressSpecs).length : 0}`);
     
     const rowMappings: RowMappingResult[] = [];
     let rowIndex = 0;
@@ -105,37 +106,59 @@ export class EnhancedStageMapper {
 
     // Process printing specifications with paper integration
     if (printingSpecs) {
+      this.logger.addDebugInfo(`Processing printing specs: ${JSON.stringify(Object.keys(printingSpecs))}`);
       const printingMappings = this.createPrintingRowMappingsWithPaper(
         printingSpecs, paperMappings, excelRows, headers, rowIndex
       );
       rowMappings.push(...printingMappings);
       rowIndex += Object.keys(printingSpecs).length;
       this.logger.addDebugInfo(`Created ${printingMappings.length} printing specification mappings`);
+      
+      // Debug each printing mapping
+      printingMappings.forEach((mapping, idx) => {
+        this.logger.addDebugInfo(`Printing mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}`);
+      });
     }
 
     // Process finishing specifications
     if (finishingSpecs) {
+      this.logger.addDebugInfo(`Processing finishing specs: ${JSON.stringify(Object.keys(finishingSpecs))}`);
       const finishingMappings = this.createCategoryRowMappings(
         finishingSpecs, 'finishing', excelRows, headers, rowIndex
       );
       rowMappings.push(...finishingMappings);
       rowIndex += Object.keys(finishingSpecs).length;
       this.logger.addDebugInfo(`Created ${finishingMappings.length} finishing specification mappings`);
+      
+      // Debug each finishing mapping
+      finishingMappings.forEach((mapping, idx) => {
+        this.logger.addDebugInfo(`Finishing mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}`);
+      });
     }
 
     // Process prepress specifications
     if (prepressSpecs) {
+      this.logger.addDebugInfo(`Processing prepress specs: ${JSON.stringify(Object.keys(prepressSpecs))}`);
       const prepressMappings = this.createCategoryRowMappings(
         prepressSpecs, 'prepress', excelRows, headers, rowIndex
       );
       rowMappings.push(...prepressMappings);
       this.logger.addDebugInfo(`Created ${prepressMappings.length} prepress specification mappings`);
+      
+      // Debug each prepress mapping
+      prepressMappings.forEach((mapping, idx) => {
+        this.logger.addDebugInfo(`Prepress mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, Confidence: ${mapping.confidence}`);
+      });
     }
 
     // Learn from new mappings
     this.learnFromMappings(rowMappings);
 
-    this.logger.addDebugInfo(`Total row mappings created: ${rowMappings.length}`);
+    // Final debug summary
+    const mappedCount = rowMappings.filter(m => !m.isUnmapped).length;
+    const unmappedCount = rowMappings.filter(m => m.isUnmapped).length;
+    this.logger.addDebugInfo(`Total row mappings created: ${rowMappings.length} (Mapped: ${mappedCount}, Unmapped: ${unmappedCount})`);
+    
     return rowMappings;
   }
 
@@ -159,9 +182,16 @@ export class EnhancedStageMapper {
 
     // For non-printing categories, use standard processing
     for (const [groupName, spec] of Object.entries(specs)) {
+      this.logger.addDebugInfo(`Processing ${category} spec: "${groupName}" with description: "${spec.description || ''}"`);
+      
       const stageMapping = this.findIntelligentStageMatchWithSpec(groupName, spec.description || '', category);
       
+      this.logger.addDebugInfo(`Stage mapping result for "${groupName}": ${stageMapping ? `Stage: ${stageMapping.stageName}, Confidence: ${stageMapping.confidence}` : 'No match found'}`);
+      
       const instanceId = this.generateInstanceId(groupName, currentRowIndex);
+      
+      // Ensure we have a valid mapping with appropriate confidence threshold
+      const hasValidMapping = stageMapping && stageMapping.confidence >= 30;
       
       mappings.push({
         excelRowIndex: currentRowIndex,
@@ -176,12 +206,13 @@ export class EnhancedStageMapper {
         mappedStageSpecName: stageMapping?.stageSpecName || null,
         confidence: stageMapping?.confidence || 0,
         category: stageMapping?.category || category,
-        isUnmapped: !stageMapping || stageMapping.confidence < 30,
+        isUnmapped: !hasValidMapping,
         manualOverride: false,
         instanceId,
         paperSpecification: this.findAssociatedPaperSpec(groupName, spec.description || '', currentRowIndex)
       });
 
+      this.logger.addDebugInfo(`Created mapping for "${groupName}": isUnmapped=${!hasValidMapping}, mappedStageId=${stageMapping?.stageId || 'null'}`);
       currentRowIndex++;
     }
 
@@ -405,12 +436,14 @@ export class EnhancedStageMapper {
     category: 'printing' | 'finishing' | 'prepress' | 'delivery'
   ): MappingConfidence | null {
     const searchText = `${groupName} ${description}`.toLowerCase().trim();
+    this.logger.addDebugInfo(`Searching for stage match: "${searchText}" in category: ${category}`);
     
     // Strategy 1: Database mapping lookup (highest confidence)
     const dbMapping = this.findDatabaseMapping(searchText);
     if (dbMapping) {
       const stage = this.stages.find(s => s.id === dbMapping.production_stage_id);
       if (stage) {
+        this.logger.addDebugInfo(`Found database mapping: "${searchText}" -> "${stage.name}" (confidence: ${dbMapping.confidence_score})`);
         return {
           stageId: stage.id,
           stageName: stage.name,
@@ -424,16 +457,18 @@ export class EnhancedStageMapper {
     // Strategy 2: Fuzzy string matching (medium confidence)
     const fuzzyMatch = this.findFuzzyMatch(searchText, category);
     if (fuzzyMatch) {
+      this.logger.addDebugInfo(`Found fuzzy match: "${searchText}" -> "${fuzzyMatch.stageName}" (confidence: ${fuzzyMatch.confidence})`);
       return fuzzyMatch;
     }
 
     // Strategy 3: Pattern-based matching (lower confidence)
     const patternMatch = this.findPatternMatch(groupName, description, category);
     if (patternMatch) {
+      this.logger.addDebugInfo(`Found pattern match: "${searchText}" -> "${patternMatch.stageName}" (confidence: ${patternMatch.confidence})`);
       return patternMatch;
     }
 
-    this.logger.addDebugInfo(`No intelligent match found for: ${groupName} (${description})`);
+    this.logger.addDebugInfo(`No intelligent match found for: "${searchText}" in category: ${category}`);
     return null;
   }
 

@@ -176,10 +176,19 @@ export class DirectJobCreator {
       return;
     }
 
+    this.logger.addDebugInfo(`Initializing workflow for job ${job.wo_no} with ${rowMappings.length} row mappings`);
+    
+    // Debug each mapping before filtering
+    rowMappings.forEach((mapping, idx) => {
+      this.logger.addDebugInfo(`Mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, StageId: ${mapping.mappedStageId}`);
+    });
+
     // Filter valid mappings with stage IDs
     const validMappings = rowMappings.filter(mapping => 
       !mapping.isUnmapped && mapping.mappedStageId
     );
+
+    this.logger.addDebugInfo(`Found ${validMappings.length} valid mappings out of ${rowMappings.length} total mappings`);
 
     if (validMappings.length === 0) {
       this.logger.addDebugInfo(`No valid stage mappings found for job ${job.wo_no}`);
