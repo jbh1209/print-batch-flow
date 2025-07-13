@@ -49,12 +49,25 @@ const safeGetCellValue = (row: any[], index: number): any => {
 };
 
 const findColumnIndex = (headers: string[], possibleNames: string[]): number => {
+  // First try exact matches (case insensitive)
   for (const name of possibleNames) {
     const index = headers.findIndex(header => 
-      header && header.toLowerCase().trim().includes(name.toLowerCase())
+      header && header.toLowerCase().trim() === name.toLowerCase()
     );
     if (index !== -1) return index;
   }
+  
+  // Then try partial matches with various patterns
+  for (const name of possibleNames) {
+    const index = headers.findIndex(header => {
+      if (!header) return false;
+      const cleanHeader = header.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+      const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleanHeader.includes(cleanName) || cleanName.includes(cleanHeader);
+    });
+    if (index !== -1) return index;
+  }
+  
   return -1;
 };
 
@@ -115,15 +128,15 @@ export const parseExcelToJobs = async (
   const headers = jsonData[0] as string[];
   const dataRows = jsonData.slice(1) as any[][];
   
-  // Auto-detect column mappings
+  // Auto-detect column mappings with expanded patterns
   const detectedColumns = {
-    wo_no: findColumnIndex(headers, ['wo', 'work order', 'job number', 'order']),
-    customer: findColumnIndex(headers, ['customer', 'client', 'company']),
-    reference: findColumnIndex(headers, ['reference', 'ref', 'description', 'desc']),
-    qty: findColumnIndex(headers, ['qty', 'quantity', 'amount']),
-    due_date: findColumnIndex(headers, ['due', 'due date', 'delivery', 'deadline']),
-    status: findColumnIndex(headers, ['status', 'state', 'stage']),
-    category: findColumnIndex(headers, ['category', 'type', 'product'])
+    wo_no: findColumnIndex(headers, ['wo', 'work order', 'job number', 'order', 'wo no', 'wo number', 'job no', 'job#', 'wo#', 'workorder', 'ordernum']),
+    customer: findColumnIndex(headers, ['customer', 'client', 'company', 'customer name', 'client name', 'business', 'account']),
+    reference: findColumnIndex(headers, ['reference', 'ref', 'description', 'desc', 'job name', 'title', 'notes', 'details']),
+    qty: findColumnIndex(headers, ['qty', 'quantity', 'amount', 'count', 'number', 'copies', 'units']),
+    due_date: findColumnIndex(headers, ['due', 'due date', 'delivery', 'deadline', 'delivery date', 'complete by', 'finish by']),
+    status: findColumnIndex(headers, ['status', 'state', 'stage', 'progress', 'condition']),
+    category: findColumnIndex(headers, ['category', 'type', 'product', 'product type', 'job type', 'service'])
   };
   
   logger.addDebugInfo(`🔍 Detected columns: ${JSON.stringify(detectedColumns)}`);
@@ -140,7 +153,8 @@ export const processJobsToDatabase = async (
   file: File,
   userId: string,
   generateQRCodes: boolean,
-  logger: ExcelImportDebugger
+  logger: ExcelImportDebugger,
+  customColumnMap?: Record<string, number>
 ): Promise<ProcessingResult> => {
   logger.addDebugInfo(`🚀 Starting job processing for user: ${userId}`);
   
@@ -153,19 +167,19 @@ export const processJobsToDatabase = async (
   const headers = jsonData[0] as string[];
   const dataRows = jsonData.slice(1) as any[][];
   
-  // Auto-detect columns
-  const columnMap = {
-    wo_no: findColumnIndex(headers, ['wo', 'work order', 'job number', 'order']),
-    customer: findColumnIndex(headers, ['customer', 'client', 'company']),
-    reference: findColumnIndex(headers, ['reference', 'ref', 'description', 'desc']),
-    qty: findColumnIndex(headers, ['qty', 'quantity', 'amount']),
-    due_date: findColumnIndex(headers, ['due', 'due date', 'delivery', 'deadline']),
-    status: findColumnIndex(headers, ['status', 'state', 'stage']),
-    category: findColumnIndex(headers, ['category', 'type', 'product']),
-    rep: findColumnIndex(headers, ['rep', 'representative', 'sales']),
-    date: findColumnIndex(headers, ['date', 'created', 'order date']),
-    location: findColumnIndex(headers, ['location', 'address', 'site']),
-    specifications: findColumnIndex(headers, ['spec', 'specifications', 'notes'])
+  // Use custom column mapping if provided, otherwise auto-detect
+  const columnMap = customColumnMap || {
+    wo_no: findColumnIndex(headers, ['wo', 'work order', 'job number', 'order', 'wo no', 'wo number', 'job no', 'job#', 'wo#']),
+    customer: findColumnIndex(headers, ['customer', 'client', 'company', 'customer name', 'client name', 'business']),
+    reference: findColumnIndex(headers, ['reference', 'ref', 'description', 'desc', 'job name', 'title', 'notes']),
+    qty: findColumnIndex(headers, ['qty', 'quantity', 'amount', 'count', 'number', 'copies', 'units']),
+    due_date: findColumnIndex(headers, ['due', 'due date', 'delivery', 'deadline', 'delivery date', 'complete by']),
+    status: findColumnIndex(headers, ['status', 'state', 'stage', 'progress']),
+    category: findColumnIndex(headers, ['category', 'type', 'product', 'product type', 'job type']),
+    rep: findColumnIndex(headers, ['rep', 'representative', 'sales', 'sales rep', 'salesperson']),
+    date: findColumnIndex(headers, ['date', 'created', 'order date', 'job date']),
+    location: findColumnIndex(headers, ['location', 'address', 'site', 'delivery location']),
+    specifications: findColumnIndex(headers, ['spec', 'specifications', 'notes', 'special instructions'])
   };
   
   const result: ProcessingResult = {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle, XCircle, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import type { ExcelJobPreview, ProcessingResult } from "@/utils/excel/simpleProcessor";
 
@@ -40,7 +41,7 @@ interface SimpleExcelDialogProps {
   isOpen: boolean;
   onClose: () => void;
   preview: ExcelJobPreview | null;
-  onConfirm: () => Promise<void>;
+  onConfirm: (customColumnMap?: Record<string, number>) => Promise<void>;
   isProcessing: boolean;
   result: ProcessingResult | null;
 }
@@ -54,6 +55,7 @@ export const SimpleExcelDialog: React.FC<SimpleExcelDialogProps> = ({
   result
 }) => {
   const [showErrors, setShowErrors] = useState(false);
+  const [customColumns, setCustomColumns] = useState<Record<string, number>>({});
 
   if (!preview) return null;
 
@@ -65,6 +67,38 @@ export const SimpleExcelDialog: React.FC<SimpleExcelDialogProps> = ({
   const getColumnStatus = (colIndex: number | undefined): "success" | "warning" | "error" => {
     if (colIndex === undefined || colIndex === -1) return "error";
     return "success";
+  };
+
+  const getCurrentColumnIndex = (fieldKey: string): number => {
+    return customColumns[fieldKey] ?? preview.detectedColumns[fieldKey as keyof typeof preview.detectedColumns] ?? -1;
+  };
+
+  const handleColumnChange = (fieldKey: string, columnIndex: string) => {
+    const index = columnIndex === "none" ? -1 : parseInt(columnIndex);
+    setCustomColumns(prev => ({ ...prev, [fieldKey]: index }));
+  };
+
+  const handleConfirm = async () => {
+    const hasCustomMappings = Object.keys(customColumns).length > 0;
+    if (hasCustomMappings) {
+      // Create complete column map with custom overrides
+      const columnMap = {
+        wo_no: customColumns.wo_no ?? preview.detectedColumns.wo_no ?? -1,
+        customer: customColumns.customer ?? preview.detectedColumns.customer ?? -1,
+        reference: customColumns.reference ?? preview.detectedColumns.reference ?? -1,
+        qty: customColumns.qty ?? preview.detectedColumns.qty ?? -1,
+        due_date: customColumns.due_date ?? preview.detectedColumns.due_date ?? -1,
+        status: customColumns.status ?? preview.detectedColumns.status ?? -1,
+        category: customColumns.category ?? preview.detectedColumns.category ?? -1,
+        rep: customColumns.rep ?? -1,
+        date: customColumns.date ?? -1,
+        location: customColumns.location ?? -1,
+        specifications: customColumns.specifications ?? -1
+      };
+      await onConfirm(columnMap);
+    } else {
+      await onConfirm();
+    }
   };
 
   const renderPreviewPhase = () => (
@@ -80,10 +114,10 @@ export const SimpleExcelDialog: React.FC<SimpleExcelDialogProps> = ({
       </DialogHeader>
 
       <div className="space-y-6">
-        {/* Column Detection Status */}
+        {/* Column Mapping */}
         <div>
-          <h3 className="font-medium mb-3">Column Detection</h3>
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <h3 className="font-medium mb-3">Column Mapping</h3>
+          <div className="space-y-3">
             {[
               { key: 'wo_no', label: 'Work Order', required: true },
               { key: 'customer', label: 'Customer', required: true },
@@ -93,17 +127,39 @@ export const SimpleExcelDialog: React.FC<SimpleExcelDialogProps> = ({
               { key: 'status', label: 'Status', required: false },
               { key: 'category', label: 'Category', required: false }
             ].map(({ key, label, required }) => {
-              const colIndex = preview.detectedColumns[key as keyof typeof preview.detectedColumns];
-              const status = getColumnStatus(colIndex);
+              const currentIndex = getCurrentColumnIndex(key);
+              const status = getColumnStatus(currentIndex);
               
               return (
-                <div key={key} className="flex items-center justify-between p-2 border rounded">
-                  <span className={required && status === "error" ? "text-red-600 font-medium" : ""}>
-                    {label} {required && "*"}
-                  </span>
-                  <Badge variant={status === "success" ? "default" : status === "error" ? "destructive" : "secondary"}>
-                    {getColumnHeader(colIndex)}
-                  </Badge>
+                <div key={key} className="flex items-center gap-4 p-3 border rounded">
+                  <div className="flex-1">
+                    <span className={required && status === "error" ? "text-red-600 font-medium" : ""}>
+                      {label} {required && "*"}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <Select 
+                      value={currentIndex === -1 ? "none" : currentIndex.toString()}
+                      onValueChange={(value) => handleColumnChange(key, value)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select column..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not Found / Skip</SelectItem>
+                        {preview.headers.map((header, index) => (
+                          <SelectItem key={index} value={index.toString()}>
+                            {header || `Column ${index + 1}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-20">
+                    <Badge variant={status === "success" ? "default" : status === "error" ? "destructive" : "secondary"}>
+                      {currentIndex === -1 ? "Missing" : (preview.headers[currentIndex] || "Unknown")}
+                    </Badge>
+                  </div>
                 </div>
               );
             })}
@@ -129,16 +185,16 @@ export const SimpleExcelDialog: React.FC<SimpleExcelDialogProps> = ({
                   <TableRow key={index}>
                     <TableCell>{index + 2}</TableCell>
                     <TableCell className="font-mono">
-                      {row[preview.detectedColumns.wo_no || -1] || <span className="text-red-500">Missing</span>}
+                      {row[getCurrentColumnIndex('wo_no')] || <span className="text-red-500">Missing</span>}
                     </TableCell>
                     <TableCell>
-                      {row[preview.detectedColumns.customer || -1] || <span className="text-red-500">Missing</span>}
+                      {row[getCurrentColumnIndex('customer')] || <span className="text-red-500">Missing</span>}
                     </TableCell>
                     <TableCell>
-                      {row[preview.detectedColumns.reference || -1] || "-"}
+                      {row[getCurrentColumnIndex('reference')] || "-"}
                     </TableCell>
                     <TableCell>
-                      {row[preview.detectedColumns.qty || -1] || "0"}
+                      {row[getCurrentColumnIndex('qty')] || "0"}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -152,7 +208,7 @@ export const SimpleExcelDialog: React.FC<SimpleExcelDialogProps> = ({
         <Button variant="outline" onClick={onClose} disabled={isProcessing}>
           Cancel
         </Button>
-        <Button onClick={onConfirm} disabled={isProcessing}>
+        <Button onClick={handleConfirm} disabled={isProcessing}>
           {isProcessing ? "Processing..." : `Import ${preview.totalRows} Jobs`}
         </Button>
       </DialogFooter>

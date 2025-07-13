@@ -51,7 +51,7 @@ export const ExcelUpload = () => {
     }
   };
 
-  const handleProcessJobs = async () => {
+  const handleProcessJobs = async (customColumnMap?: Record<string, number>) => {
     if (!currentFile || !user?.id) return;
     
     setIsProcessing(true);
@@ -64,7 +64,8 @@ export const ExcelUpload = () => {
         currentFile,
         user.id,
         generateQRCodes,
-        debugLogger
+        debugLogger,
+        customColumnMap
       );
       
       setResult(processingResult);
