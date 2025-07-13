@@ -46,6 +46,16 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   const [availableCategories, setAvailableCategories] = useState<AvailableCategory[]>([]);
   const [updatedRowMappings, setUpdatedRowMappings] = useState<{ [woNo: string]: RowMappingResult[] }>({});
 
+  // Safely access result properties
+  const safeResult = result || {
+    success: false,
+    createdJobs: [],
+    failedJobs: [],
+    categoryAssignments: {},
+    rowMappings: {},
+    stats: { total: 0, successful: 0, failed: 0, newCategories: 0, workflowsInitialized: 0 }
+  };
+
   useEffect(() => {
     loadAvailableStages();
     loadAvailableCategories();
@@ -55,7 +65,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     if (result?.rowMappings) {
       // Initialize updatedRowMappings with current result data from the correct location
       const initialMappings: { [woNo: string]: RowMappingResult[] } = {};
-      Object.entries(result.rowMappings).forEach(([woNo, mappings]) => {
+      Object.entries(safeResult.rowMappings).forEach(([woNo, mappings]) => {
         if (mappings && mappings.length > 0) {
           initialMappings[woNo] = [...mappings];
         }
@@ -153,10 +163,10 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
 
   const handleUpdateCategory = (woNo: string, categoryId: string | null, categoryName: string | null) => {
     // Update category assignment in result
-    if (result && result.categoryAssignments[woNo]) {
-      result.categoryAssignments[woNo].categoryId = categoryId;
-      result.categoryAssignments[woNo].categoryName = categoryName;
-      result.categoryAssignments[woNo].requiresCustomWorkflow = !categoryId;
+    if (safeResult.categoryAssignments[woNo]) {
+      safeResult.categoryAssignments[woNo].categoryId = categoryId;
+      safeResult.categoryAssignments[woNo].categoryName = categoryName;
+      safeResult.categoryAssignments[woNo].requiresCustomWorkflow = !categoryId;
     }
   };
 
@@ -237,7 +247,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                   <div className="flex items-center gap-2">
                     <Database className="h-4 w-4 text-blue-600" />
                     <div>
-                      <div className="text-2xl font-bold">{result.stats.total}</div>
+                      <div className="text-2xl font-bold">{safeResult.stats.total}</div>
                       <div className="text-sm text-gray-600">Total Jobs</div>
                     </div>
                   </div>
@@ -249,7 +259,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <div>
-                      <div className="text-2xl font-bold text-green-600">{result.stats.successful}</div>
+                      <div className="text-2xl font-bold text-green-600">{safeResult.stats.successful}</div>
                       <div className="text-sm text-gray-600">Successful</div>
                     </div>
                   </div>
@@ -261,7 +271,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                   <div className="flex items-center gap-2">
                     <Workflow className="h-4 w-4 text-purple-600" />
                     <div>
-                      <div className="text-2xl font-bold text-purple-600">{result.stats.workflowsInitialized}</div>
+                      <div className="text-2xl font-bold text-purple-600">{safeResult.stats.workflowsInitialized}</div>
                       <div className="text-sm text-gray-600">Workflows</div>
                     </div>
                   </div>
@@ -273,7 +283,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-orange-600" />
                     <div>
-                      <div className="text-2xl font-bold text-orange-600">{result.stats.newCategories}</div>
+                      <div className="text-2xl font-bold text-orange-600">{safeResult.stats.newCategories}</div>
                       <div className="text-sm text-gray-600">New Categories</div>
                     </div>
                   </div>
@@ -289,12 +299,12 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
               <CardContent>
                 <div className="space-y-2">
                   <Progress 
-                    value={(result.stats.successful / result.stats.total) * 100} 
+                    value={(safeResult.stats.successful / safeResult.stats.total) * 100} 
                     className="h-2"
                   />
                   <div className="flex justify-between text-sm text-gray-600">
-                    <span>{result.stats.successful} successful</span>
-                    <span>{result.stats.failed} failed</span>
+                    <span>{safeResult.stats.successful} successful</span>
+                    <span>{safeResult.stats.failed} failed</span>
                   </div>
                 </div>
               </CardContent>
@@ -325,7 +335,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
               </TabsList>
 
               <TabsContent value="mapping" className="flex-1 overflow-y-auto space-y-4">
-                {result.rowMappings && Object.entries(result.rowMappings).map(([woNo, mappings]) => {
+                {safeResult.rowMappings && Object.entries(safeResult.rowMappings).map(([woNo, mappings]) => {
                   const currentMappings = updatedRowMappings[woNo] || mappings || [];
                   
                   return (
@@ -382,7 +392,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                           </TableRow>
                         </TableHeader>
                       <TableBody>
-                        {Object.entries(result.categoryAssignments).map(([woNo, assignment]) => (
+                        {Object.entries(safeResult.categoryAssignments).map(([woNo, assignment]) => (
                           <TableRow key={woNo}>
                             <TableCell className="font-medium">{woNo}</TableCell>
                              <TableCell>
@@ -445,13 +455,13 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                           </TableRow>
                         </TableHeader>
                       <TableBody>
-                        {result.createdJobs.map((job) => (
+                        {safeResult.createdJobs.map((job) => (
                           <TableRow key={job.id}>
                             <TableCell className="font-medium">{job.wo_no}</TableCell>
                             <TableCell>{job.customer || 'N/A'}</TableCell>
                             <TableCell>{job.qty}</TableCell>
                             <TableCell>
-                              {result.categoryAssignments[job.wo_no]?.categoryName || (
+                              {safeResult.categoryAssignments[job.wo_no]?.categoryName || (
                                 <span className="text-gray-500 italic">Custom</span>
                               )}
                             </TableCell>
@@ -470,12 +480,12 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
               </TabsContent>
 
               <TabsContent value="errors" className="flex-1 overflow-y-auto space-y-4">
-                {result.failedJobs.length > 0 ? (
+                {safeResult.failedJobs.length > 0 ? (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-sm flex items-center gap-2">
                         <XCircle className="h-4 w-4 text-red-600" />
-                        Failed Jobs ({result.failedJobs.length})
+                        Failed Jobs ({safeResult.failedJobs.length})
                       </CardTitle>
                       <CardDescription>
                         Jobs that could not be processed due to errors
@@ -491,7 +501,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {result.failedJobs.map((failedJob, idx) => (
+                          {safeResult.failedJobs.map((failedJob, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="font-medium">{failedJob.job.wo_no}</TableCell>
                               <TableCell>{failedJob.job.customer || 'N/A'}</TableCell>

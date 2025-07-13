@@ -10,6 +10,7 @@ import { EnhancedJobCreator } from './enhancedJobCreator';
 import type { ExcelPreviewData, ColumnMapping } from '@/components/tracker/ColumnMappingDialog';
 import type { MatrixColumnMapping } from '@/components/tracker/MatrixMappingDialog';
 import { processJobsWithSimplifiedArchitecture } from './v2/simplifiedParser';
+import type { RowMappingResult } from './types';
 
 export const parseExcelFileForPreview = async (file: File): Promise<ExcelPreviewData> => {
   const data = await file.arrayBuffer();
@@ -349,34 +350,71 @@ export const parseAndPrepareProductionReadyJobs = async (
       logger
     );
 
-    // Convert simplified result to match expected format
+    // Convert simplified result to match EnhancedJobCreationResult format
+    const successfulJobs = simplifiedResult.jobs.filter(job => job.success);
+    const failedJobs = simplifiedResult.jobs.filter(job => !job.success);
+    
+    // Create proper row mappings from stage instances
+    const rowMappings: { [woNo: string]: RowMappingResult[] } = {};
+    simplifiedResult.jobs.forEach(job => {
+      if (job.success) {
+        rowMappings[job.jobData.wo_no] = job.stageInstances.map((instance, index) => ({
+          excelRowIndex: 0, // Simplified doesn't track exact rows
+          excelData: [],
+          groupName: instance.partType || 'Main',
+          description: instance.description || '',
+          qty: instance.quantity || 0,
+          woQty: instance.quantity || 0,
+          mappedStageId: instance.stageId,
+          mappedStageName: instance.stageName || '',
+          mappedStageSpecId: instance.stageSpecId || null,
+          mappedStageSpecName: instance.stageSpecName || null,
+          confidence: 100, // Simplified uses direct mapping
+          category: instance.category as any || 'unknown',
+          manualOverride: false,
+          isUnmapped: false,
+          instanceId: `${job.jobData.wo_no}-${index}`,
+          paperSpecification: instance.paperSpec || null,
+          partType: instance.partType || null
+        }));
+      }
+    });
+
+    // Create category assignments
+    const categoryAssignments: { [woNo: string]: any } = {};
+    successfulJobs.forEach(job => {
+      categoryAssignments[job.jobData.wo_no] = {
+        categoryId: job.jobData.category || '',
+        categoryName: job.jobData.category,
+        confidence: 100,
+        isManual: false,
+        mappedStages: job.stageInstances.map(instance => ({
+          stageName: instance.stageName || 'Unknown Stage',
+          stageId: instance.stageId,
+          confidence: 100
+        })),
+        requiresCustomWorkflow: false
+      };
+    });
+
     return {
-      productionJobs: simplifiedResult.jobs.map(job => job.jobData),
-      jobStageInstances: simplifiedResult.jobs.flatMap(job => 
-        job.stageInstances.map((instance, index) => ({
-          job_id: job.jobData.wo_no, // temporary ID
-          job_table_name: 'production_jobs',
-          production_stage_id: instance.stageId,
-          stage_specification_id: instance.stageSpecId || null,
-          stage_order: index + 1,
-          status: index === 0 ? 'active' : 'pending',
-          quantity: instance.quantity,
-          part_name: instance.partName || null,
-          part_type: instance.partType || null
-        }))
-      ),
-      rowMappings: [], // Not needed in simplified version
+      success: simplifiedResult.stats.failed === 0,
+      createdJobs: successfulJobs.map(job => job.jobData),
+      failedJobs: failedJobs.map(job => ({
+        job: job.jobData as any,
+        error: job.errors.join('; ') || 'Unknown error'
+      })),
+      categoryAssignments,
+      rowMappings,
+      userId: userId,
+      generateQRCodes,
       stats: {
         total: simplifiedResult.stats.total,
         successful: simplifiedResult.stats.successful,
         failed: simplifiedResult.stats.failed,
-        printingStages: simplifiedResult.stats.printingStages,
-        finishingStages: simplifiedResult.stats.finishingStages,
-        prepressStages: simplifiedResult.stats.prepressStages,
-        unmappedRows: simplifiedResult.stats.failed
-      },
-      errors: simplifiedResult.errors,
-      debugInfo: logger.getDebugInfo()
+        newCategories: 0,
+        workflowsInitialized: simplifiedResult.stats.successful
+      }
     };
   }
   
