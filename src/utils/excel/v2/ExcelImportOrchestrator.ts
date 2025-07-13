@@ -82,17 +82,28 @@ export class ExcelImportOrchestrator {
 
       // Build stage instances
       const stageInstances = await this.stageBuilder.buildStageInstances(operations);
-      const validInstances = this.stageBuilder.getValidInstances(stageInstances);
-      const invalidInstances = this.stageBuilder.getInvalidInstances(stageInstances);
+      const validInstances = this.stageBuilder.getValidInstances(stageInstances) || [];
+      const invalidInstances = this.stageBuilder.getInvalidInstances(stageInstances) || [];
 
-      // Log results
-      const instancesByCategory = this.stageBuilder.getInstancesByCategory(validInstances);
-      this.logger.addDebugInfo(`Stage instances created:`);
-      for (const [category, instances] of Object.entries(instancesByCategory)) {
-        this.logger.addDebugInfo(`  ${category}: ${instances.length} stages`);
-        for (const instance of instances) {
-          this.logger.addDebugInfo(`    - ${instance.stageName}${instance.partType ? ` (${instance.partType})` : ''}`);
+      // Log results with null safety
+      try {
+        const instancesByCategory = this.stageBuilder.getInstancesByCategory(validInstances) || {};
+        this.logger.addDebugInfo(`Stage instances created:`);
+        
+        if (instancesByCategory && typeof instancesByCategory === 'object') {
+          for (const [category, instances] of Object.entries(instancesByCategory)) {
+            if (Array.isArray(instances)) {
+              this.logger.addDebugInfo(`  ${category}: ${instances.length} stages`);
+              for (const instance of instances) {
+                if (instance && typeof instance === 'object') {
+                  this.logger.addDebugInfo(`    - ${instance.stageName || 'Unknown'}${instance.partType ? ` (${instance.partType})` : ''}`);
+                }
+              }
+            }
+          }
         }
+      } catch (categoryError) {
+        this.logger.addDebugInfo(`Error processing categories: ${categoryError}`);
       }
 
       const errors = invalidInstances.map(instance => 

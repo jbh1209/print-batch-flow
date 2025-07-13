@@ -196,9 +196,17 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
   };
 
   const getTotalUnmappedRows = () => {
-    return Object.values(updatedRowMappings).reduce((total, mappings) => {
-      return total + mappings.filter(m => m.isUnmapped).length;
-    }, 0);
+    try {
+      if (!updatedRowMappings || typeof updatedRowMappings !== 'object') return 0;
+      
+      return Object.values(updatedRowMappings).reduce((total, mappings) => {
+        if (!Array.isArray(mappings)) return total;
+        return total + mappings.filter(m => m && typeof m === 'object' && m.isUnmapped).length;
+      }, 0);
+    } catch (error) {
+      console.error('Error calculating unmapped rows:', error);
+      return 0;
+    }
   };
 
   if (!result && !isProcessing) return null;
@@ -240,14 +248,14 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
           </div>
         ) : result ? (
           <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6">
-            {/* Statistics Overview */}
+            {/* Statistics Overview with comprehensive null safety */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
                     <Database className="h-4 w-4 text-blue-600" />
                     <div>
-                      <div className="text-2xl font-bold">{safeResult.stats.total}</div>
+                      <div className="text-2xl font-bold">{safeResult?.stats?.total || 0}</div>
                       <div className="text-sm text-gray-600">Total Jobs</div>
                     </div>
                   </div>
@@ -259,7 +267,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <div>
-                      <div className="text-2xl font-bold text-green-600">{safeResult.stats.successful}</div>
+                      <div className="text-2xl font-bold text-green-600">{safeResult?.stats?.successful || 0}</div>
                       <div className="text-sm text-gray-600">Successful</div>
                     </div>
                   </div>
@@ -271,7 +279,7 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                   <div className="flex items-center gap-2">
                     <Workflow className="h-4 w-4 text-purple-600" />
                     <div>
-                      <div className="text-2xl font-bold text-purple-600">{safeResult.stats.workflowsInitialized}</div>
+                      <div className="text-2xl font-bold text-purple-600">{safeResult?.stats?.workflowsInitialized || safeResult?.stats?.successful || 0}</div>
                       <div className="text-sm text-gray-600">Workflows</div>
                     </div>
                   </div>

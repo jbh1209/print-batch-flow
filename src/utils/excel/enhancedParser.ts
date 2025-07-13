@@ -350,70 +350,108 @@ export const parseAndPrepareProductionReadyJobs = async (
       logger
     );
 
-    // Convert simplified result to match EnhancedJobCreationResult format
-    const successfulJobs = simplifiedResult.jobs.filter(job => job.success);
-    const failedJobs = simplifiedResult.jobs.filter(job => !job.success);
-    
-    // Create proper row mappings from stage instances
-    const rowMappings: { [woNo: string]: RowMappingResult[] } = {};
-    simplifiedResult.jobs.forEach(job => {
-      if (job.success) {
-        rowMappings[job.jobData.wo_no] = job.stageInstances.map((instance, index) => ({
-          excelRowIndex: 0, // Simplified doesn't track exact rows
-          excelData: [],
-          groupName: instance.partType || 'Main',
-          description: instance.description || '',
-          qty: instance.quantity || 0,
-          woQty: instance.quantity || 0,
-          mappedStageId: instance.stageId,
-          mappedStageName: instance.stageName || '',
-          mappedStageSpecId: instance.stageSpecId || null,
-          mappedStageSpecName: instance.stageSpecName || null,
-          confidence: 100, // Simplified uses direct mapping
-          category: instance.category as any || 'unknown',
-          manualOverride: false,
-          isUnmapped: false,
-          instanceId: `${job.jobData.wo_no}-${index}`,
-          paperSpecification: instance.paperSpec || null,
-          partType: instance.partType || null
-        }));
-      }
-    });
+    // Convert simplified result to match EnhancedJobCreationResult format with comprehensive null safety
+    if (!simplifiedResult || !simplifiedResult.jobs || !Array.isArray(simplifiedResult.jobs)) {
+      throw new Error('Invalid simplified result structure - missing jobs array');
+    }
 
-    // Create category assignments
+    const successfulJobs = simplifiedResult.jobs.filter(job => job && job.success) || [];
+    const failedJobs = simplifiedResult.jobs.filter(job => job && !job.success) || [];
+    
+    // Create proper row mappings from stage instances with null safety
+    const rowMappings: { [woNo: string]: RowMappingResult[] } = {};
+    
+    try {
+      for (const job of simplifiedResult.jobs) {
+        if (!job || !job.jobData || !job.jobData.wo_no) {
+          logger.addDebugInfo(`Warning: Invalid job data encountered during conversion`);
+          continue;
+        }
+        
+        if (job.success && Array.isArray(job.stageInstances)) {
+          rowMappings[job.jobData.wo_no] = job.stageInstances
+            .filter(instance => instance && typeof instance === 'object')
+            .map((instance, index) => ({
+              excelRowIndex: 0, // Simplified doesn't track exact rows
+              excelData: [],
+              groupName: (instance.partType && String(instance.partType)) || 'Main',
+              description: (instance.description && String(instance.description)) || 'Processing Stage',
+              qty: Number(instance.quantity) || 0,
+              woQty: Number(instance.quantity) || 0,
+              mappedStageId: instance.stageId || null,
+              mappedStageName: (instance.stageName && String(instance.stageName)) || 'Unknown Stage',
+              mappedStageSpecId: instance.stageSpecId || null,
+              mappedStageSpecName: (instance.stageSpecName && String(instance.stageSpecName)) || null,
+              confidence: 100, // Simplified uses direct mapping
+              category: (instance.category && ['printing', 'finishing', 'prepress', 'delivery'].includes(instance.category)) 
+                ? instance.category as any 
+                : 'printing',
+              manualOverride: false,
+              isUnmapped: false,
+              instanceId: `${job.jobData.wo_no}-${index}`,
+              paperSpecification: (instance.paperSpec && String(instance.paperSpec)) || null,
+              partType: (instance.partType && String(instance.partType)) || null
+            }));
+        }
+      }
+    } catch (rowMappingError) {
+      logger.addDebugInfo(`Error creating row mappings: ${rowMappingError}`);
+      // Continue with empty row mappings rather than failing completely
+    }
+
+    // Create category assignments with null safety
     const categoryAssignments: { [woNo: string]: any } = {};
-    successfulJobs.forEach(job => {
-      categoryAssignments[job.jobData.wo_no] = {
-        categoryId: job.jobData.category || '',
-        categoryName: job.jobData.category,
-        confidence: 100,
-        isManual: false,
-        mappedStages: job.stageInstances.map(instance => ({
-          stageName: instance.stageName || 'Unknown Stage',
-          stageId: instance.stageId,
-          confidence: 100
-        })),
-        requiresCustomWorkflow: false
-      };
-    });
+    
+    try {
+      for (const job of successfulJobs) {
+        if (!job || !job.jobData || !job.jobData.wo_no) continue;
+        
+        const mappedStages = Array.isArray(job.stageInstances) 
+          ? job.stageInstances
+              .filter(instance => instance && typeof instance === 'object')
+              .map(instance => ({
+                stageName: (instance.stageName && String(instance.stageName)) || 'Unknown Stage',
+                stageId: instance.stageId || '',
+                confidence: 100
+              }))
+          : [];
+
+        categoryAssignments[job.jobData.wo_no] = {
+          categoryId: (job.jobData.category && String(job.jobData.category)) || 'general',
+          categoryName: (job.jobData.category && String(job.jobData.category)) || 'General Production',
+          confidence: 100,
+          isManual: false,
+          mappedStages,
+          requiresCustomWorkflow: false
+        };
+      }
+    } catch (categoryError) {
+      logger.addDebugInfo(`Error creating category assignments: ${categoryError}`);
+      // Continue with empty category assignments rather than failing completely
+    }
+
+    // Log conversion results for debugging
+    logger.addDebugInfo(`Converted ${successfulJobs.length} successful jobs, ${failedJobs.length} failed jobs`);
+    logger.addDebugInfo(`Created ${Object.keys(rowMappings).length} row mapping groups`);
+    logger.addDebugInfo(`Created ${Object.keys(categoryAssignments).length} category assignments`);
 
     return {
       success: simplifiedResult.stats.failed === 0,
-      createdJobs: successfulJobs.map(job => job.jobData),
+      createdJobs: successfulJobs.map(job => job.jobData || {}),
       failedJobs: failedJobs.map(job => ({
-        job: job.jobData as any,
-        error: job.errors.join('; ') || 'Unknown error'
+        job: job.jobData || {},
+        error: (Array.isArray(job.errors) ? job.errors.join('; ') : String(job.errors)) || 'Unknown error'
       })),
       categoryAssignments,
       rowMappings,
       userId: userId,
       generateQRCodes,
       stats: {
-        total: simplifiedResult.stats.total,
-        successful: simplifiedResult.stats.successful,
-        failed: simplifiedResult.stats.failed,
+        total: Number(simplifiedResult.stats.total) || 0,
+        successful: Number(simplifiedResult.stats.successful) || 0,
+        failed: Number(simplifiedResult.stats.failed) || 0,
         newCategories: 0,
-        workflowsInitialized: simplifiedResult.stats.successful
+        workflowsInitialized: Number(simplifiedResult.stats.successful) || 0
       }
     };
   }

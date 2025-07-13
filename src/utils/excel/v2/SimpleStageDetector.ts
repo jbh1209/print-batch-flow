@@ -23,7 +23,7 @@ export class SimpleStageDetector {
   }
 
   /**
-   * Detect all operations from parsed Excel specifications
+   * Detect all operations from parsed Excel specifications with null safety
    */
   async detectOperations(
     printingSpecs: GroupSpecifications | null,
@@ -36,40 +36,62 @@ export class SimpleStageDetector {
     
     const operations: DetectedOperation[] = [];
 
-    // Process printing operations
-    if (printingSpecs) {
-      const printingOps = await this.processSpecifications(
-        printingSpecs, 
-        'printing', 
-        excelRows, 
-        headers
-      );
-      operations.push(...printingOps);
-      this.logger.addDebugInfo(`Detected ${printingOps.length} printing operations`);
+    // Ensure excelRows and headers are valid arrays
+    const safeExcelRows = Array.isArray(excelRows) ? excelRows : [];
+    const safeHeaders = Array.isArray(headers) ? headers : [];
+
+    // Process printing operations with null safety
+    if (printingSpecs && typeof printingSpecs === 'object') {
+      try {
+        const printingOps = await this.processSpecifications(
+          printingSpecs, 
+          'printing', 
+          safeExcelRows, 
+          safeHeaders
+        );
+        if (Array.isArray(printingOps)) {
+          operations.push(...printingOps);
+          this.logger.addDebugInfo(`Detected ${printingOps.length} printing operations`);
+        }
+      } catch (printingError) {
+        this.logger.addDebugInfo(`Error processing printing specifications: ${printingError}`);
+      }
     }
 
-    // Process finishing operations
-    if (finishingSpecs) {
-      const finishingOps = await this.processSpecifications(
-        finishingSpecs, 
-        'finishing', 
-        excelRows, 
-        headers
-      );
-      operations.push(...finishingOps);
-      this.logger.addDebugInfo(`Detected ${finishingOps.length} finishing operations`);
+    // Process finishing operations with null safety
+    if (finishingSpecs && typeof finishingSpecs === 'object') {
+      try {
+        const finishingOps = await this.processSpecifications(
+          finishingSpecs, 
+          'finishing', 
+          safeExcelRows, 
+          safeHeaders
+        );
+        if (Array.isArray(finishingOps)) {
+          operations.push(...finishingOps);
+          this.logger.addDebugInfo(`Detected ${finishingOps.length} finishing operations`);
+        }
+      } catch (finishingError) {
+        this.logger.addDebugInfo(`Error processing finishing specifications: ${finishingError}`);
+      }
     }
 
-    // Process prepress operations
-    if (prepressSpecs) {
-      const prepressOps = await this.processSpecifications(
-        prepressSpecs, 
-        'prepress', 
-        excelRows, 
-        headers
-      );
-      operations.push(...prepressOps);
-      this.logger.addDebugInfo(`Detected ${prepressOps.length} prepress operations`);
+    // Process prepress operations with null safety
+    if (prepressSpecs && typeof prepressSpecs === 'object') {
+      try {
+        const prepressOps = await this.processSpecifications(
+          prepressSpecs, 
+          'prepress', 
+          safeExcelRows, 
+          safeHeaders
+        );
+        if (Array.isArray(prepressOps)) {
+          operations.push(...prepressOps);
+          this.logger.addDebugInfo(`Detected ${prepressOps.length} prepress operations`);
+        }
+      } catch (prepressError) {
+        this.logger.addDebugInfo(`Error processing prepress specifications: ${prepressError}`);
+      }
     }
 
     this.logger.addDebugInfo(`=== TOTAL DETECTED: ${operations.length} operations ===`);
@@ -83,70 +105,95 @@ export class SimpleStageDetector {
     excelRows: any[][],
     headers: string[]
   ): Promise<DetectedOperation[]> {
+    if (!specs || typeof specs !== 'object') {
+      this.logger.addDebugInfo(`⚠️ Invalid specifications for ${category}`);
+      return [];
+    }
+
     const operations: DetectedOperation[] = [];
 
-    for (const [groupName, spec] of Object.entries(specs)) {
-      this.logger.addDebugInfo(`Processing ${category}: "${groupName}"`);
-      
-      const description = spec.description || groupName;
-      const qty = spec.qty || 0;
-      const woQty = spec.wo_qty || qty;
+    try {
+      for (const [groupName, spec] of Object.entries(specs)) {
+        if (!spec || typeof spec !== 'object') {
+          this.logger.addDebugInfo(`⚠️ Skipping invalid spec for "${groupName}"`);
+          continue;
+        }
 
-      // Find matching Excel row for accurate row indexing
-      const excelRowIndex = this.findMatchingExcelRow(groupName, excelRows, headers);
-      
-      // Check if this is a text/cover operation (for printing only)
-      if (category === 'printing' && this.isTextCoverOperation(groupName, description)) {
-        // Create separate operations for text and cover
-        operations.push({
-          groupName,
-          description,
-          category,
-          qty,
-          woQty,
-          excelRowIndex,
-          partType: 'text'
-        });
+        this.logger.addDebugInfo(`Processing ${category}: "${groupName}"`);
         
-        operations.push({
-          groupName,
-          description,
-          category,
-          qty,
-          woQty,
-          excelRowIndex,
-          partType: 'cover'
-        });
+        const description = String(spec.description || groupName);
+        const qty = Number(spec.qty) || 0;
+        const woQty = Number(spec.wo_qty) || qty;
+
+        // Find matching Excel row for accurate row indexing with null safety
+        const excelRowIndex = this.findMatchingExcelRow(groupName, excelRows, headers);
         
-        this.logger.addDebugInfo(`  → Created text + cover operations for "${groupName}"`);
-      } else {
-        // Single operation
-        operations.push({
-          groupName,
-          description,
-          category,
-          qty,
-          woQty,
-          excelRowIndex
-        });
-        
-        this.logger.addDebugInfo(`  → Created single operation for "${groupName}"`);
+        // Check if this is a text/cover operation (for printing only)
+        if (category === 'printing' && this.isTextCoverOperation(groupName, description)) {
+          // Create separate operations for text and cover
+          operations.push({
+            groupName,
+            description,
+            category,
+            qty,
+            woQty,
+            excelRowIndex,
+            partType: 'text'
+          });
+          
+          operations.push({
+            groupName,
+            description,
+            category,
+            qty,
+            woQty,
+            excelRowIndex,
+            partType: 'cover'
+          });
+          
+          this.logger.addDebugInfo(`  → Created text + cover operations for "${groupName}"`);
+        } else {
+          // Single operation
+          operations.push({
+            groupName,
+            description,
+            category,
+            qty,
+            woQty,
+            excelRowIndex
+          });
+          
+          this.logger.addDebugInfo(`  → Created single operation for "${groupName}"`);
+        }
       }
+    } catch (processingError) {
+      this.logger.addDebugInfo(`Error processing specifications for ${category}: ${processingError}`);
     }
 
     return operations;
   }
 
   private findMatchingExcelRow(groupName: string, excelRows: any[][], headers: string[]): number {
-    // Find the Excel row that contains this group name
-    for (let i = 0; i < excelRows.length; i++) {
-      const row = excelRows[i];
-      for (const cell of row) {
-        if (cell && String(cell).trim() === groupName.trim()) {
-          return i;
+    if (!Array.isArray(excelRows) || !groupName) {
+      return 0;
+    }
+
+    try {
+      // Find the Excel row that contains this group name
+      for (let i = 0; i < excelRows.length; i++) {
+        const row = excelRows[i];
+        if (!Array.isArray(row)) continue;
+        
+        for (const cell of row) {
+          if (cell && String(cell).trim() === String(groupName).trim()) {
+            return i;
+          }
         }
       }
+    } catch (error) {
+      this.logger.addDebugInfo(`Error finding Excel row for "${groupName}": ${error}`);
     }
+    
     return 0; // Default to first row if not found
   }
 
