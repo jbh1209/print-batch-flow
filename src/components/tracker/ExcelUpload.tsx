@@ -33,6 +33,8 @@ import type { EnhancedJobCreationResult } from "@/utils/excel/enhancedJobCreator
 import { ColumnMappingDialog, type ExcelPreviewData, type ColumnMapping } from "./ColumnMappingDialog";
 import { MatrixMappingDialog, type MatrixColumnMapping } from "./MatrixMappingDialog";
 import { EnhancedJobCreationDialog } from "@/components/admin/upload/EnhancedJobCreationDialog";
+import { SimplifiedJobCreationDialog } from "@/components/admin/upload/SimplifiedJobCreationDialog";
+import { UnifiedTypeConverter, type UnifiedImportResult } from "@/utils/excel/v2/UnifiedImportTypes";
 
 interface JobDataWithQR extends ParsedJob {
   user_id: string;
@@ -66,6 +68,10 @@ export const ExcelUpload = () => {
   const [enhancedResult, setEnhancedResult] = useState<EnhancedJobCreationResult | null>(null);
   const [showEnhancedDialog, setShowEnhancedDialog] = useState(false);
   const [isCreatingJobs, setIsCreatingJobs] = useState(false);
+  
+  // V2 Architecture state
+  const [v2Result, setV2Result] = useState<UnifiedImportResult | null>(null);
+  const [showV2Dialog, setShowV2Dialog] = useState(false);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -341,6 +347,74 @@ export const ExcelUpload = () => {
     }
   };
 
+  const handleV2JobsConfirmed = async () => {
+    if (!v2Result || !user) return;
+
+    setIsCreatingJobs(true);
+    
+    try {
+      // Convert to enhanced format for existing upload infrastructure
+      const enhancedFormat = UnifiedTypeConverter.toEnhancedJobCreationResult(v2Result);
+      
+      const jobsToUpload = enhancedFormat.createdJobs.map(job => ({
+        ...job.jobData,
+        user_id: user.id,
+        qr_code_data: generateQRCodes ? generateQRCodeData({
+          wo_no: job.woNo,
+          job_id: `temp-${job.woNo}`,
+          customer: job.jobData.customer,
+          due_date: job.jobData.due_date
+        }) : undefined,
+        qr_code_url: undefined // Will be set after QR generation
+      }));
+
+      // Generate QR codes if enabled
+      for (const job of jobsToUpload) {
+        if (generateQRCodes && job.qr_code_data) {
+          try {
+            job.qr_code_url = await generateQRCodeImage(job.qr_code_data);
+          } catch (qrError) {
+            debugLogger.addDebugInfo(`Failed to generate QR code for ${job.wo_no}: ${qrError}`);
+          }
+        }
+      }
+
+      console.log("💾 Starting database upload for", jobsToUpload.length, "V2 jobs");
+      
+      const { data, error } = await supabase
+        .from('production_jobs')
+        .upsert(jobsToUpload, { 
+          onConflict: 'wo_no,user_id',
+          ignoreDuplicates: true 
+        })
+        .select();
+
+      if (error) {
+        throw new Error(`Database error: ${error.message}`);
+      }
+
+      const successCount = data?.length || 0;
+      const duplicatesSkipped = jobsToUpload.length - successCount;
+      
+      let message = `Successfully created ${successCount} production jobs!`;
+      if (duplicatesSkipped > 0) {
+        message += ` (${duplicatesSkipped} duplicates skipped)`;
+      }
+      
+      toast.success(message);
+      
+      setShowV2Dialog(false);
+      setV2Result(null);
+      handleClearPreview();
+      
+    } catch (error) {
+      console.error("Error creating V2 jobs:", error);
+      toast.error("Failed to create V2 jobs: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setIsCreatingJobs(false);
+    }
+  };
+
   const handleClearPreview = () => {
     setParsedJobs([]);
     setFileName("");
@@ -520,6 +594,14 @@ export const ExcelUpload = () => {
         result={enhancedResult}
         isProcessing={isCreatingJobs}
         onConfirm={handleEnhancedJobsConfirmed}
+      />
+
+      <SimplifiedJobCreationDialog
+        open={showV2Dialog}
+        onOpenChange={setShowV2Dialog}
+        result={v2Result}
+        isProcessing={isCreatingJobs}
+        onConfirm={handleV2JobsConfirmed}
       />
 
       {parsedJobs.length > 0 && (

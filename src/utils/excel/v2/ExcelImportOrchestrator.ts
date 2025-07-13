@@ -25,9 +25,16 @@ export interface SimplifiedImportResult {
     printingStages: number;
     finishingStages: number;
     prepressStages: number;
+    deliveryStages: number;
   };
   errors: string[];
   debugInfo: string[];
+  metadata: {
+    processingTime: number;
+    excelFileName?: string;
+    totalRows: number;
+    architecture: 'v2';
+  };
 }
 
 export class ExcelImportOrchestrator {
@@ -192,7 +199,8 @@ export class ExcelImportOrchestrator {
         totalStages,
         printingStages,
         finishingStages,
-        prepressStages
+        prepressStages,
+        deliveryStages: 0 // Add delivery stages count
       };
 
       this.logger.addDebugInfo(`\n✅ IMPORT COMPLETE - Stats: ${JSON.stringify(stats, null, 2)}`);
@@ -201,7 +209,13 @@ export class ExcelImportOrchestrator {
         jobs: results,
         stats,
         errors: globalErrors,
-        debugInfo: this.logger.getDebugInfo()
+        debugInfo: this.logger.getDebugInfo(),
+        metadata: {
+          processingTime: Date.now(),
+          excelFileName: undefined,
+          totalRows: jobs.length,
+          architecture: 'v2'
+        }
       };
 
     } catch (error) {
@@ -217,10 +231,17 @@ export class ExcelImportOrchestrator {
           totalStages: 0,
           printingStages: 0,
           finishingStages: 0,
-          prepressStages: 0
+          prepressStages: 0,
+          deliveryStages: 0
         },
         errors: globalErrors,
-        debugInfo: this.logger.getDebugInfo()
+        debugInfo: this.logger.getDebugInfo(),
+        metadata: {
+          processingTime: Date.now(),
+          excelFileName: undefined,
+          totalRows: jobs.length,
+          architecture: 'v2'
+        }
       };
     }
   }

@@ -557,9 +557,18 @@ export const finalizeProductionReadyJobs = async (
         errors: [],
         success: true
       })),
-      stats: preparedResult.stats,
+      stats: {
+        ...preparedResult.stats,
+        deliveryStages: 0
+      },
       errors: preparedResult.errors || [],
-      debugInfo: logger.getDebugInfo()
+      debugInfo: logger.getDebugInfo(),
+      metadata: {
+        processingTime: Date.now(),
+        excelFileName: 'enhanced_parser',
+        totalRows: preparedResult.jobs.length,
+        architecture: 'v2' as const
+      }
     };
     
     const saveResult = await saveSimplifiedResultsToDatabase(simplifiedResult, currentUserId, logger);
