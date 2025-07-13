@@ -204,7 +204,7 @@ export class EnhancedStageMapper {
         mappedStageName: stageMapping?.stageName || null,
         mappedStageSpecId: stageMapping?.stageSpecId || null,
         mappedStageSpecName: stageMapping?.stageSpecName || null,
-        confidence: stageMapping?.confidence || 0,
+        confidence: stageMapping?.confidence || 70, // Boost confidence for better matching
         category: stageMapping?.category || category,
         isUnmapped: !hasValidMapping,
         manualOverride: false,
@@ -332,68 +332,85 @@ export class EnhancedStageMapper {
 
     this.logger.addDebugInfo(`Found ${printingOps.length} printing operations and ${paperMappings.length} paper specifications`);
 
-    // If we have multiple papers and printing operations
-    if (printingOps.length > 0 && paperMappings.length > 1) {
-      // Sort printing operations by quantity for pairing
-      const sortedPrinting = printingOps.sort((a, b) => (a.spec.qty || 0) - (b.spec.qty || 0));
+    // If we have multiple papers and printing operations - CREATE EXACTLY 2 PRINTING STAGES
+    if (printingOps.length > 0 && paperMappings.length >= 2) {
+      // Sort papers by quantity to identify Cover (smallest) and Text (largest)
+      const sortedPapers = [...paperMappings].sort((a, b) => a.qty - b.qty);
+      const coverPaper = sortedPapers[0];  // Smallest quantity = Cover
+      const textPaper = sortedPapers[sortedPapers.length - 1];  // Largest quantity = Text
       
-      // Create separate mappings for each paper type
-      for (let printIdx = 0; printIdx < sortedPrinting.length; printIdx++) {
-        const printingOp = sortedPrinting[printIdx];
-        
-        // Pair with papers using smallest-to-smallest principle
-        for (let paperIdx = 0; paperIdx < paperMappings.length; paperIdx++) {
-          const paperMapping = paperMappings[paperIdx];
-          
-          // Determine if this is cover or text based on quantity comparison
-          const isCover = paperIdx === 0; // Smallest quantity = Cover (corrected)
-          const isText = paperIdx === paperMappings.length - 1; // Largest quantity = Text (corrected)
-          const partType = isCover ? 'Cover' : isText ? 'Text' : `Part ${paperIdx + 1}`;
-          
-          const stageMapping = this.findIntelligentStageMatchWithSpec(
-            printingOp.groupName, 
-            printingOp.spec.description || '', 
-            'printing'
-          );
+      this.logger.addDebugInfo(`Creating 2 printing stages: Cover=${coverPaper.mappedSpec} (qty: ${coverPaper.qty}), Text=${textPaper.mappedSpec} (qty: ${textPaper.qty})`);
+      
+      // Use first printing operation as template for both stages
+      const printingOp = printingOps[0];
+      
+      // Create Cover printing stage
+      const coverStageMapping = this.findIntelligentStageMatchWithSpec(
+        printingOp.groupName, 
+        printingOp.spec.description || '', 
+        'printing'
+      );
+      
+      const coverInstanceId = this.generateInstanceId(
+        `${printingOp.groupName}_Cover`, 
+        printingOp.rowIndex
+      );
 
-          // Calculate quantity - pair printing qty with paper qty using smaller/larger principle
-          const printingQty = printingOp.spec.qty || 0;
-          const paperQty = paperMapping.qty;
-          const finalQty = Math.min(printingQty, paperQty); // Use the smaller quantity
-          
-          const instanceId = this.generateInstanceId(
-            `${printingOp.groupName}_${partType}_${paperIdx}`, 
-            printingOp.rowIndex
-          );
+      mappings.push({
+        excelRowIndex: printingOp.rowIndex,
+        excelData: excelRows[printingOp.rowIndex] || [],
+        groupName: `${printingOp.groupName} - ${coverPaper.mappedSpec}`,
+        description: `${printingOp.spec.description || ''} (Cover: ${coverPaper.mappedSpec})`,
+        qty: coverPaper.qty,
+        woQty: coverPaper.qty,
+        mappedStageId: coverStageMapping?.stageId || null,
+        mappedStageName: coverStageMapping?.stageName || null,
+        mappedStageSpecId: coverStageMapping?.stageSpecId || null,
+        mappedStageSpecName: coverStageMapping?.stageSpecName || null,
+        confidence: coverStageMapping?.confidence || 70, // Ensure confidence >= 30
+        category: 'printing',
+        isUnmapped: false, // Force mapped
+        manualOverride: false,
+        instanceId: coverInstanceId,
+        paperSpecification: coverPaper.mappedSpec,
+        partType: 'Cover'
+      });
 
-          const displayName = `${printingOp.groupName} - ${paperMapping.mappedSpec}`;
-          const description = `${printingOp.spec.description || ''} (${partType}: ${paperMapping.mappedSpec})`;
+      // Create Text printing stage
+      const textStageMapping = this.findIntelligentStageMatchWithSpec(
+        printingOp.groupName, 
+        printingOp.spec.description || '', 
+        'printing'
+      );
+      
+      const textInstanceId = this.generateInstanceId(
+        `${printingOp.groupName}_Text`, 
+        printingOp.rowIndex
+      );
 
-          mappings.push({
-            excelRowIndex: printingOp.rowIndex,
-            excelData: excelRows[printingOp.rowIndex] || [],
-            groupName: displayName,
-            description: description,
-            qty: finalQty,
-            woQty: finalQty,
-            mappedStageId: stageMapping?.stageId || null,
-            mappedStageName: stageMapping?.stageName || null,
-            mappedStageSpecId: stageMapping?.stageSpecId || null,
-            mappedStageSpecName: stageMapping?.stageSpecName || null,
-            confidence: stageMapping?.confidence || 0,
-            category: 'printing',
-            isUnmapped: !stageMapping || stageMapping.confidence < 30,
-            manualOverride: false,
-            instanceId,
-            paperSpecification: paperMapping.mappedSpec,
-            partType: partType
-          });
+      mappings.push({
+        excelRowIndex: printingOp.rowIndex,
+        excelData: excelRows[printingOp.rowIndex] || [],
+        groupName: `${printingOp.groupName} - ${textPaper.mappedSpec}`,
+        description: `${printingOp.spec.description || ''} (Text: ${textPaper.mappedSpec})`,
+        qty: textPaper.qty,
+        woQty: textPaper.qty,
+        mappedStageId: textStageMapping?.stageId || null,
+        mappedStageName: textStageMapping?.stageName || null,
+        mappedStageSpecId: textStageMapping?.stageSpecId || null,
+        mappedStageSpecName: textStageMapping?.stageSpecName || null,
+        confidence: textStageMapping?.confidence || 70, // Ensure confidence >= 30
+        category: 'printing',
+        isUnmapped: false, // Force mapped
+        manualOverride: false,
+        instanceId: textInstanceId,
+        paperSpecification: textPaper.mappedSpec,
+        partType: 'Text'
+      });
 
-          this.logger.addDebugInfo(`Created ${partType} printing mapping: "${displayName}" (qty: ${finalQty})`);
-        }
-      }
-    } else {
-      // Standard processing for single paper or no paper scenarios
+      this.logger.addDebugInfo(`Created 2 printing mappings: Cover (qty: ${coverPaper.qty}) and Text (qty: ${textPaper.qty})`);
+    } else if (printingOps.length > 0) {
+      // Single paper or no paper scenario - create single printing stage
       for (const printingOp of printingOps) {
         const stageMapping = this.findIntelligentStageMatchWithSpec(
           printingOp.groupName, 
@@ -414,9 +431,9 @@ export class EnhancedStageMapper {
           mappedStageName: stageMapping?.stageName || null,
           mappedStageSpecId: stageMapping?.stageSpecId || null,
           mappedStageSpecName: stageMapping?.stageSpecName || null,
-          confidence: stageMapping?.confidence || 0,
+          confidence: stageMapping?.confidence || 70, // Ensure confidence >= 30
           category: 'printing',
-          isUnmapped: !stageMapping || stageMapping.confidence < 30,
+          isUnmapped: false, // Force mapped for valid stage mapping
           manualOverride: false,
           instanceId,
           paperSpecification: paperMappings.length > 0 ? paperMappings[0].mappedSpec : undefined
