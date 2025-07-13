@@ -1246,9 +1246,12 @@ export class EnhancedJobCreator {
 
   /**
    * Extract user-approved stage mappings from job data
+   * STRENGTHENED: Handle incomplete data and provide fallback stage name resolution
    */
   private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> {
     const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
+    
+    this.logger.addDebugInfo(`Extracting user-approved stage mappings from job ${job.wo_no}...`);
     
     // Check if job has user-approved mappings stored anywhere
     // Look for mappedStageId values in specifications
@@ -1256,13 +1259,26 @@ export class EnhancedJobCreator {
     if (job.printing_specifications) {
       for (const [groupName, spec] of Object.entries(job.printing_specifications)) {
         const specData = spec as any;
-        if (specData.mappedStageId && specData.mappedStageName) {
+        if (specData.mappedStageId) {
+          // STRENGTHENED: Handle case where mappedStageName might be missing
+          let stageName = specData.mappedStageName;
+          
+          if (!stageName) {
+            // Fallback: Try to resolve stage name from stage ID by querying database
+            this.logger.addDebugInfo(`Missing stage name for ${groupName}, stage ID: ${specData.mappedStageId} - attempting fallback resolution`);
+            // For now, we'll use a placeholder since we can't make async calls here
+            // The applyUserStageMapping should have already set both values
+            stageName = `Stage_${specData.mappedStageId}`;
+          }
+          
           mappings.push({
             groupName,
             mappedStageId: specData.mappedStageId,
-            mappedStageName: specData.mappedStageName,
+            mappedStageName: stageName,
             category: 'printing'
           });
+          
+          this.logger.addDebugInfo(`Found user mapping in printing specs: ${groupName} -> ${stageName} (${specData.mappedStageId})`);
         }
       }
     }
@@ -1270,13 +1286,22 @@ export class EnhancedJobCreator {
     if (job.finishing_specifications) {
       for (const [groupName, spec] of Object.entries(job.finishing_specifications)) {
         const specData = spec as any;
-        if (specData.mappedStageId && specData.mappedStageName) {
+        if (specData.mappedStageId) {
+          let stageName = specData.mappedStageName;
+          
+          if (!stageName) {
+            this.logger.addDebugInfo(`Missing stage name for ${groupName}, stage ID: ${specData.mappedStageId} - attempting fallback resolution`);
+            stageName = `Stage_${specData.mappedStageId}`;
+          }
+          
           mappings.push({
             groupName,
             mappedStageId: specData.mappedStageId,
-            mappedStageName: specData.mappedStageName,
+            mappedStageName: stageName,
             category: 'finishing'
           });
+          
+          this.logger.addDebugInfo(`Found user mapping in finishing specs: ${groupName} -> ${stageName} (${specData.mappedStageId})`);
         }
       }
     }
@@ -1284,21 +1309,34 @@ export class EnhancedJobCreator {
     if (job.prepress_specifications) {
       for (const [groupName, spec] of Object.entries(job.prepress_specifications)) {
         const specData = spec as any;
-        if (specData.mappedStageId && specData.mappedStageName) {
+        if (specData.mappedStageId) {
+          let stageName = specData.mappedStageName;
+          
+          if (!stageName) {
+            this.logger.addDebugInfo(`Missing stage name for ${groupName}, stage ID: ${specData.mappedStageId} - attempting fallback resolution`);
+            stageName = `Stage_${specData.mappedStageId}`;
+          }
+          
           mappings.push({
             groupName,
             mappedStageId: specData.mappedStageId,
-            mappedStageName: specData.mappedStageName,
+            mappedStageName: stageName,
             category: 'prepress'
           });
+          
+          this.logger.addDebugInfo(`Found user mapping in prepress specs: ${groupName} -> ${stageName} (${specData.mappedStageId})`);
         }
       }
     }
     
-    this.logger.addDebugInfo(`Extracted ${mappings.length} user-approved stage mappings from job ${job.wo_no}`);
+    this.logger.addDebugInfo(`TOTAL EXTRACTED USER MAPPINGS: ${mappings.length} from job ${job.wo_no}`);
     mappings.forEach(mapping => {
-      this.logger.addDebugInfo(`  - ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.category})`);
+      this.logger.addDebugInfo(`  - ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.mappedStageId}) [${mapping.category}]`);
     });
+    
+    if (mappings.length === 0) {
+      this.logger.addDebugInfo(`⚠️  NO USER MAPPINGS FOUND - This will cause fallback to text-pattern detection!`);
+    }
     
     return mappings;
   }

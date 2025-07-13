@@ -78,6 +78,7 @@ export const parseMatrixExcelFileWithMapping = async (
   
   // Apply enhanced mapping for paper and delivery specifications
   const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
+  await enhancedProcessor.initialize(); // CRITICAL: Initialize to load production stages
   
   // Find paper and delivery columns from specification column
   const paperColumnIndex = mapping.specification !== -1 ? mapping.specification : -1;
@@ -293,6 +294,7 @@ export const parseExcelFileWithMapping = async (
 
   // Apply enhanced mapping for paper and delivery specifications
   const enhancedProcessor = new EnhancedMappingProcessor(logger, availableSpecs);
+  await enhancedProcessor.initialize(); // CRITICAL: Initialize to load production stages
   
   // Process with enhanced mapping, passing user-approved stage mappings
   const enhancedResult = await enhancedProcessor.processJobsWithEnhancedMapping(

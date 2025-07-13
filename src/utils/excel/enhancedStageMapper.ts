@@ -732,6 +732,7 @@ export class EnhancedStageMapper {
 
   /**
    * Map groups to stages using intelligent mapping with user-approved mappings
+   * STRENGTHENED: Always prioritize user mappings and provide comprehensive debugging
    */
   mapGroupsToStagesIntelligent(
     printingSpecs: GroupSpecifications | null,
@@ -741,33 +742,50 @@ export class EnhancedStageMapper {
   ): StageMapping[] {
     const mappedStages: StageMapping[] = [];
     
+    // COMPREHENSIVE DEBUGGING: Log user mappings at entry point
+    this.logger.addDebugInfo(`🔍 STAGE MAPPING: Starting with ${userApprovedMappings?.length || 0} user-approved mappings`);
+    userApprovedMappings?.forEach((mapping, idx) => {
+      this.logger.addDebugInfo(`  User Mapping ${idx + 1}: ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.mappedStageId}) [${mapping.category}]`);
+    });
+    
     // Map printing specifications
     if (printingSpecs) {
+      this.logger.addDebugInfo(`🖨️  Processing ${Object.keys(printingSpecs).length} printing specifications`);
       const printingMappings = this.mapSpecificationsToStagesIntelligent(printingSpecs, 'printing', userApprovedMappings);
       mappedStages.push(...printingMappings);
+      this.logger.addDebugInfo(`✅ Created ${printingMappings.length} printing stage mappings`);
     }
     
     // Map finishing specifications
     if (finishingSpecs) {
+      this.logger.addDebugInfo(`🔧 Processing ${Object.keys(finishingSpecs).length} finishing specifications`);
       const finishingMappings = this.mapSpecificationsToStagesIntelligent(finishingSpecs, 'finishing', userApprovedMappings);
       mappedStages.push(...finishingMappings);
+      this.logger.addDebugInfo(`✅ Created ${finishingMappings.length} finishing stage mappings`);
     }
     
     // Map prepress specifications
     if (prepressSpecs) {
+      this.logger.addDebugInfo(`📐 Processing ${Object.keys(prepressSpecs).length} prepress specifications`);
       const prepressMappings = this.mapSpecificationsToStagesIntelligent(prepressSpecs, 'prepress', userApprovedMappings);
       mappedStages.push(...prepressMappings);
+      this.logger.addDebugInfo(`✅ Created ${prepressMappings.length} prepress stage mappings`);
     }
     
     // Apply DTP/PROOF deduplication logic
     const deduplicatedStages = this.applyDTPProofDeduplication(mappedStages);
     
-    this.logger.addDebugInfo(`Intelligently mapped ${deduplicatedStages.length} stages from group specifications (${mappedStages.length - deduplicatedStages.length} duplicates removed)`);
+    this.logger.addDebugInfo(`🎯 FINAL RESULT: ${deduplicatedStages.length} total stages (${mappedStages.length - deduplicatedStages.length} duplicates removed)`);
+    deduplicatedStages.forEach((stage, idx) => {
+      this.logger.addDebugInfo(`  Final Stage ${idx + 1}: ${stage.stageName} (${stage.stageId}) - Confidence: ${stage.confidence}%`);
+    });
+    
     return deduplicatedStages;
   }
 
   /**
    * Map specifications to stages using intelligent matching with user-approved mappings
+   * STRENGTHENED: Always prioritize user mappings and disable fallbacks when user mappings exist
    */
   private mapSpecificationsToStagesIntelligent(
     specs: GroupSpecifications,
@@ -776,14 +794,22 @@ export class EnhancedStageMapper {
   ): StageMapping[] {
     const mappings: StageMapping[] = [];
     
+    // Count user mappings for this category
+    const userMappingsForCategory = userApprovedMappings?.filter(m => m.category === category) || [];
+    const hasUserMappings = userMappingsForCategory.length > 0;
+    
+    this.logger.addDebugInfo(`🔍 Processing ${Object.keys(specs).length} ${category} specs with ${userMappingsForCategory.length} user mappings`);
+    
     for (const [groupName, spec] of Object.entries(specs)) {
-      // First priority: Check for user-approved mapping
+      this.logger.addDebugInfo(`  📋 Processing spec: "${groupName}" (${spec.description || 'no description'})`);
+      
+      // HIGHEST PRIORITY: Check for user-approved mapping
       const userMapping = userApprovedMappings?.find(m => 
         m.groupName === groupName && m.category === category
       );
       
       if (userMapping) {
-        this.logger.addDebugInfo(`Using user-approved mapping for ${groupName}: ${userMapping.mappedStageName}`);
+        this.logger.addDebugInfo(`  ✅ USING USER-APPROVED MAPPING: ${groupName} -> ${userMapping.mappedStageName} (${userMapping.mappedStageId})`);
         mappings.push({
           stageId: userMapping.mappedStageId,
           stageName: userMapping.mappedStageName,
@@ -791,11 +817,17 @@ export class EnhancedStageMapper {
           category: userMapping.category as 'printing' | 'finishing' | 'prepress' | 'delivery',
           specifications: [groupName, spec.description || ''].filter(Boolean)
         });
+      } else if (hasUserMappings) {
+        // If user has provided explicit mappings for this category, DON'T use text-pattern fallback
+        // This prevents mixing user intent with system guesses
+        this.logger.addDebugInfo(`  ⚠️  SKIPPING text-pattern detection for "${groupName}" - user has provided explicit mappings for ${category} category`);
+        this.logger.addDebugInfo(`  🎯 This ensures all stages come from user-approved mappings only (no mixing)`);
       } else {
-        // Fallback: Use intelligent text-pattern matching
+        // Only use text-pattern matching if user has NOT provided any mappings for this category
+        this.logger.addDebugInfo(`  🤖 No user mappings for ${category} category - using text-pattern detection for "${groupName}"`);
         const stageMapping = this.findIntelligentStageMatch(groupName, spec.description || '', category);
         if (stageMapping) {
-          this.logger.addDebugInfo(`Using text-pattern mapping for ${groupName}: ${stageMapping.stageName}`);
+          this.logger.addDebugInfo(`  ✅ TEXT-PATTERN MAPPING: ${groupName} -> ${stageMapping.stageName} (confidence: ${stageMapping.confidence}%)`);
           mappings.push({
             stageId: stageMapping.stageId,
             stageName: stageMapping.stageName,
@@ -803,10 +835,13 @@ export class EnhancedStageMapper {
             category: stageMapping.category === 'unknown' ? 'printing' : stageMapping.category,
             specifications: [groupName, spec.description || ''].filter(Boolean)
           });
+        } else {
+          this.logger.addDebugInfo(`  ❌ NO MATCH FOUND for "${groupName}" in text-pattern detection`);
         }
       }
     }
     
+    this.logger.addDebugInfo(`🎯 Category ${category} result: ${mappings.length} mappings created from ${Object.keys(specs).length} specifications`);
     return mappings;
   }
 

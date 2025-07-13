@@ -2,6 +2,7 @@ import type { ExcelImportDebugger } from './debugger';
 import { PaperSpecificationParser, PaperMappingMatcher } from './paperSpecificationParser';
 import { DeliverySpecificationMatcher } from './deliverySpecificationMatcher';
 import type { ParsedJob } from './types';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface EnhancedMappingResult {
   jobs: ParsedJob[];
@@ -23,6 +24,7 @@ export class EnhancedMappingProcessor {
   private paperParser: PaperSpecificationParser;
   private paperMatcher: PaperMappingMatcher;
   private deliveryMatcher: DeliverySpecificationMatcher;
+  private productionStages: Map<string, { id: string; name: string }> = new Map();
 
   constructor(
     private logger: ExcelImportDebugger,
@@ -31,6 +33,37 @@ export class EnhancedMappingProcessor {
     this.paperParser = new PaperSpecificationParser(logger);
     this.paperMatcher = new PaperMappingMatcher(logger);
     this.deliveryMatcher = new DeliverySpecificationMatcher(logger, availableSpecs);
+  }
+
+  /**
+   * Initialize the processor and load production stages for stage name resolution
+   */
+  async initialize(): Promise<void> {
+    this.logger.addDebugInfo("Initializing enhanced mapping processor...");
+    
+    // Load production stages for stage name resolution
+    const { data: stagesData, error: stagesError } = await supabase
+      .from('production_stages')
+      .select('id, name')
+      .eq('is_active', true);
+    
+    if (stagesError) {
+      this.logger.addDebugInfo(`Warning: Could not load production stages: ${stagesError.message}`);
+    } else {
+      this.productionStages.clear();
+      (stagesData || []).forEach(stage => {
+        this.productionStages.set(stage.id, { id: stage.id, name: stage.name });
+      });
+      this.logger.addDebugInfo(`Loaded ${this.productionStages.size} production stages for stage name resolution`);
+    }
+  }
+
+  /**
+   * Get stage name by stage ID
+   */
+  private getStageNameById(stageId: string): string | null {
+    const stage = this.productionStages.get(stageId);
+    return stage ? stage.name : null;
   }
 
   /**
@@ -382,6 +415,7 @@ export class EnhancedMappingProcessor {
   /**
    * Apply user-approved stage mappings to job specifications
    * New format: stage_<uuid> -> column index
+   * CRITICAL FIX: Store BOTH mappedStageId AND mappedStageName for complete preservation
    */
   private async applyUserStageMapping(job: ParsedJob, userMapping: any, excelRow?: any[]): Promise<void> {
     this.logger.addDebugInfo(`Applying user stage mappings for job ${job.wo_no}`);
@@ -399,6 +433,13 @@ export class EnhancedMappingProcessor {
       if (key.startsWith('stage_') && columnIndex !== -1 && columnIndex !== null && columnIndex !== undefined) {
         const stageId = key.replace('stage_', '');
         
+        // CRITICAL FIX: Get the stage name from our loaded production stages
+        const stageName = this.getStageNameById(stageId);
+        if (!stageName) {
+          this.logger.addDebugInfo(`Job ${job.wo_no} - Warning: Could not find stage name for stage ID ${stageId}, skipping`);
+          return;
+        }
+        
         // Get the actual value from the Excel row for this column
         const columnValue = excelRow && excelRow[columnIndex as number] 
           ? String(excelRow[columnIndex as number]).trim() 
@@ -414,20 +455,22 @@ export class EnhancedMappingProcessor {
             description: `User Mapped Production Stage`,
             specifications: columnValue,
             qty: job.qty || 1,
-            mappedStageId: stageId, // This is the critical value that gets preserved
+            mappedStageId: stageId, // Critical value #1 for preservation
+            mappedStageName: stageName, // Critical value #2 for preservation - THIS WAS MISSING!
             originalColumnIndex: columnIndex,
             confidence: 100 // High confidence since user explicitly mapped it
           };
           
           stageMappingsApplied.push({
             stageId,
+            stageName,
             columnIndex,
             value: columnValue
           });
           
-          this.logger.addDebugInfo(`Job ${job.wo_no} - Applied user stage mapping: Stage ${stageId} -> Column ${columnIndex} = "${columnValue}"`);
+          this.logger.addDebugInfo(`Job ${job.wo_no} - Applied user stage mapping: Stage ${stageId} (${stageName}) -> Column ${columnIndex} = "${columnValue}"`);
         } else {
-          this.logger.addDebugInfo(`Job ${job.wo_no} - Skipped empty stage mapping: Stage ${stageId} -> Column ${columnIndex} (no data)`);
+          this.logger.addDebugInfo(`Job ${job.wo_no} - Skipped empty stage mapping: Stage ${stageId} (${stageName}) -> Column ${columnIndex} (no data)`);
         }
       }
     });
