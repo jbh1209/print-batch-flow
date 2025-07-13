@@ -461,176 +461,158 @@ export class EnhancedJobCreator {
     }
 
     result.createdJobs.push(insertedJob);
-    result.stats.successful++;
   }
 
+  /**
+   * Build enhanced job data with all necessary fields
+   */
   private async buildEnhancedJobData(job: ParsedJob, categoryId: string | null): Promise<any> {
-    // Build comprehensive job data with all specifications
-    const jobData: any = {
-      wo_no: job.wo_no,
+    this.logger.addDebugInfo(`Building enhanced job data for ${job.wo_no}`);
+
+    // Generate QR code if enabled
+    let qrCodeData = null;
+    let qrCodeUrl = null;
+    
+    if (this.generateQRCodes) {
+      qrCodeData = JSON.stringify({ wo_no: job.wo_no, table: 'production_jobs' });
+      try {
+        qrCodeUrl = await generateQRCodeImage(qrCodeData);
+        this.logger.addDebugInfo(`Generated QR code for job ${job.wo_no}`);
+      } catch (qrError) {
+        this.logger.addDebugInfo(`Warning: QR code generation failed for ${job.wo_no}: ${qrError}`);
+        // Continue without QR code
+      }
+    }
+
+    const enhancedJobData = {
       user_id: this.userId,
-      status: 'Pre-Press',
-      customer: job.customer || '',
-      reference: job.reference || '',
-      rep: job.rep || '',
-      qty: job.qty || 0,
-      location: job.location || '',
+      wo_no: job.wo_no,
+      status: job.status || 'Pending',
+      date: job.date || null,
+      rep: job.rep || null,
+      category: job.category || null,
+      category_id: categoryId,
+      customer: job.customer || null,
+      reference: job.reference || null,
+      qty: job.qty || null,
+      due_date: job.due_date || null,
+      location: job.location || null,
       size: job.size || null,
       specification: job.specification || null,
       contact: job.contact || null,
-      date: job.date || null,
-      due_date: job.due_date || null,
-      category_id: categoryId,
-      
-      // Enhanced specifications from groups
-      paper_specifications: this.buildPaperSpecifications(job),
-      delivery_specifications: this.buildDeliverySpecifications(job),
-      printing_specifications: this.buildPrintingSpecifications(job),
-      finishing_specifications: this.buildFinishingSpecifications(job),
-      prepress_specifications: this.buildPrepressSpecifications(job),
+      // Store JSON specifications
+      paper_specifications: job.paper_specifications || {},
+      delivery_specifications: job.delivery_specifications || {},
+      finishing_specifications: job.finishing_specifications || {},
+      prepress_specifications: job.prepress_specifications || {},
+      printing_specifications: job.printing_specifications || {},
       operation_quantities: job.operation_quantities || {},
-      
-      // Workflow flags - all imported jobs use custom workflows
-      has_custom_workflow: true
+      // QR code data
+      qr_code_data: qrCodeData,
+      qr_code_url: qrCodeUrl,
+      // Mark as custom workflow since we're not using categories
+      has_custom_workflow: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
-    // Generate QR code if enabled
-    if (this.generateQRCodes) {
-      const qrData = generateQRCodeData({
-        wo_no: job.wo_no,
-        job_id: `temp-${job.wo_no}`,
-        customer: job.customer || '',
-        due_date: job.due_date
-      });
-      
-      jobData.qr_code_data = qrData;
-      jobData.qr_code_url = await generateQRCodeImage(qrData);
+    this.logger.addDebugInfo(`Enhanced job data built for ${job.wo_no} with ${Object.keys(enhancedJobData).length} fields`);
+    return enhancedJobData;
+  }
+
+  private async updateJobQRCode(job: any): Promise<void> {
+    if (!job.qr_code_data) return;
+
+    // Update QR code data with actual job ID
+    const updatedQRData = JSON.parse(job.qr_code_data);
+    updatedQRData.jobId = job.id;
+    
+    const { error } = await supabase
+      .from('production_jobs')
+      .update({
+        qr_code_data: JSON.stringify(updatedQRData),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', job.id);
+
+    if (error) {
+      throw new Error(`Failed to update QR code: ${error.message}`);
     }
 
-    return jobData;
+    this.logger.addDebugInfo(`Updated QR code with job ID for ${job.wo_no}`);
   }
 
-  private buildPaperSpecifications(job: ParsedJob): any {
-    const paperSpecs: any = {};
+  private async calculateAndSetDueDate(jobId: string, job: ParsedJob): Promise<void> {
+    try {
+      this.logger.addDebugInfo(`Calculating due date for job ${job.wo_no}`);
 
-    // Include original paper type/weight if available
-    if (job.paper_type || job.paper_weight) {
-      paperSpecs.legacy_paper = {
-        type: job.paper_type,
-        weight: job.paper_weight
-      };
-    }
-
-    // Include group-based paper specifications
-    if (job.paper_specifications) {
-      paperSpecs.group_specifications = job.paper_specifications;
-    }
-
-    return Object.keys(paperSpecs).length > 0 ? paperSpecs : {};
-  }
-
-  private buildDeliverySpecifications(job: ParsedJob): any {
-    if (!job.delivery_specifications) return {};
-
-    return {
-      group_specifications: job.delivery_specifications,
-      parsed_delivery: this.extractDeliveryMethod(job.delivery_specifications)
-    };
-  }
-
-  private extractDeliveryMethod(deliverySpecs: any): any {
-    // Simple delivery method extraction from group specifications
-    for (const [key, spec] of Object.entries(deliverySpecs)) {
-      const description = (spec as any).description?.toLowerCase() || '';
-      if (description.includes('delivery') || description.includes('courier')) {
-        return { method: 'delivery', details: description };
-      }
-      if (description.includes('collection') || description.includes('pickup')) {
-        return { method: 'collection', details: description };
-      }
-    }
-    return { method: 'collection', details: 'Auto-detected from specifications' };
-  }
-
-  private buildPrintingSpecifications(job: ParsedJob): any {
-    if (!job.printing_specifications) return {};
-
-    const printingSpecs = {
-      group_specifications: job.printing_specifications,
-      detected_stages: this.extractPrintingStages(job.printing_specifications)
-    };
-
-    return printingSpecs;
-  }
-
-  private buildFinishingSpecifications(job: ParsedJob): any {
-    if (!job.finishing_specifications) return {};
-
-    return {
-      group_specifications: job.finishing_specifications,
-      detected_stages: this.extractFinishingStages(job.finishing_specifications)
-    };
-  }
-
-  private buildPrepressSpecifications(job: ParsedJob): any {
-    if (!job.prepress_specifications) return {};
-
-    return {
-      group_specifications: job.prepress_specifications,
-      detected_stages: this.extractPrepressStages(job.prepress_specifications)
-    };
-  }
-
-  private extractPrintingStages(printingSpecs: any): string[] {
-    const stages: string[] = [];
-    for (const [key, spec] of Object.entries(printingSpecs)) {
-      stages.push(key);
-    }
-    return stages;
-  }
-
-  private extractFinishingStages(finishingSpecs: any): string[] {
-    const stages: string[] = [];
-    for (const [key, spec] of Object.entries(finishingSpecs)) {
-      stages.push(key);
-    }
-    return stages;
-  }
-
-  private extractPrepressStages(prepressSpecs: any): string[] {
-    const stages: string[] = [];
-    for (const [key, spec] of Object.entries(prepressSpecs)) {
-      stages.push(key);
-    }
-    return stages;
-  }
-
-  private async initializeJobWorkflow(insertedJob: any, categoryId: string, originalJob: ParsedJob): Promise<void> {
-    this.logger.addDebugInfo(`Initializing workflow for job ${insertedJob.id} with category ${categoryId}`);
-
-    // Check if this is a cover/text book job
-    if (originalJob.cover_text_detection?.isBookJob) {
-      this.logger.addDebugInfo(`Detected book job - creating cover/text workflow`);
-      
-      const workflowResult = await this.coverTextService.createCoverTextWorkflow(
-        insertedJob.id,
-        originalJob,
-        categoryId
-      );
-
-      if (!workflowResult.success) {
-        throw new Error(`Failed to create cover/text workflow: ${workflowResult.error}`);
+      // If manual due date is already set, use it
+      if (job.due_date) {
+        this.logger.addDebugInfo(`Manual due date already set for ${job.wo_no}: ${job.due_date}`);
+        return;
       }
 
-      this.logger.addDebugInfo(`Cover/text workflow created successfully with dependency group: ${workflowResult.dependencyGroupId}`);
+      // Calculate due date based on stage durations
+      const { data: stageInstances, error: stageError } = await supabase
+        .from('job_stage_instances')
+        .select('estimated_duration_minutes')
+        .eq('job_id', jobId)
+        .eq('job_table_name', 'production_jobs');
+
+      if (stageError || !stageInstances) {
+        this.logger.addDebugInfo(`No stage instances found for due date calculation: ${stageError?.message}`);
+        return;
+      }
+
+      // Sum up all estimated durations (converted to days)
+      const totalMinutes = stageInstances.reduce((sum, stage) => {
+        return sum + (stage.estimated_duration_minutes || 0);
+      }, 0);
+
+      const totalDays = Math.ceil(totalMinutes / (8 * 60)); // Assuming 8-hour workdays
+      const calculatedDueDate = new Date();
+      calculatedDueDate.setDate(calculatedDueDate.getDate() + totalDays);
+
+      // Update job with calculated due date
+      const { error: updateError } = await supabase
+        .from('production_jobs')
+        .update({
+          due_date: calculatedDueDate.toISOString().split('T')[0],
+          manual_sla_days: totalDays,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+
+      if (updateError) {
+        this.logger.addDebugInfo(`Failed to update due date: ${updateError.message}`);
+      } else {
+        this.logger.addDebugInfo(`Set calculated due date for ${job.wo_no}: ${calculatedDueDate.toISOString().split('T')[0]} (${totalDays} days)`);
+      }
+
+    } catch (error) {
+      this.logger.addDebugInfo(`Error calculating due date: ${error}`);
+    }
+  }
+
+  /**
+   * Initialize custom workflow using Supabase RPC
+   */
+  private async initializeDefaultCustomWorkflow(insertedJob: any, originalJob: ParsedJob): Promise<void> {
+    this.logger.addDebugInfo(`Initializing default custom workflow for job ${originalJob.wo_no} (ID: ${insertedJob.id})`);
+    
+    // Get category assignment from enhanced data
+    const categoryAssignment = insertedJob.category_id;
+    
+    if (!categoryAssignment) {
+      this.logger.addDebugInfo(`No category assigned for job ${originalJob.wo_no}, creating basic workflow`);
       return;
     }
 
-    // Standard single-component workflow
+    // Use Supabase RPC to initialize workflow
     const { error } = await supabase.rpc('initialize_job_stages_auto', {
       p_job_id: insertedJob.id,
       p_job_table_name: 'production_jobs',
-      p_category_id: categoryId
+      p_category_id: categoryAssignment
     });
 
     if (error) {
@@ -790,8 +772,11 @@ export class EnhancedJobCreator {
 
       this.logger.addDebugInfo(`Creating ${stageInstances.length} stage instances in system order for job ${originalJob.wo_no}`);
       
-      // Create stage instances in database with correct ordering
+      // Create stage instances in database with correct ordering and timing calculations
       const stageInsertPromises = stageInstances.map(async (instance, index) => {
+        // Calculate timing using Supabase function
+        const timingResult = await this.calculateStageTiming(instance.quantity, instance.stageId);
+        
         const { data, error } = await supabase
           .from('job_stage_instances')
           .insert({
@@ -801,10 +786,13 @@ export class EnhancedJobCreator {
             stage_order: index + 1, // Use sequential order based on system ordering
             status: 'pending',
             part_name: instance.partName || null,
+            part_type: instance.mapping.partType || null, // Store cover/text flag
             stage_specification_id: instance.mapping.mappedStageSpecId || null,
-            quantity: instance.quantity || 0 // Ensure quantity is always set
+            quantity: instance.quantity || 0, // Ensure quantity is always set
+            estimated_duration_minutes: timingResult.estimatedDuration,
+            setup_time_minutes: timingResult.setupTime
           })
-          .select('id, production_stage_id, part_name, quantity')
+          .select('id, production_stage_id, part_name, quantity, estimated_duration_minutes')
           .single();
           
         if (error) {
@@ -812,7 +800,7 @@ export class EnhancedJobCreator {
           throw new Error(`Failed to create stage instance for ${instance.stageName}: ${error.message}`);
         }
         
-        this.logger.addDebugInfo(`Created stage instance: ${instance.stageName} (Part: ${instance.partName || 'none'}) - Qty: ${instance.quantity} - ID: ${data.id}`);
+        this.logger.addDebugInfo(`Created stage instance: ${instance.stageName} (Part: ${instance.partName || 'none'}) - Qty: ${instance.quantity} - Duration: ${timingResult.estimatedDuration}min - ID: ${data.id}`);
         return data;
       });
 
@@ -857,6 +845,53 @@ export class EnhancedJobCreator {
     } catch (error) {
       this.logger.addDebugInfo(`Custom workflow initialization error for ${originalJob.wo_no}: ${error}`);
       throw error; // Re-throw to ensure errors are visible in the UI
+    }
+  }
+
+  /**
+   * Calculate stage timing using Supabase RPC function
+   */
+  private async calculateStageTiming(quantity: number, stageId: string): Promise<{estimatedDuration: number, setupTime: number}> {
+    try {
+      // Get stage and specification details for timing calculation
+      const { data: stage, error: stageError } = await supabase
+        .from('production_stages')
+        .select('running_speed_per_hour, make_ready_time_minutes, speed_unit')
+        .eq('id', stageId)
+        .single();
+
+      if (stageError || !stage) {
+        this.logger.addDebugInfo(`Warning: Could not fetch stage details for timing calculation: ${stageError?.message}`);
+        return { estimatedDuration: 60, setupTime: 10 }; // Default fallback
+      }
+
+      // Check if there's a specific specification with timing overrides
+      let runningSpeed = stage.running_speed_per_hour || 100;
+      let setupTime = stage.make_ready_time_minutes || 10;
+      let speedUnit = stage.speed_unit || 'sheets_per_hour';
+
+      // Note: stage specifications timing overrides removed for simplicity
+
+      // Use Supabase RPC for timing calculation
+      const { data: timingResult, error: timingError } = await supabase.rpc('calculate_stage_duration', {
+        p_quantity: quantity || 0,
+        p_running_speed_per_hour: runningSpeed,
+        p_make_ready_time_minutes: setupTime,
+        p_speed_unit: speedUnit
+      });
+
+      if (timingError) {
+        this.logger.addDebugInfo(`Warning: RPC timing calculation failed: ${timingError.message}`);
+        return { estimatedDuration: setupTime + Math.ceil((quantity || 0) / runningSpeed * 60), setupTime };
+      }
+
+      const estimatedDuration = timingResult || setupTime;
+      this.logger.addDebugInfo(`Calculated timing: ${estimatedDuration} minutes for ${quantity} units`);
+      
+      return { estimatedDuration, setupTime };
+    } catch (error) {
+      this.logger.addDebugInfo(`Error calculating stage timing: ${error}`);
+      return { estimatedDuration: 60, setupTime: 10 }; // Safe fallback
     }
   }
 
@@ -950,252 +985,82 @@ export class EnhancedJobCreator {
         return;
       }
 
-      // Get the job's stage instances
-      const { data: stages, error: stagesError } = await supabase
+      const operationQuantities = job.operation_quantities as any;
+      this.logger.addDebugInfo(`Found operation quantities: ${JSON.stringify(operationQuantities)}`);
+
+      // Get all stage instances for this job
+      const { data: stageInstances, error: stageError } = await supabase
         .from('job_stage_instances')
-        .select('id, production_stage_id')
+        .select('id, production_stage_id, quantity')
         .eq('job_id', jobId)
         .eq('job_table_name', 'production_jobs');
 
-      if (stagesError || !stages) {
-        this.logger.addDebugInfo('No stage instances found for quantity updates');
+      if (stageError || !stageInstances) {
+        this.logger.addDebugInfo(`No stage instances found: ${stageError?.message}`);
         return;
       }
 
-      // Update each stage with appropriate quantity based on its type
-      for (const stage of stages) {
-        const appropriateQuantity = this.getApropriateQuantityForStage(stage.production_stage_id, job.operation_quantities);
-        
-        if (appropriateQuantity > 0) {
-          await supabase
-            .from('job_stage_instances')
-            .update({ quantity: appropriateQuantity })
-            .eq('id', stage.id);
-        }
-      }
-    } catch (error) {
-      this.logger.addDebugInfo(`Failed to update stage quantities: ${error}`);
-    }
-  }
+      // Update each stage instance with appropriate quantity
+      const updatePromises = stageInstances.map(async (stageInstance, index) => {
+        let newQuantity = stageInstance.quantity || 0;
 
-  private async calculateAndSetDueDate(jobId: string, originalJob: ParsedJob): Promise<void> {
-    try {
-      // Get all stages with their durations
-      const { data: stages, error } = await supabase
-        .from('job_stage_instances')
-        .select(`
-          id,
-          quantity,
-          production_stages(
-            running_speed_per_hour,
-            make_ready_time_minutes,
-            speed_unit
-          )
-        `)
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs');
-
-      if (error || !stages) return;
-
-      let totalMinutes = 0;
-      
-      // Calculate total estimated duration
-      for (const stage of stages) {
-        const productionStage = stage.production_stages as any;
-        if (productionStage && stage.quantity) {
-          const duration = await this.calculateStageEstimateWithQuantityType(
-            stage.quantity,
-            productionStage.running_speed_per_hour || 100,
-            productionStage.make_ready_time_minutes || 10,
-            productionStage.speed_unit || 'sheets_per_hour',
-            'pieces'
-          );
-          totalMinutes += duration;
-        }
-      }
-
-      // Convert to days and add buffer
-      const estimatedDays = Math.ceil(totalMinutes / (8 * 60)) + 1; // 8 hour work days + 1 day buffer
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + estimatedDays);
-
-      // Update job with calculated due date
-      await supabase
-        .from('production_jobs')
-        .update({ 
-          due_date: dueDate.toISOString().split('T')[0],
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
-
-      this.logger.addDebugInfo(`Due date calculated for ${originalJob.wo_no}: ${estimatedDays} days from now`);
-      
-    } catch (error) {
-      this.logger.addDebugInfo(`Due date calculation failed: ${error}`);
-    }
-  }
-
-  private getApropriateQuantityForStage(stageId: string, operationQuantities: any): number {
-    // Logic to determine which quantity to use for different stage types
-    // For now, return the first available quantity
-    // This could be enhanced with stage-specific logic
-    for (const operation of Object.values(operationQuantities)) {
-      const opData = operation as any;
-      if (opData.operation_qty > 0) {
-        return opData.operation_qty;
-      }
-      if (opData.total_wo_qty > 0) {
-        return opData.total_wo_qty;
-      }
-    }
-    return 0;
-  }
-
-  private async calculateStageEstimateWithQuantityType(
-    quantity: number, 
-    runningSpeed: number, 
-    makeReadyTime: number = 10,
-    speedUnit: string = 'sheets_per_hour',
-    quantityType: string = 'pieces'
-  ): Promise<number> {
-    try {
-      const { data, error } = await supabase.rpc('calculate_stage_duration_with_type', {
-        p_quantity: quantity,
-        p_running_speed_per_hour: runningSpeed,
-        p_make_ready_time_minutes: makeReadyTime,
-        p_speed_unit: speedUnit,
-        p_quantity_type: quantityType
-      });
-
-      if (error) {
-        this.logger.addDebugInfo(`Error calculating stage duration: ${error.message}`);
-        return makeReadyTime; // Fallback to just make-ready time
-      }
-
-      return data || makeReadyTime;
-    } catch (error) {
-      this.logger.addDebugInfo(`Failed to calculate stage duration: ${error}`);
-      return makeReadyTime;
-    }
-  }
-
-  private async updateJobQRCode(job: any): Promise<void> {
-    try {
-      const updatedQrData = generateQRCodeData({
-        wo_no: job.wo_no,
-        job_id: job.id,
-        customer: job.customer,
-        due_date: job.due_date
-      });
-      
-      const updatedQrUrl = await generateQRCodeImage(updatedQrData);
-      
-      await supabase
-        .from('production_jobs')
-        .update({
-          qr_code_data: updatedQrData,
-          qr_code_url: updatedQrUrl
-        })
-        .eq('id', job.id);
-    } catch (error) {
-      this.logger.addDebugInfo(`Failed to update QR code for job ${job.id}: ${error}`);
-    }
-  }
-
-  /**
-   * Update stage instances with sub-specifications and quantities from row mappings
-   */
-  private async updateStageInstancesWithSpecs(jobId: string, rowMappings: any[]): Promise<void> {
-    try {
-      // Get all created stage instances for this job
-      const { data: stageInstances, error: stagesError } = await supabase
-        .from('job_stage_instances')
-        .select('id, production_stage_id, stage_order')
-        .eq('job_id', jobId)
-        .eq('job_table_name', 'production_jobs')
-        .order('stage_order');
-
-      if (stagesError || !stageInstances) {
-        this.logger.addDebugInfo('No stage instances found for specification updates');
-        return;
-      }
-
-      // Match row mappings to stage instances and update with specifications
-      for (let i = 0; i < stageInstances.length && i < rowMappings.length; i++) {
-        const stageInstance = stageInstances[i];
-        const mapping = rowMappings.filter(m => !m.isUnmapped && m.mappedStageId)[i];
-        
-        if (!mapping) continue;
-
-        const updateData: any = {
-          quantity: mapping.qty || mapping.woQty || 0,
-          updated_at: new Date().toISOString()
-        };
-
-        // Add stage specification if available
-        if (mapping.mappedStageSpecId) {
-          updateData.stage_specification_id = mapping.mappedStageSpecId;
+        // Try to match stage with operation quantities
+        const operations = Object.entries(operationQuantities);
+        if (operations.length > index) {
+          const [operationKey, operationData] = operations[index];
+          const opData = operationData as any;
+          
+          if (opData.operation_qty && opData.operation_qty > 0) {
+            newQuantity = opData.operation_qty;
+          } else if (opData.total_wo_qty && opData.total_wo_qty > 0) {
+            newQuantity = opData.total_wo_qty;
+          }
+          
+          this.logger.addDebugInfo(`Updating stage ${stageInstance.id} quantity to ${newQuantity} from operation ${operationKey}`);
         }
 
-        // Add notes about the mapping
-        const notes = [];
-        if (mapping.mappedStageSpecName) {
-          notes.push(`Sub-specification: ${mapping.mappedStageSpecName}`);
-        }
-        if (mapping.paperSpecification) {
-          notes.push(`Paper: ${mapping.paperSpecification}`);
-        }
-        if (mapping.instanceId) {
-          notes.push(`Instance: ${mapping.instanceId}`);
-        }
-        
-        if (notes.length > 0) {
-          updateData.notes = notes.join(' | ');
-        }
-
-        await supabase
+        // Update the stage instance
+        const { error: updateError } = await supabase
           .from('job_stage_instances')
-          .update(updateData)
+          .update({ quantity: newQuantity })
           .eq('id', stageInstance.id);
 
-        this.logger.addDebugInfo(`Updated stage instance ${stageInstance.id} with specification: ${mapping.mappedStageSpecName || 'none'}`);
-      }
+        if (updateError) {
+          this.logger.addDebugInfo(`Failed to update stage ${stageInstance.id} quantity: ${updateError.message}`);
+        }
+      });
+
+      await Promise.all(updatePromises);
+      this.logger.addDebugInfo(`Completed stage quantity updates for job ${jobId}`);
+
     } catch (error) {
-      this.logger.addDebugInfo(`Failed to update stage instances with specifications: ${error}`);
+      this.logger.addDebugInfo(`Error updating stage quantities: ${error}`);
     }
   }
 
+  private async assignBestCategory(job: ParsedJob): Promise<{ categoryId: string; categoryName: string; confidence: number } | null> {
+    try {
+      // Simplified category assignment - using mapped stages instead
+      return null;
+    } catch (error) {
+      this.logger.addDebugInfo(`Error assigning category for job ${job.wo_no}: ${error}`);
+      return null;
+    }
+  }
 
-  /**
-   * Get a default stage mapping for standard Excel imports
-   */
   private async getDefaultStageMapping(job: ParsedJob): Promise<{ stageId: string; stageName: string } | null> {
     try {
-      // For standard Excel imports, try to map to common stages
-      // Load production stages directly since mapper doesn't expose them
+      // Get the first available active stage as default
       const { data: stages, error } = await supabase
         .from('production_stages')
         .select('id, name')
         .eq('is_active', true)
-        .order('order_index');
-      
-      if (error || !stages?.length) {
-        this.logger.addDebugInfo(`No production stages available: ${error?.message || 'No stages found'}`);
+        .order('order_index')
+        .limit(1);
+
+      if (error || !stages || stages.length === 0) {
+        this.logger.addDebugInfo(`No active stages available for default mapping: ${error?.message}`);
         return null;
-      }
-      
-      // Try to find a "Printing" or "Digital Print" stage
-      const printingStage = stages.find(stage => 
-        stage.name.toLowerCase().includes('print') || 
-        stage.name.toLowerCase().includes('digital')
-      );
-      
-      if (printingStage) {
-        this.logger.addDebugInfo(`Found default printing stage: ${printingStage.name} for job ${job.wo_no}`);
-        return {
-          stageId: printingStage.id,
-          stageName: printingStage.name
-        };
       }
       
       // Fallback to the first available stage

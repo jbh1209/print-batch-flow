@@ -212,37 +212,7 @@ export class EnhancedStageMapper {
       return paperMapping;
     }
     
-    // Extract paper weight and type from description
-    const weightMatch = description.match(/(\d+)\s*gsm/i);
-    const weight = weightMatch ? weightMatch[1] + 'gsm' : '';
-    
-    // Check for paper type keywords
-    let paperType = '';
-    const desc = description.toLowerCase();
-    if (desc.includes('gloss')) paperType = 'Gloss';
-    else if (desc.includes('matt') || desc.includes('matte')) paperType = 'Matt';
-    else if (desc.includes('silk')) paperType = 'Silk';
-    else if (desc.includes('uncoated')) paperType = 'Uncoated';
-    else if (desc.includes('coated')) paperType = 'Coated';
-    
-    // Combine weight and type - prioritize extracted specs over raw text
-    if (weight && paperType) {
-      return `${paperType} ${weight}`;
-    } else if (weight) {
-      return weight;
-    } else if (paperType) {
-      return paperType;
-    }
-    
-    // Try one more extraction for common patterns
-    const simpleMatch = description.match(/(\d+)\s*gsm\s*(gloss|matt|matte|silk|uncoated|coated)/i);
-    if (simpleMatch) {
-      const [, w, type] = simpleMatch;
-      const formattedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-      return `${formattedType} ${w}gsm`;
-    }
-    
-    // Only fallback to description if no patterns found
+    // Return raw text for user selection - no fallback logic
     return description || groupName;
   }
 
@@ -256,16 +226,28 @@ export class EnhancedStageMapper {
           mapping.paper_type_specification_id || 
           mapping.paper_weight_specification_id) {
         if (searchText.includes(mappedText) || mappedText.includes(searchText)) {
-          // Try to get the display name from print specifications
-          if (mapping.paper_type_specification_id) {
-            // This would require a lookup to print_specifications table
-            // For now, return the mapped text
-            return mappedText;
-          }
+          // Get the display name from mapped specifications
+          return this.getPaperSpecificationDisplay(mapping);
         }
       }
     }
     return null;
+  }
+
+  /**
+   * Get proper display name for paper specification from mapping
+   */
+  private getPaperSpecificationDisplay(mapping: any): string {
+    // Look up in print_specifications for proper display names
+    // For now, return a formatted version - this will be enhanced when user selects mappings
+    const parts: string[] = [];
+    
+    if (mapping.paper_type_specification_id || mapping.paper_weight_specification_id) {
+      // Return identifier that can be looked up later
+      return `MAPPED_SPEC_${mapping.id}`;
+    }
+    
+    return mapping.excel_text || '';
   }
 
   /**
