@@ -122,24 +122,29 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     return 'unknown';
   };
 
-  const handleUpdateMapping = (woNo: string, rowIndex: number, stageId: string, stageName: string) => {
+  const handleUpdateMapping = (rowIndex: number, stageId: string, stageName: string) => {
     setUpdatedRowMappings(prev => {
       const updated = { ...prev };
-      if (!updated[woNo]) updated[woNo] = [];
       
-      const mappingsCopy = [...updated[woNo]];
-      const mappingIndex = mappingsCopy.findIndex(m => m.excelRowIndex === rowIndex);
-      
-      if (mappingIndex >= 0) {
-        mappingsCopy[mappingIndex] = {
-          ...mappingsCopy[mappingIndex],
-          mappedStageId: stageId,
-          mappedStageName: stageName,
-          manualOverride: true,
-          confidence: 100,
-          isUnmapped: false
-        };
-        updated[woNo] = mappingsCopy;
+      // Find which work order this row belongs to
+      for (const [woNo, mappings] of Object.entries(result?.rowMappings || {})) {
+        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
+        
+        if (mappingIndex >= 0) {
+          if (!updated[woNo]) updated[woNo] = [...mappings];
+          
+          const mappingsCopy = [...updated[woNo]];
+          mappingsCopy[mappingIndex] = {
+            ...mappingsCopy[mappingIndex],
+            mappedStageId: stageId,
+            mappedStageName: stageName,
+            manualOverride: true,
+            confidence: 100,
+            isUnmapped: false
+          };
+          updated[woNo] = mappingsCopy;
+          break;
+        }
       }
       
       return updated;
@@ -155,16 +160,28 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
     }
   };
 
-  const handleToggleManualOverride = (woNo: string, rowIndex: number) => {
+  const handleToggleManualOverride = (rowIndex: number) => {
     setUpdatedRowMappings(prev => {
-      const woMappings = [...(prev[woNo] || [])];
-      if (woMappings[rowIndex]) {
-        woMappings[rowIndex] = {
-          ...woMappings[rowIndex],
-          manualOverride: !woMappings[rowIndex].manualOverride
-        };
+      const updated = { ...prev };
+      
+      // Find which work order this row belongs to
+      for (const [woNo, mappings] of Object.entries(result?.rowMappings || {})) {
+        const mappingIndex = mappings.findIndex(m => m.excelRowIndex === rowIndex);
+        
+        if (mappingIndex >= 0) {
+          if (!updated[woNo]) updated[woNo] = [...mappings];
+          
+          const mappingsCopy = [...updated[woNo]];
+          mappingsCopy[mappingIndex] = {
+            ...mappingsCopy[mappingIndex],
+            manualOverride: !mappingsCopy[mappingIndex].manualOverride
+          };
+          updated[woNo] = mappingsCopy;
+          break;
+        }
       }
-      return { ...prev, [woNo]: woMappings };
+      
+      return updated;
     });
   };
 
@@ -335,12 +352,8 @@ export const EnhancedJobCreationDialog: React.FC<EnhancedJobCreationDialogProps>
                         <RowMappingTable
                           rowMappings={currentMappings}
                           availableStages={availableStages}
-                          onUpdateMapping={(rowIndex, stageId, stageName) => 
-                            handleUpdateMapping(woNo, rowIndex, stageId, stageName)
-                          }
-                          onToggleManualOverride={(rowIndex) => 
-                            handleToggleManualOverride(woNo, rowIndex)
-                          }
+                        onUpdateMapping={handleUpdateMapping}
+                        onToggleManualOverride={handleToggleManualOverride}
                         />
                       </CardContent>
                     </Card>

@@ -225,16 +225,24 @@ export class EnhancedStageMapper {
     else if (desc.includes('uncoated')) paperType = 'Uncoated';
     else if (desc.includes('coated')) paperType = 'Coated';
     
-    // Combine weight and type
+    // Combine weight and type - prioritize extracted specs over raw text
     if (weight && paperType) {
-      return `${weight} ${paperType}`;
+      return `${paperType} ${weight}`;
     } else if (weight) {
       return weight;
     } else if (paperType) {
       return paperType;
     }
     
-    // Fallback to original description
+    // Try one more extraction for common patterns
+    const simpleMatch = description.match(/(\d+)\s*gsm\s*(gloss|matt|matte|silk|uncoated|coated)/i);
+    if (simpleMatch) {
+      const [, w, type] = simpleMatch;
+      const formattedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+      return `${formattedType} ${w}gsm`;
+    }
+    
+    // Only fallback to description if no patterns found
     return description || groupName;
   }
 

@@ -102,7 +102,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                     onValueChange={(stageId) => {
                       const stage = availableStages.find(s => s.id === stageId);
                       if (stage) {
-                        onUpdateMapping(index, stageId, stage.name);
+                        onUpdateMapping(mapping.excelRowIndex, stageId, stage.name);
                       }
                     }}
                   >
@@ -167,7 +167,7 @@ export const RowMappingTable: React.FC<RowMappingTableProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onToggleManualOverride(index)}
+                  onClick={() => onToggleManualOverride(mapping.excelRowIndex)}
                   className="h-8 w-8 p-0"
                 >
                   {mapping.manualOverride ? (
