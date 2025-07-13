@@ -183,9 +183,9 @@ export class DirectJobCreator {
       this.logger.addDebugInfo(`Mapping ${idx}: ${mapping.groupName} -> Stage: ${mapping.mappedStageName}, Unmapped: ${mapping.isUnmapped}, StageId: ${mapping.mappedStageId}`);
     });
 
-    // Filter valid mappings with stage IDs
+    // Filter valid mappings - accept mappings with either stage ID or stage name
     const validMappings = rowMappings.filter(mapping => 
-      !mapping.isUnmapped && mapping.mappedStageId
+      !mapping.isUnmapped && (mapping.mappedStageId || mapping.mappedStageName)
     );
 
     this.logger.addDebugInfo(`Found ${validMappings.length} valid mappings out of ${rowMappings.length} total mappings`);
