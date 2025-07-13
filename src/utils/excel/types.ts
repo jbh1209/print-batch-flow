@@ -35,9 +35,6 @@ export interface ParsedJob {
   // Excel row tracking for accurate row mapping
   _originalExcelRow?: any[];
   _originalRowIndex?: number;
-  // QR code fields
-  qr_code_data?: string | null;
-  qr_code_url?: string | null;
 }
 
 export interface GroupSpecifications {

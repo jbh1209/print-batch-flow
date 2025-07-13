@@ -337,20 +337,6 @@ export class EnhancedStageMapper {
 
           const displayName = `${printingOp.groupName} - ${paperMapping.mappedSpec}`;
           const description = `${printingOp.spec.description || ''} (${partType}: ${paperMapping.mappedSpec})`;
-          
-          this.logger.addDebugInfo(`Creating printing instance: ${displayName} with partType: ${partType}`);
-          this.logger.addDebugInfo(`  Stage mapping result: ${JSON.stringify({ 
-            stageId: stageMapping?.stageId, 
-            stageName: stageMapping?.stageName, 
-            confidence: stageMapping?.confidence,
-            source: stageMapping?.source
-          })}`);
-
-          // Fix confidence scoring: ensure exact database matches get high confidence
-          const confidence = stageMapping?.confidence || 0;
-          const isValidMapping = stageMapping && confidence >= 30;
-          
-          this.logger.addDebugInfo(`  Mapping validity: isValidMapping=${isValidMapping}, confidence=${confidence}`);
 
           mappings.push({
             excelRowIndex: printingOp.rowIndex,
@@ -363,9 +349,9 @@ export class EnhancedStageMapper {
             mappedStageName: stageMapping?.stageName || null,
             mappedStageSpecId: stageMapping?.stageSpecId || null,
             mappedStageSpecName: stageMapping?.stageSpecName || null,
-            confidence: confidence,
+            confidence: stageMapping?.confidence || 0,
             category: 'printing',
-            isUnmapped: !isValidMapping, // Fixed logic
+            isUnmapped: !stageMapping || stageMapping.confidence < 30,
             manualOverride: false,
             instanceId,
             paperSpecification: paperMapping.mappedSpec,
@@ -425,13 +411,10 @@ export class EnhancedStageMapper {
     if (dbMapping) {
       const stage = this.stages.find(s => s.id === dbMapping.production_stage_id);
       if (stage) {
-        // Ensure database matches get high confidence (minimum 80)
-        const confidence = Math.max(dbMapping.confidence_score, 80);
-        this.logger.addDebugInfo(`Database match found: "${searchText}" -> "${stage.name}" (confidence: ${confidence})`);
         return {
           stageId: stage.id,
           stageName: stage.name,
-          confidence: confidence,
+          confidence: Math.min(dbMapping.confidence_score + 10, 100), // Boost verified mappings
           source: 'database',
           category: this.inferStageCategory(stage.name)
         };
@@ -468,7 +451,7 @@ export class EnhancedStageMapper {
         this.logger.addDebugInfo(`Found exact match: "${searchText}" -> "${mappedText}"`);
         return {
           ...mapping,
-          confidence_score: 90 // Give exact matches high confidence
+          confidence_score: Math.min(mapping.confidence_score + 10, 100) // Boost exact matches
         };
       }
     }
