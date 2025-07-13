@@ -78,13 +78,15 @@ export class ProductionStageMapper {
     printingSpecs: GroupSpecifications | null,
     finishingSpecs: GroupSpecifications | null,
     prepressSpecs: GroupSpecifications | null,
-    excelRows?: any[][]
+    excelRows?: any[][],
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
   ): StageMapping[] {
     // Use enhanced mapper for intelligent stage mapping
     return this.enhancedMapper.mapGroupsToStagesIntelligent(
       printingSpecs,
       finishingSpecs,
-      prepressSpecs
+      prepressSpecs,
+      userApprovedMappings
     );
   }
 

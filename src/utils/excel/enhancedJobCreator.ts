@@ -214,11 +214,13 @@ export class EnhancedJobCreator {
     this.logger.addDebugInfo(`Original row index: ${actualRowIndex}`);
     this.logger.addDebugInfo(`Headers length: ${headers?.length || 0}`);
 
-    // 1. Map specifications to production stages using enhanced mapper
+    // 1. Map specifications to production stages using enhanced mapper with user-approved mappings
+    const userApprovedMappings = this.extractUserApprovedMappings(job);
     const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
       job.printing_specifications,
       job.finishing_specifications,
-      job.prepress_specifications
+      job.prepress_specifications,
+      userApprovedMappings
     );
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
@@ -355,11 +357,13 @@ export class EnhancedJobCreator {
     this.logger.addDebugInfo(`Original row index: ${actualRowIndex}`);
     this.logger.addDebugInfo(`Headers length: ${headers?.length || 0}`);
 
-    // 1. Map specifications to production stages using enhanced mapper
+    // 1. Map specifications to production stages using enhanced mapper with user-approved mappings
+    const userApprovedMappings = this.extractUserApprovedMappings(job);
     const mappedStages = this.enhancedStageMapper.mapGroupsToStagesIntelligent(
       job.printing_specifications,
       job.finishing_specifications,
-      job.prepress_specifications
+      job.prepress_specifications,
+      userApprovedMappings
     );
 
     this.logger.addDebugInfo(`Mapped ${mappedStages.length} stages for job ${job.wo_no}`);
@@ -1238,6 +1242,65 @@ export class EnhancedJobCreator {
       this.logger.addDebugInfo(`Error extracting paper type: ${error}`);
       return '';
     }
+  }
+
+  /**
+   * Extract user-approved stage mappings from job data
+   */
+  private extractUserApprovedMappings(job: ParsedJob): Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> {
+    const mappings: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}> = [];
+    
+    // Check if job has user-approved mappings stored anywhere
+    // Look for mappedStageId values in specifications
+    
+    if (job.printing_specifications) {
+      for (const [groupName, spec] of Object.entries(job.printing_specifications)) {
+        const specData = spec as any;
+        if (specData.mappedStageId && specData.mappedStageName) {
+          mappings.push({
+            groupName,
+            mappedStageId: specData.mappedStageId,
+            mappedStageName: specData.mappedStageName,
+            category: 'printing'
+          });
+        }
+      }
+    }
+    
+    if (job.finishing_specifications) {
+      for (const [groupName, spec] of Object.entries(job.finishing_specifications)) {
+        const specData = spec as any;
+        if (specData.mappedStageId && specData.mappedStageName) {
+          mappings.push({
+            groupName,
+            mappedStageId: specData.mappedStageId,
+            mappedStageName: specData.mappedStageName,
+            category: 'finishing'
+          });
+        }
+      }
+    }
+    
+    if (job.prepress_specifications) {
+      for (const [groupName, spec] of Object.entries(job.prepress_specifications)) {
+        const specData = spec as any;
+        if (specData.mappedStageId && specData.mappedStageName) {
+          mappings.push({
+            groupName,
+            mappedStageId: specData.mappedStageId,
+            mappedStageName: specData.mappedStageName,
+            category: 'prepress'
+          });
+        }
+      }
+    }
+    
+    this.logger.addDebugInfo(`Extracted ${mappings.length} user-approved stage mappings from job ${job.wo_no}`);
+    mappings.forEach(mapping => {
+      this.logger.addDebugInfo(`  - ${mapping.groupName} -> ${mapping.mappedStageName} (${mapping.category})`);
+    });
+    
+    return mappings;
   }
 
   /**

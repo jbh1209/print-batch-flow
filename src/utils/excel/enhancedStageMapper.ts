@@ -731,30 +731,31 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Map groups to stages using intelligent mapping
+   * Map groups to stages using intelligent mapping with user-approved mappings
    */
   mapGroupsToStagesIntelligent(
     printingSpecs: GroupSpecifications | null,
     finishingSpecs: GroupSpecifications | null,
-    prepressSpecs: GroupSpecifications | null
+    prepressSpecs: GroupSpecifications | null,
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
   ): StageMapping[] {
     const mappedStages: StageMapping[] = [];
     
     // Map printing specifications
     if (printingSpecs) {
-      const printingMappings = this.mapSpecificationsToStagesIntelligent(printingSpecs, 'printing');
+      const printingMappings = this.mapSpecificationsToStagesIntelligent(printingSpecs, 'printing', userApprovedMappings);
       mappedStages.push(...printingMappings);
     }
     
     // Map finishing specifications
     if (finishingSpecs) {
-      const finishingMappings = this.mapSpecificationsToStagesIntelligent(finishingSpecs, 'finishing');
+      const finishingMappings = this.mapSpecificationsToStagesIntelligent(finishingSpecs, 'finishing', userApprovedMappings);
       mappedStages.push(...finishingMappings);
     }
     
     // Map prepress specifications
     if (prepressSpecs) {
-      const prepressMappings = this.mapSpecificationsToStagesIntelligent(prepressSpecs, 'prepress');
+      const prepressMappings = this.mapSpecificationsToStagesIntelligent(prepressSpecs, 'prepress', userApprovedMappings);
       mappedStages.push(...prepressMappings);
     }
     
@@ -766,24 +767,43 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Map specifications to stages using intelligent matching
+   * Map specifications to stages using intelligent matching with user-approved mappings
    */
   private mapSpecificationsToStagesIntelligent(
     specs: GroupSpecifications,
-    category: 'printing' | 'finishing' | 'prepress' | 'delivery'
+    category: 'printing' | 'finishing' | 'prepress' | 'delivery',
+    userApprovedMappings?: Array<{groupName: string, mappedStageId: string, mappedStageName: string, category: string}>
   ): StageMapping[] {
     const mappings: StageMapping[] = [];
     
     for (const [groupName, spec] of Object.entries(specs)) {
-      const stageMapping = this.findIntelligentStageMatch(groupName, spec.description || '', category);
-      if (stageMapping) {
+      // First priority: Check for user-approved mapping
+      const userMapping = userApprovedMappings?.find(m => 
+        m.groupName === groupName && m.category === category
+      );
+      
+      if (userMapping) {
+        this.logger.addDebugInfo(`Using user-approved mapping for ${groupName}: ${userMapping.mappedStageName}`);
         mappings.push({
-          stageId: stageMapping.stageId,
-          stageName: stageMapping.stageName,
-          confidence: stageMapping.confidence,
-          category: stageMapping.category === 'unknown' ? 'printing' : stageMapping.category,
+          stageId: userMapping.mappedStageId,
+          stageName: userMapping.mappedStageName,
+          confidence: 100, // User-approved mappings have highest confidence
+          category: userMapping.category as 'printing' | 'finishing' | 'prepress' | 'delivery',
           specifications: [groupName, spec.description || ''].filter(Boolean)
         });
+      } else {
+        // Fallback: Use intelligent text-pattern matching
+        const stageMapping = this.findIntelligentStageMatch(groupName, spec.description || '', category);
+        if (stageMapping) {
+          this.logger.addDebugInfo(`Using text-pattern mapping for ${groupName}: ${stageMapping.stageName}`);
+          mappings.push({
+            stageId: stageMapping.stageId,
+            stageName: stageMapping.stageName,
+            confidence: stageMapping.confidence,
+            category: stageMapping.category === 'unknown' ? 'printing' : stageMapping.category,
+            specifications: [groupName, spec.description || ''].filter(Boolean)
+          });
+        }
       }
     }
     
