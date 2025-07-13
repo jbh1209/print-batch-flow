@@ -15,6 +15,7 @@ export interface MappingConfidence {
 export class EnhancedStageMapper {
   private stages: any[] = [];
   private stageSpecs: any[] = [];
+  private specifications: any[] = [];
   private existingMappings: Map<string, any> = new Map();
   
   constructor(private logger: ExcelImportDebugger) {}
@@ -45,6 +46,19 @@ export class EnhancedStageMapper {
     } else {
       this.stageSpecs = specsData || [];
       this.logger.addDebugInfo(`Loaded ${this.stageSpecs.length} stage specifications`);
+    }
+    
+    // Load print specifications for paper display names
+    const { data: printSpecsData, error: printSpecsError } = await supabase
+      .from('print_specifications')
+      .select('*')
+      .eq('is_active', true);
+    
+    if (printSpecsError) {
+      this.logger.addDebugInfo(`Warning: Could not load print specifications: ${printSpecsError.message}`);
+    } else {
+      this.specifications = printSpecsData || [];
+      this.logger.addDebugInfo(`Loaded ${this.specifications.length} print specifications`);
     }
     
     // Load existing excel mappings
@@ -238,15 +252,29 @@ export class EnhancedStageMapper {
    * Get proper display name for paper specification from mapping
    */
   private getPaperSpecificationDisplay(mapping: any): string {
-    // Look up in print_specifications for proper display names
-    // For now, return a formatted version - this will be enhanced when user selects mappings
     const parts: string[] = [];
     
-    if (mapping.paper_type_specification_id || mapping.paper_weight_specification_id) {
-      // Return identifier that can be looked up later
-      return `MAPPED_SPEC_${mapping.id}`;
+    // Look up actual specification names from database
+    if (mapping.paper_type_specification_id) {
+      const typeSpec = this.specifications.find(s => s.id === mapping.paper_type_specification_id);
+      if (typeSpec) {
+        parts.push(typeSpec.display_name || typeSpec.name);
+      }
     }
     
+    if (mapping.paper_weight_specification_id) {
+      const weightSpec = this.specifications.find(s => s.id === mapping.paper_weight_specification_id);
+      if (weightSpec) {
+        parts.push(weightSpec.display_name || weightSpec.name);
+      }
+    }
+    
+    // Return combined display name if we found specifications
+    if (parts.length > 0) {
+      return parts.join(' ');
+    }
+    
+    // Fallback to raw text if no specifications found
     return mapping.excel_text || '';
   }
 
@@ -410,26 +438,64 @@ export class EnhancedStageMapper {
   }
 
   /**
-   * Find mapping in existing database
+   * Find mapping in existing database with improved exact matching
    */
   private findDatabaseMapping(searchText: string): any | null {
-    // Exact match
-    if (this.existingMappings.has(searchText)) {
-      return this.existingMappings.get(searchText);
-    }
-
-    // Partial match
+    const normalizedSearch = this.normalizeText(searchText);
+    
+    // Strategy 1: Case-insensitive exact match
     for (const [mappedText, mapping] of this.existingMappings.entries()) {
-      if (searchText.includes(mappedText) || mappedText.includes(searchText)) {
-        // Reduce confidence for partial matches
+      const normalizedMapped = this.normalizeText(mappedText);
+      
+      if (normalizedSearch === normalizedMapped) {
+        this.logger.addDebugInfo(`Found exact match: "${searchText}" -> "${mappedText}"`);
         return {
           ...mapping,
-          confidence_score: Math.max(mapping.confidence_score - 20, 50)
+          confidence_score: Math.min(mapping.confidence_score + 10, 100) // Boost exact matches
         };
       }
     }
 
-    return null;
+    // Strategy 2: Partial match with higher confidence scoring
+    let bestMatch: any = null;
+    let bestScore = 0;
+    
+    for (const [mappedText, mapping] of this.existingMappings.entries()) {
+      const normalizedMapped = this.normalizeText(mappedText);
+      
+      // Calculate similarity for partial matches
+      if (normalizedSearch.includes(normalizedMapped) || normalizedMapped.includes(normalizedSearch)) {
+        const similarity = this.calculateSimilarity(normalizedSearch, normalizedMapped);
+        const score = similarity * mapping.confidence_score;
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = {
+            ...mapping,
+            confidence_score: Math.max(Math.round(score * 0.8), 30) // Reduce confidence for partial matches
+          };
+        }
+      }
+    }
+
+    if (bestMatch) {
+      this.logger.addDebugInfo(`Found partial match: "${searchText}" -> "${bestMatch.excel_text}" (score: ${bestMatch.confidence_score})`);
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * Normalize text for consistent matching
+   */
+  private normalizeText(text: string): string {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ')           // Replace multiple spaces with single space
+      .replace(/[^\w\s&-]/g, '')      // Remove special characters except &, -, and spaces
+      .replace(/\s*&\s*/g, ' & ')     // Normalize ampersands
+      .replace(/\s*-\s*/g, ' - ');    // Normalize dashes
   }
 
   /**
